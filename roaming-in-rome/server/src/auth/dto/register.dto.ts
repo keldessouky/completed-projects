@@ -1,9 +1,9 @@
 import { IsString, MaxLength, MinLength } from 'class-validator';
 
 /**
- * Self-registration payload. Note there is no `role` field: the role is set
- * server-side, which closes the privilege-escalation hole in the original app
- * (where the client could POST `role: 'ROLE_ADMIN'`).
+ * Self-registration payload. There is deliberately no `role` field: the role is
+ * assigned server-side so a client cannot grant itself elevated privileges
+ * (e.g. by sending `role: 'ROLE_ADMIN'`).
  */
 export class RegisterDto {
   @IsString()

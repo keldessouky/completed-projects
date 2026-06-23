@@ -6,8 +6,8 @@ import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 
 /**
  * Global authentication guard. Applied to every route; routes annotated with
- * @Public() are allowed through without a token. This inverts the original
- * app's default (everything was open) so protection is the default.
+ * @Public() are allowed through without a token. Protection is the default —
+ * a route is only reachable unauthenticated if it explicitly opts out.
  */
 @Injectable()
 export class JwtAuthGuard extends AuthGuard('jwt') {

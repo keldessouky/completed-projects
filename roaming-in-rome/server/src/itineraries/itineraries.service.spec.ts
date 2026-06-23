@@ -4,8 +4,8 @@ import { LandmarksService } from '../landmarks/landmarks.service';
 import { PrismaService } from '../prisma/prisma.service';
 
 /**
- * These tests pin down the access-control behavior that the original app got
- * wrong: a user must not be able to read or mutate another user's itinerary.
+ * These tests pin down the core access-control rule: a user must not be able to
+ * read or mutate another user's itinerary.
  */
 describe('ItinerariesService ownership', () => {
   let service: ItinerariesService;

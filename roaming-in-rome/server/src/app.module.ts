@@ -20,7 +20,7 @@ import { UsersModule } from './users/users.module';
   ],
   providers: [
     // Authentication is global: every route requires a valid JWT unless it is
-    // explicitly marked @Public(). This is the inverse of the original app.
+    // explicitly marked @Public().
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     // Authorization is global too: @Roles(...) is enforced everywhere by
     // construction, so a new admin route can't accidentally ship unguarded.

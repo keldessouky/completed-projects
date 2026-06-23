@@ -1,21 +1,17 @@
 /**
- * Seeds the database with the same demo data as the original capstone
- * (`java/database/database.sql` + `schema.sql`).
+ * Seeds the database with demo landmarks, addresses, images, and two accounts.
  *
  * Idempotent: it clears the tables it owns first, so it can be re-run safely.
  *
  * Demo accounts (both use the password `password`):
  *   - user  / password   (ROLE_USER)
  *   - admin / password   (ROLE_ADMIN)
- *
- * The bcrypt hash below is carried over verbatim from the original
- * `schema.sql`, so the historical demo credentials keep working.
  */
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-// Original demo hash for the password `password` (bcrypt, cost 8).
+// Precomputed bcrypt hash (cost 8) for the demo password `password`.
 const DEMO_HASH = '$2a$08$UkVvwpULis18S19S5pZFn.YHPZt3oaqHZnDwqbCW9pft6uFtkXKDC';
 
 const addresses = [
@@ -175,7 +171,7 @@ async function main(): Promise<void> {
     landmarkIdByIndex[i + 1] = created.id;
   }
 
-  // Two starter itineraries for the demo `user`, matching the original seed.
+  // Two starter itineraries for the demo `user`.
   const historic = await prisma.itinerary.create({
     data: { name: 'Historic Ruins', userId: user.id },
   });

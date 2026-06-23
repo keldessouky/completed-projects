@@ -8,8 +8,8 @@ import { PrismaService } from '../src/prisma/prisma.service';
 
 /**
  * End-to-end tests against the real HTTP stack and a real (test) Postgres
- * database. They assert feature parity and, crucially, the access-control
- * behavior the original app lacked.
+ * database. They cover the auth flow, public/admin landmark access, and the
+ * per-user ownership rules on itineraries.
  */
 describe('Roaming in Rome API (e2e)', () => {
   let app: INestApplication;

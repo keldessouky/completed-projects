@@ -87,7 +87,7 @@ export class ItinerariesService {
   /**
    * Loads the itinerary and verifies the caller owns it. Returns 404 when it
    * doesn't exist and 403 when it belongs to someone else — so a user can't
-   * read or mutate another user's itinerary (the original IDOR).
+   * read or mutate another user's itinerary.
    */
   private async assertOwnership(userId: number, itineraryId: number): Promise<Itinerary> {
     const itinerary = await this.prisma.itinerary.findUnique({ where: { id: itineraryId } });

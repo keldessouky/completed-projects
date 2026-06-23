@@ -18,7 +18,7 @@ export class LandmarksService {
     return landmarks.map((l) => this.toResponse(l));
   }
 
-  /** Returns a clean 404 when the landmark is missing (original threw a 500). */
+  /** Returns a 404 when the landmark is missing. */
   async findOne(id: number): Promise<LandmarkResponse> {
     const landmark = await this.prisma.landmark.findUnique({
       where: { id },

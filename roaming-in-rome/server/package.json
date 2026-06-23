@@ -1,7 +1,7 @@
 {
   "name": "roaming-in-rome-server",
   "version": "1.0.0",
-  "description": "Roaming in Rome API — NestJS + Prisma rewrite of the original Spring Boot capstone",
+  "description": "Roaming in Rome API — NestJS + Prisma backend for browsing Rome's landmarks and building travel itineraries",
   "license": "MIT",
   "scripts": {
     "build": "nest build",

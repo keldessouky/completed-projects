@@ -10,8 +10,7 @@ async function bootstrap(): Promise<void> {
 
   app.use(helmet());
 
-  // Restrict CORS to the configured web origin instead of the original's
-  // wide-open @CrossOrigin.
+  // Restrict CORS to the configured web origin.
   app.enableCors({
     origin: config.get<string>('WEB_ORIGIN', 'http://localhost:5173'),
     credentials: true,

@@ -19,7 +19,7 @@ import { LandmarkResponse } from '../landmarks/landmark.entity';
 /**
  * Every route here is protected by the global JwtAuthGuard. The owning user is
  * always taken from the token (`@CurrentUser('id')`), never from a path or body
- * parameter — which is what made the original endpoints vulnerable to IDOR.
+ * parameter, so a caller can only ever act on their own itineraries.
  */
 @Controller('itineraries')
 export class ItinerariesController {

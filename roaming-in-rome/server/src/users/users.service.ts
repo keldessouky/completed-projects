@@ -6,7 +6,7 @@ import { PrismaService } from '../prisma/prisma.service';
 export class UsersService {
   constructor(private readonly prisma: PrismaService) {}
 
-  /** Indexed unique lookup (replaces the original full-table scan). */
+  /** Indexed unique lookup by username. */
   findByUsername(username: string): Promise<User | null> {
     return this.prisma.user.findUnique({ where: { username } });
   }

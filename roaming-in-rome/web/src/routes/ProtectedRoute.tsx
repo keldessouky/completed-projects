@@ -4,8 +4,8 @@ import { useAppSelector } from '../store/hooks';
 
 /**
  * Wraps routes that require authentication. Unauthenticated users are sent to
- * /login (remembering where they were headed). This replaces the original
- * app's broken `requiresAuth: false //change back` guard.
+ * /login, remembering where they were headed so they can be returned there
+ * after signing in.
  */
 export function ProtectedRoute({ children }: { children: JSX.Element }): JSX.Element {
   const token = useAppSelector((state) => state.auth.token);

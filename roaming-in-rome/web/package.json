@@ -3,7 +3,7 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "Roaming in Rome web client — React + TypeScript rewrite of the original Vue 2 app",
+  "description": "Roaming in Rome web client — React + TypeScript SPA for browsing landmarks and building travel itineraries",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
