@@ -1,7 +1,8 @@
-# Roaming in Rome — Full-Stack Rewrite Plan (NestJS + Prisma + Vue 3/TS)
+# Roaming in Rome — Full-Stack Rewrite Plan (NestJS + Prisma + React/TS)
 
 This document is the migration plan for porting the original capstone
-(Spring Boot + JdbcTemplate + Vue 2) to a modern TypeScript stack. It captures
+(Spring Boot + JdbcTemplate + Vue 2) to a modern TypeScript stack
+(NestJS + Prisma API, React + TypeScript web). It captures
 the target architecture, an endpoint-by-endpoint map, the data model, the
 security fixes baked into the redesign, and a phased milestone breakdown.
 
@@ -43,14 +44,16 @@ roaming-in-rome/
 │   ├── test/               # e2e (supertest)
 │   ├── .env.example
 │   └── package.json
-├── web/                    # Vue 3 + Vite + TS + Pinia
+├── web/                    # React + Vite + TS
 │   ├── src/
-│   │   ├── main.ts
-│   │   ├── router/
-│   │   ├── stores/         # Pinia: auth, landmarks, itineraries
+│   │   ├── main.tsx
+│   │   ├── App.tsx
+│   │   ├── routes/         # React Router route config + guards
+│   │   ├── store/          # Redux Toolkit (or Zustand): auth, landmarks, itineraries
 │   │   ├── api/            # typed axios client + service modules
-│   │   ├── views/
-│   │   └── components/
+│   │   ├── pages/          # route-level components
+│   │   ├── components/     # reusable UI
+│   │   └── types/          # shared API types/DTOs
 │   └── package.json
 └── team-golf-java-green-final-capstone/   # original, kept for reference
 ```
@@ -59,10 +62,11 @@ roaming-in-rome/
 `class-validator`/`class-transformer` for DTO validation, `@nestjs/config`
 for env, Jest + supertest for tests.
 
-**Frontend stack:** Vue 3, Vite, TypeScript, Pinia, Vue Router 4, axios,
-Vitest + Vue Test Utils. (React + TS is a viable alternative if range matters
-more than reusing the existing components; this plan assumes Vue 3 to preserve
-the existing UI work.)
+**Frontend stack:** React 18, Vite, TypeScript, React Router 6, axios, and
+Redux Toolkit for state (Zustand is a lighter alternative if the global state
+stays small). Testing with Vitest + React Testing Library. The original Vue 2
+views are reimplemented as React components — the markup/styling ports over,
+the state/data-flow is rebuilt idiomatically in React.
 
 ## 3. Data model (Prisma)
 
@@ -173,7 +177,7 @@ forbidNonWhitelisted), Helmet, and rate limiting on `/auth/*`.
 ## 6. Phased milestones
 
 **Phase 0 — Scaffolding**
-- `nest new server`, add Prisma, Config, validation; `npm create vite@latest web -- --template vue-ts`.
+- `nest new server`, add Prisma, Config, validation; `npm create vite@latest web -- --template react-ts`.
 - `.env.example` for both; wire `DATABASE_URL`, `JWT_SECRET`, `WEB_ORIGIN`.
 
 **Phase 1 — Database & Prisma**
@@ -193,11 +197,15 @@ forbidNonWhitelisted), Helmet, and rate limiting on `/auth/*`.
 - `ItinerariesModule`: list mine, create, delete (ownership), add/remove landmark, list landmarks.
 - Ownership guard/check on every mutating route; e2e covering the IDOR cases.
 
-**Phase 5 — Frontend (Vue 3 + Pinia)**
-- Pinia stores: `auth` (token/user in localStorage), `landmarks`, `itineraries`.
-- Typed `api/` client (axios instance + interceptor attaching the JWT).
-- Port views/components from Vue 2; Router 4 guards using the auth store.
-- Fix the `requiresAuth: false //change back` leftovers; correct typed field names.
+**Phase 5 — Frontend (React + TS)**
+- Redux Toolkit slices: `auth` (token/user persisted to localStorage),
+  `landmarks`, `itineraries` — with typed `useAppSelector`/`useAppDispatch` hooks.
+- Typed `api/` client (axios instance + interceptor attaching the JWT, plus a
+  401 interceptor that logs out and redirects).
+- Reimplement the Vue 2 views as React pages/components; React Router 6 with a
+  `<ProtectedRoute>` wrapper reading the auth slice.
+- Fix the `requiresAuth: false //change back` leftovers (no protected route
+  ships unguarded); use the corrected `summary`/`description` field names.
 
 **Phase 6 — Tests, docs, polish**
 - Backend: Jest unit + supertest e2e green in CI.
@@ -213,13 +221,14 @@ forbidNonWhitelisted), Helmet, and rate limiting on `/auth/*`.
   same PostgreSQL database/seed works without renaming columns.
 - **Field naming:** API/TS uses `summary`/`description`; a thin mapping keeps
   DB columns intact, ending the typo drift without a destructive migration.
-- **Frontend choice:** Vue 3 chosen to reuse existing components and styling;
-  switching to React + TS is a clean alternative if broader framework range is
-  the goal — only Phase 5 changes.
+- **Frontend choice:** React + TypeScript (confirmed). The original Vue 2
+  markup/styling is ported into React components; data flow is rebuilt with
+  Redux Toolkit + typed hooks.
 
 ## 8. Open questions to confirm before Phase 0
 
-- Frontend: **Vue 3** (reuse UI) vs **React** (show range)?
+- ~~Frontend framework~~ — **React + TypeScript** (confirmed).
+- State management: **Redux Toolkit** (assumed) vs lighter **Zustand**?
 - Do you want Docker/`docker-compose` for one-command local run?
 - Should admin-only landmark creation stay, or is the catalog read-only/seeded?
 - Deployment target (if any) — affects env/config and CORS origin.
