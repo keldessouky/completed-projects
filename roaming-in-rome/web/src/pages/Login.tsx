@@ -1,6 +1,6 @@
 import { AxiosError } from 'axios';
 import { FormEvent, JSX, useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { authApi } from '../api/auth';
 import { credentialsReceived } from '../store/authSlice';
 import { useAppDispatch } from '../store/hooks';
@@ -18,6 +18,8 @@ export function Login(): JSX.Element {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const justRegistered = searchParams.get('registration') === 'success';
   const from = (location.state as LocationState | null)?.from?.pathname ?? '/itineraries';
 
   async function handleSubmit(event: FormEvent): Promise<void> {
@@ -40,6 +42,9 @@ export function Login(): JSX.Element {
     <section className="form-page">
       <form className="card form" onSubmit={handleSubmit}>
         <h1>Sign in to start Roaming!</h1>
+        {justRegistered && !error && (
+          <p className="alert alert-success">Thanks for registering — please sign in.</p>
+        )}
         {error && <p className="alert alert-error">{error}</p>}
         <label>
           Username

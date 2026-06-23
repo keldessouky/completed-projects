@@ -3,7 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Itinerary } from '@prisma/client';
+import { Itinerary, Prisma } from '@prisma/client';
 import { LandmarkResponse } from '../landmarks/landmark.entity';
 import { LandmarksService } from '../landmarks/landmarks.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -46,16 +46,8 @@ export class ItinerariesService {
       include: { landmark: { include: { images: true } } },
       orderBy: { landmarkId: 'asc' },
     });
-    return rows.map((row) => ({
-      id: row.landmark.id,
-      name: row.landmark.name,
-      summary: row.landmark.summary,
-      description: row.landmark.description,
-      img: row.landmark.img,
-      mapLink: row.landmark.mapLink,
-      addressId: row.landmark.addressId,
-      images: row.landmark.images.map((image) => image.imageName),
-    }));
+    // Reuse the canonical mapper so this endpoint can't drift from /landmarks.
+    return rows.map((row) => this.landmarks.toResponse(row.landmark));
   }
 
   /** Adds a landmark to the caller's itinerary (idempotent). */
@@ -67,11 +59,21 @@ export class ItinerariesService {
       throw new NotFoundException(`Landmark ${landmarkId} not found`);
     }
 
-    await this.prisma.itineraryLandmark.upsert({
-      where: { itineraryId_landmarkId: { itineraryId, landmarkId } },
-      create: { itineraryId, landmarkId },
-      update: {},
-    });
+    try {
+      await this.prisma.itineraryLandmark.upsert({
+        where: { itineraryId_landmarkId: { itineraryId, landmarkId } },
+        create: { itineraryId, landmarkId },
+        update: {},
+      });
+    } catch (err) {
+      // A concurrent delete of the itinerary or landmark between the checks
+      // above and this write surfaces as a Prisma FK violation (P2003). Map it
+      // to a clean 404 instead of leaking a 500.
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2003') {
+        throw new NotFoundException('Itinerary or landmark no longer exists');
+      }
+      throw err;
+    }
   }
 
   /** Removes a landmark from the caller's itinerary. */

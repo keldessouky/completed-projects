@@ -182,6 +182,10 @@ select {
   background: #fdecea;
   color: var(--danger);
 }
+.alert-success {
+  background: #e7f4ea;
+  color: #1e7a34;
+}
 
 .status {
   padding: 1rem 0;

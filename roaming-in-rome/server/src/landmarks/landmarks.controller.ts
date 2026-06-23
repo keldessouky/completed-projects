@@ -1,10 +1,9 @@
-import { Body, Controller, Get, Param, ParseIntPipe, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseIntPipe, Post } from '@nestjs/common';
 import { CreateLandmarkDto } from './dto/create-landmark.dto';
 import { LandmarkResponse } from './landmark.entity';
 import { LandmarksService } from './landmarks.service';
 import { Public } from '../common/decorators/public.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
-import { RolesGuard } from '../common/guards/roles.guard';
 
 @Controller('landmarks')
 export class LandmarksController {
@@ -22,9 +21,8 @@ export class LandmarksController {
     return this.landmarks.findOne(id);
   }
 
-  /** Creating catalog entries is admin-only. */
+  /** Creating catalog entries is admin-only (enforced by the global RolesGuard). */
   @Roles('ROLE_ADMIN')
-  @UseGuards(RolesGuard)
   @Post()
   create(@Body() dto: CreateLandmarkDto): Promise<LandmarkResponse> {
     return this.landmarks.create(dto);

@@ -20,10 +20,15 @@ export function LandmarkDetails(): JSX.Element {
   const [itineraries, setItineraries] = useState<Itinerary[]>([]);
   const [selectedItinerary, setSelectedItinerary] = useState<number | ''>('');
   const [addStatus, setAddStatus] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
 
-  // Only authenticated users can add to an itinerary, so only then do we load them.
+  // Only authenticated users can add to an itinerary, so only then do we load
+  // them. On logout (token cleared) drop any previously loaded itineraries.
   useEffect(() => {
-    if (!token) return;
+    if (!token) {
+      setItineraries([]);
+      return;
+    }
     itinerariesApi
       .listMine()
       .then(setItineraries)
@@ -33,11 +38,15 @@ export function LandmarkDetails(): JSX.Element {
   async function handleAdd(): Promise<void> {
     if (selectedItinerary === '') return;
     setAddStatus(null);
+    setAdding(true);
     try {
       await itinerariesApi.addLandmark(selectedItinerary, landmarkId);
       setAddStatus('Added to your itinerary!');
+      setSelectedItinerary('');
     } catch {
       setAddStatus('Could not add to that itinerary.');
+    } finally {
+      setAdding(false);
     }
   }
 
@@ -90,8 +99,13 @@ export function LandmarkDetails(): JSX.Element {
               ))}
             </select>
           </label>
-          <button className="button" type="button" onClick={handleAdd} disabled={selectedItinerary === ''}>
-            Add
+          <button
+            className="button"
+            type="button"
+            onClick={handleAdd}
+            disabled={selectedItinerary === '' || adding}
+          >
+            {adding ? 'Adding…' : 'Add'}
           </button>
           {addStatus && <p className="form-aside">{addStatus}</p>}
         </div>

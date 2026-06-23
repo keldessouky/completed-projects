@@ -1,6 +1,7 @@
 import './setup-e2e';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
+import * as bcrypt from 'bcrypt';
 import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
@@ -130,6 +131,40 @@ describe('Roaming in Rome API (e2e)', () => {
           addressId: 1,
         })
         .expect(403);
+    });
+
+    it('allows an admin to create a landmark, and validates the addressId', async () => {
+      // Promote a dedicated admin directly (registration only ever yields ROLE_USER).
+      const passwordHash = await bcrypt.hash('password123', 10);
+      await prisma.user.create({
+        data: { username: 'rootadmin', passwordHash, role: 'ROLE_ADMIN' },
+      });
+      const adminToken = await loginToken('rootadmin', 'password123');
+
+      // A nonexistent addressId is a clean 400, not a 500 from a Prisma FK error.
+      await http()
+        .post('/landmarks')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ name: 'Bad', summary: 's', description: 'd', img: 'x.jpg', addressId: 999999 })
+        .expect(400);
+
+      // With a valid address the admin can create.
+      const address = await prisma.address.findFirst();
+      await http()
+        .post('/landmarks')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          name: 'Trevi Fountain',
+          summary: 'Baroque fountain',
+          description: 'A famous fountain.',
+          img: 'trevi-main.jpg',
+          addressId: address!.id,
+        })
+        .expect(201)
+        .expect((r) => {
+          expect(r.body).toMatchObject({ name: 'Trevi Fountain', images: [] });
+          expect(r.body.id).toEqual(expect.any(Number));
+        });
     });
   });
 

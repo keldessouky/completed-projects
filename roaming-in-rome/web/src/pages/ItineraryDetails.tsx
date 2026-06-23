@@ -29,8 +29,12 @@ export function ItineraryDetails(): JSX.Element {
   }, [refresh]);
 
   async function handleRemove(landmarkId: number): Promise<void> {
-    await itinerariesApi.removeLandmark(itineraryId, landmarkId);
-    await refresh();
+    try {
+      await itinerariesApi.removeLandmark(itineraryId, landmarkId);
+      await refresh();
+    } catch {
+      setError('Could not remove that landmark.');
+    }
   }
 
   if (loading) return <p className="status">Loading…</p>;

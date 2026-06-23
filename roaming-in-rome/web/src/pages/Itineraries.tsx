@@ -29,14 +29,22 @@ export function Itineraries(): JSX.Element {
     event.preventDefault();
     const name = newName.trim();
     if (!name) return;
-    await itinerariesApi.create(name);
-    setNewName('');
-    await refresh();
+    try {
+      await itinerariesApi.create(name);
+      setNewName('');
+      await refresh();
+    } catch {
+      setError('Could not create that itinerary.');
+    }
   }
 
   async function handleDelete(id: number): Promise<void> {
-    await itinerariesApi.remove(id);
-    await refresh();
+    try {
+      await itinerariesApi.remove(id);
+      await refresh();
+    } catch {
+      setError('Could not delete that itinerary.');
+    }
   }
 
   return (

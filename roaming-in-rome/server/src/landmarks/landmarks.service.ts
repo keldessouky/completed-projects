@@ -1,10 +1,10 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { Image, Landmark } from '@prisma/client';
 import { CreateLandmarkDto } from './dto/create-landmark.dto';
 import { LandmarkResponse } from './landmark.entity';
 import { PrismaService } from '../prisma/prisma.service';
 
-type LandmarkWithImages = Landmark & { images: Image[] };
+export type LandmarkWithImages = Landmark & { images: Image[] };
 
 @Injectable()
 export class LandmarksService {
@@ -31,6 +31,13 @@ export class LandmarksService {
   }
 
   async create(dto: CreateLandmarkDto): Promise<LandmarkResponse> {
+    // Validate the FK target up front so a bad addressId yields a clean 400
+    // instead of a Prisma foreign-key error surfacing as a 500.
+    const address = await this.prisma.address.findUnique({ where: { id: dto.addressId } });
+    if (!address) {
+      throw new BadRequestException(`Address ${dto.addressId} does not exist`);
+    }
+
     const landmark = await this.prisma.landmark.create({
       data: {
         name: dto.name,
@@ -45,7 +52,8 @@ export class LandmarksService {
     return this.toResponse(landmark);
   }
 
-  private toResponse(landmark: LandmarkWithImages): LandmarkResponse {
+  /** Shared mapper so every endpoint returns landmarks in the same shape. */
+  toResponse(landmark: LandmarkWithImages): LandmarkResponse {
     return {
       id: landmark.id,
       name: landmark.name,

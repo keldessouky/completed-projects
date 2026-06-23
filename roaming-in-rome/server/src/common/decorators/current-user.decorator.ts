@@ -1,4 +1,4 @@
-import { createParamDecorator, ExecutionContext } from '@nestjs/common';
+import { createParamDecorator, ExecutionContext, UnauthorizedException } from '@nestjs/common';
 
 /**
  * The authenticated principal attached to the request by JwtStrategy.
@@ -16,8 +16,13 @@ export interface AuthUser {
  */
 export const CurrentUser = createParamDecorator(
   (data: keyof AuthUser | undefined, ctx: ExecutionContext): AuthUser | AuthUser[keyof AuthUser] => {
-    const request = ctx.switchToHttp().getRequest<{ user: AuthUser }>();
+    const request = ctx.switchToHttp().getRequest<{ user?: AuthUser }>();
     const user = request.user;
+    // Defensive: @CurrentUser should only be used on guarded routes, but if it
+    // is ever placed on a @Public() route the request would be unauthenticated.
+    if (!user) {
+      throw new UnauthorizedException();
+    }
     return data ? user[data] : user;
   },
 );
