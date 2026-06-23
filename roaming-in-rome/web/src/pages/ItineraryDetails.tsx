@@ -13,6 +13,11 @@ export function ItineraryDetails(): JSX.Element {
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
+    if (!Number.isInteger(itineraryId)) {
+      setError('Itinerary not found.');
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -37,8 +42,20 @@ export function ItineraryDetails(): JSX.Element {
     }
   }
 
-  if (loading) return <p className="status">Loading…</p>;
-  if (error) return <p className="status status-error">{error}</p>;
+  if (loading) {
+    return (
+      <p className="status" role="status">
+        Loading…
+      </p>
+    );
+  }
+  if (error) {
+    return (
+      <p className="status status-error" role="alert">
+        {error}
+      </p>
+    );
+  }
 
   return (
     <section className="itinerary-details">

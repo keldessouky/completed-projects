@@ -64,7 +64,25 @@ describe('Roaming in Rome API (e2e)', () => {
 
   const http = () => request(app.getHttpServer());
 
+  describe('health', () => {
+    it('reports ok and db up (public)', async () => {
+      await http()
+        .get('/health')
+        .expect(200)
+        .expect((r) => {
+          expect(r.body).toMatchObject({ status: 'ok', db: 'up' });
+        });
+    });
+  });
+
   describe('auth', () => {
+    it('rejects registration with a too-short password (400)', async () => {
+      await http()
+        .post('/auth/register')
+        .send({ username: 'shorty', password: 'short' })
+        .expect(400);
+    });
+
     it('registers a user and forces ROLE_USER even if a role is supplied', async () => {
       const res = await http()
         .post('/auth/register')
@@ -96,14 +114,15 @@ describe('Roaming in Rome API (e2e)', () => {
         .send({ username: 'alice', password: 'password123' })
         .expect(200);
       expect(res.body.token).toEqual(expect.any(String));
-      expect(res.body.user).toEqual({ id: expect.any(Number), username: 'alice', role: 'ROLE_USER' });
+      expect(res.body.user).toEqual({
+        id: expect.any(Number),
+        username: 'alice',
+        role: 'ROLE_USER',
+      });
     });
 
     it('rejects a bad password with 401', async () => {
-      await http()
-        .post('/auth/login')
-        .send({ username: 'alice', password: 'wrong' })
-        .expect(401);
+      await http().post('/auth/login').send({ username: 'alice', password: 'wrong' }).expect(401);
     });
   });
 

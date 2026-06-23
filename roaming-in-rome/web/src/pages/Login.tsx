@@ -1,4 +1,4 @@
-import { AxiosError } from 'axios';
+import axios from 'axios';
 import { FormEvent, JSX, useState } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { authApi } from '../api/auth';
@@ -31,7 +31,7 @@ export function Login(): JSX.Element {
       dispatch(credentialsReceived(result));
       navigate(from, { replace: true });
     } catch (err) {
-      const status = (err as AxiosError).response?.status;
+      const status = axios.isAxiosError(err) ? err.response?.status : undefined;
       setError(status === 401 ? 'Invalid username or password.' : 'Unable to sign in right now.');
     } finally {
       setSubmitting(false);
@@ -43,9 +43,15 @@ export function Login(): JSX.Element {
       <form className="card form" onSubmit={handleSubmit}>
         <h1>Sign in to start Roaming!</h1>
         {justRegistered && !error && (
-          <p className="alert alert-success">Thanks for registering — please sign in.</p>
+          <p className="alert alert-success" role="status">
+            Thanks for registering — please sign in.
+          </p>
         )}
-        {error && <p className="alert alert-error">{error}</p>}
+        {error && (
+          <p className="alert alert-error" role="alert">
+            {error}
+          </p>
+        )}
         <label>
           Username
           <input

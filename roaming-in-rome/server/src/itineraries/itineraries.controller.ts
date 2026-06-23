@@ -32,19 +32,13 @@ export class ItinerariesController {
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  create(
-    @CurrentUser('id') userId: number,
-    @Body() dto: CreateItineraryDto,
-  ): Promise<Itinerary> {
+  create(@CurrentUser('id') userId: number, @Body() dto: CreateItineraryDto): Promise<Itinerary> {
     return this.itineraries.create(userId, dto.name);
   }
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  remove(
-    @CurrentUser('id') userId: number,
-    @Param('id', ParseIntPipe) id: number,
-  ): Promise<void> {
+  remove(@CurrentUser('id') userId: number, @Param('id', ParseIntPipe) id: number): Promise<void> {
     return this.itineraries.remove(userId, id);
   }
 

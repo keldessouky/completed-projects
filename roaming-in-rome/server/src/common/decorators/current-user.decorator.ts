@@ -15,7 +15,10 @@ export interface AuthUser {
  * Example: `@CurrentUser() user: AuthUser` or `@CurrentUser('id') id: number`.
  */
 export const CurrentUser = createParamDecorator(
-  (data: keyof AuthUser | undefined, ctx: ExecutionContext): AuthUser | AuthUser[keyof AuthUser] => {
+  (
+    data: keyof AuthUser | undefined,
+    ctx: ExecutionContext,
+  ): AuthUser | AuthUser[keyof AuthUser] => {
     const request = ctx.switchToHttp().getRequest<{ user?: AuthUser }>();
     const user = request.user;
     // Defensive: @CurrentUser should only be used on guarded routes, but if it

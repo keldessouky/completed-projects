@@ -4,9 +4,12 @@
   "version": "1.0.0",
   "type": "module",
   "description": "Roaming in Rome web client — React + TypeScript SPA for browsing landmarks and building travel itineraries",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc && vite build",
     "preview": "vite preview",
     "lint": "eslint . --ext ts,tsx",
     "test": "vitest run",

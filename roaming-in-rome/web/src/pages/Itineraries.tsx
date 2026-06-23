@@ -56,6 +56,7 @@ export function Itineraries(): JSX.Element {
           value={newName}
           onChange={(e) => setNewName(e.target.value)}
           placeholder="New itinerary name"
+          aria-label="New itinerary name"
           maxLength={32}
         />
         <button className="button" type="submit">
@@ -63,8 +64,16 @@ export function Itineraries(): JSX.Element {
         </button>
       </form>
 
-      {loading && <p className="status">Loading…</p>}
-      {error && <p className="status status-error">{error}</p>}
+      {loading && (
+        <p className="status" role="status">
+          Loading…
+        </p>
+      )}
+      {error && (
+        <p className="status status-error" role="alert">
+          {error}
+        </p>
+      )}
 
       {!loading && !error && itineraries.length === 0 && (
         <p className="status">No itineraries yet — create one above.</p>

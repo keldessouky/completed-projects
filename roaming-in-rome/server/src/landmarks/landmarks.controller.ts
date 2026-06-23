@@ -4,6 +4,7 @@ import { LandmarkResponse } from './landmark.entity';
 import { LandmarksService } from './landmarks.service';
 import { Public } from '../common/decorators/public.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
+import { Role } from '../common/roles';
 
 @Controller('landmarks')
 export class LandmarksController {
@@ -22,7 +23,7 @@ export class LandmarksController {
   }
 
   /** Creating catalog entries is admin-only (enforced by the global RolesGuard). */
-  @Roles('ROLE_ADMIN')
+  @Roles(Role.Admin)
   @Post()
   create(@Body() dto: CreateLandmarkDto): Promise<LandmarkResponse> {
     return this.landmarks.create(dto);

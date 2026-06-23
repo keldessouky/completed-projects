@@ -1,8 +1,4 @@
-import {
-  ForbiddenException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { Itinerary, Prisma } from '@prisma/client';
 import { LandmarkResponse } from '../landmarks/landmark.entity';
 import { LandmarksService } from '../landmarks/landmarks.service';

@@ -7,8 +7,20 @@ import { useAsync } from '../hooks/useAsync';
 export function Landmarks(): JSX.Element {
   const { data: landmarks, loading, error } = useAsync(() => landmarksApi.list(), []);
 
-  if (loading) return <p className="status">Loading landmarks…</p>;
-  if (error) return <p className="status status-error">{error}</p>;
+  if (loading) {
+    return (
+      <p className="status" role="status">
+        Loading landmarks…
+      </p>
+    );
+  }
+  if (error) {
+    return (
+      <p className="status status-error" role="alert">
+        {error}
+      </p>
+    );
+  }
 
   return (
     <section className="landmarks">

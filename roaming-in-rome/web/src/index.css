@@ -82,6 +82,17 @@ a:hover {
   opacity: 0.6;
   cursor: not-allowed;
 }
+
+/* Visible keyboard focus for interactive elements. */
+.button:focus-visible,
+.link-button:focus-visible,
+.landmark-card:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 3px solid var(--tan);
+  outline-offset: 2px;
+}
 .button-secondary {
   background: var(--teal);
 }
@@ -266,4 +277,31 @@ select {
   gap: 1rem;
   justify-content: center;
   margin-top: 1.5rem;
+}
+
+/* Responsive: stack the nav and tighten spacing on small screens. */
+@media (max-width: 600px) {
+  .navbar {
+    flex-direction: column;
+    gap: 0.75rem;
+    padding: 1rem;
+  }
+  .navbar nav {
+    flex-wrap: wrap;
+    gap: 0.75rem 1rem;
+    justify-content: center;
+  }
+  .content {
+    padding: 1.25rem;
+  }
+  .inline-form {
+    flex-direction: column;
+  }
+  .home-actions {
+    flex-direction: column;
+    align-items: center;
+  }
+  .home h1 {
+    font-size: 2rem;
+  }
 }

@@ -47,7 +47,7 @@ describe('ItinerariesService ownership', () => {
     expect(prisma.itinerary.delete).not.toHaveBeenCalled();
   });
 
-  it('throws 403 when reading another user\'s itinerary landmarks', async () => {
+  it("throws 403 when reading another user's itinerary landmarks", async () => {
     prisma.itinerary.findUnique.mockResolvedValue({
       id: ITINERARY_ID,
       name: 'Theirs',
@@ -59,7 +59,7 @@ describe('ItinerariesService ownership', () => {
     expect(prisma.itineraryLandmark.findMany).not.toHaveBeenCalled();
   });
 
-  it('throws 403 when adding a landmark to another user\'s itinerary', async () => {
+  it("throws 403 when adding a landmark to another user's itinerary", async () => {
     prisma.itinerary.findUnique.mockResolvedValue({
       id: ITINERARY_ID,
       name: 'Theirs',
@@ -108,6 +108,31 @@ describe('ItinerariesService ownership', () => {
       where: { itineraryId_landmarkId: { itineraryId: ITINERARY_ID, landmarkId: 5 } },
       create: { itineraryId: ITINERARY_ID, landmarkId: 5 },
       update: {},
+    });
+  });
+
+  it("throws 403 when removing a landmark from another user's itinerary", async () => {
+    prisma.itinerary.findUnique.mockResolvedValue({
+      id: ITINERARY_ID,
+      name: 'Theirs',
+      userId: OTHER_USER_ID,
+    });
+    await expect(service.removeLandmark(OWNER_ID, ITINERARY_ID, 5)).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
+    expect(prisma.itineraryLandmark.deleteMany).not.toHaveBeenCalled();
+  });
+
+  it('removes a landmark from an owned itinerary', async () => {
+    prisma.itinerary.findUnique.mockResolvedValue({
+      id: ITINERARY_ID,
+      name: 'Mine',
+      userId: OWNER_ID,
+    });
+    prisma.itineraryLandmark.deleteMany.mockResolvedValue({ count: 1 });
+    await service.removeLandmark(OWNER_ID, ITINERARY_ID, 5);
+    expect(prisma.itineraryLandmark.deleteMany).toHaveBeenCalledWith({
+      where: { itineraryId: ITINERARY_ID, landmarkId: 5 },
     });
   });
 });

@@ -2,6 +2,7 @@ import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/co
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { JwtPayload } from './jwt.strategy';
+import { Role } from '../common/roles';
 import { UsersService } from '../users/users.service';
 
 const BCRYPT_ROUNDS = 10;
@@ -35,7 +36,7 @@ export class AuthService {
       throw new ConflictException('Username already exists');
     }
     const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
-    const user = await this.users.create(username, passwordHash, 'ROLE_USER');
+    const user = await this.users.create(username, passwordHash, Role.User);
     return this.toPublicUser(user.id, user.username, user.role);
   }
 

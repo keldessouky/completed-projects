@@ -8,6 +8,7 @@
  *   - admin / password   (ROLE_ADMIN)
  */
 import { PrismaClient } from '@prisma/client';
+import { Role } from '../src/common/roles';
 
 const prisma = new PrismaClient();
 
@@ -140,10 +141,10 @@ async function main(): Promise<void> {
   await prisma.user.deleteMany();
 
   const user = await prisma.user.create({
-    data: { username: 'user', passwordHash: DEMO_HASH, role: 'ROLE_USER' },
+    data: { username: 'user', passwordHash: DEMO_HASH, role: Role.User },
   });
   await prisma.user.create({
-    data: { username: 'admin', passwordHash: DEMO_HASH, role: 'ROLE_ADMIN' },
+    data: { username: 'admin', passwordHash: DEMO_HASH, role: Role.Admin },
   });
 
   // Insert addresses and remember their generated ids by 1-based index.

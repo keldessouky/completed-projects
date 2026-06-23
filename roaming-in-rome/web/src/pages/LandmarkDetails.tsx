@@ -1,5 +1,5 @@
 import { JSX, useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { landmarkImageUrl } from '../api/assets';
 import { itinerariesApi } from '../api/itineraries';
 import { landmarksApi } from '../api/landmarks';
@@ -10,10 +10,14 @@ import { Itinerary } from '../types';
 export function LandmarkDetails(): JSX.Element {
   const { id } = useParams<{ id: string }>();
   const landmarkId = Number(id);
+  const validId = Number.isInteger(landmarkId);
   const token = useAppSelector((state) => state.auth.token);
 
   const { data: landmark, loading, error } = useAsync(
-    () => landmarksApi.get(landmarkId),
+    () =>
+      validId
+        ? landmarksApi.get(landmarkId)
+        : Promise.reject(new Error('Invalid landmark id')),
     [landmarkId],
   );
 
@@ -50,8 +54,27 @@ export function LandmarkDetails(): JSX.Element {
     }
   }
 
-  if (loading) return <p className="status">Loading…</p>;
-  if (error || !landmark) return <p className="status status-error">{error ?? 'Not found'}</p>;
+  if (!validId) {
+    return (
+      <p className="status status-error" role="alert">
+        Landmark not found.
+      </p>
+    );
+  }
+  if (loading) {
+    return (
+      <p className="status" role="status">
+        Loading…
+      </p>
+    );
+  }
+  if (error || !landmark) {
+    return (
+      <p className="status status-error" role="alert">
+        {error ?? 'Landmark not found.'}
+      </p>
+    );
+  }
 
   return (
     <section className="landmark-details">
@@ -64,8 +87,13 @@ export function LandmarkDetails(): JSX.Element {
 
       {landmark.images.length > 0 && (
         <div className="gallery">
-          {landmark.images.map((image) => (
-            <img key={image} src={landmarkImageUrl(image)} alt={landmark.name} loading="lazy" />
+          {landmark.images.map((image, index) => (
+            <img
+              key={image}
+              src={landmarkImageUrl(image)}
+              alt={`${landmark.name} — photo ${index + 1}`}
+              loading="lazy"
+            />
           ))}
         </div>
       )}
@@ -81,35 +109,44 @@ export function LandmarkDetails(): JSX.Element {
         </div>
       )}
 
-      {token && itineraries.length > 0 && (
-        <div className="add-to-itinerary card">
-          <label>
-            Add to itinerary
-            <select
-              value={selectedItinerary}
-              onChange={(e) =>
-                setSelectedItinerary(e.target.value === '' ? '' : Number(e.target.value))
-              }
+      {token &&
+        (itineraries.length > 0 ? (
+          <div className="add-to-itinerary card">
+            <label>
+              Add to itinerary
+              <select
+                value={selectedItinerary}
+                onChange={(e) =>
+                  setSelectedItinerary(e.target.value === '' ? '' : Number(e.target.value))
+                }
+              >
+                <option value="">Choose an itinerary…</option>
+                {itineraries.map((itinerary) => (
+                  <option key={itinerary.id} value={itinerary.id}>
+                    {itinerary.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              className="button"
+              type="button"
+              onClick={handleAdd}
+              disabled={selectedItinerary === '' || adding}
             >
-              <option value="">Choose an itinerary…</option>
-              {itineraries.map((itinerary) => (
-                <option key={itinerary.id} value={itinerary.id}>
-                  {itinerary.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <button
-            className="button"
-            type="button"
-            onClick={handleAdd}
-            disabled={selectedItinerary === '' || adding}
-          >
-            {adding ? 'Adding…' : 'Add'}
-          </button>
-          {addStatus && <p className="form-aside">{addStatus}</p>}
-        </div>
-      )}
+              {adding ? 'Adding…' : 'Add'}
+            </button>
+            {addStatus && (
+              <p className="form-aside" aria-live="polite">
+                {addStatus}
+              </p>
+            )}
+          </div>
+        ) : (
+          <p className="status">
+            Want to save this? <Link to="/itineraries">Create an itinerary</Link> first.
+          </p>
+        ))}
     </section>
   );
 }

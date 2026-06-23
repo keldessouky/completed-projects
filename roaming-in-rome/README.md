@@ -41,9 +41,21 @@ addresses them by construction:
   (gitignored); an `.env.example` documents them. CORS is restricted to the web
   origin, and Helmet + request validation are enabled.
 
-## Prerequisites
+## Quick start with Docker
 
-- Node.js 20+ and npm
+The fastest way to run the whole stack (Postgres + API + web):
+
+```bash
+docker compose up --build
+# open http://localhost:8080
+```
+
+The API container applies migrations and seeds the demo data on start. To run
+without the seed, set `SEED_ON_START=false` for the `api` service.
+
+## Prerequisites (for running without Docker)
+
+- Node.js 20+ and npm (see `.nvmrc`)
 - PostgreSQL 14+
 
 ## Running locally
@@ -83,6 +95,7 @@ Both seeded accounts use the password `password`:
 
 | Method & path | Auth | Description |
 |---|---|---|
+| `GET /health` | public | Liveness + DB readiness probe |
 | `POST /auth/register` | public | Create an account (role forced to ROLE_USER) |
 | `POST /auth/login` | public | Returns `{ token, user }` |
 | `GET /landmarks` | public | List landmarks |
@@ -95,18 +108,27 @@ Both seeded accounts use the password `password`:
 | `POST /itineraries/:id/landmarks` | user (owner) | Add a landmark |
 | `DELETE /itineraries/:id/landmarks/:landmarkId` | user (owner) | Remove a landmark |
 
-## Tests
+## Tests & linting
 
 ```bash
 # API
 cd server
+npm run lint                  # ESLint + Prettier
 npm test                      # unit tests (mocked Prisma)
-npm run test:e2e              # e2e against a test database
+npm run test:e2e              # e2e against a test database (auto-migrates first)
 
 # Web
 cd web
+npm run lint                  # ESLint
 npm test                      # Vitest unit + component tests
 ```
 
 The API e2e suite expects a `roaming_in_rome_test` database; it defaults to the
-local connection in `test/setup-e2e.ts` and honors `DATABASE_URL` if set.
+local connection in `test/setup-e2e.ts` and honors `DATABASE_URL` if set. The
+`pretest:e2e` script runs `prisma migrate deploy` against it automatically.
+
+## Continuous integration
+
+`.github/workflows/ci.yml` runs lint + build + tests for both packages on every
+push and pull request, spinning up a Postgres service container for the API's
+e2e suite.

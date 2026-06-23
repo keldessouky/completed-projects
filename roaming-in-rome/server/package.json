@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "Roaming in Rome API — NestJS + Prisma backend for browsing Rome's landmarks and building travel itineraries",
   "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "build": "nest build",
     "start": "nest start",
@@ -12,10 +15,11 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
     "db:seed": "prisma db seed",
-    "lint": "eslint \"{src,test}/**/*.ts\" --fix",
+    "lint": "eslint \"{src,test}/**/*.ts\"",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "test": "jest",
     "test:watch": "jest --watch",
+    "pretest:e2e": "node test/prepare-e2e-db.js",
     "test:e2e": "jest --config ./test/jest-e2e.json --runInBand"
   },
   "prisma": {

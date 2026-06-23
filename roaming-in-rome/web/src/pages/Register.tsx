@@ -1,4 +1,4 @@
-import { AxiosError } from 'axios';
+import axios from 'axios';
 import { FormEvent, JSX, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { authApi } from '../api/auth';
@@ -29,7 +29,7 @@ export function Register(): JSX.Element {
       await authApi.register({ username, password });
       navigate('/login?registration=success');
     } catch (err) {
-      const status = (err as AxiosError).response?.status;
+      const status = axios.isAxiosError(err) ? err.response?.status : undefined;
       if (status === 409) {
         setError('That username is already taken.');
       } else if (status === 400) {
@@ -46,7 +46,11 @@ export function Register(): JSX.Element {
     <section className="form-page">
       <form className="card form" onSubmit={handleSubmit}>
         <h1>Create Account</h1>
-        {error && <p className="alert alert-error">{error}</p>}
+        {error && (
+          <p className="alert alert-error" role="alert">
+            {error}
+          </p>
+        )}
         <label>
           Username
           <input

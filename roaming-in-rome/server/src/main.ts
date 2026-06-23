@@ -1,4 +1,4 @@
-import { ValidationPipe } from '@nestjs/common';
+import { Logger, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import helmet from 'helmet';
@@ -7,6 +7,7 @@ import { AppModule } from './app.module';
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
   const config = app.get(ConfigService);
+  const logger = new Logger('Bootstrap');
 
   app.use(helmet());
 
@@ -31,7 +32,7 @@ async function bootstrap(): Promise<void> {
 
   const port = config.get<number>('PORT', 3000);
   await app.listen(port);
-  console.log(`Roaming in Rome API listening on http://localhost:${port}`);
+  logger.log(`Roaming in Rome API listening on http://localhost:${port}`);
 }
 
 void bootstrap();
