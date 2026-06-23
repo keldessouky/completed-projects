@@ -1,0 +1,80 @@
+// Prisma schema for Roaming in Rome.
+//
+// Column names are mapped explicitly with @map/@@map so this schema lines up
+// with the original capstone's PostgreSQL tables. The model/field names are the
+// clean TypeScript-facing names; the original `summery`/`discription` typos are
+// corrected here while the underlying DB columns keep their real names.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           Int         @id @default(autoincrement()) @map("user_id")
+  username     String      @unique @db.VarChar(50)
+  passwordHash String      @map("password_hash") @db.VarChar(200)
+  role         String      @default("ROLE_USER") @db.VarChar(50)
+  itineraries  Itinerary[]
+
+  @@map("users")
+}
+
+model Address {
+  id          Int        @id @default(autoincrement()) @map("address_id")
+  street      String?    @db.VarChar(64)
+  buildingNum Int?       @map("building_num")
+  postalCode  Int?       @map("postal_code")
+  city        String?    @db.VarChar(32)
+  country     String?    @db.VarChar(32)
+  landmarks   Landmark[]
+
+  @@map("address")
+}
+
+model Landmark {
+  id          Int                 @id @default(autoincrement()) @map("landmark_id")
+  name        String              @db.VarChar(64)
+  summary     String              @map("summary") @db.VarChar(128)
+  description String              @map("description") @db.VarChar(4000)
+  img         String              @db.VarChar(64)
+  mapLink     String?             @map("map_link") @db.VarChar(4000)
+  addressId   Int                 @map("address_id")
+  address     Address             @relation(fields: [addressId], references: [id])
+  images      Image[]
+  itineraries ItineraryLandmark[]
+
+  @@map("landmark")
+}
+
+model Image {
+  imageName  String   @id @map("image_name") @db.VarChar(64)
+  landmarkId Int      @map("landmark_id")
+  landmark   Landmark @relation(fields: [landmarkId], references: [id])
+
+  @@map("images")
+}
+
+model Itinerary {
+  id        Int                 @id @default(autoincrement()) @map("itinerary_id")
+  name      String              @db.VarChar(32)
+  userId    Int                 @map("user_id")
+  user      User                @relation(fields: [userId], references: [id])
+  landmarks ItineraryLandmark[]
+
+  @@map("itinerary")
+}
+
+model ItineraryLandmark {
+  itineraryId Int       @map("itinerary_id")
+  landmarkId  Int       @map("landmark_id")
+  itinerary   Itinerary @relation(fields: [itineraryId], references: [id], onDelete: Cascade)
+  landmark    Landmark  @relation(fields: [landmarkId], references: [id])
+
+  @@id([itineraryId, landmarkId])
+  @@map("itinerary_landmarks")
+}
