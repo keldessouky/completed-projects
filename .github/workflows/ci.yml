@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  server:
+    name: Server (API)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: roaming-in-rome/server
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: rome
+          POSTGRES_PASSWORD: rome_dev_pw
+          POSTGRES_DB: roaming_in_rome_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U rome"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://rome:rome_dev_pw@localhost:5432/roaming_in_rome_test?schema=public
+      JWT_SECRET: ci-test-secret-0123456789abcdef
+      JWT_EXPIRES_IN: 1h
+      WEB_ORIGIN: http://localhost:5173
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: roaming-in-rome/server/package-lock.json
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npm run lint
+      - run: npm run build
+      - run: npm test
+      - run: npm run test:e2e
+
+  web:
+    name: Web (client)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: roaming-in-rome/web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: roaming-in-rome/web/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+      - run: npm test

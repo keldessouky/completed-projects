@@ -1,0 +1,50 @@
+# One-command local stack: `docker compose up --build`
+#   - db  : PostgreSQL 16
+#   - api : NestJS API (runs migrations + seeds demo data on start)
+#   - web : React SPA served by nginx (proxies /api to the api service)
+# Then open http://localhost:8080  (demo accounts: user/password, admin/password)
+
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: rome
+      POSTGRES_PASSWORD: rome_dev_pw
+      POSTGRES_DB: roaming_in_rome
+    ports:
+      - '5432:5432'
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U rome -d roaming_in_rome']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build: ./server
+    environment:
+      DATABASE_URL: postgresql://rome:rome_dev_pw@db:5432/roaming_in_rome?schema=public
+      JWT_SECRET: local-compose-secret-change-me-0123456789
+      JWT_EXPIRES_IN: 1h
+      WEB_ORIGIN: http://localhost:8080
+      PORT: 3000
+      SEED_ON_START: 'true'
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - '3000:3000'
+
+  web:
+    build:
+      context: ./web
+      args:
+        VITE_API_URL: /api
+    depends_on:
+      - api
+    ports:
+      - '8080:80'
+
+volumes:
+  db-data:
