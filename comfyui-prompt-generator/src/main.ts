@@ -1,6 +1,7 @@
 import "./style.css";
 import { parse } from "./core/parser";
 import { generate } from "./core/generator";
+import { suggest, currentToken, type Suggestion } from "./core/autocomplete";
 import type { GenerateOptions, OutputStyle, TargetModel } from "./core/types";
 
 const $ = <T extends HTMLElement>(id: string): T => {
@@ -14,7 +15,9 @@ const targetSel = $<HTMLSelectElement>("target");
 const styleSel = $<HTMLSelectElement>("style");
 const qualityChk = $<HTMLInputElement>("quality");
 const negativeChk = $<HTMLInputElement>("negative");
+const nsfwChk = $<HTMLInputElement>("nsfw");
 const emphasisSel = $<HTMLSelectElement>("emphasis");
+const acEl = $<HTMLUListElement>("ac");
 const positiveOut = $<HTMLPreElement>("positive");
 const negativeOut = $<HTMLPreElement>("negative-out");
 const negativeBlock = $<HTMLDivElement>("negative-block");
@@ -48,6 +51,7 @@ function currentOptions(): GenerateOptions {
     ...(style !== "auto" ? { style } : {}),
     addQualityTags: qualityChk.checked,
     includeNegative: negativeChk.checked,
+    includeNsfw: nsfwChk.checked,
     ...(emphasis !== 1 ? { emphasizeSubject: emphasis } : {}),
   };
 }
@@ -66,7 +70,7 @@ function render(): void {
     return;
   }
 
-  const parsed = parse(text);
+  const parsed = parse(text, { includeNsfw: opts.includeNsfw });
   const result = generate(parsed, opts);
 
   positiveOut.textContent = result.positive;
@@ -111,7 +115,102 @@ document.querySelectorAll<HTMLButtonElement>(".copy-btn").forEach((btn) => {
   });
 });
 
-for (const el of [input, targetSel, styleSel, qualityChk, negativeChk, emphasisSel]) {
+// ---------------------------------------------------------------------------
+// Autocomplete controller
+// ---------------------------------------------------------------------------
+let acItems: Suggestion[] = [];
+let acIndex = -1;
+
+function closeAc(): void {
+  acEl.hidden = true;
+  acEl.innerHTML = "";
+  acItems = [];
+  acIndex = -1;
+}
+
+function renderAc(): void {
+  acEl.innerHTML = "";
+  acItems.forEach((s, i) => {
+    const li = document.createElement("li");
+    li.className = "ac-item" + (i === acIndex ? " active" : "");
+    li.setAttribute("role", "option");
+    li.innerHTML =
+      `<span class="ac-cat${s.mature ? " mature" : ""}">${s.category}</span>` +
+      `<span class="ac-val">${s.value}</span>` +
+      (s.value !== s.tag ? `<span class="ac-tag">→ ${s.tag}</span>` : "");
+    // Use mousedown so it fires before the textarea blur.
+    li.addEventListener("mousedown", (e) => {
+      e.preventDefault();
+      accept(i);
+    });
+    acEl.appendChild(li);
+  });
+  acEl.hidden = acItems.length === 0;
+}
+
+function updateAc(): void {
+  const caret = input.selectionStart ?? input.value.length;
+  const { token } = currentToken(input.value, caret);
+  if (token.length < 2) {
+    closeAc();
+    return;
+  }
+  acItems = suggest(token, { includeNsfw: nsfwChk.checked, limit: 8 });
+  acIndex = acItems.length ? 0 : -1;
+  renderAc();
+}
+
+function accept(i: number): void {
+  const s = acItems[i];
+  if (!s) return;
+  const caret = input.selectionStart ?? input.value.length;
+  const { start } = currentToken(input.value, caret);
+  const before = input.value.slice(0, start);
+  const after = input.value.slice(caret);
+  const insert = s.value + (after.startsWith(" ") || after === "" ? "" : " ");
+  input.value = before + insert + after;
+  const newCaret = (before + insert).length;
+  input.setSelectionRange(newCaret, newCaret);
+  closeAc();
+  input.focus();
+  render();
+}
+
+input.addEventListener("keydown", (e) => {
+  if (acEl.hidden || acItems.length === 0) return;
+  switch (e.key) {
+    case "ArrowDown":
+      e.preventDefault();
+      acIndex = (acIndex + 1) % acItems.length;
+      renderAc();
+      break;
+    case "ArrowUp":
+      e.preventDefault();
+      acIndex = (acIndex - 1 + acItems.length) % acItems.length;
+      renderAc();
+      break;
+    case "Enter":
+    case "Tab":
+      if (acIndex >= 0) {
+        e.preventDefault();
+        accept(acIndex);
+      }
+      break;
+    case "Escape":
+      e.preventDefault();
+      closeAc();
+      break;
+  }
+});
+
+input.addEventListener("input", () => {
+  render();
+  updateAc();
+});
+input.addEventListener("click", updateAc);
+input.addEventListener("blur", () => setTimeout(closeAc, 120));
+
+for (const el of [targetSel, styleSel, qualityChk, negativeChk, nsfwChk, emphasisSel]) {
   el.addEventListener("input", render);
 }
 

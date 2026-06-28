@@ -22,11 +22,18 @@
       <main class="layout">
         <section class="panel input-panel">
           <label class="field-label" for="input">Describe your image</label>
-          <textarea
-            id="input"
-            rows="8"
-            placeholder="e.g. A young woman with long blonde hair stands in a rainy neon-lit city at night, wearing a red leather jacket. The photo is cinematic and moody with shallow depth of field, photorealistic."
-          ></textarea>
+          <div class="textarea-wrap">
+            <textarea
+              id="input"
+              rows="8"
+              autocomplete="off"
+              autocorrect="off"
+              spellcheck="false"
+              placeholder="e.g. A young woman with long blonde hair stands in a rainy neon-lit city at night, wearing a red leather jacket. The photo is cinematic and moody with shallow depth of field, photorealistic."
+            ></textarea>
+            <ul id="ac" class="ac-dropdown" role="listbox" hidden></ul>
+          </div>
+          <p class="hint">Tip: start typing a concept and pick a suggestion (↑/↓, Enter/Tab) to build a recognized prompt.</p>
 
           <div class="controls">
             <div class="control">
@@ -57,6 +64,13 @@
 
             <div class="control checkbox">
               <label><input type="checkbox" id="negative" /> Negative prompt</label>
+            </div>
+
+            <div class="control checkbox">
+              <label
+                title="Enables horror / gore / creature and mature vocabulary for monster, sci-fi and horror-comic work."
+                ><input type="checkbox" id="nsfw" /> Mature / horror</label
+              >
             </div>
 
             <div class="control">

@@ -22,6 +22,33 @@ is a skill. This tool encodes that knowledge:
 Three output styles are available for any target: **structured** (labeled
 categories), **natural** (one flowing sentence), and **tags** (comma-separated).
 
+### Autocomplete
+
+Start typing a concept and a ranked dropdown suggests recognized vocabulary;
+accept with **↑/↓ + Enter/Tab** (or click). Matching is tiered the way booru
+tag-complete tools work — exact → prefix → word-start → substring → fuzzy
+subsequence — and each lexicon entry's canonical tag doubles as a searchable
+**alias** (typing `cinematic` surfaces `cinematic lighting`). It's a pure,
+synchronous scan of the in-memory lexicon (small enough to run on every
+keystroke), implemented in `src/core/autocomplete.ts`.
+
+### Categories
+
+Every parameter the Qwen guide structures around has its own category, in
+emission order: quality, subject count, subject (incl. age), appearance,
+clothing, expression, pose, composition, **camera** (lens / focal length / film
+stock / long exposure), setting, time & weather, lighting, mood, style,
+**color** scheme, **material** (chrome, glass, marble, velvet…), and **text**.
+
+### Mature / horror content (opt-in)
+
+A **Mature / horror** toggle unlocks a separate, opt-in lexicon aimed at horror
+comics and monster / sci-fi art — gore, body horror, creatures, undead,
+eldritch / cosmic-horror vocabulary, plus a tasteful adult set. It's **off by
+default**; when off, those words are simply not recognized. When on, they parse
+into a `Content:` field (structured) or inline (tags), and the autocomplete
+includes them. The negative-prompt builder also stays scene-aware.
+
 ### About Qwen-Image (and the Turbo 2-step workflow)
 
 The default target matches a common ComfyUI setup: `qwen_image` diffusion model

@@ -138,6 +138,40 @@ describe("weights and negatives", () => {
     expect(r.positive).toContain("45-year-old");
   });
 
+  it("captures camera and material into their own structured lines", () => {
+    const r = convert(
+      "a diamond ring on black velvet, macro lens, chrome finish, shot on Canon",
+      { target: "qwen" },
+    );
+    expect(r.positive).toMatch(/^Camera: .*macro lens/m);
+    expect(r.positive).toMatch(/^Material: /m);
+  });
+});
+
+describe("mature / horror content gating", () => {
+  it("ignores horror vocabulary unless opted in", () => {
+    const off = convert("a zombie with gore in a haunted forest", { target: "qwen" });
+    expect(off.positive.toLowerCase()).not.toContain("zombie");
+  });
+
+  it("includes horror vocabulary when opted in", () => {
+    const on = convert("a zombie with gore in a haunted forest", {
+      target: "qwen",
+      includeNsfw: true,
+    });
+    expect(on.positive).toContain("Content:");
+    expect(on.positive.toLowerCase()).toContain("zombie");
+  });
+
+  it("emits mature content inline for tag targets", () => {
+    const r = convert("a grotesque monster, body horror", {
+      target: "sdxl",
+      includeNsfw: true,
+    });
+    expect(r.positive.toLowerCase()).toContain("monster");
+    expect(r.positive.toLowerCase()).toContain("body horror");
+  });
+
   it("humanizes plural counts in structured output", () => {
     const r = convert("two women walking in a park", { target: "qwen" });
     expect(r.positive).toContain("two women");

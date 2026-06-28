@@ -7,6 +7,8 @@ import type { Category } from "./types";
  */
 export interface Rule {
   pattern: RegExp;
+  /** The human phrase that triggers this rule (used for autocomplete). */
+  keyword: string;
   tag: string;
   category: Category;
 }
@@ -31,6 +33,7 @@ function wordRegex(phrase: string): RegExp {
 function rules(category: Category, map: Record<string, string>): Rule[] {
   return Object.entries(map).map(([keyword, tag]) => ({
     pattern: wordRegex(keyword),
+    keyword,
     tag,
     category,
   }));
@@ -441,9 +444,79 @@ const color = rules("color", {
   "warm tones": "warm color palette",
   "cool tones": "cool color palette",
   "neon colors": "neon color palette",
+  "complementary colors": "complementary color palette",
+  "analogous colors": "analogous color palette",
+  "earth tones": "earth tone palette",
+  "jewel tones": "jewel tone palette",
+  "split toning": "split toning",
+  "color grading": "cinematic color grading",
+  "teal and orange": "teal and orange grade",
+  duotone: "duotone",
+  iridescent: "iridescent colors",
 });
 
-/** All rules concatenated, sorted longest-keyword-first so specific wins. */
+const camera = rules("camera", {
+  "macro lens": "macro lens",
+  macro: "macro photography",
+  "wide-angle lens": "wide-angle lens",
+  "wide angle lens": "wide-angle lens",
+  telephoto: "telephoto lens",
+  "fisheye lens": "fisheye lens",
+  "85mm": "85mm lens",
+  "50mm": "50mm lens",
+  "35mm": "35mm lens",
+  "f/1.4": "f/1.4 aperture",
+  "f/1.8": "f/1.8 aperture",
+  "shot on canon": "shot on Canon EOS R5",
+  "canon eos r5": "shot on Canon EOS R5",
+  "shot on nikon": "shot on Nikon",
+  "shot on sony": "shot on Sony",
+  "medium format": "medium format camera",
+  "film grain": "film grain",
+  "kodak portra": "Kodak Portra 400 film",
+  "35mm film": "35mm film",
+  "long exposure": "long exposure",
+  "double exposure": "double exposure",
+  "motion blur": "motion blur",
+  "tilt-shift": "tilt-shift",
+  "drone shot": "aerial drone shot",
+  "aerial shot": "aerial drone shot",
+  "raw photo": "RAW photo",
+});
+
+const material = rules("material", {
+  chrome: "chrome finish",
+  metallic: "metallic",
+  "brushed metal": "brushed metal",
+  rusted: "rusted metal",
+  rusty: "rusted metal",
+  glass: "glass",
+  crystal: "crystal",
+  marble: "marble",
+  granite: "granite",
+  velvet: "velvet",
+  silk: "silk",
+  satin: "satin",
+  "leather texture": "leather texture",
+  wood: "wood",
+  wooden: "wood",
+  concrete: "concrete",
+  brick: "brick",
+  "water droplets": "water droplets",
+  wet: "wet surface",
+  glossy: "glossy",
+  matte: "matte finish",
+  reflective: "reflective surface",
+  translucent: "translucent",
+  transparent: "transparent",
+  holographic: "holographic",
+  fur: "fur texture",
+  scales: "scaly texture",
+  slime: "slimy texture",
+  "porcelain skin": "porcelain skin",
+});
+
+/** All non-mature rules concatenated, sorted longest-keyword-first. */
 export const LEXICON: Rule[] = [
   ...subject,
   ...appearance,
@@ -451,13 +524,86 @@ export const LEXICON: Rule[] = [
   ...expression,
   ...pose,
   ...composition,
+  ...camera,
   ...setting,
   ...timeWeather,
   ...lighting,
   ...mood,
   ...style,
   ...color,
+  ...material,
 ].sort((a, b) => b.pattern.source.length - a.pattern.source.length);
+
+// ---------------------------------------------------------------------------
+// Mature lexicon — horror / gore / creature / dark themes plus a tasteful adult
+// set. OPT-IN ONLY: applied solely when the caller passes includeNsfw. Aimed at
+// horror comics and monster / sci-fi art per its primary use case.
+// ---------------------------------------------------------------------------
+
+const horror = rules("nsfw", {
+  blood: "blood",
+  bloody: "bloody",
+  gore: "gore",
+  gory: "gore",
+  viscera: "viscera",
+  entrails: "entrails",
+  wound: "open wounds",
+  wounds: "open wounds",
+  corpse: "corpse",
+  skeleton: "skeleton",
+  skull: "skull",
+  zombie: "zombie",
+  undead: "undead",
+  decay: "decay",
+  rotting: "rotting flesh",
+  "body horror": "body horror",
+  mutilated: "mutilated",
+  severed: "severed limb",
+  grotesque: "grotesque",
+  macabre: "macabre",
+  nightmare: "nightmarish",
+  eldritch: "eldritch",
+  "cosmic horror": "cosmic horror",
+  lovecraftian: "lovecraftian",
+  tentacles: "writhing tentacles",
+  demonic: "demonic",
+  possessed: "possessed",
+  haunted: "haunted",
+  ghost: "ghostly apparition",
+  wraith: "wraith",
+  monster: "monster",
+  creature: "creature",
+  beast: "monstrous beast",
+  mutant: "mutant",
+  cryptid: "cryptid",
+  werewolf: "werewolf",
+  vampire: "vampire",
+  kaiju: "kaiju",
+  alien: "alien creature",
+  xenomorph: "xenomorph-like alien",
+  biomechanical: "biomechanical",
+  "cyborg monster": "cyborg monster",
+  dismembered: "dismembered",
+  visceral: "visceral",
+  "flesh and bone": "exposed flesh and bone",
+});
+
+const mature = rules("nsfw", {
+  nude: "nude",
+  nudity: "nudity",
+  topless: "topless",
+  lingerie: "lingerie",
+  suggestive: "suggestive pose",
+  sensual: "sensual",
+  "pin-up": "pin-up style",
+  boudoir: "boudoir",
+  provocative: "provocative",
+});
+
+/** Mature/horror rules, applied only when includeNsfw is set. */
+export const NSFW_LEXICON: Rule[] = [...horror, ...mature].sort(
+  (a, b) => b.pattern.source.length - a.pattern.source.length,
+);
 
 /** Hair color words used by the composite hair extractor. */
 export const HAIR_COLORS = [

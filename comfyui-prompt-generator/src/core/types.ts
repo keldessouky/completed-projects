@@ -18,13 +18,16 @@ export const CATEGORY_ORDER = [
   "clothing",     // jacket, dress, armor
   "expression",   // smiling, angry, crying
   "pose",         // standing, sitting, running
-  "composition",  // close-up, full body, from above
+  "composition",  // close-up, full body, from above, rule of thirds
+  "camera",       // lens, focal length, film stock, long exposure, macro
   "setting",      // forest, city, indoors
   "timeWeather",  // night, sunset, rain, snow
   "lighting",     // cinematic lighting, rim light, golden hour
   "mood",         // moody, serene, ominous
   "style",        // oil painting, anime, photorealistic
-  "color",        // vibrant colors, monochrome
+  "color",        // vibrant colors, monochrome, color scheme
+  "material",     // chrome, glass, marble, velvet, iridescent
+  "nsfw",         // mature / horror / gore / creature (opt-in only)
   "text",         // literal text to render, kept in quotes (Qwen strength)
   "extra",        // anything classified but uncategorized
 ] as const;
@@ -85,6 +88,14 @@ export interface GenerateOptions {
   includeNegative?: boolean;
   /** Extra negative tags to append to the preset. */
   extraNegative?: string[];
+  /** Allow mature/horror/gore/creature vocabulary (opt-in). */
+  includeNsfw?: boolean;
+}
+
+/** Options controlling how a paragraph is parsed. */
+export interface ParseOptions {
+  /** Recognize mature/horror/gore/creature vocabulary (opt-in). */
+  includeNsfw?: boolean;
 }
 
 export interface GeneratedPrompt {

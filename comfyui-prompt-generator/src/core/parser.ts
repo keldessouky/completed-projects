@@ -1,6 +1,7 @@
-import type { ParsedPrompt, Tag } from "./types";
+import type { ParsedPrompt, ParseOptions, Tag } from "./types";
 import {
   LEXICON,
+  NSFW_LEXICON,
   HAIR_COLORS,
   HAIR_LENGTHS,
   EYE_COLORS,
@@ -142,7 +143,7 @@ function postProcess(tags: Tag[]): Tag[] {
  * Parse a free-text paragraph into a structured set of canonical tags.
  * Order of discovery does not matter; the generator re-orders by category.
  */
-export function parse(input: string): ParsedPrompt {
+export function parse(input: string, opts: ParseOptions = {}): ParsedPrompt {
   const text = normalize(input);
   const tags: Tag[] = [];
   const seen = new Set<string>();
@@ -168,8 +169,10 @@ export function parse(input: string): ParsedPrompt {
   extractHair(text, push);
   extractEyes(text, push);
 
-  // Apply the keyword lexicon (already sorted longest-first).
-  for (const rule of LEXICON) {
+  // Apply the keyword lexicon (already sorted longest-first). The mature lexicon
+  // is only consulted when the caller explicitly opts in.
+  const active = opts.includeNsfw ? [...LEXICON, ...NSFW_LEXICON] : LEXICON;
+  for (const rule of active) {
     if (rule.pattern.test(text)) {
       push({ text: rule.tag, category: rule.category, source: rule.tag });
     }

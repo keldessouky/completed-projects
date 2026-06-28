@@ -160,6 +160,10 @@ function composeProse(tags: Tag[], opts: GenerateOptions): string {
   const action = [...txt("expression"), ...txt("pose")];
   if (action.length) segments.push(joinNatural(action));
 
+  // --- Mature / horror content (opt-in) ---
+  const content = txt("nsfw");
+  if (content.length) segments.push(joinNatural(content));
+
   // --- Setting + time/weather ---
   const place = txt("setting");
   const tw = txt("timeWeather");
@@ -173,6 +177,14 @@ function composeProse(tags: Tag[], opts: GenerateOptions): string {
   // --- Lighting + composition effects (depth of field, bokeh, ...) ---
   const light = [...txt("lighting"), ...effects];
   if (light.length) segments.push(joinNatural(light));
+
+  // --- Material / texture ---
+  const materials = txt("material");
+  if (materials.length) segments.push(joinNatural(materials));
+
+  // --- Camera / lens / technique ---
+  const cam = txt("camera");
+  if (cam.length) segments.push(joinNatural(cam));
 
   // --- Mood ---
   const mood = txt("mood");
@@ -206,11 +218,13 @@ const STRUCTURED_LAYOUT: { label: string; cats: Category[] }[] = [
   { label: "Subject", cats: ["subjectCount", "subject", "appearance"] },
   { label: "Pose", cats: ["expression", "pose"] },
   { label: "Clothing", cats: ["clothing"] },
-  { label: "Camera", cats: ["composition"] },
+  { label: "Camera", cats: ["composition", "camera"] },
   { label: "Environment", cats: ["setting", "timeWeather"] },
   { label: "Lighting", cats: ["lighting"] },
   { label: "Mood", cats: ["mood"] },
+  { label: "Material", cats: ["material"] },
   { label: "Style", cats: ["style", "color"] },
+  { label: "Content", cats: ["nsfw"] },
   { label: "Text", cats: ["text"] },
 ];
 
