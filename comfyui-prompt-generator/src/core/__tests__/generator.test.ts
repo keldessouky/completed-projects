@@ -107,6 +107,37 @@ describe("weights and negatives", () => {
     expect(r.negative).toContain("blurry");
   });
 
+  it("adds portrait-specific negatives when a person is present", () => {
+    const r = convert("a 30-year-old man in a suit", {
+      target: "qwen",
+      includeNegative: true,
+    });
+    expect(r.negative).toContain("deformed hands");
+  });
+
+  it("adds text-specific negatives when literal text is present", () => {
+    const r = convert('a poster reading "HELLO"', {
+      target: "qwen",
+      includeNegative: true,
+    });
+    expect(r.negative).toContain("garbled letters");
+  });
+
+  it("does not add portrait negatives for a person-less scene", () => {
+    const r = convert("a diamond ring on black velvet", {
+      target: "qwen",
+      includeNegative: true,
+    });
+    expect(r.negative).not.toContain("deformed hands");
+  });
+
+  it("captures explicit ages into the subject", () => {
+    const r = convert("portrait of a 45-year-old executive in a navy blazer", {
+      target: "qwen",
+    });
+    expect(r.positive).toContain("45-year-old");
+  });
+
   it("humanizes plural counts in structured output", () => {
     const r = convert("two women walking in a park", { target: "qwen" });
     expect(r.positive).toContain("two women");

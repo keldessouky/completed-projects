@@ -44,10 +44,24 @@ What the research says about prompting Qwen-Image — and how it's baked in:
 4. **Official "positive magic".** Enabling *Quality boosters* appends Qwen's own
    suffix — `Ultra HD, 4K, cinematic composition` — taken from
    [QwenLM/Qwen-Image `prompt_utils.py`](https://github.com/QwenLM/Qwen-Image/blob/main/src/examples/tools/prompt_utils.py).
-5. **Negative prompt.** Standard Qwen workflows (cfg ~4.5, ~50 steps) benefit
-   from a negative prompt (~+15% satisfaction), so one is provided on request.
-   But in *this* Turbo workflow (`cfg 1.0` + zeroed negative branch) it is
-   mathematically inert — hence it's **off by default**.
+5. **Scene-aware negative prompt.** Standard Qwen workflows (cfg ~4.5, ~50
+   steps) benefit from a negative prompt (~+15% satisfaction), so one is built
+   on request from the guide's universal template *plus* scenario add-ons —
+   portrait fixes (`deformed hands, smooth plastic skin`) when a person is
+   detected, text fixes (`misspelled text, garbled letters`) when literal text
+   is present. In *this* Turbo workflow (`cfg 1.0` + zeroed negative branch) it
+   is mathematically inert — hence **off by default**.
+6. **Priority order & ages.** Output follows the guide's category priority
+   (Subject → Pose → Clothing → Camera → Environment → Lighting → Mood), and
+   explicit ages ("45-year-old", "in their 70s") are captured into the subject,
+   matching how the guide's test cases sharpen portraits.
+
+#### Suggested parameters (standard, non-Turbo workflow)
+
+From the guide's 100-generation sweep — your Turbo LoRA fixes these, but for a
+normal Qwen graph: **CFG 4.0–5.0** is the sweet spot (creative art 3–4,
+precision/product 5–7), **50 steps** is the cost-effective quality tier, and for
+**text rendering** bump CFG to 6–7 and steps to 50.
 
 ## How it works
 

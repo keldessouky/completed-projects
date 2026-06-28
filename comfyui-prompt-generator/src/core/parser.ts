@@ -52,6 +52,22 @@ function extractHair(text: string, push: (t: Tag) => void): void {
   }
 }
 
+/**
+ * Detect age cues. Qwen-Image test cases lean heavily on explicit ages
+ * ("45-year-old executive", "in their 70s"), which sharpen the subject.
+ */
+function extractAge(text: string, push: (t: Tag) => void): void {
+  const exact = text.match(/\b(\d{1,3})[\s-]?year[\s-]?old\b/);
+  if (exact) {
+    push({ text: `${exact[1]}-year-old`, category: "subject", source: exact[0] });
+    return;
+  }
+  const decade = text.match(/\bin (?:their|his|her) (\d0)s\b/);
+  if (decade) {
+    push({ text: `in their ${decade[1]}s`, category: "subject", source: decade[0] });
+  }
+}
+
 /** Detect "blue eyes" style phrases. */
 function extractEyes(text: string, push: (t: Tag) => void): void {
   if (!/\beyes?\b/.test(text)) return;
@@ -148,6 +164,7 @@ export function parse(input: string): ParsedPrompt {
   }
 
   extractSubjectCount(text, push);
+  extractAge(text, push);
   extractHair(text, push);
   extractEyes(text, push);
 

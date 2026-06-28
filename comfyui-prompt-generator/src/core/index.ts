@@ -1,7 +1,7 @@
 export * from "./types";
 export { parse, normalize } from "./parser";
 export { generate, defaultStyle, QUALITY_TAGS } from "./generator";
-export { defaultNegative } from "./negative";
+export { defaultNegative, buildNegative } from "./negative";
 
 import { parse } from "./parser";
 import { generate } from "./generator";

@@ -8,7 +8,14 @@ import type {
   TargetModel,
 } from "./types";
 import { CATEGORY_ORDER } from "./types";
-import { defaultNegative } from "./negative";
+import { buildNegative } from "./negative";
+
+/** Subject words that indicate a person, for scene-aware negatives. */
+const PERSON_WORDS = new Set([
+  "man", "woman", "girl", "boy", "person", "child", "baby", "lady",
+  "warrior", "knight", "wizard", "witch", "king", "queen", "princess",
+  "samurai", "ninja", "astronaut", "soldier", "elf", "angel", "mermaid",
+]);
 
 /** Quality booster tags by target. */
 const QUALITY_TAGS: Record<TargetModel, string[]> = {
@@ -193,10 +200,12 @@ function composeProse(tags: Tag[], opts: GenerateOptions): string {
 }
 
 /** Labeled-category layout for structured (Qwen) output. */
+// Order follows the Qwen-Image guide's priority: Subject -> Pose -> Clothing
+// -> Camera -> Environment -> Lighting -> Mood -> Style -> Text.
 const STRUCTURED_LAYOUT: { label: string; cats: Category[] }[] = [
   { label: "Subject", cats: ["subjectCount", "subject", "appearance"] },
-  { label: "Clothing", cats: ["clothing"] },
   { label: "Pose", cats: ["expression", "pose"] },
+  { label: "Clothing", cats: ["clothing"] },
   { label: "Camera", cats: ["composition"] },
   { label: "Environment", cats: ["setting", "timeWeather"] },
   { label: "Lighting", cats: ["lighting"] },
@@ -275,8 +284,12 @@ export function generate(parsed: ParsedPrompt, opts: GenerateOptions): Generated
         ? composeProse(parsed.tags, opts)
         : composeTags(parsed.tags, opts);
 
+  const hasPerson =
+    parsed.tags.some((t) => t.category === "subjectCount") ||
+    parsed.tags.some((t) => t.category === "subject" && PERSON_WORDS.has(t.text));
+  const hasText = parsed.tags.some((t) => t.category === "text");
   const negative = opts.includeNegative
-    ? defaultNegative(opts.target, opts.extraNegative ?? [])
+    ? buildNegative(opts.target, { hasPerson, hasText }, opts.extraNegative ?? [])
     : "";
 
   return { positive, negative, orderedTags: ord, styleUsed };
