@@ -30,26 +30,61 @@ describe("convert -> tags (sdxl)", () => {
   });
 });
 
-describe("convert -> prose (qwen)", () => {
-  const r = convert(PARAGRAPH, { target: "qwen" });
+describe("convert -> structured (qwen, default)", () => {
+  const r = convert(PARAGRAPH, { target: "qwen", addQualityTags: true });
 
-  it("uses natural style by default for qwen", () => {
-    expect(r.styleUsed).toBe("natural");
+  it("uses structured style by default for qwen", () => {
+    expect(r.styleUsed).toBe("structured");
   });
 
-  it("produces a sentence, not comma-separated boost tags", () => {
-    expect(r.positive).not.toContain("masterpiece");
+  it("emits labeled categories on separate lines", () => {
+    expect(r.positive).toMatch(/^Subject: /m);
+    expect(r.positive).toMatch(/^Clothing: leather jacket$/m);
+    expect(r.positive).toMatch(/^Environment: /m);
+    expect(r.positive.split("\n").length).toBeGreaterThan(3);
+  });
+
+  it("does not use booru count tokens like 1girl in structured output", () => {
+    expect(r.positive).not.toContain("1girl");
+  });
+
+  it("appends the official Qwen positive magic when quality is on", () => {
+    expect(r.positive).toContain("Ultra HD, 4K, cinematic composition");
+  });
+
+  it("does not generate a negative prompt by default", () => {
+    expect(r.negative).toBe("");
+  });
+});
+
+describe("convert -> prose (forced natural)", () => {
+  const r = convert(PARAGRAPH, { target: "qwen", style: "natural" });
+
+  it("produces a single sentence ending in punctuation", () => {
     expect(/[.!?]$/.test(r.positive)).toBe(true);
     expect(r.positive[0]).toBe(r.positive[0].toUpperCase());
+    expect(r.positive).not.toContain("\n");
   });
 
   it("includes clothing as a 'wearing' clause", () => {
     expect(r.positive.toLowerCase()).toContain("wearing");
     expect(r.positive.toLowerCase()).toContain("leather jacket");
   });
+});
 
-  it("does not generate a negative prompt by default for qwen", () => {
-    expect(r.negative).toBe("");
+describe("literal text rendering", () => {
+  it("captures double-quoted text and preserves casing", () => {
+    const r = convert('a neon sign reading "OPEN 24 Hours" on a wall', {
+      target: "qwen",
+    });
+    expect(r.positive).toContain('Text: "OPEN 24 Hours"');
+  });
+
+  it("surfaces quoted text in natural mode too", () => {
+    const r = convert('a poster that says "SALE"', {
+      target: "flux",
+    });
+    expect(r.positive).toContain('with the text "SALE"');
   });
 });
 
@@ -67,8 +102,13 @@ describe("weights and negatives", () => {
     expect(r.negative).toContain("score_4");
   });
 
-  it("qwen negative stays empty even when requested (inert in workflow)", () => {
+  it("provides a real qwen negative when explicitly requested", () => {
     const r = convert("a girl", { target: "qwen", includeNegative: true });
-    expect(r.negative).toBe("");
+    expect(r.negative).toContain("blurry");
+  });
+
+  it("humanizes plural counts in structured output", () => {
+    const r = convert("two women walking in a park", { target: "qwen" });
+    expect(r.positive).toContain("two women");
   });
 });

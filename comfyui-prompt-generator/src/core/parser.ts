@@ -138,6 +138,15 @@ export function parse(input: string): ParsedPrompt {
     tags.push(t);
   };
 
+  // Literal text to render: capture quoted segments from the RAW input so the
+  // original casing is preserved. Qwen renders quoted text far more reliably.
+  for (const m of input.matchAll(/["“”]([^"“”]{1,80}?)["“”]/g)) {
+    const phrase = m[1].trim();
+    if (phrase.length >= 2 && /[a-z0-9]/i.test(phrase)) {
+      push({ text: `"${phrase}"`, category: "text", source: m[0] });
+    }
+  }
+
   extractSubjectCount(text, push);
   extractHair(text, push);
   extractEyes(text, push);
@@ -153,9 +162,14 @@ export function parse(input: string): ParsedPrompt {
 
   // Best-effort collection of content words that matched nothing, for UI hints.
   const matchedWords = new Set<string>();
+  const addWords = (s: string) => {
+    for (const w of s.replace(/[^\w\s-]/g, " ").split(/\s+/)) {
+      if (w) matchedWords.add(w.toLowerCase());
+    }
+  };
   for (const t of finalTags) {
-    for (const w of t.text.split(/\s+/)) matchedWords.add(w.toLowerCase());
-    if (t.source) for (const w of t.source.split(/\s+/)) matchedWords.add(w.toLowerCase());
+    addWords(t.text);
+    if (t.source) addWords(t.source);
   }
   const STOP = new Set([
     "a", "an", "the", "of", "with", "and", "or", "in", "on", "at", "to", "is",

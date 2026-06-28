@@ -25,6 +25,7 @@ export const CATEGORY_ORDER = [
   "mood",         // moody, serene, ominous
   "style",        // oil painting, anime, photorealistic
   "color",        // vibrant colors, monochrome
+  "text",         // literal text to render, kept in quotes (Qwen strength)
   "extra",        // anything classified but uncategorized
 ] as const;
 
@@ -60,8 +61,14 @@ export type TargetModel =
   | "pony"        // booru tags + score tags
   | "illustrious"; // booru tags (Danbooru ordering)
 
-/** Output formatting style. */
-export type OutputStyle = "tags" | "natural";
+/**
+ * Output formatting style.
+ * - `tags`: comma-separated booru tags (SD/SDXL/Pony/Illustrious)
+ * - `natural`: flowing descriptive sentence (Flux, official Qwen enhancer style)
+ * - `structured`: labeled categories, e.g. "Subject: ...\nLighting: ..."
+ *   (Qwen was trained on structured labels; best precision)
+ */
+export type OutputStyle = "tags" | "natural" | "structured";
 
 export interface GenerateOptions {
   target: TargetModel;

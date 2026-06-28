@@ -23,11 +23,41 @@ const QUALITY_TAGS: Record<TargetModel, string[]> = {
 /** Generic person words made redundant in tag output once a count tag exists. */
 const GENERIC_PERSON = new Set(["man", "woman", "girl", "boy", "person", "lady"]);
 
-/** Models whose natural default output style is prose. */
-const NATURAL_BY_DEFAULT: ReadonlySet<TargetModel> = new Set(["qwen", "flux"]);
+/**
+ * Official Qwen-Image "positive magic" suffix (English) from QwenLM/Qwen-Image
+ * prompt_utils.py — appended to lift quality when boosters are enabled.
+ */
+const QWEN_POSITIVE_MAGIC = ["Ultra HD", "4K", "cinematic composition"];
 
 function defaultStyle(target: TargetModel): OutputStyle {
-  return NATURAL_BY_DEFAULT.has(target) ? "natural" : "tags";
+  // Qwen was trained on structured label data -> labeled categories win.
+  // Flux wants flowing natural language. Everyone else: tags.
+  if (target === "qwen") return "structured";
+  if (target === "flux") return "natural";
+  return "tags";
+}
+
+/** Number words for humanizing booru count tokens in prose/structured output. */
+const NUMBER_WORDS = ["", "one", "two", "three", "four", "five", "six"];
+
+/**
+ * Convert booru count tokens (1girl/2girls/solo/...) into natural phrases for
+ * non-tag output. Singular tokens are dropped (the subject noun covers them);
+ * plurals and groups become "two women", "group of people", etc.
+ */
+function humanizeCounts(tokens: string[]): string[] {
+  const out: string[] = [];
+  for (const tok of tokens) {
+    if (tok === "multiple people") out.push("group of people");
+    const m = tok.match(/^(\d+)(girls|boys)$/);
+    if (m) {
+      const n = parseInt(m[1], 10);
+      const noun = m[2] === "girls" ? "women" : "men";
+      out.push(`${NUMBER_WORDS[n] ?? n} ${noun}`);
+    }
+    // 1girl / 1boy / solo are intentionally dropped for prose/structured.
+  }
+  return out;
 }
 
 /** Group tags by category preserving discovery order within a group. */
@@ -97,20 +127,23 @@ function composeProse(tags: Tag[], opts: GenerateOptions): string {
   const comp = txt("composition");
   const framing = comp.filter((c) => FRAMING.has(c));
   const effects = comp.filter((c) => !FRAMING.has(c));
-  const count = txt("subjectCount").filter((c) => /people|multiple/.test(c));
+  const count = humanizeCounts(txt("subjectCount"));
   const subjects = txt("subject");
   const appearance = txt("appearance");
 
-  const subjectCore = subjects.length
-    ? joinNatural(subjects)
-    : count.length
-      ? count[0]
-      : "subject";
-  const compPrefix = framing.length ? `${joinNatural(framing)} of ` : "of ";
-  let subjectPhrase = `${compPrefix}a ${subjectCore}`;
-  if (appearance.length) subjectPhrase += ` with ${joinNatural(appearance)}`;
-
-  segments.push(`${opener} ${subjectPhrase}`);
+  const hasSubject = subjects.length > 0 || count.length > 0;
+  if (hasSubject) {
+    const subjectCore = subjects.length ? joinNatural(subjects) : joinNatural(count);
+    const compPrefix = framing.length ? `${joinNatural(framing)} of ` : "of ";
+    let subjectPhrase = `${compPrefix}a ${subjectCore}`;
+    if (appearance.length) subjectPhrase += ` with ${joinNatural(appearance)}`;
+    segments.push(`${opener} ${subjectPhrase}`);
+  } else {
+    // Subject-less scene: lead with the medium, let the environment carry it.
+    const scene = medium.length ? `A ${medium.join(", ")} scene` : "A highly detailed scene";
+    const lead = framing.length ? `${scene}, ${joinNatural(framing)}` : scene;
+    segments.push(lead);
+  }
 
   // --- Clothing ---
   const clothing = txt("clothing");
@@ -138,19 +171,61 @@ function composeProse(tags: Tag[], opts: GenerateOptions): string {
   const mood = txt("mood");
   if (mood.length) segments.push(`${joinNatural(mood)}`);
 
+  // --- Literal text to render (Qwen) ---
+  const literal = txt("text");
+  if (literal.length) segments.push(`with the text ${joinNatural(literal)}`);
+
   let sentence = segments.filter(Boolean).join(", ");
   sentence = sentence.charAt(0).toUpperCase() + sentence.slice(1);
 
   // --- Quality framing (only when explicitly requested) ---
   if (opts.addQualityTags) {
-    sentence += opts.target === "qwen"
-      ? ". Hyper-realistic, highly detailed, professional studio quality."
-      : ". Highly detailed, sharp focus, professional quality.";
+    const magic =
+      opts.target === "qwen"
+        ? QWEN_POSITIVE_MAGIC.join(", ")
+        : "highly detailed, sharp focus, professional quality";
+    sentence += `. ${magic}.`;
   } else if (!/[.!?]$/.test(sentence)) {
     sentence += ".";
   }
 
   return sentence;
+}
+
+/** Labeled-category layout for structured (Qwen) output. */
+const STRUCTURED_LAYOUT: { label: string; cats: Category[] }[] = [
+  { label: "Subject", cats: ["subjectCount", "subject", "appearance"] },
+  { label: "Clothing", cats: ["clothing"] },
+  { label: "Pose", cats: ["expression", "pose"] },
+  { label: "Camera", cats: ["composition"] },
+  { label: "Environment", cats: ["setting", "timeWeather"] },
+  { label: "Lighting", cats: ["lighting"] },
+  { label: "Mood", cats: ["mood"] },
+  { label: "Style", cats: ["style", "color"] },
+  { label: "Text", cats: ["text"] },
+];
+
+/**
+ * Compose a labeled, structured prompt. Qwen-Image was trained on structured
+ * label data and follows this far more precisely than flowing prose.
+ */
+function composeStructured(tags: Tag[], opts: GenerateOptions): string {
+  const g = group(tags);
+  const lines: string[] = [];
+
+  for (const { label, cats } of STRUCTURED_LAYOUT) {
+    const vals: string[] = [];
+    for (const c of cats) {
+      const texts = g.get(c)!.map((t) => t.text);
+      vals.push(...(c === "subjectCount" ? humanizeCounts(texts) : texts));
+    }
+    if (label === "Style" && opts.addQualityTags && opts.target === "qwen") {
+      vals.push(...QWEN_POSITIVE_MAGIC);
+    }
+    if (vals.length) lines.push(`${label}: ${vals.join(", ")}`);
+  }
+
+  return lines.join("\n");
 }
 
 /** Render the positive prompt as comma-separated tags in canonical order. */
@@ -194,9 +269,11 @@ export function generate(parsed: ParsedPrompt, opts: GenerateOptions): Generated
   const ord = ordered(parsed.tags);
 
   const positive =
-    styleUsed === "natural"
-      ? composeProse(parsed.tags, opts)
-      : composeTags(parsed.tags, opts);
+    styleUsed === "structured"
+      ? composeStructured(parsed.tags, opts)
+      : styleUsed === "natural"
+        ? composeProse(parsed.tags, opts)
+        : composeTags(parsed.tags, opts);
 
   const negative = opts.includeNegative
     ? defaultNegative(opts.target, opts.extraNegative ?? [])

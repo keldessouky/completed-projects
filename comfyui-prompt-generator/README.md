@@ -10,30 +10,44 @@ browser** — no server, no API keys, nothing leaves your machine.
 Different model families want different prompt shapes, and writing prompts well
 is a skill. This tool encodes that knowledge:
 
-| Target            | Output style        | Notes |
-| ----------------- | ------------------- | ----- |
-| **Qwen-Image**    | natural-language prose | Default. Tuned for the Qwen Turbo 2-step workflow. |
+| Target            | Output style          | Notes |
+| ----------------- | --------------------- | ----- |
+| **Qwen-Image**    | structured labels     | Default. Labeled categories + official positive magic. |
 | **Flux**          | natural-language prose | Tags / quality boosters *hurt* Flux, so they're suppressed. |
-| **SDXL**          | tags (or prose)     | Booru-style tags, attention-ordered. |
-| **SD 1.5**        | tags                | Terse, comma-separated. |
+| **SDXL**          | tags (or prose)       | Booru-style tags, attention-ordered. |
+| **SD 1.5**        | tags                  | Terse, comma-separated. |
 | **Pony**          | booru + `score_` tags | Adds `score_9, score_8_up, …`. |
-| **Illustrious**   | booru tags          | Danbooru-style ordering. |
+| **Illustrious**   | booru tags            | Danbooru-style ordering. |
 
-### About the Qwen-Image Turbo workflow
+Three output styles are available for any target: **structured** (labeled
+categories), **natural** (one flowing sentence), and **tags** (comma-separated).
+
+### About Qwen-Image (and the Turbo 2-step workflow)
 
 The default target matches a common ComfyUI setup: `qwen_image` diffusion model
 + `qwen_2.5_vl_7b` text encoder + a **Turbo 2-step LoRA**, sampled at **cfg 1.0,
 euler/simple, 2 steps**, with the negative branch routed through
 `ConditioningZeroOut`.
 
-Two consequences are baked into the generator:
+What the research says about prompting Qwen-Image — and how it's baked in:
 
-1. **Prose, not tags.** Qwen-Image responds to rich descriptive sentences, so
-   the converter emits flowing prose ordered *medium → composition → subject →
-   details → clothing → action → setting → lighting → mood → quality*.
-2. **No negative prompt.** With `cfg 1.0` and a zeroed-out negative branch, the
-   negative prompt is mathematically inert — so it's empty by default for Qwen
-   (and Flux). The toggle still exists for the other targets.
+1. **Structure beats narrative.** Qwen-Image was trained on *structured label
+   data*, and categorized descriptions (Subject / Environment / Lighting / …)
+   measurably outperform flowing prose. So the default output is labeled
+   categories, not a paragraph. (A `natural` mode is still one click away.)
+2. **Brevity wins.** ~1–3 sentences is the sweet spot; the converter keeps
+   output tight rather than padding it.
+3. **Quote literal text.** Qwen's headline strength is text rendering, and
+   wrapping the exact words in double quotes lifts accuracy from ~65% → ~96%.
+   Anything you put in `"quotes"` is captured (case preserved) into a `Text:`
+   field.
+4. **Official "positive magic".** Enabling *Quality boosters* appends Qwen's own
+   suffix — `Ultra HD, 4K, cinematic composition` — taken from
+   [QwenLM/Qwen-Image `prompt_utils.py`](https://github.com/QwenLM/Qwen-Image/blob/main/src/examples/tools/prompt_utils.py).
+5. **Negative prompt.** Standard Qwen workflows (cfg ~4.5, ~50 steps) benefit
+   from a negative prompt (~+15% satisfaction), so one is provided on request.
+   But in *this* Turbo workflow (`cfg 1.0` + zeroed negative branch) it is
+   mathematically inert — hence it's **off by default**.
 
 ## How it works
 
@@ -51,9 +65,10 @@ paragraph ──▶ parse() ──▶ ParsedPrompt ──▶ generate() ──�
   hair`), detects subject counts (`1girl`/`1boy`/`2girls`/`solo`), and removes
   subsumed tags (`woman` when `young woman` is present).
 - **`src/core/generator.ts`** — orders tags by category priority (earlier tokens
-  get more model attention) and renders either comma-separated tags (with
-  optional `(subject:1.2)` weights and quality boosters) or natural-language
-  prose.
+  get more model attention) and renders one of three styles: **structured**
+  labeled categories (Qwen default, with the official positive-magic suffix),
+  **natural** prose (Flux), or comma-separated **tags** (with optional
+  `(subject:1.2)` weights and quality boosters).
 - **`src/main.ts`** — the browser UI.
 
 The core (`src/core`) is pure, dependency-free, and unit-tested, so it can be
@@ -75,7 +90,18 @@ npm run preview    # serve the production build
 > wearing a red leather jacket. The photo is cinematic and moody with shallow
 > depth of field, photorealistic.*
 
-**Qwen / Flux (prose):**
+**Qwen-Image (structured, quality on):**
+> ```
+> Subject: young woman, long hair, blonde hair
+> Clothing: leather jacket
+> Camera: depth of field
+> Environment: city, night, rain
+> Lighting: cinematic lighting
+> Mood: moody atmosphere
+> Style: photorealistic, photograph, Ultra HD, 4K, cinematic composition
+> ```
+
+**Flux (natural):**
 > A photorealistic, photograph of a young woman with long hair and blonde hair,
 > wearing a leather jacket, in a city, night and rain, cinematic lighting and
 > depth of field, moody atmosphere.

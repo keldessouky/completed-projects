@@ -24,9 +24,12 @@ const workflowNote = $<HTMLParagraphElement>("workflow-note");
 
 const NOTES: Partial<Record<TargetModel, string>> = {
   qwen:
-    "Qwen-Image wants rich natural-language prose. In the common Turbo 2-step " +
-    "workflow (cfg 1.0 + ConditioningZeroOut), the negative prompt has no " +
-    "effect — so it's off by default.",
+    "Qwen-Image was trained on structured labels, so labeled categories beat " +
+    "flowing prose. Keep it to ~1–3 sentences, put any literal text in " +
+    'double quotes (e.g. a sign reading "OPEN"), and enable quality to append ' +
+    "the official magic (Ultra HD, 4K, cinematic composition). In the Turbo " +
+    "2-step workflow (cfg 1.0 + ConditioningZeroOut) the negative prompt is " +
+    "inert, so it's off by default.",
   flux:
     "Flux understands natural language. Tag-dumping and quality boosters " +
     "actively degrade output, so they're suppressed here.",
