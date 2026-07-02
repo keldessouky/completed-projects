@@ -203,20 +203,81 @@ input.addEventListener("keydown", (e) => {
   }
 });
 
+// ---------------------------------------------------------------------------
+// Persistence: keep the draft and settings across page reloads.
+// ---------------------------------------------------------------------------
+const STORAGE_KEY = "comfyui-prompt-generator/v1";
+
+interface SavedState {
+  text: string;
+  target: string;
+  style: string;
+  quality: boolean;
+  negative: boolean;
+  nsfw: boolean;
+  emphasis: string;
+}
+
+function saveState(): void {
+  const state: SavedState = {
+    text: input.value,
+    target: targetSel.value,
+    style: styleSel.value,
+    quality: qualityChk.checked,
+    negative: negativeChk.checked,
+    nsfw: nsfwChk.checked,
+    emphasis: emphasisSel.value,
+  };
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch {
+    // Storage may be unavailable (private mode, quota) — persistence is best-effort.
+  }
+}
+
+function restoreState(): boolean {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return false;
+    const s = JSON.parse(raw) as Partial<SavedState>;
+    if (typeof s.text === "string") input.value = s.text;
+    if (typeof s.target === "string" && [...targetSel.options].some((o) => o.value === s.target)) {
+      targetSel.value = s.target;
+    }
+    if (typeof s.style === "string" && [...styleSel.options].some((o) => o.value === s.style)) {
+      styleSel.value = s.style;
+    }
+    if (typeof s.quality === "boolean") qualityChk.checked = s.quality;
+    if (typeof s.negative === "boolean") negativeChk.checked = s.negative;
+    if (typeof s.nsfw === "boolean") nsfwChk.checked = s.nsfw;
+    if (typeof s.emphasis === "string") emphasisSel.value = s.emphasis;
+    return typeof s.text === "string";
+  } catch {
+    return false;
+  }
+}
+
 input.addEventListener("input", () => {
   render();
   updateAc();
+  saveState();
 });
 input.addEventListener("click", updateAc);
 input.addEventListener("blur", () => setTimeout(closeAc, 120));
 
 for (const el of [targetSel, styleSel, qualityChk, negativeChk, nsfwChk, emphasisSel]) {
-  el.addEventListener("input", render);
+  el.addEventListener("input", () => {
+    render();
+    saveState();
+  });
 }
 
-// Seed with a friendly example so the page isn't empty on first load.
-input.value =
-  "A young woman with long blonde hair stands in a rainy neon-lit city at " +
-  "night, wearing a red leather jacket. The photo is cinematic and moody " +
-  "with shallow depth of field, photorealistic.";
+// Restore the previous session; otherwise seed with a friendly example so the
+// page isn't empty on first load.
+if (!restoreState()) {
+  input.value =
+    "A young woman with long blonde hair stands in a rainy neon-lit city at " +
+    "night, wearing a red leather jacket. The photo is cinematic and moody " +
+    "with shallow depth of field, photorealistic.";
+}
 render();
