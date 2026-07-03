@@ -43,6 +43,28 @@ const BOORU_COMMON = [
 
 const ANIME_SCORE = ["score_6", "score_5", "score_4"];
 
+/**
+ * Official LTX-2 example negative (Lightricks model card). Negative prompts
+ * matter more for video: LTX invents motion when unconstrained.
+ */
+const LTX_VIDEO = [
+  "shaky",
+  "glitchy",
+  "low quality",
+  "worst quality",
+  "deformed",
+  "distorted",
+  "disfigured",
+  "motion smear",
+  "motion artifacts",
+  "fused fingers",
+  "bad anatomy",
+  "weird hand",
+  "ugly",
+  "transition",
+  "static",
+];
+
 /** Context used to tailor the negative prompt to the scene. */
 export interface NegativeContext {
   hasPerson?: boolean;
@@ -78,6 +100,12 @@ export function buildNegative(
 ): string {
   let base: string[];
   switch (target) {
+    case "qwenTurbo":
+      // CFG-distilled at cfg 1.0: the negative branch is inert by construction.
+      return "";
+    case "ltx":
+      base = [...LTX_VIDEO];
+      break;
     case "pony":
     case "illustrious":
       base = [...ANIME_SCORE, ...BOORU_COMMON];

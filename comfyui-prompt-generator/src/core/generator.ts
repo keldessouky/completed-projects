@@ -20,12 +20,17 @@ const PERSON_WORDS = new Set([
 /** Quality booster tags by target. */
 const QUALITY_TAGS: Record<TargetModel, string[]> = {
   qwen: [], // qwen prefers descriptive prose, not booster tokens
+  qwenTurbo: [],
+  ltx: [], // video guides warn extra keywords dilute motion coherence
   flux: [],
   sdxl: ["masterpiece", "best quality", "highly detailed"],
   sd15: ["masterpiece", "best quality", "highly detailed", "8k"],
   pony: ["score_9", "score_8_up", "score_7_up", "masterpiece", "best quality"],
   illustrious: ["masterpiece", "best quality", "very aesthetic", "absurdres"],
 };
+
+/** Targets that share Qwen-Image's structured-label prompting. */
+const QWEN_FAMILY: ReadonlySet<TargetModel> = new Set(["qwen", "qwenTurbo"]);
 
 /** Generic person words made redundant in tag output once a count tag exists. */
 const GENERIC_PERSON = new Set(["man", "woman", "girl", "boy", "person", "lady"]);
@@ -37,10 +42,11 @@ const GENERIC_PERSON = new Set(["man", "woman", "girl", "boy", "person", "lady"]
 const QWEN_POSITIVE_MAGIC = ["Ultra HD", "4K", "cinematic composition"];
 
 function defaultStyle(target: TargetModel): OutputStyle {
-  // Qwen was trained on structured label data -> labeled categories win.
-  // Flux wants flowing natural language. Everyone else: tags.
-  if (target === "qwen") return "structured";
-  if (target === "flux") return "natural";
+  // Qwen (and its Turbo LoRA) were trained on structured label data ->
+  // labeled categories win. Flux and LTX video want flowing natural language.
+  // Everyone else: tags.
+  if (QWEN_FAMILY.has(target)) return "structured";
+  if (target === "flux" || target === "ltx") return "natural";
   return "tags";
 }
 
@@ -128,7 +134,8 @@ function composeProse(tags: Tag[], opts: GenerateOptions): string {
   const colors = txt("color");
   const styles = txt("style");
   const medium = [...colors, ...styles];
-  const opener = medium.length ? `A ${medium.join(", ")}` : "A highly detailed image";
+  const fallback = opts.target === "ltx" ? "A cinematic shot" : "A highly detailed image";
+  const opener = medium.length ? `A ${medium.join(", ")}` : fallback;
 
   // --- Subject phrase ---
   const comp = txt("composition");
@@ -196,16 +203,25 @@ function composeProse(tags: Tag[], opts: GenerateOptions): string {
 
   let sentence = segments.filter(Boolean).join(", ");
   sentence = sentence.charAt(0).toUpperCase() + sentence.slice(1);
+  if (!/[.!?]$/.test(sentence)) sentence += ".";
+
+  // --- Camera movement (video models want it as its own explicit direction) ---
+  const movement = txt("motion");
+  if (movement.length) {
+    sentence += ` The camera movement is a ${joinNatural(movement)}.`;
+  } else if (opts.target === "ltx") {
+    // LTX invents motion when unconstrained; anchor it explicitly.
+    sentence += " The camera holds a steady, slow push in.";
+  }
 
   // --- Quality framing (only when explicitly requested) ---
   if (opts.addQualityTags) {
-    const magic =
-      opts.target === "qwen"
-        ? QWEN_POSITIVE_MAGIC.join(", ")
+    const magic = QWEN_FAMILY.has(opts.target)
+      ? QWEN_POSITIVE_MAGIC.join(", ")
+      : opts.target === "ltx"
+        ? "Cinematic, natural motion, coherent physics"
         : "highly detailed, sharp focus, professional quality";
-    sentence += `. ${magic}.`;
-  } else if (!/[.!?]$/.test(sentence)) {
-    sentence += ".";
+    sentence += ` ${magic.charAt(0).toUpperCase() + magic.slice(1)}.`;
   }
 
   return sentence;
@@ -219,6 +235,7 @@ const STRUCTURED_LAYOUT: { label: string; cats: Category[] }[] = [
   { label: "Pose", cats: ["expression", "pose"] },
   { label: "Clothing", cats: ["clothing"] },
   { label: "Camera", cats: ["composition", "camera"] },
+  { label: "Motion", cats: ["motion"] },
   { label: "Environment", cats: ["setting", "timeWeather"] },
   { label: "Lighting", cats: ["lighting"] },
   { label: "Mood", cats: ["mood"] },
@@ -242,7 +259,7 @@ function composeStructured(tags: Tag[], opts: GenerateOptions): string {
       const texts = g.get(c)!.map((t) => t.text);
       vals.push(...(c === "subjectCount" ? humanizeCounts(texts) : texts));
     }
-    if (label === "Style" && opts.addQualityTags && opts.target === "qwen") {
+    if (label === "Style" && opts.addQualityTags && QWEN_FAMILY.has(opts.target)) {
       vals.push(...QWEN_POSITIVE_MAGIC);
     }
     if (vals.length) lines.push(`${label}: ${vals.join(", ")}`);

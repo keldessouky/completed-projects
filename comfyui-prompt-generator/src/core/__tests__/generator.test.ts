@@ -148,6 +148,59 @@ describe("weights and negatives", () => {
   });
 });
 
+describe("ltx video target", () => {
+  const PROMPT =
+    "A samurai walking through a foggy bamboo forest at dawn, slow dolly in, " +
+    "handheld camera, cinematic.";
+
+  it("defaults to natural prose", () => {
+    const r = convert(PROMPT, { target: "ltx" });
+    expect(r.styleUsed).toBe("natural");
+    expect(r.positive).not.toContain("\n");
+  });
+
+  it("emits camera movement as its own explicit direction", () => {
+    const r = convert(PROMPT, { target: "ltx" });
+    expect(r.positive).toContain("The camera movement is a slow dolly in and handheld camera.");
+  });
+
+  it("anchors camera motion even when none is described", () => {
+    const r = convert("a knight in a castle", { target: "ltx" });
+    expect(r.positive).toContain("The camera holds a steady, slow push in.");
+  });
+
+  it("uses the official LTX negative when requested", () => {
+    const r = convert(PROMPT, { target: "ltx", includeNegative: true });
+    expect(r.negative).toContain("motion artifacts");
+    expect(r.negative).toContain("static");
+  });
+
+  it("classifies camera moves into the motion category", () => {
+    const r = convert(PROMPT, { target: "qwen" });
+    expect(r.positive).toMatch(/^Motion: slow dolly in, handheld camera$/m);
+  });
+});
+
+describe("qwen turbo target", () => {
+  it("shares qwen structured output and positive magic", () => {
+    const r = convert("a woman in a red dress in a garden", {
+      target: "qwenTurbo",
+      addQualityTags: true,
+    });
+    expect(r.styleUsed).toBe("structured");
+    expect(r.positive).toMatch(/^Subject: /m);
+    expect(r.positive).toContain("Ultra HD, 4K, cinematic composition");
+  });
+
+  it("never emits a negative (cfg-distilled, inert)", () => {
+    const r = convert("a woman in a red dress", {
+      target: "qwenTurbo",
+      includeNegative: true,
+    });
+    expect(r.negative).toBe("");
+  });
+});
+
 describe("mature / horror content gating", () => {
   it("ignores horror vocabulary unless opted in", () => {
     const off = convert("a zombie with gore in a haunted forest", { target: "qwen" });

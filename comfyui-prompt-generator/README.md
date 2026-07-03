@@ -10,14 +10,27 @@ browser** — no server, no API keys, nothing leaves your machine.
 Different model families want different prompt shapes, and writing prompts well
 is a skill. This tool encodes that knowledge:
 
-| Target            | Output style          | Notes |
-| ----------------- | --------------------- | ----- |
-| **Qwen-Image**    | structured labels     | Default. Labeled categories + official positive magic. |
-| **Flux**          | natural-language prose | Tags / quality boosters *hurt* Flux, so they're suppressed. |
-| **SDXL**          | tags (or prose)       | Booru-style tags, attention-ordered. |
-| **SD 1.5**        | tags                  | Terse, comma-separated. |
-| **Pony**          | booru + `score_` tags | Adds `score_9, score_8_up, …`. |
-| **Illustrious**   | booru tags            | Danbooru-style ordering. |
+| Target                | Output style          | Notes |
+| --------------------- | --------------------- | ----- |
+| **Qwen-Image-2512**   | structured labels     | Default. Labeled categories + official positive magic. |
+| **Qwen-2512 Turbo**   | structured labels     | Wuli 2-step LoRA (cfg 1.0): same prompting, negative hard-disabled (CFG-distilled → inert). LoRA scale 0.8–1.2. |
+| **LTX-2.3 (video)**   | cinematography prose  | Present-tense paragraph ending in an explicit camera move; official Lightricks negative on request. cfg 3.0–3.5, 20–30 steps iterating. |
+| **Flux**              | natural-language prose | Tags / quality boosters *hurt* Flux, so they're suppressed. |
+| **SDXL**              | tags (or prose)       | Booru-style tags, attention-ordered. |
+| **SD 1.5**            | tags                  | Terse, comma-separated. |
+| **Pony**              | booru + `score_` tags | Adds `score_9, score_8_up, …`. |
+| **Illustrious**       | booru tags            | Danbooru-style ordering. |
+
+### Video (LTX-2.3)
+
+LTX behaves like a virtual camera crew: it wants a physically plausible scene
+unfolding over time, and it *invents* motion when unconstrained. So the
+generator adds a **`motion` category** (dolly in, pull back, pan, tracking
+shot, handheld, orbit, whip pan, rack focus, POV, FPV, static camera, slow
+motion, time-lapse…) and always ends the LTX prompt with an explicit camera
+direction — yours if you named one, a steady slow push in otherwise. The
+negative uses the official Lightricks model-card list (`motion smear, motion
+artifacts, …, transition, static`), since negatives matter more for video.
 
 Three output styles are available for any target: **structured** (labeled
 categories), **natural** (one flowing sentence), and **tags** (comma-separated).
@@ -37,8 +50,9 @@ keystroke), implemented in `src/core/autocomplete.ts`.
 Every parameter the Qwen guide structures around has its own category, in
 emission order: quality, subject count, subject (incl. age), appearance,
 clothing, expression, pose, composition, **camera** (lens / focal length / film
-stock / long exposure), setting, time & weather, lighting, mood, style,
-**color** scheme, **material** (chrome, glass, marble, velvet…), and **text**.
+stock / long exposure), **motion** (camera movement over time, for video),
+setting, time & weather, lighting, mood, style, **color** scheme, **material**
+(chrome, glass, marble, velvet…), and **text**.
 
 ### Mature / horror content (opt-in)
 

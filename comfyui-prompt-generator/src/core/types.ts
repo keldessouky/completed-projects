@@ -20,6 +20,7 @@ export const CATEGORY_ORDER = [
   "pose",         // standing, sitting, running
   "composition",  // close-up, full body, from above, rule of thirds
   "camera",       // lens, focal length, film stock, long exposure, macro
+  "motion",       // camera movement over time: dolly in, pan, tracking (video)
   "setting",      // forest, city, indoors
   "timeWeather",  // night, sunset, rain, snow
   "lighting",     // cinematic lighting, rim light, golden hour
@@ -57,7 +58,9 @@ export interface ParsedPrompt {
 
 /** Target model families. They differ in preferred prompt style. */
 export type TargetModel =
-  | "qwen"        // Qwen-Image: rich natural-language prose (default)
+  | "qwen"        // Qwen-Image-2512: structured labels (default)
+  | "qwenTurbo"   // Qwen-2512 + Wuli Turbo LoRA: same prompting, negative inert
+  | "ltx"         // LTX-2.3 video: cinematography prose with camera motion
   | "flux"        // natural language ONLY; tags/quality boosters hurt
   | "sdxl"        // tags work; natural language also fine
   | "sd15"        // tag-driven, terse

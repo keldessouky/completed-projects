@@ -33,6 +33,18 @@ const NOTES: Partial<Record<TargetModel, string>> = {
     "the official magic (Ultra HD, 4K, cinematic composition). In the Turbo " +
     "2-step workflow (cfg 1.0 + ConditioningZeroOut) the negative prompt is " +
     "inert, so it's off by default.",
+  qwenTurbo:
+    "Qwen-Image-2512 with the Wuli Turbo LoRA: same structured prompting as " +
+    "Qwen-2512, sampled at 2 steps / cfg 1.0 (euler, simple). CFG-distillation " +
+    "makes the negative prompt inert, so it's disabled here. LoRA scale sweet " +
+    "spot: 0.8–1.2.",
+  ltx:
+    "LTX-2.3 wants cinematography prose: one flowing present-tense paragraph — " +
+    "subject → action → camera movement → lighting. Name the camera move " +
+    "explicitly (slow dolly in, handheld tracking); LTX invents motion when " +
+    "unconstrained, so negatives matter more for video (official default " +
+    "provided). Params: cfg 3.0–3.5, 20–30 steps iterating / 40+ final, " +
+    "≤257 frames.",
   flux:
     "Flux understands natural language. Tag-dumping and quality boosters " +
     "actively degrade output, so they're suppressed here.",
