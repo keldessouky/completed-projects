@@ -21,7 +21,22 @@
 
       <main class="layout">
         <section class="panel input-panel">
-          <label class="field-label" for="input">Describe your image</label>
+          <div class="input-head">
+            <label class="field-label" for="input">Describe your image</label>
+            <select id="preset" title="Load a starting point tuned to your model">
+              <option value="">Presets…</option>
+              <optgroup label="Qwen-2512 Turbo (image)">
+                <option value="turbo-portrait">Business portrait</option>
+                <option value="turbo-poster">Poster with text</option>
+                <option value="turbo-product">Product shot</option>
+              </optgroup>
+              <optgroup label="LTX-2.3 (video)">
+                <option value="ltx-street">Neon street walk</option>
+                <option value="ltx-nature">Misty forest reveal</option>
+                <option value="ltx-horror">Horror creature (mature)</option>
+              </optgroup>
+            </select>
+          </div>
           <div class="textarea-wrap">
             <textarea
               id="input"
@@ -39,9 +54,9 @@
             <div class="control">
               <label for="target">Target model</label>
               <select id="target">
-                <option value="qwen">Qwen-Image-2512 (structured)</option>
-                <option value="qwenTurbo">Qwen-2512 Turbo 2-step (structured)</option>
+                <option value="qwenTurbo" selected>Qwen-2512 Turbo 2-step (structured)</option>
                 <option value="ltx">LTX-2.3 video (prose)</option>
+                <option value="qwen">Qwen-Image-2512 (structured)</option>
                 <option value="flux">Flux (prose)</option>
                 <option value="sdxl">SDXL (tags)</option>
                 <option value="sd15">SD 1.5 (tags)</option>

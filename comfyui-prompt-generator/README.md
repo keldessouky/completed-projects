@@ -24,13 +24,35 @@ is a skill. This tool encodes that knowledge:
 ### Video (LTX-2.3)
 
 LTX behaves like a virtual camera crew: it wants a physically plausible scene
-unfolding over time, and it *invents* motion when unconstrained. So the
-generator adds a **`motion` category** (dolly in, pull back, pan, tracking
-shot, handheld, orbit, whip pan, rack focus, POV, FPV, static camera, slow
-motion, time-lapse…) and always ends the LTX prompt with an explicit camera
-direction — yours if you named one, a steady slow push in otherwise. The
-negative uses the official Lightricks model-card list (`motion smear, motion
-artifacts, …, transition, static`), since negatives matter more for video.
+unfolding over time, and it *invents* motion when unconstrained. LTX gets a
+**dedicated cinematography composer** that writes real present-tense prose the
+way the LTX guides recommend:
+
+> A young woman with long black hair, wearing leather jacket, walks in a city
+> street, night and rain. The camera tracks alongside the subject. Lit by
+> cinematic lighting, with wet surface, the mood is moody atmosphere.
+
+- The **first action you write becomes the main verb** (tags are sorted into
+  text order); follow-up actions get a pronoun sentence ("She looks back and
+  smiles."), with pronouns inferred from the subject (she/he/it/they).
+- The **`motion` category** (dolly in, pull back, pan, tracking shot, handheld,
+  orbit, whip pan, rack focus, POV, FPV, static camera…) renders as camera
+  *verb clauses* ("The camera slowly dollies in"); slow motion / time-lapse are
+  treated as temporal, not camera moves. If you name no move, the prompt still
+  ends with an explicit steady push-in so LTX doesn't improvise.
+- Hair descriptors merge into one phrase ("long black hair"), and with the
+  mature toggle a creature can carry the scene ("A grotesque, biomechanical
+  creature crouches…") — built for horror/monster video work.
+- The negative uses the official Lightricks model-card list (`motion smear,
+  motion artifacts, …, transition, static`); negatives matter more for video.
+
+### Presets
+
+The **Presets…** picker loads curated starting points tuned to the two primary
+targets: business portrait / poster-with-text / product shot for Qwen-2512
+Turbo, and neon street walk / misty forest reveal / horror creature for
+LTX-2.3 (the horror preset enables the mature toggle). Qwen-2512 Turbo is the
+default target.
 
 Three output styles are available for any target: **structured** (labeled
 categories), **natural** (one flowing sentence), and **tags** (comma-separated).

@@ -74,6 +74,18 @@ textarea {
 }
 textarea:focus { outline: 2px solid var(--accent); border-color: transparent; }
 
+.input-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.input-head .field-label { margin-bottom: 8px; }
+.input-head select {
+  margin-bottom: 8px;
+  max-width: 46%;
+}
+
 .textarea-wrap { position: relative; }
 
 .ac-dropdown {

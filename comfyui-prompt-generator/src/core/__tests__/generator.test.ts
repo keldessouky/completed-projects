@@ -153,20 +153,73 @@ describe("ltx video target", () => {
     "A samurai walking through a foggy bamboo forest at dawn, slow dolly in, " +
     "handheld camera, cinematic.";
 
-  it("defaults to natural prose", () => {
+  it("defaults to natural prose in multiple sentences", () => {
     const r = convert(PROMPT, { target: "ltx" });
     expect(r.styleUsed).toBe("natural");
     expect(r.positive).not.toContain("\n");
+    expect(r.positive.split(". ").length).toBeGreaterThanOrEqual(2);
   });
 
-  it("emits camera movement as its own explicit direction", () => {
+  it("uses the first pose as a present-tense main verb", () => {
     const r = convert(PROMPT, { target: "ltx" });
-    expect(r.positive).toContain("The camera movement is a slow dolly in and handheld camera.");
+    expect(r.positive).toMatch(/A samurai .*walks in a/);
+  });
+
+  it("renders camera movement as verb clauses", () => {
+    const r = convert(PROMPT, { target: "ltx" });
+    expect(r.positive).toContain("The camera slowly dollies in");
+    expect(r.positive).toContain("handheld");
   });
 
   it("anchors camera motion even when none is described", () => {
     const r = convert("a knight in a castle", { target: "ltx" });
-    expect(r.positive).toContain("The camera holds a steady, slow push in.");
+    expect(r.positive).toContain("The camera slowly pushes in.");
+  });
+
+  it("uses pronouns for follow-up actions", () => {
+    const r = convert("a woman standing on a cliff, looking back, smiling", {
+      target: "ltx",
+    });
+    expect(r.positive).toContain("A woman");
+    expect(r.positive).toMatch(/She .*smiles\./);
+  });
+
+  it("treats slow motion as temporal, not a camera move", () => {
+    const r = convert("a dog running on a beach, slow motion", { target: "ltx" });
+    expect(r.positive).toContain("The scene plays out in slow motion.");
+    expect(r.positive).toContain("The camera slowly pushes in.");
+  });
+
+  it("lets creature content carry the scene with mature enabled", () => {
+    const r = convert("a monster lurking in a cave, snarling, fog", {
+      target: "ltx",
+      includeNsfw: true,
+    });
+    expect(r.positive).toMatch(/^A monster lurks in a cave/);
+    expect(r.positive).toContain("It snarls.");
+  });
+
+  it("picks the user's first-written action as the main verb", () => {
+    const r = convert("a man running through a field, then jumping", { target: "ltx" });
+    expect(r.positive).toMatch(/A man runs in a field/);
+    expect(r.positive).toContain("He jumps.");
+  });
+
+  it("merges hair descriptors into one phrase in video prose", () => {
+    const r = convert("a woman with long black hair standing on a beach", {
+      target: "ltx",
+    });
+    expect(r.positive).toContain("long black hair");
+    expect(r.positive).not.toContain("long hair and");
+  });
+
+  it("builds creature subjects as modifiers + noun", () => {
+    const r = convert("a grotesque biomechanical creature crouching in a cave", {
+      target: "ltx",
+      includeNsfw: true,
+    });
+    expect(r.positive).toMatch(/^A grotesque, biomechanical creature crouches/);
+    expect(r.positive).not.toContain("The scene shows creature");
   });
 
   it("uses the official LTX negative when requested", () => {

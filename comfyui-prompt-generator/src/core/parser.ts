@@ -134,9 +134,15 @@ function isWholeWordSubset(small: string, big: string): boolean {
  * dedup is left to the tag composer so prose output can still say "a man".
  */
 function postProcess(tags: Tag[]): Tag[] {
-  return tags.filter(
+  const kept = tags.filter(
     (t) => !tags.some((other) => isWholeWordSubset(t.text, other.text)),
   );
+  // Stable-sort into text order so downstream composers see concepts in the
+  // sequence the user wrote them (e.g. the first action becomes the main verb).
+  return kept
+    .map((t, i) => ({ t, i }))
+    .sort((a, b) => (a.t.pos ?? -1) - (b.t.pos ?? -1) || a.i - b.i)
+    .map(({ t }) => t);
 }
 
 /**
@@ -173,8 +179,9 @@ export function parse(input: string, opts: ParseOptions = {}): ParsedPrompt {
   // is only consulted when the caller explicitly opts in.
   const active = opts.includeNsfw ? [...LEXICON, ...NSFW_LEXICON] : LEXICON;
   for (const rule of active) {
-    if (rule.pattern.test(text)) {
-      push({ text: rule.tag, category: rule.category, source: rule.tag });
+    const m = rule.pattern.exec(text);
+    if (m) {
+      push({ text: rule.tag, category: rule.category, source: rule.tag, pos: m.index });
     }
   }
 

@@ -18,6 +18,7 @@ const negativeChk = $<HTMLInputElement>("negative");
 const nsfwChk = $<HTMLInputElement>("nsfw");
 const emphasisSel = $<HTMLSelectElement>("emphasis");
 const acEl = $<HTMLUListElement>("ac");
+const presetSel = $<HTMLSelectElement>("preset");
 const positiveOut = $<HTMLPreElement>("positive");
 const negativeOut = $<HTMLPreElement>("negative-out");
 const negativeBlock = $<HTMLDivElement>("negative-block");
@@ -213,6 +214,74 @@ input.addEventListener("keydown", (e) => {
       closeAc();
       break;
   }
+});
+
+// ---------------------------------------------------------------------------
+// Presets: curated starting points tuned to the two primary models.
+// ---------------------------------------------------------------------------
+interface Preset {
+  target: TargetModel;
+  text: string;
+  nsfw?: boolean;
+  negative?: boolean;
+}
+
+const PRESETS: Record<string, Preset> = {
+  "turbo-portrait": {
+    target: "qwenTurbo",
+    text:
+      "Professional headshot of a 45-year-old executive with a confident " +
+      "expression, wearing a navy blazer and white shirt, simple background, " +
+      "soft studio lighting, photorealistic.",
+  },
+  "turbo-poster": {
+    target: "qwenTurbo",
+    text:
+      'Event poster with the headline "Aurora Festival 2026", gradient ' +
+      "background, minimalist, vibrant colors, high contrast.",
+  },
+  "turbo-product": {
+    target: "qwenTurbo",
+    text:
+      "A perfume bottle of glass with amber liquid on marble, water droplets, " +
+      "reflective, soft lighting, black background, macro lens, photorealistic.",
+  },
+  "ltx-street": {
+    target: "ltx",
+    text:
+      "A young woman with long black hair wearing a leather jacket walking " +
+      "through a neon-lit city street at night, rain, wet pavement, tracking " +
+      "shot, cinematic, moody.",
+    negative: true,
+  },
+  "ltx-nature": {
+    target: "ltx",
+    text:
+      "A misty forest at dawn with a waterfall, sunlight through the canopy, " +
+      "slow pull back, serene, cinematic.",
+    negative: true,
+  },
+  "ltx-horror": {
+    target: "ltx",
+    text:
+      "A grotesque biomechanical creature crouching in a derelict spaceship " +
+      "corridor, slime, wet, fog, eerie, dramatic shadows, slow dolly in, " +
+      "handheld, cinematic horror.",
+    nsfw: true,
+    negative: true,
+  },
+};
+
+presetSel.addEventListener("change", () => {
+  const p = PRESETS[presetSel.value];
+  presetSel.value = "";
+  if (!p) return;
+  input.value = p.text;
+  targetSel.value = p.target;
+  if (p.nsfw) nsfwChk.checked = true;
+  if (p.negative !== undefined) negativeChk.checked = p.negative;
+  render();
+  saveState();
 });
 
 // ---------------------------------------------------------------------------

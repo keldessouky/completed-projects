@@ -47,6 +47,8 @@ export interface Tag {
   weight?: number;
   /** The original input fragment this tag was derived from (for debugging/UI). */
   source?: string;
+  /** Character offset of the match in the normalized input (for text-order sorting). */
+  pos?: number;
 }
 
 /** Result of parsing a paragraph into structured concepts. */
