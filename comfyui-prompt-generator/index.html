@@ -90,6 +90,13 @@
               >
             </div>
 
+            <div class="control checkbox">
+              <label
+                title="Also generate the matching prompt for the other medium: the LTX video version of an image prompt, or the Qwen Turbo still of a video prompt."
+                ><input type="checkbox" id="companion" /> Image ⇄ video companion</label
+              >
+            </div>
+
             <div class="control">
               <label for="emphasis">Emphasize subject</label>
               <select id="emphasis">
@@ -116,6 +123,14 @@
               <button class="copy-btn" data-copy="positive">Copy</button>
             </div>
             <pre id="positive" class="output-text"></pre>
+          </div>
+
+          <div class="output-block" id="companion-block" hidden>
+            <div class="output-head">
+              <span class="field-label" id="companion-label">Companion</span>
+              <button class="copy-btn" data-copy="companion">Copy</button>
+            </div>
+            <pre id="companion-out" class="output-text"></pre>
           </div>
 
           <div class="output-block" id="negative-block" hidden>

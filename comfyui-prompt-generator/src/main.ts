@@ -16,9 +16,13 @@ const styleSel = $<HTMLSelectElement>("style");
 const qualityChk = $<HTMLInputElement>("quality");
 const negativeChk = $<HTMLInputElement>("negative");
 const nsfwChk = $<HTMLInputElement>("nsfw");
+const companionChk = $<HTMLInputElement>("companion");
 const emphasisSel = $<HTMLSelectElement>("emphasis");
 const acEl = $<HTMLUListElement>("ac");
 const presetSel = $<HTMLSelectElement>("preset");
+const companionBlock = $<HTMLDivElement>("companion-block");
+const companionLabel = $<HTMLSpanElement>("companion-label");
+const companionOut = $<HTMLPreElement>("companion-out");
 const positiveOut = $<HTMLPreElement>("positive");
 const negativeOut = $<HTMLPreElement>("negative-out");
 const negativeBlock = $<HTMLDivElement>("negative-block");
@@ -136,6 +140,7 @@ function render(): void {
     positiveOut.textContent = "";
     negativeOut.textContent = "";
     negativeBlock.hidden = true;
+    companionBlock.hidden = true;
     chipsEl.innerHTML = "";
     unmatchedEl.textContent = "";
     return;
@@ -145,6 +150,20 @@ function render(): void {
   const result = generate(parsed, opts);
 
   positiveOut.textContent = result.positive;
+
+  // Companion prompt: the same scene for the other medium.
+  if (companionChk.checked) {
+    const companionTarget: TargetModel = opts.target === "ltx" ? "qwenTurbo" : "ltx";
+    const companion = generate(parsed, { ...opts, target: companionTarget, style: undefined });
+    companionLabel.textContent =
+      companionTarget === "ltx"
+        ? "Companion — LTX-2.3 video"
+        : "Companion — Qwen-2512 Turbo still";
+    companionOut.textContent = companion.positive;
+    companionBlock.hidden = false;
+  } else {
+    companionBlock.hidden = true;
+  }
 
   if (result.negative) {
     negativeOut.textContent = result.negative;
@@ -170,7 +189,8 @@ function render(): void {
 document.querySelectorAll<HTMLButtonElement>(".copy-btn").forEach((btn) => {
   btn.addEventListener("click", async () => {
     const which = btn.dataset.copy;
-    const el = which === "negative" ? negativeOut : positiveOut;
+    const el =
+      which === "negative" ? negativeOut : which === "companion" ? companionOut : positiveOut;
     try {
       await navigator.clipboard.writeText(el.textContent ?? "");
       btn.classList.add("copied");
@@ -354,6 +374,7 @@ interface SavedState {
   quality: boolean;
   negative: boolean;
   nsfw: boolean;
+  companion?: boolean;
   emphasis: string;
 }
 
@@ -365,6 +386,7 @@ function saveState(): void {
     quality: qualityChk.checked,
     negative: negativeChk.checked,
     nsfw: nsfwChk.checked,
+    companion: companionChk.checked,
     emphasis: emphasisSel.value,
   };
   try {
@@ -389,6 +411,7 @@ function restoreState(): boolean {
     if (typeof s.quality === "boolean") qualityChk.checked = s.quality;
     if (typeof s.negative === "boolean") negativeChk.checked = s.negative;
     if (typeof s.nsfw === "boolean") nsfwChk.checked = s.nsfw;
+    if (typeof s.companion === "boolean") companionChk.checked = s.companion;
     if (typeof s.emphasis === "string") emphasisSel.value = s.emphasis;
     return typeof s.text === "string";
   } catch {
@@ -404,7 +427,7 @@ input.addEventListener("input", () => {
 input.addEventListener("click", updateAc);
 input.addEventListener("blur", () => setTimeout(closeAc, 120));
 
-for (const el of [targetSel, styleSel, qualityChk, negativeChk, nsfwChk, emphasisSel]) {
+for (const el of [targetSel, styleSel, qualityChk, negativeChk, nsfwChk, companionChk, emphasisSel]) {
   el.addEventListener("input", () => {
     render();
     saveState();
