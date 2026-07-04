@@ -25,6 +25,61 @@ const negativeBlock = $<HTMLDivElement>("negative-block");
 const chipsEl = $<HTMLDivElement>("chips");
 const unmatchedEl = $<HTMLDivElement>("unmatched");
 const workflowNote = $<HTMLParagraphElement>("workflow-note");
+const paramsEl = $<HTMLTableElement>("params");
+
+/** Suggested KSampler / workflow settings per target, shown under the note. */
+const PARAMS: Record<TargetModel, [string, string][]> = {
+  qwenTurbo: [
+    ["Steps", "2 (Wuli 2-step LoRA)"],
+    ["CFG", "1.0"],
+    ["Sampler / scheduler", "euler / simple"],
+    ["LoRA strength", "1.0 (sweet spot 0.8–1.2)"],
+    ["Resolution", "1328×1328 base (any Qwen AR)"],
+    ["Negative", "inert — leave empty (ConditioningZeroOut)"],
+  ],
+  qwen: [
+    ["Steps", "50 (30 for drafts)"],
+    ["CFG", "4.5 (6–7 for text rendering)"],
+    ["Sampler / scheduler", "euler / simple"],
+    ["Resolution", "1328×1328 base"],
+    ["Negative", "recommended (~+15% satisfaction)"],
+  ],
+  ltx: [
+    ["Steps", "20–30 iterating, 40+ final"],
+    ["CFG", "3.0–3.5"],
+    ["Resolution", "1280×720 iterating (up to 2560×1440)"],
+    ["Frames", "≤257 for best coherence"],
+    ["FPS", "25–50"],
+    ["Negative", "important — LTX invents motion without it"],
+  ],
+  flux: [
+    ["Steps", "20–30"],
+    ["Guidance", "3.5 (flux-dev)"],
+    ["Resolution", "1024×1024 base"],
+    ["Negative", "unused at distilled guidance"],
+  ],
+  sdxl: [
+    ["Steps", "25–35"],
+    ["CFG", "5–7"],
+    ["Resolution", "1024×1024 base"],
+  ],
+  sd15: [
+    ["Steps", "20–30"],
+    ["CFG", "7"],
+    ["Resolution", "512×512 / 768×768"],
+  ],
+  pony: [
+    ["Steps", "25–35"],
+    ["CFG", "5–7"],
+    ["Clip skip", "2"],
+    ["Resolution", "1024×1024 base"],
+  ],
+  illustrious: [
+    ["Steps", "25–35"],
+    ["CFG", "5–7"],
+    ["Resolution", "1024×1024 base"],
+  ],
+};
 
 const NOTES: Partial<Record<TargetModel, string>> = {
   qwen:
@@ -72,6 +127,9 @@ function currentOptions(): GenerateOptions {
 function render(): void {
   const opts = currentOptions();
   workflowNote.textContent = NOTES[opts.target] ?? "";
+  paramsEl.innerHTML = (PARAMS[opts.target] ?? [])
+    .map(([k, v]) => `<tr><td class="pk">${k}</td><td>${v}</td></tr>`)
+    .join("");
 
   const text = input.value.trim();
   if (!text) {

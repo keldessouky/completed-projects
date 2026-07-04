@@ -172,6 +172,19 @@ select {
 }
 .note:empty { display: none; }
 
+.params-block { margin-top: 14px; }
+.params {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+.params td {
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border);
+}
+.params tr:last-child td { border-bottom: none; }
+.params .pk { color: var(--muted); white-space: nowrap; width: 1%; }
+
 .output-block { margin-bottom: 18px; }
 .output-block:last-child { margin-bottom: 0; }
 .output-head {
