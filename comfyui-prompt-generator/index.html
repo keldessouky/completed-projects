@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ComfyUI Prompt Generator</title>
+    <meta
+      name="description"
+      content="Convert plain-English paragraphs into optimized ComfyUI / Stable Diffusion prompts. Runs entirely in your browser."
+    />
+  </head>
+  <body>
+    <div id="app">
+      <header class="topbar">
+        <h1>ComfyUI Prompt Generator</h1>
+        <p class="tagline">
+          Paragraph in &rarr; optimized prompt out. Tuned for Qwen-Image, Flux,
+          SDXL, Pony &amp; SD1.5. Everything runs locally in your browser.
+        </p>
+      </header>
+
+      <main class="layout">
+        <section class="panel input-panel">
+          <div class="input-head">
+            <label class="field-label" for="input">Describe your image</label>
+            <select id="preset" title="Load a starting point tuned to your model">
+              <option value="">Presets…</option>
+              <optgroup label="Qwen-2512 Turbo (image)">
+                <option value="turbo-portrait">Business portrait</option>
+                <option value="turbo-poster">Poster with text</option>
+                <option value="turbo-product">Product shot</option>
+              </optgroup>
+              <optgroup label="LTX-2.3 (video)">
+                <option value="ltx-street">Neon street walk</option>
+                <option value="ltx-nature">Misty forest reveal</option>
+                <option value="ltx-horror">Horror creature (mature)</option>
+              </optgroup>
+            </select>
+          </div>
+          <div class="textarea-wrap">
+            <textarea
+              id="input"
+              rows="8"
+              autocomplete="off"
+              autocorrect="off"
+              spellcheck="false"
+              placeholder="e.g. A young woman with long blonde hair stands in a rainy neon-lit city at night, wearing a red leather jacket. The photo is cinematic and moody with shallow depth of field, photorealistic."
+            ></textarea>
+            <ul id="ac" class="ac-dropdown" role="listbox" hidden></ul>
+          </div>
+          <p class="hint">Tip: start typing a concept and pick a suggestion (↑/↓, Enter/Tab) to build a recognized prompt.</p>
+
+          <div class="controls">
+            <div class="control">
+              <label for="target">Target model</label>
+              <select id="target">
+                <option value="qwenTurbo" selected>Qwen-2512 Turbo 2-step (structured)</option>
+                <option value="ltx">LTX-2.3 video (prose)</option>
+                <option value="qwen">Qwen-Image-2512 (structured)</option>
+                <option value="flux">Flux (prose)</option>
+                <option value="sdxl">SDXL (tags)</option>
+                <option value="sd15">SD 1.5 (tags)</option>
+                <option value="pony">Pony (booru + score)</option>
+                <option value="illustrious">Illustrious (booru)</option>
+              </select>
+            </div>
+
+            <div class="control">
+              <label for="style">Output style</label>
+              <select id="style">
+                <option value="auto">Auto (model default)</option>
+                <option value="structured">Structured (labeled)</option>
+                <option value="natural">Natural language</option>
+                <option value="tags">Tags</option>
+              </select>
+            </div>
+
+            <div class="control checkbox">
+              <label><input type="checkbox" id="quality" /> Quality boosters</label>
+            </div>
+
+            <div class="control checkbox">
+              <label><input type="checkbox" id="negative" /> Negative prompt</label>
+            </div>
+
+            <div class="control checkbox">
+              <label
+                title="Enables horror / gore / creature and mature vocabulary for monster, sci-fi and horror-comic work."
+                ><input type="checkbox" id="nsfw" /> Mature / horror</label
+              >
+            </div>
+
+            <div class="control checkbox">
+              <label
+                title="Also generate the matching prompt for the other medium: the LTX video version of an image prompt, or the Qwen Turbo still of a video prompt."
+                ><input type="checkbox" id="companion" /> Image ⇄ video companion</label
+              >
+            </div>
+
+            <div class="control">
+              <label for="emphasis">Emphasize subject</label>
+              <select id="emphasis">
+                <option value="1">Off</option>
+                <option value="1.1">1.1</option>
+                <option value="1.2">1.2</option>
+                <option value="1.3">1.3</option>
+              </select>
+            </div>
+          </div>
+
+          <p id="workflow-note" class="note"></p>
+
+          <div class="params-block">
+            <span class="field-label">Suggested ComfyUI settings</span>
+            <table id="params" class="params"></table>
+          </div>
+        </section>
+
+        <section class="panel output-panel">
+          <div class="output-block">
+            <div class="output-head">
+              <span class="field-label">Positive prompt</span>
+              <button class="copy-btn" data-copy="positive">Copy</button>
+            </div>
+            <pre id="positive" class="output-text"></pre>
+          </div>
+
+          <div class="output-block" id="companion-block" hidden>
+            <div class="output-head">
+              <span class="field-label" id="companion-label">Companion</span>
+              <button class="copy-btn" data-copy="companion">Copy</button>
+            </div>
+            <pre id="companion-out" class="output-text"></pre>
+          </div>
+
+          <div class="output-block" id="negative-block" hidden>
+            <div class="output-head">
+              <span class="field-label">Negative prompt</span>
+              <button class="copy-btn" data-copy="negative">Copy</button>
+            </div>
+            <pre id="negative-out" class="output-text"></pre>
+          </div>
+
+          <div class="output-block">
+            <span class="field-label">Detected concepts</span>
+            <div id="chips" class="chips"></div>
+            <div id="unmatched" class="unmatched"></div>
+          </div>
+        </section>
+      </main>
+
+      <footer class="footer">
+        Runs entirely client-side &middot; no data leaves your machine.
+      </footer>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
