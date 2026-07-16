@@ -39,6 +39,12 @@ final class LevelParserTests: XCTestCase {
         XCTAssertNil(level.tile(column: 5, row: 0))
     }
 
+    func testParsesCheckpoint() throws {
+        let level = try LevelParser.parse("P.C.N\nGGGGG")
+        XCTAssertEqual(level.placements(of: .checkpoint).count, 1)
+        XCTAssertEqual(level.placements(of: .checkpoint).first?.column, 2)
+    }
+
     func testRejectsUnknownCharacters() {
         XCTAssertThrowsError(try LevelParser.parse("P.N\nGGZ")) { error in
             XCTAssertEqual(error as? LevelParseError,
@@ -71,26 +77,33 @@ final class LevelParserTests: XCTestCase {
     }
 }
 
-/// The shipped stage must always load and stay playable.
-final class Level1IntegrityTests: XCTestCase {
-    func testLevel1LoadsAndIsWellFormed() throws {
-        let level = try LevelParser.load(named: "level1")
+/// Every shipped stage must always load and stay playable. (The Windows
+/// test suite additionally proves each stage completable with a runner
+/// bot against the shared level files.)
+final class StageIntegrityTests: XCTestCase {
+    func testAllStagesLoadAndAreWellFormed() throws {
+        for stage in 1...GameConfig.stageCount {
+            let name = "level\(stage)"
+            let level = try LevelParser.load(named: name)
 
-        XCTAssertGreaterThanOrEqual(level.columns, 150, "stage 1 should be a real stage, not a stub")
-        XCTAssertEqual(level.rows, 17, "one screen = 17 rows of 16px tiles")
-        XCTAssertNotNil(level.playerSpawn)
-        XCTAssertEqual(level.placements(of: .nousa).count, 1)
-        XCTAssertGreaterThanOrEqual(level.placements(of: .thug).count, 4)
-        XCTAssertGreaterThanOrEqual(level.placements(of: .coin).count, 20)
+            XCTAssertGreaterThanOrEqual(level.columns, 150, "\(name): real stage, not a stub")
+            XCTAssertEqual(level.rows, 17, "\(name): one screen = 17 rows of 16px tiles")
+            XCTAssertNotNil(level.playerSpawn, "\(name): has spawn")
+            XCTAssertEqual(level.placements(of: .nousa).count, 1, "\(name): one goal")
+            XCTAssertGreaterThanOrEqual(level.placements(of: .thug).count, 4, "\(name): enough thugs")
+            XCTAssertGreaterThanOrEqual(level.placements(of: .coin).count, 20, "\(name): enough coins")
+            XCTAssertEqual(level.placements(of: .checkpoint).count, stage >= 2 ? 1 : 0,
+                           "\(name): checkpoint count")
 
-        // The spawn column must have ground under it.
-        let spawn = try XCTUnwrap(level.playerSpawn)
-        let hasFloor = (spawn.row..<level.rows).contains { level.isSolid(column: spawn.column, row: $0) }
-        XCTAssertTrue(hasFloor, "player must not spawn over a pit")
+            // The spawn column must have ground under it.
+            let spawn = try XCTUnwrap(level.playerSpawn)
+            let hasFloor = (spawn.row..<level.rows).contains { level.isSolid(column: spawn.column, row: $0) }
+            XCTAssertTrue(hasFloor, "\(name): player must not spawn over a pit")
 
-        // Nousa too.
-        let goal = try XCTUnwrap(level.placements(of: .nousa).first)
-        let goalFloor = (goal.row..<level.rows).contains { level.isSolid(column: goal.column, row: $0) }
-        XCTAssertTrue(goalFloor, "the goal must stand on solid ground")
+            // Nousa too.
+            let goal = try XCTUnwrap(level.placements(of: .nousa).first)
+            let goalFloor = (goal.row..<level.rows).contains { level.isSolid(column: goal.column, row: $0) }
+            XCTAssertTrue(goalFloor, "\(name): the goal must stand on solid ground")
+        }
     }
 }

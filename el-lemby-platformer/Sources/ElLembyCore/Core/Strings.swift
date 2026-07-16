@@ -11,6 +11,12 @@ enum L10n {
     static let controlsHint = "الأسهم أو A/D للحركة — المسافة للنط — M للصوت"
     static let fanDisclaimer = "لعبة معجبين غير رسمية مستوحاة من فيلم «اللمبي» (٢٠٠٢)"
     static let stage1Name = "المرحلة ١ — الحارة"
+    static let stage2Name = "المرحلة ٢ — شارع السوق"
+    static let checkpointToast = "نقطة تفتيش — عند عربية الفول!"
+
+    static func stageName(_ stage: Int) -> String {
+        stage == 2 ? stage2Name : stage1Name
+    }
 
     static let hudMoney = "الفكة"
     static let hudLives = "الأرواح"

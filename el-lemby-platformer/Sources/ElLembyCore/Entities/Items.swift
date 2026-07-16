@@ -74,6 +74,46 @@ final class GoalNPC: SKSpriteNode {
     }
 }
 
+/// عربية الفول — the checkpoint cart. Touch it once and deaths respawn
+/// here instead of the stage start.
+final class Checkpoint: SKSpriteNode {
+    private(set) var isActivated = false
+
+    init() {
+        super.init(texture: SpriteLoader.texture("checkpoint_idle"),
+                   color: .clear,
+                   size: CGSize(width: 16, height: 24))
+        zPosition = ZPosition.items
+
+        let body = SKPhysicsBody(rectangleOf: CGSize(width: 20, height: 24))
+        body.isDynamic = false
+        body.categoryBitMask = PhysicsCategory.checkpoint
+        body.collisionBitMask = PhysicsCategory.none
+        physicsBody = body
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) is not supported")
+    }
+
+    func activate() {
+        guard !isActivated else { return }
+        isActivated = true
+        texture = SpriteLoader.texture("checkpoint_active")
+
+        let heart = SKSpriteNode(texture: SpriteLoader.texture("heart"),
+                                 size: CGSize(width: 8, height: 8))
+        heart.position = CGPoint(x: 0, y: 16)
+        heart.zPosition = ZPosition.effects
+        addChild(heart)
+        heart.run(.sequence([
+            .group([.moveBy(x: 0, y: 14, duration: 0.6),
+                    .fadeOut(withDuration: 0.6)]),
+            .removeFromParent(),
+        ]))
+    }
+}
+
 /// صندوق الحظ — the mystery crate (Arabic ؟ on the face). Bump it from
 /// below to pop its reward.
 final class MysteryCrate: SKSpriteNode {

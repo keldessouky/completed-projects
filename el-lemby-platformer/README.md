@@ -66,7 +66,11 @@ dotnet run --project windows/ElLemby.Tests
 | ⌘Q | خروج |
 
 انط فوق البلطجية عشان تكسّبهم، وخبط الصناديق اللي عليها «؟» من تحت — فيها فكة،
-وواحد فيهم فيه **ساندوتش فول** يديك ضربة حماية زيادة.
+وواحد فيهم فيه **ساندوتش فول** يديك ضربة حماية زيادة. ولما تلاقي **عربية الفول**
+في السكة، المسها — دي نقطة تفتيش: لو خسرت روح بترجع من عندها مش من أول المرحلة.
+
+اللعبة فيها مرحلتين: **«الحارة»** ثم **«شارع السوق»** — الأرواح والنقاط بتكمل
+معاك من مرحلة للتانية.
 
 ## The game (English)
 
@@ -74,8 +78,9 @@ A native pixel-art side-scroller (left → right) for **macOS and Windows**,
 inspired by the Egyptian comedy film **El-Lemby (2002)**, with classic Mario
 feel: run/jump physics with coyote time & jump buffering, stompable enemies
 (neighborhood thugs), coin pickups (الفكة), ؟-crates, a foul-sandwich
-power-up, a countdown timer, lives, and a goal NPC (Nousa) at the end of the
-alley. The MVP is stage 1, «الحارة».
+power-up, **foul-cart checkpoints** (touch the عربية فول to respawn there),
+a countdown timer, lives, and a goal NPC (Nousa). Two stages ship today —
+«الحارة» and the harder «شارع السوق» — with lives and score carrying across.
 
 Everything is Arabic-first: HUD, menus, and Eastern Arabic numerals. Input is
 keycode-based, so it works identically on Arabic keyboard layouts.
@@ -134,10 +139,16 @@ X  صندوق     =  حجر رملي   ?  صندوق فكة  F  صندوق فو�
 o  فكة       P  بداية اللمبي  E  بلطجي   N  نوسة (النهاية)
 ```
 
-عدّل الملف يدويًا، أو عدّل `tools/build_level1.py` وشغّله من جديد. عاين النتيجة
-بدون ماك عن طريق `python3 tools/render_level.py` → ‏`docs/level1.png`:
+```
+C  نقطة تفتيش (عربية الفول)
+```
 
-![المرحلة كاملة](docs/level1.png)
+عدّل الملفات يدويًا، أو عدّل `tools/build_level1.py` / `tools/build_level2.py`
+وشغّلهما من جديد. عاين النتيجة بدون ماك عن طريق `python3 tools/render_level.py`:
+
+![المرحلة الأولى كاملة](docs/level1.png)
+
+![المرحلة الثانية كاملة](docs/level2.png)
 
 ## الأصول | Asset pipeline
 
@@ -153,7 +164,8 @@ make assets   # python3 فقط — بدون Pillow أو numpy
 
 راجع [docs/DESIGN.md](docs/DESIGN.md) للتصميم الكامل. أبرز الخطوات الجاية:
 
-- [ ] مراحل جديدة: شارع السوق، الميكروباص، الفرح 🎊
+- [x] ~~مرحلة ثانية: شارع السوق~~ + نقاط تفتيش (عربية الفول) ✅
+- [ ] مراحل جديدة: الميكروباص، الفرح 🎊
 - [ ] خط عربي بيكسلي للواجهة بدل Geeza Pro
 - [ ] حركات خاصة للمبي (الجري السريع، «اللمبي-ستايل» تعليقات صوتية)
 - [ ] زعيم مرحلة (الفتوة) + أنواع أعداء إضافية

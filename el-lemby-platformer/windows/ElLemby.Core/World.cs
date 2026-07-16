@@ -12,6 +12,7 @@ public enum GameEventKind
     PowerUpCollected,
     Stomped,
     PlayerHit,       // touched a thug while vulnerable (app decides the cost)
+    CheckpointReached,
     ReachedGoal,
 }
 
@@ -61,6 +62,14 @@ public sealed class CrateSim
     public double NudgeT;              // >0 while playing the bump nudge
 }
 
+/// <summary>عربية الفول — touch it once and deaths respawn here.</summary>
+public sealed class CheckpointSim
+{
+    public const double HalfW = 10, HalfH = 12;
+    public double X, Y;
+    public bool Activated;
+}
+
 public sealed class PowerUpSim
 {
     public const double HalfW = 7, HalfH = 5.5;
@@ -88,9 +97,11 @@ public sealed class World
     public readonly List<CoinSim> Coins = new();
     public readonly List<PowerUpSim> PowerUps = new();
     public readonly Dictionary<(int Column, int Row), CrateSim> Crates = new();
+    public readonly List<CheckpointSim> Checkpoints = new();
 
     public double GoalX, GoalY;
     public (double X, double Y) PlayerSpawn;
+    public (double X, double Y)? ActiveRespawn;   // set by the last checkpoint
     public bool GoalReached;
 
     public double WidthPoints => Level.Columns * GameConfig.TileSize;
@@ -133,6 +144,9 @@ public sealed class World
                 case EntityKind.Nousa:
                     GoalX = centerX;
                     GoalY = cellBottom + 12;
+                    break;
+                case EntityKind.Checkpoint:
+                    Checkpoints.Add(new CheckpointSim { X = centerX, Y = cellBottom + 12 });
                     break;
             }
         }
@@ -359,6 +373,19 @@ public sealed class World
             }
         }
 
+        foreach (CheckpointSim checkpoint in Checkpoints)
+        {
+            if (!checkpoint.Activated &&
+                Overlaps(checkpoint.X, checkpoint.Y, CheckpointSim.HalfW, CheckpointSim.HalfH))
+            {
+                checkpoint.Activated = true;
+                // Player center height equals the cart's center height, so
+                // respawning at the cart's position stands him on the ground.
+                ActiveRespawn = (checkpoint.X, checkpoint.Y);
+                events.Add(new GameEvent(GameEventKind.CheckpointReached, checkpoint.X, checkpoint.Y));
+            }
+        }
+
         foreach (ThugSim thug in Thugs)
         {
             if (thug.Squashed || thug.Gone)
@@ -402,9 +429,10 @@ public sealed class World
 
     public void RespawnPlayer(double now)
     {
+        (double x, double y) = ActiveRespawn ?? PlayerSpawn;
         Player.IsDead = false;
-        Player.X = PlayerSpawn.X;
-        Player.Y = PlayerSpawn.Y;
+        Player.X = x;
+        Player.Y = y;
         Player.Vx = 0;
         Player.Vy = 0;
         Player.Facing = 1;

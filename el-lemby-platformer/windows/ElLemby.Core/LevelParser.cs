@@ -8,6 +8,7 @@ namespace ElLemby.Core;
 ///     .  air          G  ground        D  dirt fill     B  brick
 ///     X  crate        =  sandstone     ?  crate → coin  F  crate → sandwich
 ///     o  coin         P  player        E  thug          N  Nousa (goal)
+///     C  checkpoint (عربية الفول)
 /// </summary>
 public enum TileKind
 {
@@ -26,6 +27,7 @@ public enum EntityKind
     Thug,
     Coin,
     Nousa,
+    Checkpoint,
 }
 
 public static class TileKindExtensions
@@ -156,6 +158,7 @@ public static class LevelParser
                     case 'E': entities.Add(new Placement(EntityKind.Thug, col, row)); break;
                     case 'o': entities.Add(new Placement(EntityKind.Coin, col, row)); break;
                     case 'N': entities.Add(new Placement(EntityKind.Nousa, col, row)); break;
+                    case 'C': entities.Add(new Placement(EntityKind.Checkpoint, col, row)); break;
                     default:
                         throw new LevelParseException(LevelParseErrorKind.UnknownCharacter, ch, row, col);
                 }

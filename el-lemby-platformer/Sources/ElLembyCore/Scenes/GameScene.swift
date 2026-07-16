@@ -8,6 +8,9 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         case playing, paused, dying, won
     }
 
+    /// 1-based stage number; set before presenting the scene.
+    var stage = 1
+
     private let gameState = GameState.shared
     private let worldNode = SKNode()
     private let player = Player()
@@ -58,12 +61,12 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private func buildLevel() {
         let data: LevelData
         do {
-            data = try LevelParser.load(named: "level1")
+            data = try LevelParser.load(named: "level\(stage)")
         } catch {
             // The bundled level should always parse; leave an obvious note
             // on screen instead of crashing if it ever doesn't.
             let label = SKLabelNode(fontNamed: Fonts.arabicBold)
-            label.text = "تعذّر تحميل المرحلة — level1.txt"
+            label.text = "تعذّر تحميل المرحلة — level\(stage).txt"
             label.fontSize = 14
             label.fontColor = Palette.ink
             label.position = CGPoint(x: size.width / 2, y: size.height / 2)
@@ -89,7 +92,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
 
     private func showStageBanner() {
         let banner = SKLabelNode(fontNamed: Fonts.arabicBold)
-        banner.text = L10n.stage1Name
+        banner.text = L10n.stageName(stage)
         banner.fontSize = 18
         banner.fontColor = Palette.ink
         banner.position = CGPoint(x: 0, y: 40)
@@ -261,11 +264,33 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
             if let crate = other.node as? MysteryCrate {
                 resolveCrateContact(crate)
             }
+        case PhysicsCategory.checkpoint:
+            if let checkpoint = other.node as? Checkpoint, !checkpoint.isActivated {
+                checkpoint.activate()
+                spawnPoint = checkpoint.position
+                SoundManager.shared.play(.checkpoint)
+                showToast(L10n.checkpointToast)
+            }
         case PhysicsCategory.goal:
             winStage()
         default:
             break
         }
+    }
+
+    private func showToast(_ text: String) {
+        let toast = SKLabelNode(fontNamed: Fonts.arabicBold)
+        toast.text = text
+        toast.fontSize = 12
+        toast.fontColor = Palette.gold
+        toast.position = CGPoint(x: 0, y: 84)
+        toast.zPosition = ZPosition.overlay
+        camNode.addChild(toast)
+        toast.run(.sequence([
+            .wait(forDuration: 1.2),
+            .fadeOut(withDuration: 0.4),
+            .removeFromParent(),
+        ]))
     }
 
     private func collect(_ coin: Coin) {
@@ -395,7 +420,12 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         run(.sequence([
             .wait(forDuration: 2.0),
             .run { [weak self] in
-                SceneRouter.showResult(.stageClear(timeBonus: bonus), in: self?.view)
+                guard let self else { return }
+                if self.stage < GameConfig.stageCount {
+                    SceneRouter.advance(toStage: self.stage + 1, in: self.view)
+                } else {
+                    SceneRouter.showResult(.stageClear(timeBonus: bonus), in: self.view)
+                }
             },
         ]))
     }

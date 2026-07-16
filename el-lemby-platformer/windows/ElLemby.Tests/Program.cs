@@ -64,7 +64,10 @@ internal static class Program
         StateTests();
         L10nTests();
         SimTests();
-        Level1IntegrityTests();
+        for (int stage = 1; stage <= GameConfig.StageCount; stage++)
+        {
+            StageIntegrityTests(stage);
+        }
 
         Console.WriteLine($"\n{_passed} passed, {_failures.Count} failed");
         return _failures.Count == 0 ? 0 : 1;
@@ -95,6 +98,9 @@ internal static class Program
         var padded = LevelParser.Parse("P.N\nGGGGGG");
         CheckEqual(padded.Columns, 6, "parser: short rows padded");
         Check(padded.Tile(5, 0) is null, "parser: padding is air");
+
+        var withCheckpoint = LevelParser.Parse("P.C.N\nGGGGG");
+        CheckEqual(withCheckpoint.Placements(EntityKind.Checkpoint).Count(), 1, "parser: checkpoint entity");
 
         CheckThrows(LevelParseErrorKind.UnknownCharacter, () => LevelParser.Parse("P.N\nGGZ"), "parser: rejects unknown char");
         CheckThrows(LevelParseErrorKind.MissingPlayerSpawn, () => LevelParser.Parse("..N\nGGG"), "parser: rejects missing spawn");
@@ -377,33 +383,77 @@ internal static class Program
             Check(apex > startY + 10, "sim: death hop rises");
             Check(w.Player.Y < GameConfig.FallDeathY, "sim: dead player falls through the world");
         }
+
+        // Checkpoint: activates once when touched; deaths respawn there.
+        {
+            const string checkpointMap = """
+                ..........
+                .P...C...N
+                GGGGGGGGGG
+                DDDDDDDDDD
+                """;
+            var w = MakeWorld(checkpointMap);
+            var input = InputState.Empty;
+            input.MoveX = 1;
+            int reached = 0;
+            double now = Run(w, 1.0, ref input, 0, (world, events) =>
+            {
+                foreach (var e in events)
+                {
+                    if (e.Kind == GameEventKind.CheckpointReached) reached++;
+                }
+            });
+            CheckEqual(reached, 1, "sim: checkpoint fires once");
+            Check(w.Checkpoints[0].Activated, "sim: checkpoint marked active");
+
+            w.KillPlayer();
+            w.RespawnPlayer(now);
+            double tile = GameConfig.TileSize;
+            Check(Math.Abs(w.Player.X - (5 * tile + tile / 2)) < 1,
+                  $"sim: respawn at the foul cart (x={w.Player.X:F1})");
+            Check(!w.Player.IsDead && w.Player.IsInvulnerable(now + 0.1),
+                  "sim: respawn grants i-frames");
+
+            // Without a checkpoint, respawn goes back to the start.
+            var w2 = MakeWorld(flat);
+            var idle = InputState.Empty;
+            double now2 = Run(w2, 0.3, ref idle);
+            w2.KillPlayer();
+            w2.RespawnPlayer(now2);
+            Check(Math.Abs(w2.Player.X - w2.PlayerSpawn.X) < 0.01,
+                  "sim: no checkpoint → respawn at spawn");
+        }
     }
 
-    private static void Level1IntegrityTests()
+    private static void StageIntegrityTests(int stage)
     {
-        string path = Path.Combine(AppContext.BaseDirectory, "Resources", "levels", "level1.txt");
+        string name = $"level{stage}";
+        string path = Path.Combine(AppContext.BaseDirectory, "Resources", "levels", name + ".txt");
         if (!File.Exists(path))
         {
-            Check(false, $"level1: file present at {path}");
+            Check(false, $"{name}: file present at {path}");
             return;
         }
         var level = LevelParser.LoadFile(path);
-        Check(level.Columns >= 150, "level1: real stage, not a stub");
-        CheckEqual(level.Rows, 17, "level1: 17 rows");
-        Check(level.PlayerSpawn is not null, "level1: has spawn");
-        CheckEqual(level.Placements(EntityKind.Nousa).Count(), 1, "level1: one goal");
-        Check(level.Placements(EntityKind.Thug).Count() >= 4, "level1: enough thugs");
-        Check(level.Placements(EntityKind.Coin).Count() >= 20, "level1: enough coins");
+        Check(level.Columns >= 150, $"{name}: real stage, not a stub");
+        CheckEqual(level.Rows, 17, $"{name}: 17 rows");
+        Check(level.PlayerSpawn is not null, $"{name}: has spawn");
+        CheckEqual(level.Placements(EntityKind.Nousa).Count(), 1, $"{name}: one goal");
+        Check(level.Placements(EntityKind.Thug).Count() >= 4, $"{name}: enough thugs");
+        Check(level.Placements(EntityKind.Coin).Count() >= 20, $"{name}: enough coins");
+        int expectedCheckpoints = stage >= 2 ? 1 : 0;
+        CheckEqual(level.Placements(EntityKind.Checkpoint).Count(), expectedCheckpoints,
+                   $"{name}: checkpoint count");
 
         Placement spawn = level.PlayerSpawn!;
         bool floorUnderSpawn = Enumerable.Range(spawn.Row, level.Rows - spawn.Row)
             .Any(r => level.IsSolid(spawn.Column, r));
-        Check(floorUnderSpawn, "level1: spawn has floor");
+        Check(floorUnderSpawn, $"{name}: spawn has floor");
 
         Placement goal = level.Placements(EntityKind.Nousa).First();
         bool floorUnderGoal = Enumerable.Range(goal.Row, level.Rows - goal.Row)
             .Any(r => level.IsSolid(goal.Column, r));
-        Check(floorUnderGoal, "level1: goal has floor");
+        Check(floorUnderGoal, $"{name}: goal has floor");
 
         // The whole stage must be completable in principle: simulate a
         // simple "run right and jump when blocked or at a pit edge" bot.
@@ -429,8 +479,13 @@ internal static class Program
                            || now - world.Player.LastGroundedAt <= GameConfig.CoyoteTime;
             bool GapBelow(double x) => !world.IsSolidAtPoint(x, GameConfig.TileSize);
             bool deadlyAhead = GapBelow(px + 8) || GapBelow(px + 24) || GapBelow(px + 40);
-            bool edgeAtFeet = nearGround && !world.IsSolidAtPoint(px + 8, bottom - 6);
-            if (wallAhead || (edgeAtFeet && deadlyAhead))
+            // Press only at the true edge: air at the feet AND the very next
+            // ground column void — otherwise descending from a stall with a
+            // pit on the horizon wastes the coyote jump mid-fall.
+            bool edgeAtFeet = nearGround
+                           && !world.IsSolidAtPoint(px + 8, bottom - 6)
+                           && GapBelow(px + 8);
+            if (wallAhead || edgeAtFeet)
             {
                 input.JumpPressedAt = now;
             }
@@ -463,6 +518,6 @@ internal static class Program
                 break;   // hopelessly stuck — fail below
             }
         }
-        Check(won && !died, $"level1: naive runner bot completes the stage (won={won}, died={died}, x={world.Player.X:F0}/{world.WidthPoints})");
+        Check(won && !died, $"{name}: naive runner bot completes the stage (won={won}, died={died}, x={world.Player.X:F0}/{world.WidthPoints})");
     }
 }

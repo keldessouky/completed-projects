@@ -141,6 +141,16 @@ def sfx_gameover():
     return render(ev, t + 0.1)
 
 
+def sfx_checkpoint():
+    # warm two-note "the foul is ready" ding
+    return render([
+        (0.00, 0.10, const(440.0), square, 0.35, 0.7),
+        (0.00, 0.10, const(220.0), triangle, 0.3, 0.7),
+        (0.10, 0.28, const(659.26), square, 0.38, 1.2),
+        (0.10, 0.28, const(329.63), triangle, 0.3, 1.2),
+    ], 0.42)
+
+
 # ---------------------------------------------------------------------------
 # Music — maqam hijaz on E, 110 BPM, 8 bars, loopable
 # ---------------------------------------------------------------------------
@@ -229,6 +239,7 @@ def main():
         "bump.wav": sfx_bump(),
         "win.wav": sfx_win(),
         "gameover.wav": sfx_gameover(),
+        "checkpoint.wav": sfx_checkpoint(),
     }
     for name, buf in out.items():
         write_wav(os.path.join(SFX_DIR, name), buf)

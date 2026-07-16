@@ -26,8 +26,10 @@ LTR; the UI and all text are Arabic).
 | Coin | الفكة | +100 pts, spinning gold pound |
 | ? block | صندوق «؟» | wooden crate, Arabic question mark |
 | Super Mushroom | ساندوتش فول | absorbs one hit («مفوّل» state) |
-| Timer | الوقت | 240s countdown, timeout costs a life |
+| Timer | الوقت | 240s countdown per stage, timeout costs a life |
+| Midpoint flag | عربية الفول (checkpoint) | touch once → deaths respawn there |
 | 1-1 | المرحلة ١ «الحارة» | ~7 screens, 205 tiles |
+| 1-2 | المرحلة ٢ «شارع السوق» | ~7.5 screens, 230 tiles, harder |
 
 ## Movement feel (see `Core/GameConfig.swift` — single source of truth)
 
@@ -77,6 +79,34 @@ rendered to `docs/level1.png` by `tools/render_level.py`.
 
 Budget: 40 loose coins + 4 ؟/F crates, 9 thugs, 5 pits, 2 power-ups.
 
+## Stage 2 «شارع السوق» walkthrough
+
+Authored in `tools/build_level2.py`; rendered to `docs/level2.png`. Lives and
+score carry over from stage 1; the stage is meaner (7 pits, 12 thugs) and
+introduces the **checkpoint**:
+
+1. **Act 1 — الأكشاك (cols 0–53):** crate-stall steps, pit 1, a brick canopy
+   over a thug pair (with ؟ and فول crates), sandstone stairs with an
+   optional high coin ledge, and a wide pit 2 crossed from takeoff stones.
+2. **Act 2 — الدور التاني (cols 54–112):** a double-decker stretch (coin
+   route up top, thug traffic below), pit 3, the alley of 2-high crate walls
+   with a caged thug patrol, pit 4, and an optional stone-outpost climb to a
+   floating فول crate.
+3. **Act 3 — التفتيش والختام (cols 113–229):** the **عربية الفول checkpoint**,
+   a takeoff over pit 5, a four-thug gauntlet under a brick canopy, rhythm
+   pits 6/7 around a coin island, a grand double staircase with a coin
+   crown, and the home stretch to Nousa.
+
+Budget: 55 loose coins + 4 ؟/F crates, 12 thugs, 7 pits, 1 checkpoint.
+
+### Checkpoints (عربية الفول)
+
+Touching the cart once flips it to its lit "active" art, plays a two-note
+ding, shows a toast, and moves the death-respawn point to the cart (both
+platforms; the timer still resets on death). Level letter: `C`. Sim coverage:
+activation fires exactly once, respawn returns to the cart with i-frames,
+and stages without checkpoints still respawn at the start.
+
 ## Scoring
 
 فكة 100 · دهس بلطجي 200 · ساندوتش 400 · مكافأة وقت 10/ث ·
@@ -97,9 +127,9 @@ Budget: 40 loose coins + 4 ؟/F crates, 9 thugs, 5 pits, 2 power-ups.
 
 | Milestone | Content |
 |---|---|
+| ~~0.3~~ ✅ | ~~Stage 2 «شارع السوق»~~ shipped, plus checkpoints (عربية الفول) |
 | 0.2 | Arabic pixel font, Lemby voice-quote stingers, walk-off-ledge Goomba variant |
-| 0.3 | Stage 2 «شارع السوق» (vendor carts as moving platforms), stage select |
-| 0.4 | Stage 3 «الميكروباص» (auto-scroller on the microbus roof) |
+| 0.4 | Stage 3 «الميكروباص» (auto-scroller on the microbus roof), stage select |
 | 0.5 | Boss: الفتوة + stage 4 «الفرح» finale, save/continue |
 | 0.6 | Game-controller support, settings scene, screen-shake & juice pass |
 

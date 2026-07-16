@@ -26,6 +26,7 @@ internal sealed class GameScene : IScene
     }
 
     private readonly ISceneHost _host;
+    private readonly int _stage;
     private readonly World? _world;
     private readonly string? _loadError;
     private readonly List<Particle> _particles = new();
@@ -38,18 +39,22 @@ internal sealed class GameScene : IScene
     private double _clockAccumulator;
     private double _bornAt = -1;
     private int _pendingTimeBonus;
+    private double _toastAt = double.NegativeInfinity;
+    private string _toastText = "";
 
-    public GameScene(ISceneHost host)
+    public GameScene(ISceneHost host, int stage = 1)
     {
         _host = host;
+        _stage = stage;
+        string levelName = $"level{stage}";
         try
         {
-            _world = new World(LevelParser.LoadFile(Assets.LevelPath("level1")));
+            _world = new World(LevelParser.LoadFile(Assets.LevelPath(levelName)));
             _camX = Clamp(_world.PlayerSpawn.X);
         }
         catch (Exception e) when (e is LevelParseException or IOException)
         {
-            _loadError = "تعذّر تحميل المرحلة — level1.txt";
+            _loadError = $"تعذّر تحميل المرحلة — {levelName}.txt";
         }
         Audio.Preload();
         Audio.StartMusic();
@@ -150,7 +155,14 @@ internal sealed class GameScene : IScene
                 MoveCamera();
                 if (now - _phaseAt > 2.0)
                 {
-                    _host.Switch(new ResultScene(_host, ResultKind.StageClear, _pendingTimeBonus));
+                    if (_stage < GameConfig.StageCount)
+                    {
+                        _host.Switch(new GameScene(_host, _stage + 1));
+                    }
+                    else
+                    {
+                        _host.Switch(new ResultScene(_host, ResultKind.StageClear, _pendingTimeBonus));
+                    }
                 }
                 break;
             }
@@ -227,6 +239,12 @@ internal sealed class GameScene : IScene
                     OnPlayerHit(now);
                     break;
 
+                case GameEventKind.CheckpointReached:
+                    Audio.Play("checkpoint");
+                    _toastAt = now;
+                    _toastText = L10n.CheckpointToast;
+                    break;
+
                 case GameEventKind.ReachedGoal:
                     WinStage(now);
                     break;
@@ -288,7 +306,7 @@ internal sealed class GameScene : IScene
             _timeLeft = GameConfig.StageTimeSeconds;
             _clockAccumulator = 0;
             _world!.RespawnPlayer(now);
-            _camX = Clamp(_world.PlayerSpawn.X);
+            _camX = Clamp(_world.Player.X);
             _phase = Phase.Playing;
             _phaseAt = now;
         }
@@ -444,6 +462,12 @@ internal sealed class GameScene : IScene
         string nousa = (int)(now / 0.5) % 2 == 0 ? "nousa_0" : "nousa_1";
         g.DrawImage(Assets.Sprite(nousa), WorldRect(w.GoalX, w.GoalY, 16, 24));
 
+        foreach (CheckpointSim checkpoint in w.Checkpoints)
+        {
+            string cart = checkpoint.Activated ? "checkpoint_active" : "checkpoint_idle";
+            g.DrawImage(Assets.Sprite(cart), WorldRect(checkpoint.X, checkpoint.Y, 16, 24));
+        }
+
         foreach (ThugSim thug in w.Thugs)
         {
             if (thug.Gone)
@@ -538,7 +562,16 @@ internal sealed class GameScene : IScene
         {
             float alpha = (float)Math.Clamp((2.3 - age) / 0.5, 0, 1);
             using var brush = new SolidBrush(Color.FromArgb((int)(alpha * 255), Palette.Ink));
-            Draw.TextCenter(g, L10n.Stage1Name, Draw.H2, brush, 240, 88);
+            Draw.TextCenter(g, L10n.StageName(_stage), Draw.H2, brush, 240, 88);
+        }
+
+        // Checkpoint toast.
+        double toastAge = now - _toastAt;
+        if (toastAge >= 0 && toastAge < 1.6)
+        {
+            float alpha = (float)Math.Clamp((1.6 - toastAge) / 0.4, 0, 1);
+            using var brush = new SolidBrush(Color.FromArgb((int)(alpha * 255), Palette.Gold));
+            Draw.TextCenter(g, _toastText, Draw.Hud, brush, 240, 44);
         }
 
         if (_phase == Phase.Paused)

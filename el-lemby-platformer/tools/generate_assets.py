@@ -152,6 +152,9 @@ PAL = {
     "F": C(112, 75, 41),          # foul (bean) filling
     "N": C(232, 120, 138),        # heart pink
     "n": C(184, 76, 100),         # heart shade
+    "U": C(170, 125, 80),         # cart wood
+    "u": C(129, 91, 56),          # cart wood shade
+    "Y": C(255, 223, 128),        # polished brass highlight
 }
 
 
@@ -381,6 +384,65 @@ NOUSA_B = [                    # waving
     "KPPPPPPPPPPPK",
     ".KKKKKKKKKKK",
     "..KssK..KssK",
+]
+
+# ---------------------------------------------------------------------------
+# عربية الفول — the foul-cart checkpoint, 16×24 (idle / activated)
+# A brass idra pot steaming on a wooden hand cart.
+# ---------------------------------------------------------------------------
+
+CART_IDLE = [
+    "......w",
+    "....w",
+    ".....w..w",
+    "....KKKKK",
+    "...KgGGGgK",
+    "..KgGGGGGgK",
+    "..KgGGGGGgK",
+    "..KgGGGGGgK",
+    "...KgGGGgK",
+    "....KgGgK",
+    "..KKKKKKKKK",
+    ".KUUUUUUUUUK",
+    ".KUuUUUUUuUK",
+    ".KUUUUUUUUUK",
+    ".KuuuuuuuuuK",
+    "..KKKKKKKKK",
+    "...K.....K",
+    "..KkK...KkK",
+    ".KkkkK.KkkkK",
+    ".KkKkK.KkKkK",
+    ".KkkkK.KkkkK",
+    "..KkK...KkK",
+    "...K.....K",
+    "",
+]
+
+CART_ACTIVE = [
+    "..W...w...W",
+    "....W...w",
+    ".W...w....W",
+    "....KKKKK...KE",
+    "...KYGGGYK..KEE",
+    "..KYGYYYGYK.KE",
+    "..KYGYYYGYK.K",
+    "..KYGYYYGYK.K",
+    "...KYGGGYK..K",
+    "....KYGYK...K",
+    "..KKKKKKKKK.K",
+    ".KUUUUUUUUUKK",
+    ".KUuUUUUUuUK",
+    ".KUUUUUUUUUK",
+    ".KuuuuuuuuuK",
+    "..KKKKKKKKK",
+    "...K.....K",
+    "..KkK...KkK",
+    ".KkkkK.KkkkK",
+    ".KkKkK.KkKkK",
+    ".KkkkK.KkkkK",
+    "..KkK...KkK",
+    "...K.....K",
+    "",
 ]
 
 # ---------------------------------------------------------------------------
@@ -788,6 +850,9 @@ def build_all():
         # NPC
         "nousa_0": L(NOUSA_A),
         "nousa_1": L(NOUSA_B),
+        # checkpoint cart
+        "checkpoint_idle": L(CART_IDLE),
+        "checkpoint_active": L(CART_ACTIVE),
         # items
         "coin_0": from_map(COIN_FRAMES[0], PAL, 12),
         "coin_1": from_map(COIN_FRAMES[1], PAL, 12),
@@ -834,6 +899,7 @@ def main():
     names = ["lemby_idle_0", "lemby_idle_1", "lemby_run_0", "lemby_run_1",
              "lemby_run_2", "lemby_jump_0", "lemby_hurt_0",
              "thug_walk_0", "thug_walk_1", "thug_squashed", "nousa_0", "nousa_1",
+             "checkpoint_idle", "checkpoint_active",
              "coin_0", "coin_1", "coin_2", "coin_3", "sandwich", "heart",
              "tile_ground", "tile_dirt", "tile_brick", "tile_crate",
              "tile_mystery", "tile_crate_used", "tile_stone", "icon_32"]

@@ -15,6 +15,7 @@ final class Player: SKNode {
     static let bodySize = CGSize(width: 12, height: 22)
     static let contactMask: UInt32 = PhysicsCategory.enemy | PhysicsCategory.coin
         | PhysicsCategory.powerUp | PhysicsCategory.goal | PhysicsCategory.crate
+        | PhysicsCategory.checkpoint
 
     private let sprite: SKSpriteNode
     private var moveState: MoveState = .idle

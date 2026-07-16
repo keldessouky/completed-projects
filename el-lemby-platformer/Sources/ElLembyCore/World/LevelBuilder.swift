@@ -128,6 +128,10 @@ enum LevelBuilder {
                 goal.position = CGPoint(x: center.x, y: cellBottom + 12)
                 goalPosition = goal.position
                 container.addChild(goal)
+            case .checkpoint:
+                let checkpoint = Checkpoint()
+                checkpoint.position = CGPoint(x: center.x, y: cellBottom + 12)
+                container.addChild(checkpoint)
             }
         }
 

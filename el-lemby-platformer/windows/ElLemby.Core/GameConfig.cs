@@ -31,6 +31,7 @@ public static class GameConfig
     public const double ThugSpeed = 34;
 
     public const int StartLives = 3;
+    public const int StageCount = 2;
     public const int StageTimeSeconds = 240;
     public const int CoinScore = 100;
     public const int StompScore = 200;

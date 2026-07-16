@@ -11,9 +11,15 @@ enum SceneRouter {
 
     static func startGame(in view: SKView?) {
         GameState.shared.resetRun()
+        advance(toStage: 1, in: view)
+    }
+
+    /// Moves to a stage without resetting the run (lives/score carry over).
+    static func advance(toStage stage: Int, in view: SKView?) {
         let scene = GameScene(size: GameConfig.sceneSize)
+        scene.stage = stage
         scene.scaleMode = .aspectFit
-        view?.presentScene(scene, transition: .fade(withDuration: 0.4))
+        view?.presentScene(scene, transition: .fade(withDuration: 0.6))
     }
 
     static func showResult(_ kind: ResultKind, in view: SKView?) {

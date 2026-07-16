@@ -46,7 +46,7 @@ internal static class Audio
 
     internal static void Preload()
     {
-        foreach (string name in new[] { "jump", "coin", "stomp", "hurt", "powerup", "bump", "win", "gameover" })
+        foreach (string name in new[] { "jump", "coin", "stomp", "hurt", "powerup", "bump", "win", "gameover", "checkpoint" })
         {
             _ = Ensure("sfx_" + name, Assets.SfxPath(name));
         }

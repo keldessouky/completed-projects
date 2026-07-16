@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """
-Renders a level .txt into PNGs using the same pixel art the game uses, so
-stage layouts can be reviewed without a Mac:
+Renders every level .txt into PNGs using the same pixel art the game uses,
+so stage layouts can be reviewed without a Mac or a PC:
 
-    docs/level1.png       full stage at 1× (one long strip)
-    docs/screenshot.png   the opening screen at 2× (README hero shot)
+    docs/level1.png, docs/level2.png, …   full stages at 1×
+    docs/screenshot.png                    stage 1 opening screen at 2×
 
 Run from the project root:  python3 tools/render_level.py
 """
@@ -16,7 +16,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import generate_assets as art  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-LEVEL = os.path.join(ROOT, "Sources", "ElLembyCore", "Resources", "levels", "level1.txt")
+LEVELS_DIR = os.path.join(ROOT, "Sources", "ElLembyCore", "Resources", "levels")
 DOCS = os.path.join(ROOT, "docs")
 
 SKY = (166, 204, 216, 255)
@@ -36,6 +36,7 @@ ENTITY_SPRITES = {
     "P": "lemby_idle_0",
     "E": "thug_walk_0",
     "N": "nousa_0",
+    "C": "checkpoint_idle",
 }
 
 
@@ -55,13 +56,11 @@ def load_rows(path):
     return [r.ljust(cols, ".") for r in rows], cols
 
 
-def main():
-    rows, cols = load_rows(LEVEL)
-    sprites = art.build_all()
+def render(level_name, sprites):
+    rows, cols = load_rows(os.path.join(LEVELS_DIR, level_name + ".txt"))
     width, height = cols * T, len(rows) * T
     img = art.blank(width, height, SKY)
 
-    # parallax strips drawn flat for the preview
     far = sprites["bg_far"]
     near = sprites["bg_near"]
     far_top = height - 44 - len(far)
@@ -71,7 +70,6 @@ def main():
     for x in range(0, width, art.BG_W):
         art.blit(img, near, x, near_top)
 
-    # tiles, then entities standing on cell bottoms
     for r, row in enumerate(rows):
         for c, ch in enumerate(row):
             name = TILE_SPRITES.get(ch)
@@ -85,15 +83,8 @@ def main():
                 sp = sprites[ENTITY_SPRITES[ch]]
                 art.blit(img, sp, c * T, (r + 1) * T - len(sp))
 
-    os.makedirs(DOCS, exist_ok=True)
-    art.write_png(os.path.join(DOCS, "level1.png"), img)
-    print(f"wrote docs/level1.png ({width}×{height})")
-
-    # 2× crop of the opening screen
-    crop_w = 480
-    crop = [row[:crop_w] for row in img[:272]]
-    art.write_png(os.path.join(DOCS, "screenshot.png"), art.scale(crop, 2))
-    print("wrote docs/screenshot.png (960×544)")
+    art.write_png(os.path.join(DOCS, level_name + ".png"), img)
+    print(f"wrote docs/{level_name}.png ({width}×{height})")
 
     # review filmstrip: the stage cut into stacked screens (not committed)
     strips = []
@@ -101,13 +92,33 @@ def main():
     for x0 in range(0, width, per):
         strips.append([row[x0:x0 + per] for row in img])
     gap = 8
-    sheet_h = len(strips) * (height + gap)
-    sheet = art.blank(per, sheet_h, (40, 40, 48, 255))
+    sheet = art.blank(per, len(strips) * (height + gap), (40, 40, 48, 255))
     for i, s in enumerate(strips):
         art.blit(sheet, s, 0, i * (height + gap))
-    out = os.environ.get("LEMBY_FILMSTRIP", "/tmp/level1_filmstrip.png")
+    out_dir = os.environ.get("LEMBY_FILMSTRIP_DIR", "/tmp")
+    out = os.path.join(out_dir, f"{level_name}_filmstrip.png")
     art.write_png(out, sheet)
     print(f"wrote {out} (review filmstrip)")
+    return img
+
+
+def main():
+    os.makedirs(DOCS, exist_ok=True)
+    sprites = art.build_all()
+    levels = sorted(
+        f[:-4] for f in os.listdir(LEVELS_DIR) if f.endswith(".txt")
+    )
+    first_img = None
+    for name in levels:
+        img = render(name, sprites)
+        if first_img is None:
+            first_img = img
+
+    # 2× crop of stage 1's opening screen for the README
+    if first_img is not None:
+        crop = [row[:480] for row in first_img[:272]]
+        art.write_png(os.path.join(DOCS, "screenshot.png"), art.scale(crop, 2))
+        print("wrote docs/screenshot.png (960×544)")
 
 
 if __name__ == "__main__":

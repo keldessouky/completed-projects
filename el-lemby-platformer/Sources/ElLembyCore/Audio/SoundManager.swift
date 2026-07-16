@@ -8,7 +8,7 @@ final class SoundManager {
     static let shared = SoundManager()
 
     enum Effect: String, CaseIterable {
-        case jump, coin, stomp, hurt, powerup, bump, win, gameover
+        case jump, coin, stomp, hurt, powerup, bump, win, gameover, checkpoint
     }
 
     private(set) var isMuted = false

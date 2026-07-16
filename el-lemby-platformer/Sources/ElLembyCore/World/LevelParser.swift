@@ -14,6 +14,7 @@ import Foundation
 ///     P   player spawn (exactly one)
 ///     E   thug enemy (بلطجي)
 ///     N   Nousa — the stage goal (at least one)
+///     C   checkpoint (عربية الفول)
 ///
 /// Lines starting with `//` are comments. Short rows are padded with air on
 /// the right, so ragged files are fine.
@@ -49,6 +50,7 @@ enum EntityKind: Character, CaseIterable {
     case thug = "E"
     case coin = "o"
     case nousa = "N"
+    case checkpoint = "C"
 }
 
 struct LevelData: Equatable {

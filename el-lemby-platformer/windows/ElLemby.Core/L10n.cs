@@ -15,6 +15,14 @@ public static class L10n
     public const string ControlsHint = "الأسهم أو A/D للحركة — المسافة للنط — M للصوت";
     public const string FanDisclaimer = "لعبة معجبين غير رسمية مستوحاة من فيلم «اللمبي» (٢٠٠٢)";
     public const string Stage1Name = "المرحلة ١ — الحارة";
+    public const string Stage2Name = "المرحلة ٢ — شارع السوق";
+    public const string CheckpointToast = "نقطة تفتيش — عند عربية الفول!";
+
+    public static string StageName(int stage) => stage switch
+    {
+        2 => Stage2Name,
+        _ => Stage1Name,
+    };
 
     public const string HudMoney = "الفكة";
     public const string HudLives = "الأرواح";

@@ -33,6 +33,7 @@ enum GameConfig {
 
     // Rules
     static let startLives = 3
+    static let stageCount = 2
     static let stageTimeSeconds = 240
     static let coinScore = 100
     static let stompScore = 200
@@ -62,6 +63,7 @@ enum PhysicsCategory {
     static let coin: UInt32 = 1 << 4
     static let powerUp: UInt32 = 1 << 5
     static let goal: UInt32 = 1 << 6
+    static let checkpoint: UInt32 = 1 << 7
 
     static let solidWorld: UInt32 = ground | crate
 }

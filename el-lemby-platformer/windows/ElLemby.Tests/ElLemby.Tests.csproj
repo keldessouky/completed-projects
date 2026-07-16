@@ -14,9 +14,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- The shipped stage, for the integrity tests. -->
-    <Content Include="..\..\Sources\ElLembyCore\Resources\levels\level1.txt"
-             Link="Resources\levels\level1.txt"
+    <!-- The shipped stages, for the integrity + completability tests. -->
+    <Content Include="..\..\Sources\ElLembyCore\Resources\levels\*.txt"
+             Link="Resources\levels\%(Filename)%(Extension)"
              CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
