@@ -1,0 +1,834 @@
+#!/usr/bin/env python3
+"""
+Pixel-art asset generator for «اللمبي: مغامرات الحارة» (El-Lemby: Alley Adventures).
+
+Generates every sprite, tile, and background strip the game uses as PNG files in
+Sources/ElLembyCore/Resources/sprites/, plus a human-reviewable contact sheet in
+docs/. Pure stdlib (zlib + struct) — no Pillow required.
+
+Run from the project root:  python3 tools/generate_assets.py
+"""
+
+import os
+import random
+import struct
+import sys
+import zlib
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+SPRITES_DIR = os.path.join(ROOT, "Sources", "ElLembyCore", "Resources", "sprites")
+DOCS_DIR = os.path.join(ROOT, "docs")
+
+# ---------------------------------------------------------------------------
+# Minimal PNG writer (RGBA, 8-bit)
+# ---------------------------------------------------------------------------
+
+def _chunk(tag: bytes, data: bytes) -> bytes:
+    return (struct.pack(">I", len(data)) + tag + data
+            + struct.pack(">I", zlib.crc32(tag + data) & 0xFFFFFFFF))
+
+
+def write_png(path: str, grid) -> None:
+    h = len(grid)
+    w = len(grid[0])
+    raw = b"".join(
+        b"\x00" + b"".join(struct.pack("4B", *px) for px in row) for row in grid
+    )
+    png = (b"\x89PNG\r\n\x1a\n"
+           + _chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 6, 0, 0, 0))
+           + _chunk(b"IDAT", zlib.compress(raw, 9))
+           + _chunk(b"IEND", b""))
+    with open(path, "wb") as f:
+        f.write(png)
+
+
+# ---------------------------------------------------------------------------
+# Grid helpers — a grid is a list of rows of (r, g, b, a) tuples
+# ---------------------------------------------------------------------------
+
+CLEAR = (0, 0, 0, 0)
+
+
+def blank(w: int, h: int, color=CLEAR):
+    return [[color for _ in range(w)] for _ in range(h)]
+
+
+def put(grid, x: int, y: int, color) -> None:
+    if 0 <= y < len(grid) and 0 <= x < len(grid[0]):
+        grid[y][x] = color
+
+
+def rect(grid, x: int, y: int, w: int, h: int, color) -> None:
+    for yy in range(y, y + h):
+        for xx in range(x, x + w):
+            put(grid, xx, yy, color)
+
+
+def blit(dst, src, ox: int, oy: int) -> None:
+    for y, row in enumerate(src):
+        for x, px in enumerate(row):
+            if px[3] != 0:
+                put(dst, ox + x, oy + y, px)
+
+
+def scale(grid, k: int):
+    out = []
+    for row in grid:
+        srow = []
+        for px in row:
+            srow.extend([px] * k)
+        out.extend([list(srow) for _ in range(k)])
+    return out
+
+
+def from_map(rows, legend, width: int):
+    """Build a grid from ASCII art rows. Rows shorter than `width` are padded
+    with transparency so hand-authored maps stay forgiving."""
+    grid = []
+    for r, row in enumerate(rows):
+        if len(row) > width:
+            raise ValueError(f"row {r} is {len(row)} chars, max {width}: {row!r}")
+        row = row.ljust(width, ".")
+        line = []
+        for ch in row:
+            if ch not in legend:
+                raise ValueError(f"unknown pixel char {ch!r} in row {r}")
+            line.append(legend[ch] or CLEAR)
+        grid.append(line)
+    return grid
+
+
+# ---------------------------------------------------------------------------
+# Palette
+# ---------------------------------------------------------------------------
+
+def C(r, g, b, a=255):
+    return (r, g, b, a)
+
+
+PAL = {
+    ".": None,                    # transparent
+    "K": C(20, 15, 18),           # outline
+    "H": C(42, 31, 24),           # hair, dark
+    "h": C(70, 52, 36),           # hair highlight
+    "S": C(205, 148, 96),         # skin
+    "s": C(172, 116, 75),         # skin shade / hands
+    "t": C(126, 87, 60),          # stubble
+    "W": C(243, 236, 224),        # white
+    "w": C(206, 197, 183),        # white shade
+    "R": C(153, 47, 62),          # tracksuit maroon
+    "r": C(112, 32, 47),          # maroon shade
+    "B": C(58, 74, 112),          # thug galabeya blue
+    "b": C(42, 53, 84),           # galabeya shade
+    "C": C(216, 190, 141),        # thug cap beige
+    "c": C(181, 152, 105),        # cap shade
+    "P": C(216, 108, 143),        # Nousa dress pink
+    "p": C(174, 76, 112),         # dress shade
+    "M": C(168, 62, 62),          # lips
+    "G": C(255, 199, 66),         # gold
+    "g": C(199, 141, 29),        # gold shade
+    "k": C(58, 52, 57),           # shoe dark gray
+    "E": C(96, 148, 62),          # green (pickle bits)
+    "D": C(226, 182, 112),        # bread light
+    "d": C(178, 130, 72),         # bread crust
+    "F": C(112, 75, 41),          # foul (bean) filling
+    "N": C(232, 120, 138),        # heart pink
+    "n": C(184, 76, 100),         # heart shade
+}
+
+
+def L(grid_rows, width=16):
+    return from_map(grid_rows, PAL, width)
+
+
+# ---------------------------------------------------------------------------
+# El-Lemby — 16×24. Composed as shared head + torso variant + leg variant.
+# Maroon tracksuit with white zipper stripe, messy hair, stubble.
+# ---------------------------------------------------------------------------
+
+LEMBY_HEAD = [
+    "....KKKKKK",
+    "..KKHHHHHHKK",
+    ".KHHHhHHHHHHK",
+    ".KHHHHHHHHHHKK",
+    "KHHhHHHHHHhHHK",
+    "KHHHHHHHHHHHHK",
+    ".KHSSSSSSSSHHK",
+    ".KSSSSSSSSSSKK",
+    ".KSWKSSSSWKSSK",
+    ".KSSSSKSSSSSSK",
+    ".KsSSSSSSSSSsK",
+    ".KstttKKKtttsK",
+    "..KKtttttttKK",
+]
+
+LEMBY_HEAD_HURT = [
+    "....KKKKKK",
+    "..KKHHHHHHKK",
+    ".KHHHhHHHHHHK",
+    ".KHHHHHHHHHHKK",
+    "KHHhHHHHHHhHHK",
+    "KHHHHHHHHHHHHK",
+    ".KHSSSSSSSSHHK",
+    ".KSSSSSSSSSSKK",
+    ".KSKSKSSSKSKSK",   # X-ish squeezed eyes
+    ".KSSSSKSSSSSSK",
+    ".KsSSSSSSSSSsK",
+    ".KstttKKtttssK",
+    "..KKtttttttKK",
+]
+
+LEMBY_TORSO = [                # arms down, white zipper stripe
+    "...KKSSSSKK",
+    "..KRRRWWRRRK",
+    ".KRRRRWWRRRRK",
+    ".KRrRRWWRRrRK",
+    ".KRrRRWWRRrRK",
+    "..KsrrWWrrsK",
+]
+
+LEMBY_TORSO_PUMP = [           # one arm raised (jump / celebrate)
+    "...KKSSSSKK",
+    "..KRRRWWRRRKs",
+    ".KRRRRWWRRRKsK",
+    ".KRrRRWWRRRKK",
+    ".KRrRRWWRRrK",
+    "..KsrrWWrrK",
+]
+
+LEMBY_LEGS_IDLE = [
+    "..KRRRRWWRRRRK",
+    "..KRWRK..KRWRK",
+    "..KRWRK..KRWRK",
+    "..KRWRK..KRWRK",
+    ".KkkkkK..KkkkkK",
+]
+
+LEMBY_LEGS_RUN_A = [           # stride: legs spread
+    "..KRRRRWWRRRRK",
+    ".KRWRK....KRWRK",
+    ".KRWRK....KRWRK",
+    ".KRWRK....KRWRK",
+    "KkkkkK....KkkkkK",
+]
+
+LEMBY_LEGS_RUN_B = [           # pass pose: legs together, slight lift
+    "..KRRRRWWRRRRK",
+    "....KRWRRWRK",
+    "....KRWRRWRK",
+    "....KkkkkkkK",
+    "",
+]
+
+LEMBY_LEGS_RUN_C = [           # opposite stride: right knee up
+    "..KRRRRWWRRRRK",
+    "..KRWRK..KRWRK",
+    "..KRWRK..KkkkK",
+    "..KRWRK",
+    ".KkkkkK",
+]
+
+LEMBY_LEGS_JUMP = [            # both legs tucked
+    "..KRRRRWWRRRRK",
+    "..KRWRK..KRWRK",
+    ".KkkkkK.KkkkkK",
+    "",
+    "",
+]
+
+
+def compose(head, torso, legs):
+    rows = list(head) + list(torso) + list(legs)
+    rows = [r for r in rows]
+    while len(rows) < 24:
+        rows.append("")
+    return L(rows[:24])
+
+
+# ---------------------------------------------------------------------------
+# Thug (البلطجي) — 16×24 walking enemy. Beige cap, unibrow, mustache,
+# dark blue galabeya.
+# ---------------------------------------------------------------------------
+
+THUG_HEAD = [
+    "...KKKKKKKK",
+    "..KCCCCCCCCK",
+    ".KCCcCCCCCcCK",
+    ".KCCCCCCCCCCK",
+    ".KSSSSSSSSSSK",
+    ".KSKKSSSSKKSK",
+    ".KsWKSSSSWKsK",
+    ".KSSSSKKSSSSK",
+    ".KHHHHHHHHHHK",
+    ".KHHHHHHHHHHK",
+    "..KssSSSSssK",
+]
+
+THUG_BODY_A = [
+    "..KKBBBBBBKK",
+    ".KBBBBBBBBBBK",
+    ".KBbBBBBBBbBK",
+    ".KBbBBBBBBbBK",
+    ".KBBBBBBBBBBK",
+    ".KBbBBBBBBbBK",
+    "KBBBBBBBBBBBBK",
+    "KBBbBBBBBBbBBK",
+    "KBBBBBBBBBBBBK",
+    "KBbBBBBBBBBbBK",
+    ".KKKKKKKKKKKK",
+    "..KssK..KssK",
+]
+
+THUG_BODY_B = [
+    "..KKBBBBBBKK",
+    ".KBBBBBBBBBBK",
+    ".KBbBBBBBBbBK",
+    ".KBbBBBBBBbBK",
+    ".KBBBBBBBBBBK",
+    ".KBbBBBBBBbBK",
+    "KBBBBBBBBBBBBK",
+    "KBBbBBBBBBbBBK",
+    "KBBBBBBBBBBBBK",
+    "KBbBBBBBBBBbBK",
+    ".KKKKKKKKKKKK",
+    "....KssKKssK",
+]
+
+THUG_SQUASHED = [
+    "",
+    "",
+    "...KKKKKKKK",
+    "..KCCCCCCCCK",
+    ".KCCcCCCCCcCK",
+    ".KSKKSSSSKKSK",
+    ".KHHHHHHHHHHK",
+    "KBBBBBBBBBBBBK",
+    "KBBbBBBBBBbBBK",
+    ".KKKKKKKKKKKK",
+]
+
+# ---------------------------------------------------------------------------
+# Nousa (نوسة) — 16×24 goal NPC. Long dark hair, pink dress.
+# ---------------------------------------------------------------------------
+
+NOUSA_A = [
+    "...KKKKKKK",
+    "..KHHHHHHHK",
+    ".KHHHHHHHHHK",
+    ".KHHSSSSSHHK",
+    ".KHSSSSSSSHK",
+    ".KHSWKSWKSHK",
+    ".KHSSSSSSSHK",
+    ".KHSSKMMSSHK",
+    ".KHHSSSSSHHK",
+    ".KHHHHHHHHHK",
+    ".KHHKKKKKHHK",
+    "..KKKSSSKK",
+    "...KPPPPPK",
+    "..KPPPPPPPK",
+    "..KPpPPPPpK",
+    ".KsKPPPPPKsK",
+    ".KsKPpPPpKsK",
+    "..KPPPPPPPK",
+    ".KPPpPPPPpPK",
+    ".KPPPPPPPPPK",
+    "KPPpPPPPPPpPK",
+    "KPPPPPPPPPPPK",
+    ".KKKKKKKKKKK",
+    "..KssK..KssK",
+]
+
+NOUSA_B = [                    # waving
+    "...KKKKKKK",
+    "..KHHHHHHHK",
+    ".KHHHHHHHHHK",
+    ".KHHSSSSSHHK",
+    ".KHSSSSSSSHK",
+    ".KHSWKSWKSHK.Ks",
+    ".KHSSSSSSSHK.sK",
+    ".KHSSKMMSSHKsK",
+    ".KHHSSSSSHHKK",
+    ".KHHHHHHHHHK",
+    ".KHHKKKKKHHK",
+    "..KKKSSSKKK",
+    "...KPPPPPKK",
+    "..KPPPPPPPK",
+    "..KPpPPPPpK",
+    ".KsKPPPPPK",
+    ".KsKPpPPpK",
+    "..KPPPPPPPK",
+    ".KPPpPPPPpPK",
+    ".KPPPPPPPPPK",
+    "KPPpPPPPPPpPK",
+    "KPPPPPPPPPPPK",
+    ".KKKKKKKKKKK",
+    "..KssK..KssK",
+]
+
+# ---------------------------------------------------------------------------
+# Items
+# ---------------------------------------------------------------------------
+
+COIN_FRAMES = [
+    [   # full face — an Egyptian pound-ish coin, 12×12
+        "...KKKKK",
+        "..KGGGGGK",
+        ".KGGggggGK",
+        "KGGgGGGGgGK",
+        "KGgGGGGGgGK",
+        "KGgGGKKGgGK",
+        "KGgGGKKGgGK",
+        "KGgGGGGGgGK",
+        "KGGgGGGGgGK",
+        ".KGGggggGK",
+        "..KGGGGGK",
+        "...KKKKK",
+    ],
+    [   # 3/4 turn
+        "....KKKK",
+        "...KGGGK",
+        "..KGggGK",
+        "..KGgGGK",
+        "..KGgGGK",
+        "..KGgKGK",
+        "..KGgKGK",
+        "..KGgGGK",
+        "..KGgGGK",
+        "..KGggGK",
+        "...KGGGK",
+        "....KKKK",
+    ],
+    [   # edge-on
+        ".....KK",
+        ".....KGK",
+        ".....KgK",
+        ".....KgK",
+        ".....KgK",
+        ".....KgK",
+        ".....KgK",
+        ".....KgK",
+        ".....KgK",
+        ".....KgK",
+        ".....KGK",
+        ".....KK",
+    ],
+    [   # 3/4 turn (other side)
+        "....KKKK",
+        "...KGGGK",
+        "..KGggGK",
+        "..KGGgGK",
+        "..KGGgGK",
+        "..KGKgGK",
+        "..KGKgGK",
+        "..KGGgGK",
+        "..KGGgGK",
+        "..KGggGK",
+        "...KGGGK",
+        "....KKKK",
+    ],
+]
+
+SANDWICH = [                   # ساندوتش فول — 14×11
+    "....KKKKKK",
+    "..KKDDDDDDKK",
+    ".KDDDDDDDDDDK",
+    "KDDDDDDDDDDDdK",
+    "KDdFFFFFFFFddK",
+    "KFFEFFFFEFFFdK",
+    ".KFFFFFFFFFdK",
+    "..KddddddddK",
+    "...KKKKKKKK",
+    "",
+    "",
+]
+
+HEART = [                      # 8×8
+    ".KK.KK",
+    "KNNKNNK",
+    "KNNNNnK",
+    "KNNNNnK",
+    ".KNNnK",
+    "..KnK",
+    "...K",
+    "",
+]
+
+# ---------------------------------------------------------------------------
+# Tiles — 16×16, drawn procedurally for regularity
+# ---------------------------------------------------------------------------
+
+T = 16
+
+TILE_COLORS = {
+    "dust_light": C(212, 170, 112),
+    "dust_rim": C(126, 90, 55),
+    "cobble_base": C(112, 80, 48),
+    "stone_light": C(190, 148, 96),
+    "stone_border": C(140, 102, 61),
+    "dirt_base": C(124, 90, 54),
+    "dirt_fleck_l": C(147, 109, 66),
+    "dirt_fleck_d": C(100, 70, 42),
+    "brick": C(177, 89, 58),
+    "brick_hi": C(201, 111, 73),
+    "brick_sh": C(141, 66, 45),
+    "mortar": C(95, 49, 37),
+    "wood": C(170, 125, 80),
+    "wood_dark": C(129, 91, 56),
+    "wood_frame": C(99, 68, 42),
+    "wood_hi": C(196, 152, 103),
+    "wood_used": C(134, 96, 60),
+    "wood_used_dark": C(104, 72, 44),
+    "sand_block": C(210, 192, 150),
+    "sand_border": C(154, 136, 100),
+    "sand_hi": C(233, 219, 180),
+}
+
+
+def tile_ground(rng):
+    g = blank(T, T, TILE_COLORS["cobble_base"])
+    # packed dusty surface
+    rect(g, 0, 0, T, 2, TILE_COLORS["dust_light"])
+    rect(g, 0, 2, T, 1, TILE_COLORS["dust_rim"])
+    # two courses of cobblestones
+    for (sx, sy, sw, sh) in [(1, 4, 6, 5), (9, 4, 6, 5), (0, 10, 4, 5), (5, 10, 6, 5), (13, 10, 3, 5)]:
+        rect(g, sx, sy, sw, sh, TILE_COLORS["stone_border"])
+        rect(g, sx + 1, sy + 1, sw - 2, sh - 2, TILE_COLORS["stone_light"])
+    for _ in range(6):
+        put(g, rng.randrange(T), rng.randrange(3, T), TILE_COLORS["dust_rim"])
+    return g
+
+
+def tile_dirt(rng):
+    g = blank(T, T, TILE_COLORS["dirt_base"])
+    for _ in range(14):
+        put(g, rng.randrange(T), rng.randrange(T), TILE_COLORS["dirt_fleck_l"])
+    for _ in range(10):
+        put(g, rng.randrange(T), rng.randrange(T), TILE_COLORS["dirt_fleck_d"])
+    return g
+
+
+def tile_brick(_rng):
+    g = blank(T, T, TILE_COLORS["brick"])
+    for course in range(4):
+        y = course * 4
+        rect(g, 0, y, T, 1, TILE_COLORS["brick_hi"])       # top of each brick course
+        rect(g, 0, y + 3, T, 1, TILE_COLORS["mortar"])     # horizontal mortar
+        joints = (7,) if course % 2 == 0 else (3, 11)      # running bond
+        for x in joints:
+            rect(g, x, y, 1, 3, TILE_COLORS["mortar"])
+            rect(g, x + 1, y + 1, 1, 1, TILE_COLORS["brick_sh"])
+    return g
+
+
+def _crate_base(fill, dark, frame, hi):
+    g = blank(T, T, fill)
+    rect(g, 0, 0, T, T, fill)
+    # plank seams
+    rect(g, 0, 5, T, 1, dark)
+    rect(g, 0, 10, T, 1, dark)
+    # frame
+    rect(g, 0, 0, T, 1, frame)
+    rect(g, 0, T - 1, T, 1, frame)
+    rect(g, 0, 0, 1, T, frame)
+    rect(g, T - 1, 0, 1, T, frame)
+    rect(g, 1, 1, T - 2, 1, hi)
+    rect(g, 1, 1, 1, T - 2, hi)
+    return g
+
+
+def tile_crate(_rng):
+    g = _crate_base(TILE_COLORS["wood"], TILE_COLORS["wood_dark"],
+                    TILE_COLORS["wood_frame"], TILE_COLORS["wood_hi"])
+    for (x, y) in [(2, 2), (13, 2), (2, 13), (13, 13)]:
+        put(g, x, y, TILE_COLORS["wood_frame"])
+    return g
+
+
+QMARK = [   # Arabic question mark ؟ (mirrored), 5×9
+    ".GGG",
+    "G...G",
+    "G",
+    ".G",
+    "..G",
+    "..G",
+    "",
+    "..G",
+    "",
+]
+
+
+def tile_mystery(_rng):
+    g = tile_crate(_rng)
+    mark = from_map(QMARK, {".": None, "G": PAL["G"]}, 5)
+    shadow = from_map(QMARK, {".": None, "G": PAL["K"]}, 5)
+    blit(g, shadow, 7, 4)
+    blit(g, mark, 6, 3)
+    return g
+
+
+def tile_crate_used(_rng):
+    g = _crate_base(TILE_COLORS["wood_used"], TILE_COLORS["wood_used_dark"],
+                    TILE_COLORS["wood_frame"], TILE_COLORS["wood_used_dark"])
+    for (x, y) in [(4, 4), (11, 7), (6, 12)]:
+        put(g, x, y, TILE_COLORS["wood_frame"])
+    return g
+
+
+def tile_stone(_rng):
+    g = blank(T, T, TILE_COLORS["sand_block"])
+    rect(g, 0, 0, T, 1, TILE_COLORS["sand_hi"])
+    rect(g, 0, 0, 1, T, TILE_COLORS["sand_hi"])
+    rect(g, 0, T - 1, T, 1, TILE_COLORS["sand_border"])
+    rect(g, T - 1, 0, 1, T, TILE_COLORS["sand_border"])
+    for (x, y) in [(4, 6), (5, 6), (10, 11), (12, 4)]:
+        put(g, x, y, TILE_COLORS["sand_border"])
+    return g
+
+
+# ---------------------------------------------------------------------------
+# Background strips (parallax layers)
+# ---------------------------------------------------------------------------
+
+BG_W = 480
+SKY = C(166, 204, 216)
+
+
+def hazed(color, amount):
+    """Mix a color toward the sky for atmospheric depth, keeping gameplay
+    elements visually dominant over the backdrop."""
+    r, g, b, a = color
+    return (round(r + (SKY[0] - r) * amount),
+            round(g + (SKY[1] - g) * amount),
+            round(b + (SKY[2] - b) * amount),
+            a)
+
+
+def haze_grid(grid, amount):
+    return [[hazed(px, amount) if px[3] != 0 else px for px in row] for row in grid]
+
+BUILDING_COLORS = [
+    (C(216, 189, 147), C(188, 160, 118)),
+    (C(199, 162, 115), C(172, 136, 92)),
+    (C(199, 143, 110), C(170, 116, 86)),
+    (C(226, 211, 175), C(196, 180, 143)),
+]
+WINDOW_DARK = C(91, 74, 58)
+WINDOW_LIT = C(232, 196, 106)
+WINDOW_FRAME = C(64, 51, 41)
+SHUTTER = C(79, 125, 116)
+DISH = C(198, 198, 192)
+TANK = C(168, 158, 146)
+LINE = C(70, 60, 52)
+CLOTH_COLORS = [C(214, 84, 84), C(240, 234, 220), C(94, 130, 178), C(228, 186, 96)]
+FAR_TONE = C(172, 150, 124)
+FAR_DETAIL = C(154, 133, 108)
+
+
+def bg_far(rng):
+    """Distant skyline silhouette with a minaret and dome — 480×88, tiles horizontally."""
+    H = 88
+    g = blank(BG_W, H)
+    x = 0
+    heights = []
+    while x < BG_W:
+        w = rng.choice([36, 44, 52, 60, 68])
+        w = min(w, BG_W - x)
+        h = rng.randrange(28, 62)
+        heights.append((x, w, h))
+        rect(g, x, H - h, w, h, FAR_TONE)
+        for wy in range(H - h + 4, H - 4, 8):
+            for wx in range(x + 4, x + w - 3, 9):
+                put(g, wx, wy, FAR_DETAIL)
+                put(g, wx + 1, wy, FAR_DETAIL)
+        x += w
+    # minaret near 1/3 across
+    mx = BG_W // 3
+    rect(g, mx, H - 78, 6, 78, FAR_TONE)
+    rect(g, mx - 2, H - 58, 10, 4, FAR_TONE)          # balcony ring
+    rect(g, mx + 1, H - 84, 4, 6, FAR_TONE)           # top cone
+    put(g, mx + 2, H - 86, FAR_TONE)                  # finial
+    put(g, mx + 3, H - 86, FAR_TONE)
+    # dome near 3/4 across
+    dx = 3 * BG_W // 4
+    for i, span in enumerate([6, 10, 14, 16, 18, 18]):
+        rect(g, dx + (18 - span) // 2, H - 36 + i, span, 1, FAR_TONE)
+    rect(g, dx, H - 30, 18, 30, FAR_TONE)
+    rect(g, dx + 8, H - 40, 2, 4, FAR_DETAIL)
+    return g
+
+
+def bg_near(rng):
+    """Alley buildings with windows, dishes, tanks and laundry — 480×120, tiles horizontally."""
+    H = 120
+    g = blank(BG_W, H)
+    x = 0
+    tops = []  # (x, w, roof_y) for roof props / laundry
+    while x < BG_W:
+        w = rng.choice([48, 56, 64, 72])
+        w = min(w, BG_W - x)
+        if BG_W - (x + w) < 40:
+            w = BG_W - x
+        h = rng.randrange(70, 112)
+        fill, shade = BUILDING_COLORS[rng.randrange(len(BUILDING_COLORS))]
+        roof_y = H - h
+        rect(g, x, roof_y, w, h, fill)
+        rect(g, x + w - 3, roof_y, 3, h, shade)               # side shading
+        rect(g, x, roof_y, w, 2, shade)                       # parapet
+        # windows
+        for wy in range(roof_y + 8, H - 12, 16):
+            for wx in range(x + 5, x + w - 8, 13):
+                lit = rng.random() < 0.18
+                rect(g, wx, wy, 6, 9, WINDOW_FRAME)
+                rect(g, wx + 1, wy + 1, 4, 7, WINDOW_LIT if lit else WINDOW_DARK)
+                if rng.random() < 0.3:                        # shutters
+                    rect(g, wx - 1, wy + 1, 1, 7, SHUTTER)
+                    rect(g, wx + 6, wy + 1, 1, 7, SHUTTER)
+                if rng.random() < 0.35:                       # balcony ledge
+                    rect(g, wx - 1, wy + 9, 8, 1, shade)
+        tops.append((x, w, roof_y))
+        x += w
+    # roof props
+    for (bx, bw, ry) in tops:
+        if rng.random() < 0.7:  # satellite dish
+            dx = bx + rng.randrange(4, max(5, bw - 10))
+            rect(g, dx + 1, ry - 5, 4, 4, DISH)
+            put(g, dx, ry - 4, DISH)
+            put(g, dx + 2, ry - 1, WINDOW_FRAME)
+            rect(g, dx + 2, ry - 1, 1, 1, WINDOW_FRAME)
+        if rng.random() < 0.4:  # water tank
+            tx = bx + rng.randrange(2, max(3, bw - 12))
+            rect(g, tx, ry - 8, 8, 8, TANK)
+            rect(g, tx, ry - 8, 8, 1, DISH)
+    # laundry lines between building seams
+    for i in range(len(tops) - 1):
+        if rng.random() < 0.55:
+            (bx, bw, _) = tops[i]
+            seam = bx + bw
+            y = rng.randrange(46, 78)
+            span = 34
+            for lx in range(seam - span // 2, seam + span // 2):
+                sag = 1 if abs(lx - seam) < span // 4 else 0
+                put(g, lx, y + sag, LINE)
+            for j, cx in enumerate(range(seam - span // 2 + 4, seam + span // 2 - 4, 8)):
+                cloth = CLOTH_COLORS[(i + j) % len(CLOTH_COLORS)]
+                sag = 1 if abs(cx - seam) < span // 4 else 0
+                rect(g, cx, y + sag + 1, 5, 6, cloth)
+    return g
+
+
+# ---------------------------------------------------------------------------
+# App icon — 32×32 Lemby face, exported at 256×256
+# ---------------------------------------------------------------------------
+
+ICON = [
+    "......KKKKKKKKKKKKKK",
+    "....KKHHHHHHHHHHHHHHKK",
+    "...KHHHHhHHHHHHHhHHHHHK",
+    "..KHHHhHHHHHHHHHHHHhHHHK",
+    ".KHHHHHHHHHHHHHHHHHHHHHHK",
+    ".KHHHHHHHHHHHHHHHHHHHHHHK",
+    "KHHHHHHHHHHHHHHHHHHHHHHHHK",
+    "KHHHHHHHHHHHHHHHHHHHHHHHHK",
+    "KHHHSSSSSSSSSSSSSSSSSSHHHK",
+    "KHHSSSSSSSSSSSSSSSSSSSSHHK",
+    "KHHSSSSSSSSSSSSSSSSSSSSHHK",
+    ".KSSWWKKSSSSSSSSSWWKKSSSK",
+    ".KSSWWKKSSSSSSSSSWWKKSSSK",
+    ".KSSSSSSSSSKKSSSSSSSSSSK",
+    ".KSSSSSSSSSKKSSSSSSSSSSK",
+    ".KsSSSSSSSSSSSSSSSSSSssK",
+    ".KsSSSSSSSSSSSSSSSSSSssK",
+    ".KstSSSSKKKKKKKKKSSSStsK",
+    "..KsttttKWWWWWWWKttttsK",
+    "..KsttttKKKKKKKKKttttsK",
+    "...KstttttttttttttttsK",
+    "....KKttttttttttttKK",
+    "......KKKKKKKKKKKK",
+]
+
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+
+def build_all():
+    rng = random.Random(1602)  # seeded: El-Lemby premiered in 2002; 16px tiles
+
+    sprites = {
+        # player
+        "lemby_idle_0": compose(LEMBY_HEAD, LEMBY_TORSO, LEMBY_LEGS_IDLE),
+        "lemby_idle_1": compose([""] + LEMBY_HEAD[:-1], LEMBY_TORSO, LEMBY_LEGS_IDLE),
+        "lemby_run_0": compose(LEMBY_HEAD, LEMBY_TORSO, LEMBY_LEGS_RUN_A),
+        "lemby_run_1": compose(LEMBY_HEAD, LEMBY_TORSO, LEMBY_LEGS_RUN_B),
+        "lemby_run_2": compose(LEMBY_HEAD, LEMBY_TORSO, LEMBY_LEGS_RUN_C),
+        "lemby_jump_0": compose(LEMBY_HEAD, LEMBY_TORSO_PUMP, LEMBY_LEGS_JUMP),
+        "lemby_hurt_0": compose(LEMBY_HEAD_HURT, LEMBY_TORSO, LEMBY_LEGS_RUN_A),
+        # enemies
+        "thug_walk_0": L(THUG_HEAD + THUG_BODY_A + [""] * (24 - len(THUG_HEAD) - len(THUG_BODY_A))),
+        "thug_walk_1": L(THUG_HEAD + THUG_BODY_B + [""] * (24 - len(THUG_HEAD) - len(THUG_BODY_B))),
+        "thug_squashed": L(THUG_SQUASHED[:10]),
+        # NPC
+        "nousa_0": L(NOUSA_A),
+        "nousa_1": L(NOUSA_B),
+        # items
+        "coin_0": from_map(COIN_FRAMES[0], PAL, 12),
+        "coin_1": from_map(COIN_FRAMES[1], PAL, 12),
+        "coin_2": from_map(COIN_FRAMES[2], PAL, 12),
+        "coin_3": from_map(COIN_FRAMES[3], PAL, 12),
+        "sandwich": from_map(SANDWICH, PAL, 14),
+        "heart": from_map(HEART, PAL, 8),
+        # tiles
+        "tile_ground": tile_ground(rng),
+        "tile_dirt": tile_dirt(rng),
+        "tile_brick": tile_brick(rng),
+        "tile_crate": tile_crate(rng),
+        "tile_mystery": tile_mystery(rng),
+        "tile_crate_used": tile_crate_used(rng),
+        "tile_stone": tile_stone(rng),
+        # backgrounds (hazed toward the sky so gameplay stays readable)
+        "bg_far": haze_grid(bg_far(rng), 0.52),
+        "bg_near": haze_grid(bg_near(rng), 0.30),
+        # icon source
+        "icon_32": from_map(ICON, PAL, 32),
+    }
+    return sprites
+
+
+def main():
+    os.makedirs(SPRITES_DIR, exist_ok=True)
+    os.makedirs(DOCS_DIR, exist_ok=True)
+    sprites = build_all()
+
+    for name, grid in sprites.items():
+        write_png(os.path.join(SPRITES_DIR, f"{name}.png"), grid)
+    # big icon for app bundle / README
+    write_png(os.path.join(SPRITES_DIR, "icon_256.png"), scale(sprites["icon_32"], 8))
+
+    # contact sheet for docs / review: characters+items 6×, tiles 6×, bgs 1×
+    sheet_scale = 6
+    names = ["lemby_idle_0", "lemby_idle_1", "lemby_run_0", "lemby_run_1",
+             "lemby_run_2", "lemby_jump_0", "lemby_hurt_0",
+             "thug_walk_0", "thug_walk_1", "thug_squashed", "nousa_0", "nousa_1",
+             "coin_0", "coin_1", "coin_2", "coin_3", "sandwich", "heart",
+             "tile_ground", "tile_dirt", "tile_brick", "tile_crate",
+             "tile_mystery", "tile_crate_used", "tile_stone", "icon_32"]
+    cell = 34 * sheet_scale
+    cols = 7
+    rows = (len(names) + cols - 1) // cols
+    sheet_h = rows * cell + 130 * 2 + 30
+    sheet = blank(cols * cell + 20, sheet_h, C(56, 58, 66))
+    for i, name in enumerate(names):
+        gx = 10 + (i % cols) * cell
+        gy = 10 + (i // cols) * cell
+        g = scale(sprites[name], sheet_scale)
+        blit(sheet, g, gx, gy)
+    blit(sheet, sprites["bg_far"], 10, rows * cell + 20)
+    blit(sheet, sprites["bg_near"], 10, rows * cell + 20 + 92)
+    write_png(os.path.join(DOCS_DIR, "sprites.png"), sheet)
+
+    print(f"wrote {len(sprites) + 1} sprites to {SPRITES_DIR}")
+    print(f"wrote contact sheet to {os.path.join(DOCS_DIR, 'sprites.png')}")
+
+
+if __name__ == "__main__":
+    sys.exit(main())

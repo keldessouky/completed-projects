@@ -1,0 +1,3 @@
+import ElLembyCore
+
+GameApp.run()
