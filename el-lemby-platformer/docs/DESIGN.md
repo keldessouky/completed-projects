@@ -129,10 +129,12 @@ Porting that sim back under the SpriteKit frontend is a roadmap candidate.
 ## Tech notes / known gaps (MVP)
 
 - `swift run` opens the window directly; `make app` wraps the release binary +
-  SPM resource bundle into `dist/ElLemby.app`. On Windows,
+  SPM resource bundle into an ad-hoc-signed `dist/ElLemby.app`
+  (`UNIVERSAL=1` for arm64+x86_64; `make install` copies it to
+  /Applications — see docs/INSTALL-macOS.md). On Windows,
   `dotnet publish -r win-x64 --self-contained -p:PublishSingleFile=true`
-  produces a portable exe (CI uploads one as the `ElLemby-windows-x64`
-  artifact).
+  produces a portable exe. CI uploads both as artifacts:
+  `ElLemby-macos` (universal .app zip) and `ElLemby-windows-x64`.
 - Thugs idle-animate during the win freeze (harmless; polish later).
 - One audio channel per effect on both platforms — rapid same-effect
   retriggers restart the sound instead of overlapping. Fine at this scale.

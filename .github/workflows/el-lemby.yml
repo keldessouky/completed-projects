@@ -33,6 +33,14 @@ jobs:
           python3 tools/generate_sfx.py
           python3 tools/build_level1.py
           python3 tools/render_level.py
+      - name: Bundle ElLemby.app (universal, ad-hoc signed)
+        run: make UNIVERSAL=1 icon app
+      - name: Zip app bundle
+        run: ditto -c -k --sequesterRsrc --keepParent dist/ElLemby.app dist/ElLemby-macos.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ElLemby-macos
+          path: el-lemby-platformer/dist/ElLemby-macos.zip
 
   windows:
     name: Build & test (Windows)

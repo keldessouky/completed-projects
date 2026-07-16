@@ -13,19 +13,25 @@
 
 نسخة macOS أصلية بالكامل: Swift + SpriteKit + AppKit، بدون أي اعتماديات خارجية.
 
+> 📖 **دليل كامل للتثبيت على MacBook Air (M1–M5) خطوة بخطوة — شامل حل Gatekeeper
+> والنسخة الجاهزة للتنزيل:** [docs/INSTALL-macOS.md](docs/INSTALL-macOS.md)
+
+الطريقة السريعة للمطورين:
+
 ```bash
 cd el-lemby-platformer
 swift run ElLemby        # أو: make run
 ```
 
-لبناء تطبيق `.app` تضغط عليه مرتين:
+لبناء تطبيق `.app` وتثبيته:
 
 ```bash
-make icon   # يبني أيقونة التطبيق (اختياري)
-make app    # → dist/ElLemby.app
+make icon app            # → dist/ElLemby.app (أضف UNIVERSAL=1 لنسخة عالمية)
+make install             # → /Applications/ElLemby.app
 ```
 
-وتقدر تفتح المشروع في Xcode مباشرة: `open Package.swift`.
+وتقدر تفتح المشروع في Xcode مباشرة: `open Package.swift`. كما إن كل تشغيلة CI
+ناجحة بترفع تطبيقًا جاهزًا (artifact باسم `ElLemby-macos`) — بدون أي أدوات بناء.
 
 ## التشغيل على Windows (10/11)
 
@@ -77,6 +83,9 @@ keycode-based, so it works identically on Arabic keyboard layouts.
 Both frontends share the same generated assets and level file:
 
 - **macOS** — Swift + SpriteKit + AppKit (`swift run ElLemby`, macOS 13+).
+  Step-by-step install/setup/launch guide for MacBook Air (M-series) —
+  including the prebuilt `ElLemby-macos` CI artifact and Gatekeeper notes:
+  [docs/INSTALL-macOS.md](docs/INSTALL-macOS.md).
 - **Windows** — C# + WinForms + GDI+ on .NET 8, zero NuGet packages
   (`dotnet run --project windows/ElLemby.App`). The gameplay lives in a
   platform-neutral simulation library (`windows/ElLemby.Core`) with custom

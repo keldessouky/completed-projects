@@ -1,10 +1,22 @@
 # اللمبي: مغامرات الحارة — build helpers (macOS)
+#
+#   make run              play from source
+#   make icon app         build dist/ElLemby.app (native arch)
+#   make UNIVERSAL=1 app  universal binary (Apple silicon + Intel)
+#   make install          copy the app to /Applications
 
-BUILD_DIR := .build/release
 APP       := dist/ElLemby.app
 ICON_SRC  := Sources/ElLembyCore/Resources/sprites/icon_256.png
 
-.PHONY: run build test assets app icon clean
+ifeq ($(UNIVERSAL),1)
+BUILD_FLAGS    := -c release --arch arm64 --arch x86_64
+RELEASE_DIR    := .build/apple/Products/Release
+else
+BUILD_FLAGS    := -c release
+RELEASE_DIR    := .build/release
+endif
+
+.PHONY: run build test assets app icon install clean
 
 ## Run the game from source (debug)
 run:
@@ -12,27 +24,28 @@ run:
 
 ## Release build
 build:
-	swift build -c release
+	swift build $(BUILD_FLAGS)
 
 ## Run unit tests
 test:
 	swift test
 
-## Regenerate all pixel art, SFX, the stage, and preview renders (needs python3)
+## Regenerate all pixel art, SFX, icons, the stage, and preview renders (needs python3)
 assets:
 	python3 tools/generate_assets.py
 	python3 tools/generate_sfx.py
 	python3 tools/build_level1.py
 	python3 tools/render_level.py
 
-## Assemble a double-clickable .app bundle in dist/
+## Assemble a double-clickable, ad-hoc-signed .app bundle in dist/
 app: build
 	rm -rf $(APP)
 	mkdir -p $(APP)/Contents/MacOS $(APP)/Contents/Resources
-	cp $(BUILD_DIR)/ElLemby $(APP)/Contents/MacOS/ElLemby
-	cp -R $(BUILD_DIR)/ElLemby_ElLembyCore.bundle $(APP)/Contents/Resources/
+	cp $(RELEASE_DIR)/ElLemby $(APP)/Contents/MacOS/ElLemby
+	cp -R $(RELEASE_DIR)/ElLemby_ElLembyCore.bundle $(APP)/Contents/Resources/
 	cp Info.plist $(APP)/Contents/Info.plist
 	@if [ -f dist/AppIcon.icns ]; then cp dist/AppIcon.icns $(APP)/Contents/Resources/AppIcon.icns; fi
+	codesign --force -s - $(APP)
 	@echo "→ $(APP)"
 
 ## Build the .icns app icon from the generated pixel art (macOS-only tools)
@@ -45,7 +58,14 @@ icon:
 	cp $(ICON_SRC) dist/AppIcon.iconset/icon_256x256.png
 	iconutil -c icns dist/AppIcon.iconset -o dist/AppIcon.icns
 	rm -rf dist/AppIcon.iconset
-	@echo "→ dist/AppIcon.icns (re-run 'make app' to embed it)"
+	@echo "→ dist/AppIcon.icns"
+
+## Copy the built app into /Applications
+install:
+	@if [ ! -d $(APP) ]; then echo "run 'make icon app' first"; exit 1; fi
+	rm -rf /Applications/ElLemby.app
+	cp -R $(APP) /Applications/
+	@echo "→ /Applications/ElLemby.app — اتفضل العب!"
 
 clean:
 	rm -rf .build dist
