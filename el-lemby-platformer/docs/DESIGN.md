@@ -1,10 +1,10 @@
 # اللمبي: مغامرات الحارة — وثيقة التصميم
 # El-Lemby: Alley Adventures — Design Document
 
-A native macOS pixel platformer starring اللمبي, modeled on the language of
-Super Mario Bros. and reskinned into the world of the 2002 Egyptian comedy.
-Side-scrolling strictly **left → right** (the movement is LTR; the UI and all
-text are Arabic).
+A native pixel platformer for macOS and Windows starring اللمبي, modeled on
+the language of Super Mario Bros. and reskinned into the world of the 2002
+Egyptian comedy. Side-scrolling strictly **left → right** (the movement is
+LTR; the UI and all text are Arabic).
 
 ## Pillars
 
@@ -103,13 +103,42 @@ Budget: 40 loose coins + 4 ؟/F crates, 9 thugs, 5 pits, 2 power-ups.
 | 0.5 | Boss: الفتوة + stage 4 «الفرح» finale, save/continue |
 | 0.6 | Game-controller support, settings scene, screen-shake & juice pass |
 
+## The two frontends
+
+| | macOS | Windows |
+|---|---|---|
+| Stack | Swift + SpriteKit + AppKit | C# (.NET 8) + WinForms + GDI+ |
+| Physics | SpriteKit bodies (merged terrain runs) | Custom AABB/tile sim in `windows/ElLemby.Core` |
+| Arabic text | Core Text via `SKLabelNode` (Geeza Pro) | GDI+ `DrawString` shaping (Segoe UI, RTL formats) |
+| Audio | `AVAudioPlayer` per effect | winmm **MCI** alias per effect (`type mpegvideo` for looping) |
+| Loop | SpriteKit `update(_:)` | `Application.Idle` + `PeekMessage`, fixed 60Hz steps |
+| Deps | none | none (no NuGet packages) |
+
+Both load the **same** `level1.txt`, PNGs, and WAVs (the csproj links
+`Sources/ElLembyCore/Resources` into the exe's output), and both use the same
+tuning constants — `GameConfig.swift` and `GameConfig.cs` must be kept in
+lockstep when tuning.
+
+The Windows split (`ElLemby.Core` sim + thin `ElLemby.App` shell) exists so
+gameplay is test-driven: 53 dependency-free tests cover the parser, movement
+(jump apex ≈ 4.3 tiles, jump-cut, max speed), stomps, crate pops, thug patrol
+bounds, and a **runner bot that must finish stage 1** — they run on any OS via
+`dotnet run --project windows/ElLemby.Tests`, and in CI on the Windows job.
+Porting that sim back under the SpriteKit frontend is a roadmap candidate.
+
 ## Tech notes / known gaps (MVP)
 
 - `swift run` opens the window directly; `make app` wraps the release binary +
-  SPM resource bundle into `dist/ElLemby.app`.
+  SPM resource bundle into `dist/ElLemby.app`. On Windows,
+  `dotnet publish -r win-x64 --self-contained -p:PublishSingleFile=true`
+  produces a portable exe (CI uploads one as the `ElLemby-windows-x64`
+  artifact).
 - Thugs idle-animate during the win freeze (harmless; polish later).
-- One `AVAudioPlayer` per effect — rapid same-effect retriggers restart the
-  sound instead of overlapping. Fine at this scale.
-- `SKLabelNode` + Geeza Pro renders shaped Arabic correctly, but it isn't
-  pixel-styled yet (roadmap 0.2 bitmap font).
+- One audio channel per effect on both platforms — rapid same-effect
+  retriggers restart the sound instead of overlapping. Fine at this scale.
+- Arabic renders correctly shaped on both platforms, but with system fonts,
+  not a pixel font yet (roadmap 0.2 bitmap font, shared between frontends).
 - No breakable bricks or multi-hit crates yet; crates bump-nudge only.
+- Windows sim resolves upward head-bumps against every overlapped crate cell
+  (the player can span two columns); stage 1 never places two mystery crates
+  adjacent, so at most one pops per bump today.

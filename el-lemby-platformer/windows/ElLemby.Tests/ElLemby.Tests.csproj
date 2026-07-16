@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>ElLemby.Tests</RootNamespace>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <InvariantGlobalization>false</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ElLemby.Core\ElLemby.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The shipped stage, for the integrity tests. -->
+    <Content Include="..\..\Sources\ElLembyCore\Resources\levels\level1.txt"
+             Link="Resources\levels\level1.txt"
+             CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

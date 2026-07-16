@@ -28,18 +28,36 @@ def _chunk(tag: bytes, data: bytes) -> bytes:
             + struct.pack(">I", zlib.crc32(tag + data) & 0xFFFFFFFF))
 
 
-def write_png(path: str, grid) -> None:
+def png_bytes(grid) -> bytes:
     h = len(grid)
     w = len(grid[0])
     raw = b"".join(
         b"\x00" + b"".join(struct.pack("4B", *px) for px in row) for row in grid
     )
-    png = (b"\x89PNG\r\n\x1a\n"
-           + _chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 6, 0, 0, 0))
-           + _chunk(b"IDAT", zlib.compress(raw, 9))
-           + _chunk(b"IEND", b""))
+    return (b"\x89PNG\r\n\x1a\n"
+            + _chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 6, 0, 0, 0))
+            + _chunk(b"IDAT", zlib.compress(raw, 9))
+            + _chunk(b"IEND", b""))
+
+
+def write_png(path: str, grid) -> None:
     with open(path, "wb") as f:
-        f.write(png)
+        f.write(png_bytes(grid))
+
+
+def write_ico(path: str, grids) -> None:
+    """Windows .ico with PNG-compressed entries (Vista+)."""
+    blobs = [(len(g[0]), png_bytes(g)) for g in grids]
+    out = struct.pack("<HHH", 0, 1, len(blobs))
+    offset = 6 + 16 * len(blobs)
+    for size, blob in blobs:
+        s = 0 if size >= 256 else size
+        out += struct.pack("<BBBBHHII", s, s, 0, 0, 1, 32, len(blob), offset)
+        offset += len(blob)
+    for _, blob in blobs:
+        out += blob
+    with open(path, "wb") as f:
+        f.write(out)
 
 
 # ---------------------------------------------------------------------------
@@ -801,8 +819,15 @@ def main():
 
     for name, grid in sprites.items():
         write_png(os.path.join(SPRITES_DIR, f"{name}.png"), grid)
-    # big icon for app bundle / README
-    write_png(os.path.join(SPRITES_DIR, "icon_256.png"), scale(sprites["icon_32"], 8))
+
+    # App icons: pad the face onto a square canvas, then export the macOS
+    # PNG (icns source) and the Windows .ico.
+    icon_sq = blank(32, 32)
+    blit(icon_sq, sprites["icon_32"], 0, 4)
+    write_png(os.path.join(SPRITES_DIR, "icon_256.png"), scale(icon_sq, 8))
+    ico_dir = os.path.join(ROOT, "windows", "ElLemby.App")
+    if os.path.isdir(ico_dir):
+        write_ico(os.path.join(ico_dir, "AppIcon.ico"), [icon_sq, scale(icon_sq, 8)])
 
     # contact sheet for docs / review: characters+items 6×, tiles 6×, bgs 1×
     sheet_scale = 6

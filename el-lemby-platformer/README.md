@@ -1,17 +1,17 @@
 # اللمبي: مغامرات الحارة 🎮
 
-لعبة منصّات (platformer) بيكسل-آرت أصلية لنظام macOS، مستوحاة من فيلم الكوميديا المصري
-**«اللمبي» (٢٠٠٢)** وبروح ماريو الكلاسيكية. اجري وانط بالـلمبي من أول الحارة لغاية ما
-توصل لنوسة — والفكة اللي في السكة، لمّها!
+لعبة منصّات (platformer) بيكسل-آرت أصلية لنظامي **macOS وWindows**، مستوحاة من فيلم
+الكوميديا المصري **«اللمبي» (٢٠٠٢)** وبروح ماريو الكلاسيكية. اجري وانط بالـلمبي من أول
+الحارة لغاية ما توصل لنوسة — والفكة اللي في السكة، لمّها!
 
 ![المرحلة الأولى](docs/screenshot.png)
 
 > لعبة معجبين غير رسمية. كل الرسوم والأصوات مصنوعة من الصفر داخل المشروع —
 > لا تستخدم أي مواد من الفيلم.
 
-## التشغيل (macOS 13+)
+## التشغيل على macOS (13+)
 
-اللعبة أصلية بالكامل: Swift + SpriteKit + AppKit، بدون أي اعتماديات خارجية.
+نسخة macOS أصلية بالكامل: Swift + SpriteKit + AppKit، بدون أي اعتماديات خارجية.
 
 ```bash
 cd el-lemby-platformer
@@ -26,6 +26,28 @@ make app    # → dist/ElLemby.app
 ```
 
 وتقدر تفتح المشروع في Xcode مباشرة: `open Package.swift`.
+
+## التشغيل على Windows (10/11)
+
+نسخة Windows أصلية بالكامل: C‏# ‏+ WinForms + GDI+ (‏.NET 8، بدون أي حزم خارجية) —
+بنفس الرسوم والأصوات والمرحلة، ونفس إحساس الحركة بالظبط.
+
+```powershell
+cd el-lemby-platformer\windows
+dotnet run --project ElLemby.App        # يتطلب .NET 8 SDK
+```
+
+ولبناء ملف `exe` واحد تنقله لأي جهاز Windows:
+
+```powershell
+dotnet publish ElLemby.App -c Release -r win-x64 --self-contained -p:PublishSingleFile=true -o publish
+```
+
+اختبارات المحاكاة والمنطق تشتغل على أي نظام (Windows/Linux/macOS):
+
+```bash
+dotnet run --project windows/ElLemby.Tests
+```
 
 ## التحكم
 
@@ -42,19 +64,26 @@ make app    # → dist/ElLemby.app
 
 ## The game (English)
 
-A native macOS pixel-art side-scroller (left → right) inspired by the Egyptian
-comedy film **El-Lemby (2002)**, with classic Mario feel: run/jump physics with
-coyote time & jump buffering, stompable enemies (neighborhood thugs), coin
-pickups (الفكة), ؟-crates, a foul-sandwich power-up, a countdown timer, lives,
-and a goal NPC (Nousa) at the end of the alley. The MVP is stage 1, «الحارة».
+A native pixel-art side-scroller (left → right) for **macOS and Windows**,
+inspired by the Egyptian comedy film **El-Lemby (2002)**, with classic Mario
+feel: run/jump physics with coyote time & jump buffering, stompable enemies
+(neighborhood thugs), coin pickups (الفكة), ؟-crates, a foul-sandwich
+power-up, a countdown timer, lives, and a goal NPC (Nousa) at the end of the
+alley. The MVP is stage 1, «الحارة».
 
 Everything is Arabic-first: HUD, menus, and Eastern Arabic numerals. Input is
 keycode-based, so it works identically on Arabic keyboard layouts.
 
-```bash
-swift run ElLemby   # macOS 13+, Swift 5.9+
-swift test          # level-format & game-state unit tests
-```
+Both frontends share the same generated assets and level file:
+
+- **macOS** — Swift + SpriteKit + AppKit (`swift run ElLemby`, macOS 13+).
+- **Windows** — C# + WinForms + GDI+ on .NET 8, zero NuGet packages
+  (`dotnet run --project windows/ElLemby.App`). The gameplay lives in a
+  platform-neutral simulation library (`windows/ElLemby.Core`) with custom
+  AABB/tile physics tuned to the same constants as the SpriteKit build, so
+  the two versions play identically — and the sim is fully unit-tested,
+  including a bot that must complete stage 1 on every test run
+  (`dotnet run --project windows/ElLemby.Tests`, runs on any OS).
 
 ## بنية المشروع | Project layout
 
@@ -73,6 +102,10 @@ el-lemby-platformer/
 │       ├── Scenes/                # البداية، اللعب، النتيجة + HUD
 │       └── Resources/             # sprites/ sfx/ music/ levels/
 ├── Tests/ElLembyTests/
+├── windows/                       # نسخة Windows (‏.NET 8، بدون حزم خارجية)
+│   ├── ElLemby.Core/              # محاكاة اللعب الكاملة + قارئ المراحل (يشتغل على أي نظام)
+│   ├── ElLemby.App/               # نافذة WinForms + راسم GDI+‎ + صوت MCI
+│   └── ElLemby.Tests/             # ٥٣ اختبارًا — منها بوت يكمّل المرحلة كاملة
 ├── tools/                         # مولّدات الأصول (Python، بدون اعتماديات)
 │   ├── generate_assets.py         # كل البيكسل-آرت → PNG
 │   ├── generate_sfx.py            # مؤثرات ومقطع موسيقى «حجاز» → WAV

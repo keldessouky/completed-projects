@@ -16,3 +16,8 @@ dist/
 # Python tooling
 __pycache__/
 *.pyc
+
+# .NET (Windows port)
+windows/**/bin/
+windows/**/obj/
+windows/publish/

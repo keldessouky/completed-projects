@@ -33,3 +33,26 @@ jobs:
           python3 tools/generate_sfx.py
           python3 tools/build_level1.py
           python3 tools/render_level.py
+
+  windows:
+    name: Build & test (Windows)
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: el-lemby-platformer/windows
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - run: dotnet --info
+      - name: Build WinForms app
+        run: dotnet build ElLemby.App/ElLemby.App.csproj -c Release
+      - name: Run simulation & parser tests
+        run: dotnet run --project ElLemby.Tests/ElLemby.Tests.csproj -c Release
+      - name: Publish playable build (artifact)
+        run: dotnet publish ElLemby.App/ElLemby.App.csproj -c Release -r win-x64 --self-contained -p:PublishSingleFile=true -o publish
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ElLemby-windows-x64
+          path: el-lemby-platformer/windows/publish/
