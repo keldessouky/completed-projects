@@ -1,0 +1,66 @@
+name: El-Lemby (macOS)
+
+on:
+  push:
+    branches: ['**']
+    paths:
+      - 'el-lemby-platformer/**'
+      - '.github/workflows/el-lemby.yml'
+  pull_request:
+    paths:
+      - 'el-lemby-platformer/**'
+      - '.github/workflows/el-lemby.yml'
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build:
+    name: Build & test (SwiftPM)
+    runs-on: macos-14
+    defaults:
+      run:
+        working-directory: el-lemby-platformer
+    steps:
+      - uses: actions/checkout@v4
+      - run: swift --version
+      - run: swift build
+      - run: swift test
+      - name: Asset pipeline sanity
+        run: |
+          python3 tools/generate_assets.py
+          python3 tools/generate_sfx.py
+          python3 tools/build_level1.py
+          python3 tools/render_level.py
+      - name: Bundle ElLemby.app (universal, ad-hoc signed)
+        run: make UNIVERSAL=1 icon app
+      - name: Zip app bundle
+        run: ditto -c -k --sequesterRsrc --keepParent dist/ElLemby.app dist/ElLemby-macos.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ElLemby-macos
+          path: el-lemby-platformer/dist/ElLemby-macos.zip
+
+  windows:
+    name: Build & test (Windows)
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: el-lemby-platformer/windows
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - run: dotnet --info
+      - name: Build WinForms app
+        run: dotnet build ElLemby.App/ElLemby.App.csproj -c Release
+      - name: Run simulation & parser tests
+        run: dotnet run --project ElLemby.Tests/ElLemby.Tests.csproj -c Release
+      - name: Publish playable build (artifact)
+        run: dotnet publish ElLemby.App/ElLemby.App.csproj -c Release -r win-x64 --self-contained -p:PublishSingleFile=true -o publish
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ElLemby-windows-x64
+          path: el-lemby-platformer/windows/publish/

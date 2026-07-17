@@ -1,0 +1,23 @@
+# SwiftPM
+.build/
+.swiftpm/
+
+# Xcode
+*.xcodeproj/
+xcuserdata/
+DerivedData/
+
+# Bundled output
+dist/
+
+# OS cruft
+.DS_Store
+
+# Python tooling
+__pycache__/
+*.pyc
+
+# .NET (Windows port)
+windows/**/bin/
+windows/**/obj/
+windows/publish/
