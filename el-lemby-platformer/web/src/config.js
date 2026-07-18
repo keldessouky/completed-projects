@@ -42,12 +42,12 @@ export const CFG = {
 // Every user-facing string, mirrored from the macOS/Windows builds.
 export const L10N = {
   gameTitle: "اللمبي",
-  gameSubtitle: "مغامرات الحارة",
+  gameSubtitle: "اللي بالي بالك",
   pressStart: "اضغط المسافة للبدء",
   controlsHint: "الأسهم أو A/D للحركة — المسافة للنط — M للصوت",
-  fanDisclaimer: "لعبة معجبين غير رسمية مستوحاة من فيلم «اللمبي» (٢٠٠٢)",
+  fanDisclaimer: "لعبة معجبين غير رسمية مستوحاة من فيلم «اللي بالي بالك» (٢٠٠٣)",
 
-  hudMoney: "الفكة",
+  hudMoney: "العيش",
   hudLives: "الأرواح",
   hudTime: "الوقت",
   hudPowered: "مفوّل",
@@ -56,17 +56,17 @@ export const L10N = {
   demo: "عرض تجريبي — اضغط أي زر للعب",
 
   stageClear: "مبروك يا لمبي!",
-  stageClearSub: "وصلت لنوسة بالسلامة",
+  stageClearSub: "وصلت لبطة في الزيارة بالسلامة",
   gameOver: "خلصت الأرواح يا لمبي",
-  gameOverQuote: "«يا عم فوزي… هو في إيه؟»",
+  gameOverQuote: "«معلش… واللي بالي بالك»",
   scoreLabel: "النقاط",
-  moneyLabel: "الفكة اللي لمّيتها",
+  moneyLabel: "العيش اللي لمّيته",
   timeBonusLabel: "مكافأة الوقت",
   highScoreLabel: "أعلى نقاط",
   retryHint: "المسافة = من الأول — Enter = شاشة البداية",
   checkpointToast: "نقطة تفتيش — عند عربية الفول!",
 
-  stageName: (n) => (n === 2 ? "المرحلة ٢ — شارع السوق" : "المرحلة ١ — الحارة"),
+  stageName: (n) => (n === 2 ? "المرحلة ٢ — فناء السجن" : "المرحلة ١ — العنبر"),
 };
 
 const EASTERN_DIGITS = ["٠", "١", "٢", "٣", "٤", "٥", "٦", "٧", "٨", "٩"];

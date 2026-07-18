@@ -1,8 +1,9 @@
-# اللمبي: مغامرات الحارة 🎮
+# اللمبي: اللي بالي بالك 🎮
 
-لعبة منصّات (platformer) بيكسل-آرت أصلية لنظامي **macOS وWindows**، مستوحاة من فيلم
-الكوميديا المصري **«اللمبي» (٢٠٠٢)** وبروح ماريو الكلاسيكية. اجري وانط بالـلمبي من أول
-الحارة لغاية ما توصل لنوسة — والفكة اللي في السكة، لمّها!
+لعبة منصّات (platformer) بيكسل-آرت أصلية — متصفح + macOS + Windows — مستوحاة من
+فيلم الكوميديا المصري **«اللي بالي بالك» (٢٠٠٣)** وبروح ماريو الكلاسيكية. اللمبي دخل
+السجن: اجري وانط من العنبر لفناء السجن لغاية باب الزيارة — وبطة مستنياه هناك.
+والعيش اللي في السكة؟ لمّه!
 
 ![المرحلة الأولى](docs/screenshot.png)
 
@@ -80,22 +81,28 @@ dotnet run --project windows/ElLemby.Tests
 | M | كتم الصوت |
 | ⌘Q | خروج |
 
-انط فوق البلطجية عشان تكسّبهم، وخبط الصناديق اللي عليها «؟» من تحت — فيها فكة،
-وواحد فيهم فيه **ساندوتش فول** يديك ضربة حماية زيادة. ولما تلاقي **عربية الفول**
-في السكة، المسها — دي نقطة تفتيش: لو خسرت روح بترجع من عندها مش من أول المرحلة.
+انط فوق بلطجية العنبر عشان تكسّبهم، وخبط الصناديق اللي عليها «؟» من تحت — فيها
+عيش، وواحد فيهم فيه **طبق فول** يديك ضربة حماية زيادة. ولما تلاقي **عربية الفول**
+في الفناء، المسها — دي نقطة تفتيش: لو خسرت روح بترجع من عندها مش من أول المرحلة.
 
-اللعبة فيها مرحلتين: **«الحارة»** ثم **«شارع السوق»** — الأرواح والنقاط بتكمل
-معاك من مرحلة للتانية.
+اللعبة فيها مرحلتين: **«العنبر»** ثم **«فناء السجن»** — الأرواح والنقاط بتكمل معاك.
+
+> 🎨 **نظام الثيمات:** شكل اللعبة كله (الرسوم والخلفيات والألوان) بيتولّد من
+> `tools/generate_assets.py` عبر `THEMES` — الثيم الحالي «اللي بالي بالك»، وثيم
+> «الحارة» الأصلي محفوظ ويرجع بسطر واحد (`LEMBY_THEME=harah`).
 
 ## The game (English)
 
-A native pixel-art side-scroller (left → right) for **macOS and Windows**,
-inspired by the Egyptian comedy film **El-Lemby (2002)**, with classic Mario
-feel: run/jump physics with coyote time & jump buffering, stompable enemies
-(neighborhood thugs), coin pickups (الفكة), ؟-crates, a foul-sandwich
-power-up, **foul-cart checkpoints** (touch the عربية فول to respawn there),
-a countdown timer, lives, and a goal NPC (Nousa). Two stages ship today —
-«الحارة» and the harder «شارع السوق» — with lives and score carrying across.
+A pixel-art side-scroller (left → right) for **web, macOS and Windows**,
+now themed on the sequel **«اللي بالي بالك» (2003)** — El-Lemby is in prison.
+Classic Mario feel: run/jump physics with coyote time & jump buffering,
+stompable cell-block bullies, bread pickups (العيش — the canteen currency),
+؟-crates, a foul power-up, **foul-cart checkpoints**, a countdown timer,
+lives, and the goal: reach the visit gate where **بطة**, his bombshell
+sweetheart, waits. Two stages — «العنبر» and the harder «فناء السجن» — with
+lives and score carrying across. The whole look is driven by a **theme
+layer** in `tools/generate_assets.py` (`THEMES` / `LEMBY_THEME`); the
+original «مغامرات الحارة» skin is one env var away.
 
 Everything is Arabic-first: HUD, menus, and Eastern Arabic numerals. Input is
 keycode-based, so it works identically on Arabic keyboard layouts.

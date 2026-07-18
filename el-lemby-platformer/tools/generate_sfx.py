@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Chiptune SFX + music generator for «اللمبي: مغامرات الحارة».
+Chiptune SFX + music generator for the El-Lemby platformer.
 
 Writes 16-bit mono WAVs into Sources/ElLembyCore/Resources/sfx/ and music/.
 The music loop is written in maqam hijaz on E (E F G# A B C D) for an

@@ -1,24 +1,24 @@
 import Foundation
 
-/// Every user-facing string, centralized. The game's UI is Arabic (Egyptian
-/// flavor); keeping the strings here is the groundwork for future
-/// localization.
+/// Every user-facing string, centralized — set for the active theme:
+/// «اللي بالي بالك» (2003), El-Lemby in prison. (The art side of the theme
+/// lives in tools/generate_assets.py.)
 enum L10n {
     static let gameTitle = "اللمبي"
-    static let gameSubtitle = "مغامرات الحارة"
-    static let windowTitle = "اللمبي — مغامرات الحارة"
+    static let gameSubtitle = "اللي بالي بالك"
+    static let windowTitle = "اللمبي — اللي بالي بالك"
     static let pressStart = "اضغط المسافة للبدء"
     static let controlsHint = "الأسهم أو A/D للحركة — المسافة للنط — M للصوت"
-    static let fanDisclaimer = "لعبة معجبين غير رسمية مستوحاة من فيلم «اللمبي» (٢٠٠٢)"
-    static let stage1Name = "المرحلة ١ — الحارة"
-    static let stage2Name = "المرحلة ٢ — شارع السوق"
+    static let fanDisclaimer = "لعبة معجبين غير رسمية مستوحاة من فيلم «اللي بالي بالك» (٢٠٠٣)"
+    static let stage1Name = "المرحلة ١ — العنبر"
+    static let stage2Name = "المرحلة ٢ — فناء السجن"
     static let checkpointToast = "نقطة تفتيش — عند عربية الفول!"
 
     static func stageName(_ stage: Int) -> String {
         stage == 2 ? stage2Name : stage1Name
     }
 
-    static let hudMoney = "الفكة"
+    static let hudMoney = "العيش"
     static let hudLives = "الأرواح"
     static let hudTime = "الوقت"
     static let hudPowered = "مفوّل"
@@ -26,11 +26,11 @@ enum L10n {
     static let paused = "وقفة يا معلم — اضغط P للمتابعة"
 
     static let stageClear = "مبروك يا لمبي!"
-    static let stageClearSub = "وصلت لنوسة بالسلامة"
+    static let stageClearSub = "وصلت لبطة في الزيارة بالسلامة"
     static let gameOver = "خلصت الأرواح يا لمبي"
-    static let gameOverQuote = "«يا عم فوزي… هو في إيه؟»"
+    static let gameOverQuote = "«معلش… واللي بالي بالك»"
     static let scoreLabel = "النقاط"
-    static let moneyLabel = "الفكة اللي لمّيتها"
+    static let moneyLabel = "العيش اللي لمّيته"
     static let timeBonusLabel = "مكافأة الوقت"
     static let highScoreLabel = "أعلى نقاط"
     static let retryHint = "المسافة = من الأول — ↩ = شاشة البداية"

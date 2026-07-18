@@ -1,10 +1,12 @@
 # اللمبي: مغامرات الحارة — وثيقة التصميم
 # El-Lemby: Alley Adventures — Design Document
 
-A native pixel platformer for macOS and Windows starring اللمبي, modeled on
-the language of Super Mario Bros. and reskinned into the world of the 2002
-Egyptian comedy. Side-scrolling strictly **left → right** (the movement is
-LTR; the UI and all text are Arabic).
+A native pixel platformer for web, macOS and Windows starring اللمبي,
+modeled on the language of Super Mario Bros. Side-scrolling strictly
+**left → right** (the movement is LTR; the UI and all text are Arabic).
+The visual identity is a swappable **theme**: the active theme is
+«اللي بالي بالك» (2003) — El-Lemby in prison; the original «اللمبي» (2002)
+alley theme remains selectable (see Theming below).
 
 ## Pillars
 
@@ -18,18 +20,32 @@ LTR; the UI and all text are Arabic).
 
 ## Mario → El-Lemby mapping
 
-| Mario | هنا | Notes |
+| Mario | هنا (bali theme) | Notes |
 |---|---|---|
 | Mario | اللمبي | maroon tracksuit, messy hair, stubble |
-| Peach / flagpole | نوسة | reach her to clear the stage |
-| Goomba | البلطجي | patrols, turns at walls/ledges, stompable |
-| Coin | الفكة | +100 pts, spinning gold pound |
+| Peach / flagpole | بطة عند باب الزيارة | reach her to clear the stage (نوسة in the harah theme) |
+| Goomba | بلطجي العنبر | patrols, turns at walls/ledges, stompable |
+| Coin | العيش (رغيف) | +100 pts; gold coin in the harah theme |
 | ? block | صندوق «؟» | wooden crate, Arabic question mark |
 | Super Mushroom | ساندوتش فول | absorbs one hit («مفوّل» state) |
 | Timer | الوقت | 240s countdown per stage, timeout costs a life |
 | Midpoint flag | عربية الفول (checkpoint) | touch once → deaths respawn there |
-| 1-1 | المرحلة ١ «الحارة» | ~7 screens, 205 tiles |
-| 1-2 | المرحلة ٢ «شارع السوق» | ~7.5 screens, 230 tiles, harder |
+| 1-1 | المرحلة ١ «العنبر» | ~7 screens, 205 tiles |
+| 1-2 | المرحلة ٢ «فناء السجن» | ~7.5 screens, 230 tiles, harder |
+
+## Theming
+
+The game's entire look is data, produced by `tools/generate_assets.py` and
+selected by `THEMES` / `ACTIVE_THEME` (or the `LEMBY_THEME` env var). A theme
+contributes palette overrides (El-Lemby's outfit, the bully's cap), tile
+colors, the coin's colors, the two parallax backdrop builders, and the
+**goal/love-interest role** (the `nousa_*` sprite names are the role; the
+harah theme draws نوسة, the bali theme draws بطة — the sequel's bombshell
+sweetheart in her red dress, kept cute and PG at 16×24). Because all three
+frontends load sprites by name, regenerating assets rethemes every platform
+with zero platform-code changes; only the UI strings are set per platform.
+Stage layouts are theme-independent — the walkthroughs below describe both
+skins.
 
 ## Movement feel (see `Core/GameConfig.swift` — single source of truth)
 

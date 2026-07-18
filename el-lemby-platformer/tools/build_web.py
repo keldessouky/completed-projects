@@ -87,7 +87,7 @@ html, body { margin: 0; padding: 0; background: #1e1a24; }
 
 BODY = """
 <div id="ellemby">
-  <div id="hint">اللمبي: مغامرات الحارة — الأسهم أو A/D للحركة، المسافة للنط،
+  <div id="hint">اللمبي: اللي بالي بالك — الأسهم أو A/D للحركة، المسافة للنط،
   P وقفة، M صوت. استنى ٧ ثواني على شاشة البداية تشوف العرض التجريبي! 🐪</div>
 </div>
 """
@@ -150,7 +150,7 @@ def page(body_only):
         "<!doctype html>\n<html lang=\"ar\" dir=\"rtl\">\n<head>\n"
         "<meta charset=\"utf-8\">\n"
         "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1, user-scalable=no\">\n"
-        "<title>اللمبي: مغامرات الحارة</title>\n"
+        "<title>اللمبي: اللي بالي بالك</title>\n"
         "</head>\n<body>\n" + inner + "\n</body>\n</html>\n"
     )
 

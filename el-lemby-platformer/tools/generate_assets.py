@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """
-Pixel-art asset generator for «اللمبي: مغامرات الحارة» (El-Lemby: Alley Adventures).
+Pixel-art asset generator for the El-Lemby platformer. The visual theme
+(currently «اللي بالي بالك» — the prison sequel) is selected by THEMES /
+ACTIVE_THEME below, or the LEMBY_THEME env var.
 
 Generates every sprite, tile, and background strip the game uses as PNG files in
 Sources/ElLembyCore/Resources/sprites/, plus a human-reviewable contact sheet in
@@ -155,7 +157,65 @@ PAL = {
     "U": C(170, 125, 80),         # cart wood
     "u": C(129, 91, 56),          # cart wood shade
     "Y": C(255, 223, 128),        # polished brass highlight
+    "V": C(198, 44, 66),          # Batta's red dress
+    "v": C(152, 28, 50),          # dress shade
 }
+
+
+# ---------------------------------------------------------------------------
+# Themes — the game's look lives here, not in platform code. Every frontend
+# loads sprites by name, so switching ACTIVE_THEME re-dresses macOS, Windows,
+# and the web build at once. (UI strings are set per platform to match.)
+#
+#   harah — the original «اللمبي» (2002): the alley, maroon tracksuit.
+#   bali  — «اللي بالي بالك» (2003): prison whites, the cell block & yard,
+#           bread (رغيف عيش) as the canteen currency instead of coins.
+# ---------------------------------------------------------------------------
+
+THEMES = {
+    "harah": {
+        "pal": {},                       # base palette as-is
+        "tiles": {},                     # base tile colors as-is
+        "coin_light": C(255, 199, 66),   # gold coin
+        "coin_dark": C(199, 141, 29),
+        "bg_far": lambda rng: bg_far_harah(rng),
+        "bg_near": lambda rng: bg_near_harah(rng),
+        # the goal/love-interest role (sprite names stay nousa_*): نوسة
+        "goal_maps": lambda: (NOUSA_A, NOUSA_B),
+    },
+    "bali": {
+        "pal": {
+            "R": C(236, 232, 222),       # prison whites (was tracksuit maroon)
+            "r": C(200, 194, 182),
+            "C": C(238, 234, 226),       # bully's white prisoner cap
+            "c": C(196, 190, 178),
+        },
+        "tiles": {
+            "dust_light": C(186, 184, 176),   # concrete yard
+            "dust_rim": C(108, 106, 100),
+            "cobble_base": C(118, 116, 110),
+            "stone_light": C(168, 166, 156),
+            "stone_border": C(126, 124, 116),
+            "dirt_base": C(102, 100, 94),
+            "dirt_fleck_l": C(122, 120, 112),
+            "dirt_fleck_d": C(84, 82, 78),
+            "brick": C(140, 140, 136),        # cell-block stone
+            "brick_hi": C(162, 162, 156),
+            "brick_sh": C(114, 114, 110),
+            "mortar": C(88, 88, 86),
+        },
+        "coin_light": C(214, 160, 84),   # رغيف عيش — bread, the yard currency
+        "coin_dark": C(166, 113, 52),
+        "bg_far": lambda rng: bg_far_bali(rng),
+        "bg_near": lambda rng: bg_near_bali(rng),
+        # the goal/love-interest role (sprite names stay nousa_*): بطة
+        "goal_maps": lambda: (BATTA_A, BATTA_B),
+    },
+}
+
+ACTIVE_THEME = os.environ.get("LEMBY_THEME", "bali")
+THEME = THEMES[ACTIVE_THEME]
+PAL.update(THEME["pal"])
 
 
 def L(grid_rows, width=16):
@@ -164,7 +224,8 @@ def L(grid_rows, width=16):
 
 # ---------------------------------------------------------------------------
 # El-Lemby — 16×24. Composed as shared head + torso variant + leg variant.
-# Maroon tracksuit with white zipper stripe, messy hair, stubble.
+# Messy hair and stubble; his outfit colors come from the active theme
+# (maroon tracksuit in the harah, prison whites in bali).
 # ---------------------------------------------------------------------------
 
 LEMBY_HEAD = [
@@ -387,6 +448,66 @@ NOUSA_B = [                    # waving
 ]
 
 # ---------------------------------------------------------------------------
+# بطة (Batta) — the sequel's bombshell sweetheart, 16×24, waiting at الزيارة.
+# Big glamorous hair, red dress, hourglass silhouette, lashes and a beauty
+# mark — the Egyptian comedy فتاة الأحلام, kept cute and PG at pixel scale.
+# ---------------------------------------------------------------------------
+
+BATTA_A = [
+    "...KKKKKKK",
+    "..KHHHHHHHK",
+    ".KHHhHHHHHHK",
+    ".KHHSSSSSHHK",
+    ".KHhSSSSSSHK",
+    ".KHSWKSWKSHK",
+    ".KHSSSSSSKHK",
+    ".KHSSKMMSSHK",
+    ".KHHSSSSSHHK",
+    ".KHHHHHHHHHK",
+    ".KHHKKKKKHHK",
+    "...KKSSSKK",
+    "...KVVVVVK",
+    "..KVVVVVVVK",
+    "..KVvVVVvVK",
+    "...KVVVVVK",
+    "...KvVVvK",
+    "...KVVVVVK",
+    "..KVVVVVVVK",
+    ".KVVVVVVVVVK",
+    ".KVvVVVVVvVK",
+    "..KKKKKKKKK",
+    "...KMK.KMK",
+    "",
+]
+
+BATTA_B = [
+    "...KKKKKKK",
+    "..KHHHHHHHK",
+    ".KHHhHHHHHHK.Ks",
+    ".KHHSSSSSHHK.sK",
+    ".KHhSSSSSSHKsK",
+    ".KHSWKSWKSHKK",
+    ".KHSSSSSSKHK",
+    ".KHSSKMMSSHK",
+    ".KHHSSSSSHHK",
+    ".KHHHHHHHHHK",
+    ".KHHKKKKKHHK",
+    "...KKSSSKK",
+    "...KVVVVVK",
+    "..KVVVVVVVK",
+    "..KVvVVVvVK",
+    "...KVVVVVK",
+    "...KvVVvK",
+    "...KVVVVVK",
+    "..KVVVVVVVK",
+    ".KVVVVVVVVVK",
+    ".KVvVVVVVvVK",
+    "..KKKKKKKKK",
+    "...KMK.KMK",
+    "",
+]
+
+# ---------------------------------------------------------------------------
 # عربية الفول — the foul-cart checkpoint, 16×24 (idle / activated)
 # A brass idra pot steaming on a wooden hand cart.
 # ---------------------------------------------------------------------------
@@ -563,6 +684,8 @@ TILE_COLORS = {
     "sand_hi": C(233, 219, 180),
 }
 
+TILE_COLORS.update(THEME["tiles"])
+
 
 def tile_ground(rng):
     g = blank(T, T, TILE_COLORS["cobble_base"])
@@ -704,7 +827,7 @@ FAR_TONE = C(172, 150, 124)
 FAR_DETAIL = C(154, 133, 108)
 
 
-def bg_far(rng):
+def bg_far_harah(rng):
     """Distant skyline silhouette with a minaret and dome — 480×88, tiles horizontally."""
     H = 88
     g = blank(BG_W, H)
@@ -737,7 +860,7 @@ def bg_far(rng):
     return g
 
 
-def bg_near(rng):
+def bg_near_harah(rng):
     """Alley buildings with windows, dishes, tanks and laundry — 480×120, tiles horizontally."""
     H = 120
     g = blank(BG_W, H)
@@ -796,6 +919,108 @@ def bg_near(rng):
     return g
 
 
+PRISON_WALL_FAR = C(152, 150, 144)
+PRISON_WALL_FAR_D = C(132, 130, 124)
+PRISON_WALL = C(170, 168, 160)
+PRISON_WALL_D = C(146, 144, 136)
+PRISON_WINDOW = C(70, 68, 64)
+PRISON_BAR = C(202, 200, 190)
+PRISON_WIRE = C(64, 62, 58)
+PRISON_LAMP = C(232, 196, 106)
+
+
+def bg_far_bali(rng):
+    """The outer prison wall with watchtowers — 480×88, tiles horizontally."""
+    H = 88
+    g = blank(BG_W, H)
+    wall_h = 34
+    rect(g, 0, H - wall_h, BG_W, wall_h, PRISON_WALL_FAR)
+    rect(g, 0, H - wall_h, BG_W, 2, PRISON_WALL_FAR_D)          # coping
+    for x in range(0, BG_W, 16):                                 # crenel hints
+        rect(g, x, H - wall_h + 4, 8, 1, PRISON_WALL_FAR_D)
+    for tx in (70, 250, 400):
+        tx += rng.randrange(-12, 12)
+        rect(g, tx + 3, H - 66, 8, 34, PRISON_WALL_FAR)          # shaft
+        rect(g, tx, H - 78, 14, 13, PRISON_WALL_FAR)             # cabin
+        rect(g, tx, H - 78, 14, 2, PRISON_WALL_FAR_D)            # roof
+        rect(g, tx + 2, H - 74, 3, 5, PRISON_WINDOW)             # cabin glass
+        rect(g, tx + 8, H - 74, 3, 5, PRISON_WINDOW)
+    return g
+
+
+def bg_near_bali(rng):
+    """The cell-block façade: barred windows, barbed wire, a searchlight and
+    the prison laundry line — 480×120, tiles horizontally."""
+    H = 120
+    g = blank(BG_W, H)
+
+    # cell-block segments with yard gaps between them, so the far wall and
+    # watchtowers stay visible and the parallax keeps its depth
+    segments = []
+    x = 0
+    while x < BG_W:
+        w = rng.choice([150, 170, 190])
+        if BG_W - x < 230:
+            w = BG_W - x          # last segment ends flush for clean tiling
+        w = min(w, BG_W - x)
+        h = rng.choice([68, 76, 84])
+        segments.append((x, w, h))
+        rect(g, x, H - h, w, h, PRISON_WALL)
+        rect(g, x, H - h, w, 2, PRISON_WALL_D)                   # parapet
+        for y in range(H - h + 14, H, 22):                       # course seams
+            rect(g, x, y, w, 1, PRISON_WALL_D)
+        rect(g, x + w - 3, H - h, 3, h, PRISON_WALL_D)           # side shading
+        # barred windows
+        rows = (H - h + 8,) if h < 76 else (H - h + 8, H - h + 44)
+        for wy in rows:
+            for wx in range(x + 8, x + w - 14, 24):
+                rect(g, wx, wy, 12, 16, PRISON_WINDOW)
+                rect(g, wx - 1, wy - 1, 14, 1, PRISON_WALL_D)    # lintel
+                for bx in (wx + 2, wx + 5, wx + 8):
+                    rect(g, bx, wy, 1, 16, PRISON_BAR)
+                rect(g, wx, wy + 7, 12, 1, PRISON_BAR)           # cross bar
+        x += w + rng.choice([36, 48])
+
+    # lower front wall with barbed wire, running the whole yard
+    front_h = 24
+    rect(g, 0, H - front_h, BG_W, front_h, PRISON_WALL_D)
+    rect(g, 0, H - front_h, BG_W, 1, PRISON_WALL)
+    wy = H - front_h - 4
+    for zx in range(0, BG_W, 8):                                 # wire zigzag
+        put(g, zx, wy + 3, PRISON_WIRE)
+        put(g, zx + 1, wy + 2, PRISON_WIRE)
+        put(g, zx + 2, wy + 1, PRISON_WIRE)
+        put(g, zx + 3, wy, PRISON_WIRE)
+        put(g, zx + 4, wy + 1, PRISON_WIRE)
+        put(g, zx + 5, wy + 2, PRISON_WIRE)
+        put(g, zx + 6, wy + 3, PRISON_WIRE)
+        put(g, zx + 3, wy - 1, PRISON_WIRE)                      # barb
+    for zx in range(0, BG_W, 4):
+        put(g, zx, wy + 4, PRISON_WIRE)                          # bottom strand
+
+    # searchlight pole and prison laundry in the gaps between blocks
+    for i in range(len(segments) - 1):
+        (bx, bw, bh) = segments[i]
+        seam = bx + bw
+        gap = segments[i + 1][0] - seam if i + 1 < len(segments) else 0
+        if gap < 24:
+            continue
+        if i % 2 == 0:
+            px = seam + gap // 2
+            rect(g, px, H - front_h - 30, 2, 30, PRISON_WIRE)
+            rect(g, px - 3, H - front_h - 35, 8, 5, PRISON_WIRE)
+            rect(g, px - 2, H - front_h - 34, 6, 3, PRISON_LAMP)
+        else:
+            ly = H - 64
+            for lx in range(seam - 14, seam + gap + 14):
+                sag = 1 if abs(lx - (seam + gap // 2)) < gap // 3 else 0
+                put(g, lx, ly + sag, PRISON_WIRE)
+            for j, cx in enumerate(range(seam - 8, seam + gap + 2, 9)):
+                cloth = C(238, 236, 228) if j % 2 == 0 else C(120, 138, 168)
+                rect(g, cx, ly + 2, 5, 6, cloth)
+    return g
+
+
 # ---------------------------------------------------------------------------
 # App icon — 32×32 Lemby face, exported at 256×256
 # ---------------------------------------------------------------------------
@@ -833,6 +1058,8 @@ ICON = [
 
 def build_all():
     rng = random.Random(1602)  # seeded: El-Lemby premiered in 2002; 16px tiles
+    coin_legend = {".": None, "K": PAL["K"],
+                   "G": THEME["coin_light"], "g": THEME["coin_dark"]}
 
     sprites = {
         # player
@@ -847,17 +1074,19 @@ def build_all():
         "thug_walk_0": L(THUG_HEAD + THUG_BODY_A + [""] * (24 - len(THUG_HEAD) - len(THUG_BODY_A))),
         "thug_walk_1": L(THUG_HEAD + THUG_BODY_B + [""] * (24 - len(THUG_HEAD) - len(THUG_BODY_B))),
         "thug_squashed": L(THUG_SQUASHED[:10]),
-        # NPC
-        "nousa_0": L(NOUSA_A),
-        "nousa_1": L(NOUSA_B),
+        # NPC — the goal/love-interest role, chosen by the theme
+        # (نوسة in the الحارة theme, بطة in اللي بالي بالك)
+        "nousa_0": L(THEME["goal_maps"]()[0]),
+        "nousa_1": L(THEME["goal_maps"]()[1]),
         # checkpoint cart
         "checkpoint_idle": L(CART_IDLE),
         "checkpoint_active": L(CART_ACTIVE),
-        # items
-        "coin_0": from_map(COIN_FRAMES[0], PAL, 12),
-        "coin_1": from_map(COIN_FRAMES[1], PAL, 12),
-        "coin_2": from_map(COIN_FRAMES[2], PAL, 12),
-        "coin_3": from_map(COIN_FRAMES[3], PAL, 12),
+        # items — the coin's colors come from the theme (gold in the harah,
+        # رغيف عيش bread in the prison yard)
+        "coin_0": from_map(COIN_FRAMES[0], coin_legend, 12),
+        "coin_1": from_map(COIN_FRAMES[1], coin_legend, 12),
+        "coin_2": from_map(COIN_FRAMES[2], coin_legend, 12),
+        "coin_3": from_map(COIN_FRAMES[3], coin_legend, 12),
         "sandwich": from_map(SANDWICH, PAL, 14),
         "heart": from_map(HEART, PAL, 8),
         # tiles
@@ -868,9 +1097,9 @@ def build_all():
         "tile_mystery": tile_mystery(rng),
         "tile_crate_used": tile_crate_used(rng),
         "tile_stone": tile_stone(rng),
-        # backgrounds (hazed toward the sky so gameplay stays readable)
-        "bg_far": haze_grid(bg_far(rng), 0.52),
-        "bg_near": haze_grid(bg_near(rng), 0.30),
+        # backgrounds (theme-built, hazed toward the sky for readability)
+        "bg_far": haze_grid(THEME["bg_far"](rng), 0.52),
+        "bg_near": haze_grid(THEME["bg_near"](rng), 0.30),
         # icon source
         "icon_32": from_map(ICON, PAL, 32),
     }
