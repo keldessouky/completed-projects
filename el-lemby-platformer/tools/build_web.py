@@ -50,21 +50,27 @@ SPRITE_NAMES = [
 ]
 
 CSS = """
+/* The page is the arcade cabinet: one deliberate dark world drawn from the
+   game's own palette (its night tone), so single-theme is a choice here. */
 :root { color-scheme: dark; }
-html, body { margin: 0; padding: 0; background: #12141c; }
+html, body { margin: 0; padding: 0; background: #1e1a24; }
 #ellemby {
   min-height: 100vh; display: flex; flex-direction: column;
-  align-items: center; justify-content: center; gap: 10px;
+  align-items: center; justify-content: center; gap: 12px;
   font-family: "Segoe UI", "Geeza Pro", "Noto Sans Arabic", sans-serif;
   touch-action: manipulation;
 }
 #game {
   image-rendering: pixelated; image-rendering: crisp-edges;
   background: #a6ccd8; border-radius: 4px;
-  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(243, 236, 224, 0.12);
+  box-shadow: 0 16px 56px rgba(0, 0, 0, 0.55);
   max-width: 98vw;
 }
-#hint { color: #8b8f9f; font-size: 13px; direction: rtl; text-align: center; padding: 0 12px; }
+#hint {
+  color: #a99f8d; font-size: 13px; line-height: 1.7;
+  direction: rtl; text-align: center; padding: 0 16px; max-width: 620px;
+}
 #touchpad { position: fixed; inset: auto 0 12px 0; display: flex; padding: 0 18px; pointer-events: none; }
 .tbtn {
   pointer-events: auto; user-select: none; -webkit-user-select: none;
