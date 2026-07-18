@@ -23,7 +23,7 @@ alley theme remains selectable (see Theming below).
 | Mario | هنا (bali theme) | Notes |
 |---|---|---|
 | Mario | اللمبي | maroon tracksuit, messy hair, stubble |
-| Peach / flagpole | بطة عند باب الزيارة | reach her to clear the stage (نوسة in the harah theme) |
+| Peach / flagpole | سونيا عند باب الزيارة | reach her to clear the stage (نوسة in the harah theme) |
 | Goomba | بلطجي العنبر | patrols, turns at walls/ledges, stompable |
 | Coin | العيش (رغيف) | +100 pts; gold coin in the harah theme |
 | ? block | صندوق «؟» | wooden crate, Arabic question mark |
@@ -40,8 +40,9 @@ selected by `THEMES` / `ACTIVE_THEME` (or the `LEMBY_THEME` env var). A theme
 contributes palette overrides (El-Lemby's outfit, the bully's cap), tile
 colors, the coin's colors, the two parallax backdrop builders, and the
 **goal/love-interest role** (the `nousa_*` sprite names are the role; the
-harah theme draws نوسة, the bali theme draws بطة — the sequel's bombshell
-sweetheart in her red dress, kept cute and PG at 16×24). Because all three
+harah theme draws نوسة, the bali theme draws سونيا — the sequel's glamorous
+sweetheart in her red dress, drawn in the stylized فتاة الأحلام comedy
+register, and the reason El-Lemby keeps running). Because all three
 frontends load sprites by name, regenerating assets rethemes every platform
 with zero platform-code changes; only the UI strings are set per platform.
 Stage layouts are theme-independent — the walkthroughs below describe both

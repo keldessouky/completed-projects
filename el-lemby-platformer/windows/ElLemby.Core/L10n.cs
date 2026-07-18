@@ -32,7 +32,7 @@ public static class L10n
     public const string Paused = "وقفة يا معلم — اضغط P للمتابعة";
 
     public const string StageClear = "مبروك يا لمبي!";
-    public const string StageClearSub = "وصلت لبطة في الزيارة بالسلامة";
+    public const string StageClearSub = "وصلت لسونيا في الزيارة بالسلامة";
     public const string GameOver = "خلصت الأرواح يا لمبي";
     public const string GameOverQuote = "«معلش… واللي بالي بالك»";
     public const string ScoreLabel = "النقاط";

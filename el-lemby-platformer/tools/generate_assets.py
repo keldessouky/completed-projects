@@ -208,8 +208,8 @@ THEMES = {
         "coin_dark": C(166, 113, 52),
         "bg_far": lambda rng: bg_far_bali(rng),
         "bg_near": lambda rng: bg_near_bali(rng),
-        # the goal/love-interest role (sprite names stay nousa_*): بطة
-        "goal_maps": lambda: (BATTA_A, BATTA_B),
+        # the goal/love-interest role (sprite names stay nousa_*): سونيا
+        "goal_maps": lambda: (SONYA_A, SONYA_B),
     },
 }
 
@@ -448,62 +448,63 @@ NOUSA_B = [                    # waving
 ]
 
 # ---------------------------------------------------------------------------
-# بطة (Batta) — the sequel's bombshell sweetheart, 16×24, waiting at الزيارة.
-# Big glamorous hair, red dress, hourglass silhouette, lashes and a beauty
-# mark — the Egyptian comedy فتاة الأحلام, kept cute and PG at pixel scale.
+# سونيا (Sonya) — the sequel's glamorous sweetheart, 16×24, waiting at
+# الزيارة. Blonde waves, red dress, a dramatic hourglass figure drawn in the
+# Egyptian-comedy فتاة الأحلام register — stylized, clothed, and cartoonish.
+# El-Lemby is completely smitten.
 # ---------------------------------------------------------------------------
 
-BATTA_A = [
-    "...KKKKKKK",
-    "..KHHHHHHHK",
-    ".KHHhHHHHHHK",
-    ".KHHSSSSSHHK",
-    ".KHhSSSSSSHK",
-    ".KHSWKSWKSHK",
-    ".KHSSSSSSKHK",
-    ".KHSSKMMSSHK",
-    ".KHHSSSSSHHK",
-    ".KHHHHHHHHHK",
-    ".KHHKKKKKHHK",
-    "...KKSSSKK",
-    "...KVVVVVK",
-    "..KVVVVVVVK",
-    "..KVvVVVvVK",
-    "...KVVVVVK",
-    "...KvVVvK",
-    "...KVVVVVK",
-    "..KVVVVVVVK",
-    ".KVVVVVVVVVK",
-    ".KVvVVVVVvVK",
-    "..KKKKKKKKK",
-    "...KMK.KMK",
+SONYA_A = [
+    "....KKKKKKK",
+    "..KKDDDDDDDKK",
+    ".KDDdDDDDDDDK",
+    ".KDDSSSSSDDDK",
+    ".KDdSSSSSSDDK",
+    ".KDSWKSWKSDDK",
+    ".KDSSSSSSKDDK",
+    ".KDSSKMMSSDDK",
+    ".KDDSSSSSDDDK",
+    ".KDDDDDDDDDDK",
+    ".KDDKKSSKKDDK",
+    "..KKVVVVVVKK",
+    ".KVVVVVVVVVVK",
+    "KVVvVVVVVVvVVK",
+    "KVvVVVVVVVVvVK",
+    ".KKvVVVVVVvKK",
+    "...KvVVVVvK",
+    "...KVVVVVVK",
+    "..KVVVVVVVVK",
+    ".KVVVVVVVVVVK",
+    "KVVvVVVVVVvVVK",
+    ".KKKKKKKKKKKK",
+    "...KMK..KMK",
     "",
 ]
 
-BATTA_B = [
-    "...KKKKKKK",
-    "..KHHHHHHHK",
-    ".KHHhHHHHHHK.Ks",
-    ".KHHSSSSSHHK.sK",
-    ".KHhSSSSSSHKsK",
-    ".KHSWKSWKSHKK",
-    ".KHSSSSSSKHK",
-    ".KHSSKMMSSHK",
-    ".KHHSSSSSHHK",
-    ".KHHHHHHHHHK",
-    ".KHHKKKKKHHK",
-    "...KKSSSKK",
-    "...KVVVVVK",
-    "..KVVVVVVVK",
-    "..KVvVVVvVK",
-    "...KVVVVVK",
-    "...KvVVvK",
-    "...KVVVVVK",
-    "..KVVVVVVVK",
-    ".KVVVVVVVVVK",
-    ".KVvVVVVVvVK",
-    "..KKKKKKKKK",
-    "...KMK.KMK",
+SONYA_B = [
+    "....KKKKKKK",
+    "..KKDDDDDDDKK",
+    ".KDDdDDDDDDDK.s",
+    ".KDDSSSSSDDDKsK",
+    ".KDdSSSSSSDDKK",
+    ".KDSWKSWKSDDK",
+    ".KDSSSSSSKDDK",
+    ".KDSSKMMSSDDK",
+    ".KDDSSSSSDDDK",
+    ".KDDDDDDDDDDK",
+    ".KDDKKSSKKDDK",
+    "..KKVVVVVVKK",
+    ".KVVVVVVVVVVK",
+    "KVVvVVVVVVvVVK",
+    "KVvVVVVVVVVvVK",
+    ".KKvVVVVVVvKK",
+    "...KvVVVVvK",
+    "...KVVVVVVK",
+    "..KVVVVVVVVK",
+    ".KVVVVVVVVVVK",
+    "KVVvVVVVVVvVVK",
+    ".KKKKKKKKKKKK",
+    "...KMK..KMK",
     "",
 ]
 
@@ -1075,7 +1076,7 @@ def build_all():
         "thug_walk_1": L(THUG_HEAD + THUG_BODY_B + [""] * (24 - len(THUG_HEAD) - len(THUG_BODY_B))),
         "thug_squashed": L(THUG_SQUASHED[:10]),
         # NPC — the goal/love-interest role, chosen by the theme
-        # (نوسة in the الحارة theme, بطة in اللي بالي بالك)
+        # (نوسة in the الحارة theme, سونيا in اللي بالي بالك)
         "nousa_0": L(THEME["goal_maps"]()[0]),
         "nousa_1": L(THEME["goal_maps"]()[1]),
         # checkpoint cart

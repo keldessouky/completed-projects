@@ -26,7 +26,7 @@ enum L10n {
     static let paused = "وقفة يا معلم — اضغط P للمتابعة"
 
     static let stageClear = "مبروك يا لمبي!"
-    static let stageClearSub = "وصلت لبطة في الزيارة بالسلامة"
+    static let stageClearSub = "وصلت لسونيا في الزيارة بالسلامة"
     static let gameOver = "خلصت الأرواح يا لمبي"
     static let gameOverQuote = "«معلش… واللي بالي بالك»"
     static let scoreLabel = "النقاط"

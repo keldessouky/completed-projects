@@ -132,6 +132,20 @@ final class TitleScene: SKScene {
         nousa.zPosition = ZPosition.player
         nousa.run(SpriteLoader.animation(["nousa_0", "nousa_1"], timePerFrame: 0.5))
         addChild(nousa)
+
+        // El-Lemby is smitten: a heart floats between the two of them.
+        let heart = SKSpriteNode(texture: SpriteLoader.texture("heart"),
+                                 size: CGSize(width: 8, height: 8))
+        heart.setScale(2)
+        heart.position = CGPoint(x: size.width / 2, y: 2 * GameConfig.tileSize + 58)
+        heart.zPosition = ZPosition.effects
+        heart.run(.repeatForever(.sequence([
+            .group([.moveBy(x: 0, y: 6, duration: 0.7),
+                    .scale(to: 2.5, duration: 0.7)]),
+            .group([.moveBy(x: 0, y: -6, duration: 0.7),
+                    .scale(to: 2.0, duration: 0.7)]),
+        ])))
+        addChild(heart)
     }
 
     override func keyDown(with event: NSEvent) {

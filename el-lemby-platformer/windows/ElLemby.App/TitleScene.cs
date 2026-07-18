@@ -47,11 +47,16 @@ internal sealed class TitleScene : IScene
             g.DrawImage(dirt, col * 16, GameConfig.SceneHeight - 16);
         }
 
-        // Characters, bobbing on their idle/wave frames.
+        // Characters, bobbing on their idle/wave frames — and a floating
+        // heart between them, because El-Lemby is smitten.
         string lembyFrame = (int)(now / 0.45) % 2 == 0 ? "lemby_idle_0" : "lemby_idle_1";
         string nousaFrame = (int)(now / 0.5) % 2 == 0 ? "nousa_0" : "nousa_1";
         g.DrawImage(Assets.Sprite(lembyFrame), new Rectangle(240 - 90 - 24, 272 - 32 - 72, 48, 72));
         g.DrawImage(Assets.Sprite(nousaFrame), new Rectangle(240 + 90 - 24, 272 - 32 - 72, 48, 72));
+        int beat = (int)(9 + 2.5 * Math.Sin(now * 4.2));
+        int bob = (int)(3 * Math.Sin(now * 2.1));
+        g.DrawImage(Assets.Sprite("heart"),
+                    new Rectangle(240 - beat, 272 - 32 - 58 - bob - beat, beat * 2, beat * 2));
 
         Draw.TextCenter(g, L10n.GameTitle, Draw.Title, Palette.MaroonBrush, 240, 36);
         Draw.TextCenter(g, L10n.GameSubtitle, Draw.H2, Palette.InkBrush, 240, 92);

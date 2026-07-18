@@ -99,6 +99,11 @@ export class TitleScene {
     ctx.drawImage(SPRITES[lemby], W / 2 - 90 - 24, H - 32 - 72, 48, 72);
     ctx.drawImage(SPRITES[nousa], W / 2 + 90 - 24, H - 32 - 72, 48, 72);
 
+    // El-Lemby is smitten: a heart floats between the two of them.
+    const beat = Math.round(9 + 2.5 * Math.sin(now * 4.2));
+    const bob = Math.round(3 * Math.sin(now * 2.1));
+    ctx.drawImage(SPRITES.heart, W / 2 - beat, H - 32 - 58 - bob - beat, beat * 2, beat * 2);
+
     drawText(ctx, L10N.gameTitle, { x: W / 2, y: 22, size: 44, color: PALETTE.maroon, bold: true });
     drawText(ctx, L10N.gameSubtitle, { x: W / 2, y: 80, size: 16, color: PALETTE.ink, bold: true });
     if (Math.floor(now / 0.55) % 2 === 0) {

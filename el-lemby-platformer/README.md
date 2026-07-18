@@ -2,7 +2,7 @@
 
 لعبة منصّات (platformer) بيكسل-آرت أصلية — متصفح + macOS + Windows — مستوحاة من
 فيلم الكوميديا المصري **«اللي بالي بالك» (٢٠٠٣)** وبروح ماريو الكلاسيكية. اللمبي دخل
-السجن: اجري وانط من العنبر لفناء السجن لغاية باب الزيارة — وبطة مستنياه هناك.
+السجن: اجري وانط من العنبر لفناء السجن لغاية باب الزيارة — وسونيا مستنياه هناك، واللمبي واقع في حبها لشوشته.
 والعيش اللي في السكة؟ لمّه!
 
 ![المرحلة الأولى](docs/screenshot.png)
@@ -98,8 +98,8 @@ now themed on the sequel **«اللي بالي بالك» (2003)** — El-Lemby 
 Classic Mario feel: run/jump physics with coyote time & jump buffering,
 stompable cell-block bullies, bread pickups (العيش — the canteen currency),
 ؟-crates, a foul power-up, **foul-cart checkpoints**, a countdown timer,
-lives, and the goal: reach the visit gate where **بطة**, his bombshell
-sweetheart, waits. Two stages — «العنبر» and the harder «فناء السجن» — with
+lives, and the goal: reach the visit gate where **سونيا (Sonya)**, the
+sweetheart El-Lemby has fallen head over heels for, waits. Two stages — «العنبر» and the harder «فناء السجن» — with
 lives and score carrying across. The whole look is driven by a **theme
 layer** in `tools/generate_assets.py` (`THEMES` / `LEMBY_THEME`); the
 original «مغامرات الحارة» skin is one env var away.

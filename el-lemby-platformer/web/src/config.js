@@ -56,7 +56,7 @@ export const L10N = {
   demo: "عرض تجريبي — اضغط أي زر للعب",
 
   stageClear: "مبروك يا لمبي!",
-  stageClearSub: "وصلت لبطة في الزيارة بالسلامة",
+  stageClearSub: "وصلت لسونيا في الزيارة بالسلامة",
   gameOver: "خلصت الأرواح يا لمبي",
   gameOverQuote: "«معلش… واللي بالي بالك»",
   scoreLabel: "النقاط",
