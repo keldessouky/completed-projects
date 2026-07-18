@@ -75,6 +75,7 @@ def render(level_name, sprites):
             name = TILE_SPRITES.get(ch)
             if name:
                 art.blit(img, sprites[name], c * T, r * T)
+    fore = sprites["bg_fore"]
     for r, row in enumerate(rows):
         for c, ch in enumerate(row):
             if ch == "o":
@@ -82,6 +83,9 @@ def render(level_name, sprites):
             elif ch in ENTITY_SPRITES:
                 sp = sprites[ENTITY_SPRITES[ch]]
                 art.blit(img, sp, c * T, (r + 1) * T - len(sp))
+
+    for x in range(0, width, art.BG_W):
+        art.blit(img, fore, x, height - len(fore))
 
     art.write_png(os.path.join(DOCS, level_name + ".png"), img)
     print(f"wrote docs/{level_name}.png ({width}×{height})")

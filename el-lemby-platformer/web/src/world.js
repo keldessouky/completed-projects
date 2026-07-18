@@ -164,7 +164,13 @@ export class World {
     }
 
     if (input.moveX !== 0) {
-      const accel = p.grounded ? CFG.runAcceleration : CFG.airAcceleration;
+      // Reversing on the ground uses the stronger skid deceleration so
+      // turnarounds feel immediate.
+      const reversing = p.vx !== 0 && Math.sign(input.moveX) !== Math.sign(p.vx)
+        && Math.abs(p.vx) > 30;
+      const accel = !p.grounded ? CFG.airAcceleration
+        : reversing ? CFG.skidDeceleration
+        : CFG.runAcceleration;
       p.vx += input.moveX * accel * dt;
       p.vx = Math.max(-CFG.maxRunSpeed, Math.min(CFG.maxRunSpeed, p.vx));
       p.facing = input.moveX;
@@ -173,7 +179,9 @@ export class World {
       p.vx = Math.abs(p.vx) <= drop ? 0 : p.vx - drop * Math.sign(p.vx);
     }
 
-    p.vy = Math.max(p.vy + CFG.gravity * dt, -CFG.maxFallSpeed);
+    // Falling pulls harder than rising, so jumps feel snappy, not floaty.
+    const gravityScale = p.vy < 0 ? CFG.fallGravityMultiplier : 1;
+    p.vy = Math.max(p.vy + CFG.gravity * gravityScale * dt, -CFG.maxFallSpeed);
 
     const buffered = now - input.jumpPressedAt <= CFG.jumpBufferTime;
     const coyote = now - p.lastGroundedAt <= CFG.coyoteTime;

@@ -16,10 +16,12 @@ public static class GameConfig
     public const double GravityPointsPerSecond = -9.8 * 150;
     public const double MaxFallSpeed = 700;
 
-    public const double MaxRunSpeed = 116;
-    public const double RunAcceleration = 640;
-    public const double GroundFriction = 820;
-    public const double AirAcceleration = 470;
+    public const double MaxRunSpeed = 122;
+    public const double RunAcceleration = 900;
+    public const double SkidDeceleration = 1500;   // reversing direction on the ground
+    public const double GroundFriction = 1000;
+    public const double AirAcceleration = 620;
+    public const double FallGravityMultiplier = 1.3; // falls are crisper than rises
     public const double JumpSpeed = 452;
     public const double JumpCutSpeed = 145;
     public const double StompBounceSpeed = 310;
@@ -41,6 +43,7 @@ public static class GameConfig
     public const double CameraLerp = 0.18;
     public const double ParallaxFar = 0.15;
     public const double ParallaxNear = 0.30;
+    public const double ParallaxFore = 1.25;  // the 2.5D foreground plane
 
     public const double FallDeathY = -40;
 }

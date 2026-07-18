@@ -47,7 +47,9 @@ def column(col, row_top, row_bottom, ch):
 span(GROUND_ROW, 0, COLS - 1, "G")
 span(GROUND_ROW + 1, 0, COLS - 1, "D")
 
-PITS = [(22, 24), (50, 53), (72, 74), (94, 96), (117, 120), (142, 144), (150, 152)]
+# Pit 5 narrowed to three tiles for game-feel v2: the faster fall gravity
+# shortens jump carry, and four-from-the-stones became a pixel-perfect leap.
+PITS = [(22, 24), (50, 53), (72, 74), (94, 96), (117, 119), (142, 144), (150, 152)]
 for c0, c1 in PITS:
     span(GROUND_ROW, c0, c1, ".")
     span(GROUND_ROW + 1, c0, c1, ".")
@@ -113,9 +115,10 @@ span(11, 100, 102, "o")
 span(11, 110, 112, "o")
 
 # --- act 3: checkpoint, gauntlet, and the run home (cols 113–229) ------------
-put(14, 113, "C")                      # عربية الفول — نقطة التفتيش
-column(115, 13, 14, "=")               # takeoff blocks for pit 5 (117–120)
-column(116, 13, 14, "=")
+put(14, 108, "C")                      # عربية الفول — نقطة التفتيش
+column(114, 13, 14, "=")               # three takeoff blocks for pit 5
+column(115, 13, 14, "=")               # (117–119): feel-v2 hops carry
+column(116, 13, 14, "=")               # further, so the top is wider
 
 # the thug gauntlet under a brick canopy
 span(11, 126, 136, "B")

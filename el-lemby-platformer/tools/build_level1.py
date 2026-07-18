@@ -104,10 +104,14 @@ for r in (13, 14):
     put(r, 121, "=")
 for r in (12, 13, 14):
     put(r, 122, "=")
-for r in (11, 12, 13, 14):
+# A three-column summit reached over one double-height step: under feel-v2
+# physics, hops carry further, so narrow stacked peaks became overshoots.
+for r in (10, 11, 12, 13, 14):
     put(r, 123, "=")
 for r in (10, 11, 12, 13, 14):
     put(r, 124, "=")
+for r in (10, 11, 12, 13, 14):
+    put(r, 125, "=")
 span(9, 123, 124, "o")
 
 # leap over pit 5 (126–129) from the staircase top, then step down

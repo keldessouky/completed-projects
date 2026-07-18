@@ -18,7 +18,8 @@ struct Terrain {
 struct BuiltLevel {
     let contents: SKNode        // tiles, physics, items, enemies, goal
     let farLayer: SKNode        // parallax skyline
-    let nearLayer: SKNode       // parallax alley buildings
+    let nearLayer: SKNode       // parallax buildings
+    let foreLayer: SKNode       // 2.5D foreground plane, in front of play
     let thugs: [Thug]
     let playerSpawn: CGPoint
     let goalPosition: CGPoint
@@ -128,10 +129,12 @@ enum LevelBuilder {
                 goal.position = CGPoint(x: center.x, y: cellBottom + 12)
                 goalPosition = goal.position
                 container.addChild(goal)
+                container.addChild(makeStaticShadow(x: center.x, groundY: cellBottom))
             case .checkpoint:
                 let checkpoint = Checkpoint()
                 checkpoint.position = CGPoint(x: center.x, y: cellBottom + 12)
                 container.addChild(checkpoint)
+                container.addChild(makeStaticShadow(x: center.x, groundY: cellBottom))
             }
         }
 
@@ -145,15 +148,31 @@ enum LevelBuilder {
                                           bottomY: 2 * tile,
                                           zPosition: ZPosition.backgroundNear,
                                           levelWidth: widthInPoints)
+        let foreLayer = makeParallaxLayer(spriteName: "bg_fore",
+                                          parallax: GameConfig.parallaxFore,
+                                          bottomY: 0,
+                                          zPosition: ZPosition.foreground,
+                                          levelWidth: widthInPoints)
 
         return BuiltLevel(contents: container,
                           farLayer: farLayer,
                           nearLayer: nearLayer,
+                          foreLayer: foreLayer,
                           thugs: thugs,
                           playerSpawn: playerSpawn,
                           goalPosition: goalPosition,
                           widthInPoints: widthInPoints,
                           terrain: terrain)
+    }
+
+    /// 2.5D grounding cue for standing NPCs.
+    private static func makeStaticShadow(x: CGFloat, groundY: CGFloat) -> SKShapeNode {
+        let shadow = SKShapeNode(ellipseOf: CGSize(width: 14, height: 5))
+        shadow.fillColor = SKColor(white: 0, alpha: 0.24)
+        shadow.strokeColor = .clear
+        shadow.position = CGPoint(x: x, y: groundY)
+        shadow.zPosition = ZPosition.shadows
+        return shadow
     }
 
     /// A row of repeated strips wide enough to cover the layer's apparent

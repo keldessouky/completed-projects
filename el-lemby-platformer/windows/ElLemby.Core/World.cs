@@ -219,10 +219,16 @@ public sealed class World
             p.LastGroundedAt = now;
         }
 
-        // Horizontal: accelerate toward input, brake with friction.
+        // Horizontal: accelerate toward input, brake with friction. Reversing
+        // on the ground uses the stronger skid deceleration so turnarounds
+        // feel immediate.
         if (input.MoveX != 0)
         {
-            double accel = p.Grounded ? GameConfig.RunAcceleration : GameConfig.AirAcceleration;
+            bool reversing = p.Vx != 0 && Math.Sign(input.MoveX) != Math.Sign(p.Vx)
+                             && Math.Abs(p.Vx) > 30;
+            double accel = !p.Grounded ? GameConfig.AirAcceleration
+                : reversing ? GameConfig.SkidDeceleration
+                : GameConfig.RunAcceleration;
             p.Vx += input.MoveX * accel * dt;
             p.Vx = Math.Clamp(p.Vx, -GameConfig.MaxRunSpeed, GameConfig.MaxRunSpeed);
             p.Facing = input.MoveX;
@@ -233,8 +239,11 @@ public sealed class World
             p.Vx = Math.Abs(p.Vx) <= drop ? 0 : p.Vx - drop * Math.Sign(p.Vx);
         }
 
-        // Gravity.
-        p.Vy = Math.Max(p.Vy + GameConfig.GravityPointsPerSecond * dt, -GameConfig.MaxFallSpeed);
+        // Gravity — falling pulls harder than rising, so jumps feel snappy
+        // instead of floaty.
+        double gravityScale = p.Vy < 0 ? GameConfig.FallGravityMultiplier : 1.0;
+        p.Vy = Math.Max(p.Vy + GameConfig.GravityPointsPerSecond * gravityScale * dt,
+                        -GameConfig.MaxFallSpeed);
 
         // Buffered + coyote jump.
         bool buffered = now - input.JumpPressedAt <= GameConfig.JumpBufferTime;

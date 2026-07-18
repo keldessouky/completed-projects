@@ -20,6 +20,10 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
     private var thugs: [Thug] = []
     private var farLayer: SKNode?
     private var nearLayer: SKNode?
+    private var foreLayer: SKNode?
+    private var terrain: Terrain?
+    private let playerShadow = GameScene.makeShadow()
+    private var thugShadows: [SKShapeNode] = []
     private var levelWidth: CGFloat = GameConfig.sceneSize.width
     private var spawnPoint = CGPoint.zero
     private var goalPosition = CGPoint.zero
@@ -82,12 +86,68 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
 
         addChild(built.farLayer)
         addChild(built.nearLayer)
+        addChild(built.foreLayer)
         farLayer = built.farLayer
         nearLayer = built.nearLayer
+        foreLayer = built.foreLayer
+        terrain = built.terrain
 
         worldNode.addChild(built.contents)
         player.position = spawnPoint
         worldNode.addChild(player)
+
+        // 2.5D grounding cues: dynamic shadows for the player and thugs.
+        worldNode.addChild(playerShadow)
+        thugShadows = thugs.map { _ in GameScene.makeShadow() }
+        for shadow in thugShadows {
+            worldNode.addChild(shadow)
+        }
+    }
+
+    private static func makeShadow() -> SKShapeNode {
+        let shadow = SKShapeNode(ellipseOf: CGSize(width: 14, height: 5))
+        shadow.fillColor = SKColor(white: 0, alpha: 0.26)
+        shadow.strokeColor = .clear
+        shadow.zPosition = ZPosition.shadows
+        return shadow
+    }
+
+    /// The first solid surface below a point, for shadow placement.
+    private func groundTop(underX x: CGFloat, from y: CGFloat) -> CGFloat? {
+        guard let terrain else { return nil }
+        var probe = y - 1
+        while probe >= 0 {
+            if terrain.isSolid(at: CGPoint(x: x, y: probe)) {
+                return (floor(probe / GameConfig.tileSize) + 1) * GameConfig.tileSize
+            }
+            probe -= GameConfig.tileSize
+        }
+        return nil
+    }
+
+    private func updateShadow(_ shadow: SKShapeNode, x: CGFloat, bottom: CGFloat, hidden: Bool) {
+        guard !hidden, let groundY = groundTop(underX: x, from: bottom) else {
+            shadow.isHidden = true
+            return
+        }
+        let height = max(0, bottom - groundY)
+        shadow.isHidden = false
+        shadow.position = CGPoint(x: x, y: groundY)
+        shadow.setScale(max(0.45, 1 - height / 190))
+        shadow.alpha = max(0.3, 1 - height / 260)
+    }
+
+    private func updateShadows() {
+        updateShadow(playerShadow,
+                     x: player.position.x,
+                     bottom: player.position.y - Player.bodySize.height / 2,
+                     hidden: player.isDead)
+        for (thug, shadow) in zip(thugs, thugShadows) {
+            updateShadow(shadow,
+                         x: thug.position.x,
+                         bottom: thug.position.y - Thug.bodySize.height / 2,
+                         hidden: thug.parent == nil || thug.isSquashed)
+        }
     }
 
     private func showStageBanner() {
@@ -162,6 +222,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
 
         updateCamera()
         updateParallax()
+        updateShadows()
         tickClock(dt)
 
         if player.position.y < GameConfig.fallDeathY {
@@ -187,6 +248,7 @@ final class GameScene: SKScene, SKPhysicsContactDelegate {
         let camX = camNode.position.x - size.width / 2
         farLayer?.position.x = camX * (1 - GameConfig.parallaxFar)
         nearLayer?.position.x = camX * (1 - GameConfig.parallaxNear)
+        foreLayer?.position.x = camX * (1 - GameConfig.parallaxFore)
     }
 
     private func tickClock(_ dt: TimeInterval) {

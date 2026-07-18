@@ -381,6 +381,7 @@ internal sealed class GameScene : IScene
         DrawTiles(g);
         DrawEntities(g, now);
         DrawParticles(g, now);
+        DrawParallax(g, Assets.Sprite("bg_fore"), GameConfig.ParallaxFore, 0);
         DrawHud(g, now);
         DrawOverlays(g, now);
     }
@@ -438,9 +439,64 @@ internal sealed class GameScene : IScene
         }
     }
 
+    // The 2.5D grounding cue: a soft ellipse on the first solid surface
+    // below the entity, shrinking and fading with height.
+    private double? ShadowGroundY(double x, double fromY)
+    {
+        int col = (int)Math.Floor(x / GameConfig.TileSize);
+        for (int rfb = (int)Math.Floor((fromY - 1) / GameConfig.TileSize); rfb >= 0; rfb--)
+        {
+            if (_world!.Level.IsSolid(col, _world.Level.Rows - 1 - rfb))
+            {
+                return (rfb + 1) * GameConfig.TileSize;
+            }
+        }
+        return null;
+    }
+
+    private void DrawShadow(Graphics g, double x, double bottom)
+    {
+        double? groundY = ShadowGroundY(x, bottom);
+        if (groundY is not { } gy)
+        {
+            return;
+        }
+        double height = Math.Max(0, bottom - gy);
+        float rx = (float)Math.Max(3, 7 - height / 26);
+        int alpha = (int)(255 * Math.Max(0.08, 0.28 - height / 500));
+        using var brush = new SolidBrush(Color.FromArgb(alpha, 0, 0, 0));
+        float sx = (float)(x - CamLeft);
+        float sy = (float)(GameConfig.SceneHeight - gy);
+        g.FillEllipse(brush, sx - rx, sy - 2.5f, rx * 2, 5f);
+    }
+
     private void DrawEntities(Graphics g, double now)
     {
         World w = _world!;
+
+        if (!w.Player.IsDead)
+        {
+            DrawShadow(g, w.Player.X, w.Player.Y - 11);
+        }
+        foreach (ThugSim thugShadow in w.Thugs)
+        {
+            if (!thugShadow.Squashed && !thugShadow.Gone)
+            {
+                DrawShadow(g, thugShadow.X, thugShadow.Y - 11);
+            }
+        }
+        DrawShadow(g, w.GoalX, w.GoalY - 12);
+        foreach (CheckpointSim cpShadow in w.Checkpoints)
+        {
+            DrawShadow(g, cpShadow.X, cpShadow.Y - 12);
+        }
+        foreach (PowerUpSim powerShadow in w.PowerUps)
+        {
+            if (!powerShadow.Collected && powerShadow.Emerged)
+            {
+                DrawShadow(g, powerShadow.X, w.PowerUpY(powerShadow) - 5.5);
+            }
+        }
 
         int coinFrame = (int)(now / 0.12) % 4;
         foreach (CoinSim coin in w.Coins)

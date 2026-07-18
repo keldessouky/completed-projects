@@ -16,10 +16,12 @@ enum GameConfig {
 
     // El-Lemby movement (Mario-inspired: acceleration, friction, variable
     // jump height, coyote time, and jump buffering).
-    static let maxRunSpeed: CGFloat = 116
-    static let runAcceleration: CGFloat = 640
-    static let groundFriction: CGFloat = 820
-    static let airAcceleration: CGFloat = 470
+    static let maxRunSpeed: CGFloat = 122
+    static let runAcceleration: CGFloat = 900
+    static let skidDeceleration: CGFloat = 1500     // reversing on the ground
+    static let groundFriction: CGFloat = 1000
+    static let airAcceleration: CGFloat = 620
+    static let fallGravityMultiplier: CGFloat = 1.3 // falls crisper than rises
     static let jumpSpeed: CGFloat = 452
     static let jumpCutSpeed: CGFloat = 145
     static let stompBounceSpeed: CGFloat = 310
@@ -44,8 +46,10 @@ enum GameConfig {
     static let cameraLerp: CGFloat = 0.18
 
     // Parallax factors: how much of the camera's travel each layer keeps.
+    // The foreground plane (>1) slides in front of the action — the 2.5D cue.
     static let parallaxFar: CGFloat = 0.15
     static let parallaxNear: CGFloat = 0.30
+    static let parallaxFore: CGFloat = 1.25
 
     // The player dies when falling below this y.
     static let fallDeathY: CGFloat = -40
@@ -74,8 +78,10 @@ enum ZPosition {
     static let backgroundNear: CGFloat = -20
     static let tiles: CGFloat = 0
     static let items: CGFloat = 5
+    static let shadows: CGFloat = 4
     static let enemies: CGFloat = 8
     static let player: CGFloat = 10
+    static let foreground: CGFloat = 15
     static let effects: CGFloat = 20
     static let hud: CGFloat = 100
     static let overlay: CGFloat = 200

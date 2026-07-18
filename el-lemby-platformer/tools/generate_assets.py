@@ -180,6 +180,7 @@ THEMES = {
         "coin_dark": C(199, 141, 29),
         "bg_far": lambda rng: bg_far_harah(rng),
         "bg_near": lambda rng: bg_near_harah(rng),
+        "bg_fore": lambda rng: bg_fore_harah(rng),
         # the goal/love-interest role (sprite names stay nousa_*): نوسة
         "goal_maps": lambda: (NOUSA_A, NOUSA_B),
     },
@@ -208,6 +209,7 @@ THEMES = {
         "coin_dark": C(166, 113, 52),
         "bg_far": lambda rng: bg_far_bali(rng),
         "bg_near": lambda rng: bg_near_bali(rng),
+        "bg_fore": lambda rng: bg_fore_bali(rng),
         # the goal/love-interest role (sprite names stay nousa_*): سونيا
         "goal_maps": lambda: (SONYA_A, SONYA_B),
     },
@@ -688,6 +690,27 @@ TILE_COLORS = {
 TILE_COLORS.update(THEME["tiles"])
 
 
+def bevel(g):
+    """2.5D depth pass for solid tiles: a light-catching top face and
+    shadowed right/bottom edges, so runs of blocks read as extruded slabs."""
+    h, w = len(g), len(g[0])
+
+    def mix(px, f):
+        r, gg, b, a = px
+        return (min(255, round(r * f)), min(255, round(gg * f)),
+                min(255, round(b * f)), a)
+
+    out = [row[:] for row in g]
+    for x in range(w):
+        out[0][x] = mix(out[0][x], 1.25)
+        out[1][x] = mix(out[1][x], 1.1)
+        out[h - 1][x] = mix(out[h - 1][x], 0.82)
+    for y in range(h):
+        out[y][w - 1] = mix(out[y][w - 1], 0.8)
+        out[y][w - 2] = mix(out[y][w - 2], 0.9)
+    return out
+
+
 def tile_ground(rng):
     g = blank(T, T, TILE_COLORS["cobble_base"])
     # packed dusty surface
@@ -1022,6 +1045,63 @@ def bg_near_bali(rng):
     return g
 
 
+FORE_DARK = C(35, 32, 38, 235)
+FORE_MID = C(52, 48, 56, 235)
+
+
+def bg_fore_harah(rng):
+    """Foreground silhouettes for the alley — crates, pots and awning poles
+    sliding in front of the action. 480×22, tiles horizontally."""
+    H = 22
+    g = blank(BG_W, H)
+    rect(g, 0, H - 7, BG_W, 7, FORE_DARK)                        # curb band
+    for x in range(0, BG_W, 60):
+        kind = rng.randrange(3)
+        px = x + rng.randrange(0, 24)
+        if kind == 0:                                            # crate stack
+            rect(g, px, H - 16, 12, 9, FORE_DARK)
+            rect(g, px + 1, H - 16, 10, 1, FORE_MID)
+        elif kind == 1:                                          # clay pot
+            rect(g, px + 2, H - 13, 8, 6, FORE_DARK)
+            rect(g, px + 1, H - 14, 10, 2, FORE_DARK)
+            rect(g, px + 3, H - 15, 6, 1, FORE_MID)
+        else:                                                    # awning pole
+            rect(g, px + 4, H - 20, 2, 13, FORE_DARK)
+            rect(g, px, H - 21, 10, 2, FORE_DARK)
+    return g
+
+
+def bg_fore_bali(rng):
+    """Foreground silhouettes for the yard — railing posts with a sagging
+    chain and the odd bucket. 480×22, tiles horizontally."""
+    H = 22
+    g = blank(BG_W, H)
+    rect(g, 0, H - 6, BG_W, 6, FORE_DARK)                        # curb band
+    posts = list(range(6, BG_W, 48))
+    for px in posts:
+        rect(g, px, H - 18, 3, 12, FORE_DARK)
+        rect(g, px, H - 18, 3, 1, FORE_MID)
+    for i in range(len(posts) - 1):                              # chain sag
+        x0, x1 = posts[i] + 3, posts[i + 1]
+        for lx in range(x0, x1):
+            t = (lx - x0) / max(1, x1 - x0)
+            sag = round(3.5 * (1 - (2 * t - 1) ** 2))
+            put(g, lx, H - 16 + sag, FORE_DARK)
+            put(g, lx, H - 15 + sag, FORE_DARK)
+    # last span ends at BG_W; close the loop for clean tiling
+    x0 = posts[-1] + 3
+    for lx in range(x0, BG_W + 6):
+        t = (lx - x0) / max(1, (posts[0] + BG_W) - x0)
+        sag = round(3.5 * (1 - (2 * t - 1) ** 2))
+        put(g, lx % BG_W, H - 16 + sag, FORE_DARK)
+        put(g, lx % BG_W, H - 15 + sag, FORE_DARK)
+    if rng.random() < 0.9:                                       # a bucket
+        bx = rng.choice(posts) + 18
+        rect(g, bx, H - 12, 7, 6, FORE_DARK)
+        rect(g, bx + 1, H - 13, 5, 1, FORE_MID)
+    return g
+
+
 # ---------------------------------------------------------------------------
 # App icon — 32×32 Lemby face, exported at 256×256
 # ---------------------------------------------------------------------------
@@ -1090,17 +1170,19 @@ def build_all():
         "coin_3": from_map(COIN_FRAMES[3], coin_legend, 12),
         "sandwich": from_map(SANDWICH, PAL, 14),
         "heart": from_map(HEART, PAL, 8),
-        # tiles
-        "tile_ground": tile_ground(rng),
-        "tile_dirt": tile_dirt(rng),
-        "tile_brick": tile_brick(rng),
-        "tile_crate": tile_crate(rng),
-        "tile_mystery": tile_mystery(rng),
-        "tile_crate_used": tile_crate_used(rng),
-        "tile_stone": tile_stone(rng),
+        # tiles — beveled for the 2.5D extruded-slab look
+        "tile_ground": bevel(tile_ground(rng)),
+        "tile_dirt": bevel(tile_dirt(rng)),
+        "tile_brick": bevel(tile_brick(rng)),
+        "tile_crate": bevel(tile_crate(rng)),
+        "tile_mystery": bevel(tile_mystery(rng)),
+        "tile_crate_used": bevel(tile_crate_used(rng)),
+        "tile_stone": bevel(tile_stone(rng)),
         # backgrounds (theme-built, hazed toward the sky for readability)
+        # plus the un-hazed foreground plane that slides in front of play
         "bg_far": haze_grid(THEME["bg_far"](rng), 0.52),
         "bg_near": haze_grid(THEME["bg_near"](rng), 0.30),
+        "bg_fore": THEME["bg_fore"](rng),
         # icon source
         "icon_32": from_map(ICON, PAL, 32),
     }

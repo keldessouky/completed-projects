@@ -402,6 +402,7 @@ export class GameScene {
     this.drawTiles(ctx);
     this.drawEntities(ctx, now);
     this.drawParticles(ctx, now);
+    this.drawParallax(ctx, SPRITES.bg_fore, CFG.parallaxFore, 0);
     this.drawHud(ctx);
     this.drawOverlays(ctx, now);
   }
@@ -446,8 +447,55 @@ export class GameScene {
     }
   }
 
+  // The 2.5D grounding cue: a soft ellipse on the first solid surface
+  // below the entity, shrinking and fading with height.
+  shadowGroundY(x, fromY) {
+    const col = Math.floor(x / CFG.tile);
+    for (let rfb = Math.floor((fromY - 1) / CFG.tile); rfb >= 0; rfb--) {
+      if (this.world.isSolidCell(col, rfb)) {
+        return (rfb + 1) * CFG.tile;
+      }
+    }
+    return null;
+  }
+
+  drawShadow(ctx, x, bottom) {
+    const groundY = this.shadowGroundY(x, bottom);
+    if (groundY === null) {
+      return;
+    }
+    const height = Math.max(0, bottom - groundY);
+    const rx = Math.max(3, 7 - height / 26);
+    ctx.save();
+    ctx.globalAlpha = Math.max(0.08, 0.28 - height / 500);
+    ctx.fillStyle = "#000";
+    ctx.beginPath();
+    ctx.ellipse(Math.round(x - this.camLeft), Math.round(H - groundY), rx, 2.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
   drawEntities(ctx, now) {
     const w = this.world;
+
+    if (!w.player.dead) {
+      this.drawShadow(ctx, w.player.x, w.player.y - 11);
+    }
+    for (const thug of w.thugs) {
+      if (!thug.squashed && !thug.gone) {
+        this.drawShadow(ctx, thug.x, thug.y - 11);
+      }
+    }
+    this.drawShadow(ctx, w.goalX, w.goalY - 12);
+    for (const cp of w.checkpoints) {
+      this.drawShadow(ctx, cp.x, cp.y - 12);
+    }
+    for (const power of w.powerUps) {
+      if (!power.collected && power.emergeT >= 0.35) {
+        this.drawShadow(ctx, power.x, w.powerUpY(power) - 5.5);
+      }
+    }
+
     const coinFrame = Math.floor(now / 0.12) % 4;
     for (const coin of w.coins) {
       if (!coin.collected) {

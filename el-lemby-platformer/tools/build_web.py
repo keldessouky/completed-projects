@@ -46,7 +46,7 @@ SPRITE_NAMES = [
     "sandwich", "heart",
     "tile_ground", "tile_dirt", "tile_brick", "tile_crate",
     "tile_mystery", "tile_crate_used", "tile_stone",
-    "bg_far", "bg_near",
+    "bg_far", "bg_near", "bg_fore",
 ]
 
 CSS = """

@@ -10,10 +10,12 @@ export const CFG = {
   gravity: -9.8 * 150,
   maxFallSpeed: 700,
 
-  maxRunSpeed: 116,
-  runAcceleration: 640,
-  groundFriction: 820,
-  airAcceleration: 470,
+  maxRunSpeed: 122,
+  runAcceleration: 900,
+  skidDeceleration: 1500,       // reversing direction on the ground
+  groundFriction: 1000,
+  airAcceleration: 620,
+  fallGravityMultiplier: 1.3,   // falls are crisper than rises
   jumpSpeed: 452,
   jumpCutSpeed: 145,
   stompBounceSpeed: 310,
@@ -35,6 +37,7 @@ export const CFG = {
   cameraLerp: 0.18,
   parallaxFar: 0.15,
   parallaxNear: 0.3,
+  parallaxFore: 1.25,   // the 2.5D foreground plane slides in front of play
 
   fallDeathY: -40,
 };

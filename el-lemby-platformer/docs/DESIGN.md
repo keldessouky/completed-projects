@@ -33,6 +33,21 @@ alley theme remains selectable (see Theming below).
 | 1-1 | المرحلة ١ «العنبر» | ~7 screens, 205 tiles |
 | 1-2 | المرحلة ٢ «فناء السجن» | ~7.5 screens, 230 tiles, harder |
 
+## 2.5D presentation
+
+Gameplay is strictly 2D; depth is a presentation stack shared by all three
+frontends:
+
+- **Extruded tiles** — the pipeline's `bevel()` pass gives every solid tile
+  a light-catching top face and shadowed right/bottom edges, so runs read
+  as slabs.
+- **Dynamic drop shadows** — a soft ellipse on the first solid surface under
+  the player, thugs, NPCs and power-ups, shrinking/fading with height (also
+  a genuine landing aid).
+- **Three parallax planes** — far (0.15) and near (0.30) behind the action,
+  plus a new theme-built **foreground plane at 1.25** (yard railing and
+  chain in bali, crates and pots in harah) sliding in front of it.
+
 ## Theming
 
 The game's entire look is data, produced by `tools/generate_assets.py` and
@@ -52,10 +67,14 @@ skins.
 
 - Internal resolution **480×272** (30×17 tiles of 16px), nearest-neighbor
   scaling, default window 2×.
-- Run: accel 640 pt/s² to max 116 pt/s; ground friction 820 pt/s²; air control
-  at 470 pt/s².
+- Run: accel 900 pt/s² to max 122 pt/s; skid deceleration 1500 pt/s² when
+  reversing on the ground (feel v2 — turnarounds are immediate); ground
+  friction 1000 pt/s²; air control at 620 pt/s².
 - Jump: impulse 452 pt/s under gravity ≈1470 pt/s² → apex ≈ 4.3 tiles.
-  Variable height: releasing the key caps vy at 145 pt/s.
+  Variable height: releasing the key caps vy at 145 pt/s. Falls pull 1.3×
+  gravity so arcs are crisp, not floaty; three level spots were re-tuned for
+  the shorter carry (stage 2's pit 5 narrowed, both takeoffs/summits widened
+  — the runner bots caught all three).
 - **Coyote time** 90ms, **jump buffering** 120ms, stomp bounce 310 pt/s.
 - Death: hop-and-fall through the world (classic), 1.6s respawn invulnerability
   with blink.

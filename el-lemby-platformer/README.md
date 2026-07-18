@@ -1,7 +1,7 @@
 # اللمبي: اللي بالي بالك 🎮
 
 لعبة منصّات (platformer) بيكسل-آرت أصلية — متصفح + macOS + Windows — مستوحاة من
-فيلم الكوميديا المصري **«اللي بالي بالك» (٢٠٠٣)** وبروح ماريو الكلاسيكية. اللمبي دخل
+فيلم الكوميديا المصري **«اللي بالي بالك» (٢٠٠٣)** وبروح ماريو الكلاسيكية، وبإخراج **٢٫٥D**: ظلال ديناميكية، بلاطات بارزة، وثلاث طبقات عمق متحركة. اللمبي دخل
 السجن: اجري وانط من العنبر لفناء السجن لغاية باب الزيارة — وسونيا مستنياه هناك، واللمبي واقع في حبها لشوشته.
 والعيش اللي في السكة؟ لمّه!
 
@@ -95,7 +95,10 @@ dotnet run --project windows/ElLemby.Tests
 
 A pixel-art side-scroller (left → right) for **web, macOS and Windows**,
 now themed on the sequel **«اللي بالي بالك» (2003)** — El-Lemby is in prison.
-Classic Mario feel: run/jump physics with coyote time & jump buffering,
+Classic Mario feel with v2 responsiveness (skid turnarounds, crisp fall
+gravity, coyote time & jump buffering) and a 2.5D presentation (beveled
+tiles, dynamic drop shadows, a three-plane parallax with a foreground
+layer sliding in front of the action),
 stompable cell-block bullies, bread pickups (العيش — the canteen currency),
 ؟-crates, a foul power-up, **foul-cart checkpoints**, a countdown timer,
 lives, and the goal: reach the visit gate where **سونيا (Sonya)**, the

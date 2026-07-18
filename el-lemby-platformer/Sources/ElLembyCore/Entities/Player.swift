@@ -72,9 +72,19 @@ final class Player: SKNode {
         }
 
         // Horizontal: accelerate toward the input, brake with friction.
+        // Reversing on the ground uses the stronger skid deceleration so
+        // turnarounds feel immediate.
         var vx = body.velocity.dx
         if input.moveX != 0 {
-            let accel = isGrounded ? GameConfig.runAcceleration : GameConfig.airAcceleration
+            let reversing = vx != 0 && (input.moveX > 0) != (vx > 0) && abs(vx) > 30
+            let accel: CGFloat
+            if !isGrounded {
+                accel = GameConfig.airAcceleration
+            } else if reversing {
+                accel = GameConfig.skidDeceleration
+            } else {
+                accel = GameConfig.runAcceleration
+            }
             vx += input.moveX * accel * CGFloat(dt)
             vx = max(-GameConfig.maxRunSpeed, min(GameConfig.maxRunSpeed, vx))
             facing = input.moveX
@@ -87,8 +97,14 @@ final class Player: SKNode {
             }
         }
 
-        // Jump: buffered presses fire as soon as coyote time allows.
+        // Falling pulls harder than the world gravity alone, so jumps feel
+        // snappy instead of floaty (the extra is applied on top of
+        // physicsWorld.gravity while descending).
         var vy = body.velocity.dy
+        if vy < 0 {
+            vy += GameConfig.gravityPointsPerSecond
+                * (GameConfig.fallGravityMultiplier - 1) * CGFloat(dt)
+        }
         let buffered = currentTime - input.jumpPressedAt <= GameConfig.jumpBufferTime
         let coyote = currentTime - lastGroundedAt <= GameConfig.coyoteTime
         if buffered && coyote && vy <= 1 {
