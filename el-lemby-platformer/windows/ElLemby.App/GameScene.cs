@@ -494,7 +494,7 @@ internal sealed class GameScene : IScene
         {
             if (!powerShadow.Collected && powerShadow.Emerged)
             {
-                DrawShadow(g, powerShadow.X, w.PowerUpY(powerShadow) - 5.5);
+                DrawShadow(g, powerShadow.X, powerShadow.Y - 5.5);
             }
         }
 
