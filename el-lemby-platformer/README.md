@@ -9,6 +9,21 @@
 > لعبة معجبين غير رسمية. كل الرسوم والأصوات مصنوعة من الصفر داخل المشروع —
 > لا تستخدم أي مواد من الفيلم.
 
+## العب في المتصفح — على أي جهاز 🌐
+
+النسخة الثالثة من اللعبة ملف HTML **واحد** مكتفٍ بذاته (~70 كيلوبايت):
+المحاكاة، الرسوم، والموسيقى بتتولّد جوّا الصفحة نفسها — من غير أي تحميلات خارجية.
+
+```bash
+python3 tools/build_web.py     # → web/ellemby.html
+open web/ellemby.html          # أو افتحه بأي متصفح — أو ارفعه على أي استضافة
+```
+
+- يشتغل على الموبايل بأزرار لمس ✋
+- استنى ٧ ثواني على شاشة البداية وهتشوف **عرض تجريبي** — البوت بيلعب قدامك زي
+  ماكينات الأركيد زمان (أو افتح `ellemby.html?demo=1` مباشرة)
+- اختبارات المحاكاة نفسها بتتشغّل بـ node: ‏`node web/test.js`
+
 ## التشغيل على macOS (13+)
 
 نسخة macOS أصلية بالكامل: Swift + SpriteKit + AppKit، بدون أي اعتماديات خارجية.
@@ -85,7 +100,13 @@ a countdown timer, lives, and a goal NPC (Nousa). Two stages ship today —
 Everything is Arabic-first: HUD, menus, and Eastern Arabic numerals. Input is
 keycode-based, so it works identically on Arabic keyboard layouts.
 
-Both frontends share the same generated assets and level file:
+Three frontends share the same generated assets and level files:
+
+- **Web** — a single self-contained ~70 KB `web/ellemby.html` (canvas + a JS
+  port of the gameplay sim + **WebAudio chiptune synthesized in-page** from
+  the same note data — no audio files shipped). Touch controls on phones,
+  and an arcade **attract mode**: idle 7s on the title and the test-suite
+  bot plays a live demo. `node web/test.js` runs the full sim/bot suite.
 
 - **macOS** — Swift + SpriteKit + AppKit (`swift run ElLemby`, macOS 13+).
   Step-by-step install/setup/launch guide for MacBook Air (M-series) —
@@ -116,6 +137,10 @@ el-lemby-platformer/
 │       ├── Scenes/                # البداية، اللعب، النتيجة + HUD
 │       └── Resources/             # sprites/ sfx/ music/ levels/
 ├── Tests/ElLembyTests/
+├── web/                           # نسخة المتصفح (ملف واحد، صوت مولّد داخل الصفحة)
+│   ├── src/                       # المحاكاة + الراسم + المشاهد + البوت (ES modules)
+│   ├── test.js                    # نفس منظومة الاختبارات تعمل بـ node
+│   └── ellemby.html               # الناتج النهائي — افتحه والعب
 ├── windows/                       # نسخة Windows (‏.NET 8، بدون حزم خارجية)
 │   ├── ElLemby.Core/              # محاكاة اللعب الكاملة + قارئ المراحل (يشتغل على أي نظام)
 │   ├── ElLemby.App/               # نافذة WinForms + راسم GDI+‎ + صوت MCI

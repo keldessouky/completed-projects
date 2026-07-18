@@ -42,6 +42,24 @@ jobs:
           name: ElLemby-macos
           path: el-lemby-platformer/dist/ElLemby-macos.zip
 
+  web:
+    name: Build & test (Web)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: el-lemby-platformer
+    steps:
+      - uses: actions/checkout@v4
+      - run: node --version
+      - name: Run sim + parser + audio + bot tests in node
+        run: node web/test.js
+      - name: Build the single-file game
+        run: python3 tools/build_web.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ElLemby-web
+          path: el-lemby-platformer/web/ellemby.html
+
   windows:
     name: Build & test (Windows)
     runs-on: windows-latest

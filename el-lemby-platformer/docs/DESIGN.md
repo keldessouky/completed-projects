@@ -133,16 +133,18 @@ and stages without checkpoints still respawn at the start.
 | 0.5 | Boss: الفتوة + stage 4 «الفرح» finale, save/continue |
 | 0.6 | Game-controller support, settings scene, screen-shake & juice pass |
 
-## The two frontends
+## The three frontends
 
-| | macOS | Windows |
-|---|---|---|
-| Stack | Swift + SpriteKit + AppKit | C# (.NET 8) + WinForms + GDI+ |
-| Physics | SpriteKit bodies (merged terrain runs) | Custom AABB/tile sim in `windows/ElLemby.Core` |
-| Arabic text | Core Text via `SKLabelNode` (Geeza Pro) | GDI+ `DrawString` shaping (Segoe UI, RTL formats) |
-| Audio | `AVAudioPlayer` per effect | winmm **MCI** alias per effect (`type mpegvideo` for looping) |
-| Loop | SpriteKit `update(_:)` | `Application.Idle` + `PeekMessage`, fixed 60Hz steps |
-| Deps | none | none (no NuGet packages) |
+| | macOS | Windows | Web |
+|---|---|---|---|
+| Stack | Swift + SpriteKit + AppKit | C# (.NET 8) + WinForms + GDI+ | JS + canvas (single HTML file) |
+| Physics | SpriteKit bodies (merged terrain runs) | Custom AABB/tile sim in `windows/ElLemby.Core` | JS port of the same sim (`web/src/world.js`) |
+| Arabic text | Core Text via `SKLabelNode` (Geeza Pro) | GDI+ `DrawString` shaping (Segoe UI, RTL formats) | canvas `fillText` + `direction: rtl` (browser HarfBuzz) |
+| Audio | `AVAudioPlayer` per effect | winmm **MCI** alias per effect (`type mpegvideo` for looping) | **WebAudio buffers synthesized in-page** from the note tables |
+| Loop | SpriteKit `update(_:)` | `Application.Idle` + `PeekMessage`, fixed 60Hz steps | `requestAnimationFrame` + fixed-step accumulator |
+| Input | NSEvent key codes | WinForms `Keys` | `KeyboardEvent.code` + on-screen touch buttons |
+| Extras | universal .app artifact | portable exe artifact | attract-mode bot demo, ~70 KB total, zero requests |
+| Deps | none | none (no NuGet packages) | none (no npm packages) |
 
 Both load the **same** `level1.txt`, PNGs, and WAVs (the csproj links
 `Sources/ElLembyCore/Resources` into the exe's output), and both use the same
@@ -150,11 +152,20 @@ tuning constants — `GameConfig.swift` and `GameConfig.cs` must be kept in
 lockstep when tuning.
 
 The Windows split (`ElLemby.Core` sim + thin `ElLemby.App` shell) exists so
-gameplay is test-driven: 53 dependency-free tests cover the parser, movement
+gameplay is test-driven: the dependency-free suite covers the parser, movement
 (jump apex ≈ 4.3 tiles, jump-cut, max speed), stomps, crate pops, thug patrol
-bounds, and a **runner bot that must finish stage 1** — they run on any OS via
-`dotnet run --project windows/ElLemby.Tests`, and in CI on the Windows job.
-Porting that sim back under the SpriteKit frontend is a roadmap candidate.
+bounds, checkpoints, and a **runner bot that must finish every stage** — run
+via `dotnet run --project windows/ElLemby.Tests` on any OS, and in CI.
+The web build carries the same suite in JS (`node web/test.js`), where the
+bot doubles as the title screen's arcade **attract mode**. Porting the sim
+back under the SpriteKit frontend is a roadmap candidate.
+
+The web bundle (`tools/build_web.py`) inlines the shared sprites as base64
+and the level texts verbatim, and ships **no audio at all**: the SFX and the
+hijaz music loop are rendered at load time by a JS port of the Python synth
+(same event tables, deterministic xorshift noise) into WebAudio buffers.
+Headless-Chromium screenshots of `ellemby.html?demo=1` are the render-layer
+verification path on machines with no display.
 
 ## Tech notes / known gaps (MVP)
 
