@@ -21,6 +21,8 @@ const PAD = 4;
 const SIZE = 2048;
 /** world units per art pixel — the chunk size of the whole game */
 export const PX = 2;
+/** frames in a unit walk cycle */
+export const WALK_FRAMES = 4;
 
 type DrawFn = (c: CanvasRenderingContext2D, w: number, h: number) => void;
 const hex = (n: number): string => '#' + n.toString(16).padStart(6, '0');
@@ -137,25 +139,30 @@ export class GameAtlas {
   private paintUnits(): void {
     for (let e = 0; e < 5; e++) {
       const pal = CONFIG.palettes[e];
-      this.placePx('king' + e, unitSprite({
-        cloth: ramp(pal.accent2),
-        metal: ramp(pal.stone),
-        accent: pal.accent,
-        helm: e >= 2 ? 3 : 0,
-        era: e,
-        royal: true,
-        cape: pal.accent,
-      }));
-      // three tiers: levy, drilled, elite
-      for (let t = 0; t < 3; t++) {
-        this.placePx(`sol${e}_${t}`, unitSprite({
-          cloth: ramp(t === 0 ? pal.wood : t === 1 ? pal.stoneDark : pal.accent2),
+      // four walk frames each, so a marching army actually marches
+      for (let f = 0; f < WALK_FRAMES; f++) {
+        this.placePx(`king${e}_${f}`, unitSprite({
+          cloth: ramp(pal.accent2),
           metal: ramp(pal.stone),
           accent: pal.accent,
-          helm: t === 0 ? 1 : t === 1 ? 2 : 3,
+          helm: e >= 2 ? 3 : 0,
           era: e,
-          cape: t >= 2 ? pal.accent : undefined,
+          royal: true,
+          cape: pal.accent,
+          frame: f,
         }));
+        // three tiers: levy, drilled, elite
+        for (let t = 0; t < 3; t++) {
+          this.placePx(`sol${e}_${t}_${f}`, unitSprite({
+            cloth: ramp(t === 0 ? pal.wood : t === 1 ? pal.stoneDark : pal.accent2),
+            metal: ramp(pal.stone),
+            accent: pal.accent,
+            helm: t === 0 ? 1 : t === 1 ? 2 : 3,
+            era: e,
+            cape: t >= 2 ? pal.accent : undefined,
+            frame: f,
+          }));
+        }
       }
     }
     this.placePx('solW', flashOf(unitSprite({

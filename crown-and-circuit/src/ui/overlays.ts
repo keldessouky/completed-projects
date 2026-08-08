@@ -18,6 +18,8 @@ function dim(ctx: Ctx, alpha = 0.66): Graphics {
 class Overlay {
   root = new Container();
   private prevPaused: boolean;
+  /** tweens this overlay started, stopped on close */
+  private owned: Tween<object>[] = [];
 
   constructor(protected ctx: Ctx, z: number) {
     this.prevPaused = ctx.loop.paused;
@@ -26,7 +28,20 @@ class Overlay {
     ctx.overlays.addChild(this.root);
   }
 
+  /**
+   * Register a tween that mutates this overlay's display objects. Closing
+   * before it finishes would otherwise leave it writing to destroyed nodes,
+   * which throws inside the ticker.
+   */
+  track<T extends object>(t: Tween<T>): Tween<T> {
+    this.owned.push(t as unknown as Tween<object>);
+    this.ctx.tweens.add(t);
+    return t;
+  }
+
   close(unpause = false): void {
+    for (const t of this.owned) t.stop();
+    this.owned.length = 0;
     this.ctx.loop.paused = unpause ? false : this.prevPaused;
     this.root.destroy({ children: true });
   }
@@ -206,6 +221,6 @@ export function showCards(ctx: Ctx, cards: CardDef[]): void {
       .easing(Easing.Quadratic.Out)
       .onUpdate(() => { wrap.alpha = st.a; wrap.y = st.y; })
       .start(performance.now());
-    ctx.tweens.add(tw);
+    o.track(tw);
   });
 }

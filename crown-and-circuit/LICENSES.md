@@ -71,6 +71,25 @@ If you do bundle a pack, add its author, licence and source URL to this file, an
 check the pack's terms first — "free to use" and "free to redistribute" are not
 the same permission.
 
+### Packs the project is set up for
+
+No pack is currently bundled. If you install one, record it here. For reference,
+the common itch.io pixel-art licence used by several of these packs reads:
+
+> - You can use this asset in any game project, personal or commercial.
+> - DO NOT resell or redistribute AS A GAME ASSET, it has to be part of a project.
+> - Credit is not required but it is appreciated.
+> - Modify to suit your needs.
+> - You are NOT allowed to turn any of my assets to an NFT.
+
+Under those terms, shipping the art inside this game is explicitly allowed — it
+is part of a project, not an asset being resold. What is *not* allowed is
+offering the raw files for download on their own. A public repository holding the
+loose PNGs sits close enough to that line that this project keeps `public/art/`
+gitignored and loads packs from disk at runtime instead. If you decide the
+bundled-in-a-project reading covers your repo, un-ignore the folder and credit
+the author here with a link.
+
 ## Audio — original, synthesized offline
 
 **No third-party audio file is bundled.** All 26 cues — including the five era

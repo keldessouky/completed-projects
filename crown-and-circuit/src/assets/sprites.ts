@@ -24,6 +24,8 @@ export interface UnitOpts {
   /** taller, broader frame for the king */
   royal?: boolean;
   cape?: number;
+  /** walk-cycle frame 0..3 (0 and 2 are the passing poses) */
+  frame?: number;
 }
 
 /** A humanoid on a 14×18 grid (18×22 for the king). */
@@ -34,6 +36,11 @@ export function unitSprite(o: UnitOpts): Px {
   const p = new Px(w, h);
   const cx = (w >> 1) - 1;          // left pixel of the 2-wide centre column
   const footY = h - 2;
+  // 4-frame walk: legs alternate, and the whole body bobs on the passing poses
+  const f = ((o.frame ?? 0) % 4 + 4) % 4;
+  const bob = f === 1 || f === 3 ? -1 : 0;
+  const legL = f === 1 ? 1 : f === 3 ? -1 : 0;
+  const legR = -legL;
 
   // ---- cape behind everything (royalty and elite tiers)
   if (o.cape !== undefined) {
@@ -44,14 +51,14 @@ export function unitSprite(o: UnitOpts): Px {
     p.rect(cx - 2, footY - 1, 6, 1, cr.dark);
   }
 
-  // ---- legs
-  p.rect(cx - 1, footY - 4, 2, 4, o.cloth.dark);
-  p.rect(cx + 2, footY - 4, 2, 4, o.cloth.dark);
-  p.rect(cx - 1, footY, 2, 1, OUT);
-  p.rect(cx + 2, footY, 2, 1, OUT);
+  // ---- legs (offset per walk frame)
+  p.rect(cx - 1 + legL, footY - 4, 2, 4, o.cloth.dark);
+  p.rect(cx + 2 + legR, footY - 4, 2, 4, o.cloth.dark);
+  p.rect(cx - 1 + legL, footY, 2, 1, OUT);
+  p.rect(cx + 2 + legR, footY, 2, 1, OUT);
 
   // ---- torso
-  const ty = royal ? 9 : 8;
+  const ty = (royal ? 9 : 8) + bob;
   const th = footY - 3 - ty;
   p.rect(cx - 2, ty, 6, th, o.cloth.base);
   p.rect(cx - 2, ty, 1, th, o.cloth.light);      // lit left edge

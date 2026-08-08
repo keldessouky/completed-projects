@@ -3,6 +3,7 @@ import { CONFIG, type EnemyKind, type EraId, type StructureKind } from '../confi
 import type { Ctx } from '../core/game';
 import { SpatialGrid } from '../core/grid';
 import { Pool } from '../core/pool';
+import { WALK_FRAMES } from '../assets/atlas';
 import { Fort, type Pad } from './fort';
 import { NumberPops, Particles } from './particles';
 
@@ -28,6 +29,8 @@ interface Soldier {
   slot: number;
   flash: number;
   alive: boolean;
+  /** walk-cycle phase, advanced by distance travelled */
+  gait: number;
 }
 
 interface Enemy {
@@ -93,6 +96,7 @@ export class World {
   kingIFrames = 0;
   kingDown = 0;
   facing = 1;
+  private kingGait = 0;
 
   /** coins in hand, and the run's banked total */
   carry = 0;
@@ -166,11 +170,11 @@ export class World {
     this.pops = new NumberPops(a);
 
     this.soldiers = new Pool<Soldier>(CONFIG.squad.max, () => {
-      const sp = new Sprite(a.get('sol0_0'));
+      const sp = new Sprite(a.get('sol0_0_0'));
       sp.anchor.set(0.5, 0.8);
       sp.visible = false;
       mid.addChild(sp);
-      return { sp, x: CX, y: CY, px: CX, py: CY, cool: 0, slot: 0, flash: 0, alive: true };
+      return { sp, x: CX, y: CY, px: CX, py: CY, cool: 0, slot: 0, flash: 0, alive: true, gait: Math.random() * 4 };
     });
     this.enemies = new Pool<Enemy>(CONFIG.enemies.max, () => {
       const sp = new Sprite(a.get('e_runner'));
@@ -200,7 +204,7 @@ export class World {
 
     layer.addChild(this.particles, this.pops);
     // king sprite lives above the crowd
-    this.kingSp = new Sprite(a.get('king0'));
+    this.kingSp = new Sprite(a.get('king0_0'));
     this.kingSp.anchor.set(0.5, 0.82);
     air.addChild(this.kingSp);
     this.setEra(0);
@@ -213,7 +217,7 @@ export class World {
     this.era = era;
     const a = this.ctx.atlas;
     this.keepSp.texture = a.get('keep' + era);
-    this.kingSp.texture = a.get('king' + era);
+    this.kingSp.texture = a.get(`king${era}_0`);
     const pal = CONFIG.palettes[era];
     for (const [pad, spr] of this.padSprites) {
       spr.base.tint = pal.accent;
@@ -239,10 +243,13 @@ export class World {
     spr.body.tint = pad.kind === 'tower' ? 0xffffff : CONFIG.palettes[pad.era].stone;
   }
 
+  /** Current squad tier — the whole army upgrades together as it grows. */
+  private get tier(): number {
+    return Math.min(2, Math.floor(this.soldiers.count / CONFIG.squad.tierEvery));
+  }
+
   private dressSoldier(s: Soldier): void {
-    const n = this.soldiers.count;
-    const tier = Math.min(2, Math.floor(n / CONFIG.squad.tierEvery));
-    s.sp.texture = this.ctx.atlas.get(`sol${this.era}_${tier}`);
+    s.sp.texture = this.ctx.atlas.get(`sol${this.era}_${this.tier}_${(s.gait | 0) % WALK_FRAMES}`);
   }
 
   // ---------------------------------------------------------------- spawning
@@ -887,14 +894,25 @@ export class World {
     const lerp = (p: number, n: number): number => p + (n - p) * alpha;
     const a = this.ctx.atlas;
 
+    // gait advances with distance covered, so walking looks like walking and
+    // standing still settles on the neutral pose
+    const kingSpeed = Math.hypot(this.kvx, this.kvy);
+    this.kingGait = kingSpeed > 12 ? this.kingGait + dtReal * (kingSpeed / 26) : 0;
+    this.kingSp.texture = a.get(`king${this.era}_${(this.kingGait | 0) % WALK_FRAMES}`);
     this.kingSp.visible = this.kingDown <= 0;
     this.kingSp.position.set(lerp(this.kpx, this.kx), lerp(this.kpy, this.ky));
     this.kingSp.scale.x = this.facing;
     this.kingSp.alpha = this.kingIFrames > 0 ? 0.55 + Math.sin(performance.now() / 40) * 0.25 : 1;
 
+    const tier = this.tier;
     for (let i = 0; i < this.soldiers.count; i++) {
       const s = this.soldiers.items[i];
-      s.sp.position.set(lerp(s.px, s.x), lerp(s.py, s.y));
+      const nx = lerp(s.px, s.x);
+      const ny = lerp(s.py, s.y);
+      const moved = Math.hypot(s.x - s.px, s.y - s.py) / Math.max(0.0001, dtReal);
+      s.gait = moved > 12 ? s.gait + dtReal * (moved / 26) : 0;
+      s.sp.texture = a.get(`sol${this.era}_${tier}_${(s.gait | 0) % WALK_FRAMES}`);
+      s.sp.position.set(nx, ny);
       s.sp.zIndex = s.y;
     }
     for (let i = 0; i < this.enemies.count; i++) {

@@ -18,9 +18,10 @@ import type { GameAtlas } from './atlas';
  *
  *   { "e_runner": { "src": "chars.png", "x": 0, "y": 0, "w": 32, "h": 32 } }
  *
- * Frame names are the ones in atlas.ts: king0..4, sol0_0..sol4_2, e_runner,
- * e_brute, e_shooter, e_flyer, e_boss, tower0..4, keep0..4, wall0..4,
- * barracks, forge, coin, shard, p0..p4.
+ * Units are animated, so their frames are numbered: king<era>_<0..3> and
+ * sol<era>_<tier>_<0..3>. Static frames keep plain names: e_runner, e_brute,
+ * e_shooter, e_flyer, e_boss, tower0..4, keep0..4, wall0..4, barracks, forge,
+ * coin, shard, p0..p4, pEnemy.
  */
 export interface PackEntry {
   src: string;
@@ -28,11 +29,33 @@ export interface PackEntry {
   y?: number;
   w?: number;
   h?: number;
-  /** world units per source pixel; defaults to keeping the art's own size */
-  scale?: number;
 }
 
-type Manifest = Record<string, string | PackEntry>;
+/**
+ * An animation strip: a row of equal-sized frames inside a sheet. Sliced into
+ * the numbered frames the game already animates (`king0_0`…`king0_3`), looping
+ * or clamping the source strip to fit however many frames it has.
+ */
+export interface PackStrip {
+  src: string;
+  /** frame size in source pixels */
+  frameW: number;
+  frameH: number;
+  /** how many frames to read from the strip */
+  frames: number;
+  /** which row of the sheet (defaults to 0) */
+  row?: number;
+  /** first frame's column (defaults to 0) */
+  col?: number;
+  /** target frame names get this suffix range: name_0 … name_(count-1) */
+  count?: number;
+}
+
+type ManifestValue = string | PackEntry | PackStrip;
+type Manifest = Record<string, ManifestValue>;
+
+const isStrip = (v: ManifestValue): v is PackStrip =>
+  typeof v === 'object' && v !== null && 'frameW' in v;
 
 function loadImage(url: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -62,26 +85,50 @@ export async function applyArtPack(atlas: GameAtlas, base: string): Promise<numb
   const sheets = new Map<string, HTMLImageElement>();
   let applied = 0;
 
-  for (const [frame, valueRaw] of Object.entries(manifest)) {
-    const value: PackEntry = typeof valueRaw === 'string' ? { src: valueRaw } : valueRaw;
-    if (!value || typeof value.src !== 'string') continue;
+  const imageFor = async (src: string): Promise<HTMLImageElement> => {
+    let img = sheets.get(src);
+    if (!img) {
+      img = await loadImage(root + src);
+      sheets.set(src, img);
+    }
+    return img;
+  };
+
+  for (const [name, valueRaw] of Object.entries(manifest)) {
+    const value: ManifestValue = typeof valueRaw === 'string' ? { src: valueRaw } : valueRaw;
+    if (!value || typeof (value as PackEntry).src !== 'string') continue;
     try {
-      let img = sheets.get(value.src);
-      if (!img) {
-        img = await loadImage(root + value.src);
-        sheets.set(value.src, img);
-      }
+      const img = await imageFor((value as PackEntry).src);
       const source = Texture.from(img).source;
       // pixel art must never be smoothed; packs are almost always pixel art
       source.scaleMode = 'nearest';
-      const x = value.x ?? 0;
-      const y = value.y ?? 0;
-      const w = value.w ?? img.naturalWidth;
-      const h = value.h ?? img.naturalHeight;
-      atlas.frames[frame] = new Texture({ source, frame: new Rectangle(x, y, w, h) });
+
+      if (isStrip(value)) {
+        const row = value.row ?? 0;
+        const col = value.col ?? 0;
+        const count = value.count ?? value.frames;
+        for (let i = 0; i < count; i++) {
+          // loop the source strip if the game wants more frames than it has
+          const f = value.frames > 0 ? i % value.frames : 0;
+          atlas.frames[`${name}_${i}`] = new Texture({
+            source,
+            frame: new Rectangle(
+              (col + f) * value.frameW, row * value.frameH, value.frameW, value.frameH,
+            ),
+          });
+          applied++;
+        }
+        continue;
+      }
+
+      const e = value as PackEntry;
+      atlas.frames[name] = new Texture({
+        source,
+        frame: new Rectangle(e.x ?? 0, e.y ?? 0, e.w ?? img.naturalWidth, e.h ?? img.naturalHeight),
+      });
       applied++;
     } catch (err) {
-      console.warn(`[art pack] skipped "${frame}":`, err);
+      console.warn(`[art pack] skipped "${name}":`, err);
     }
   }
 

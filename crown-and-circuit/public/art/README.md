@@ -30,12 +30,36 @@ Map an atlas frame name to a whole image:
 Anything that fails to load is skipped and keeps the built-in sprite, so a
 partial pack is fine — override only the frames you care about.
 
+## Animated sheets
+
+Units are animated on a 4-frame walk cycle, so their frames are numbered. To map
+an 8-frame strip onto them, describe the strip and the loader slices it:
+
+```json
+{
+  "king0": {
+    "src": "adventurer-walk.png",
+    "frameW": 96, "frameH": 96,
+    "frames": 8,
+    "row": 0,
+    "count": 4
+  }
+}
+```
+
+- `frameW` / `frameH` — one frame's size in the source image
+- `frames` — how many frames the strip actually has
+- `row` — which row of the sheet (0 for a single-row strip)
+- `count` — how many game frames to fill (4 for units); if the strip has more
+  frames than that they wrap, so a 8-frame walk maps cleanly onto the 4 the game
+  asks for
+
 ## Frame names
 
 | Group | Names |
 | --- | --- |
-| King, per era | `king0` … `king4` |
-| Soldiers, era × tier | `sol0_0` … `sol4_2` |
+| King, per era (animated) | `king0_0` … `king4_3` — or map with a strip as `king0` |
+| Soldiers, era × tier (animated) | `sol0_0_0` … `sol4_2_3` — or strip as `sol0_0` |
 | Enemies | `e_runner`, `e_brute`, `e_shooter`, `e_flyer`, `e_flyer1`, `e_boss` |
 | Hit flashes | same name + `W` (e.g. `e_bruteW`) |
 | Towers / keeps / walls, per era | `tower0`…`tower4`, `keep0`…`keep4`, `wall0`…`wall4` |
