@@ -1,0 +1,114 @@
+{
+  "sprites": {
+    "uiTap": [
+      0,
+      50
+    ],
+    "uiBack": [
+      110,
+      70
+    ],
+    "sfxBlade": [
+      240,
+      160
+    ],
+    "sfxMusket": [
+      460,
+      340
+    ],
+    "sfxRifle": [
+      860,
+      220
+    ],
+    "sfxMg": [
+      1140,
+      140
+    ],
+    "sfxLaser": [
+      1340,
+      200
+    ],
+    "sfxHit": [
+      1600,
+      50
+    ],
+    "sfxKill": [
+      1710,
+      170
+    ],
+    "sfxCoin": [
+      1940,
+      130
+    ],
+    "sfxBuild": [
+      2130,
+      700
+    ],
+    "sfxCrumble": [
+      2890,
+      600
+    ],
+    "sfxKeepHit": [
+      3550,
+      500
+    ],
+    "sfxHurt": [
+      4110,
+      240
+    ],
+    "sfxDown": [
+      4410,
+      1200
+    ],
+    "sfxWave": [
+      5670,
+      1100
+    ],
+    "sfxEra": [
+      6830,
+      2000
+    ],
+    "sfxCard": [
+      8890,
+      300
+    ],
+    "sfxWin": [
+      9250,
+      2400
+    ],
+    "sfxLose": [
+      11710,
+      2000
+    ],
+    "musicIron": [
+      13770,
+      11429,
+      true
+    ],
+    "musicPowder": [
+      25259,
+      10000,
+      true
+    ],
+    "musicIndustry": [
+      35319,
+      8889,
+      true
+    ],
+    "musicModern": [
+      44268,
+      7869,
+      true
+    ],
+    "musicNeon": [
+      52196,
+      7164,
+      true
+    ],
+    "musicTitle": [
+      59421,
+      12632,
+      true
+    ]
+  }
+}
