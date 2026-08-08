@@ -6,4 +6,7 @@
 - ​Tenmo​ - ​Completed a REST-based client/server cash transfer application in Java running on Tomcat with a classmate. Used ​JDBC, ​PostgreSQL, S​ pring Boot and MVC.
 
 - El-Lemby Platformer (اللمبي: مغامرات الحارة) - Native macOS & Windows pixel-art side-scroller inspired by the Egyptian comedy El-Lemby (2002) with Mario-style feel. Swift/SpriteKit on macOS; C#/WinForms with a custom, fully unit-tested physics sim on Windows — both sharing the same generated pixel art, chiptune audio and ASCII levels. Ships two stages — «الحارة» and «شارع السوق» — with foul-cart checkpoints, and every stage is proven completable by a bot in the test suite.
+
+- Ziggurat Run - Mobile web game in the style of a playable ad: a Mesopotamian auto-runner with multiplier gates, squad growth and a lamassu-flanked ziggurat boss. PixiJS 8 + Howler + TypeScript, fixed 120Hz simulation decoupled from render, object-pooled hot loop, and a full front-end (12 stages, star ratings, permanent upgrades, versioned save). All sprites and all 21 sounds are generated procedurally at build/boot from code in the repo, so it ships as one static bundle with zero network requests after load. Every UI flow is proven by a headless Chromium playthrough.
+
 # completed-projects
