@@ -13,9 +13,17 @@ Ships as a single static bundle. Tuned for **iPhone Pro Max Safari**.
 npm install
 npm run gen:audio   # synthesize the audio sprite (committed, so usually optional)
 npm run dev         # http://localhost:5173
-npm run build       # → dist/, a static bundle you can host anywhere
-npm run smoke       # headless Chromium playthrough of every UI flow
+npm run build        # → dist/, a static bundle you can host anywhere
+npm run build:single # → dist-single/ziggurat-run.html, the whole game in one file
+npm run smoke        # headless Chromium playthrough of every UI flow
+npm run smoke:single # …the same 11 checks against the one-file build
 ```
+
+To just play it: `npm run build && npm run build:single`, then open
+`dist-single/ziggurat-run.html` in any browser. That one file carries the code,
+both fonts and the entire audio sprite inline, so it needs no server and makes
+no network requests at all. Add `--embed` for a body fragment when a host page
+supplies its own document shell.
 
 ---
 
@@ -98,6 +106,7 @@ src/
     button digits widgets overlays devoverlay
 tools/
   gen-audio.mjs        Offline synthesizer → audio sprite + Howler sprite map
+  build-single.mjs     Inlines everything into one self-contained .html
   smoke.mjs            Headless playthrough of every flow
 ```
 
@@ -177,7 +186,9 @@ real bundle in headless Chromium and drives the actual UI:
 
 It asserts stage 1 is winnable by a bot that only oscillates left and right, that
 the run actually reached the boss gate, and that progress survives a reload.
-`--shots DIR` writes a screenshot at each step.
+`--shots DIR` writes a screenshot at each step, and `--single [path]` runs the
+identical checks against the one-file build so the inlined bundle is proven
+playable, not just smaller.
 
 ## Licence
 

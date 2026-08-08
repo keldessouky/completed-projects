@@ -56,8 +56,4 @@ export class Scaler {
   safeBottom(): number {
     return Math.max(0, (this.sabPx - this.offsetY) / this.scale);
   }
-
-  /** screen px → design px (for DOM-level pointer work if ever needed) */
-  toDesignX(clientX: number): number { return (clientX - this.offsetX) / this.scale; }
-  toDesignY(clientY: number): number { return (clientY - this.offsetY) / this.scale; }
 }

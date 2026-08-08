@@ -74,8 +74,11 @@ export class BootScene extends Scene {
       ctx.backdrops = buildBackdrops();
       this.setProgress(0.36);
 
-      // audio sprite with genuine byte progress (the heaviest asset)
-      const url = `${import.meta.env.BASE_URL}assets/audio.wav`;
+      // Audio sprite with genuine byte progress (the heaviest asset).
+      // A single-file host (see tools/build-single.mjs) can hand us a blob URL
+      // for an already-embedded sprite instead of a path to fetch.
+      const embedded = (window as unknown as { __ZR_AUDIO__?: string }).__ZR_AUDIO__;
+      const url = embedded ?? `${import.meta.env.BASE_URL}assets/audio.wav`;
       let audioUrl = url;
       try {
         const res = await fetch(url);

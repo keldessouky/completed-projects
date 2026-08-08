@@ -1,5 +1,5 @@
 node_modules/
 dist/
+dist-single/
 *.local
 .DS_Store
-tools/_probe.mjs

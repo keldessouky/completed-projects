@@ -1,4 +1,4 @@
-import { Sprite } from 'pixi.js';
+import { Rectangle, Sprite } from 'pixi.js';
 import { Easing, Tween } from '@tweenjs/tween.js';
 import { CONFIG } from '../config';
 import { Btn } from '../ui/button';
@@ -66,8 +66,12 @@ export class TitleScene extends Scene {
     gear.position.set(W - 44, Math.max(ctx.scaler.safeTop(), 12) + 40);
     this.container.addChild(gear);
 
-    // tap anywhere advances (buttons stop propagation, so the gear is safe)
+    // Tap anywhere advances (buttons stop propagation, so the gear is safe).
+    // An explicit hitArea keeps the target independent of child bounds, which
+    // are only as current as the last render — without it the very first tap
+    // after the scene appears can miss.
     this.container.eventMode = 'static';
+    this.container.hitArea = new Rectangle(0, 0, W, H);
     this.container.on('pointertap', () => {
       ctx.audio.play('uiTap');
       ctx.router.goto('map');

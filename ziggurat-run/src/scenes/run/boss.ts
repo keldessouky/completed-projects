@@ -34,7 +34,6 @@ export class BossFight {
   private flashT = 0;
   private lastHitSfx = 0;
 
-  onWake: (() => void) | null = null;
   onBreach: (() => void) | null = null;
 
   constructor(
@@ -144,7 +143,6 @@ export class BossFight {
         frame: 'softDot', count: 10, tint: CONFIG.colors.goldBright, speed: 70, ttl: 0.6, additive: true, s0: 1.4, s1: 0.2,
       });
     }
-    this.onWake?.();
   }
 
   private breach(): void {

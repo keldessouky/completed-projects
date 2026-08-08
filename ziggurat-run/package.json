@@ -8,9 +8,11 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
+    "build:single": "node tools/build-single.mjs",
     "preview": "vite preview",
     "gen:audio": "node tools/gen-audio.mjs",
-    "smoke": "node tools/smoke.mjs"
+    "smoke": "node tools/smoke.mjs",
+    "smoke:single": "node tools/smoke.mjs --single"
   },
   "dependencies": {
     "@fontsource/cinzel": "^5.2.0",

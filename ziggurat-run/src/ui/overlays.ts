@@ -33,7 +33,6 @@ class Overlay {
 }
 
 export interface PauseOpts {
-  stage: number;
   onRestart: () => void;
   onQuit: () => void;
 }

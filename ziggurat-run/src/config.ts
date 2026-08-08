@@ -9,7 +9,6 @@ export const CONFIG = {
     width: 440,           // iPhone Pro Max CSS points
     height: 956,
     maxResolution: 2.5,   // cap renderer DPR: 3.0 on a 6.9" panel costs more than it returns
-    minUiScale: 0.75,     // below this letterbox scale we refuse to shrink hit targets further
   },
 
   /** Fixed-timestep simulation, decoupled from render. */
@@ -80,7 +79,6 @@ export const CONFIG = {
 
   /** Gates. Values are the *label* semantics; trap resistance softens traps. */
   gates: {
-    speedRelative: 0,        // gates are fixed to the track (world scroll only)
     pairGapX: 4,             // gap between the two arches at lane center
     archWidth: 210,          // one arch spans just under half the lane
     archHeight: 128,
@@ -88,7 +86,6 @@ export const CONFIG = {
     nearMissPx: 30,          // steering this close to a trap edge triggers slow-mo drama
     slowmoScale: 0.4,        // near-miss time scale
     slowmoMs: 400,           // near-miss duration (real time)
-    minSquadFloor: 0,        // traps can wipe you — 0 alive = run over
     /** effect table: kind → how squad count n transforms */
     effects: {
       x2:   { mult: 2,   add: 0,   trap: false, label: '×2' },
@@ -200,7 +197,6 @@ export const CONFIG = {
     particleBudget: 320,     // hard cap on live particles
     damageNumberCap: 26,     // live damage numerals
     damageNumberMs: 620,     // pop lifetime
-    coinFlyMs: 520,          // coin pickup flight to HUD
     hapticGateMs: 12,        // light tap
     hapticTrapMs: 28,
     hapticBreachMs: [30, 40, 80] as number[], // heavy pattern on boss breach

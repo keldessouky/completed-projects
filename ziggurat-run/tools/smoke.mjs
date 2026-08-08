@@ -19,6 +19,12 @@ const shotsDir = process.argv.includes('--shots')
   ? process.argv[process.argv.indexOf('--shots') + 1]
   : null;
 if (shotsDir) mkdirSync(shotsDir, { recursive: true });
+// --single [path] runs the same checks against the one-file build, proving the
+// inlined bundle is not just smaller but actually playable.
+const singleArg = process.argv.includes('--single')
+  ? (process.argv[process.argv.indexOf('--single') + 1] ?? join(ROOT, 'dist-single/ziggurat-run.html'))
+  : null;
+const singlePath = singleArg && !singleArg.startsWith('--') ? singleArg : null;
 
 const MIME = {
   '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css',
@@ -28,8 +34,9 @@ const MIME = {
 
 const server = createServer((req, res) => {
   const url = (req.url ?? '/').split('?')[0];
-  let path = join(DIST, url === '/' ? 'index.html' : url);
-  if (!existsSync(path)) path = join(DIST, 'index.html');
+  // single-file mode: the one document answers every request by design
+  let path = singlePath ?? join(DIST, url === '/' ? 'index.html' : url);
+  if (!existsSync(path)) path = singlePath ?? join(DIST, 'index.html');
   try {
     const body = readFileSync(path);
     res.writeHead(200, {
@@ -61,7 +68,12 @@ const waitScene = async (want, timeoutMs = 30000) => {
   const t0 = Date.now();
   for (;;) {
     const s = await scene();
-    if (Array.isArray(want) ? want.includes(s) : s === want) return s;
+    if (Array.isArray(want) ? want.includes(s) : s === want) {
+      // A scene flips its id before its first frame is painted. Give it one
+      // beat so synthetic taps land on a live scene, the way a human tap would.
+      await page.waitForTimeout(250);
+      return s;
+    }
     if (Date.now() - t0 > timeoutMs) {
       const diag = await page.evaluate(() => ({ stats: window.__zr.stats(), errs: window.__zr.errors.slice(0, 3) }));
       throw new Error(`timeout waiting for scene ${want}, at ${s}\n  ${JSON.stringify(diag)}`);

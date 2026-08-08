@@ -940,7 +940,6 @@ export class RunScene extends Scene implements Stepper {
   private openPause(auto = false): void {
     if (this.ctx.loop.paused || this.endT >= 0) return;
     showPause(this.ctx, {
-      stage: this.def.index,
       onRestart: () => this.ctx.router.goto('run', { stage: this.def.index }),
       onQuit: () => this.ctx.router.goto('map'),
     });

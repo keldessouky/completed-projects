@@ -4,11 +4,13 @@
 //  - Inter: clean geometric sans for UI text. HUD numerals do NOT use it —
 //    they render from the atlas digit glyphs, which have a fixed advance and
 //    are therefore tabular by construction.
-import '@fontsource/cinzel/700.css';
-import '@fontsource/cinzel/900.css';
-import '@fontsource/inter/400.css';
-import '@fontsource/inter/600.css';
-import '@fontsource/inter/800.css';
+// Latin subset only: the game renders ASCII plus a little general punctuation,
+// so the Cyrillic/Greek/Vietnamese subsets would be pure download weight.
+import '@fontsource/cinzel/latin-700.css';
+import '@fontsource/cinzel/latin-900.css';
+import '@fontsource/inter/latin-400.css';
+import '@fontsource/inter/latin-600.css';
+import '@fontsource/inter/latin-800.css';
 
 export const FONT_DISPLAY = 'Cinzel, Georgia, serif';
 export const FONT_UI = 'Inter, system-ui, sans-serif';
