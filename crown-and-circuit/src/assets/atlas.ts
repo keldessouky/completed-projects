@@ -23,6 +23,8 @@ const SIZE = 2048;
 export const PX = 2;
 /** frames in a unit walk cycle */
 export const WALK_FRAMES = 4;
+/** frames in a unit attack animation */
+export const ATK_FRAMES = 2;
 
 type DrawFn = (c: CanvasRenderingContext2D, w: number, h: number) => void;
 const hex = (n: number): string => '#' + n.toString(16).padStart(6, '0');
@@ -151,6 +153,12 @@ export class GameAtlas {
           cape: pal.accent,
           frame: f,
         }));
+        if (f < ATK_FRAMES) {
+          this.placePx(`king${e}_atk${f}`, unitSprite({
+            cloth: ramp(pal.accent2), metal: ramp(pal.stone), accent: pal.accent,
+            helm: e >= 2 ? 3 : 0, era: e, royal: true, cape: pal.accent, atk: f,
+          }));
+        }
         // three tiers: levy, drilled, elite
         for (let t = 0; t < 3; t++) {
           this.placePx(`sol${e}_${t}_${f}`, unitSprite({
@@ -162,6 +170,14 @@ export class GameAtlas {
             cape: t >= 2 ? pal.accent : undefined,
             frame: f,
           }));
+          if (f < ATK_FRAMES) {
+            this.placePx(`sol${e}_${t}_atk${f}`, unitSprite({
+              cloth: ramp(t === 0 ? pal.wood : t === 1 ? pal.stoneDark : pal.accent2),
+              metal: ramp(pal.stone), accent: pal.accent,
+              helm: t === 0 ? 1 : t === 1 ? 2 : 3, era: e,
+              cape: t >= 2 ? pal.accent : undefined, atk: f,
+            }));
+          }
         }
       }
     }

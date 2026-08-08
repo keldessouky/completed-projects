@@ -74,6 +74,7 @@ export const CONFIG = {
     engageRange: 1.0,       // multiplier on era weapon range
     fireJitter: 0.22,       // fraction of interval randomised per soldier
     tierEvery: 12,          // visual tier bumps every N soldiers
+    attackAnimSec: 0.22,    // how long the attack pose holds after a shot
   },
 
   /**

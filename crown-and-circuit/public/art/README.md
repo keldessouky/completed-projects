@@ -30,6 +30,16 @@ Map an atlas frame name to a whole image:
 Anything that fails to load is skipped and keeps the built-in sprite, so a
 partial pack is fine — override only the frames you care about.
 
+## Quick start
+
+1. Copy `manifest.example.json` to `manifest.json`.
+2. Drop your PNGs in this folder with the filenames it references.
+3. Reload the page. No rebuild.
+
+Frame size is derived from the image — `width / frames` — so you never have to
+measure a sheet. Anything that fails to load is skipped and keeps the built-in
+sprite, so a partial pack is fine.
+
 ## Animated sheets
 
 Units are animated on a 4-frame walk cycle, so their frames are numbered. To map
@@ -47,7 +57,8 @@ an 8-frame strip onto them, describe the strip and the loader slices it:
 }
 ```
 
-- `frameW` / `frameH` — one frame's size in the source image
+- `frameW` / `frameH` — **optional.** Omit them for a single-row strip and they
+  are derived from the image (`width / frames` by full height)
 - `frames` — how many frames the strip actually has
 - `row` — which row of the sheet (0 for a single-row strip)
 - `count` — how many game frames to fill (4 for units); if the strip has more
@@ -58,8 +69,10 @@ an 8-frame strip onto them, describe the strip and the loader slices it:
 
 | Group | Names |
 | --- | --- |
-| King, per era (animated) | `king0_0` … `king4_3` — or map with a strip as `king0` |
-| Soldiers, era × tier (animated) | `sol0_0_0` … `sol4_2_3` — or strip as `sol0_0` |
+| King walk, per era | `king0_0` … `king4_3` — or map a strip as `king0` |
+| King attack, per era | `king0_atk0`, `king0_atk1` — or a strip as `king0_atk` |
+| Soldier walk, era × tier | `sol0_0_0` … `sol4_2_3` — or a strip as `sol0_0` |
+| Soldier attack | `sol0_0_atk0`, `sol0_0_atk1` — or a strip as `sol0_0_atk` |
 | Enemies | `e_runner`, `e_brute`, `e_shooter`, `e_flyer`, `e_flyer1`, `e_boss` |
 | Hit flashes | same name + `W` (e.g. `e_bruteW`) |
 | Towers / keeps / walls, per era | `tower0`…`tower4`, `keep0`…`keep4`, `wall0`…`wall4` |

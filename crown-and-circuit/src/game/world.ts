@@ -3,7 +3,7 @@ import { CONFIG, type EnemyKind, type EraId, type StructureKind } from '../confi
 import type { Ctx } from '../core/game';
 import { SpatialGrid } from '../core/grid';
 import { Pool } from '../core/pool';
-import { WALK_FRAMES } from '../assets/atlas';
+import { ATK_FRAMES, WALK_FRAMES } from '../assets/atlas';
 import { Fort, type Pad } from './fort';
 import { NumberPops, Particles } from './particles';
 
@@ -31,6 +31,8 @@ interface Soldier {
   alive: boolean;
   /** walk-cycle phase, advanced by distance travelled */
   gait: number;
+  /** seconds left in the attack animation */
+  atk: number;
 }
 
 interface Enemy {
@@ -97,6 +99,7 @@ export class World {
   kingDown = 0;
   facing = 1;
   private kingGait = 0;
+  private kingAtk = 0;
 
   /** coins in hand, and the run's banked total */
   carry = 0;
@@ -174,7 +177,7 @@ export class World {
       sp.anchor.set(0.5, 0.8);
       sp.visible = false;
       mid.addChild(sp);
-      return { sp, x: CX, y: CY, px: CX, py: CY, cool: 0, slot: 0, flash: 0, alive: true, gait: Math.random() * 4 };
+      return { sp, x: CX, y: CY, px: CX, py: CY, cool: 0, slot: 0, flash: 0, alive: true, gait: Math.random() * 4, atk: 0 };
     });
     this.enemies = new Pool<Enemy>(CONFIG.enemies.max, () => {
       const sp = new Sprite(a.get('e_runner'));
@@ -228,6 +231,13 @@ export class World {
   }
 
   private eraDef() { return CONFIG.eras[this.era]; }
+
+  /** Attack frame from remaining time: wind-up first, strike as it lands. */
+  private atkFrame(left: number): number {
+    const total = CONFIG.squad.attackAnimSec;
+    const t = 1 - Math.max(0, left) / total;
+    return Math.min(ATK_FRAMES - 1, Math.floor(t * ATK_FRAMES));
+  }
 
   private dressPad(pad: Pad): void {
     const spr = this.padSprites.get(pad)!;
@@ -406,6 +416,7 @@ export class World {
       if (target) {
         const d = this.eraDef();
         this.kingCool = (CONFIG.king.fireInterval) / this.stats.fireRate;
+        this.kingAtk = CONFIG.squad.attackAnimSec;
         this.fire(this.kx, this.ky - 16, target.x, target.y, d.dmg * this.stats.dmg * 1.6, {
           speed: d.projSpeed, pierce: d.pierce, spread: d.spread, tint: d.tracer, frame: 'p' + this.era,
         });
@@ -524,11 +535,13 @@ export class World {
       s.x += (tx - s.x) * k;
       s.y += (ty - s.y) * k;
 
+      if (s.atk > 0) s.atk -= dt;
       s.cool -= dt;
       if (s.cool <= 0) {
         const target = this.nearestEnemy(s.x, s.y, range);
         if (target) {
           s.cool = interval * (1 + (Math.random() - 0.5) * CONFIG.squad.fireJitter);
+          s.atk = CONFIG.squad.attackAnimSec;
           this.fire(s.x, s.y - 12, target.x, target.y, dmg, {
             speed: d.projSpeed, pierce: d.pierce, spread: d.spread, tint: d.tracer, frame: 'p' + this.era,
           });
@@ -898,7 +911,11 @@ export class World {
     // standing still settles on the neutral pose
     const kingSpeed = Math.hypot(this.kvx, this.kvy);
     this.kingGait = kingSpeed > 12 ? this.kingGait + dtReal * (kingSpeed / 26) : 0;
-    this.kingSp.texture = a.get(`king${this.era}_${(this.kingGait | 0) % WALK_FRAMES}`);
+    if (this.kingAtk > 0) this.kingAtk -= dtReal;
+    const kingAtkName = `king${this.era}_atk${this.atkFrame(this.kingAtk)}`;
+    this.kingSp.texture = this.kingAtk > 0 && a.has(kingAtkName)
+      ? a.get(kingAtkName)
+      : a.get(`king${this.era}_${(this.kingGait | 0) % WALK_FRAMES}`);
     this.kingSp.visible = this.kingDown <= 0;
     this.kingSp.position.set(lerp(this.kpx, this.kx), lerp(this.kpy, this.ky));
     this.kingSp.scale.x = this.facing;
@@ -911,7 +928,10 @@ export class World {
       const ny = lerp(s.py, s.y);
       const moved = Math.hypot(s.x - s.px, s.y - s.py) / Math.max(0.0001, dtReal);
       s.gait = moved > 12 ? s.gait + dtReal * (moved / 26) : 0;
-      s.sp.texture = a.get(`sol${this.era}_${tier}_${(s.gait | 0) % WALK_FRAMES}`);
+      const atkName = `sol${this.era}_${tier}_atk${this.atkFrame(s.atk)}`;
+      s.sp.texture = s.atk > 0 && a.has(atkName)
+        ? a.get(atkName)
+        : a.get(`sol${this.era}_${tier}_${(s.gait | 0) % WALK_FRAMES}`);
       s.sp.position.set(nx, ny);
       s.sp.zIndex = s.y;
     }

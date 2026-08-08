@@ -26,6 +26,8 @@ export interface UnitOpts {
   cape?: number;
   /** walk-cycle frame 0..3 (0 and 2 are the passing poses) */
   frame?: number;
+  /** attack pose: 0 wind-up, 1 strike. Overrides the walk frame when set. */
+  atk?: number;
 }
 
 /** A humanoid on a 14×18 grid (18×22 for the king). */
@@ -108,8 +110,14 @@ export function unitSprite(o: UnitOpts): Px {
     p.set(cx + 4, hy - 6, g.base); p.set(cx + 4, hy - 5, g.base);
   }
 
-  // ---- weapon in the right hand, one silhouette per era
-  weapon(p, cx + 5, ty + 4, o.era, o.metal, o.accent);
+  // ---- weapon in the right hand, one silhouette per era.
+  // Attacking pulls the arm back then thrusts it forward and up.
+  const aw = o.atk === undefined ? 0 : o.atk === 0 ? -2 : 3;
+  const ah = o.atk === undefined ? 0 : o.atk === 0 ? 2 : -3;
+  if (o.atk !== undefined) {
+    p.rect(cx + 4 + aw, ty + 4 + ah, 2, 2, SKIN.base);   // the hand moves with it
+  }
+  weapon(p, cx + 5 + aw, ty + 4 + ah, o.era, o.metal, o.accent);
 
   p.outline(OUT);
   return p;

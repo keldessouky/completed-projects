@@ -38,10 +38,14 @@ export interface PackEntry {
  */
 export interface PackStrip {
   src: string;
-  /** frame size in source pixels */
-  frameW: number;
-  frameH: number;
-  /** how many frames to read from the strip */
+  /**
+   * Frame size in source pixels. Both are optional: for a single-row strip,
+   * leaving them out derives them from the image (width / frames, full height),
+   * so you never have to measure a sheet by hand.
+   */
+  frameW?: number;
+  frameH?: number;
+  /** how many frames the strip actually has */
   frames: number;
   /** which row of the sheet (defaults to 0) */
   row?: number;
@@ -55,7 +59,7 @@ type ManifestValue = string | PackEntry | PackStrip;
 type Manifest = Record<string, ManifestValue>;
 
 const isStrip = (v: ManifestValue): v is PackStrip =>
-  typeof v === 'object' && v !== null && 'frameW' in v;
+  typeof v === 'object' && v !== null && 'frames' in v;
 
 function loadImage(url: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -107,14 +111,15 @@ export async function applyArtPack(atlas: GameAtlas, base: string): Promise<numb
         const row = value.row ?? 0;
         const col = value.col ?? 0;
         const count = value.count ?? value.frames;
+        // derive the grid from the image when it wasn't given
+        const fw = value.frameW ?? Math.floor(img.naturalWidth / Math.max(1, value.frames));
+        const fh = value.frameH ?? img.naturalHeight;
         for (let i = 0; i < count; i++) {
           // loop the source strip if the game wants more frames than it has
           const f = value.frames > 0 ? i % value.frames : 0;
           atlas.frames[`${name}_${i}`] = new Texture({
             source,
-            frame: new Rectangle(
-              (col + f) * value.frameW, row * value.frameH, value.frameW, value.frameH,
-            ),
+            frame: new Rectangle((col + f) * fw, row * fh, fw, fh),
           });
           applied++;
         }
