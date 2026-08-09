@@ -92,7 +92,25 @@ draws with it.
 
 Units come from one parameterised generator rather than being drawn individually,
 so all five eras of king plus fifteen soldier variants share a silhouette and a
-light source while changing armour, cape and weapon.
+light source while changing armour, cape and weapon. They are built from
+articulated limbs over a tapered torso, which is what lets the six-frame walk
+cycle swing arms and legs independently and gives the three-frame attack a real
+wind-up. Three rules do most of the work of making a 24×27 grid read as a
+character rather than a stack of boxes:
+
+- **Taper.** Nothing is a plain rectangle — shoulders wider than the waist, skull
+  wider than the jaw, a brute's arms wider than its hips. The silhouette carries
+  the read at gameplay distance.
+- **Negative space.** Limbs are drawn clear of the body with real gaps between
+  them. A solid mass reads as a blob no matter how well it is shaded.
+- **Corner light, not edge light.** Highlights sit on a form's top-left corner,
+  never as a full-height stripe down one side — a stripe reads as a cylinder and
+  flattens everything it touches.
+
+`npm run sheet out.png` renders a contact sheet of the walk cycles, attack poses,
+enemy archetypes and era progression at 3×, and reports how full the 2048² atlas
+is. Reviewing that image is how the art actually gets judged; it currently packs
+278 frames into 84 % of the sheet.
 
 **Want to use an art pack instead?** Drop images and a `manifest.json` into
 `public/art/` and they override the built-in frames at boot — no rebuild. See
@@ -131,6 +149,8 @@ tools/
   gen-audio.mjs      Offline synthesizer → audio sprite
   build-single.mjs   Inlines everything into one .html
   smoke.mjs          Headless playthrough
+  balance.mjs        Headless bot playthrough → difficulty curve
+  spritesheet.mjs    Contact sheet of the art + atlas budget
 ```
 
 ### Hundreds of entities, bounded cost
@@ -181,6 +201,30 @@ It steers the king with real pointer drags, walks him onto a pad, and asserts th
 deposit actually completed a structure — the ferry loop is verified end to end,
 not mocked. `--shots DIR` writes a screenshot per step; `--single` runs the same
 checks against the one-file build.
+
+### The difficulty curve, measured
+
+`npm run balance -- 20` puts a bot at the controls — it ferries coins, builds
+barracks and towers, takes cards, and orbits the keep — then reports what the
+horde actually did:
+
+```
+ wave  peakAlive  peakSquad  totalKills  kills/s
+   1        16         1          13     1.1
+   4        41         6         113     2.8
+   8        72        11         345     5.6
+```
+
+That shape is the design goal, and the reason to measure rather than eyeball it:
+kills per second climbs the whole way, so nothing is turning spongy — the horde
+just grows faster than the squad does. A wave where kills/s *falls* while the
+alive count climbs is the failure signal.
+
+This is also what caught the era boundaries. The era table's `enemyHp` used to
+apply as a step, so health jumped ~80 % the instant an age turned over and the
+first wave of each era was a wall. `enemyHpScale()` now treats each era's number
+as its value at the era's *midpoint* and interpolates between them, which keeps
+every age's average where the table says it is while removing the cliff.
 
 ## Licence
 

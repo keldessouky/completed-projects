@@ -107,7 +107,26 @@ export class RunScene extends Scene implements Stepper {
       const p = this.sim.fort.pads.find((q) => q.ring < this.sim.fort.unlockedRings && !q.kind);
       return p ? { x: p.x, y: p.y } : null;
     };
+    dbg.pads = () => this.sim.fort.pads
+      .filter((q) => q.ring < this.sim.fort.unlockedRings && !q.kind && q.rubble <= 0)
+      .map((q) => ({ x: q.x, y: q.y, ring: q.ring, pending: !!q.pending, progress: q.progress, goal: q.goal }));
     dbg.kingAt = () => ({ x: this.sim.kx, y: this.sim.ky });
+    // a live window on the simulation, so balance probes can read horde size,
+    // time-to-kill and keep health without driving the UI
+    dbg.probe = () => ({
+      wave: this.waves.wave,
+      phase: this.waves.phase,
+      era: this.sim.era,
+      enemies: this.sim.enemies.count,
+      soldiers: this.sim.soldiers.count,
+      projs: this.sim.projs.count,
+      coins: this.sim.coins.count,
+      kills: this.sim.kills,
+      keepHp: this.sim.fort.keepHp,
+      kingHp: this.sim.kingHp,
+      banked: this.sim.banked,
+      carry: this.sim.carry,
+    });
     this.startedAt = performance.now();
   }
 

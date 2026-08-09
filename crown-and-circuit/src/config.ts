@@ -65,15 +65,15 @@ export const CONFIG = {
 
   /** Soldiers orbit the king in rings and auto-target. */
   squad: {
-    max: 48,
-    ringSpacing: 34,        // world units between formation rings
-    perRing: 7,             // slots in the first ring; each ring adds this many
+    max: 60,
+    ringSpacing: 42,        // world units between formation rings
+    perRing: 8,             // slots in the first ring; each ring adds this many
     followLerp: 5.2,        // per-second ease toward the assigned slot
-    separation: 22,         // soldiers push apart at this distance
+    separation: 28,         // soldiers push apart at this distance
     separationForce: 130,
     engageRange: 1.0,       // multiplier on era weapon range
     fireJitter: 0.22,       // fraction of interval randomised per soldier
-    tierEvery: 12,          // visual tier bumps every N soldiers
+    tierEvery: 14,          // visual tier bumps every N soldiers
     attackAnimSec: 0.22,    // how long the attack pose holds after a shot
   },
 
@@ -108,7 +108,7 @@ export const CONFIG = {
       weapon: 'Musket & Cannon',
       dmg: 21, interval: 1.30, range: 178, projSpeed: 620, pierce: 0, spread: 0.14, shots: 1,
       towerDmg: 52, towerInterval: 1.8, towerRange: 265, towerProjSpeed: 640, towerPierce: 1,
-      enemyHp: 2.6, enemySpeed: 1.06, coinMult: 2.2,
+      enemyHp: 1.9, enemySpeed: 1.06, coinMult: 2.2,
       costMult: 2.3,
       tracer: 0xf0c07a,
       muzzle: 0xffe4a8,
@@ -122,7 +122,7 @@ export const CONFIG = {
       weapon: 'Rifle & Gatling',
       dmg: 34, interval: 0.80, range: 205, projSpeed: 780, pierce: 0, spread: 0.09, shots: 1,
       towerDmg: 30, towerInterval: 0.30, towerRange: 285, towerProjSpeed: 820, towerPierce: 0,
-      enemyHp: 6.6, enemySpeed: 1.12, coinMult: 5.0,
+      enemyHp: 3.4, enemySpeed: 1.12, coinMult: 5.0,
       costMult: 5.4,
       tracer: 0xffb45c,
       muzzle: 0xfff0c0,
@@ -137,7 +137,7 @@ export const CONFIG = {
       dmg: 26, interval: 0.19, range: 228, projSpeed: 1000, pierce: 0, spread: 0.16, shots: 1,
       towerDmg: 260, towerInterval: 2.1, towerRange: 330, towerProjSpeed: 700, towerPierce: 0,
       towerSplash: 78,      // missiles: only this era's towers do area damage
-      enemyHp: 16.0, enemySpeed: 1.18, coinMult: 12.0,
+      enemyHp: 6.0, enemySpeed: 1.18, coinMult: 12.0,
       costMult: 12.0,
       tracer: 0xffd36b,
       muzzle: 0xffffff,
@@ -151,7 +151,7 @@ export const CONFIG = {
       weapon: 'Laser & Plasma',
       dmg: 78, interval: 0.42, range: 268, projSpeed: 1500, pierce: 2, spread: 0.03, shots: 1,
       towerDmg: 150, towerInterval: 0.55, towerRange: 360, towerProjSpeed: 1700, towerPierce: 3,
-      enemyHp: 40.0, enemySpeed: 1.25, coinMult: 28.0,
+      enemyHp: 10.0, enemySpeed: 1.25, coinMult: 28.0,
       costMult: 27.0,
       tracer: 0x5cf5ff,
       muzzle: 0xd8ffff,
@@ -160,35 +160,44 @@ export const CONFIG = {
     },
   ],
 
-  /** Enemy archetypes. Base stats; multiplied by the era the wave belongs to. */
+  /**
+   * Enemy archetypes. Deliberately fragile: a runner dies to one hit in every
+   * era, so the pressure is never "this thing won't die", it is "there are too
+   * many of them and they are coming from four directions at once". Difficulty
+   * lives in the wave counts below, not in these HP numbers.
+   */
   enemies: {
-    runner:  { hp: 30,  speed: 78,  radius: 13, dmg: 6,  coin: 1,  mass: 1.0 },
-    brute:   { hp: 190, speed: 44,  radius: 24, dmg: 22, coin: 5,  mass: 2.6 },
-    shooter: { hp: 62,  speed: 60,  radius: 15, dmg: 9,  coin: 2,  mass: 1.1,
-               standoff: 168, shotInterval: 2.0, projSpeed: 320 },
-    flyer:   { hp: 48,  speed: 104, radius: 16, dmg: 8,  coin: 2,  mass: 0.8 }, // ignores walls
-    boss:    { hp: 2600, speed: 38, radius: 42, dmg: 46, coin: 60, mass: 8.0 },
-    /** per-wave-within-run HP creep on top of era scaling */
-    hpPerWave: 0.055,
-    max: 240,
-    separation: 26,
+    runner:  { hp: 8,   speed: 80,  radius: 13, dmg: 3,  coin: 1,  mass: 1.0 },
+    brute:   { hp: 46,  speed: 46,  radius: 24, dmg: 9,  coin: 5,  mass: 2.6 },
+    shooter: { hp: 16,  speed: 62,  radius: 15, dmg: 4,  coin: 2,  mass: 1.1,
+               standoff: 168, shotInterval: 2.2, projSpeed: 320 },
+    flyer:   { hp: 13,  speed: 106, radius: 16, dmg: 4,  coin: 2,  mass: 0.8 }, // ignores walls
+    boss:    { hp: 520, speed: 40,  radius: 42, dmg: 16, coin: 60, mass: 8.0 },
+    /** per-wave HP creep — small, so nothing ever becomes spongy */
+    hpPerWave: 0.03,
+    max: 340,
+    separation: 30,
     separationForce: 240,
     hitFlashMs: 90,
     /** enemies only start attacking a structure within this range of it */
     attackRange: 26,
-    attackInterval: 0.9,
+    attackInterval: 1.1,
   },
 
   /** Waves: 4 per era, 20 total. Cleared wave 4 of an era advances the era. */
   waves: {
     perEra: 4,
     total: 20,
-    /** live budget for a wave, before era scaling */
-    count: (w: number) => Math.round(11 + w * 3.4),
-    /** seconds between spawn pulses inside a wave */
-    pulseInterval: (w: number) => Math.max(0.55, 1.7 - w * 0.055),
+    /**
+     * Bodies per wave. This curve *is* the difficulty: 16 on wave one climbing
+     * past 170 by the last, so the fight goes from a skirmish you stroll
+     * through to a tide you have to have prepared for.
+     */
+    count: (w: number) => Math.round(16 + w * 8.2),
+    /** seconds between spawn pulses inside a wave — the tide tightens */
+    pulseInterval: (w: number) => Math.max(0.38, 1.35 - w * 0.05),
     /** how many map edges spawn simultaneously */
-    edges: (w: number) => (w < 3 ? 1 : w < 8 ? 2 : w < 14 ? 3 : 4),
+    edges: (w: number) => (w < 2 ? 1 : w < 6 ? 2 : w < 11 ? 3 : 4),
     /** breathing room between waves, where you build */
     buildSec: 14,
     /** first wave gets extra grace so the tutorial can land */
@@ -230,8 +239,11 @@ export const CONFIG = {
     rubbleSec: 12,
     /** structure kinds and their base cost (before era costMult) */
     cost: { tower: 42, barracks: 55, forge: 70, wall: 0 },
-    /** barracks add this many soldiers, forge adds this damage fraction */
-    barracksSoldiers: 3,
+    /** barracks add this many soldiers, forge adds this damage fraction.
+     *  The squad is the game's main weapon — a barracks has to be visibly
+     *  worth a pad, or the fort ends up defending itself while the king
+     *  watches, which is the opposite of the fantasy. */
+    barracksSoldiers: 5,
     forgeDamage: 0.16,
     /** upgrading an existing structure costs this fraction more each level */
     upgradeCostMult: 1.75,
@@ -275,7 +287,7 @@ export const CONFIG = {
     moveSpeed: 0.10,
     magnet: 0.22,
     carry: 0.25,
-    soldiers: 2,            // flat soldiers
+    soldiers: 4,            // flat soldiers
     keepRepair: 0.30,       // heal 30 % of keep max
     coinBonus: 0.20,        // +20 % coin value
   },
@@ -393,6 +405,39 @@ export const CONFIG = {
     white: 0xffffff,
   },
 } as const;
+
+/**
+ * Enemy health multiplier at a given wave.
+ *
+ * `eras[].enemyHp` is the anchor at the *start* of each age; the waves in
+ * between interpolate toward the next anchor, and `hpPerWave` adds a slow creep
+ * on top. Reading the era table straight would step health up ~80% overnight
+ * every fourth wave, which lands as a wall — and the whole point of this
+ * difficulty curve is that the pressure comes from how many bodies are on the
+ * screen, not from how long each one takes to fall over.
+ */
+export function enemyHpScale(wave: number): number {
+  const last = CONFIG.eras.length - 1;
+  // Each era's number is its value at the era's *midpoint*, not its first wave.
+  // Anchoring at the midpoint keeps each age's average where the table says it
+  // is; anchoring at the first wave would instead front-load every era's whole
+  // increase onto its opening waves.
+  const pos = wave / CONFIG.waves.perEra - 0.5;
+  const i = Math.max(0, Math.min(last, Math.floor(pos)));
+  const j = Math.min(last, i + 1);
+  const t = Math.max(0, Math.min(1, pos - i));
+  const anchor = CONFIG.eras[i].enemyHp + (CONFIG.eras[j].enemyHp - CONFIG.eras[i].enemyHp) * t;
+  return anchor * (1 + wave * CONFIG.enemies.hpPerWave);
+}
+
+/**
+ * Enemy damage multiplier at a given wave. Smoothed for the same reason as
+ * health: stepping every hit 70% harder the moment an era ticks over turns an
+ * age boundary into a brick wall.
+ */
+export function enemyDmgScale(wave: number): number {
+  return 1 + Math.max(0, wave / CONFIG.waves.perEra - 0.5) * 0.7;
+}
 
 export type EnemyKind = 'runner' | 'brute' | 'shooter' | 'flyer' | 'boss';
 export type StructureKind = 'tower' | 'barracks' | 'forge';

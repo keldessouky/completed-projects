@@ -2,9 +2,9 @@ import { CanvasSource, Rectangle, Texture } from 'pixi.js';
 import { CONFIG } from '../config';
 import { outlineOf, Px, ramp } from './pixel';
 import {
-  bossSprite, bruteSprite, coinSprite, enemyProjSprite, flashOf, flyerSprite,
-  keepSprite, projSprite, runnerSprite, shardSprite, shooterSprite,
-  towerSprite, unitSprite, wallSprite,
+  ATK, bossSprite, bruteSprite, coinSprite, enemyProjSprite, EWALK, flashOf,
+  flyerSprite, keepSprite, projSprite, runnerSprite, shadowSprite, shardSprite,
+  shooterSprite, towerSprite, unitSprite, WALK, wallSprite,
 } from './sprites';
 
 /**
@@ -22,9 +22,11 @@ const SIZE = 2048;
 /** world units per art pixel — the chunk size of the whole game */
 export const PX = 2;
 /** frames in a unit walk cycle */
-export const WALK_FRAMES = 4;
+export const WALK_FRAMES = WALK;
 /** frames in a unit attack animation */
-export const ATK_FRAMES = 2;
+export const ATK_FRAMES = ATK;
+/** frames in an enemy walk cycle */
+export const ENEMY_FRAMES = EWALK;
 
 type DrawFn = (c: CanvasRenderingContext2D, w: number, h: number) => void;
 const hex = (n: number): string => '#' + n.toString(16).padStart(6, '0');
@@ -36,9 +38,7 @@ export class GameAtlas {
   frames: Record<string, Texture> = {};
   readonly digitAdvance = 24;
 
-  private shelfX = PAD;
-  private shelfY = PAD;
-  private shelfH = 0;
+  private queued: { name: string; w: number; h: number; draw: DrawFn; dw: number; dh: number }[] = [];
   private pending: [string, Rectangle][] = [];
 
   private constructor() {
@@ -61,30 +61,48 @@ export class GameAtlas {
   }
   has(name: string): boolean { return !!this.frames[name]; }
 
+  /**
+   * Queue a frame. Nothing is drawn until `finalize`, because the packer sorts
+   * by height first: a shelf packer fed in authoring order wastes most of every
+   * shelf on short sprites sharing a row with tall ones, and with ~250 frames
+   * that difference is what decides whether the sheet fits in 2048² at all.
+   */
   private place(name: string, wDesign: number, hDesign: number, draw: DrawFn): void {
-    const w = Math.ceil(wDesign) * S;
-    const h = Math.ceil(hDesign) * S;
-    if (this.shelfX + w + PAD > SIZE) {
-      this.shelfX = PAD;
-      this.shelfY += this.shelfH + PAD;
-      this.shelfH = 0;
-    }
-    if (this.shelfY + h + PAD > SIZE) throw new Error('atlas overflow: ' + name);
-    const x = this.shelfX;
-    const y = this.shelfY;
-    this.shelfX += w + PAD;
-    this.shelfH = Math.max(this.shelfH, h);
+    const dw = Math.ceil(wDesign);
+    const dh = Math.ceil(hDesign);
+    this.queued.push({ name, w: dw * S, h: dh * S, draw, dw, dh });
+  }
 
+  private pack(): void {
     const c = this.ctx;
-    c.save();
-    c.beginPath();
-    c.rect(x, y, w, h);
-    c.clip();
-    c.setTransform(S, 0, 0, S, x, y);
-    draw(c, Math.ceil(wDesign), Math.ceil(hDesign));
-    c.restore();
-    c.setTransform(1, 0, 0, 1, 0, 0);
-    this.pending.push([name, new Rectangle(x, y, w, h)]);
+    let shelfX = PAD;
+    let shelfY = PAD;
+    let shelfH = 0;
+    // tallest first; ties broken by width so same-size runs stay contiguous
+    const order = this.queued.slice().sort((a, b) => b.h - a.h || b.w - a.w);
+    for (const q of order) {
+      if (shelfX + q.w + PAD > SIZE) {
+        shelfX = PAD;
+        shelfY += shelfH + PAD;
+        shelfH = 0;
+      }
+      if (shelfY + q.h + PAD > SIZE) throw new Error('atlas overflow: ' + q.name);
+      const x = shelfX;
+      const y = shelfY;
+      shelfX += q.w + PAD;
+      shelfH = Math.max(shelfH, q.h);
+
+      c.save();
+      c.beginPath();
+      c.rect(x, y, q.w, q.h);
+      c.clip();
+      c.setTransform(S, 0, 0, S, x, y);
+      q.draw(c, q.dw, q.dh);
+      c.restore();
+      c.setTransform(1, 0, 0, 1, 0, 0);
+      this.pending.push([q.name, new Rectangle(x, y, q.w, q.h)]);
+    }
+    this.queued.length = 0;
   }
 
   /**
@@ -99,6 +117,7 @@ export class GameAtlas {
   }
 
   private finalize(): void {
+    this.pack();
     // nearest: pixel art must not be smoothed, or the whole style collapses
     this.source = new CanvasSource({ resource: this.canvas, resolution: S, scaleMode: 'nearest' });
     for (const [name, r] of this.pending) {
@@ -152,11 +171,12 @@ export class GameAtlas {
           royal: true,
           cape: pal.accent,
           frame: f,
+          hair: 0x6b3a20,
         }));
         if (f < ATK_FRAMES) {
           this.placePx(`king${e}_atk${f}`, unitSprite({
             cloth: ramp(pal.accent2), metal: ramp(pal.stone), accent: pal.accent,
-            helm: e >= 2 ? 3 : 0, era: e, royal: true, cape: pal.accent, atk: f,
+            helm: e >= 2 ? 3 : 0, era: e, royal: true, cape: pal.accent, atk: f, hair: 0x6b3a20,
           }));
         }
         // three tiers: levy, drilled, elite
@@ -186,23 +206,24 @@ export class GameAtlas {
     })));
   }
 
-  /** The horde. One silhouette per archetype, tinted to the era at runtime. */
+  /** The horde. One silhouette per archetype, animated, tinted per era. */
   private paintCreatures(): void {
     // Drawn in neutral grey, not white: tinting is multiplicative, so a white
     // base would leave the highlight ramp with no headroom and the shading
     // would flatten out the moment an era colour was applied.
-    const white = 0xd2d2d2;
-    const mk = (name: string, px: Px): void => {
-      this.placePx(name, px);
-      this.placePx(name + 'W', flashOf(px));
+    const grey = 0xd2d2d2;
+    const build = (name: string, make: (f: number) => Px): void => {
+      for (let f = 0; f < ENEMY_FRAMES; f++) this.placePx(`${name}_${f}`, make(f));
+      this.placePx(name + 'W', flashOf(make(0)));
     };
-    mk('e_runner', runnerSprite(white));
-    mk('e_brute', bruteSprite(white));
-    mk('e_shooter', shooterSprite(white));
-    mk('e_flyer', flyerSprite(white, true));
-    this.placePx('e_flyer1', flyerSprite(white, false));
-    this.placePx('e_flyerW', flashOf(flyerSprite(white, true)));
-    mk('e_boss', bossSprite(white, 0xffd06a));
+    build('e_runner', (f) => runnerSprite(grey, f));
+    build('e_brute', (f) => bruteSprite(grey, f));
+    build('e_shooter', (f) => shooterSprite(grey, f));
+    build('e_flyer', (f) => flyerSprite(grey, f));
+    build('e_boss', (f) => bossSprite(grey, 0xffd06a, f));
+
+    // ground shadows, one per rough footprint size
+    for (const w of [10, 14, 18, 26]) this.placePx('shadow' + w, shadowSprite(w));
   }
 
   /** Keep, towers, walls, pads. */

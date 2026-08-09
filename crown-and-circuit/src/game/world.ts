@@ -1,9 +1,9 @@
 import { Container, Sprite } from 'pixi.js';
-import { CONFIG, type EnemyKind, type EraId, type StructureKind } from '../config';
+import { CONFIG, enemyDmgScale, enemyHpScale, type EnemyKind, type EraId, type StructureKind } from '../config';
 import type { Ctx } from '../core/game';
 import { SpatialGrid } from '../core/grid';
 import { Pool } from '../core/pool';
-import { ATK_FRAMES, WALK_FRAMES } from '../assets/atlas';
+import { ATK_FRAMES, ENEMY_FRAMES, WALK_FRAMES } from '../assets/atlas';
 import { Fort, type Pad } from './fort';
 import { NumberPops, Particles } from './particles';
 
@@ -24,6 +24,8 @@ export interface RunStats {
 
 interface Soldier {
   sp: Sprite;
+  /** ground shadow, so the unit sits on the map instead of floating over it */
+  sh: Sprite;
   x: number; y: number; px: number; py: number;
   cool: number;
   slot: number;
@@ -33,10 +35,13 @@ interface Soldier {
   gait: number;
   /** seconds left in the attack animation */
   atk: number;
+  /** −1 or 1; sticky, so a unit at a standstill does not flicker */
+  face: number;
 }
 
 interface Enemy {
   sp: Sprite;
+  sh: Sprite;
   kind: EnemyKind;
   x: number; y: number; px: number; py: number;
   vx: number; vy: number;
@@ -46,6 +51,9 @@ interface Enemy {
   cool: number;          // attack / shot cooldown
   era: EraId;
   flying: boolean;
+  /** walk phase, advanced by distance covered */
+  gait: number;
+  face: number;
   /** what it is currently chewing on, if anything */
   target: 'keep' | 'wall' | 'pad' | 'none';
   targetPad: Pad | null;
@@ -141,6 +149,9 @@ export class World {
     const ground = new Container();
     const mid = new Container();
     const air = new Container();
+    // units live in `mid` and are painted back-to-front by their y, so a soldier
+    // in front of another overlaps it rather than punching through
+    mid.sortableChildren = true;
     layer.addChild(ground, this.wallLayer, mid, air);
 
     // keep at the centre
@@ -172,22 +183,35 @@ export class World {
     this.particles = new Particles(a);
     this.pops = new NumberPops(a);
 
+    /** a squashed dark ellipse pinned to the unit's feet */
+    const shadow = (frame: string): Sprite => {
+      const sh = new Sprite(a.get(frame));
+      sh.anchor.set(0.5, 0.5);
+      sh.alpha = 0.32;
+      sh.visible = false;
+      ground.addChild(sh);
+      return sh;
+    };
+
     this.soldiers = new Pool<Soldier>(CONFIG.squad.max, () => {
       const sp = new Sprite(a.get('sol0_0_0'));
-      sp.anchor.set(0.5, 0.8);
-      sp.visible = false;
-      mid.addChild(sp);
-      return { sp, x: CX, y: CY, px: CX, py: CY, cool: 0, slot: 0, flash: 0, alive: true, gait: Math.random() * 4, atk: 0 };
-    });
-    this.enemies = new Pool<Enemy>(CONFIG.enemies.max, () => {
-      const sp = new Sprite(a.get('e_runner'));
-      sp.anchor.set(0.5, 0.8);
+      sp.anchor.set(0.5, 0.95);   // feet at the entity position, so the shadow lines up
       sp.visible = false;
       mid.addChild(sp);
       return {
-        sp, kind: 'runner', x: 0, y: 0, px: 0, py: 0, vx: 0, vy: 0,
+        sp, sh: shadow('shadow14'), x: CX, y: CY, px: CX, py: CY, cool: 0, slot: 0,
+        flash: 0, alive: true, gait: Math.random() * 4, atk: 0, face: 1,
+      };
+    });
+    this.enemies = new Pool<Enemy>(CONFIG.enemies.max, () => {
+      const sp = new Sprite(a.get('e_runner_0'));
+      sp.anchor.set(0.5, 0.95);   // feet at the entity position, so the shadow lines up
+      sp.visible = false;
+      mid.addChild(sp);
+      return {
+        sp, sh: shadow('shadow14'), kind: 'runner', x: 0, y: 0, px: 0, py: 0, vx: 0, vy: 0,
         hp: 1, maxHp: 1, speed: 0, radius: 10, dmg: 0, coin: 0, mass: 1,
-        flash: 0, cool: 0, era: 0, flying: false, target: 'none', targetPad: null,
+        flash: 0, cool: 0, era: 0, flying: false, gait: 0, face: 1, target: 'none', targetPad: null,
       };
     });
     this.projs = new Pool<Proj>(CONFIG.proj.max, () => {
@@ -207,12 +231,15 @@ export class World {
 
     layer.addChild(this.particles, this.pops);
     // king sprite lives above the crowd
+    this.kingShadow = shadow('shadow18');
+    this.kingShadow.visible = true;
     this.kingSp = new Sprite(a.get('king0_0'));
-    this.kingSp.anchor.set(0.5, 0.82);
+    this.kingSp.anchor.set(0.5, 0.95);
     air.addChild(this.kingSp);
     this.setEra(0);
   }
   kingSp!: Sprite;
+  private kingShadow!: Sprite;
 
   // ---------------------------------------------------------------- era
 
@@ -279,10 +306,12 @@ export class World {
       s.flash = 0;
       s.alive = true;
       s.sp.visible = true;
+      s.sh.visible = true;
     }
     while (this.soldiers.count > want) {
       const i = this.soldiers.count - 1;
       this.soldiers.items[i].sp.visible = false;
+      this.soldiers.items[i].sh.visible = false;
       this.soldiers.release(i);
     }
     for (let i = 0; i < this.soldiers.count; i++) {
@@ -296,16 +325,17 @@ export class World {
     if (!e) return;
     const base = CONFIG.enemies[kind];
     const eraDef = this.eraDef();
-    const hpScale = eraDef.enemyHp * (1 + waveIndex * CONFIG.enemies.hpPerWave);
+    const hpScale = enemyHpScale(waveIndex);
     e.kind = kind;
     e.era = this.era;
     e.maxHp = e.hp = Math.round(base.hp * hpScale);
     e.speed = base.speed * eraDef.enemySpeed;
     e.radius = base.radius;
-    e.dmg = base.dmg * (1 + this.era * 0.7);
+    e.dmg = base.dmg * enemyDmgScale(waveIndex);
     e.coin = base.coin;
     e.mass = base.mass;
     e.flying = kind === 'flyer';
+    e.gait = Math.random() * ENEMY_FRAMES;
     e.x = e.px = x;
     e.y = e.py = y;
     e.vx = e.vy = 0;
@@ -313,10 +343,17 @@ export class World {
     e.cool = Math.random();
     e.target = 'none';
     e.targetPad = null;
-    e.sp.texture = this.ctx.atlas.get('e_' + kind);
+    e.sp.texture = this.ctx.atlas.get(`e_${kind}_0`);
     e.sp.tint = CONFIG.palettes[this.era].enemy;
     e.sp.visible = true;
     e.sp.scale.set(1);
+    e.face = 1;
+    // shadow sized to the archetype's footprint; flyers cast one on the ground
+    // far below them, which is how you read their altitude from directly above
+    e.sh.texture = this.ctx.atlas.get(
+      kind === 'boss' ? 'shadow26' : kind === 'brute' ? 'shadow18' : kind === 'flyer' ? 'shadow10' : 'shadow14',
+    );
+    e.sh.visible = true;
   }
 
   private fire(x: number, y: number, tx: number, ty: number, dmg: number, opts: {
@@ -481,6 +518,11 @@ export class World {
   requestBuild(pad: Pad, kind: StructureKind): void {
     if (pad.ring >= this.fort.unlockedRings || pad.rubble > 0) return;
     if (pad.kind === kind && pad.level >= CONFIG.fort.upgradeMaxLevel) return;
+    // re-asking for the build already under way must not restart it, and
+    // switching to a different structure hands back the coins ferried in so far
+    // rather than silently eating them
+    if (pad.pending === kind) return;
+    if (pad.pending) this.carry += pad.progress;
     pad.pending = kind;
     pad.goal = this.fort.cost(pad, kind, this.era);
     pad.progress = 0;
@@ -846,6 +888,7 @@ export class World {
     this.ctx.audio.play('sfxKill', { throttleMs: 55, vol: 0.4 });
     this.onKill?.({ x: e.x, y: e.y, kind: e.kind });
     e.sp.visible = false;
+    e.sh.visible = false;
     this.enemies.release(idx);
   }
 
@@ -917,35 +960,59 @@ export class World {
       ? a.get(kingAtkName)
       : a.get(`king${this.era}_${(this.kingGait | 0) % WALK_FRAMES}`);
     this.kingSp.visible = this.kingDown <= 0;
-    this.kingSp.position.set(lerp(this.kpx, this.kx), lerp(this.kpy, this.ky));
+    const kingX = lerp(this.kpx, this.kx);
+    const kingY = lerp(this.kpy, this.ky);
+    this.kingSp.position.set(kingX, kingY);
     this.kingSp.scale.x = this.facing;
     this.kingSp.alpha = this.kingIFrames > 0 ? 0.55 + Math.sin(performance.now() / 40) * 0.25 : 1;
+    this.kingShadow.visible = this.kingDown <= 0;
+    this.kingShadow.position.set(kingX, kingY);
 
     const tier = this.tier;
     for (let i = 0; i < this.soldiers.count; i++) {
       const s = this.soldiers.items[i];
       const nx = lerp(s.px, s.x);
       const ny = lerp(s.py, s.y);
-      const moved = Math.hypot(s.x - s.px, s.y - s.py) / Math.max(0.0001, dtReal);
+      const dx = s.x - s.px;
+      const moved = Math.hypot(dx, s.y - s.py) / Math.max(0.0001, dtReal);
       s.gait = moved > 12 ? s.gait + dtReal * (moved / 26) : 0;
+      // sprites are authored facing right; flip on sustained horizontal travel
+      // only, so a unit shuffling in formation does not strobe
+      if (Math.abs(dx) > 0.35) s.face = dx > 0 ? 1 : -1;
       const atkName = `sol${this.era}_${tier}_atk${this.atkFrame(s.atk)}`;
       s.sp.texture = s.atk > 0 && a.has(atkName)
         ? a.get(atkName)
         : a.get(`sol${this.era}_${tier}_${(s.gait | 0) % WALK_FRAMES}`);
       s.sp.position.set(nx, ny);
+      s.sp.scale.x = s.face;
       s.sp.zIndex = s.y;
+      s.sh.position.set(nx, ny);
     }
     for (let i = 0; i < this.enemies.count; i++) {
       const e = this.enemies.items[i];
-      e.sp.position.set(lerp(e.px, e.x), lerp(e.py, e.y));
+      const ex = lerp(e.px, e.x);
+      const ey = lerp(e.py, e.y);
+      e.sp.position.set(ex, ey);
+      const dx = e.x - e.px;
+      const moved = Math.hypot(dx, e.y - e.py) / Math.max(0.0001, dtReal);
+      // flyers beat their wings whether or not they are moving
+      e.gait += dtReal * (e.flying ? 7 : moved / 22);
+      if (Math.abs(dx) > 0.35) e.face = dx > 0 ? 1 : -1;
       if (e.flash > 0) {
-        e.sp.texture = a.get('e_' + e.kind + 'W');
+        e.sp.texture = a.get(`e_${e.kind}W`);
         e.sp.tint = 0xffffff;
       } else {
-        e.sp.texture = a.get('e_' + e.kind);
+        e.sp.texture = a.get(`e_${e.kind}_${(e.gait | 0) % ENEMY_FRAMES}`);
         e.sp.tint = CONFIG.palettes[e.era].enemy;
       }
-      if (e.flying) e.sp.y -= 14 + Math.sin(performance.now() / 180 + e.x) * 4;
+      e.sp.scale.x = e.face;
+      e.sp.zIndex = e.y;
+      // the shadow stays on the ground; only the body lifts
+      e.sh.position.set(ex, ey);
+      if (e.flying) {
+        e.sp.y -= 16 + Math.sin(performance.now() / 180 + e.x) * 4;
+        e.sh.alpha = 0.2;
+      }
     }
     for (let i = 0; i < this.projs.count; i++) {
       const p = this.projs.items[i];
