@@ -23,6 +23,35 @@ export class Input {
   curY = 0;
   /** world units travelled while dragging, for the tutorial */
   travelled = 0;
+  /**
+   * Screen point of the most recent tap — a press that ended quickly without
+   * going anywhere. Steering already owns press-and-drag, so a tap is the one
+   * gesture left that costs the player nothing to learn. Read it once and clear.
+   */
+  tapX = 0;
+  tapY = 0;
+  private tapPending = false;
+  private tapBlocked = false;
+  private downAt = 0;
+  private downX = 0;
+  private downY = 0;
+  private readonly tapMaxMs = 260;
+  private readonly tapMaxPx = 18;
+
+  /**
+   * Suppress the tap this pointer would otherwise produce. UI widgets call
+   * this when they handle a press: Pixi's canvas listeners run before this
+   * class's document-level ones, so a button can veto the world-level gesture
+   * and a tap on the HUD never doubles as a rally.
+   */
+  cancelTap(): void { this.tapBlocked = true; }
+
+  /** Consume the pending tap, if there is one. */
+  takeTap(): boolean {
+    if (!this.tapPending) return false;
+    this.tapPending = false;
+    return true;
+  }
 
   private pointerId = -1;
   private keys = new Set<string>();
@@ -56,6 +85,9 @@ export class Input {
     this.active = true;
     this.originX = this.curX = e.clientX;
     this.originY = this.curY = e.clientY;
+    this.downAt = performance.now();
+    this.downX = e.clientX;
+    this.downY = e.clientY;
     this.travelled = 0;
     this.trackDevTap(e.clientX, e.clientY);
   };
@@ -68,6 +100,15 @@ export class Input {
 
   private onUp = (e: PointerEvent): void => {
     if (e.pointerId !== this.pointerId) return;
+    const quick = performance.now() - this.downAt < this.tapMaxMs;
+    const still = Math.hypot(e.clientX - this.downX, e.clientY - this.downY) < this.tapMaxPx;
+    const blocked = this.tapBlocked;
+    this.tapBlocked = false;
+    if (quick && still && !blocked) {
+      this.tapPending = true;
+      this.tapX = e.clientX;
+      this.tapY = e.clientY;
+    }
     this.release();
   };
 

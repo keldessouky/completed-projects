@@ -68,7 +68,9 @@ export class Btn extends Container {
     this.hitArea = new Rectangle(-hw, -hh, hw * 2, hh * 2);
     this.eventMode = 'static';
     this.cursor = 'pointer';
+    // a press on a button is never a world gesture as well
     this.on('pointerdown', () => {
+      this.ctx.input.cancelTap();
       if (!this.enabled) return;
       this.scale.set(0.94);
     });

@@ -21,6 +21,22 @@ export interface RunStats {
   carry: number;
   coin: number;
   extraSoldiers: number;
+  /** extra targets a shot passes through */
+  pierce: number;
+  /** shots split into this many on fire */
+  fork: number;
+  /** fraction of a killed enemy's health dealt to everything near it */
+  explode: number;
+  /** every Nth shot is a heavy round; 0 disables */
+  heavyEvery: number;
+  /** the squad fires as one on a beat instead of independently */
+  volley: boolean;
+  /** damage per second to anything touching the king */
+  aura: number;
+  /** chains to this many extra enemies on hit */
+  chain: number;
+  /** which fusions have already been taken, so each is offered once */
+  evolved: { lance: boolean; storm: boolean; broadside: boolean };
 }
 
 interface Soldier {
@@ -110,6 +126,12 @@ export class World {
   kingIFrames = 0;
   kingDown = 0;
   facing = 1;
+  /** seconds until the rally can be called again */
+  rallyCool = 0;
+  /** seconds of rally left to run */
+  private rallyLeft = 0;
+  private rallyX = 0;
+  private rallyY = 0;
   private kingGait = 0;
   private kingAtk = 0;
 
@@ -134,6 +156,10 @@ export class World {
   /** hand-drawn character page, when the LPC art loaded */
   private get chars() { return this.ctx.chars; }
 
+  /** shared firing beat, used only when the squad has the volley card */
+  private volleyCool = 0;
+  private auraTick = 0;
+
   private grid = new SpatialGrid(CONFIG.world.size);
   private scratch: number[] = new Array(256).fill(0);
   private padSprites = new Map<Pad, { base: Sprite; glow: Sprite; body: Sprite; front: Sprite; crew: Sprite }>();
@@ -141,6 +167,7 @@ export class World {
   private keepSp!: Sprite;
 
   /** hooks the run scene listens to */
+  onRally: ((x: number, y: number) => void) | null = null;
   onKeepHit: (() => void) | null = null;
   onDeath: ((why: string) => void) | null = null;
   onBuilt: ((pad: Pad) => void) | null = null;
@@ -316,7 +343,10 @@ export class World {
   syncSquad(): void {
     const want = Math.min(
       CONFIG.squad.max,
-      Math.max(1, Math.round(this.soldierTarget + this.fort.barracksSoldiers + this.stats.extraSoldiers)),
+      Math.max(1, Math.round(
+        this.soldierTarget + this.fort.barracksSoldiers + this.stats.extraSoldiers
+        + this.era * CONFIG.squad.perEra,
+      )),
     );
     while (this.soldiers.count < want) {
       const s = this.soldiers.obtain();
@@ -379,20 +409,51 @@ export class World {
     e.sh.visible = true;
   }
 
+  /** rounds fired by the player's side, for the every-Nth-shot heavy card */
+  private shotCount = 0;
+
   private fire(x: number, y: number, tx: number, ty: number, dmg: number, opts: {
     speed: number; pierce: number; hostile?: boolean; splash?: number; spread?: number; tint: number; frame: string;
   }): void {
-    const p = this.projs.obtain();
-    if (!p) return;
+    // Fork and heavy rounds are applied here rather than at each call site, so
+    // soldiers, the king and every tower pick them up from one place.
+    if (!opts.hostile) {
+      const st = this.stats;
+      const fork = st.fork;
+      if (fork > 0) {
+        const spread = 0.34;
+        for (let k = 1; k <= fork; k++) {
+          const side = k % 2 === 1 ? 1 : -1;
+          const step = Math.ceil(k / 2) * spread;
+          const a = Math.atan2(ty - y, tx - x) + side * step;
+          this.emit(x, y, a, dmg * 0.7, opts);
+        }
+      }
+      if (st.heavyEvery > 0 && ++this.shotCount % st.heavyEvery === 0) {
+        this.emit(x, y, Math.atan2(ty - y, tx - x), dmg * 3.2, {
+          ...opts, pierce: opts.pierce + 2, splash: (opts.splash ?? 0) + 64, speed: opts.speed * 0.8,
+        });
+        return;
+      }
+    }
     let ang = Math.atan2(ty - y, tx - x);
     if (opts.spread) ang += (Math.random() - 0.5) * opts.spread;
+    this.emit(x, y, ang, dmg, opts);
+  }
+
+  /** Put one round in the air along a fixed angle. */
+  private emit(x: number, y: number, ang: number, dmg: number, opts: {
+    speed: number; pierce: number; hostile?: boolean; splash?: number; tint: number; frame: string;
+  }): void {
+    const p = this.projs.obtain();
+    if (!p) return;
     p.x = p.px = x;
     p.y = p.py = y;
     p.vx = Math.cos(ang) * opts.speed;
     p.vy = Math.sin(ang) * opts.speed;
     p.dmg = dmg;
     p.life = 0;
-    p.pierce = opts.pierce;
+    p.pierce = opts.pierce + (opts.hostile ? 0 : this.stats.pierce);
     p.hostile = opts.hostile ?? false;
     p.splash = opts.splash ?? 0;
     p.sp.texture = this.ctx.atlas.get(opts.frame);
@@ -440,6 +501,19 @@ export class World {
     this.stepProjectiles(dt);
     this.stepCoins(dt);
     this.fort.step(dt, this.era);
+    // the blade aura: a standing threat around the king, which is what finally
+    // makes wading into a crowd a move rather than a mistake
+    if (this.stats.aura > 0 && this.kingDown <= 0) {
+      this.auraTick -= dt;
+      if (this.auraTick <= 0) {
+        this.auraTick = 0.2;
+        this.splashAt(this.kx, this.ky, 74, this.stats.aura * 0.2 * this.stats.dmg, null);
+        this.particles.burst(this.kx, this.ky - 10, {
+          frame: 'dot', count: 3, tint: this.eraDef().tracer,
+          speed: 150, ttl: 0.22, additive: true, s0: 0.9, s1: 0.1,
+        });
+      }
+    }
     if (this.kingIFrames > 0) this.kingIFrames -= dt;
   }
 
@@ -538,6 +612,33 @@ export class World {
   }
 
   /** Queue a build/upgrade on a pad. */
+  /**
+   * Call the rally: the squad abandons formation and charges a point, hitting
+   * harder on the way. Returns false when it is still on cooldown, so the HUD
+   * and the audio can react to a refused tap rather than swallowing it.
+   */
+  rally(x: number, y: number): boolean {
+    if (this.rallyCool > 0 || this.kingDown > 0) return false;
+    this.rallyCool = CONFIG.king.rallyCooldown;
+    this.rallyLeft = CONFIG.king.rallySec;
+    this.rallyX = x;
+    this.rallyY = y;
+    this.onRally?.(x, y);
+    return true;
+  }
+
+  /**
+   * Rally onto the nearest enemy worth charging. Used by the balance probe, and
+   * the natural target a player picks by eye.
+   */
+  rallyBest(): boolean {
+    const t = this.nearestEnemy(this.kx, this.ky, 460);
+    return t ? this.rally(t.x, t.y) : false;
+  }
+
+  /** True while the squad is mid-charge — soldiers hit harder and move faster. */
+  get rallying(): boolean { return this.rallyLeft > 0; }
+
   requestBuild(pad: Pad, kind: StructureKind): void {
     if (pad.ring >= this.fort.unlockedRings || pad.rubble > 0) return;
     if (pad.kind === kind && pad.level >= CONFIG.fort.upgradeMaxLevel) return;
@@ -576,10 +677,22 @@ export class World {
 
   private stepSoldiers(dt: number): void {
     const d = this.eraDef();
+    const K = CONFIG.king;
+    if (this.rallyCool > 0) this.rallyCool -= dt;
+    if (this.rallyLeft > 0) this.rallyLeft -= dt;
+    const charging = this.rallyLeft > 0;
+
     const range = d.range * this.stats.range * CONFIG.squad.engageRange;
-    const dmg = d.dmg * this.stats.dmg * (1 + this.fort.forgeBonus);
+    const dmg = d.dmg * this.stats.dmg * (1 + this.fort.forgeBonus) * (charging ? K.rallyDamage : 1);
     const interval = d.interval / this.stats.fireRate;
     const n = this.soldiers.count;
+    // one shared beat, so a volley squad fires as a wall of shots rather than
+    // as sixty independent trickles
+    const volleyBeat = this.stats.volley && this.volleyCool <= 0;
+    if (this.stats.volley) {
+      this.volleyCool -= dt;
+      if (volleyBeat) this.volleyCool = interval;
+    }
 
     for (let i = 0; i < n; i++) {
       const s = this.soldiers.items[i];
@@ -593,19 +706,26 @@ export class World {
       const per = CONFIG.squad.perRing * (ring + 1);
       const ang = (inRing / per) * Math.PI * 2 + ring * 0.6;
       const rad = CONFIG.squad.ringSpacing * (ring + 1);
-      const tx = this.kx + Math.cos(ang) * rad;
-      const ty = this.ky + Math.sin(ang) * rad * 0.8;
+      // charging: they break formation and converge on the rally point, spread
+      // just enough that sixty men do not stack into one pixel
+      const anchorX = charging ? this.rallyX + Math.cos(ang) * K.rallyRadius * (ring + 1) / 3 : this.kx;
+      const anchorY = charging ? this.rallyY + Math.sin(ang) * K.rallyRadius * (ring + 1) / 3 : this.ky;
+      const tx = charging ? anchorX : anchorX + Math.cos(ang) * rad;
+      const ty = charging ? anchorY : anchorY + Math.sin(ang) * rad * 0.8;
 
-      const k = Math.min(1, CONFIG.squad.followLerp * dt);
+      const k = Math.min(1, CONFIG.squad.followLerp * (charging ? K.rallySpeed : 1) * dt);
       s.x += (tx - s.x) * k;
       s.y += (ty - s.y) * k;
 
       if (s.atk > 0) s.atk -= dt;
       s.cool -= dt;
-      if (s.cool <= 0) {
+      const ready = this.stats.volley ? volleyBeat : s.cool <= 0;
+      if (ready) {
         const target = this.nearestEnemy(s.x, s.y, range);
         if (target) {
-          s.cool = interval * (1 + (Math.random() - 0.5) * CONFIG.squad.fireJitter);
+          s.cool = this.stats.volley
+            ? interval
+            : interval * (1 + (Math.random() - 0.5) * CONFIG.squad.fireJitter);
           s.atk = CONFIG.squad.attackAnimSec;
           this.fire(s.x, s.y - 12, target.x, target.y, dmg, {
             speed: d.projSpeed, pierce: d.pierce, spread: d.spread, tint: d.tracer, frame: 'p' + this.era,
@@ -875,6 +995,10 @@ export class World {
           });
           this.ctx.fx.shake(CONFIG.fx.shakeHit * 0.6);
         }
+        if (this.stats.chain > 0 && !p.hostile) {
+          // arcs on to the nearest bodies for a fraction of the hit
+          this.splashAt(e.x, e.y, 96, p.dmg * 0.45, e);
+        }
         if (p.pierce > 0) { p.pierce--; } else { consumed = true; }
         break;
       }
@@ -899,10 +1023,33 @@ export class World {
     if (e.hp <= 0) this.killEnemy(e);
   }
 
+  /** Damage everything within `r` of a point. Used by explode-on-kill and chain. */
+  private splashAt(x: number, y: number, r: number, dmg: number, skip: Enemy | null): void {
+    const n = this.grid.query(x, y, r, this.scratch);
+    for (let i = 0; i < n; i++) {
+      const o = this.enemies.items[this.scratch[i]];
+      if (!o || o === skip || o.hp <= 0) continue;
+      o.hp -= dmg;
+      o.flash = CONFIG.enemies.hitFlashMs / 1000;
+      if (o.hp <= 0) this.killEnemy(o);
+    }
+  }
+
   private killEnemy(e: Enemy): void {
     const idx = this.enemies.items.indexOf(e);
     if (idx < 0 || idx >= this.enemies.count) return;
     this.kills++;
+    // Corpses that take the crowd with them. This is the card that turns a
+    // dense wave from a threat into a chain reaction, which is the whole
+    // "bullet heaven" payoff the run was missing.
+    if (this.stats.explode > 0) {
+      const blast = e.maxHp * this.stats.explode;
+      this.particles.burst(e.x, e.y, {
+        frame: 'dot', count: 9, tint: CONFIG.palettes[this.era].accent,
+        speed: 200, ttl: 0.3, additive: true, s0: 1.3, s1: 0.1,
+      });
+      this.splashAt(e.x, e.y, 78, blast, e);
+    }
     const value = Math.max(1, Math.round(e.coin * this.eraDef().coinMult * this.stats.coin));
     const drops = e.kind === 'boss' ? 14 : e.kind === 'brute' ? 4 : 1;
     this.dropCoins(e.x, e.y, Math.max(1, Math.round(value / drops)), drops);

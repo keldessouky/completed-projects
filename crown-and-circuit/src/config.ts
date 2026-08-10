@@ -60,14 +60,28 @@ export const CONFIG = {
     accel: 2600,            // responsive but not instant
     radius: 15,
     fireInterval: 0.75,     // he does fight, on a slow cadence
-    contactIFrames: 0.8,    // seconds of grace after taking a hit
+    contactIFrames: 0.45,   // seconds of grace after taking a hit — short, so
+                            //  standing in the horde actually costs you
+    /**
+     * The rally: tap anywhere and the squad abandons formation to charge that
+     * point, hitting harder while they do. This is the game's second verb, and
+     * the only thing the player times.
+     */
+    rallyCooldown: 6,
+    rallySec: 2.4,
+    rallySpeed: 1.85,       // multiplier on how fast they close
+    rallyDamage: 1.9,       // multiplier while charging
+    rallyRadius: 120,
     hp: 100,                // downed → dropped coins scatter, brief respawn
     downSec: 2.6,
   },
 
   /** Soldiers orbit the king in rings and auto-target. */
   squad: {
-    max: 60,
+    /** An eleven-man patrol is not the fantasy. The engine pools this many and
+     *  the spatial hash carries it; the old cap was starving the whole promise
+     *  of "his soldiers kill hordes". */
+    max: 64,
     ringSpacing: 42,        // world units between formation rings
     perRing: 8,             // slots in the first ring; each ring adds this many
     followLerp: 5.2,        // per-second ease toward the assigned slot
@@ -75,6 +89,10 @@ export const CONFIG = {
     separationForce: 130,
     engageRange: 1.0,       // multiplier on era weapon range
     fireJitter: 0.22,       // fraction of interval randomised per soldier
+    /** Free soldiers granted by reaching each age. Barracks alone cannot get
+     *  the squad past the mid-teens — there are only so many pads — and an army
+     *  that never grows with the era makes the whole progression feel flat. */
+    perEra: 7,
     tierEvery: 14,          // visual tier bumps every N soldiers
     attackAnimSec: 0.22,    // how long the attack pose holds after a shot
   },
@@ -95,7 +113,7 @@ export const CONFIG = {
       // tower weapon
       towerDmg: 16, towerInterval: 1.15, towerRange: 210, towerProjSpeed: 520, towerPierce: 0,
       // scaling applied to enemies met during this era
-      enemyHp: 1.0, enemySpeed: 1.0, coinMult: 1.0,
+      enemyHp: 0.8, enemySpeed: 1.0, coinMult: 1.0,
       // costs of a structure built during this era
       costMult: 1.0,
       tracer: 0x9fb4c9,     // projectile tint
@@ -110,7 +128,7 @@ export const CONFIG = {
       weapon: 'Musket & Cannon',
       dmg: 21, interval: 1.30, range: 178, projSpeed: 620, pierce: 0, spread: 0.14, shots: 1,
       towerDmg: 52, towerInterval: 1.8, towerRange: 265, towerProjSpeed: 640, towerPierce: 1,
-      enemyHp: 1.9, enemySpeed: 1.06, coinMult: 2.2,
+      enemyHp: 1.5, enemySpeed: 1.06, coinMult: 2.2,
       costMult: 2.3,
       tracer: 0xf0c07a,
       muzzle: 0xffe4a8,
@@ -124,7 +142,7 @@ export const CONFIG = {
       weapon: 'Rifle & Gatling',
       dmg: 34, interval: 0.80, range: 205, projSpeed: 780, pierce: 0, spread: 0.09, shots: 1,
       towerDmg: 30, towerInterval: 0.30, towerRange: 285, towerProjSpeed: 820, towerPierce: 0,
-      enemyHp: 3.4, enemySpeed: 1.12, coinMult: 5.0,
+      enemyHp: 2.6, enemySpeed: 1.12, coinMult: 5.0,
       costMult: 5.4,
       tracer: 0xffb45c,
       muzzle: 0xfff0c0,
@@ -139,7 +157,7 @@ export const CONFIG = {
       dmg: 26, interval: 0.19, range: 228, projSpeed: 1000, pierce: 0, spread: 0.16, shots: 1,
       towerDmg: 260, towerInterval: 2.1, towerRange: 330, towerProjSpeed: 700, towerPierce: 0,
       towerSplash: 78,      // missiles: only this era's towers do area damage
-      enemyHp: 6.0, enemySpeed: 1.18, coinMult: 12.0,
+      enemyHp: 4.4, enemySpeed: 1.18, coinMult: 12.0,
       costMult: 12.0,
       tracer: 0xffd36b,
       muzzle: 0xffffff,
@@ -153,7 +171,7 @@ export const CONFIG = {
       weapon: 'Laser & Plasma',
       dmg: 78, interval: 0.42, range: 268, projSpeed: 1500, pierce: 2, spread: 0.03, shots: 1,
       towerDmg: 150, towerInterval: 0.55, towerRange: 360, towerProjSpeed: 1700, towerPierce: 3,
-      enemyHp: 10.0, enemySpeed: 1.25, coinMult: 28.0,
+      enemyHp: 7.2, enemySpeed: 1.25, coinMult: 28.0,
       costMult: 27.0,
       tracer: 0x5cf5ff,
       muzzle: 0xd8ffff,
@@ -176,11 +194,16 @@ export const CONFIG = {
     flyer:   { hp: 13,  speed: 106, radius: 16, dmg: 4,  coin: 2,  mass: 0.8 }, // ignores walls
     boss:    { hp: 520, speed: 40,  radius: 42, dmg: 16, coin: 60, mass: 8.0 },
     /** per-wave HP creep — small, so nothing ever becomes spongy */
-    hpPerWave: 0.03,
-    max: 340,
+    hpPerWave: 0.022,
+    max: 420,
     separation: 30,
     separationForce: 240,
     hitFlashMs: 90,
+    /** wind-up before a charger commits, in seconds — long enough to walk out
+     *  of, which is what makes moving worth doing */
+    telegraphSec: 0.7,
+    chargeSpeed: 3.4,
+    chargeSec: 0.55,
     /** enemies only start attacking a structure within this range of it */
     attackRange: 26,
     attackInterval: 1.1,
@@ -195,9 +218,9 @@ export const CONFIG = {
      * past 170 by the last, so the fight goes from a skirmish you stroll
      * through to a tide you have to have prepared for.
      */
-    count: (w: number) => Math.round(16 + w * 8.2),
+    count: (w: number) => Math.round(20 + w * 13),
     /** seconds between spawn pulses inside a wave — the tide tightens */
-    pulseInterval: (w: number) => Math.max(0.38, 1.35 - w * 0.05),
+    pulseInterval: (w: number) => Math.max(0.26, 1.2 - w * 0.05),
     /** how many map edges spawn simultaneously */
     edges: (w: number) => (w < 2 ? 1 : w < 6 ? 2 : w < 11 ? 3 : 4),
     /** breathing room between waves, where you build */
@@ -245,7 +268,7 @@ export const CONFIG = {
      *  The squad is the game's main weapon — a barracks has to be visibly
      *  worth a pad, or the fort ends up defending itself while the king
      *  watches, which is the opposite of the fantasy. */
-    barracksSoldiers: 5,
+    barracksSoldiers: 7,
     forgeDamage: 0.16,
     /** upgrading an existing structure costs this fraction more each level */
     upgradeCostMult: 1.75,

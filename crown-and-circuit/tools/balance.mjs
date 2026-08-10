@@ -102,6 +102,7 @@ const takeCardIfOpen = async () => {
 
 let orbit = 0;
 let cards = 0;
+let rallies = 0;
 let builds = 0;
 // barracks first — the squad is the game's main weapon, and a bot that only
 // ever stacks towers measures a fort defending itself, not a king with an army
@@ -135,6 +136,21 @@ const play = async () => {
   return steerTo(s.king, best.x, best.y);
 };
 
+/**
+ * Call the rally whenever it is off cooldown. A bot that never uses the game's
+ * only timed verb measures a game nobody actually plays.
+ */
+const tryRally = async () => {
+  const fired = await page.evaluate(() => {
+    const w = window.__cc;
+    if (!w.rallyReady || !w.rallyReady()) return false;
+    // spend it on a real crowd, not on the first stray
+    if (w.probe().enemies < 8) return false;
+    return w.rallyAt();
+  });
+  if (fired) rallies++;
+};
+
 const samples = [];
 let lastKills = 0;
 let lastT = Date.now();
@@ -147,6 +163,7 @@ let outcome = 'timeout';
 
 while (Date.now() < deadline) {
   await play();
+  await tryRally();
   const p = await page.evaluate(() => {
     const w = window.__cc;
     if (typeof w.probe !== 'function') return null;
@@ -189,7 +206,7 @@ for (const s of samples) {
 }
 
 const pad = (v, n) => String(v).padStart(n);
-console.log(`\noutcome: ${outcome}   samples: ${samples.length}   cards taken: ${cards}   (turbo 4×)`);
+console.log(`\noutcome: ${outcome}   samples: ${samples.length}   cards taken: ${cards}   rallies: ${rallies}   (turbo 4×)`);
 console.log('\n wave  peakAlive  peakSquad  totalKills  kills/s');
 for (const e of [...byWave.values()].sort((a, b) => a.wave - b.wave)) {
   console.log(`  ${pad(e.wave + 1, 2)}   ${pad(e.peak, 7)}   ${pad(e.sq, 7)}   ${pad(e.kills, 9)}  ${pad((e.sum / e.n).toFixed(1), 6)}`);

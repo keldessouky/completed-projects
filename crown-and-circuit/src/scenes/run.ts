@@ -33,6 +33,9 @@ function statsFromMeta(ctx: Ctx): RunStats {
     carry: 1 + m.carry * U.carry.per,
     coin: 1,
     extraSoldiers: m.squad * U.squad.per,
+    // behaviour stats all start neutral; only cards switch them on
+    pierce: 0, fork: 0, explode: 0, heavyEvery: 0, volley: false, aura: 0, chain: 0,
+    evolved: { lance: false, storm: false, broadside: false },
   };
 }
 
@@ -60,6 +63,10 @@ export class RunScene extends Scene implements Stepper {
   private banner!: Text;
   private tutorial!: Text;
   private panelPad: Pad | null = null;
+  /** the expanding ring dropped where the squad was sent */
+  private rallyMark!: Sprite;
+  /** HUD dot showing whether the rally is ready */
+  private rallyPip!: Sprite;
   private progressBar: Bar | null = null;
 
   enter(): void {
@@ -87,6 +94,13 @@ export class RunScene extends Scene implements Stepper {
     this.sim.carry = CONFIG.fort.startingCoins
       + ctx.save.data.meta.purse * CONFIG.meta.upgrades.purse.per;
 
+    this.rallyMark = new Sprite(ctx.atlas.get('padGlow'));
+    this.rallyMark.anchor.set(0.5);
+    this.rallyMark.blendMode = 'add';
+    this.rallyMark.visible = false;
+    this.rallyMark.tint = CONFIG.colors.gold;
+    simLayer.addChild(this.rallyMark);
+
     ctx.camera.snap(this.sim.kx, this.sim.ky);
     this.wire();
     this.buildHud();
@@ -111,6 +125,9 @@ export class RunScene extends Scene implements Stepper {
       .filter((q) => q.ring < this.sim.fort.unlockedRings && !q.kind && q.rubble <= 0)
       .map((q) => ({ x: q.x, y: q.y, ring: q.ring, pending: !!q.pending, progress: q.progress, goal: q.goal }));
     dbg.kingAt = () => ({ x: this.sim.kx, y: this.sim.ky });
+    dbg.rallyReady = () => this.sim.rallyCool <= 0;
+    /** rally onto the densest nearby knot of enemies, which is what a player does */
+    dbg.rallyAt = () => this.sim.rallyBest();
     // a live window on the simulation, so balance probes can read horde size,
     // time-to-kill and keep health without driving the UI
     dbg.probe = () => ({
@@ -153,6 +170,7 @@ export class RunScene extends Scene implements Stepper {
   private advanceEra(era: EraId): void {
     const ctx = this.ctx;
     this.sim.setEra(era);
+    this.sim.syncSquad();   // each age brings its own levy
     this.ground.texture = ctx.terrain[era];
     ctx.audio.play('sfxEra');
     ctx.audio.music(CONFIG.eras[era].music);
@@ -216,6 +234,12 @@ export class RunScene extends Scene implements Stepper {
     this.pauseBtn = new Btn(ctx, { w: 46, h: 46, kind: 'dark', icon: 'iPause', onTap: () => this.openPause() });
     this.hud.addChild(this.pauseBtn);
 
+    // rally readiness, parked under the pause button
+    this.rallyPip = new Sprite(ctx.atlas.get('iSword'));
+    this.rallyPip.anchor.set(0.5);
+    this.rallyPip.tint = CONFIG.colors.gold;
+    this.hud.addChild(this.rallyPip);
+
     this.hud.addChild(this.buildPanel);
     this.buildPanel.visible = false;
 
@@ -258,6 +282,7 @@ export class RunScene extends Scene implements Stepper {
     this.eraText.position.set(W - 24, top + 44);
     this.phaseText.position.set(W - 24, top + 66);
     this.pauseBtn.position.set(W - 36, top + 108);
+    this.rallyPip.position.set(W - 36, top + 166);
     this.carryWrap.position.set(W / 2, H - bottom - 34);
     this.banner.position.set(W / 2, H * 0.3);
     this.tutorial.position.set(W / 2, H * 0.8);
@@ -353,7 +378,38 @@ export class RunScene extends Scene implements Stepper {
     const cam = ctx.camera;
     ctx.input.update(dtReal * CONFIG.king.speed);
 
+    // a tap anywhere calls the rally; steering owns press-and-drag, so this is
+    // the one gesture left that costs the player nothing to learn
+    if (ctx.input.takeTap()) {
+      const wx = cam.toWorldX(ctx.input.tapX);
+      const wy = cam.toWorldY(ctx.input.tapY);
+      if (this.sim.rally(wx, wy)) {
+        ctx.audio.play('sfxWave', { vol: 0.5 });
+        ctx.haptics.tap(CONFIG.fx.hapticEra);
+        ctx.fx.shake(CONFIG.fx.shakeEraUp * 0.35);
+        this.rallyMark.position.set(wx, wy);
+        this.rallyMark.visible = true;
+        this.rallyMark.alpha = 0.9;
+        const ring = { s: 0.4, a: 0.9 };
+        const tw = new Tween(ring)
+          .to({ s: 1.8, a: 0 }, 520)
+          .easing(Easing.Cubic.Out)
+          .onUpdate(() => { this.rallyMark.scale.set(ring.s); this.rallyMark.alpha = ring.a; })
+          .onComplete(() => { this.rallyMark.visible = false; })
+          .start(performance.now());
+        ctx.tweens.add(tw);
+      } else {
+        // refused, not swallowed: a tap on cooldown still answers
+        ctx.audio.play('sfxHit', { vol: 0.25, throttleMs: 200 });
+      }
+    }
+
     this.sim.frame(dtReal, alpha);
+    // the cooldown ring: the player needs to know when the verb is back
+    this.rallyPip.scale.set(this.sim.rallyCool > 0 ? 0.55 : 1);
+    this.rallyPip.alpha = this.sim.rallyCool > 0
+      ? 0.3 + 0.4 * (1 - this.sim.rallyCool / CONFIG.king.rallyCooldown)
+      : 1;
     cam.follow(this.sim.kx, this.sim.ky, this.sim.kvx, this.sim.kvy, dtReal);
 
     const cap = CONFIG.coins.carryCap * this.sim.stats.carry;

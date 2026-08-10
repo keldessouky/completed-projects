@@ -3,15 +3,105 @@ import type { CardDef } from '../types';
 import type { World } from './world';
 
 /**
- * Between-wave upgrade cards. Offered three at a time, drawn without
- * repetition inside an offer, and weighted so situational cards (keep repair)
- * only show up when they would actually help.
+ * Between-wave upgrade cards.
+ *
+ * The pool is deliberately majority *behaviour*, not percentages. A run whose
+ * every upgrade is a scalar plays identically however you draft it — the cards
+ * below change what appears on the screen, and the evolutions at the bottom
+ * combine two you already own into a third, which is the one hook this genre
+ * is actually built on.
+ *
+ * Offered three at a time, drawn without repetition inside an offer, and
+ * weighted so situational cards (keep repair) only show up when they help.
  */
 export function drawCards(world: World, count = CONFIG.cards.choices): CardDef[] {
   const C = CONFIG.cards;
   const s = world.stats;
 
   const pool: { card: CardDef; weight: number }[] = [
+    // ---------- behaviour: these change what happens on screen
+    {
+      weight: s.pierce < 3 ? 16 : 0,
+      card: {
+        id: 'pierce', title: 'Bodkin Points', icon: 'iBolt',
+        body: 'Shots punch through +1 enemy',
+        apply: () => { s.pierce += 1; },
+      },
+    },
+    {
+      weight: s.fork < 4 ? 15 : 0,
+      card: {
+        id: 'fork', title: 'Split Volley', icon: 'iSword',
+        body: 'Every shot fires +1 round at an angle',
+        apply: () => { s.fork += 1; },
+      },
+    },
+    {
+      weight: s.explode < 0.9 ? 14 : 0,
+      card: {
+        id: 'explode', title: 'Powder Hearts', icon: 'iBolt',
+        body: s.explode > 0 ? 'Corpses detonate harder' : 'Killed enemies detonate',
+        apply: () => { s.explode += 0.3; },
+      },
+    },
+    {
+      weight: s.heavyEvery === 0 ? 13 : 0,
+      card: {
+        id: 'heavy', title: 'Siege Round', icon: 'iTower',
+        body: 'Every 5th shot is a heavy splash round',
+        apply: () => { s.heavyEvery = 5; },
+      },
+    },
+    {
+      weight: !s.volley ? 12 : 0,
+      card: {
+        id: 'volley', title: 'Fire By Rank', icon: 'iSword',
+        body: 'The whole squad fires as one',
+        apply: () => { s.volley = true; },
+      },
+    },
+    {
+      weight: s.aura < 4 ? 13 : 0,
+      card: {
+        id: 'aura', title: 'Whirling Guard', icon: 'iHeart',
+        body: s.aura > 0 ? 'The blade storm bites deeper' : 'Blades circle the king, wounding all near',
+        apply: () => { s.aura += 26; },
+      },
+    },
+    {
+      weight: s.chain === 0 ? 11 : 0,
+      card: {
+        id: 'chain', title: 'Arc Conductor', icon: 'iBolt',
+        body: 'Hits arc to nearby enemies',
+        apply: () => { s.chain = 1; },
+      },
+    },
+    // ---------- evolutions: two you already hold, fused into something new
+    {
+      weight: s.pierce >= 2 && s.fork >= 2 && !s.evolved.lance ? 40 : 0,
+      card: {
+        id: 'evo_lance', title: 'EVOLVE · Lance Line', icon: 'iSword',
+        body: 'Bodkin + Split: a wall of piercing shot, +2 pierce and +1 fork',
+        apply: () => { s.pierce += 2; s.fork += 1; s.dmg *= 1.25; s.evolved.lance = true; },
+      },
+    },
+    {
+      weight: s.explode > 0 && s.chain > 0 && !s.evolved.storm ? 40 : 0,
+      card: {
+        id: 'evo_storm', title: 'EVOLVE · Chain Reaction', icon: 'iBolt',
+        body: 'Powder + Arc: detonations arc onward and hit far harder',
+        apply: () => { s.explode += 0.5; s.chain += 2; s.evolved.storm = true; },
+      },
+    },
+    {
+      weight: s.volley && s.heavyEvery > 0 && !s.evolved.broadside ? 40 : 0,
+      card: {
+        id: 'evo_broadside', title: 'EVOLVE · Broadside', icon: 'iTower',
+        body: 'Rank Fire + Siege: every 3rd volley is heavy, and it hurts',
+        apply: () => { s.heavyEvery = 3; s.dmg *= 1.3; s.evolved.broadside = true; },
+      },
+    },
+    // ---------- scalars: still here, but no longer the whole menu
     {
       weight: 10,
       card: {
