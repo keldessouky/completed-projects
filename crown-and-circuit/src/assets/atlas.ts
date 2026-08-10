@@ -8,7 +8,7 @@ import {
 } from './sprites';
 
 /**
- * The whole sprite sheet, painted with Canvas2D at boot onto ONE 2048×2048
+ * The whole sprite sheet, painted with Canvas2D at boot onto ONE 2048×3072
  * canvas and carved into named frames.
  *
  * Frames are packed in canvas pixels but handed to Pixi divided by S, because
@@ -18,7 +18,11 @@ import {
  */
 const S = 2;
 const PAD = 4;
-const SIZE = 2048;
+// 2048x3072: the sheet holds the procedural fallback units, every structure at
+// its new size, terrain decals and all the UI. Height rather than width because
+// the shelf packer fills top-down and a taller page wastes less on the last row.
+const SIZE_W = 2048;
+const SIZE_H = 3072;
 /** world units per art pixel — the chunk size of the whole game */
 export const PX = 2;
 /** frames in a unit walk cycle */
@@ -43,8 +47,8 @@ export class GameAtlas {
 
   private constructor() {
     this.canvas = document.createElement('canvas');
-    this.canvas.width = SIZE;
-    this.canvas.height = SIZE;
+    this.canvas.width = SIZE_W;
+    this.canvas.height = SIZE_H;
     this.ctx = this.canvas.getContext('2d')!;
   }
 
@@ -81,12 +85,12 @@ export class GameAtlas {
     // tallest first; ties broken by width so same-size runs stay contiguous
     const order = this.queued.slice().sort((a, b) => b.h - a.h || b.w - a.w);
     for (const q of order) {
-      if (shelfX + q.w + PAD > SIZE) {
+      if (shelfX + q.w + PAD > SIZE_W) {
         shelfX = PAD;
         shelfY += shelfH + PAD;
         shelfH = 0;
       }
-      if (shelfY + q.h + PAD > SIZE) throw new Error('atlas overflow: ' + q.name);
+      if (shelfY + q.h + PAD > SIZE_H) throw new Error('atlas overflow: ' + q.name);
       const x = shelfX;
       const y = shelfY;
       shelfX += q.w + PAD;
@@ -142,7 +146,7 @@ export class GameAtlas {
   }
   // ================= painting =================
   private paintAll(): void {
-    this.ctx.clearRect(0, 0, SIZE, SIZE);
+    this.ctx.clearRect(0, 0, SIZE_W, SIZE_H);
     this.ctx.lineJoin = 'round';
     this.ctx.lineCap = 'round';
     this.paintUnits();
