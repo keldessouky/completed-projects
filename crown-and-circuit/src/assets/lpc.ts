@@ -78,11 +78,14 @@ function loadImage(url: string): Promise<HTMLImageElement | null> {
  * layer that has no `shoot` art costs a hole in that pose rather than a crash.
  */
 export async function loadLpc(base: string, sheets: string[], anims: Anim[]): Promise<void> {
+  // the one-file build has nowhere to fetch from and inlines the sheets instead
+  const embedded = (window as unknown as { __CC_LPC__?: Record<string, string> }).__CC_LPC__;
   const jobs: Promise<void>[] = [];
   for (const s of sheets) {
     for (const a of anims) {
       const key = `${s}_${a}`;
-      jobs.push(loadImage(`${base}lpc/${key}.png`).then((img) => {
+      const src = embedded?.[`${key}.png`] ?? `${base}lpc/${key}.png`;
+      jobs.push(loadImage(src).then((img) => {
         if (img) IMAGES.set(key, img);
       }));
     }

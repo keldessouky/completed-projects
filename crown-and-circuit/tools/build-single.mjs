@@ -17,7 +17,7 @@
  * head/body tags), for hosts that supply their own document shell.
  */
 import { build } from 'vite';
-import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -55,6 +55,18 @@ const cssPath = join(TMP, 'app.css');
 const css = existsSync(cssPath) ? readFileSync(cssPath, 'utf8') : '';
 const wav = readFileSync(join(ROOT, 'public/assets/audio.wav'));
 
+// The LPC character sheets are fetched by URL in a normal build. A single file
+// has nowhere to fetch from, so they ride along as data URIs keyed by filename;
+// loadLpc() checks that map before it tries the network.
+const lpcDir = join(ROOT, 'public/lpc');
+const lpc = {};
+if (existsSync(lpcDir)) {
+  for (const f of readdirSync(lpcDir)) {
+    if (!f.endsWith('.png')) continue;
+    lpc[f] = 'data:image/png;base64,' + readFileSync(join(lpcDir, f)).toString('base64');
+  }
+}
+
 // Strip the built tags; we re-emit their contents inline.
 let out = html
   .replace(/<script[^>]*src="[^"]*"[^>]*>\s*<\/script>/g, '')
@@ -78,9 +90,13 @@ const audioBoot = `
 // string replacement would expand those into the matched text and corrupt the JS.
 const splice = (haystack, needle, value) => haystack.replace(needle, () => value);
 
+const lpcBoot = Object.keys(lpc).length
+  ? `<script>window.__CC_LPC__ = ${JSON.stringify(lpc)};</script>\n`
+  : '';
+
 const payload =
   `<script type="application/base64" id="cc-audio">${wav.toString('base64')}</script>\n`
-  + `${audioBoot}\n<script type="module">\n${js}\n</script>\n`;
+  + `${audioBoot}\n${lpcBoot}<script type="module">\n${js}\n</script>\n`;
 
 if (EMBED) {
   // Body fragment: keep the page chrome (splash, context-loss notice, styles)
