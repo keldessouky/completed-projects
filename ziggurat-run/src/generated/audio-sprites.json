@@ -1,0 +1,90 @@
+{
+  "sprites": {
+    "uiTap": [
+      0,
+      55
+    ],
+    "shoot": [
+      115,
+      130
+    ],
+    "gateGood": [
+      305,
+      400
+    ],
+    "gateBad": [
+      765,
+      340
+    ],
+    "squadGain": [
+      1165,
+      420
+    ],
+    "squadLoss": [
+      1645,
+      220
+    ],
+    "hitTick": [
+      1925,
+      50
+    ],
+    "enemyDie": [
+      2035,
+      200
+    ],
+    "bossHit": [
+      2295,
+      360
+    ],
+    "shieldClang": [
+      2715,
+      340
+    ],
+    "whoosh": [
+      3115,
+      450
+    ],
+    "breach": [
+      3625,
+      1500
+    ],
+    "lamassuWake": [
+      5185,
+      850
+    ],
+    "coin": [
+      6095,
+      140
+    ],
+    "starPop": [
+      6295,
+      200
+    ],
+    "upgrade": [
+      6555,
+      500
+    ],
+    "winJingle": [
+      7115,
+      1300
+    ],
+    "failSting": [
+      8475,
+      1600
+    ],
+    "musicTitle": [
+      10135,
+      22857,
+      true
+    ],
+    "musicRun": [
+      33052,
+      18462,
+      true
+    ],
+    "musicVictory": [
+      51574,
+      3200
+    ]
+  }
+}
