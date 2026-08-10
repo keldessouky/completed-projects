@@ -27,6 +27,8 @@ export const CONFIG = {
     uiRefHeight: 900,       // UI scales against this so buttons stay thumb-sized
     uiScaleMin: 0.8,
     uiScaleMax: 1.5,
+    /** world units a 64px LPC character cell covers — the on-screen unit size */
+    charScale: 58,
   },
 
   /** Fixed-timestep simulation. 60 Hz: this is a top-down auto-battler with

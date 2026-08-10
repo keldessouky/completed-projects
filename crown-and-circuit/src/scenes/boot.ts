@@ -1,6 +1,7 @@
 import { Graphics, Text } from 'pixi.js';
 import { CONFIG } from '../config';
 import { GameAtlas } from '../assets/atlas';
+import { CharAtlas } from '../assets/chars';
 import { buildTerrain } from '../assets/terrain';
 import { applyArtPack } from '../assets/artpack';
 import { FONT_CIRCUIT, FONT_CROWN, loadFonts } from '../assets/fonts';
@@ -80,6 +81,10 @@ export class BootScene extends Scene {
       this.set(0.16);
       ctx.atlas = GameAtlas.build();
       this.set(0.28);
+      // hand-drawn LPC characters on their own page; null if the art is absent,
+      // in which case the procedural unit sprites stay in service
+      ctx.chars = await CharAtlas.build(import.meta.env.BASE_URL);
+      this.set(0.30);
       // optional drop-in art pack from public/art/ — absent by default
       await applyArtPack(ctx.atlas, import.meta.env.BASE_URL);
       this.set(0.32);

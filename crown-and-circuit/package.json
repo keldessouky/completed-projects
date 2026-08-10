@@ -14,7 +14,8 @@
     "smoke": "node tools/smoke.mjs",
     "smoke:single": "node tools/smoke.mjs --single",
     "balance": "node tools/balance.mjs",
-    "sheet": "node tools/spritesheet.mjs"
+    "sheet": "node tools/spritesheet.mjs",
+    "lpc": "node tools/vendor-lpc.mjs"
   },
   "dependencies": {
     "@fontsource/cinzel": "^5.2.0",

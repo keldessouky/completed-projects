@@ -4,6 +4,7 @@ import type { Ctx } from '../core/game';
 import { SpatialGrid } from '../core/grid';
 import { Pool } from '../core/pool';
 import { ATK_FRAMES, ENEMY_FRAMES, WALK_FRAMES } from '../assets/atlas';
+import { ATK_N, CHAR_SCALE, WALK_N, facingFor } from '../assets/chars';
 import { Fort, type Pad } from './fort';
 import { NumberPops, Particles } from './particles';
 
@@ -37,6 +38,8 @@ interface Soldier {
   atk: number;
   /** −1 or 1; sticky, so a unit at a standstill does not flicker */
   face: number;
+  /** last meaningful heading, used to choose a facing */
+  hx: number; hy: number;
 }
 
 interface Enemy {
@@ -54,6 +57,7 @@ interface Enemy {
   /** walk phase, advanced by distance covered */
   gait: number;
   face: number;
+  hx: number; hy: number;
   /** what it is currently chewing on, if anything */
   target: 'keep' | 'wall' | 'pad' | 'none';
   targetPad: Pad | null;
@@ -126,6 +130,9 @@ export class World {
 
   /** targets granted by barracks + cards + meta, before the cap */
   soldierTarget = 1;
+
+  /** hand-drawn character page, when the LPC art loaded */
+  private get chars() { return this.ctx.chars; }
 
   private grid = new SpatialGrid(CONFIG.world.size);
   private scratch: number[] = new Array(256).fill(0);
@@ -200,7 +207,7 @@ export class World {
       mid.addChild(sp);
       return {
         sp, sh: shadow('shadow14'), x: CX, y: CY, px: CX, py: CY, cool: 0, slot: 0,
-        flash: 0, alive: true, gait: Math.random() * 4, atk: 0, face: 1,
+        flash: 0, alive: true, gait: Math.random() * 4, atk: 0, face: 1, hx: 1, hy: 0,
       };
     });
     this.enemies = new Pool<Enemy>(CONFIG.enemies.max, () => {
@@ -211,7 +218,7 @@ export class World {
       return {
         sp, sh: shadow('shadow14'), kind: 'runner', x: 0, y: 0, px: 0, py: 0, vx: 0, vy: 0,
         hp: 1, maxHp: 1, speed: 0, radius: 10, dmg: 0, coin: 0, mass: 1,
-        flash: 0, cool: 0, era: 0, flying: false, gait: 0, face: 1, target: 'none', targetPad: null,
+        flash: 0, cool: 0, era: 0, flying: false, gait: 0, face: 1, hx: 1, hy: 0, target: 'none', targetPad: null,
       };
     });
     this.projs = new Pool<Proj>(CONFIG.proj.max, () => {
@@ -348,6 +355,8 @@ export class World {
     e.sp.visible = true;
     e.sp.scale.set(1);
     e.face = 1;
+    e.hx = CX - x;
+    e.hy = CY - y;
     // shadow sized to the archetype's footprint; flyers cast one on the ground
     // far below them, which is how you read their altitude from directly above
     e.sh.texture = this.ctx.atlas.get(
@@ -946,6 +955,36 @@ export class World {
 
   // ---------------------------------------------------------------- render
 
+  /**
+   * Point a sprite at the right hand-drawn character frame.
+   *
+   * Picks the facing from the unit's heading, the animation from whether it is
+   * mid-attack, and the frame from the walk phase. `left` is not baked, so a
+   * unit heading left draws the `right` frames mirrored.
+   *
+   * `era` selects the attack cycle: the iron and neon ages swing a blade, the
+   * powder, industry and steel ages level a gun. Pass −1 for monsters, which
+   * always swing.
+   */
+  private dressChar(
+    sp: Sprite, prefix: string, era: number, gait: number, atk: number, hx: number, hy: number,
+  ): void {
+    const chars = this.chars!;
+    const { dir, flip } = facingFor(hx, hy);
+    const attacking = atk > 0;
+    const anim = !attacking ? 'walk' : era === -1 || era === 0 || era === 4 ? 'thrust' : 'shoot';
+    const n = attacking ? ATK_N : WALK_N;
+    // an attack plays forward once over its window; walking loops with the gait
+    const i = attacking
+      ? Math.min(n - 1, Math.floor((1 - atk / CONFIG.squad.attackAnimSec) * n))
+      : (gait | 0) % n;
+    const t = chars.get(`${prefix}_${anim}_${dir}_${Math.max(0, i)}`)
+      ?? chars.get(`${prefix}_walk_${dir}_0`);
+    if (t) sp.texture = t;
+    const k = CHAR_SCALE / 64;
+    sp.scale.set(flip ? -k : k, k);
+  }
+
   frame(dtReal: number, alpha: number): void {
     const lerp = (p: number, n: number): number => p + (n - p) * alpha;
     const a = this.ctx.atlas;
@@ -963,7 +1002,11 @@ export class World {
     const kingX = lerp(this.kpx, this.kx);
     const kingY = lerp(this.kpy, this.ky);
     this.kingSp.position.set(kingX, kingY);
-    this.kingSp.scale.x = this.facing;
+    if (this.chars) {
+      this.dressChar(this.kingSp, `king${this.era}`, this.era, this.kingGait, this.kingAtk, this.kvx, this.kvy);
+    } else {
+      this.kingSp.scale.x = this.facing;
+    }
     this.kingSp.alpha = this.kingIFrames > 0 ? 0.55 + Math.sin(performance.now() / 40) * 0.25 : 1;
     this.kingShadow.visible = this.kingDown <= 0;
     this.kingShadow.position.set(kingX, kingY);
@@ -974,17 +1017,23 @@ export class World {
       const nx = lerp(s.px, s.x);
       const ny = lerp(s.py, s.y);
       const dx = s.x - s.px;
-      const moved = Math.hypot(dx, s.y - s.py) / Math.max(0.0001, dtReal);
+      const dy = s.y - s.py;
+      const moved = Math.hypot(dx, dy) / Math.max(0.0001, dtReal);
       s.gait = moved > 12 ? s.gait + dtReal * (moved / 26) : 0;
-      // sprites are authored facing right; flip on sustained horizontal travel
-      // only, so a unit shuffling in formation does not strobe
-      if (Math.abs(dx) > 0.35) s.face = dx > 0 ? 1 : -1;
-      const atkName = `sol${this.era}_${tier}_atk${this.atkFrame(s.atk)}`;
-      s.sp.texture = s.atk > 0 && a.has(atkName)
-        ? a.get(atkName)
-        : a.get(`sol${this.era}_${tier}_${(s.gait | 0) % WALK_FRAMES}`);
+      // hold the last meaningful heading, so a unit shuffling in formation does
+      // not spin on the spot
+      if (Math.abs(dx) > 0.3 || Math.abs(dy) > 0.3) { s.hx = dx; s.hy = dy; }
+      if (this.chars) {
+        this.dressChar(s.sp, `sol${this.era}_${tier}`, this.era, s.gait, s.atk, s.hx, s.hy);
+      } else {
+        if (Math.abs(dx) > 0.35) s.face = dx > 0 ? 1 : -1;
+        const atkName = `sol${this.era}_${tier}_atk${this.atkFrame(s.atk)}`;
+        s.sp.texture = s.atk > 0 && a.has(atkName)
+          ? a.get(atkName)
+          : a.get(`sol${this.era}_${tier}_${(s.gait | 0) % WALK_FRAMES}`);
+        s.sp.scale.x = s.face;
+      }
       s.sp.position.set(nx, ny);
-      s.sp.scale.x = s.face;
       s.sp.zIndex = s.y;
       s.sh.position.set(nx, ny);
     }
@@ -994,18 +1043,30 @@ export class World {
       const ey = lerp(e.py, e.y);
       e.sp.position.set(ex, ey);
       const dx = e.x - e.px;
-      const moved = Math.hypot(dx, e.y - e.py) / Math.max(0.0001, dtReal);
+      const dy = e.y - e.py;
+      const moved = Math.hypot(dx, dy) / Math.max(0.0001, dtReal);
       // flyers beat their wings whether or not they are moving
       e.gait += dtReal * (e.flying ? 7 : moved / 22);
-      if (Math.abs(dx) > 0.35) e.face = dx > 0 ? 1 : -1;
-      if (e.flash > 0) {
-        e.sp.texture = a.get(`e_${e.kind}W`);
-        e.sp.tint = 0xffffff;
+      if (Math.abs(dx) > 0.3 || Math.abs(dy) > 0.3) { e.hx = dx; e.hy = dy; }
+      // the flyer has no hand-drawn counterpart in the library, so it keeps its
+      // procedural sprite whether or not the character page loaded
+      const drawn = this.chars?.has(`e_${e.kind}_walk_down_0`) ?? false;
+      if (drawn) {
+        this.dressChar(e.sp, `e_${e.kind}`, -1, e.gait, e.cool > 0 && e.target !== 'none' ? 0.1 : 0, e.hx, e.hy);
+        // tint cannot brighten, so a hit reads as a red wash rather than a
+        // white silhouette frame
+        e.sp.tint = e.flash > 0 ? 0xff7a6a : CONFIG.palettes[e.era].enemy;
       } else {
-        e.sp.texture = a.get(`e_${e.kind}_${(e.gait | 0) % ENEMY_FRAMES}`);
-        e.sp.tint = CONFIG.palettes[e.era].enemy;
+        if (Math.abs(dx) > 0.35) e.face = dx > 0 ? 1 : -1;
+        if (e.flash > 0) {
+          e.sp.texture = a.get(`e_${e.kind}W`);
+          e.sp.tint = 0xffffff;
+        } else {
+          e.sp.texture = a.get(`e_${e.kind}_${(e.gait | 0) % ENEMY_FRAMES}`);
+          e.sp.tint = CONFIG.palettes[e.era].enemy;
+        }
+        e.sp.scale.x = e.face;
       }
-      e.sp.scale.x = e.face;
       e.sp.zIndex = e.y;
       // the shadow stays on the ground; only the body lifts
       e.sh.position.set(ex, ey);

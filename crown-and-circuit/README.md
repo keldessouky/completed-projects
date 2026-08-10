@@ -85,17 +85,59 @@ an unrelated track.
 
 ## Art
 
-All sprites are original pixel art, generated at boot. `src/assets/pixel.ts` is a
+Characters are hand-drawn [Liberated Pixel Cup](https://github.com/LiberatedPixelCup/Universal-LPC-Spritesheet-Character-Generator)
+art. Everything else — terrain, structures, projectiles, UI — is procedural
+pixel art generated at boot.
+
+### Characters
+
+LPC sheets are a fixed grid: 64×64 cells, one row per facing (up, left, down,
+right), one column per animation frame, and every layer — body, legs, torso,
+head, helmet, weapon — drawn to that same grid. A character is a stack of layers
+read from the same cell. `src/assets/lpc.ts` does the stacking,
+`src/assets/chars.ts` bakes the result onto its own texture page.
+
+That buys what procedural generation could not: a nine-frame walk cycle with real
+weight in it, per-facing art rather than a mirrored side view, and gear drawn to
+match the body pose frame for frame. 1,080 frames — five eras × (king + three
+soldier tiers) plus four monsters, each with walk and attack in three baked
+facings.
+
+Three things make it fit and fit the game:
+
+- **Era by recolour.** Tier picks the armour (leather levy, chainmail drilled,
+  plate elite); the era multiplies a metal colour over it. Multiply keeps LPC's
+  own shading and moves only the hue, so fifteen distinct soldiers come out of
+  three sets of art.
+- **`left` is `right`, flipped.** LPC draws it as separate art, but at this size
+  the only difference is which hand holds the weapon, and baking three facings
+  instead of four is what keeps the page inside one texture.
+- **Guns are ours.** LPC is medieval fantasy — forty helmets, a dozen swords, and
+  not one firearm. The musket, rifle and machine gun are drawn by
+  `src/assets/weapons.ts` onto the composited cell at the hand position for that
+  facing, with recoil and a muzzle flash keyed to the attack frame. Iron and neon
+  use LPC's own longsword and glowsword.
+
+Characters live on a second texture page rather than in the main atlas. The main
+atlas stores procedural art supersampled 2×, which is right for shapes generated
+on a chunky grid; LPC frames are finished art at their final resolution, and
+storing those 2× would quadruple the memory to show the same pixels. One extra
+draw call is the better trade.
+
+`node tools/vendor-lpc.mjs` copies the roster out of upstream (a ~520 MB repo, of
+which the game needs 341 KB) and regenerates per-file attribution.
+
+### Everything else
+
+`src/assets/pixel.ts` is a
 small pixel-art toolkit — integer grid, three-tone palette ramps, an auto-dilated
 1px outline, top-left lighting, nearest-neighbour output. `src/assets/sprites.ts`
 draws with it.
 
-Units come from one parameterised generator rather than being drawn individually,
-so all five eras of king plus fifteen soldier variants share a silhouette and a
-light source while changing armour, cape and weapon. They are built from
-articulated limbs over a tapered torso, which is what lets the six-frame walk
-cycle swing arms and legs independently and gives the three-frame attack a real
-wind-up. Three rules do most of the work of making a 24×27 grid read as a
+The procedural unit generator is still here and still wired up: if `public/lpc/`
+is absent the game falls back to it and boots normally. It builds humanoids from
+articulated limbs over a tapered torso, with a six-frame walk and a three-frame
+attack. Three rules do most of the work of making a 24×27 grid read as a
 character rather than a stack of boxes:
 
 - **Taper.** Nothing is a plain rectangle — shoulders wider than the waist, skull
@@ -107,10 +149,9 @@ character rather than a stack of boxes:
   never as a full-height stripe down one side — a stripe reads as a cylinder and
   flattens everything it touches.
 
-`npm run sheet out.png` renders a contact sheet of the walk cycles, attack poses,
-enemy archetypes and era progression at 3×, and reports how full the 2048² atlas
-is. Reviewing that image is how the art actually gets judged; it currently packs
-278 frames into 84 % of the sheet.
+`npm run sheet out.png` renders a contact sheet of the procedural art at 3× and
+reports how full the 2048² atlas is. Reviewing that image is how the art actually
+gets judged.
 
 **Want to use an art pack instead?** Drop images and a `manifest.json` into
 `public/art/` and they override the built-in frames at boot — no rebuild. See
@@ -151,6 +192,7 @@ tools/
   smoke.mjs          Headless playthrough
   balance.mjs        Headless bot playthrough → difficulty curve
   spritesheet.mjs    Contact sheet of the art + atlas budget
+  vendor-lpc.mjs     Copies the LPC character roster + attribution
 ```
 
 ### Hundreds of entities, bounded cost

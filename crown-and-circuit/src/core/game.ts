@@ -2,6 +2,7 @@ import { Application, Container } from 'pixi.js';
 import { Group as TweenGroup } from '@tweenjs/tween.js';
 import { CONFIG } from '../config';
 import type { GameAtlas } from '../assets/atlas';
+import type { CharAtlas } from '../assets/chars';
 import type { Texture } from 'pixi.js';
 import { AudioBus } from './audio';
 import { Camera } from './camera';
@@ -45,6 +46,8 @@ export class Game {
   router!: SceneRouter;
   tweens = new TweenGroup();
   atlas!: GameAtlas;
+  /** hand-drawn character sheet; null when the LPC art is not present */
+  chars: CharAtlas | null = null;
   /** one ground tile per era, built at boot */
   terrain!: Texture[];
 
