@@ -640,11 +640,16 @@ export function bossSprite(base: number, accent: number, frame = 0): Px {
 // ---------------------------------------------------------------- structures
 
 /**
- * Structures are drawn at roughly three times the scale they used to be.
- * A keep the same height as the soldier standing next to it never read as a
- * castle; at 76 art pixels it finally has room for courses of stone, a
- * gatehouse, battlements and a banner, and the fort reads as something worth
- * defending.
+ * Structures share the characters' camera: a top-down 3/4 view, looking down at
+ * roughly the same angle the LPC sprites are drawn from.
+ *
+ * That is not a stylistic nicety. A tower drawn in elevation has no top — there
+ * is nowhere for a unit to stand. Drawn from above, the tower's roof is an
+ * ellipse you can put a soldier on, and the parapet splits into a far arc that
+ * paints behind him and a near arc that paints in front, so he reads as being
+ * *inside* the battlement rather than pasted over it. Every tower therefore
+ * comes in two pieces, `tower<era>` and `towerF<era>`, with the garrison drawn
+ * between them.
  */
 
 /** Lay courses of stone with staggered joints — the base texture of every wall. */
@@ -652,197 +657,250 @@ function masonry(p: Px, x: number, y: number, w: number, h: number, r: Ramp, cou
   p.rect(x, y, w, h, r.base);
   for (let row = 0; row * course < h; row++) {
     const gy = y + row * course;
-    p.rect(x, gy, w, 1, r.dark);                       // course joint
-    p.rect(x, gy + 1, w, 1, shift(r.base, 0.06));      // lit top of each block
+    p.rect(x, gy, w, 1, r.dark);
+    p.rect(x, gy + 1, w, 1, shift(r.base, 0.06));
     const stagger = (row % 2) * Math.floor(course * 1.6);
     for (let bx = x + stagger; bx < x + w; bx += course * 3) {
       for (let k = 1; k < course && gy + k < y + h; k++) p.set(bx, gy + k, r.dark);
     }
   }
-  p.rect(x, y, 1, h, r.light);
-  p.rect(x + w - 1, y, 1, h, r.dark);
 }
 
-/** A run of crenellations along the top of a wall or tower. */
-function battlement(p: Px, x: number, y: number, w: number, r: Ramp, merlon = 4, gap = 3): void {
-  for (let bx = x; bx < x + w; bx += merlon + gap) {
-    const bw = Math.min(merlon, x + w - bx);
-    p.rect(bx, y, bw, 5, r.base);
-    p.rect(bx, y, bw, 1, r.light);
-    p.rect(bx + bw - 1, y, 1, 5, r.dark);
+/**
+ * Merlons stood around the rim of an elliptical platform.
+ *
+ * `near` picks which half: the far arc is painted with the platform and the
+ * near arc is painted into the front piece, which is what lets a unit stand
+ * between them. Merlon height is foreshortened with the viewing angle, so
+ * blocks at the sides of the ring look shorter than those at the front.
+ */
+function rimMerlons(p: Px, cx: number, cy: number, rx: number, ry: number, r: Ramp, near: boolean, n = 10): void {
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * Math.PI * 2;
+    const s = Math.sin(a);
+    if (near ? s <= 0.02 : s > 0.02) continue;
+    const x = Math.round(cx + Math.cos(a) * rx);
+    const y = Math.round(cy + s * ry);
+    const h = 5 + Math.round(Math.abs(s) * 2);
+    p.rect(x - 2, y - h, 5, h + 2, r.base);
+    p.rect(x - 2, y - h, 5, 1, r.light);
+    p.rect(x + 2, y - h, 1, h + 2, r.dark);
+    p.rect(x - 2, y - h, 1, h + 2, shift(r.base, 0.12));
   }
-  p.rect(x, y + 5, w, 2, r.base);
-  p.rect(x, y + 5, w, 1, r.light);
-  p.rect(x, y + 6, w, 1, r.dark);
 }
 
-/** Towers: one silhouette family per era, sharing a stone base. */
+/** A filled ellipse with a lit near rim — the top surface of any round thing. */
+function platform(p: Px, cx: number, cy: number, rx: number, ry: number, r: Ramp): void {
+  p.ellipse(cx, cy, rx, ry, r.base);
+  p.ellipse(cx - rx * 0.18, cy - ry * 0.24, rx * 0.66, ry * 0.6, r.light);
+  for (let i = 0; i < 26; i++) {
+    const a = (i / 26) * Math.PI * 2;
+    p.set(cx + Math.cos(a) * rx * 0.94, cy + Math.sin(a) * ry * 0.94, r.dark);
+  }
+}
+
+/** Tower dimensions, shared by the art and by the code that stands units on it. */
+export const TOWER_W = 46;
+export const TOWER_H = 60;
+/** platform centre, in art pixels from the sprite's top-left */
+export const TOWER_DECK_Y = 22;
+/** ground contact point, in art pixels from the top */
+export const TOWER_BASE_Y = 52;
+
+/** The tower's back half: footing, shaft, deck, far parapet, mounted weapon. */
 export function towerSprite(era: number): Px {
   const pal = CONFIG.palettes[era];
   const stone = ramp(pal.stone, -0.3, 0.2);
   const dark = ramp(pal.stoneDark, -0.3, 0.2);
   const accent = pal.accent;
-  const p = new Px(38, 58);
-  const cx = 18;
+  const p = new Px(TOWER_W, TOWER_H);
+  const cx = TOWER_W >> 1;
+  const rx = 17;
+  const deck = TOWER_DECK_Y;
+  const foot = TOWER_BASE_Y;
 
-  // footing, shaft, then the era's weapon platform on top
-  p.rect(cx - 14, 44, 29, 11, dark.base);
-  p.rect(cx - 14, 44, 29, 1, dark.light);
-  p.rect(cx - 14, 54, 29, 2, shift(pal.stoneDark, -0.42));
-  p.rect(cx - 15, 46, 1, 8, dark.dark);
-  p.rect(cx + 15, 46, 1, 8, dark.dark);
-  masonry(p, cx - 11, 18, 23, 27, stone, 5);
-  // corner quoins, which is what makes a tower read as built rather than poured
-  for (let y = 18; y < 45; y += 4) {
-    p.rect(cx - 11, y, 3, 2, shift(pal.stone, 0.16));
-    p.rect(cx + 9, y, 3, 2, shift(pal.stone, -0.12));
+  // footing flares wider than the shaft, which is what stops a cylinder from
+  // looking like it was pushed into the ground
+  p.ellipse(cx, foot + 2, rx + 3, 8, dark.dark);
+  p.ellipse(cx, foot, rx + 2, 7, dark.base);
+  p.ellipse(cx - 3, foot - 1, rx - 3, 4, dark.light);
+
+  // shaft: a cylinder, so the courses bow with the surface
+  masonry(p, cx - rx, deck, rx * 2, foot - deck, stone, 5);
+  p.ellipse(cx, foot, rx, 6, stone.base);
+  for (let y = deck; y < foot; y += 5) {
+    p.set(cx - rx, y, stone.dark);
+    p.set(cx + rx - 1, y, stone.dark);
   }
-  p.rect(cx - 2, 30, 4, 9, shift(pal.stoneDark, -0.62));   // arrow slit
-  p.rect(cx - 2, 30, 1, 9, dark.light);
+  // cylindrical shading: lit left, core light, shadow right
+  for (let y = deck; y <= foot + 4; y++) {
+    p.set(cx - rx, y, shift(pal.stone, 0.2));
+    p.set(cx - rx + 1, y, shift(pal.stone, 0.12));
+    p.set(cx + rx - 1, y, shift(pal.stone, -0.3));
+    p.set(cx + rx - 2, y, shift(pal.stone, -0.18));
+  }
+  p.rect(cx - 3, deck + 12, 6, 10, shift(pal.stoneDark, -0.62));   // arrow slit
+  p.rect(cx - 3, deck + 12, 1, 10, dark.light);
 
-  if (era === 0) {
-    battlement(p, cx - 13, 11, 27, stone);
-    p.rect(cx - 13, 18, 27, 2, dark.base);                 // corbel course
-    p.line(cx + 12, 0, cx + 12, 12, dark.base);            // flagpole
-    p.rect(cx + 13, 1, 9, 6, ramp(accent, -0.3, 0.25).base);
-    p.rect(cx + 13, 1, 9, 1, ramp(accent, -0.3, 0.3).light);
-    p.rect(cx + 13, 6, 9, 1, ramp(accent, -0.35, 0.2).dark);
-  } else if (era === 1) {
-    const m = ramp(0x4e4a44, -0.32, 0.26);
-    battlement(p, cx - 13, 13, 27, stone, 5, 4);
-    p.rect(cx - 9, 8, 18, 6, m.base);                      // carriage
-    p.rect(cx - 9, 8, 18, 1, m.light);
-    for (let i = 0; i < 9; i++) { p.set(cx + 3 + i, 7 - Math.floor(i * 0.55), m.base); p.set(cx + 3 + i, 8 - Math.floor(i * 0.55), m.dark); p.set(cx + 3 + i, 6 - Math.floor(i * 0.55), m.light); }
-    p.ellipse(cx - 6, 14, 3, 3, m.dark);                   // wheel
-    p.ellipse(cx - 6, 14, 1.4, 1.4, m.light);
+  // deck and the far half of its parapet
+  platform(p, cx, deck, rx - 1, 10, stone);
+  rimMerlons(p, cx, deck, rx - 1, 10, stone, false);
+
+  // the era's mounted weapon, set at the back of the deck so the garrison
+  // standing in front of it stays readable
+  const m = ramp(0x5d646c, -0.3, 0.26);
+  if (era === 1) {
+    p.rect(cx - 6, deck - 7, 13, 5, m.base);
+    p.rect(cx - 6, deck - 7, 13, 1, m.light);
+    for (let i = 0; i < 8; i++) p.set(cx + 6 + i, deck - 8 - Math.floor(i * 0.5), i > 5 ? m.light : m.dark);
+    p.ellipse(cx - 5, deck - 2, 3, 2.4, m.dark);
   } else if (era === 2) {
-    const m = ramp(0x6a6f76, -0.32, 0.26);
-    p.rect(cx - 12, 9, 25, 9, m.base);
-    p.rect(cx - 12, 9, 25, 1, m.light);
-    p.rect(cx - 12, 17, 25, 1, m.dark);
-    for (let i = 0; i < 3; i++) {
-      for (let k = 0; k < 12; k++) p.set(cx + 6 + k, 11 + i * 2, k > 9 ? m.light : m.dark);
-    }
-    p.rect(cx - 10, 3, 8, 7, ramp(accent, -0.3, 0.3).base);  // ammo hopper
-    p.rect(cx - 10, 3, 8, 1, ramp(accent, -0.3, 0.35).light);
-    p.rect(cx - 10, 3, 1, 7, ramp(accent, -0.3, 0.35).light);
+    p.rect(cx - 7, deck - 8, 14, 6, m.base);
+    p.rect(cx - 7, deck - 8, 14, 1, m.light);
+    for (let i = 0; i < 3; i++) for (let k = 0; k < 8; k++) p.set(cx + 7 + k, deck - 7 + i * 2, k > 5 ? m.light : m.dark);
+    p.rect(cx - 10, deck - 12, 6, 5, ramp(accent, -0.3, 0.3).base);
   } else if (era === 3) {
-    const m = ramp(0x5c6357, -0.3, 0.24);
-    p.rect(cx - 14, 10, 29, 9, m.base);
-    p.rect(cx - 14, 10, 29, 1, m.light);
-    p.rect(cx - 14, 18, 29, 1, m.dark);
-    for (let i = 0; i < 4; i++) {
-      const x = cx - 12 + i * 7;
-      p.rect(x, 1, 5, 9, ramp(accent, -0.35, 0.3).base);   // missiles
-      p.rect(x, 1, 1, 9, ramp(accent, -0.35, 0.35).light);
-      p.rect(x + 1, 0, 3, 1, shift(accent, 0.45));
-      p.rect(x, 9, 5, 1, shift(accent, -0.5));
+    p.rect(cx - 9, deck - 8, 18, 6, ramp(0x5c6357, -0.3, 0.24).base);
+    p.rect(cx - 9, deck - 8, 18, 1, ramp(0x5c6357, -0.3, 0.3).light);
+    for (let i = 0; i < 3; i++) {
+      const x = cx - 8 + i * 6;
+      p.rect(x, deck - 14, 4, 6, ramp(accent, -0.35, 0.3).base);
+      p.rect(x, deck - 14, 1, 6, ramp(accent, -0.35, 0.35).light);
+      p.rect(x + 1, deck - 15, 2, 1, shift(accent, 0.45));
     }
+  } else if (era === 4) {
+    p.rect(cx - 8, deck - 7, 16, 5, ramp(0x2b2740, -0.28, 0.3).base);
+    p.ellipse(cx, deck - 10, 5.5, 4.5, shift(accent, -0.3));
+    p.ellipse(cx, deck - 10, 3, 2.6, accent);
+    p.ellipse(cx, deck - 10, 1.4, 1.2, shift(accent, 0.65));
+    for (const dx of [-11, 11]) { p.rect(cx + dx, deck - 12, 2, 7, m.base); p.set(cx + dx, deck - 13, accent); }
   } else {
-    const m = ramp(0x2b2740, -0.28, 0.3);
-    p.rect(cx - 12, 9, 25, 10, m.base);
-    p.rect(cx - 12, 9, 25, 1, m.light);
-    p.rect(cx - 12, 18, 25, 1, shift(accent, -0.4));
-    p.ellipse(cx, 8, 6, 5.5, shift(accent, -0.3));         // emitter core
-    p.ellipse(cx, 8, 3.4, 3.2, accent);
-    p.ellipse(cx, 8, 1.6, 1.4, shift(accent, 0.65));
-    for (const dx of [-13, 13]) {                          // vanes
-      p.rect(cx + dx, 2, 2, 8, m.base);
-      p.set(cx + dx, 1, accent);
-    }
-    for (let y = 20; y < 44; y += 6) p.rect(cx - 11, y, 23, 1, shift(accent, -0.35));
+    // iron age: a banner pole rather than a machine, since the garrison is the weapon
+    p.line(cx + 12, deck - 20, cx + 12, deck - 2, dark.base);
+    p.rect(cx + 13, deck - 20, 9, 6, ramp(accent, -0.3, 0.25).base);
+    p.rect(cx + 13, deck - 20, 9, 1, ramp(accent, -0.3, 0.35).light);
+    p.rect(cx + 13, deck - 15, 9, 1, ramp(accent, -0.35, 0.2).dark);
   }
 
   p.outline(OUT);
   return p;
 }
 
-/** The keep: castle → bunker → spire. The centre of the whole map. */
+/** The near arc of the parapet, painted over whoever is standing on the deck. */
+export function towerFrontSprite(era: number): Px {
+  const pal = CONFIG.palettes[era];
+  const stone = ramp(pal.stone, -0.3, 0.2);
+  const p = new Px(TOWER_W, TOWER_H);
+  const cx = TOWER_W >> 1;
+  rimMerlons(p, cx, TOWER_DECK_Y, 16, 10, stone, true);
+  if (era >= 4) {
+    for (let i = 0; i < 24; i++) {
+      const a = (i / 24) * Math.PI * 2;
+      if (Math.sin(a) <= 0.02) continue;
+      p.set(cx + Math.cos(a) * 16, TOWER_DECK_Y + Math.sin(a) * 10 - 7, pal.accent);
+    }
+  }
+  p.outline(OUT);
+  return p;
+}
+
+/** The keep, from the same angle: a walled bailey with a roofed donjon inside. */
 export function keepSprite(era: number): Px {
   const pal = CONFIG.palettes[era];
   const stone = ramp(pal.stone, -0.3, 0.2);
   const dark = ramp(pal.stoneDark, -0.3, 0.2);
   const accent = pal.accent;
-  const p = new Px(76, 76);
-  const cx = 37;
+  const p = new Px(84, 74);
+  const cx = 42;
+  const cy = 40;
 
-  // ---- plinth and curtain wall
-  p.rect(cx - 34, 46, 69, 26, dark.base);
-  masonry(p, cx - 34, 46, 69, 24, dark, 6);
-  p.rect(cx - 34, 70, 69, 3, shift(pal.stoneDark, -0.5));
-  battlement(p, cx - 34, 39, 69, stone, 6, 4);
-
-  // flanking drum towers, which give the front elevation a silhouette
-  for (const dx of [-34, 24]) {
-    masonry(p, cx + dx, 30, 11, 40, stone, 5);
-    battlement(p, cx + dx - 1, 23, 13, stone, 4, 3);
-    p.rect(cx + dx + 4, 40, 3, 7, shift(pal.stoneDark, -0.62));
+  // ---- curtain wall as a ring seen from above: outer face, then the walkway
+  p.ellipse(cx, cy + 8, 40, 26, dark.dark);
+  p.ellipse(cx, cy + 4, 40, 26, dark.base);
+  p.ellipse(cx - 6, cy, 34, 21, shift(pal.stoneDark, 0.12));
+  p.ellipse(cx, cy, 34, 21, stone.base);          // walkway
+  p.ellipse(cx, cy, 27, 15, dark.base);           // inner drop into the bailey
+  p.ellipse(cx, cy + 1, 26, 14, shift(pal.stoneDark, -0.3));
+  for (let i = 0; i < 40; i++) {                  // flagstones on the walkway
+    const a = (i / 40) * Math.PI * 2;
+    p.line(cx + Math.cos(a) * 27, cy + Math.sin(a) * 15, cx + Math.cos(a) * 34, cy + Math.sin(a) * 21, dark.dark);
   }
 
-  // ---- gatehouse
-  p.rect(cx - 11, 52, 23, 21, shift(pal.stoneDark, -0.66));
-  p.ellipse(cx, 53, 11.5, 8, shift(pal.stoneDark, -0.66));
-  for (let i = 0; i < 5; i++) p.rect(cx - 10 + i * 5, 46, 2, 27, shift(pal.stoneDark, -0.45));  // portcullis
-  for (let y = 50; y < 73; y += 5) p.rect(cx - 11, y, 23, 1, shift(pal.stoneDark, -0.45));
-  masonry(p, cx - 14, 40, 29, 8, stone, 4);
-  p.rect(cx - 14, 40, 29, 1, stone.light);
+  // ---- corner turrets, each with its own little deck
+  for (const a of [Math.PI * 0.78, Math.PI * 0.22, Math.PI * 1.22, Math.PI * 1.78]) {
+    const tx = Math.round(cx + Math.cos(a) * 34);
+    const ty = Math.round(cy + Math.sin(a) * 20);
+    p.ellipse(tx, ty + 5, 9, 6, dark.base);
+    platform(p, tx, ty, 8, 5, stone);
+    rimMerlons(p, tx, ty, 8, 5, stone, false, 6);
+    rimMerlons(p, tx, ty, 8, 5, stone, true, 6);
+  }
 
-  // ---- the era's crown
+  // ---- donjon in the middle, roof seen from above
   if (era <= 1) {
-    masonry(p, cx - 12, 12, 25, 28, stone, 5);              // central donjon
-    battlement(p, cx - 14, 5, 29, stone, 5, 4);
-    p.rect(cx - 4, 20, 3, 8, shift(pal.stoneDark, -0.62));  // window
-    p.rect(cx + 2, 20, 3, 8, shift(pal.stoneDark, -0.62));
-    p.line(cx + 13, 0, cx + 13, 8, dark.base);
-    p.rect(cx + 14, 0, 11, 7, ramp(accent, -0.3, 0.25).base);
-    p.rect(cx + 14, 0, 11, 1, ramp(accent, -0.3, 0.35).light);
-    p.rect(cx + 14, 6, 11, 1, ramp(accent, -0.35, 0.2).dark);
-    if (era === 1) {                                        // powder: chimneys
-      for (const dx of [-9, 5]) { p.rect(cx + dx, 6, 5, 8, dark.base); p.rect(cx + dx, 6, 5, 1, dark.light); }
-    }
+    p.rect(cx - 15, cy - 20, 31, 22, dark.base);
+    masonry(p, cx - 15, cy - 20, 31, 22, stone, 5);
+    platform(p, cx, cy - 20, 15, 8, stone);
+    rimMerlons(p, cx, cy - 20, 15, 8, stone, false, 8);
+    rimMerlons(p, cx, cy - 20, 15, 8, stone, true, 8);
+    p.line(cx + 12, cy - 38, cx + 12, cy - 22, dark.base);
+    p.rect(cx + 13, cy - 38, 11, 7, ramp(accent, -0.3, 0.25).base);
+    p.rect(cx + 13, cy - 38, 11, 1, ramp(accent, -0.3, 0.35).light);
   } else if (era <= 3) {
-    p.rect(cx - 30, 30, 61, 10, dark.base);                 // bunker lip
-    p.rect(cx - 30, 30, 61, 1, dark.light);
-    p.rect(cx - 30, 39, 61, 1, shift(pal.stoneDark, -0.45));
-    masonry(p, cx - 14, 12, 29, 19, stone, 5);
-    p.rect(cx - 10, 18, 21, 4, shift(pal.stoneDark, -0.7));  // firing slit
-    p.rect(cx - 10, 18, 21, 1, dark.light);
-    p.line(cx, 12, cx, -2, ramp(accent, -0.3, 0.3).base);    // mast
-    p.rect(cx - 7, -2, 15, 2, ramp(accent, -0.3, 0.3).base);
-    p.rect(cx - 4, -5, 9, 2, ramp(accent, -0.35, 0.2).dark);
-    p.set(cx, -7, shift(accent, 0.5));
-    for (const dx of [-22, 16]) { p.rect(cx + dx, 22, 7, 9, dark.base); p.rect(cx + dx, 22, 7, 1, dark.light); }
+    p.rect(cx - 17, cy - 18, 35, 20, dark.base);
+    p.rect(cx - 17, cy - 18, 35, 1, dark.light);
+    p.ellipse(cx, cy - 18, 17, 9, shift(pal.stone, -0.06));   // flat concrete roof
+    p.ellipse(cx, cy - 18, 12, 6, stone.base);
+    for (let i = 0; i < 3; i++) p.rect(cx - 12 + i * 9, cy - 21, 5, 5, dark.base);   // vents
+    p.line(cx, cy - 26, cx, cy - 42, ramp(accent, -0.3, 0.3).base);
+    p.rect(cx - 6, cy - 42, 13, 2, ramp(accent, -0.3, 0.3).base);
+    p.set(cx, cy - 45, shift(accent, 0.5));
   } else {
-    p.rect(cx - 18, 16, 37, 24, ramp(pal.stoneDark, -0.28, 0.26).base);
-    p.rect(cx - 18, 16, 1, 24, stone.light);
-    for (let i = 0; i < 10; i++) p.rect(cx - 16, 20 + i * 2, 33, 1, i % 3 ? shift(pal.stoneDark, -0.3) : shift(accent, -0.25));
-    for (let i = 0; i < 9; i++) p.rect(cx - 13 + i, 15 - i * 1.6, 27 - i * 2, 2, stone.base);  // tapering spire
-    p.rect(cx - 2, -12, 5, 10, shift(accent, -0.15));
-    p.rect(cx - 2, -12, 1, 10, shift(accent, 0.4));
-    p.ellipse(cx, -14, 3.4, 3.2, shift(accent, 0.6));
-    for (const dx of [-30, 24]) for (let y = 34; y < 68; y += 5) p.rect(cx + dx, y, 7, 1, shift(accent, -0.2));
+    p.ellipse(cx, cy - 16, 19, 11, ramp(pal.stoneDark, -0.26, 0.3).base);
+    for (let i = 0; i < 5; i++) p.ellipse(cx, cy - 16 - i, 17 - i * 3, 9 - i * 1.6, stone.base);
+    p.ellipse(cx, cy - 24, 5, 3, shift(accent, -0.2));
+    p.ellipse(cx, cy - 26, 3, 2, shift(accent, 0.6));
+    for (let i = 0; i < 24; i++) {
+      const a = (i / 24) * Math.PI * 2;
+      p.set(cx + Math.cos(a) * 19, cy - 16 + Math.sin(a) * 11, shift(accent, -0.1));
+    }
   }
+
+  // ---- gatehouse on the near side, the way in
+  p.rect(cx - 9, cy + 16, 19, 12, dark.base);
+  p.rect(cx - 9, cy + 16, 19, 1, dark.light);
+  p.rect(cx - 6, cy + 19, 13, 9, shift(pal.stoneDark, -0.72));
+  for (let i = 0; i < 4; i++) p.rect(cx - 5 + i * 4, cy + 19, 2, 9, shift(pal.stoneDark, -0.5));
+  for (const dx of [-12, 8]) { p.rect(cx + dx, cy + 14, 5, 14, stone.base); p.rect(cx + dx, cy + 14, 5, 1, stone.light); }
 
   p.outline(OUT);
   return p;
 }
 
-/** A wall block, tiled along ring arcs. */
+/** A wall block, seen from above: outer face, walkway, merlons on both edges. */
 export function wallSprite(era: number): Px {
   const pal = CONFIG.palettes[era];
   const stone = ramp(pal.stone, -0.3, 0.2);
   const dark = ramp(pal.stoneDark, -0.3, 0.2);
-  const p = new Px(22, 26);
-  masonry(p, 1, 8, 20, 15, stone, 5);
-  p.rect(1, 22, 20, 2, dark.base);
-  p.rect(1, 23, 20, 1, shift(pal.stoneDark, -0.5));
+  const p = new Px(24, 30);
+  p.rect(2, 18, 20, 9, dark.base);                 // outer face, falling away
+  p.rect(2, 26, 20, 2, shift(pal.stoneDark, -0.5));
+  masonry(p, 2, 8, 20, 11, stone, 5);              // walkway
+  p.rect(2, 8, 20, 1, stone.light);
   if (era >= 4) {
-    p.rect(1, 8, 20, 1, pal.accent);
-    p.rect(1, 12, 20, 1, shift(pal.accent, -0.45));
-    p.rect(1, 17, 20, 1, shift(pal.accent, -0.45));
+    p.rect(2, 8, 20, 1, pal.accent);
+    p.rect(2, 17, 20, 1, shift(pal.accent, -0.4));
   } else {
-    battlement(p, 1, 1, 20, stone, 5, 4);
-    if (era >= 2) { p.rect(6, 13, 10, 4, shift(pal.stoneDark, -0.6)); p.rect(6, 13, 10, 1, dark.light); }
+    for (let x = 2; x < 22; x += 8) {              // far merlons
+      p.rect(x, 3, 5, 6, stone.base);
+      p.rect(x, 3, 5, 1, stone.light);
+      p.rect(x + 4, 3, 1, 6, stone.dark);
+    }
+    for (let x = 6; x < 22; x += 8) {              // near merlons, on the outer lip
+      p.rect(x, 15, 5, 5, stone.base);
+      p.rect(x, 15, 5, 1, stone.light);
+      p.rect(x + 4, 15, 1, 5, stone.dark);
+    }
   }
   p.outline(OUT);
   return p;

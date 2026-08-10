@@ -25,6 +25,11 @@ export interface Pad {
   rubble: number;
   /** weapon cooldown for towers */
   cool: number;
+  /** last thing this tower shot at, so its garrison can face it */
+  aimX: number;
+  aimY: number;
+  /** the cooldown this tower was reloaded to, for timing the firing pose */
+  reload: number;
   /** transient visual pulse when it fires or is hit */
   flash: number;
 }
@@ -86,7 +91,7 @@ export class Fort {
           ring, slot: s, angle,
           kind: null, level: 0, era: 0,
           hp: 0, maxHp: 0, progress: 0, goal: 0, pending: null,
-          rubble: 0, cool: 0, flash: 0,
+          rubble: 0, cool: 0, flash: 0, aimX: 0, aimY: 1, reload: 1,
         });
       }
     }

@@ -3,7 +3,7 @@ import { CONFIG, enemyDmgScale, enemyHpScale, type EnemyKind, type EraId, type S
 import type { Ctx } from '../core/game';
 import { SpatialGrid } from '../core/grid';
 import { Pool } from '../core/pool';
-import { ATK_FRAMES, ENEMY_FRAMES, WALK_FRAMES } from '../assets/atlas';
+import { ATK_FRAMES, ENEMY_FRAMES, TOWER_ANCHOR_Y, TOWER_DECK_RISE, WALK_FRAMES } from '../assets/atlas';
 import { ATK_N, CHAR_SCALE, WALK_N, facingFor } from '../assets/chars';
 import { Fort, type Pad } from './fort';
 import { NumberPops, Particles } from './particles';
@@ -136,7 +136,7 @@ export class World {
 
   private grid = new SpatialGrid(CONFIG.world.size);
   private scratch: number[] = new Array(256).fill(0);
-  private padSprites = new Map<Pad, { base: Sprite; glow: Sprite; body: Sprite }>();
+  private padSprites = new Map<Pad, { base: Sprite; glow: Sprite; body: Sprite; front: Sprite; crew: Sprite }>();
   private wallLayer = new Container();
   private keepSp!: Sprite;
 
@@ -179,12 +179,22 @@ export class World {
       glow.blendMode = 'add';
       glow.alpha = 0;
       const body = new Sprite(a.get('tower0'));
-      body.anchor.set(0.5, 0.86);
+      body.anchor.set(0.5, TOWER_ANCHOR_Y);
       body.position.set(pad.x, pad.y);
       body.visible = false;
+      // the garrison stands on the deck, between the tower's back half and the
+      // near arc of its parapet — which is what makes him read as manning it
+      const crew = new Sprite(a.get('sol0_0_0'));
+      crew.anchor.set(0.5, 0.95);
+      crew.position.set(pad.x, pad.y - TOWER_DECK_RISE);
+      crew.visible = false;
+      const front = new Sprite(a.get('towerF0'));
+      front.anchor.set(0.5, TOWER_ANCHOR_Y);
+      front.position.set(pad.x, pad.y);
+      front.visible = false;
       ground.addChild(base, glow);
-      mid.addChild(body);
-      this.padSprites.set(pad, { base, glow, body });
+      mid.addChild(body, crew, front);
+      this.padSprites.set(pad, { base, glow, body, front, crew });
     }
 
     this.particles = new Particles(a);
@@ -276,6 +286,9 @@ export class World {
   private dressPad(pad: Pad): void {
     const spr = this.padSprites.get(pad)!;
     const a = this.ctx.atlas;
+    const manned = pad.kind === 'tower' && pad.rubble <= 0;
+    spr.front.visible = manned;
+    spr.crew.visible = manned && !!this.chars;
     if (!pad.kind) { spr.body.visible = false; return; }
     spr.body.visible = true;
     if (pad.rubble > 0) {
@@ -285,6 +298,7 @@ export class World {
     }
     spr.body.texture = pad.kind === 'tower' ? a.get('tower' + pad.era) : a.get(pad.kind);
     spr.body.tint = pad.kind === 'tower' ? 0xffffff : CONFIG.palettes[pad.era].stone;
+    if (manned) spr.front.texture = a.get('towerF' + pad.era);
   }
 
   /** Current squad tier — the whole army upgrades together as it grows. */
@@ -781,7 +795,9 @@ export class World {
       const range = def.towerRange * this.stats.range;
       const target = this.nearestEnemy(pad.x, pad.y, range);
       if (!target) { pad.cool = 0.1; continue; }
-      pad.cool = def.towerInterval / this.stats.fireRate;
+      pad.cool = pad.reload = def.towerInterval / this.stats.fireRate;
+      pad.aimX = target.x;
+      pad.aimY = target.y;
       const dmg = def.towerDmg * this.stats.dmg
         * (1 + pad.level * CONFIG.fort.upgradeDamageMult)
         * (1 + this.fort.forgeBonus);
@@ -1094,6 +1110,23 @@ export class World {
       spr.glow.alpha += (want - spr.glow.alpha) * Math.min(1, 8 * dtReal);
       if (pad.kind) {
         spr.body.zIndex = pad.y;
+        // back half, garrison, near parapet: three z steps at the same y, so
+        // nothing else can sort into the middle of one tower
+        spr.crew.zIndex = pad.y + 0.1;
+        spr.front.zIndex = pad.y + 0.2;
+        if (spr.crew.visible) {
+          // the garrison plays the era's attack whenever the tower has just
+          // fired, and stands at rest otherwise
+          // the pose runs for the tail of the reload, so the shot and the
+          // animation line up instead of drifting apart at different fire rates
+          const window = Math.min(CONFIG.squad.attackAnimSec, pad.reload * 0.6);
+          const into = pad.reload - pad.cool;
+          this.dressChar(
+            spr.crew, `sol${pad.era}_2`, pad.era, 0,
+            into < window ? window - into : 0,
+            pad.aimX - pad.x, pad.aimY - pad.y,
+          );
+        }
         spr.body.tint = pad.flash > 0 ? 0xffffff
           : pad.kind === 'tower' ? 0xffffff : CONFIG.palettes[pad.era].stone;
         spr.body.scale.set(1 + (pad.flash > 0 ? 0.05 : 0));

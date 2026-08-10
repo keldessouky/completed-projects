@@ -4,7 +4,8 @@ import { outlineOf, Px, ramp } from './pixel';
 import {
   ATK, bossSprite, bruteSprite, coinSprite, enemyProjSprite, EWALK, flashOf,
   flyerSprite, keepSprite, projSprite, runnerSprite, shadowSprite, shardSprite,
-  shooterSprite, towerSprite, unitSprite, WALK, wallSprite,
+  shooterSprite, towerFrontSprite, towerSprite, TOWER_BASE_Y, TOWER_DECK_Y, TOWER_H,
+  unitSprite, WALK, wallSprite,
 } from './sprites';
 
 /**
@@ -31,6 +32,16 @@ export const WALK_FRAMES = WALK;
 export const ATK_FRAMES = ATK;
 /** frames in an enemy walk cycle */
 export const ENEMY_FRAMES = EWALK;
+/**
+ * World units from a tower's ground contact point up to its deck, so the
+ * garrison can be stood on the platform without either the art or the renderer
+ * hard-coding the other's numbers.
+ */
+// three pixels below the deck's centre line, so the garrison stands *on* the
+// platform rather than balanced on its back rim
+export const TOWER_DECK_RISE = (TOWER_BASE_Y - TOWER_DECK_Y - 3) * PX;
+/** anchor y that puts a tower's footing on the pad */
+export const TOWER_ANCHOR_Y = TOWER_BASE_Y / TOWER_H;
 
 type DrawFn = (c: CanvasRenderingContext2D, w: number, h: number) => void;
 const hex = (n: number): string => '#' + n.toString(16).padStart(6, '0');
@@ -235,6 +246,7 @@ export class GameAtlas {
     for (let e = 0; e < 5; e++) {
       this.placePx('keep' + e, keepSprite(e));
       this.placePx('tower' + e, towerSprite(e));
+      this.placePx('towerF' + e, towerFrontSprite(e));
       this.placePx('wall' + e, wallSprite(e));
     }
 
