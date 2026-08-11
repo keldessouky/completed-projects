@@ -1,0 +1,30 @@
+{
+  "name": "crawler",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Dungeon-crawler floor built on the Ziggurat Run engine: a floor is a node graph under a countdown. PixiJS 8 + Howler + tween.js, tuned for iPhone Pro Max Safari.",
+  "type": "module",
+  "license": "AGPL-3.0-or-later",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "build:single": "node tools/build-single.mjs",
+    "preview": "vite preview",
+    "gen:audio": "node tools/gen-audio.mjs",
+    "smoke": "node tools/smoke.mjs",
+    "smoke:single": "node tools/smoke.mjs --single"
+  },
+  "dependencies": {
+    "@fontsource/cinzel": "^5.2.0",
+    "@fontsource/inter": "^5.2.0",
+    "@tweenjs/tween.js": "^25.0.0",
+    "howler": "^2.2.4",
+    "pixi.js": "^8.6.0"
+  },
+  "devDependencies": {
+    "@types/howler": "^2.2.12",
+    "playwright-core": "^1.49.0",
+    "typescript": "^5.7.0",
+    "vite": "^6.0.0"
+  }
+}
