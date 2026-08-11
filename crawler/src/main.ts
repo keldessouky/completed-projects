@@ -1,0 +1,50 @@
+import './assets/fonts'; // side-effect: registers the OFL @font-face rules
+import { Game } from './core/game';
+import { SceneManager } from './scenes/scene';
+import { BootScene } from './scenes/boot';
+import { TitleScene } from './scenes/title';
+import { FloorMapScene } from './scenes/floormap';
+import { EncounterScene } from './scenes/encounter/encounter';
+import { LootScene } from './scenes/loot';
+import { SafeScene } from './scenes/safe';
+import { CharSheetScene } from './scenes/charsheet';
+import { ClearScene, DeathScene } from './scenes/endings';
+import { DevOverlay } from './ui/devoverlay';
+
+async function boot(): Promise<void> {
+  const game = await Game.create();
+  const scenes = new SceneManager(game);
+  scenes.register('boot', (ctx) => new BootScene(ctx));
+  scenes.register('title', (ctx) => new TitleScene(ctx));
+  scenes.register('floormap', (ctx) => new FloorMapScene(ctx));
+  scenes.register('encounter', (ctx) => new EncounterScene(ctx));
+  scenes.register('loot', (ctx) => new LootScene(ctx));
+  scenes.register('safe', (ctx) => new SafeScene(ctx));
+  scenes.register('charsheet', (ctx) => new CharSheetScene(ctx));
+  scenes.register('clear', (ctx) => new ClearScene(ctx));
+  scenes.register('death', (ctx) => new DeathScene(ctx));
+  new DevOverlay(game);
+
+  scenes.goto('boot');
+  // the DOM splash dissolves once the engine has painted its first frame
+  requestAnimationFrame(() => {
+    const splash = document.getElementById('splash');
+    if (splash) {
+      splash.style.opacity = '0';
+      setTimeout(() => splash.remove(), 300);
+    }
+  });
+}
+
+boot().catch((err) => {
+  console.error('fatal boot error', err);
+  const splash = document.getElementById('splash');
+  if (splash) {
+    splash.innerHTML =
+      '<div style="max-width:280px;text-align:center;letter-spacing:0.05em;line-height:1.5">' +
+      'The dungeon did not open — this browser could not start the game.<br>' +
+      '<small style="opacity:0.7">WebGL is required. Tap to try again.</small></div>';
+    splash.style.pointerEvents = 'auto';
+    splash.addEventListener('pointerdown', () => location.reload());
+  }
+});

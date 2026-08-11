@@ -1,0 +1,95 @@
+{
+  "sprites": {
+    "uiTap": [
+      0,
+      55
+    ],
+    "shoot": [
+      115,
+      130
+    ],
+    "doorGood": [
+      305,
+      400
+    ],
+    "doorBad": [
+      765,
+      340
+    ],
+    "partyGain": [
+      1165,
+      420
+    ],
+    "partyLoss": [
+      1645,
+      220
+    ],
+    "hitTick": [
+      1925,
+      50
+    ],
+    "enemyDie": [
+      2035,
+      200
+    ],
+    "bossHit": [
+      2295,
+      360
+    ],
+    "shieldClang": [
+      2715,
+      340
+    ],
+    "whoosh": [
+      3115,
+      450
+    ],
+    "breach": [
+      3625,
+      1500
+    ],
+    "bossWake": [
+      5185,
+      850
+    ],
+    "coin": [
+      6095,
+      140
+    ],
+    "starPop": [
+      6295,
+      200
+    ],
+    "upgrade": [
+      6555,
+      500
+    ],
+    "winJingle": [
+      7115,
+      1300
+    ],
+    "failSting": [
+      8475,
+      1600
+    ],
+    "musicTitle": [
+      10135,
+      22857,
+      true
+    ],
+    "musicRun": [
+      33052,
+      18462,
+      true
+    ],
+    "musicBoss": [
+      51574,
+      20870,
+      true
+    ],
+    "musicVictory": [
+      72503,
+      3200
+    ]
+  }
+}
