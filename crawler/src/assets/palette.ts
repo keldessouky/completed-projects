@@ -45,23 +45,24 @@ export const P = {
   hair: '#3a2a1c',
   hairLight: '#6b4a2c',
   /** the hero's boxer shorts, because that is the whole joke */
-  shorts: '#5f7fb8',
-  shortsLit: '#8aa5d6',
+  shorts: '#4f6ea8',
+  shortsLit: '#7e9bd0',
   /** allied levy cloth — a paler wash of the ally blue so a crowd reads as one */
-  levy: '#6f9ce8',
-  levyDark: '#4166ac',
-  leather: '#a2724a',
-  leatherDark: '#75492a',
-  steel: '#c3ccd6',
-  steelDark: '#7d8794',
+  levy: '#6b8fd6',
+  levyDark: '#3a5596',
+  leather: '#96683f',
+  leatherDark: '#5f3a20',
+  steel: '#c6ccd4',
+  steelDark: '#6e7783',
   /**
-   * Donut. A cream cat on a sand path is invisible, which the first pass
-   * proved: she is warm orange with a cream face, and nothing else in the game
-   * is either, so she reads instantly against grass, path and a blue crowd.
+   * Donut. Magenta, following the reference sheets, and still a cat: nothing
+   * else in the game is either of those things, so she reads instantly against
+   * grass, path and a blue crowd. A cream cat on a sand path is invisible,
+   * which an earlier pass proved.
    */
-  fur: '#f0954a',
-  furShade: '#c46f2c',
-  furLight: '#ffe0bd',
+  fur: '#d95a9a',
+  furShade: '#a63b74',
+  furLight: '#ffd9ec',
   /** shadow on grass: warm, not a grey hole */
   shadow: 'rgba(38,58,26,0.30)',
   shadowHard: 'rgba(38,58,26,0.42)',
