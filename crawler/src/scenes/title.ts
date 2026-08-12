@@ -1,9 +1,10 @@
-import { Container, Sprite } from 'pixi.js';
+import { Container, Graphics, Sprite } from 'pixi.js';
 import { Easing, Tween } from '@tweenjs/tween.js';
 import { CONFIG } from '../config';
-import { CAST, CORP, GAME_SUBTITLE, GAME_TITLE, SHOW, floorName } from '../flavour';
-import { RunState } from '../game/runstate';
-import * as stats from '../game/stats';
+import {
+  CAST, CORP, GAME_SUBTITLE, GAME_TITLE, KEEP_NAME, SHOW, WORLD_NAME, WORLD_TAG,
+} from '../flavour';
+import { getFieldTexture } from '../assets/terrain';
 import { Btn } from '../ui/button';
 import { showConfirm, showSettings } from '../ui/overlays';
 import { displayText, uiText } from '../ui/widgets';
@@ -16,83 +17,94 @@ export class TitleScene extends Scene {
   enter(): void {
     const ctx = this.ctx;
     const save = ctx.save.data;
-    const art = ctx.backdrops[0];
 
-    const sky = new Sprite(art.sky);
-    sky.anchor.set(0.5, 0);
-    sky.position.set(W / 2, -240);
-    sky.width = W + 480;
-    sky.height = H + 480;
-    const far = new Sprite(art.far);
-    far.anchor.set(0.5, 1);
-    far.position.set(W / 2, H + 40);
-    far.alpha = 0.85;
-    this.container.addChild(sky, far);
+    const bg = new Graphics();
+    bg.rect(-240, -240, W + 480, H + 480).fill(CONFIG.colors.ink);
+    this.container.addChild(bg);
+
+    // The whole field, drifting behind the title — it is the one image that
+    // says "walk across this" before a single word does.
+    const map = new Sprite(getFieldTexture());
+    map.anchor.set(0.5);
+    map.width = W * 1.7;
+    map.height = W * 1.7 * (map.texture.height / map.texture.width);
+    map.position.set(W / 2, H * 0.42);
+    map.alpha = 0.34;
+    this.container.addChild(map);
+    const drift = { r: 0 };
+    ctx.tweens.add(
+      new Tween(drift).to({ r: Math.PI * 2 }, 90_000).repeat(Infinity)
+        .onUpdate(() => {
+          map.x = W / 2 + Math.cos(drift.r) * 18;
+          map.y = H * 0.42 + Math.sin(drift.r * 0.7) * 14;
+        })
+        .start(performance.now()),
+    );
+    const vignette = new Graphics();
+    vignette.rect(-40, -40, W + 80, H * 0.5).fill({ color: CONFIG.colors.ink, alpha: 0.55 });
+    vignette.rect(-40, H * 0.55, W + 80, H * 0.6).fill({ color: CONFIG.colors.ink, alpha: 0.72 });
+    this.container.addChild(vignette);
 
     const emblem = new Sprite(ctx.atlas.get('emblem'));
     emblem.anchor.set(0.5);
-    emblem.scale.set(1.9);
-    emblem.position.set(W / 2, H * 0.26);
+    emblem.scale.set(1.5);
+    emblem.position.set(W / 2, H * 0.2);
     this.container.addChild(emblem);
 
-    const title = displayText(GAME_TITLE, 62, CONFIG.colors.bone, '900');
-    title.position.set(W / 2, H * 0.42);
-    const sub = displayText(GAME_SUBTITLE.toUpperCase(), 19, CONFIG.colors.sysBright, '700');
-    sub.position.set(W / 2, H * 0.475);
-    const tag = uiText(`A ${CORP} production. ${SHOW}.`, 12, CONFIG.colors.boneDim);
-    tag.position.set(W / 2, H * 0.515);
+    const title = displayText(GAME_TITLE, 60, CONFIG.colors.bone, '900');
+    title.position.set(W / 2, H * 0.36);
+    const sub = displayText(GAME_SUBTITLE.toUpperCase(), 18, CONFIG.colors.ally, '700');
+    sub.position.set(W / 2, H * 0.415);
+    const tag = uiText(`A ${CORP} production. ${SHOW}.`, 11, CONFIG.colors.boneDim);
+    tag.position.set(W / 2, H * 0.45);
     this.container.addChild(title, sub, tag);
 
-    // ── the buttons ──
-    const resume = save.inProgress ? RunState.fromSave(save.inProgress) : null;
-    const btns = new Container();
-    let y = H * 0.615;
+    const worldLine = uiText(`${WORLD_NAME} — ${WORLD_TAG}`, 11, CONFIG.colors.boneDim, '400', W - 60);
+    worldLine.position.set(W / 2, H * 0.49);
+    this.container.addChild(worldLine);
 
-    if (resume) {
-      this.button(btns, y, 'Resume Crawl', 'gold', () => this.start(resume));
+    // ── buttons ──
+    const btns = new Container();
+    let y = H * 0.62;
+    const run = save.run;
+
+    if (run) {
+      this.button(btns, y, 'Continue', 'gold', () => this.start(false));
       const note = uiText(
-        `${floorName(resume.floor)} · ${Math.floor(resume.timeLeft / 60)}:${String(Math.round(resume.timeLeft % 60)).padStart(2, '0')} left · party ${resume.party}`,
+        run.breached
+          ? `${KEEP_NAME} is open · ${run.coins} coins`
+          : `${run.squad} in the squad · ${run.coins} coins · ${run.cleared.length} camps cleared`,
         11, CONFIG.colors.boneDim,
       );
       note.position.set(W / 2, y + 40);
       btns.addChild(note);
-      y += 96;
-      this.button(btns, y, 'Abandon & Restart', 'dark', () => {
+      y += 100;
+      this.button(btns, y, 'Muster Again', 'dark', () => {
         showConfirm(ctx, {
-          title: 'Abandon the crawl?',
-          body: 'The floor resets. Gold and levels you already banked are kept.',
-          yesLabel: 'Abandon',
-          onYes: () => {
-            save.inProgress = null;
-            ctx.save.flush();
-            ctx.router.goto('title');
-          },
+          title: 'Start over?',
+          body: 'The field resets — camps refill, pads refill, and your squad goes home. Achievements are kept.',
+          yesLabel: 'Start over',
+          onYes: () => this.start(true),
         });
       });
-      y += 88;
     } else {
-      this.button(btns, y, 'Enter the Dungeon', 'gold', () => this.start(null));
-      y += 88;
+      this.button(btns, y, 'Take the Field', 'gold', () => this.start(true));
     }
-
-    this.button(btns, y, 'Character', 'blue', () => ctx.router.goto('charsheet', { from: 'title' }));
     this.container.addChild(btns);
 
     // pulse the primary action so the entry point is never ambiguous
     const state = { a: 1 };
-    const tw = new Tween(state)
-      .to({ a: 0.55 }, 1100)
-      .easing(Easing.Sinusoidal.InOut)
-      .yoyo(true)
-      .repeat(Infinity)
-      .onUpdate(() => { if (btns.children[0]) btns.children[0].alpha = state.a; })
-      .start(performance.now());
-    ctx.tweens.add(tw);
+    ctx.tweens.add(
+      new Tween(state).to({ a: 0.55 }, 1100).easing(Easing.Sinusoidal.InOut)
+        .yoyo(true).repeat(Infinity)
+        .onUpdate(() => { if (btns.children[0]) btns.children[0].alpha = state.a; })
+        .start(performance.now()),
+    );
 
     const stat = uiText(
-      save.totalRuns > 0
-        ? `${save.totalRuns} crawls · ${save.totalDeaths} deaths · level ${save.level}`
-        : `${CAST.hero} and ${CAST.companion}. No plan.`,
+      save.kills > 0
+        ? `${save.kills} killed · biggest squad ${save.bestSquad} · ${save.totalRuns} musters`
+        : `${CAST.hero}: ${CAST.heroTag}. ${CAST.companion}: ${CAST.companionTag}`,
       12, CONFIG.colors.boneDim,
     );
     stat.position.set(W / 2, H - Math.max(ctx.scaler.safeBottom(), 12) - 18);
@@ -112,14 +124,9 @@ export class TitleScene extends Scene {
     parent.addChild(b);
   }
 
-  /** Begin (or resume) a floor and hand off to the map. */
-  private start(resume: RunState | null): void {
+  private start(fresh: boolean): void {
     const ctx = this.ctx;
     ctx.audio.play('uiTap');
-    ctx.system.clear();
-    ctx.run = resume ?? new RunState(0, stats.startParty(ctx.save.data));
-    ctx.save.data.inProgress = ctx.run.toSave();
-    ctx.save.flush();
-    ctx.router.goto('floormap');
+    ctx.enterWorld(fresh);
   }
 }

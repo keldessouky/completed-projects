@@ -72,7 +72,7 @@ third-party licence attached at all.
 
 | Asset group | Where it comes from |
 | --- | --- |
-| Carl, Donut, party tiers, mobs, the boss hulk and its arms, doors, projectiles, particles, UI chrome, map icons, digits | [`src/assets/atlas.ts`](src/assets/atlas.ts) — Canvas2D painters, shelf-packed into one 2048×2048 atlas |
+| Carl, Donut, townsfolk, mobs and the boss (three facings each), terrain tiles and clutter, structures, projectiles, drops, particles, UI chrome, map markers, digits | [`src/assets/atlas.ts`](src/assets/atlas.ts) and [`src/assets/terrain.ts`](src/assets/terrain.ts) — Canvas2D painters; sprites shelf-packed into one 2048×2048 atlas, terrain baked per chunk |
 | Chapter backdrops (marsh / steppe / city), parallax strips, lane paving | [`src/assets/backdrops.ts`](src/assets/backdrops.ts) — seeded procedural Canvas2D, tiled vertically |
 | Palette | [`src/config.ts`](src/config.ts) → `CONFIG.colors`, surfaced to the painters via [`src/assets/palette.ts`](src/assets/palette.ts) |
 
@@ -81,8 +81,8 @@ by the project's AGPL-3.0 licence. Released additionally under
 **CC0-1.0** for anyone who wants to reuse the art alone:
 https://creativecommons.org/publicdomain/zero/1.0/
 
-Palette (basement skin): System blue `#2F7AD9` · pit `#0D0E11` · sodium amber
-`#D9A441` · rust `#A2542B` · concrete `#3A3A3C` · bone `#E6E3DD`.
+Palette (open-floor skin): grass `#4A6B3D` · forest `#2F4A2C` · stone `#6F6F78` ·
+dirt `#7A5C3A` · System blue `#2F7AD9` · amber `#D9A441` · ink `#141119` · bone `#E6E3DD`.
 
 ---
 

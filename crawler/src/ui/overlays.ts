@@ -10,7 +10,7 @@ const H = CONFIG.design.height;
 /** full-screen input-eating dim */
 function dim(alpha = 0.62): Graphics {
   const g = new Graphics();
-  g.rect(-60, -60, W + 120, H + 120).fill({ color: CONFIG.colors.pit, alpha });
+  g.rect(-60, -60, W + 120, H + 120).fill({ color: CONFIG.colors.ink, alpha });
   g.eventMode = 'static';
   return g;
 }
@@ -45,7 +45,7 @@ export function showPause(ctx: Ctx, opts: PauseOpts): void {
   p.position.set(W / 2 - 160, H / 2 - 217);
   o.root.addChild(p);
 
-  const title = displayText('THE RUN WAITS', 26, CONFIG.colors.amber, '900');
+  const title = displayText('THE RUN WAITS', 26, CONFIG.colors.gold, '900');
   title.position.set(W / 2, H / 2 - 158);
   o.root.addChild(title);
 
@@ -110,7 +110,7 @@ export function showSettings(ctx: Ctx): void {
   y += 4;
 
   const hapY = row('Haptics');
-  const hap = new Toggle(ctx, s.haptics, (v) => { s.haptics = v; ctx.applySettings(); ctx.haptics.trapHit(); });
+  const hap = new Toggle(ctx, s.haptics, (v) => { s.haptics = v; ctx.applySettings(); ctx.haptics.hurt(); });
   hap.position.set(W / 2 + 106, hapY);
   o.root.addChild(hap);
   y -= 24;
@@ -126,7 +126,7 @@ export function showSettings(ctx: Ctx): void {
 
   const reset = new Btn(ctx, {
     w: 252, h: 56, kind: 'dark', label: 'Reset Progress', labelSize: 18,
-    labelColor: CONFIG.colors.trapRedBright,
+    labelColor: CONFIG.colors.hpRed,
     onTap: () => showConfirm(ctx, {
       title: 'BREAK THE TABLETS?',
       body: 'All stars, coins, upgrades and unlocks will be erased. Settings survive.',
@@ -156,14 +156,14 @@ export function showConfirm(ctx: Ctx, opts: ConfirmOpts): void {
   p.position.set(W / 2 - 170, H / 2 - 150);
   o.root.addChild(p);
 
-  const title = displayText(opts.title, 22, CONFIG.colors.trapRedBright, '900');
+  const title = displayText(opts.title, 22, CONFIG.colors.hpRed, '900');
   title.position.set(W / 2, H / 2 - 96);
   const body = uiText(opts.body, 16, CONFIG.colors.bone, '400', 280);
   body.position.set(W / 2, H / 2 - 26);
   o.root.addChild(title, body);
 
   const yes = new Btn(ctx, {
-    w: 132, h: 58, kind: 'dark', label: opts.yesLabel, labelColor: CONFIG.colors.trapRedBright, labelSize: 19,
+    w: 132, h: 58, kind: 'dark', label: opts.yesLabel, labelColor: CONFIG.colors.hpRed, labelSize: 19,
     onTap: () => { o.close(); opts.onYes(); },
   });
   yes.position.set(W / 2 - 74, H / 2 + 82);

@@ -3,12 +3,8 @@ import { Game } from './core/game';
 import { SceneManager } from './scenes/scene';
 import { BootScene } from './scenes/boot';
 import { TitleScene } from './scenes/title';
-import { FloorMapScene } from './scenes/floormap';
-import { EncounterScene } from './scenes/encounter/encounter';
-import { LootScene } from './scenes/loot';
-import { SafeScene } from './scenes/safe';
-import { CharSheetScene } from './scenes/charsheet';
-import { ClearScene, DeathScene } from './scenes/endings';
+import { WorldScene } from './scenes/world/world';
+import { DeathScene } from './scenes/death';
 import { DevOverlay } from './ui/devoverlay';
 
 async function boot(): Promise<void> {
@@ -16,12 +12,7 @@ async function boot(): Promise<void> {
   const scenes = new SceneManager(game);
   scenes.register('boot', (ctx) => new BootScene(ctx));
   scenes.register('title', (ctx) => new TitleScene(ctx));
-  scenes.register('floormap', (ctx) => new FloorMapScene(ctx));
-  scenes.register('encounter', (ctx) => new EncounterScene(ctx));
-  scenes.register('loot', (ctx) => new LootScene(ctx));
-  scenes.register('safe', (ctx) => new SafeScene(ctx));
-  scenes.register('charsheet', (ctx) => new CharSheetScene(ctx));
-  scenes.register('clear', (ctx) => new ClearScene(ctx));
+  scenes.register('world', (ctx) => new WorldScene(ctx));
   scenes.register('death', (ctx) => new DeathScene(ctx));
   new DevOverlay(game);
 
@@ -42,7 +33,7 @@ boot().catch((err) => {
   if (splash) {
     splash.innerHTML =
       '<div style="max-width:280px;text-align:center;letter-spacing:0.05em;line-height:1.5">' +
-      'The dungeon did not open — this browser could not start the game.<br>' +
+      'The floor did not open — this browser could not start the game.<br>' +
       '<small style="opacity:0.7">WebGL is required. Tap to try again.</small></div>';
     splash.style.pointerEvents = 'auto';
     splash.addEventListener('pointerdown', () => location.reload());

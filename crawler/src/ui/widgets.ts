@@ -1,4 +1,4 @@
-import { Container, Graphics, NineSliceSprite, Rectangle, Sprite, Text } from 'pixi.js';
+import { Container, Graphics, NineSliceSprite, Rectangle, Text } from 'pixi.js';
 import { CONFIG } from '../config';
 import { FONT_DISPLAY, FONT_UI } from '../assets/fonts';
 import type { Ctx } from '../core/game';
@@ -17,7 +17,7 @@ export function displayText(text: string, size: number, color: number = CONFIG.c
 }
 
 /** Inter body/UI text. */
-export function uiText(text: string, size: number, color: number = CONFIG.colors.bone, weight: '400' | '600' | '800' = '400', wrap = 0): Text {
+export function uiText(text: string, size: number, color: number = CONFIG.colors.bone, weight: '400' | '600' | '700' | '800' = '400', wrap = 0): Text {
   const t = new Text({
     text,
     style: {
@@ -47,7 +47,7 @@ export class Bar extends Container {
   constructor(private w: number, private h: number, private color: number, backAlpha = 0.55) {
     super();
     const back = new Graphics();
-    back.roundRect(-w / 2, -h / 2, w, h, h / 2).fill({ color: CONFIG.colors.pit, alpha: backAlpha });
+    back.roundRect(-w / 2, -h / 2, w, h, h / 2).fill({ color: CONFIG.colors.ink, alpha: backAlpha });
     back.roundRect(-w / 2, -h / 2, w, h, h / 2).stroke({ color: CONFIG.colors.boneDim, width: 1.5, alpha: 0.8 });
     this.addChild(back, this.fill);
     this.set(1);
@@ -67,21 +67,6 @@ export class Bar extends Container {
 }
 
 /** 0-3 stars, filled vs hollow — used on map nodes and results. */
-export class StarsRow extends Container {
-  constructor(ctx: Ctx, earned: number, size: number, gap = 6) {
-    super();
-    for (let i = 0; i < 3; i++) {
-      const s = new Sprite(ctx.atlas.get('iconStar'));
-      s.anchor.set(0.5);
-      s.width = size; s.height = size;
-      s.x = (i - 1) * (size + gap);
-      // middle star sits proud, shrine-pediment style
-      s.y = i === 1 ? -size * 0.14 : 0;
-      s.tint = i < earned ? CONFIG.colors.amber : CONFIG.colors.starEmpty;
-      this.addChild(s);
-    }
-  }
-}
 
 /** Settings toggle: a labelled pill that flips state. */
 export class Toggle extends Container {
@@ -91,7 +76,7 @@ export class Toggle extends Container {
   constructor(ctx: Ctx, public value: boolean, private onChange: (v: boolean) => void) {
     super();
     const w = 64, h = 34;
-    this.track.roundRect(-w / 2, -h / 2, w, h, h / 2).fill(CONFIG.colors.pitLift)
+    this.track.roundRect(-w / 2, -h / 2, w, h, h / 2).fill(CONFIG.colors.inkLift)
       .stroke({ color: CONFIG.colors.boneDim, width: 2 });
     this.addChild(this.track, this.knob);
     this.hitArea = new Rectangle(-w / 2 - 8, -30, w + 16, 60);
@@ -109,7 +94,7 @@ export class Toggle extends Container {
   private draw(): void {
     this.knob.clear();
     this.knob.circle(this.value ? 15 : -15, 0, 12.5)
-      .fill(this.value ? CONFIG.colors.amber : CONFIG.colors.boneDim);
+      .fill(this.value ? CONFIG.colors.gold : CONFIG.colors.boneDim);
     this.track.tint = this.value ? 0xffffff : 0x888888;
   }
 }
@@ -129,10 +114,10 @@ export class HSlider extends Container {
   ) {
     super();
     const track = new Graphics();
-    track.roundRect(-w / 2, -5, w, 10, 5).fill(CONFIG.colors.pitLift)
+    track.roundRect(-w / 2, -5, w, 10, 5).fill(CONFIG.colors.inkLift)
       .stroke({ color: CONFIG.colors.boneDim, width: 2 });
     this.addChild(track, this.fill, this.knob);
-    this.knob.circle(0, 0, 15).fill(CONFIG.colors.bone).stroke({ color: CONFIG.colors.rustDeep, width: 3 });
+    this.knob.circle(0, 0, 15).fill(CONFIG.colors.bone).stroke({ color: CONFIG.colors.foeDark, width: 3 });
     this.hitArea = new Rectangle(-w / 2 - 18, -30, w + 36, 60);
     this.eventMode = 'static';
     this.cursor = 'pointer';
@@ -161,7 +146,7 @@ export class HSlider extends Container {
     this.knob.position.set(x, 0);
     this.fill.clear();
     if (this.value > 0.02) {
-      this.fill.roundRect(-this.w / 2 + 2, -3, (this.w - 4) * this.value, 6, 3).fill(CONFIG.colors.amber);
+      this.fill.roundRect(-this.w / 2 + 2, -3, (this.w - 4) * this.value, 6, 3).fill(CONFIG.colors.gold);
     }
   }
 }

@@ -2,7 +2,7 @@
   "name": "crawler",
   "private": true,
   "version": "1.0.0",
-  "description": "Dungeon-crawler floor built on the Ziggurat Run engine: a floor is a node graph under a countdown. PixiJS 8 + Howler + tween.js, tuned for iPhone Pro Max Safari.",
+  "description": "Isometric squad game on the Ziggurat Run engine: a seeded 3600-unit field, a hero and a growing crowd, recruit pads, roaming enemy packs and a castle gate. PixiJS 8 + Howler + tween.js, tuned for iPhone Pro Max Safari.",
   "type": "module",
   "license": "AGPL-3.0-or-later",
   "scripts": {
@@ -12,7 +12,9 @@
     "preview": "vite preview",
     "gen:audio": "node tools/gen-audio.mjs",
     "smoke": "node tools/smoke.mjs",
-    "smoke:single": "node tools/smoke.mjs --single"
+    "smoke:single": "node tools/smoke.mjs --single",
+    "art:export": "node tools/art-export.mjs",
+    "art:check": "node tools/art-check.mjs"
   },
   "dependencies": {
     "@fontsource/cinzel": "^5.2.0",

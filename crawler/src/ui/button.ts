@@ -53,7 +53,7 @@ export class Btn extends Container {
           fontFamily: FONT_UI,
           fontSize: opts.labelSize ?? 19,
           fontWeight: '600',
-          fill: opts.labelColor ?? (opts.kind === 'gold' ? CONFIG.colors.pit : CONFIG.colors.bone),
+          fill: opts.labelColor ?? (opts.kind === 'gold' ? CONFIG.colors.ink : CONFIG.colors.bone),
           align: 'center',
         },
       });

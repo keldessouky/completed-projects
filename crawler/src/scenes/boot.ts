@@ -1,8 +1,9 @@
 import { Graphics } from 'pixi.js';
 import { CONFIG } from '../config';
 import { GameAtlas } from '../assets/atlas';
-import { buildBackdrops } from '../assets/backdrops';
+import { getFieldTexture } from '../assets/terrain';
 import { loadFonts } from '../assets/fonts';
+import { loadArtOverrides } from '../assets/overrides';
 import { CORP, GAME_TITLE } from '../flavour';
 import { displayText, uiText } from '../ui/widgets';
 import { Scene } from './scene';
@@ -24,7 +25,7 @@ export class BootScene extends Scene {
 
   enter(): void {
     const bg = new Graphics();
-    bg.rect(-240, -240, W + 480, H + 480).fill(CONFIG.colors.pit);
+    bg.rect(-240, -240, W + 480, H + 480).fill(CONFIG.colors.ink);
     this.container.addChild(bg);
 
     // the show's mark, pulsing while the dungeon loads
@@ -38,7 +39,7 @@ export class BootScene extends Scene {
 
     const barBack = new Graphics();
     barBack.roundRect(W / 2 - 130, H / 2 + 74, 260, 14, 7)
-      .fill(CONFIG.colors.pitLift)
+      .fill(CONFIG.colors.inkLift)
       .stroke({ color: CONFIG.colors.boneDim, width: 1.5 });
     this.container.addChild(barBack, this.barFill);
     this.pct.position.set(W / 2, H / 2 + 112);
@@ -58,7 +59,7 @@ export class BootScene extends Scene {
   private setProgress(f: number): void {
     const w = Math.max(0.02, Math.min(1, f)) * 252;
     this.barFill.clear();
-    this.barFill.roundRect(W / 2 - 126, H / 2 + 77, Math.max(8, w), 8, 4).fill(CONFIG.colors.amber);
+    this.barFill.roundRect(W / 2 - 126, H / 2 + 77, Math.max(8, w), 8, 4).fill(CONFIG.colors.gold);
     this.pct.text = `${Math.round(f * 100)}%`;
   }
 
@@ -70,9 +71,27 @@ export class BootScene extends Scene {
       await loadFonts();
       this.setProgress(0.16);
 
+      const t0 = performance.now();
       ctx.atlas = GameAtlas.build();
+      // surfaced on the debug object: the atlas is the single biggest thing
+      // between a tap and a playable frame, so it is worth being able to see
+      (window as unknown as Record<string, { atlasMs?: number }>).__cr
+        && ((window as unknown as Record<string, { atlasMs?: number }>).__cr.atlasMs =
+          Math.round(performance.now() - t0));
+      // the System's achievement card is the one notification with artwork
+      ctx.system.atlas = ctx.atlas;
+      this.setProgress(0.26);
+
+      // Custom art, if any has been dropped into public/art/. This is the one
+      // asset step that is allowed to find nothing: no manifest is the normal
+      // case, and a broken sheet keeps the painted art rather than the screen.
+      const swapped = await loadArtOverrides(ctx.atlas);
+      for (const line of swapped) console.info('[art] ' + line);
       this.setProgress(0.30);
-      ctx.backdrops = buildBackdrops();
+      // The world map thumbnail samples every biome across 5120 units; it is
+      // the one terrain product worth paying for up front, because the title
+      // screen and the minimap both want it immediately.
+      getFieldTexture();
       this.setProgress(0.36);
 
       // Audio sprite with genuine byte progress (the heaviest asset).
@@ -111,7 +130,7 @@ export class BootScene extends Scene {
     } catch (err) {
       this.ticking = false;
       this.pct.text = `${CORP} regrets the interruption. Tap to retry.`;
-      this.pct.style.fill = CONFIG.colors.trapRed;
+      this.pct.style.fill = CONFIG.colors.hpRed;
       this.container.eventMode = 'static';
       this.container.once('pointertap', () => location.reload());
       console.error('boot failed', err);
@@ -127,7 +146,7 @@ export class BootScene extends Scene {
       z.rect(x, y, 40, 9).fill(CONFIG.colors.bone);
       z.rect(x, y, 9, 24).fill(CONFIG.colors.boneDim);
     }
-    z.rect(-54, 44, 112, 8).fill(CONFIG.colors.sys);
-    z.rect(18, 18, 40, 26).fill(CONFIG.colors.pit);
+    z.rect(-54, 44, 112, 8).fill(CONFIG.colors.ally);
+    z.rect(18, 18, 40, 26).fill(CONFIG.colors.ink);
   }
 }

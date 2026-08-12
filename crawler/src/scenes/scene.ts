@@ -27,7 +27,7 @@ export class SceneManager implements SceneRouter {
 
   constructor(private ctx: Ctx) {
     this.fade = new Graphics();
-    this.fade.rect(-40, -40, CONFIG.design.width + 80, CONFIG.design.height + 80).fill(CONFIG.colors.pit);
+    this.fade.rect(-40, -40, CONFIG.design.width + 80, CONFIG.design.height + 80).fill(CONFIG.colors.ink);
     this.fade.zIndex = 500;
     this.fade.visible = false;
     this.fade.eventMode = 'none';

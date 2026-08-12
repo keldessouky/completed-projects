@@ -4,91 +4,90 @@
  * This module exists so the game's flavour is a swappable layer rather than
  * something threaded through the codebase. No other file should contain a
  * proper noun or a line of dialogue. Replacing this one file re-skins the
- * whole game — which is exactly the point: the current cast is a homage, and
- * a distributable build wants an original one.
+ * whole game — which is exactly the point: the current cast is a homage to
+ * *Dungeon Crawler Carl*, and a distributable build wants an original one.
+ *
+ * The voice, for anyone adding to it:
+ *  - The System is a bored municipal computer that finds you tedious. It uses
+ *    bureaucratic register for atrocities and never once acknowledges that a
+ *    person has died. Sentence, then a flat non-sequitur.
+ *  - Carl is exhausted and out of his depth and keeps going anyway. He does
+ *    not quip; he states things.
+ *  - Donut is a cat with a title she awarded herself. Everything is beneath
+ *    her and she is nonetheless the loudest thing in the room.
+ *  - Nothing is ever framed as heroic. It is a broadcast, and you are content.
  *
  * Rules for anything added here:
  *  - no gameplay numbers (those live in config.ts)
- *  - no imports from game/ or scenes/ (this is a leaf module)
+ *  - no imports from world/ or scenes/ (this is a leaf module)
  */
 
 export const GAME_TITLE = 'CRAWLER';
-export const GAME_SUBTITLE = 'Floor One';
+export const GAME_SUBTITLE = 'Muster';
 
 /** The corporation running the show. */
 export const CORP = 'Borant';
 /** What the broadcast calls itself. */
 export const SHOW = 'Dungeon Crawler World';
+/** What the show calls the contestants. */
+export const CRAWLER = 'Crawler';
 
 export const CAST = {
   hero: 'Carl',
   heroTag: 'barefoot, boxer shorts, no plan',
   companion: 'Princess Donut',
-  companionTag: 'Persian. Champion bloodline. Insufferable.',
+  companionTag: 'Cat. Royalty. Her own opinion of both.',
   guide: 'Mordecai',
 } as const;
 
-/** Floor names, indexed by floor number − 1. Only floor 1 is built. */
-export const FLOOR_NAMES = ['The Basement'] as const;
-export const FLOOR_SUBTITLES = ['Concrete, rebar, and whatever used to live down here.'] as const;
+export const WORLD_NAME = 'The Grasslands';
+export const WORLD_TAG =
+  'Nine floors down, somebody built a countryside. Then somebody else fortified it.';
 
-export const floorName = (i: number): string => FLOOR_NAMES[i] ?? `Floor ${i + 1}`;
-export const floorSubtitle = (i: number): string => FLOOR_SUBTITLES[i] ?? '';
+/** Recruit-pad names, dealt out in order. */
+export const PAD_NAMES = [
+  'Muster Post', 'The Longhouse', 'Drill Yard', 'Recruiting Tent', 'The Barracks', 'Levy Point',
+] as const;
 
-/** Node type labels shown on the floor map. */
-export const NODE_LABEL = {
-  entry: 'Entry',
-  corridor: 'Tunnel',
-  mob: 'Nest',
-  loot: 'Loot Box',
-  safe: 'Safe Room',
-  boss: 'Boss',
-  stairs: 'Stairs Down',
-} as const;
+/** Camp names, dealt out in order. */
+export const CAMP_NAMES = [
+  'The Gnaw', 'Bonepile', 'Slagheap', 'The Kennels',
+  'Wicker Camp', 'The Hollow', 'Tinpot', 'Rustworks',
+] as const;
 
-/** Enemy display names, keyed by the engine's enemy kind. */
+export const KEEP_NAME = 'The Iron Keep';
+export const KEEP_TAG = 'Whoever runs this floor lives behind that gate.';
+
+/** Enemy display names, and the phrasing used when they cost you people. */
 export const MOB_NAME = {
-  brute: 'Rubble Brute',
-  rat: 'Sewer Rat',
-  drone: 'Maintenance Drone',
+  grunt: 'Redcloak',
+  heavy: 'Bruiser',
+  archer: 'Slinger',
+  captain: 'Floor Captain',
 } as const;
 
-/** Short phrases used in death diagnostics: "You lost 40 to <phrase>." */
 export const MOB_BLAME = {
-  brute: 'the rubble brutes',
-  rat: 'the rat swarm',
-  drone: 'the drones',
+  grunt: 'the redcloaks',
+  heavy: 'a bruiser',
+  archer: 'the slingers',
+  captain: 'a Floor Captain',
 } as const;
 
-export const BOSS_NAME = 'Unit 7, Sanitation Foreman';
-export const BOSS_TAG = 'A janitor with a grudge and municipal funding.';
+/** What the people following you are called, by squad size. */
+export const SQUAD_TIER = ['Alone', 'Stragglers', 'A Mob', 'An Actual Army'] as const;
 
-/** The party members you collect are nameless survivors — these are the tiers. */
-export const PARTY_TIER = ['Survivor', 'Scavenger', 'Holdout', 'Veteran', 'Hardened'] as const;
-
-export const ABILITY = {
-  blast: { name: 'Firecracker', desc: 'Improvised. Damages everything on screen.' },
-  rally: { name: 'Second Wind', desc: 'Pulls stragglers back into the line.' },
-} as const;
-
-export const STAT_NAME = {
-  str: 'Strength',
-  dex: 'Dexterity',
-  con: 'Constitution',
-  int: 'Intelligence',
-  wis: 'Wisdom',
-  cha: 'Charisma',
-  luck: 'Luck',
-} as const;
-
-export const STAT_DESC = {
-  str: 'Damage per shot.',
-  dex: 'Rate of fire.',
-  con: 'Fewer losses to traps and contact.',
-  int: 'Shorter ability cooldowns.',
-  wis: 'Stronger ability effects.',
-  cha: 'More party members follow you.',
-  luck: 'Better loot, and the occasional crit.',
+export const UI = {
+  squad: 'CREW',
+  coins: 'GOLD',
+  recruit: 'Recruiting',
+  recruitFull: 'No room',
+  recruitBroke: 'No gold',
+  recruitSpent: 'Nobody left',
+  attack: 'Knock',
+  restart: 'Again',
+  continue: 'Continue',
+  achievement: 'ACHIEVEMENT UNLOCKED',
+  rewardBox: 'Reward',
 } as const;
 
 /**
@@ -97,73 +96,183 @@ export const STAT_DESC = {
  */
 export const SYS = {
   welcome: () => [
-    `Welcome, Crawler.`,
-    `You are one of ${(1_000_000).toLocaleString()}+ contestants. You are not special.`,
-    `${CORP} thanks you for your participation and waives all liability.`,
+    `Welcome to Floor Three, ${CRAWLER}.`,
+    `Recruit anyone who will follow you. Walk east. Knock.`,
+    `${CORP} reminds you that a crowd is not the same as a plan.`,
   ],
-  floorOpen: (floor: number, mins: number) => [
-    `Floor ${floor} is now open.`,
-    `Stairs seal in ${mins} minutes. Anything still on this floor at that time is deleted.`,
-    `This is not a metaphor.`,
+  donutJoins: () => [
+    `${CAST.companion} has joined your party.`,
+    `She has read the terms and conditions and has notes.`,
   ],
-  timeWarn: (secs: number) => [`${secs} seconds until the stairs seal.`, `Suggested action: hurry.`],
-  levelUp: (lvl: number, pts: number) => [
-    `Level ${lvl}.`,
-    `${pts} attribute point${pts === 1 ? '' : 's'} available.`,
-    `Do try to spend ${pts === 1 ? 'it' : 'them'} on something useful.`,
+  recruited: (n: number) => [
+    `${n} joined your crew.`,
+    n >= 5 ? `They have not been told anything.` : `They did not ask many questions.`,
   ],
-  lootOpen: (tier: string) => [`${tier} Loot Box opened.`, `Contents below. No refunds.`],
-  bossSpotted: () => [
-    `Boss encountered: ${BOSS_NAME}.`,
-    `Viewership is up 12%. Try to make it interesting.`,
+  padEmpty: (name: string) => [
+    `${name} has nobody left to give.`,
+    `Try somewhere with a worse view.`,
   ],
-  bossDown: () => [`${BOSS_NAME} has been retired.`, `The stairs are open. Go.`],
-  achievement: (name: string, gold: number) => [
-    `Achievement unlocked: ${name}`,
-    `Reward: ${gold} gold.`,
+  campCleared: (name: string) => [
+    `${name} is clear.`,
+    `A sponsor has expressed mild interest.`,
   ],
-  partyJoin: (n: number) => [`${n} survivor${n === 1 ? '' : 's'} joined your party.`],
-  trapHit: (n: number) => [`You lost ${n}. That door was clearly marked.`],
-  firstClass: () => [
-    `Class selection unlocks on Floor 3.`,
-    `Until then you are, officially, "Unclassed." The audience finds this endearing.`,
+  squadLost: (n: number, blame: string) => [
+    `Lost ${n} to ${blame}.`,
+    `They have been reclassified as scenery.`,
+  ],
+  keepSpotted: () => [
+    `${KEEP_NAME} is in range.`,
+    `Viewership is up 22%. Try to make it interesting.`,
+  ],
+  keepBreached: () => [
+    `The gate is down.`,
+    `Floor Three belongs to a man in boxer shorts.`,
+    `Note it for the highlight reel.`,
+  ],
+  wiped: () => [
+    `Your crew is gone.`,
+    `You are, technically, still a contestant.`,
+  ],
+  lowSquad: () => [
+    `Crew critical.`,
+    `The audience has opened a betting pool. You are not favoured.`,
+  ],
+  achievement: (name: string, coins: number) => [
+    `Achievement Unlocked: ${name}`,
+    `Reward: ${coins} gold, deposited without ceremony.`,
+  ],
+  sponsor: () => [
+    `You have attracted a sponsor.`,
+    `They would like it known that they are not endorsing your methods.`,
   ],
 } as const;
 
-/** Announcer lines for the death broadcast. Picked at random. */
+/**
+ * Donut, interjecting. Fired occasionally on the events she would have an
+ * opinion about, which is all of them.
+ */
+export const DONUT = {
+  recruit: [
+    'They are following you because they have nothing else on. Do not read into it.',
+    'Carl. Carl. Are we collecting people now? I want that on the record.',
+    'You have acquired subjects. I am the one with a title, so technically they are mine.',
+  ],
+  loss: [
+    'That one was standing too far to the left. I did warn him.',
+    'Carl, they keep dying. Tell them to stop.',
+    'We are down several. I have already forgotten which several.',
+  ],
+  camp: [
+    'Take a moment. Look regal. There are cameras.',
+    'That was mostly me.',
+  ],
+  keep: [
+    'It is a very large door and you are a man with no shoes. Proceed.',
+    'If there is a throne behind that, it is mine. I am calling it now.',
+  ],
+  wipe: [
+    'Well. That was humiliating for you.',
+    'Get up. The lighting out here is terrible.',
+  ],
+} as const;
+
+/**
+ * Mordecai, at the recruit pads. He is the only voice in the game that is
+ * actually trying to help, which is why he sounds so tired.
+ */
+export const GUIDE = {
+  firstPad: [
+    `${CAST.guide}: Stand on the plate. Gold buys bodies. Bodies buy time.`,
+    `Don't get attached. That's the whole tutorial.`,
+  ],
+  padDry: [
+    `${CAST.guide}: That one's tapped out. There are others.`,
+  ],
+  firstCamp: [
+    `${CAST.guide}: They'll reach your line. They're supposed to.`,
+    `You lose people or you lose the floor. Pick.`,
+  ],
+} as const;
+
+/** Announcer lines for the wipe screen. Picked at random. */
 export const DEATH_LINES = [
-  'And that is the end of a promising run.',
+  'And that is the end of a promising afternoon.',
   'Oh, that was ugly. Let us see it again in slow motion.',
   'The audience is clapping. Not for you.',
   'Somewhere, a sponsor is quietly withdrawing.',
-  'Cause of death: optimism.',
+  'Cause of death: enthusiasm.',
+  'He had a crowd and a direction. One of those was enough.',
 ] as const;
 
-/** Shown when the floor timer runs out. */
-export const TIMEOUT_LINE = 'The stairs sealed. You were still on the wrong side of them.';
-
-export const CLEAR_LINES = [
-  'Floor cleared. The audience is mildly impressed.',
-  'You survived the easy one. Congratulations, allegedly.',
-  'Down you go. It gets worse.',
+export const VICTORY_LINES = [
+  'The gate is open and nobody is defending it.',
+  'A hundred people walked east because one of them said so.',
+  'Floor Three is closed. Borant thanks you for your content.',
 ] as const;
 
-/** Door labels are the arithmetic itself, so they live in config. These are the marks. */
-export const DOOR_HINT_GOOD = 'SAFE';
-export const DOOR_HINT_TRAP = 'HAZARD';
-
+/**
+ * Achievements. The System hands these out the way a council hands out
+ * parking notices: correctly, promptly, and with no idea what it has said.
+ */
 export const ACHIEVEMENT_TEXT = {
-  firstBlood: { name: 'First Blood', desc: 'Kill something. Anything.' },
-  boxOpener: { name: 'Compulsive Gambler', desc: 'Open your first loot box.' },
-  untouched: { name: 'Suspiciously Careful', desc: 'Clear a tunnel without stepping in a hazard.' },
-  bigParty: { name: 'Cult Leader', desc: 'Reach 40 party members.' },
-  bossKill: { name: 'Employee of the Month', desc: `Retire ${BOSS_NAME}.` },
-  fastFloor: { name: 'Speedrunner', desc: 'Clear the floor with 4 minutes still on the clock.' },
-  fullSweep: { name: 'Completionist', desc: 'Visit every node on the floor before taking the stairs.' },
-} as const;
-
-/** Vendor stock in the safe room. */
-export const VENDOR = {
-  title: 'Vending Machine',
-  flavour: 'Sponsored content. Prices are non-negotiable and openly insulting.',
+  firstBlood: {
+    name: 'First Blood',
+    desc: 'Kill something. Anything.',
+    sting: 'The bar was on the floor and you cleared it.',
+  },
+  firstRecruit: {
+    name: 'Charismatic',
+    desc: 'Convince one person to follow you.',
+    sting: 'One. A landmark.',
+  },
+  crowd: {
+    name: 'Cult Leader',
+    desc: 'Lead thirty at once.',
+    sting: 'None of them know where you are going. Neither do you.',
+  },
+  fullHouse: {
+    name: 'Occupancy Violation',
+    desc: 'Lead the maximum crew.',
+    sting: 'Borant reminds you that crowd safety is your own responsibility.',
+  },
+  campClearer: {
+    name: 'Eviction Specialist',
+    desc: 'Clear three camps.',
+    sting: 'A skill with no applications above ground.',
+  },
+  rich: {
+    name: 'Liquid',
+    desc: 'Carry two hundred gold at once.',
+    sting: 'You cannot take it with you. You cannot take it anywhere.',
+  },
+  captainKill: {
+    name: 'Middle Management',
+    desc: 'Kill a Floor Captain.',
+    sting: 'His performance review has been completed early.',
+  },
+  breach: {
+    name: 'Doorman',
+    desc: `Breach ${KEEP_NAME}.`,
+    sting: 'Somebody had to knock.',
+  },
+  untouched: {
+    name: 'Suspiciously Careful',
+    desc: 'Breach the gate having never dropped below ten.',
+    sting: 'The audience found this section slow.',
+  },
+  spendthrift: {
+    name: 'Fiscally Irresponsible',
+    desc: 'Spend three hundred gold on people.',
+    sting: 'An economy of one product.',
+  },
+  bloodbath: {
+    name: 'Statistically Significant',
+    desc: 'Kill one hundred.',
+    sting: 'A number the audience can put on a graph.',
+  },
+  loner: {
+    name: 'Down To The Wire',
+    desc: 'Take the gate with fewer than five left standing.',
+    sting: 'This is the clip they will use.',
+  },
 } as const;

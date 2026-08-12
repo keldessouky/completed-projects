@@ -62,6 +62,7 @@ export class NumberDisplay extends Container {
  *  ease-out over CONFIG.party.countRollMs (or a caller-set duration). */
 export class RollingNumber extends NumberDisplay {
   private shown = 0;
+  private target = 0;
   private tween: Tween | null = null;
 
   constructor(
@@ -79,12 +80,19 @@ export class RollingNumber extends NumberDisplay {
 
   snap(v: number): void {
     this.tween?.stop();
-    this.shown = v;
+    this.shown = this.target = v;
     this.setValue(v);
   }
 
   roll(v: number): void {
     if (this.destroyed) return;
+    // HUD callers roll() every frame with whatever the number currently is.
+    // Without this guard each of those calls tears down the running tween and
+    // starts a fresh one from the partial value — which both allocates a Tween
+    // per frame at 120 Hz and restarts the easing curve every time, so the
+    // count crawls toward its target and visibly never arrives.
+    if (v === this.target) return;
+    this.target = v;
     this.tween?.stop();
     const state = { x: this.shown };
     this.tween = new Tween(state)
