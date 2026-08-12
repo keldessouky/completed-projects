@@ -23,6 +23,7 @@ npm run build:single # → dist-single/crawler.html, the whole game in one file
 npm run smoke        # headless Chromium playthrough of a whole run
 npm run smoke:single # …the same 19 checks against the one-file build
 npm run art:export   # → art-template/, the cast as PNG sheets you can repaint
+npm run art:import   # slice a generated contact sheet into a usable sheet
 npm run art:check    # verify custom sheets in public/art/ before you reload
 ```
 
@@ -303,6 +304,47 @@ will happily ignore them (`art:check` warns about that).
 Valid actor keys: `hero`, `donut`, `levy0`, `levy1`, `levy2`, `grunt`,
 `archer`, `heavy`, `captain`. A key the game does not know is loaded and then
 never asked for, which is silent — check your spelling against that list.
+
+## Importing generated art
+
+Image generators do not emit pixel-exact sprite grids. They emit a picture of
+some characters on a background, at whatever scale and spacing they felt like,
+usually with labels baked in. `art:import` bridges that gap:
+
+```bash
+npm run art:import -- sheet.png --kind hero --cell 60x76 --rows 1 --preview
+```
+
+It keys out the background, finds each figure, resamples them all by one
+factor, plants their feet on a common baseline, packs the grid, and merges the
+result into `manifest.json`.
+
+- `--preview` writes `<kind>.preview.png` with every detected figure boxed and
+  numbered. **Always look at it the first time.** It is how you find out that a
+  caption was read as a character.
+- `--dry` reports what it found and writes nothing.
+- `--pick 2,0,3,1,4` reorders or cherry-picks figures by those numbers.
+- `--region x,y,w,h` crops to one character's panel in a multi-character sheet.
+- `--rows 1` is fine. The loader repeats the last row for every facing it was
+  not given, so one row of side-view art works everywhere — at the cost of the
+  character never turning to face the camera.
+
+Two things about how it reads an image are worth knowing, because they are the
+two ways it can appear to fail:
+
+**Background is whatever is connected to the border, not whatever matches a
+colour.** This art is outlined in a near-black keyline, and a dark background
+makes that keyline a colour match — keying by colour alone dissolves every
+outline and shatters each figure into pieces. Flooding inward from the edge
+leaves interior darks alone. If your background is a gradient or the figures
+touch the border, pass `--bg #rrggbb` and a wider `--tol`.
+
+**Figures are found by projection, not by connected components.** Rows that
+contain anything form bands; within a band, columns that contain anything form
+figures. Anything sharing a column with a figure *is* that figure, which is
+what correctly claims a floating weapon, a detached hair cap or a cast shadow.
+It also means two characters that overlap horizontally will be read as one —
+crop them apart with `--region`.
 
 ## Checking your work
 

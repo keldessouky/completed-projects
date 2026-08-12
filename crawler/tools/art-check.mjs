@@ -76,12 +76,22 @@ for (const [kind, entry] of Object.entries(manifest.actors ?? {})) {
     continue;
   }
   const scale = entry.scale ?? defScale;
-  const wantW = Math.round(entry.cell[0] * scale) * COLS;
-  const wantH = Math.round(entry.cell[1] * scale) * ROWS;
-  const ok = size.w === wantW && size.h === wantH;
+  const cellW = Math.round(entry.cell[0] * scale);
+  const cellH = Math.round(entry.cell[1] * scale);
+  const wantW = cellW * COLS;
+  // A sheet may be SHORT. The loader repeats its last row for every facing it
+  // was not given, so one row of side-view art is a legitimate result — the
+  // character simply never turns to face the camera. Accept any whole number
+  // of rows and say which, rather than insisting on five.
+  const rows = size.h / cellH;
+  const wholeRows = Number.isInteger(rows) && rows >= 1 && rows <= ROWS;
+  const ok = size.w === wantW && wholeRows;
   report(ok, `${kind}: ${entry.file} is ${size.w}×${size.h}`
-    + (ok ? '' : `, expected ${wantW}×${wantH}`
-      + ` (cell ${entry.cell[0]}×${entry.cell[1]} × scale ${scale} × ${COLS}×${ROWS} cells)`));
+    + (ok
+      ? `  (${rows} of ${ROWS} facing rows${rows < ROWS ? ', the last one repeats' : ''})`
+      : `, expected ${wantW} wide and a whole number of ${cellH}px rows`
+        + ` — ${wantW}×${cellH * ROWS} for all five facings`
+        + ` (cell ${entry.cell[0]}×${entry.cell[1]} × scale ${scale})`));
 }
 
 for (const [name, entry] of Object.entries(manifest.sprites ?? {})) {

@@ -14,7 +14,8 @@
     "smoke": "node tools/smoke.mjs",
     "smoke:single": "node tools/smoke.mjs --single",
     "art:export": "node tools/art-export.mjs",
-    "art:check": "node tools/art-check.mjs"
+    "art:check": "node tools/art-check.mjs",
+    "art:import": "node tools/art-import.mjs"
   },
   "dependencies": {
     "@fontsource/cinzel": "^5.2.0",
