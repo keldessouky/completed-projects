@@ -1,5 +1,5 @@
 import { CONFIG, STAT_KEYS } from '../config';
-import type { SaveData, SavedRun, Stats } from '../types';
+import type { SaveData, SavedWorld, Stats } from '../types';
 import { baseStats } from '../game/stats';
 
 /**
@@ -7,26 +7,25 @@ import { baseStats } from '../game/stats';
  * - Unknown/corrupt payloads are backed up (once) and replaced with defaults,
  *   never thrown away silently mid-parse.
  * - Writes are debounced; flush() is called on pagehide for force-quit safety.
- * - v3 additionally carries an in-progress floor, because a crawl is long
- *   enough that losing one to a phone call would be unforgivable.
+ * - v4 carries a whole open world. It stays small because the world itself is
+ *   a pure function of the seed: only what the player *did* is stored.
  */
 
 function defaults(): SaveData {
   return {
-    v: 3,
+    v: 4,
     gold: 0,
-    unlocked: 0,
-    bestTime: new Array(CONFIG.floors.count).fill(0),
-    cleared: new Array(CONFIG.floors.count).fill(false),
     level: 1,
     xp: 0,
     points: 0,
     stats: baseStats(),
+    hp: 0,               // 0 means "full"; resolved once the loadout is known
     achievements: [],
-    totalRuns: 0,
     totalDeaths: 0,
+    kills: 0,
+    playSec: 0,
     tutorialDone: false,
-    inProgress: null,
+    world: null,
     settings: { music: 1, sfx: 1, haptics: true, reducedMotion: false, shake: 1 },
   };
 }
@@ -44,74 +43,64 @@ function sanitizeStats(raw: unknown): Stats {
   return s;
 }
 
-/** Trusted shallowly here; RunState.fromSave re-validates every field itself. */
-function sanitizeRun(raw: unknown): SavedRun | null {
+/** Shallow only; WorldState.fromSave re-validates every field itself. */
+function sanitizeWorld(raw: unknown): SavedWorld | null {
   if (!raw || typeof raw !== 'object') return null;
   const o = raw as Record<string, unknown>;
-  if (typeof o.floor !== 'number' || typeof o.at !== 'string') return null;
-  return o as unknown as SavedRun;
+  if (typeof o.x !== 'number' || typeof o.y !== 'number') return null;
+  return o as unknown as SavedWorld;
+}
+
+function sanitizeSettings(d: SaveData, raw: unknown): void {
+  if (!raw || typeof raw !== 'object') return;
+  const s = raw as Record<string, unknown>;
+  d.settings.music = clamp01(s.music, 1);
+  d.settings.sfx = clamp01(s.sfx, 1);
+  d.settings.haptics = s.haptics !== false;
+  d.settings.reducedMotion = s.reducedMotion === true;
+  d.settings.shake = clamp01(s.shake, 1);
 }
 
 /**
- * v2 → v3: v2 was the auto-runner's schema — coins, per-stage stars, and four
- * upgrade tracks. Stars and best-squad have no v3 equivalent and are dropped;
- * coins carry over as gold, and every upgrade level already bought is refunded
- * as an attribute point so nobody loses progress across the genre change.
+ * v3 → v4: v3 was the floor-crawl schema — per-floor clears, best times and a
+ * mid-floor resume blob, none of which has an open-world equivalent. The
+ * character survives intact (level, XP, attributes, gold, achievements); the
+ * floor progress is dropped and the player starts the open floor at the gate.
  */
-function migrateV2(raw: Record<string, unknown>): SaveData {
-  const d = defaults();
-  d.gold = int(raw.coins, 0, 0, 1e9);
-  d.totalRuns = int(raw.totalRuns, 0, 0, 1e9);
-  d.tutorialDone = raw.tutorialDone === true;
-
-  const up = raw.upgrades as Record<string, unknown> | undefined;
-  if (up && typeof up === 'object') {
-    let refunded = 0;
-    for (const k of ['squad', 'rate', 'dmg', 'resist'] as const) {
-      refunded += int(up[k], 0, 0, CONFIG.stats.max);
-    }
-    d.points = refunded;
-  }
-  const s = raw.settings as Record<string, unknown> | undefined;
-  if (s && typeof s === 'object') {
-    d.settings.music = clamp01(s.music, 1);
-    d.settings.sfx = clamp01(s.sfx, 1);
-    d.settings.haptics = s.haptics !== false;
-    d.settings.reducedMotion = s.reducedMotion === true;
-    d.settings.shake = clamp01(s.shake, 1);
-  }
-  return d;
-}
-
-/** Validate + clamp a parsed v3 payload field-by-field; junk fields fall back. */
-function sanitize(raw: Record<string, unknown>): SaveData {
+function migrateV3(raw: Record<string, unknown>): SaveData {
   const d = defaults();
   d.gold = int(raw.gold, 0, 0, 1e9);
-  d.unlocked = int(raw.unlocked, 0, 0, CONFIG.floors.count - 1);
   d.level = int(raw.level, 1, 1, 999);
   d.xp = int(raw.xp, 0, 0, 1e9);
   d.points = int(raw.points, 0, 0, 9999);
-  d.totalRuns = int(raw.totalRuns, 0, 0, 1e9);
+  d.stats = sanitizeStats(raw.stats);
   d.totalDeaths = int(raw.totalDeaths, 0, 0, 1e9);
   d.tutorialDone = raw.tutorialDone === true;
-  d.stats = sanitizeStats(raw.stats);
-  d.inProgress = sanitizeRun(raw.inProgress);
+  if (Array.isArray(raw.achievements)) {
+    d.achievements = (raw.achievements as unknown[]).filter((a): a is string => typeof a === 'string');
+  }
+  sanitizeSettings(d, raw.settings);
+  return d;
+}
 
-  const best = raw.bestTime, cleared = raw.cleared;
-  if (Array.isArray(best)) for (let i = 0; i < d.bestTime.length; i++) d.bestTime[i] = int(best[i], 0, 0, 1e6);
-  if (Array.isArray(cleared)) for (let i = 0; i < d.cleared.length; i++) d.cleared[i] = cleared[i] === true;
+/** Validate + clamp a parsed v4 payload field-by-field; junk fields fall back. */
+function sanitize(raw: Record<string, unknown>): SaveData {
+  const d = defaults();
+  d.gold = int(raw.gold, 0, 0, 1e9);
+  d.level = int(raw.level, 1, 1, 999);
+  d.xp = int(raw.xp, 0, 0, 1e9);
+  d.points = int(raw.points, 0, 0, 9999);
+  d.hp = int(raw.hp, 0, 0, 1e6);
+  d.totalDeaths = int(raw.totalDeaths, 0, 0, 1e9);
+  d.kills = int(raw.kills, 0, 0, 1e9);
+  d.playSec = int(raw.playSec, 0, 0, 1e9);
+  d.tutorialDone = raw.tutorialDone === true;
+  d.stats = sanitizeStats(raw.stats);
+  d.world = sanitizeWorld(raw.world);
   if (Array.isArray(raw.achievements)) {
     d.achievements = (raw.achievements as unknown[]).filter((a): a is string => typeof a === 'string').slice(0, 200);
   }
-
-  const s = raw.settings as Record<string, unknown> | undefined;
-  if (s && typeof s === 'object') {
-    d.settings.music = clamp01(s.music, 1);
-    d.settings.sfx = clamp01(s.sfx, 1);
-    d.settings.haptics = s.haptics !== false;
-    d.settings.reducedMotion = s.reducedMotion === true;
-    d.settings.shake = clamp01(s.shake, 1);
-  }
+  sanitizeSettings(d, raw.settings);
   return d;
 }
 
@@ -133,8 +122,6 @@ export class Save {
     let text: string | null = null;
     try {
       text = localStorage.getItem(CONFIG.save.key);
-      // A v2 save lives under the old game's key; adopt it once.
-      if (!text) text = localStorage.getItem('ziggurat-run.save');
     } catch {
       this.storageOk = false; // private mode with storage denied — play stateless
       return defaults();
@@ -142,8 +129,8 @@ export class Save {
     if (!text) return defaults();
     try {
       const raw = JSON.parse(text) as Record<string, unknown>;
-      if (raw.v === 3) return sanitize(raw);
-      if (raw.v === 2 || raw.v === 1) return migrateV2(raw);
+      if (raw.v === 4) return sanitize(raw);
+      if (raw.v === 3 || raw.v === 2 || raw.v === 1) return migrateV3(raw);
       localStorage.setItem(CONFIG.save.key + '.backup', text);
       return defaults();
     } catch {

@@ -1,11 +1,13 @@
-# Crawler — Floor One
+# Crawler — The Open Floor
 
-A dungeon crawler built on the [Ziggurat Run](../ziggurat-run) engine, where **a
-floor is a map**: a node graph you route through under a countdown, with rooms
-that pay out once and a boss that will not let you leave until it is down.
+A top-down open-world RPG built on the [Ziggurat Run](../ziggurat-run) engine.
+One continuous 5,120-unit world, free roam with a floating joystick, real-time
+combat, quests, loot, gear, and a boss at the far end of the map who is not
+going to come to you.
 
-Earth's basements have been repossessed by a game show. You are Carl, barefoot
-and in boxer shorts, and the stairs seal in eight minutes.
+Earth's basements have been repossessed by a game show, and somebody built a
+countryside on floor three. You are Carl, barefoot and in boxer shorts, with a
+nail gun and a cat.
 
 Built with **PixiJS 8**, **Howler.js**, **tween.js**, **TypeScript** and **Vite**.
 Ships as a single static bundle. Tuned for **iPhone Pro Max Safari**.
@@ -16,8 +18,8 @@ npm run gen:audio   # synthesize the audio sprite (committed, so usually optiona
 npm run dev         # http://localhost:5173
 npm run build       # → dist/, a static bundle you can host anywhere
 npm run build:single # → dist-single/crawler.html, the whole game in one file
-npm run smoke        # headless Chromium playthrough of a whole floor
-npm run smoke:single # …the same 13 checks against the one-file build
+npm run smoke        # headless Chromium playthrough of the whole world
+npm run smoke:single # …the same 18 checks against the one-file build
 ```
 
 To just play it: `npm run build && npm run build:single`, then open
@@ -29,53 +31,52 @@ network requests at all.
 
 ## The loop
 
-**The floor is the game.** You arrive at the entry node with a party of one and
-a clock. Every room you enter is a bet: it pays party members, gold and XP, and
-it costs time you might have wanted for the boss.
+**Go somewhere, and find out what is there.** The world is a single plane with
+twenty-one places on it, and the only thing gating any of them is whether you
+can survive the walk.
 
-- **Tunnels** are the auto-runner. Drag anywhere to steer; Carl and the party
-  auto-fire on a shared beat, trailing in a spring-damped wedge. Paired doors
-  span the tunnel — `×2` `×3` `+5` `+10` against `−5` `÷2` `−50%` — and you walk
-  through exactly one.
-- **Nests** are a closed room. No scroll; waves arrive on a timer and you clear
-  every one of them to leave.
-- **Loot boxes** are bronze, silver or gold, and LUCK upgrades the box itself
-  rather than adding a separate rare-drop roll.
-- **Safe rooms** heal you back toward your peak for free and sell party members
-  and attribute points for gold you could have banked instead.
-- **The boss** blocks the stairs. It closes on your line the whole fight, so you
-  get about twenty seconds of fire no matter how big your party is — which means
-  the real question was answered several rooms ago.
+- **Move** by putting a thumb anywhere on the lower half of the screen — the
+  stick is born where you touch it and dies when you lift.
+- **Fighting is automatic** against the nearest thing in range. On a phone the
+  interesting decision is where you stand, not whether you remembered to tap
+  attack. Two abilities sit under your thumbs: Firecracker (everything nearby)
+  and Second Wind (patch up and run).
+- **Camps** hold four or five hostiles and stay cleared for a couple of minutes.
+  The further one sits from the first settlement, the worse what lives in it.
+- **Ruins and shrines** are quieter: a shrine is a permanent attribute point,
+  once, ever.
+- **Settlements** have a quest broker, a vendor, and nothing trying to kill you.
+- **The Depot**, far east, has the Chief Inspector in it.
 
-Rooms are one-shot, but you can always walk back through a cleared one. That
-costs travel time and nothing else, and it means a dead end can never strand you.
-
-**Damage-per-second is simply the party**, so the whole floor is one long
-argument about how many people you will have standing when you knock.
+Difficulty is geography, not gates. Everything is reachable from minute one and
+most of it will kill a level-1 character, which is the whole point of a map.
 
 ## What's in it
 
-- **Floor 1 of 18** — a seeded 13-node graph, identical on every attempt, with
-  every curve in `config.ts` written as a function of floor index so floors 2+
-  are a data change rather than a code change.
-- **A real clock** — 8 minutes. It only runs while you are in a room; moving and
-  shopping bill fixed costs, so nobody is punished for reading the screen. Run it
-  out and the stairs seal with you on the wrong side.
-- **Character progression** — level, XP, and seven attributes with the derived
-  value shown live beside each one, so a point is spent against a number you can
-  watch move.
-- **Two abilities** — Firecracker (screen-wide damage) and Second Wind (pulls
-  stragglers back into the line), on cooldowns that INT shortens.
-- **The System** — a queue of boxed, bureaucratic, faintly hostile notifications.
-  One at a time, and never over the floor clock.
-- **Achievements** — seven of them, sarcastically named, paid in gold.
-- **Mid-floor resume** — a crawl is eight minutes and a phone call is one, so the
-  live floor is serialised on `pagehide` and offered back on the title screen.
-- **Accessibility** — honours `prefers-reduced-motion`, colourblind-safe door
-  coding (shape mark *and* value text, never colour alone), ≥52 design-px tap
-  targets, contrast-checked HUD text.
-- **Dev overlay** — five taps in the top-left corner: FPS, frame time, draw
-  calls, live pool counts, jump to a floor, grant gold and points, 8× turbo.
+- **A 5,120² seeded world** — five biomes crossed from two noise fields, roads
+  between the settlements, twenty-one places, all a pure function of one seed.
+  Nothing about the world is stored; a save only records what you *did* to it.
+- **Streaming everything** — terrain bakes per 512-unit chunk into an LRU of
+  textures, and enemy populations instantiate as you approach and are refunded
+  when you leave. A world this size costs what one crowded screen costs.
+- **Real-time combat** — auto-attack, knockback, crits, a three-state enemy AI
+  with a leash that actually lets you disengage, and a spatial hash so 220
+  projectiles against 120 enemies is not 26,000 pair tests a frame.
+- **Character progression** — levels, seven attributes, and three gear slots
+  where every item is one number (its stat budget) that damage, health and
+  attribute bonuses all read off.
+- **Quests** — a five-step line from pest control to the Depot, tracked in a
+  journal, handed out and turned in through real dialogue.
+- **A vendor** — buy and sell, with CHA visibly moving the asking price.
+- **A minimap with fog of war**, run-length encoded into the save.
+- **Death that costs something** — a fifth of your gold and the walk back.
+  Everything you found, cleared and looted is still yours.
+- **The System** — boxed, bureaucratic, faintly hostile notifications, and eight
+  sarcastic achievements.
+- **Accessibility** — honours `prefers-reduced-motion`, ≥52 design-px tap
+  targets, contrast-checked HUD text, keyboard movement on desktop.
+- **Dev overlay** — five taps in the top-left corner: FPS, frame time, live
+  entity counts, and a warp pad to any place on the map.
 
 ## Flavour is a swappable layer
 
@@ -96,123 +97,112 @@ src/
   flavour/             EVERY player-facing string. No logic.
   core/
     game.ts            Context object: renderer, layers, services, the live
-                       RunState, the System feed, WebGL context-loss recovery
+                       WorldState, the System feed, context-loss recovery
     loop.ts            Fixed 120 Hz simulation + interpolation + FPS governor
-    scaler.ts          Letterboxed scale-to-fit, safe-area insets
-    input.ts           Drag steering, 5-tap dev gesture, iOS gesture suppression
-    save.ts            Versioned persistence, v2→v3 migration, mid-floor resume
-    audio.ts fx.ts haptics.ts pool.ts
+    input.ts           The floating joystick, keyboard fallback, dev gesture
+    save.ts            Versioned persistence, v3→v4 migration
+    scaler.ts audio.ts fx.ts haptics.ts pool.ts
   assets/
-    atlas.ts           Canvas2D painters → one 2048² spritesheet
-    backdrops.ts       Seeded procedural parallax per floor
+    atlas.ts           Canvas2D painters → one 2048² spritesheet, three facings
+    terrain.ts         Per-chunk terrain baking + LRU, and the world thumbnail
     fonts.ts palette.ts
+  world/
+    worldgen.ts        Biomes, roads, POI layout — all pure functions of a seed
+    worldstate.ts      The live world: position, health, quests, fog, inventory
+    entities.ts        Pooled enemies/projectiles/drops + the spatial hash
+    combat.ts          Enemy AI, projectiles, damage, knockback
+    quests.ts          The quest line as data
   game/
-    floors.ts          Seeded floor generation: the node graph and its contents
-    runstate.ts        The live floor — clock, party, position, persistence
-    stats.ts           Levels, attributes, and every derived combat number
+    stats.ts           Levels, attributes, gear — every derived combat number
     loot.ts system.ts achievements.ts
   scenes/
-    boot title floormap loot safe charsheet endings,
-    encounter/{encounter,boss,hud,particles}
+    boot title charsheet inventory journal shop death,
+    world/{world,hud,particles}
   ui/
-    button digits widgets overlays devoverlay
+    joystick minimap dialogue button digits widgets overlays devoverlay
 tools/
   gen-audio.mjs        Offline synthesizer → audio sprite + Howler sprite map
   build-single.mjs     Inlines everything into one self-contained .html
-  smoke.mjs            Headless playthrough of a whole floor
-  dev/dumpfloor.ts     Print a generated floor for balance work
+  smoke.mjs            Headless playthrough of the whole world
+  dev/dumpworld.ts     Print the generated world for balance work
 ```
 
-### Where the floor lives
+### The world is a function, not a file
 
-`RunState` deliberately does **not** live in a scene. `SceneManager.goto()`
-destroys the outgoing scene wholesale, and a floor spans many of them — map,
-tunnel, map, safe room, map, boss — so the clock, the party and your position
-hang off the game context instead. That object is also the unit of persistence:
-`toSave()`/`fromSave()` are what make resume possible, and `fromSave()` re-clamps
-every field rather than trusting it, so a hand-edited save produces a boring
-floor instead of a crash.
+Terrain colour, biome, road distance and POI layout are all pure functions of
+`(x, y, seed)`. That means a chunk can be thrown away and rebuilt identically,
+the whole map fits in a 128×128 thumbnail generated at boot, and a save holds
+only the things a player changed: where they stand, what they discovered, what
+they cleared, what they are carrying. The result is a save measured in
+kilobytes for a world measured in millions of square units.
 
-### One scene, three room shapes
+### Where the world lives
 
-Tunnels, nests and boss rooms share `EncounterScene` because they share almost
-everything: pools, formation springs, volleys, collisions, contact, endings. What
-differs is only the spawn driver (distance-keyed vs. time-keyed vs. none) and the
-exit test, so those live behind `this.def.kind` rather than in three near-identical
-scenes.
+`WorldState` deliberately does **not** live in a scene. `SceneManager.goto()`
+destroys the outgoing scene wholesale, and roaming is punctuated by inventory,
+shop, dialogue and character screens — so position, health, quest progress and
+the fog of war hang off the game context instead. `fromSave()` re-clamps every
+field rather than trusting it, so a hand-edited save produces a boring world
+instead of a crash.
 
 ### Fixed timestep, decoupled render
 
 Simulation runs at exactly **120 Hz** regardless of refresh rate; rendering
-interpolates between the last two sim states with an `alpha`. Gameplay is
-therefore identical on a 60 Hz phone and a 120 Hz ProMotion panel. The
-accumulator is clamped (`maxStepsPerFrame`) so a long hitch drops its debt
-instead of spiralling. A **frame-rate governor** watches a rolling 2 s window; if
-average frame time exceeds 8.3 ms it locks the ticker to 60 fps for the rest of
-the session, which is steadier than oscillating. A **thermal guard** cuts the
-particle budget by 40 % after four minutes of accumulated play.
+interpolates between the last two sim states with an `alpha`. Movement is
+therefore identical on a 60 Hz phone and a 120 Hz ProMotion panel. A frame-rate
+governor locks to 60 if a rolling 2 s window misses the 120 budget, and a
+thermal guard cuts the particle budget after four minutes of play.
 
 ### Zero allocations in the hot loop
 
-Nails, particles, damage numerals, party members, corpses and mobs all live in
-fixed-capacity `Pool`s with swap-remove iteration. Nothing is constructed during
-play, so there are no GC hitches mid-room.
-
-### Rendering safety
-
-Two failure modes get explicit handling because both are silent killers on a
-phone: **WebGL context loss** shows a recoverable message and restores on the
-next touch instead of white-screening, and **a throw inside a ticker listener**
-is caught by `Game.guard()` — Pixi only requests the next animation frame after
-`Ticker.update()` returns, so one unguarded exception means no frame 2, ever.
+Enemies, projectiles and ground loot live in fixed-capacity pools with
+swap-remove iteration. Nothing is constructed during play, so there are no GC
+hitches mid-fight.
 
 ---
 
-## Device targeting
-
-Design canvas is **440×956 CSS px** (iPhone Pro Max), scale-to-fit with
-letterboxing elsewhere; nothing gameplay-critical leaves the box. Renderer
-resolution is capped at `min(devicePixelRatio, 2.5)`. Safe-area insets are read
-from `env(safe-area-inset-*)` via `viewport-fit=cover`, and no tap target sits in
-the Dynamic Island band or the home-indicator strip.
-
-iOS specifics handled: `touch-action: none`, `user-select: none`, no double-tap
-zoom, no rubber-band scroll, no 300 ms tap delay, AudioContext unlocked on first
-touch (Howler), and `visibilitychange` pausing and muting the game for calls and
-app switches.
-
 ## Tuning
 
-The floor clock is 8 minutes; a full sweep of all eleven rooms costs roughly 395 s
-of it, so completionism is possible and never comfortable. You start with a party
-of one; a tunnel takes you to ~50, and the boss needs about 30 to beat the crush
-timer at base damage. `tools/dev/dumpfloor.ts` prints any generated floor —
-graph, clock estimates, and every door and wave — so balance work does not mean
-replaying the game.
+Every constant is in `config.ts`, and the two that shape the game most are the
+ones a player never sees:
+
+- **No ranged enemy out-ranges you.** The AI stops at `range × 0.8`, and every
+  shooter's stop distance clears the player's 232-unit attack range. A shooter
+  that outranges you cannot be approached without eating free hits, which reads
+  as the game cheating rather than as a threat.
+- **The boss does not scale with your level.** Ordinary mobs do (capped at
+  ×2.2), so a camp is still worth walking to at level 12. The Depot is a fixed
+  wall you are meant to grow into — a wall that grows with you means levelling
+  buys nothing.
+
+`tools/dev/dumpworld.ts` prints the generated world — every POI, its distance
+from the first settlement, its biome and its population — so balance work does
+not mean wandering around looking for it.
 
 ## Verification
 
-`npm run smoke` builds nothing itself — run `npm run build` first — then boots the
-real bundle in headless Chromium and drives the actual UI. The bot taps real node
-buttons at coordinates the floor map publishes; it does not call into game logic
-to move itself.
+`npm run smoke` builds nothing itself — run `npm run build` first — then boots
+the real bundle in headless Chromium and *plays* it: it walks with the joystick
+by dragging on the canvas, reads the world through the same probe the dev
+overlay uses, and taps real buttons. The only seams it takes that a human cannot
+are turbo and a warp, because a 5,120-unit world cannot be crossed on foot
+inside a test budget.
 
 ```
-✓ boot → title (assets loaded)          ✓ mid-floor resume restores position + clock
-✓ title → floor 1 map                   ✓ running out of clock seals the floor
-✓ floor 1 cleared by an oscillating bot ✓ pause → settings → quit to floor map
-✓ route hits every room type            ✓ dev overlay opens on the corner gesture
-✓ levelling works                       ✓ save survives a cold reload
-✓ achievements unlock                   ✓ zero console errors
-✓ attribute points spend
+✓ boot → title (assets loaded)          ✓ attribute point spent
+✓ entered the world, terrain streamed   ✓ journal lists quests and places
+✓ joystick moves the player             ✓ vendor opens and closes
+✓ quest accepted through dialogue       ✓ death costs gold, respawn is whole
+✓ camp populated on approach            ✓ the boss can be found and killed
+✓ combat works                          ✓ world survives a cold reload
+✓ loot picked up                        ✓ pause → settings → quit
+✓ gear equipped from the bag            ✓ dev overlay opens
+✓ shrine grants an attribute point      ✓ zero console errors
 ```
 
-It asserts floor 1 is clearable by a bot that only oscillates left and right,
-that the route exercised a tunnel, a nest, a loot box and a safe room, that the
-boss was actually fought, and that progress survives a reload. `--shots DIR`
-writes a screenshot at each step, and `--single [path]` runs the identical checks
-against the one-file build so the inlined bundle is proven playable, not just
-smaller.
+`--shots DIR` writes a screenshot at each step, and `--single [path]` runs the
+identical checks against the one-file build so the inlined bundle is proven
+playable, not just smaller.
 
 ## Licence
 

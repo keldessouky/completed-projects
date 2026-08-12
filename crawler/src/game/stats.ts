@@ -1,12 +1,17 @@
-import { CONFIG, STAT_KEYS, type AbilityKey, type StatKey } from '../config';
-import type { SaveData, Stats } from '../types';
+import { CONFIG, STAT_KEYS, type AbilityKey, type GearSlot, type StatKey } from '../config';
+import type { GearItem, SaveData, Stats } from '../types';
+
+/** What the player currently has equipped. */
+export type Equipped = Partial<Record<GearSlot, GearItem>>;
 
 /**
- * Every derived number the run reads, in one place.
+ * Every derived number the world reads, in one place.
  *
- * This module is the seam the whole progression system hangs on: the
- * encounter asks "how much damage does an arrow do" and never learns whether
- * the answer came from an upgrade track, an attribute, or a piece of gear.
+ * This is the seam the whole progression system hangs on: combat asks "how much
+ * damage does a hit do" and never learns whether the answer came from a level,
+ * an attribute, or the wrench you picked up ten minutes ago. Every function
+ * takes the loadout explicitly rather than reaching for a global, so the
+ * character sheet can preview a change without committing it.
  */
 
 export function baseStats(): Stats {
@@ -15,45 +20,59 @@ export function baseStats(): Stats {
   return s;
 }
 
-/** points in a stat ABOVE the base — the part that actually does anything */
-const over = (save: SaveData, k: StatKey): number => Math.max(0, save.stats[k] - CONFIG.stats.base);
-
-// ─────────────────────────── run-facing derived values ───────────────────────────
-
-/** party you start a floor with */
-export function startParty(save: SaveData): number {
-  return 1 + over(save, 'cha') * CONFIG.stats.effects.cha;
+/**
+ * A stat's effective value: what you spent, plus whatever a trinket is
+ * pretending you spent.
+ */
+export function effStat(save: SaveData, gear: Equipped, k: StatKey): number {
+  const trinket = gear.trinket;
+  const bonus = trinket && trinket.stat === k ? trinket.budget * CONFIG.gear.trinketStatPerPoint : 0;
+  return save.stats[k] + bonus;
 }
 
-/** seconds between volleys */
-export function fireInterval(save: SaveData): number {
-  return CONFIG.fire.interval / (1 + over(save, 'dex') * CONFIG.stats.effects.dex);
+/** points above the base — the part that actually does anything */
+const over = (save: SaveData, gear: Equipped, k: StatKey): number =>
+  Math.max(0, effStat(save, gear, k) - CONFIG.stats.base);
+
+// ─────────────────────────── combat ───────────────────────────
+
+export function maxHp(save: SaveData, gear: Equipped): number {
+  const armour = gear.armour ? gear.armour.budget * CONFIG.gear.armourHpPerPoint : 0;
+  return Math.round(
+    CONFIG.stats.hpAtLevel(save.level) + over(save, gear, 'con') * CONFIG.stats.effects.con + armour,
+  );
 }
 
-/** damage per arrow */
-export function arrowDamage(save: SaveData): number {
-  return CONFIG.fire.projDamage * (1 + over(save, 'str') * CONFIG.stats.effects.str);
+export function damage(save: SaveData, gear: Equipped): number {
+  const weapon = gear.weapon ? gear.weapon.budget * CONFIG.gear.weaponDamagePerPoint : 0;
+  return CONFIG.stats.baseDamage + over(save, gear, 'str') * CONFIG.stats.effects.str + weapon;
 }
 
-/** fraction of hazard and contact losses forgiven, 0..conMaxResist */
-export function lossResist(save: SaveData): number {
-  return Math.min(CONFIG.stats.conMaxResist, over(save, 'con') * CONFIG.stats.effects.con);
+/** seconds between automatic attacks */
+export function attackInterval(save: SaveData, gear: Equipped): number {
+  return CONFIG.combat.attackInterval / (1 + over(save, gear, 'dex') * CONFIG.stats.effects.dex);
 }
 
-/** ability cooldown after INT, in seconds */
-export function abilityCooldown(save: SaveData, key: AbilityKey): number {
-  const cdr = Math.min(CONFIG.stats.intMaxCdr, over(save, 'int') * CONFIG.stats.effects.int);
+export function moveSpeed(save: SaveData, gear: Equipped): number {
+  return CONFIG.player.speed * (1 + over(save, gear, 'dex') * CONFIG.player.speedPerDex);
+}
+
+export function critChance(save: SaveData, gear: Equipped): number {
+  return Math.min(CONFIG.stats.luckMaxCrit, over(save, gear, 'luck') * CONFIG.stats.effects.luck);
+}
+
+export function abilityCooldown(save: SaveData, gear: Equipped, key: AbilityKey): number {
+  const cdr = Math.min(CONFIG.stats.intMaxCdr, over(save, gear, 'int') * CONFIG.stats.effects.int);
   return CONFIG.abilities[key].cooldownSec * (1 - cdr);
 }
 
-/** multiplier on ability damage / restore from WIS */
-export function abilityPotency(save: SaveData): number {
-  return 1 + over(save, 'wis') * CONFIG.stats.effects.wis;
+export function abilityPotency(save: SaveData, gear: Equipped): number {
+  return 1 + over(save, gear, 'wis') * CONFIG.stats.effects.wis;
 }
 
-/** chance a loot box rolls up a tier, 0..luckMaxUpgrade */
-export function lootLuck(save: SaveData): number {
-  return Math.min(CONFIG.stats.luckMaxUpgrade, over(save, 'luck') * CONFIG.stats.effects.luck);
+/** multiplier on vendor asking prices, ≥ 1 − chaMaxDiscount */
+export function priceMult(save: SaveData, gear: Equipped): number {
+  return 1 - Math.min(CONFIG.stats.chaMaxDiscount, over(save, gear, 'cha') * CONFIG.stats.effects.cha);
 }
 
 // ─────────────────────────── levelling ───────────────────────────

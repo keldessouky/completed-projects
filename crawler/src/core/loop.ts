@@ -57,8 +57,11 @@ export class Loop {
       let steps = 0;
       const maxSteps = CONFIG.sim.maxStepsPerFrame * (this.turbo > 1 ? this.turbo : 1);
       this.host.guard('sim', () => {
-        while (this.acc >= dt && steps < maxSteps) {
-          this.stepper!.step(dt);
+        // Re-check the stepper every iteration: a step can end the scene (a
+        // death, a transition), and SceneManager clears the stepper as part of
+        // that. Without this the next catch-up iteration calls step() on null.
+        while (this.acc >= dt && steps < maxSteps && this.stepper) {
+          this.stepper.step(dt);
           this.acc -= dt;
           steps++;
         }

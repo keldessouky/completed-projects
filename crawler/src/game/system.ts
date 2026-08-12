@@ -64,7 +64,7 @@ export class SystemFeed {
     const view = new Container();
 
     const accent = tone === 'good' ? CONFIG.colors.goodTeal
-      : tone === 'bad' ? CONFIG.colors.trapRed
+      : tone === 'bad' ? CONFIG.colors.hpRed
       : CONFIG.colors.sysBright;
 
     const body = new Container();
@@ -89,7 +89,7 @@ export class SystemFeed {
 
     const bg = new Graphics();
     bg.roundRect(0, 0, width, h, 4)
-      .fill({ color: CONFIG.colors.pit, alpha: 0.93 })
+      .fill({ color: CONFIG.colors.ink, alpha: 0.93 })
       .stroke({ color: accent, width: 1.5, alpha: 0.85 });
     // a solid rule down the left edge — the System's letterhead
     bg.rect(0, 3, 3, h - 6).fill({ color: accent, alpha: 0.95 });

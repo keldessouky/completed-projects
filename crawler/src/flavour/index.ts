@@ -9,11 +9,11 @@
  *
  * Rules for anything added here:
  *  - no gameplay numbers (those live in config.ts)
- *  - no imports from game/ or scenes/ (this is a leaf module)
+ *  - no imports from world/, game/ or scenes/ (this is a leaf module)
  */
 
 export const GAME_TITLE = 'CRAWLER';
-export const GAME_SUBTITLE = 'Floor One';
+export const GAME_SUBTITLE = 'The Open Floor';
 
 /** The corporation running the show. */
 export const CORP = 'Borant';
@@ -28,47 +28,63 @@ export const CAST = {
   guide: 'Mordecai',
 } as const;
 
-/** Floor names, indexed by floor number − 1. Only floor 1 is built. */
-export const FLOOR_NAMES = ['The Basement'] as const;
-export const FLOOR_SUBTITLES = ['Concrete, rebar, and whatever used to live down here.'] as const;
+export const WORLD_NAME = 'The Over City';
+export const WORLD_TAG = 'Nine floors down, and somebody built a countryside in it.';
 
-export const floorName = (i: number): string => FLOOR_NAMES[i] ?? `Floor ${i + 1}`;
-export const floorSubtitle = (i: number): string => FLOOR_SUBTITLES[i] ?? '';
-
-/** Node type labels shown on the floor map. */
-export const NODE_LABEL = {
-  entry: 'Entry',
-  corridor: 'Tunnel',
-  mob: 'Nest',
-  loot: 'Loot Box',
-  safe: 'Safe Room',
-  boss: 'Boss',
-  stairs: 'Stairs Down',
+/** Region names, keyed by biome. */
+export const BIOME_NAME = {
+  grass: 'The Long Meadow',
+  forest: 'The Understory',
+  ruins: 'The Fallen Blocks',
+  swamp: 'The Sump',
+  waste: 'The Scoured Flat',
 } as const;
 
-/** Enemy display names, keyed by the engine's enemy kind. */
+export const POI_KIND_LABEL = {
+  town: 'Settlement',
+  camp: 'Camp',
+  ruin: 'Ruin',
+  shrine: 'Shrine',
+  lair: 'Lair',
+} as const;
+
+/** Names dealt out to generated POIs, in order. */
+export const TOWN_NAMES = ['Aldergate', 'Sixpenny'] as const;
+export const CAMP_NAMES = [
+  'The Gnaw', 'Rustworks', 'Bonepile', 'The Kennels', 'Slagheap',
+  'Wicker Camp', 'The Hollow', 'Tinpot', 'The Drownings',
+] as const;
+export const RUIN_NAMES = [
+  'Block Nine', 'The Stairwell', 'Car Park Two', 'The Atrium', 'Unit 40',
+] as const;
+export const SHRINE_NAMES = [
+  'Sponsor Terminal', 'Vending Shrine', 'Loyalty Kiosk', 'Rewards Pylon',
+] as const;
+export const LAIR_NAME = 'The Depot';
+
+/** Enemy display names and the phrasing used when they kill you. */
 export const MOB_NAME = {
-  brute: 'Rubble Brute',
   rat: 'Sewer Rat',
+  brute: 'Rubble Brute',
   drone: 'Maintenance Drone',
+  elite: 'Foreman',
+  boss: 'Chief Inspector Voll',
 } as const;
 
-/** Short phrases used in death diagnostics: "You lost 40 to <phrase>." */
 export const MOB_BLAME = {
-  brute: 'the rubble brutes',
-  rat: 'the rat swarm',
-  drone: 'the drones',
+  rat: 'a rat',
+  brute: 'a rubble brute',
+  drone: 'a drone',
+  elite: 'a foreman',
+  boss: 'the Chief Inspector',
 } as const;
 
-export const BOSS_NAME = 'Unit 7, Sanitation Foreman';
-export const BOSS_TAG = 'A janitor with a grudge and municipal funding.';
-
-/** The party members you collect are nameless survivors — these are the tiers. */
-export const PARTY_TIER = ['Survivor', 'Scavenger', 'Holdout', 'Veteran', 'Hardened'] as const;
+export const BOSS_NAME = MOB_NAME.boss;
+export const BOSS_TAG = 'Middle management with a firing solution.';
 
 export const ABILITY = {
-  blast: { name: 'Firecracker', desc: 'Improvised. Damages everything on screen.' },
-  rally: { name: 'Second Wind', desc: 'Pulls stragglers back into the line.' },
+  blast: { name: 'Firecracker', desc: 'Improvised. Hurts everything nearby.' },
+  surge: { name: 'Second Wind', desc: 'Patch yourself up and move.' },
 } as const;
 
 export const STAT_NAME = {
@@ -82,88 +98,162 @@ export const STAT_NAME = {
 } as const;
 
 export const STAT_DESC = {
-  str: 'Damage per shot.',
-  dex: 'Rate of fire.',
-  con: 'Fewer losses to traps and contact.',
+  str: 'Damage per hit.',
+  dex: 'Attack and movement speed.',
+  con: 'Maximum health.',
   int: 'Shorter ability cooldowns.',
   wis: 'Stronger ability effects.',
-  cha: 'More party members follow you.',
-  luck: 'Better loot, and the occasional crit.',
+  cha: 'Cheaper prices. People like you.',
+  luck: 'Critical hits and better loot.',
 } as const;
 
-/**
- * System notifications. The voice: bureaucratic, bored, faintly hostile.
- * Functions take the numbers so no formatting logic leaks into game code.
- */
+// ─────────────────────────── gear ───────────────────────────
+
+export const SLOT_NAME = { weapon: 'Weapon', armour: 'Armour', trinket: 'Trinket' } as const;
+export const TIER_NAME = { worn: 'Worn', solid: 'Solid', fine: 'Fine', prime: 'Prime' } as const;
+
+/** Base nouns per slot; the tier adjective is prefixed at generation time. */
+export const GEAR_NOUNS = {
+  weapon: ['Nail Gun', 'Pipe Wrench', 'Rebar Spear', 'Staple Cannon', 'Claw Hammer'],
+  armour: ['Hi-Vis Vest', 'Kneepads', 'Toolbelt Rig', 'Site Helmet', 'Padded Coverall'],
+  trinket: ['Lanyard', 'Keycard', 'Lucky Fuse', 'Union Pin', 'Laminated Badge'],
+} as const;
+
+// ─────────────────────────── NPCs ───────────────────────────
+
+export const NPC = {
+  quartermaster: {
+    name: 'Quartermaster Hask',
+    greet: [
+      'You are wearing boxer shorts.',
+      'I have things that are not boxer shorts. They cost money.',
+    ],
+    nothing: ['Come back with gold. Or gear. I am not fussy.'],
+  },
+  broker: {
+    name: 'Broker Iyla',
+    greet: [
+      'Everyone down here wants something fetched or something killed.',
+      'I take a cut for knowing which is which.',
+    ],
+    nothing: ['Nothing on the board. Go make some trouble and check back.'],
+  },
+  guide: {
+    name: CAST.guide,
+    greet: [
+      'You are alive, which puts you ahead of most of the intake.',
+      'The Depot is east. Do not go there yet. You will go there anyway.',
+    ],
+    nothing: ['Level up. Find gear. Then the Depot. In that order.'],
+  },
+} as const;
+
+// ─────────────────────────── quests ───────────────────────────
+
+export const QUEST = {
+  ratting: {
+    title: 'Pest Control',
+    brief: 'Kill 12 sewer rats. The settlement is tired of them and I am tired of hearing about it.',
+    done: 'Twelve. Good. They will be back by Thursday.',
+  },
+  camps: {
+    title: 'Eviction Notice',
+    brief: 'Clear out a camp — any camp. Pick one on your map and empty it.',
+    done: 'One camp quieter. The board has been updated. Nobody has thanked you.',
+  },
+  survey: {
+    title: 'Know the Ground',
+    brief: 'Find six places worth marking on a map. Wander. It is what you are for.',
+    done: 'Six. You now know this floor better than the people who built it.',
+  },
+  foreman: {
+    title: 'Middle Management',
+    brief: 'A Foreman is out there running the camps. Kill three of them and the rest get nervous.',
+    done: 'Three foremen. The nervousness is measurable. Well done.',
+  },
+  depot: {
+    title: 'The Depot',
+    brief: `${BOSS_NAME} runs the Depot in the east. Go and stop him running it.`,
+    done: 'The Depot is yours. The stairs down are open whenever you are.',
+  },
+} as const;
+
+// ─────────────────────────── the System ───────────────────────────
+
 export const SYS = {
   welcome: () => [
-    `Welcome, Crawler.`,
-    `You are one of ${(1_000_000).toLocaleString()}+ contestants. You are not special.`,
-    `${CORP} thanks you for your participation and waives all liability.`,
+    `Welcome to Floor 3, Crawler.`,
+    `This floor is open. There are no walls and no schedule.`,
+    `${CORP} reminds you that "open" is not the same as "safe".`,
   ],
-  floorOpen: (floor: number, mins: number) => [
-    `Floor ${floor} is now open.`,
-    `Stairs seal in ${mins} minutes. Anything still on this floor at that time is deleted.`,
-    `This is not a metaphor.`,
-  ],
-  timeWarn: (secs: number) => [`${secs} seconds until the stairs seal.`, `Suggested action: hurry.`],
   levelUp: (lvl: number, pts: number) => [
     `Level ${lvl}.`,
     `${pts} attribute point${pts === 1 ? '' : 's'} available.`,
     `Do try to spend ${pts === 1 ? 'it' : 'them'} on something useful.`,
   ],
-  lootOpen: (tier: string) => [`${tier} Loot Box opened.`, `Contents below. No refunds.`],
-  bossSpotted: () => [
-    `Boss encountered: ${BOSS_NAME}.`,
-    `Viewership is up 12%. Try to make it interesting.`,
+  discovered: (name: string) => [`Discovered: ${name}.`, `Marked on your map. You are welcome.`],
+  cleared: (name: string) => [`${name} is clear.`, `It will not stay that way.`],
+  gearFound: (name: string) => [`Picked up: ${name}.`],
+  questTaken: (title: string) => [`Quest accepted: ${title}.`],
+  questReady: (title: string) => [`${title}: objective complete.`, `Return to the giver.`],
+  questDone: (title: string, gold: number, xp: number) => [
+    `Quest complete: ${title}.`,
+    `${gold} gold, ${xp} XP.`,
   ],
-  bossDown: () => [`${BOSS_NAME} has been retired.`, `The stairs are open. Go.`],
+  shrine: () => [
+    `Sponsor terminal accessed.`,
+    `One attribute point, courtesy of a brand that would rather not be named.`,
+  ],
+  bossSpotted: () => [
+    `${BOSS_NAME} has noticed you.`,
+    `Viewership is up 22%. Try to make it interesting.`,
+  ],
+  bossDown: () => [
+    `${BOSS_NAME} has been retired.`,
+    `The stairs down are open. There is no hurry. There is always a hurry.`,
+  ],
   achievement: (name: string, gold: number) => [
     `Achievement unlocked: ${name}`,
     `Reward: ${gold} gold.`,
   ],
-  partyJoin: (n: number) => [`${n} survivor${n === 1 ? '' : 's'} joined your party.`],
-  trapHit: (n: number) => [`You lost ${n}. That door was clearly marked.`],
-  firstClass: () => [
-    `Class selection unlocks on Floor 3.`,
-    `Until then you are, officially, "Unclassed." The audience finds this endearing.`,
-  ],
+  lowHp: () => [`Health critical.`, `The audience has started a betting pool.`],
+  sold: (name: string, gold: number) => [`Sold ${name} for ${gold} gold.`],
+  bought: (name: string) => [`Purchased: ${name}.`],
 } as const;
 
 /** Announcer lines for the death broadcast. Picked at random. */
 export const DEATH_LINES = [
-  'And that is the end of a promising run.',
+  'And that is the end of a promising afternoon.',
   'Oh, that was ugly. Let us see it again in slow motion.',
   'The audience is clapping. Not for you.',
   'Somewhere, a sponsor is quietly withdrawing.',
-  'Cause of death: optimism.',
+  'Cause of death: curiosity.',
 ] as const;
 
-/** Shown when the floor timer runs out. */
-export const TIMEOUT_LINE = 'The stairs sealed. You were still on the wrong side of them.';
+export const RESPAWN_LINE = 'You wake up in a settlement. Lighter, and no wiser.';
 
-export const CLEAR_LINES = [
-  'Floor cleared. The audience is mildly impressed.',
-  'You survived the easy one. Congratulations, allegedly.',
-  'Down you go. It gets worse.',
+export const VICTORY_LINES = [
+  'The Depot is quiet. That is new.',
+  'Floor 3 belongs to a man in boxer shorts. Note it for the highlight reel.',
 ] as const;
-
-/** Door labels are the arithmetic itself, so they live in config. These are the marks. */
-export const DOOR_HINT_GOOD = 'SAFE';
-export const DOOR_HINT_TRAP = 'HAZARD';
 
 export const ACHIEVEMENT_TEXT = {
   firstBlood: { name: 'First Blood', desc: 'Kill something. Anything.' },
-  boxOpener: { name: 'Compulsive Gambler', desc: 'Open your first loot box.' },
-  untouched: { name: 'Suspiciously Careful', desc: 'Clear a tunnel without stepping in a hazard.' },
-  bigParty: { name: 'Cult Leader', desc: 'Reach 40 party members.' },
-  bossKill: { name: 'Employee of the Month', desc: `Retire ${BOSS_NAME}.` },
-  fastFloor: { name: 'Speedrunner', desc: 'Clear the floor with 4 minutes still on the clock.' },
-  fullSweep: { name: 'Completionist', desc: 'Visit every node on the floor before taking the stairs.' },
+  firstGear: { name: 'Dressed', desc: 'Equip a piece of gear. Any piece.' },
+  cartographer: { name: 'Cartographer', desc: 'Discover ten places.' },
+  campClearer: { name: 'Eviction Specialist', desc: 'Clear three camps.' },
+  wealthy: { name: 'Liquid', desc: 'Carry 1,000 gold at once.' },
+  primeFind: { name: 'Lucky Fuse', desc: 'Find a Prime-tier item.' },
+  bossKill: { name: 'Chief Inspected', desc: `Retire ${BOSS_NAME}.` },
+  survivor: { name: 'Suspiciously Careful', desc: 'Reach level 8 without dying.' },
 } as const;
 
-/** Vendor stock in the safe room. */
-export const VENDOR = {
-  title: 'Vending Machine',
-  flavour: 'Sponsored content. Prices are non-negotiable and openly insulting.',
+export const UI = {
+  talkPrompt: 'Talk',
+  usePrompt: 'Use',
+  enterPrompt: 'Enter',
+  noQuests: 'Nothing on the board.',
+  emptyBag: 'Your bag is empty. This is not a metaphor for anything.',
+  equipped: 'Equipped',
+  respawn: 'Get Up',
 } as const;

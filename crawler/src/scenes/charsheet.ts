@@ -20,15 +20,15 @@ export class CharSheetScene extends Scene {
   private pointsLabel!: import('pixi.js').Text;
   private xpBar!: Bar;
   private xpLabel!: import('pixi.js').Text;
-  private returnTo: string = 'floormap';
+  private returnTo: string = 'world';
 
   enter(data?: unknown): void {
     const ctx = this.ctx;
     const save = ctx.save.data;
-    this.returnTo = (data as { from?: string })?.from ?? (ctx.run ? 'floormap' : 'title');
+    this.returnTo = (data as { from?: string })?.from ?? (ctx.world ? 'world' : 'title');
 
     const bg = new Graphics();
-    bg.rect(-240, -240, W + 480, H + 480).fill(CONFIG.colors.pit);
+    bg.rect(-240, -240, W + 480, H + 480).fill(CONFIG.colors.ink);
     this.container.addChild(bg);
 
     const topY = Math.max(ctx.scaler.safeTop(), 12);
@@ -76,7 +76,7 @@ export class CharSheetScene extends Scene {
 
     const rule = new Graphics();
     rule.moveTo(-W / 2 + 24, 26).lineTo(W / 2 - 24, 26)
-      .stroke({ color: CONFIG.colors.concreteDim, width: 1 });
+      .stroke({ color: CONFIG.colors.stoneDim, width: 1 });
     wrap.addChild(rule);
 
     const name = uiText(STAT_NAME[k], 16, CONFIG.colors.bone, '600');
@@ -99,7 +99,11 @@ export class CharSheetScene extends Scene {
       onTap: () => {
         if (stats.spendPoint(ctx.save.data, k)) {
           ctx.audio.play('upgrade');
-          ctx.haptics.doorTap();
+          ctx.haptics.hit();
+          // CON raises the ceiling; hand the player the difference so a point
+          // spent mid-fight is immediately worth something
+          const ws = ctx.world;
+          if (ws && k === 'con') ws.hp += CONFIG.stats.effects.con;
           ctx.save.mark();
           this.refresh();
         }
@@ -112,17 +116,18 @@ export class CharSheetScene extends Scene {
     this.rows.set(k, { value, derived, plus });
   }
 
-  /** What one more point in each stat would actually buy you, right now. */
+  /** What each stat is currently buying you, gear included. */
   private derivedText(k: StatKey): string {
     const save = this.ctx.save.data;
+    const gear = this.ctx.world?.equipped ?? {};
     switch (k) {
-      case 'str': return `${stats.arrowDamage(save).toFixed(2)} dmg`;
-      case 'dex': return `${(1 / stats.fireInterval(save)).toFixed(2)}/s`;
-      case 'con': return `−${Math.round(stats.lossResist(save) * 100)}% losses`;
-      case 'int': return `${stats.abilityCooldown(save, 'blast').toFixed(1)}s cd`;
-      case 'wis': return `×${stats.abilityPotency(save).toFixed(2)}`;
-      case 'cha': return `${stats.startParty(save)} start`;
-      case 'luck': return `+${Math.round(stats.lootLuck(save) * 100)}% tier`;
+      case 'str': return `${stats.damage(save, gear).toFixed(1)} dmg`;
+      case 'dex': return `${(1 / stats.attackInterval(save, gear)).toFixed(2)}/s`;
+      case 'con': return `${stats.maxHp(save, gear)} hp`;
+      case 'int': return `${stats.abilityCooldown(save, gear, 'blast').toFixed(1)}s cd`;
+      case 'wis': return `×${stats.abilityPotency(save, gear).toFixed(2)}`;
+      case 'cha': return `−${Math.round((1 - stats.priceMult(save, gear)) * 100)}% price`;
+      case 'luck': return `${Math.round(stats.critChance(save, gear) * 100)}% crit`;
     }
   }
 

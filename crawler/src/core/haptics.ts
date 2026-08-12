@@ -14,7 +14,7 @@ export class Haptics {
     try { navigator.vibrate(pattern); } catch { this.supported = false; }
   }
 
-  doorTap(): void { this.buzz(CONFIG.fx.hapticDoorMs); }
-  trapHit(): void { this.buzz(CONFIG.fx.hapticTrapMs); }
-  bossBreach(): void { this.buzz(CONFIG.fx.hapticBreachMs); }
+  hit(): void { this.buzz(CONFIG.fx.hapticHitMs); }
+  hurt(): void { this.buzz(CONFIG.fx.hapticHurtMs); }
+  boss(): void { this.buzz(CONFIG.fx.hapticBossMs); }
 }

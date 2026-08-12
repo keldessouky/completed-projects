@@ -1,8 +1,8 @@
 import { Container, Graphics, Text } from 'pixi.js';
-import { CONFIG } from '../config';
 import type { Ctx } from '../core/game';
 import { FONT_UI } from '../assets/fonts';
 import { Btn } from './button';
+import { getWorld } from '../world/worldgen';
 
 /**
  * Dev overlay, opened by 5 quick taps in the top-left corner: FPS, frame
@@ -44,15 +44,21 @@ export class DevOverlay {
     this.stats.position.set(26, 104);
     this.root.addChild(this.stats);
 
-    // floor jump grid — only built floors are wired up
-    for (let i = 0; i < CONFIG.floors.built; i++) {
+    // warp pad: jump straight to any POI, because walking 5,000 units to
+    // check a camp is not debugging
+    const pois = getWorld().pois.slice(0, 12);
+    pois.forEach((p, i) => {
       const b = new Btn(ctx, {
-        w: 56, h: 40, kind: 'blue', label: String(i + 1), labelSize: 15, silent: true,
-        onTap: () => { this.toggle(false); ctx.debugStartFloor(i); },
+        w: 92, h: 38, kind: 'blue', label: p.name.slice(0, 11), labelSize: 10, silent: true,
+        onTap: () => {
+          this.toggle(false);
+          if (!ctx.world) ctx.enterWorld(false);
+          if (ctx.world) { ctx.world.x = p.x; ctx.world.y = p.y - 220; }
+        },
       });
-      b.position.set(52 + (i % 4) * 66, 320 + Math.floor(i / 4) * 50);
+      b.position.set(70 + (i % 3) * 104, 314 + Math.floor(i / 3) * 46);
       this.root.addChild(b);
-    }
+    });
 
     const coins = new Btn(ctx, {
       w: 120, h: 44, kind: 'dark', label: '+500g +5pt', labelSize: 12, silent: true,

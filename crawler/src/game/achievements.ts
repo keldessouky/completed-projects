@@ -1,14 +1,15 @@
 import { CONFIG } from '../config';
 import { ACHIEVEMENT_TEXT, SYS } from '../flavour';
 import type { SaveData } from '../types';
-import type { RunState } from './runstate';
+import type { WorldState } from '../world/worldstate';
+import { poiById } from '../world/worldgen';
 
 export type AchievementId = keyof typeof ACHIEVEMENT_TEXT;
 
 /**
- * Achievements are pure data plus a predicate. They are checked at a handful
- * of explicit moments rather than every frame — cheap, and it keeps the
- * "unlocked" toast tied to the thing that actually caused it.
+ * Achievements are pure data plus a predicate. They are checked at a handful of
+ * explicit moments rather than every frame — cheap, and it keeps the "unlocked"
+ * toast tied to the thing that actually caused it.
  */
 export interface AchievementDef {
   id: AchievementId;
@@ -26,12 +27,13 @@ const def = (id: AchievementId, gold: number = CONFIG.economy.achievementGold): 
 
 export const ACHIEVEMENTS: AchievementDef[] = [
   def('firstBlood'),
-  def('boxOpener'),
-  def('untouched', 70),
-  def('bigParty', 70),
-  def('bossKill', 120),
-  def('fastFloor', 150),
-  def('fullSweep', 200),
+  def('firstGear'),
+  def('cartographer', 120),
+  def('campClearer', 150),
+  def('wealthy', 100),
+  def('primeFind', 180),
+  def('bossKill', 400),
+  def('survivor', 250),
 ];
 
 const byId = new Map(ACHIEVEMENTS.map((a) => [a.id, a]));
@@ -56,24 +58,29 @@ export function award(save: SaveData, id: AchievementId): AchievementDef | null 
 export const announce = (a: AchievementDef): string[] => SYS.achievement(a.name, a.gold);
 
 /**
- * Everything checkable from run state alone. Called after each encounter and
- * once more when the floor ends; both are cheap and idempotent.
+ * Everything checkable from world and character state. Called after kills,
+ * pickups and discoveries; cheap and idempotent.
  */
-export function checkRunAchievements(save: SaveData, rs: RunState): AchievementDef[] {
+export function checkAchievements(save: SaveData, ws: WorldState): AchievementDef[] {
   const out: AchievementDef[] = [];
   const fire = (id: AchievementId): void => {
     const a = award(save, id);
     if (a) out.push(a);
   };
 
-  if (rs.kills > 0) fire('firstBlood');
-  if (rs.partyPeak >= 40) fire('bigParty');
-  if (rs.bossDown) fire('bossKill');
-  if (rs.bossDown && rs.timeLeft >= 240) fire('fastFloor');
-  if (rs.bossDown && !rs.hitHazard) fire('untouched');
+  if (save.kills > 0) fire('firstBlood');
+  if (Object.keys(ws.equipped).length > 0) fire('firstGear');
+  if (ws.discovered.size >= 10) fire('cartographer');
+  if (save.gold >= 1000) fire('wealthy');
+  if (ws.bossDown) fire('bossKill');
+  if (save.level >= 8 && save.totalDeaths === 0) fire('survivor');
 
-  const p = rs.progress();
-  if (rs.bossDown && p.visited >= p.total) fire('fullSweep');
+  let camps = 0;
+  for (const id of ws.cleared.keys()) if (poiById(id)?.kind === 'camp') camps++;
+  if (camps >= 3) fire('campClearer');
+
+  const anyPrime = [...ws.inventory, ...Object.values(ws.equipped)].some((g) => g?.tier === 'prime');
+  if (anyPrime) fire('primeFind');
 
   return out;
 }

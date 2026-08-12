@@ -104,10 +104,9 @@ export class GameAtlas {
 
     this.paintCast();
     this.paintEnemies();
-    this.paintBoss();
-    this.paintGates();
+    this.paintWorldBits();
     this.paintDigits();
-    this.paintParticlesAndItems();
+    this.paintParticles();
     this.paintUI();
     this.finalize();
   }
@@ -133,371 +132,416 @@ export class GameAtlas {
     c.fillStyle = fill;
     c.fill();
   }
-  /** draw fn again as a flat white silhouette (hit-flash frames) */
+  /**
+   * The same drawing, washed toward white — the hit-flash frame.
+   *
+   * Not a flat silhouette: at these sprite sizes a solid white blob loses the
+   * shape entirely, and with a fast auto-attack it is on screen often enough
+   * that "what am I even shooting" becomes a real question. Keeping a quarter
+   * of the original through preserves the read.
+   */
   private whiteVariant(name: string, w: number, h: number, draw: DrawFn): void {
     this.place(name, w, h, (c, ww, hh) => {
       draw(c, ww, hh);
       c.globalCompositeOperation = 'source-atop';
-      c.fillStyle = '#ffffff';
+      c.fillStyle = 'rgba(255,255,255,0.76)';
       c.fillRect(-2, -2, ww + 4, hh + 4);
       c.globalCompositeOperation = 'source-over';
     });
   }
 
-  // ---------- cast ----------
+  // ---------- characters (three facings; east is mirrored for west) ----------
   private paintCast(): void {
-    // Carl: seen from behind and slightly above. Bare back, boxer shorts, bare
-    // feet, and a nail gun he did not own last week.
-    this.place('hero', 48, 56, (c, w) => {
-      const cx = w / 2;
-      // the nail gun, held forward into the top of the frame
-      this.rr(c, cx - 7, 6, 14, 13, 3, P.steelDark);
-      this.rr(c, cx - 5, 4, 10, 6, 2, P.steel);
-      c.fillStyle = P.amber; c.fillRect(cx - 2, 2, 4, 4);      // muzzle glow
-      this.rr(c, cx - 3, 17, 6, 7, 2, P.steelDark);            // magazine
-      // arms out to the grip
-      this.poly(c, [cx - 10, 22, cx - 14, 13, cx - 10.6, 11.6, cx - 5, 20], P.skin);
-      this.poly(c, [cx + 10, 22, cx + 14, 13, cx + 10.6, 11.6, cx + 5, 20], P.skin);
-      // bare back and shoulders
-      this.rr(c, cx - 11, 18, 22, 18, 7, P.skin);
-      c.fillStyle = 'rgba(0,0,0,0.16)';
-      c.fillRect(cx - 1, 20, 2, 14);                            // spine shadow
-      // boxer shorts, checked, because that is the whole joke
-      this.rr(c, cx - 12, 34, 24, 13, 3, P.cloth);
-      c.fillStyle = 'rgba(255,255,255,0.16)';
-      for (let i = 0; i < 3; i++) c.fillRect(cx - 12 + i * 8, 34, 3, 13);
-      for (let i = 0; i < 2; i++) c.fillRect(cx - 12, 37 + i * 5, 24, 2);
+    // A contact shadow under every character: at this camera angle it is the
+    // only thing that says "standing on ground" rather than "floating".
+    const shadow = (c: CanvasRenderingContext2D, cx: number, cy: number, rx: number): void => {
+      c.fillStyle = P.shadow;
+      c.beginPath(); c.ellipse(cx, cy, rx, rx * 0.42, 0, 0, Math.PI * 2); c.fill();
+    };
+
+    /**
+     * Carl. Seen from above and slightly behind — head and shoulders carry the
+     * read at this size, so they get most of the frame and the legs are a hint.
+     */
+    const carl = (facing: 's' | 'n' | 'e'): DrawFn => (c, w, h) => {
+      const cx = w / 2, foot = h - 5;
+      shadow(c, cx, foot, 12);
+
       // legs and very bare feet
-      this.rr(c, cx - 9, 46, 7, 8, 2, P.skin);
-      this.rr(c, cx + 2, 46, 7, 8, 2, P.skin);
-      this.rr(c, cx - 10, 52, 9, 4, 2, P.skin);
-      this.rr(c, cx + 1, 52, 9, 4, 2, P.skin);
-      // dark hair, from above
-      this.dot(c, cx, 15, 6.2, '#2b2118');
-      c.fillStyle = '#3a2d20';
-      c.beginPath(); c.arc(cx, 14, 6.2, Math.PI, 0); c.fill();
-    });
+      this.rr(c, cx - 8, foot - 15, 7, 13, 3, P.skinShade);
+      this.rr(c, cx + 1, foot - 15, 7, 13, 3, P.skin);
 
-    // Princess Donut, trotting alongside. Small, fluffy, deeply unimpressed.
-    this.place('donut', 30, 24, (c, w, h) => {
-      const cx = w / 2, cy = h / 2 + 2;
-      c.fillStyle = P.furShade;
-      c.beginPath(); c.ellipse(cx, cy + 2, 11, 7.5, 0, 0, Math.PI * 2); c.fill();
-      c.fillStyle = P.fur;
-      c.beginPath(); c.ellipse(cx - 1, cy, 10, 6.5, 0, 0, Math.PI * 2); c.fill();
-      // tail, up and outraged
-      c.strokeStyle = P.fur; c.lineWidth = 3.4; c.lineCap = 'round';
-      c.beginPath();
-      c.moveTo(cx + 8, cy); c.quadraticCurveTo(cx + 15, cy - 4, cx + 12, cy - 10);
-      c.stroke();
-      // head and ears
-      this.dot(c, cx - 8, cy - 3, 5.4, P.fur);
-      this.poly(c, [cx - 12, cy - 6, cx - 10.4, cy - 11, cx - 8.6, cy - 6.4], P.fur);
-      this.poly(c, [cx - 6.4, cy - 6.6, cx - 5, cy - 11, cx - 3.4, cy - 6.2], P.fur);
-      // the tiara. she earned it. she will tell you about it.
-      c.fillStyle = P.amberBright;
-      c.fillRect(cx - 11.4, cy - 8.6, 6.6, 1.8);
-      this.poly(c, [cx - 9.4, cy - 8.8, cx - 8.1, cy - 12, cx - 6.8, cy - 8.8], P.amberBright);
-      c.fillStyle = '#2b2118';
-      c.fillRect(cx - 10.2, cy - 4, 1.8, 1.8);
-      c.fillRect(cx - 7, cy - 4, 1.8, 1.8);
-    });
+      // boxer shorts, checked, because that is the whole joke
+      this.rr(c, cx - 10, foot - 24, 20, 12, 3, P.cloth);
+      c.fillStyle = P.clothLit;
+      c.fillRect(cx - 10, foot - 21, 20, 2);
+      c.fillRect(cx - 4, foot - 24, 3, 12);
+      c.fillRect(cx + 4, foot - 24, 3, 12);
 
-    // Party tiers: survivors who found progressively better things to wear.
-    const unit = (tier: number): DrawFn => (c, w) => {
-      const cx = w / 2;
-      // whatever they are shooting with
-      c.strokeStyle = tier >= 2 ? P.steel : P.steelDark;
-      c.lineWidth = 2.2;
-      c.beginPath(); c.moveTo(cx + 6, 24); c.lineTo(cx + 6, 6); c.stroke();
-      this.rr(c, cx + 4, 4, 4.4, 5, 1.4, tier >= 2 ? P.amber : P.steel);
-      // scavenged coat (T3+)
-      if (tier >= 3) this.poly(c, [cx - 9, 15, cx + 7, 15, cx + 4, 32, cx - 6, 32], P.rustDeep);
-      // torso
-      this.rr(c, cx - 7, 13, 14, 15, 3, tier >= 1 ? P.cloth : P.concrete);
-      // body armour (T2+): a plate that reads even at 30px
-      if (tier >= 2) {
-        this.rr(c, cx - 6, 15, 12, 9, 2, tier >= 4 ? P.steel : P.steelDark);
-        c.fillStyle = P.amber; c.fillRect(cx - 1.4, 16.4, 2.8, 6);
+      // bare torso
+      this.rr(c, cx - 10, foot - 36, 20, 14, 5, P.skin);
+      c.fillStyle = P.skinShade;
+      if (facing === 'n') c.fillRect(cx - 1, foot - 35, 2, 12);   // spine
+      else if (facing === 'e') c.fillRect(cx + 5, foot - 36, 5, 14);
+
+      // arms holding the nail gun forward
+      if (facing === 'e') {
+        this.rr(c, cx + 4, foot - 33, 12, 6, 3, P.skin);
+        this.rr(c, cx + 14, foot - 36, 11, 9, 2, P.steelDark);
+        this.rr(c, cx + 22, foot - 34, 5, 5, 1.5, P.steel);
+        c.fillStyle = P.amberBright; c.fillRect(cx + 26, foot - 33, 3, 3);
+      } else if (facing === 's') {
+        this.rr(c, cx - 15, foot - 32, 7, 8, 3, P.skin);
+        this.rr(c, cx + 8, foot - 32, 7, 8, 3, P.skin);
+        this.rr(c, cx - 7, foot - 28, 14, 10, 2, P.steelDark);
+        this.rr(c, cx - 4, foot - 20, 8, 5, 1.5, P.steel);
+        c.fillStyle = P.amberBright; c.fillRect(cx - 2, foot - 16, 4, 3);
+      } else {
+        this.rr(c, cx - 15, foot - 32, 7, 8, 3, P.skinShade);
+        this.rr(c, cx + 8, foot - 32, 7, 8, 3, P.skinShade);
       }
-      // legs
-      this.rr(c, cx - 6, 27, 5, 7, 1.6, P.concreteDim);
-      this.rr(c, cx + 1, 27, 5, 7, 1.6, P.concreteDim);
-      // head; helmet from T1
-      this.dot(c, cx, 9.4, 4.4, P.skin);
-      if (tier >= 1) {
-        c.fillStyle = tier >= 4 ? P.amberBright : tier >= 3 ? P.steel : P.steelDark;
-        c.beginPath(); c.arc(cx, 9, 4.7, Math.PI, 0); c.fill();
-        c.fillRect(cx - 4.7, 8.6, 9.4, 1.6);
-        if (tier >= 4) { c.fillStyle = P.sysBright; c.fillRect(cx - 4.7, 6.6, 3, 1.6); }
+
+      // head: hair cap from above, face only when looking at the camera
+      const hy = foot - 43;
+      this.dot(c, cx, hy, 9, P.hair);
+      if (facing === 's') {
+        this.dot(c, cx, hy + 2.5, 7, P.skin);
+        c.fillStyle = P.hair;
+        c.beginPath(); c.arc(cx, hy, 8.6, Math.PI, 0); c.fill();
+        c.fillRect(cx - 8.6, hy - 1, 17.2, 2.6);
+        c.fillStyle = P.ink;
+        c.fillRect(cx - 4, hy + 1.6, 2.4, 2.4);
+        c.fillRect(cx + 1.6, hy + 1.6, 2.4, 2.4);
+      } else if (facing === 'e') {
+        this.dot(c, cx + 3, hy + 2, 6.4, P.skin);
+        c.fillStyle = P.hair;
+        c.beginPath(); c.arc(cx, hy, 8.6, Math.PI * 0.7, Math.PI * 1.9); c.fill();
+        c.fillStyle = P.ink; c.fillRect(cx + 5, hy + 1, 2.4, 2.4);
       }
     };
-    for (let t = 0; t < 5; t++) this.place('unit' + t, 30, 34, unit(t));
-    this.whiteVariant('unitW', 30, 34, unit(0));
+    for (const f of ['s', 'n', 'e'] as const) this.place('carl_' + f, 44, 56, carl(f));
+    this.place('carl_dead', 52, 40, (c, w, h) => {
+      const cx = w / 2, cy = h / 2;
+      shadow(c, cx, cy + 10, 18);
+      c.save(); c.translate(cx, cy); c.rotate(Math.PI / 2);
+      this.rr(c, -10, -14, 20, 14, 5, P.skin);
+      this.rr(c, -10, 0, 20, 12, 3, P.cloth);
+      this.dot(c, 0, -21, 9, P.hair);
+      c.restore();
+    });
+
+    /** Princess Donut. Small, fluffy, deeply unimpressed. */
+    const donut = (facing: 's' | 'n' | 'e'): DrawFn => (c, w, h) => {
+      const cx = w / 2, foot = h - 4;
+      shadow(c, cx, foot, 9);
+      // body
+      c.fillStyle = P.furShade;
+      c.beginPath(); c.ellipse(cx, foot - 8, 10, 7, 0, 0, Math.PI * 2); c.fill();
+      c.fillStyle = P.fur;
+      c.beginPath(); c.ellipse(cx, foot - 10, 9, 6, 0, 0, Math.PI * 2); c.fill();
+      // tail, up and outraged
+      c.strokeStyle = P.fur; c.lineWidth = 3.2; c.lineCap = 'round';
+      c.beginPath();
+      const tx = facing === 'e' ? cx - 9 : cx + 8;
+      c.moveTo(tx, foot - 9);
+      c.quadraticCurveTo(tx + (facing === 'e' ? -7 : 7), foot - 16, tx + (facing === 'e' ? -3 : 3), foot - 24);
+      c.stroke();
+      // head
+      const hx = facing === 'e' ? cx + 5 : cx;
+      const hy = foot - (facing === 'n' ? 17 : 19);
+      this.dot(c, hx, hy, 7, P.fur);
+      this.poly(c, [hx - 6, hy - 4, hx - 4.6, hy - 10, hx - 2, hy - 4.6], P.fur);
+      this.poly(c, [hx + 2, hy - 4.6, hx + 4.6, hy - 10, hx + 6, hy - 4], P.fur);
+      // the tiara. she earned it. she will tell you about it.
+      c.fillStyle = P.amberBright;
+      c.fillRect(hx - 5.4, hy - 6.6, 10.8, 2);
+      this.poly(c, [hx - 1.6, hy - 6.8, hx, hy - 11, hx + 1.6, hy - 6.8], P.amberBright);
+      if (facing !== 'n') {
+        c.fillStyle = P.ink;
+        c.fillRect(hx - 3.4, hy - 1.4, 2, 2.4);
+        c.fillRect(hx + 1.4, hy - 1.4, 2, 2.4);
+        c.fillStyle = P.hpRed;
+        c.fillRect(hx - 1, hy + 2.4, 2, 1.4);
+      }
+    };
+    for (const f of ['s', 'n', 'e'] as const) this.place('donut_' + f, 32, 34, donut(f));
+
+    /** Townsfolk. Role reads from the colour of the coat, not a label. */
+    const npc = (coat: string, accent: string): DrawFn => (c, w, h) => {
+      const cx = w / 2, foot = h - 5;
+      shadow(c, cx, foot, 11);
+      this.rr(c, cx - 8, foot - 14, 6, 12, 2.5, P.inkLift);
+      this.rr(c, cx + 2, foot - 14, 6, 12, 2.5, P.inkLift);
+      this.rr(c, cx - 11, foot - 34, 22, 22, 5, coat);
+      c.fillStyle = accent;
+      c.fillRect(cx - 11, foot - 27, 22, 3.4);
+      c.fillRect(cx - 2, foot - 34, 4, 22);
+      this.rr(c, cx - 15, foot - 31, 6, 12, 3, coat);
+      this.rr(c, cx + 9, foot - 31, 6, 12, 3, coat);
+      this.dot(c, cx, foot - 41, 8.4, P.skin);
+      c.fillStyle = P.hair;
+      c.beginPath(); c.arc(cx, foot - 42, 8.4, Math.PI, 0); c.fill();
+      c.fillStyle = P.ink;
+      c.fillRect(cx - 3.6, foot - 41, 2.2, 2.2);
+      c.fillRect(cx + 1.4, foot - 41, 2.2, 2.2);
+    };
+    this.place('npc_vendor', 40, 52, npc(P.rustDeep, P.amber));
+    this.place('npc_quests', 40, 52, npc(P.sysDeep, P.sysBright));
+    this.place('npc_guide', 40, 52, npc('#3d3548', P.goodTeal));
   }
 
   // ---------- mobs ----------
   private paintEnemies(): void {
-    // Rubble brute: a slab of collapsed building that stood back up.
-    const brute: DrawFn = (c, w) => {
-      const cx = w / 2;
-      this.rr(c, cx - 18, 22, 36, 30, 3, P.concreteDim);
-      this.rr(c, cx - 21, 26, 10, 22, 2, P.concrete);   // arms
-      this.rr(c, cx + 11, 26, 10, 22, 2, P.concrete);
-      this.rr(c, cx - 14, 18, 28, 22, 2, P.concrete);   // chest slab
-      this.rr(c, cx - 9, 6, 18, 16, 2, P.concreteDim);  // head block
-      // rebar bristling out of the shoulders
-      c.strokeStyle = P.rust; c.lineWidth = 2;
-      c.beginPath();
-      c.moveTo(cx - 16, 22); c.lineTo(cx - 22, 12);
-      c.moveTo(cx + 14, 20); c.lineTo(cx + 21, 11);
-      c.moveTo(cx + 6, 18); c.lineTo(cx + 9, 8);
-      c.stroke();
-      // fracture lines
-      c.strokeStyle = P.pit; c.lineWidth = 1.4;
-      c.beginPath();
-      c.moveTo(cx - 8, 30); c.lineTo(cx - 3, 36); c.lineTo(cx - 6, 43);
-      c.moveTo(cx + 9, 24); c.lineTo(cx + 5, 31);
-      c.stroke();
-      // two dead sodium bulbs where eyes would be
-      c.fillStyle = P.amberBright;
-      c.fillRect(cx - 6, 11, 4, 3); c.fillRect(cx + 2, 11, 4, 3);
-      c.fillStyle = P.concreteDim;
-      c.fillRect(cx - 14, 52, 28, 4);
+    const shadow = (c: CanvasRenderingContext2D, cx: number, cy: number, rx: number): void => {
+      c.fillStyle = P.shadow;
+      c.beginPath(); c.ellipse(cx, cy, rx, rx * 0.42, 0, 0, Math.PI * 2); c.fill();
     };
-    this.place('brute', 52, 56, brute);
-    this.whiteVariant('bruteW', 52, 56, brute);
 
-    // Sewer rat: low, fast, far too large, coming straight at you.
-    const rat: DrawFn = (c, w, h) => {
-      const cx = w / 2;
-      // tail whipping out behind
+    /** Sewer rat: low, fast, and much too large. */
+    const rat = (facing: 's' | 'n' | 'e'): DrawFn => (c, w, h) => {
+      const cx = w / 2, foot = h - 4;
+      shadow(c, cx, foot, 12);
+      // tail
       c.strokeStyle = P.rustDeep; c.lineWidth = 2.6; c.lineCap = 'round';
       c.beginPath();
-      c.moveTo(cx, h - 12); c.quadraticCurveTo(cx + 14, h - 6, cx + 9, h - 1);
+      const tx = facing === 'e' ? cx - 10 : cx;
+      c.moveTo(tx, foot - 7);
+      c.quadraticCurveTo(tx - 12, foot - 3, tx - 8, foot + 2);
       c.stroke();
-      // body, haunches first because we see it from above
+      // body
       c.fillStyle = P.rustDeep;
-      c.beginPath(); c.ellipse(cx, h - 15, 12, 10, 0, 0, Math.PI * 2); c.fill();
+      c.beginPath(); c.ellipse(cx, foot - 8, 13, 8, 0, 0, Math.PI * 2); c.fill();
       c.fillStyle = P.rust;
-      c.beginPath(); c.ellipse(cx, h - 18, 10, 8, 0, 0, Math.PI * 2); c.fill();
-      // legs splayed out
-      for (const sx of [-1, 1]) {
-        this.rr(c, cx + sx * 11 - 2, h - 22, 4, 8, 1.6, P.rustDeep);
-        this.rr(c, cx + sx * 9 - 2, h - 12, 4, 7, 1.6, P.rustDeep);
+      c.beginPath(); c.ellipse(cx, foot - 10, 11, 6.4, 0, 0, Math.PI * 2); c.fill();
+      // head + ears
+      const hx = facing === 'e' ? cx + 10 : cx;
+      const hy = foot - (facing === 'n' ? 13 : 15);
+      this.dot(c, hx, hy, 7, P.rust);
+      this.dot(c, hx - 5.4, hy - 4.6, 3.4, P.rustDeep);
+      this.dot(c, hx + 5.4, hy - 4.6, 3.4, P.rustDeep);
+      if (facing !== 'n') {
+        this.poly(c, [hx - 2.6, hy + 2, hx + 2.6, hy + 2, hx, hy + 8], P.skinShade);
+        c.fillStyle = P.hpRed;
+        c.fillRect(hx - 4, hy - 1, 2.4, 2.2);
+        c.fillRect(hx + 1.6, hy - 1, 2.4, 2.2);
       }
-      // head and ears
-      this.dot(c, cx, 9, 6.4, P.rust);
-      this.dot(c, cx - 5.6, 4.4, 3.2, P.rustDeep);
-      this.dot(c, cx + 5.6, 4.4, 3.2, P.rustDeep);
-      this.poly(c, [cx - 2.6, 12, cx + 2.6, 12, cx, 17], P.skin);   // snout
-      c.fillStyle = P.trapRed;
-      c.fillRect(cx - 4, 7.4, 2.6, 2.2); c.fillRect(cx + 1.4, 7.4, 2.6, 2.2);
     };
-    this.place('rat', 40, 38, rat);
-    this.whiteVariant('ratW', 40, 38, rat);
 
-    // Maintenance drone: a municipal fan that was given opinions.
-    const drone = (bladesUp: boolean): DrawFn => (c, w) => {
-      const cx = w / 2, cy = 22;
-      const spin = bladesUp ? 0 : Math.PI / 4;
-      // rotor arms and blur discs
+    /** Rubble brute: a slab of collapsed building that stood back up. */
+    const brute = (facing: 's' | 'n' | 'e'): DrawFn => (c, w, h) => {
+      const cx = w / 2, foot = h - 5;
+      shadow(c, cx, foot, 19);
+      this.rr(c, cx - 15, foot - 16, 11, 15, 2, P.stoneDim);
+      this.rr(c, cx + 4, foot - 16, 11, 15, 2, P.stoneDim);
+      this.rr(c, cx - 19, foot - 44, 38, 30, 3, P.stone);
+      c.fillStyle = P.stoneDim;
+      c.fillRect(cx - 19, foot - 32, 38, 3);
+      // rebar bristling out of the shoulders
+      c.strokeStyle = P.rust; c.lineWidth = 2.4;
+      c.beginPath();
+      c.moveTo(cx - 15, foot - 42); c.lineTo(cx - 23, foot - 54);
+      c.moveTo(cx + 13, foot - 43); c.lineTo(cx + 22, foot - 53);
+      c.stroke();
+      // head block
+      this.rr(c, cx - 10, foot - 58, 20, 16, 2, P.stoneDim);
+      if (facing !== 'n') {
+        c.fillStyle = P.amberBright;
+        c.fillRect(cx - 6, foot - 52, 4.6, 3.4);
+        c.fillRect(cx + 1.4, foot - 52, 4.6, 3.4);
+      }
+      // fracture lines
+      c.strokeStyle = 'rgba(0,0,0,0.45)'; c.lineWidth = 1.6;
+      c.beginPath();
+      c.moveTo(cx - 8, foot - 40); c.lineTo(cx - 2, foot - 32); c.lineTo(cx - 6, foot - 22);
+      c.stroke();
+      if (facing === 'e') { c.fillStyle = 'rgba(0,0,0,0.22)'; c.fillRect(cx + 8, foot - 44, 11, 30); }
+    };
+
+    /** Maintenance drone: a municipal fan that was given opinions. */
+    const drone = (facing: 's' | 'n' | 'e'): DrawFn => (c, w, h) => {
+      const cx = w / 2, base = h - 6;
+      shadow(c, cx, base + 2, 13);
+      // it hovers: the body sits well above its shadow
+      const by = base - 22;
       for (const sx of [-1, 1]) {
         const ax = cx + sx * 17;
-        this.rr(c, cx + (sx < 0 ? -17 : 3), cy - 3, 14, 5, 2, P.steelDark);
-        c.save(); c.translate(ax, cy - 4); c.rotate(spin);
-        c.fillStyle = 'rgba(141,146,153,0.55)';
-        c.fillRect(-9, -1.6, 18, 3.2);
-        c.fillRect(-1.6, -9, 3.2, 18);
-        c.restore();
-        this.dot(c, ax, cy - 4, 2.6, P.steel);
+        this.rr(c, cx + (sx < 0 ? -18 : 4), by - 2, 14, 5, 2, P.steelDark);
+        c.fillStyle = 'rgba(141,146,153,0.5)';
+        c.beginPath(); c.ellipse(ax, by - 4, 11, 4, 0, 0, Math.PI * 2); c.fill();
+        this.dot(c, ax, by - 4, 2.6, P.steel);
       }
-      // chassis
-      this.rr(c, cx - 9, cy - 8, 18, 18, 4, P.steel);
-      this.rr(c, cx - 7, cy - 6, 14, 8, 2, P.steelDark);
-      // camera lens, and the little red light that means it is filming
-      this.dot(c, cx, cy + 4, 4.6, P.steelDark);
-      this.dot(c, cx, cy + 4, 3, P.sys);
-      this.dot(c, cx - 1, cy + 3, 1.2, P.sysBright);
-      c.fillStyle = P.trapRed; c.fillRect(cx + 5, cy - 5, 2.6, 2.6);
-      // undercarriage grabber
-      this.poly(c, [cx - 4, cy + 10, cx + 4, cy + 10, cx, cy + 16], P.steelDark);
+      this.rr(c, cx - 10, by - 10, 20, 20, 5, P.steel);
+      this.rr(c, cx - 8, by - 8, 16, 8, 2, P.steelDark);
+      if (facing !== 'n') {
+        this.dot(c, cx, by + 4, 5, P.steelDark);
+        this.dot(c, cx, by + 4, 3.2, P.sys);
+        this.dot(c, cx - 1, by + 3, 1.3, P.sysBright);
+      }
+      c.fillStyle = P.hpRed; c.fillRect(cx + 5, by - 7, 2.8, 2.8);
+      this.poly(c, [cx - 4, by + 10, cx + 4, by + 10, cx, by + 17], P.steelDark);
     };
-    this.place('drone0', 52, 44, drone(true));
-    this.place('drone1', 52, 44, drone(false));
-    this.whiteVariant('droneW', 52, 44, drone(true));
-  }
 
-  // ---------- boss ----------
-  private paintBoss(): void {
-    // The hulk: a riveted bulkhead on legs, wearing municipal warning paint.
-    this.place('bossHulk', 340, 250, (c, w, h) => {
-      const cx = w / 2;
-      // Main plate. Deliberately the lightest thing in the game: it fills the
-      // top of a very dark screen, and at tunnel contrast a concrete-grey slab
-      // simply disappears.
-      c.fillStyle = '#4a4d53';
-      c.fillRect(cx - 170, 40, 340, h - 40);
-      const lit = c.createLinearGradient(0, 40, 0, h);
-      lit.addColorStop(0, '#6e737b');
-      lit.addColorStop(0.45, '#575b62');
-      lit.addColorStop(1, '#3c3f45');
-      c.fillStyle = lit;
-      c.fillRect(cx - 160, 52, 320, h - 60);
-      // panel seams
-      c.strokeStyle = 'rgba(0,0,0,0.45)';
-      c.lineWidth = 1.6;
-      for (let y = 70; y < h; y += 22) {
-        c.beginPath(); c.moveTo(cx - 160, y); c.lineTo(cx + 160, y); c.stroke();
+    /** Foreman: an elite in a hard hat who thinks this is a job. */
+    const elite = (facing: 's' | 'n' | 'e'): DrawFn => (c, w, h) => {
+      const cx = w / 2, foot = h - 5;
+      shadow(c, cx, foot, 15);
+      this.rr(c, cx - 9, foot - 16, 7, 14, 3, P.inkLift);
+      this.rr(c, cx + 2, foot - 16, 7, 14, 3, P.inkLift);
+      this.rr(c, cx - 13, foot - 40, 26, 26, 5, P.hiVisDark);
+      c.fillStyle = P.hiVis;
+      c.fillRect(cx - 13, foot - 33, 26, 5);
+      c.fillRect(cx - 13, foot - 24, 26, 4);
+      this.rr(c, cx - 18, foot - 37, 7, 15, 3, P.hiVisDark);
+      this.rr(c, cx + 11, foot - 37, 7, 15, 3, P.hiVisDark);
+      // the clipboard, held like a weapon
+      if (facing !== 'n') {
+        this.rr(c, cx + 13, foot - 30, 10, 13, 2, P.dirtDim);
+        c.fillStyle = P.bone; c.fillRect(cx + 15, foot - 28, 6, 9);
       }
-      for (let x = -120; x <= 120; x += 60) {
-        c.beginPath(); c.moveTo(cx + x, 52); c.lineTo(cx + x, h); c.stroke();
+      this.dot(c, cx, foot - 47, 9, P.skin);
+      // hard hat
+      c.fillStyle = P.amberBright;
+      c.beginPath(); c.arc(cx, foot - 48, 9.6, Math.PI, 0); c.fill();
+      c.fillRect(cx - 11, foot - 49, 22, 3.4);
+      if (facing !== 'n') {
+        c.fillStyle = P.ink;
+        c.fillRect(cx - 4, foot - 46, 2.4, 2.4);
+        c.fillRect(cx + 1.6, foot - 46, 2.4, 2.4);
       }
-      // rivets along the top edge
-      for (let i = 0; i < 17; i++) this.dot(c, cx - 152 + i * 19, 46, 3, '#9aa0a8');
-      // hazard chevrons — the only saturated band on the whole sprite
-      c.save();
-      c.beginPath(); c.rect(cx - 160, 62, 320, 20); c.clip();
-      c.fillStyle = P.amber; c.fillRect(cx - 160, 62, 320, 20);
-      c.fillStyle = P.pit;
-      for (let i = -9; i < 18; i++) {
-        this.poly(c, [cx - 160 + i * 20, 82, cx - 148 + i * 20, 62, cx - 138 + i * 20, 62, cx - 150 + i * 20, 82], P.pit);
+    };
+
+    /** The Chief Inspector: middle management with a firing solution. */
+    const boss = (facing: 's' | 'n' | 'e'): DrawFn => (c, w, h) => {
+      const cx = w / 2, foot = h - 6;
+      shadow(c, cx, foot, 30);
+      // heavy boots
+      this.rr(c, cx - 18, foot - 22, 15, 20, 3, P.ink);
+      this.rr(c, cx + 3, foot - 22, 15, 20, 3, P.ink);
+      // longcoat
+      this.rr(c, cx - 26, foot - 62, 52, 44, 7, P.hiVisDark);
+      c.fillStyle = P.hiVis;
+      c.fillRect(cx - 26, foot - 50, 52, 7);
+      c.fillRect(cx - 26, foot - 34, 52, 6);
+      c.fillStyle = 'rgba(0,0,0,0.3)';
+      c.fillRect(cx - 2, foot - 62, 4, 44);
+      // shoulder plates and the arm cannon
+      this.rr(c, cx - 34, foot - 60, 12, 20, 4, P.steel);
+      this.rr(c, cx + 22, foot - 60, 12, 20, 4, P.steel);
+      if (facing !== 'n') {
+        this.rr(c, cx + 24, foot - 44, 20, 13, 3, P.steelDark);
+        this.rr(c, cx + 40, foot - 41, 8, 7, 2, P.steel);
+        c.fillStyle = P.amberBright; c.fillRect(cx + 46, foot - 40, 4, 5);
       }
-      c.restore();
-      // intake grille: the mouth, and the thing you are actually shooting
-      c.fillStyle = '#141519';
-      c.fillRect(cx - 66, 120, 132, h - 130);
-      c.strokeStyle = '#6e737b'; c.lineWidth = 4;
-      for (let y = 128; y < h - 16; y += 15) {
-        c.beginPath(); c.moveTo(cx - 62, y); c.lineTo(cx + 62, y); c.stroke();
-      }
-      c.strokeStyle = '#a7adb5'; c.lineWidth = 5;
-      c.strokeRect(cx - 66, 120, 132, h - 130);
-      // two sodium eyes above the grille, with the haze they throw
-      for (const sx of [-1, 1]) {
-        const ex = cx + sx * 96;
-        const g = c.createRadialGradient(ex, 104, 4, ex, 104, 34);
-        g.addColorStop(0, 'rgba(240,194,104,0.55)');
-        g.addColorStop(1, 'rgba(240,194,104,0)');
-        c.fillStyle = g;
-        c.beginPath(); c.arc(ex, 104, 34, 0, Math.PI * 2); c.fill();
-        this.dot(c, ex, 104, 15, '#2b2d31');
-        this.dot(c, ex, 104, 10, P.amberBright);
-        this.dot(c, ex - 3, 101, 3.6, '#fff3d8');
-      }
-      // corporate asset plate
-      this.rr(c, cx - 34, 96, 68, 18, 2, '#2b2d31');
+      // head, hard hat, and the shoulder lamp that finds you in the dark
+      this.dot(c, cx, foot - 72, 12, P.skin);
       c.fillStyle = P.bone;
-      c.font = '700 12px Inter, system-ui, sans-serif';
-      c.textAlign = 'center'; c.textBaseline = 'middle';
-      c.fillText('UNIT 07', cx, 106);
-    });
-
-    // Flanking hydraulic arm (left flank; the right one is mirrored).
-    const arm = (awake: boolean): DrawFn => (c, w, h) => {
-      const cx = w / 2;
-      const plate = awake ? '#a7adb5' : '#7b8189';
-      const dark = awake ? '#5c6167' : '#4a4e54';
-      // shoulder housing
-      this.rr(c, cx - 24, 44, 52, 34, 4, plate);
-      this.rr(c, cx - 20, 50, 44, 10, 2, dark);
-      // piston, extended and glowing when powered
-      c.save();
-      c.translate(cx - 6, 52);
-      c.rotate(awake ? -0.55 : -0.12);
-      this.rr(c, -6, -34, 12, 36, 3, dark);
-      this.rr(c, -3.4, -40, 6.8, 12, 2, awake ? P.amberBright : plate);
-      c.restore();
-      // forearm and clamp
-      this.rr(c, cx - 16, 76, 34, 30, 4, plate);
-      for (let i = 0; i < 3; i++) this.rr(c, cx - 14 + i * 11, 104, 8, 12, 2, dark);
-      c.fillStyle = dark; c.fillRect(cx - 26, h - 6, 56, 6);
-      // hydraulic lines
-      c.strokeStyle = awake ? P.rust : dark; c.lineWidth = 2.4;
-      c.beginPath();
-      c.moveTo(cx - 18, 60); c.quadraticCurveTo(cx - 28, 76, cx - 16, 92);
-      c.stroke();
-      // status lamp: dead when idle, hot when awake
-      this.dot(c, cx + 14, 60, 4.4, awake ? P.amberBright : '#3a3d42');
-      if (awake) {
-        c.fillStyle = 'rgba(240,194,104,0.35)';
-        c.beginPath(); c.arc(cx + 14, 60, 9, 0, Math.PI * 2); c.fill();
+      c.beginPath(); c.arc(cx, foot - 74, 13, Math.PI, 0); c.fill();
+      c.fillRect(cx - 15, foot - 75, 30, 4.4);
+      if (facing !== 'n') {
+        c.fillStyle = P.ink;
+        c.fillRect(cx - 6, foot - 71, 3.4, 3.4);
+        c.fillRect(cx + 2.6, foot - 71, 3.4, 3.4);
+        c.fillStyle = P.steelDark;
+        c.fillRect(cx - 8, foot - 64, 16, 3.4);
       }
+      const lamp = c.createRadialGradient(cx - 30, foot - 62, 2, cx - 30, foot - 62, 16);
+      lamp.addColorStop(0, 'rgba(240,194,104,0.9)');
+      lamp.addColorStop(1, 'rgba(240,194,104,0)');
+      c.fillStyle = lamp;
+      c.beginPath(); c.arc(cx - 30, foot - 62, 16, 0, Math.PI * 2); c.fill();
     };
-    this.place('armIdle', 96, 118, arm(false));
-    this.place('armAwake', 96, 118, arm(true));
-    this.whiteVariant('armW', 96, 118, arm(true));
 
-    // shield aura ring (tinted System blue, additive)
-    this.place('shieldRing', 140, 140, (c, w, h) => {
-      const g = c.createRadialGradient(w / 2, h / 2, 40, w / 2, h / 2, 68);
-      g.addColorStop(0, 'rgba(255,255,255,0)');
-      g.addColorStop(0.72, 'rgba(255,255,255,0.85)');
-      g.addColorStop(1, 'rgba(255,255,255,0)');
-      c.fillStyle = g;
-      c.fillRect(0, 0, w, h);
-    });
+    const mobs = [
+      ['rat', rat, 42, 34], ['brute', brute, 48, 66], ['drone', drone, 46, 50],
+      ['elite', elite, 46, 58], ['boss', boss, 108, 92],
+    ] as const;
+    for (const [name, fn, fw, fh] of mobs) {
+      for (const f of ['s', 'n', 'e'] as const) {
+        this.place(`${name}_${f}`, fw, fh, (fn as (f: 's' | 'n' | 'e') => DrawFn)(f));
+      }
+      // One flash frame per kind rather than per facing: it is on screen for
+      // 80 ms, and nobody has ever noticed a sprite turn to face them in that.
+      this.whiteVariant(`${name}_flash`, fw, fh, (fn as (f: 's' | 'n' | 'e') => DrawFn)('s'));
+    }
   }
 
-  // ---------- doors ----------
-  private paintGates(): void {
-    // Neutral concrete doorframe — tinted System-blue for a reward, red for a hazard.
-    this.place('doorArch', 210, 128, (c, w, h) => {
+  // ---------- projectiles, drops, markers ----------
+  private paintWorldBits(): void {
+    // A nail. Fired from a nail gun. This is the whole armoury.
+    this.place('nail', 10, 24, (c, w) => {
       const cx = w / 2;
-      // jambs
-      for (const sx of [-1, 1]) {
-        const px = cx + sx * (w / 2 - 16);
-        this.rr(c, px - 12, 26, 24, h - 26, 2, '#cfc9bd');
-        c.fillStyle = '#aca698';
-        for (let y = 36; y < h - 8; y += 18) c.fillRect(px - 12, y, 24, 2);
-        c.fillStyle = '#e8e2d6';
-        c.fillRect(px - 12, 26, 24, 5);
-      }
-      // lintel
-      c.fillStyle = '#d8d2c5';
-      c.fillRect(16, 20, w - 32, 16);
-      c.fillStyle = '#e8e2d6';
-      c.fillRect(16, 20, w - 32, 4);
-      // conduit running across the header, with a junction box
-      c.strokeStyle = P.steelDark; c.lineWidth = 3.4;
-      c.beginPath(); c.moveTo(20, 12); c.lineTo(w - 20, 12); c.stroke();
-      this.rr(c, cx - 9, 5, 18, 14, 2, P.steel);
-      this.dot(c, cx, 12, 3, P.amberBright);
-      // two dangling cables, because nothing down here was finished properly
-      c.strokeStyle = P.steelDark; c.lineWidth = 1.8;
-      for (const sx of [-0.55, 0.55]) {
-        c.beginPath();
-        c.moveTo(cx + sx * 66, 12);
-        c.quadraticCurveTo(cx + sx * 72, 26, cx + sx * 62, 34);
-        c.stroke();
-      }
+      c.strokeStyle = P.steel; c.lineWidth = 2.4;
+      c.beginPath(); c.moveTo(cx, 4); c.lineTo(cx, 20); c.stroke();
+      this.poly(c, [cx - 2.6, 6, cx + 2.6, 6, cx, 0], P.bone);
+      c.fillStyle = P.steelDark; c.fillRect(cx - 3.4, 19, 6.8, 2.6);
+    });
+    // What shoots back.
+    this.place('bolt', 12, 20, (c, w, h) => {
+      const cx = w / 2;
+      const g = c.createLinearGradient(0, 0, 0, h);
+      g.addColorStop(0, 'rgba(224,101,75,1)');
+      g.addColorStop(1, 'rgba(181,64,46,0)');
+      c.fillStyle = g;
+      c.beginPath(); c.ellipse(cx, h / 2, 4, h / 2, 0, 0, Math.PI * 2); c.fill();
+      this.dot(c, cx, h / 2 - 3, 3, '#ffd9c8');
     });
 
-    // Sign panel that carries the big label (tinted per door kind).
-    this.place('doorPanel', 128, 58, (c, w, h) => {
-      this.rr(c, 0, 0, w, h, 3, 'rgba(255,255,255,0.96)');
-      c.strokeStyle = 'rgba(0,0,0,0.35)';
-      c.lineWidth = 3;
-      c.beginPath(); c.roundRect(2, 2, w - 4, h - 4, 2); c.stroke();
-      // two bolts, top corners — it is a sign, not a rune
-      c.fillStyle = 'rgba(0,0,0,0.28)';
-      this.dot(c, 9, 8, 2.4, 'rgba(0,0,0,0.28)');
-      this.dot(c, w - 9, 8, 2.4, 'rgba(0,0,0,0.28)');
+    this.place('coinDrop', 22, 22, (c, w, h) => {
+      this.dot(c, w / 2, h / 2 + 3, 9, P.shadow);
+      this.dot(c, w / 2, h / 2, 9, P.rustDeep);
+      this.dot(c, w / 2, h / 2, 7.4, P.amber);
+      this.dot(c, w / 2 - 2, h / 2 - 2.2, 3, P.amberBright);
+    });
+    // Gear on the ground: a satchel silhouette, tinted by tier at spawn time.
+    this.place('gearDrop', 26, 26, (c, w, h) => {
+      this.dot(c, w / 2, h - 4, 8, P.shadow);
+      this.rr(c, 4, 8, w - 8, h - 12, 3, '#ffffff');
+      c.fillStyle = 'rgba(0,0,0,0.3)';
+      c.fillRect(4, 13, w - 8, 3);
+      c.fillRect(w / 2 - 2, 8, 4, h - 12);
+      this.rr(c, w / 2 - 6, 3, 12, 7, 2, '#ffffff');
     });
 
-    // Colorblind-safe shape marks: chevron-up = safe, X = hazard.
-    this.place('symUp', 36, 24, (c, w, h) => {
-      c.strokeStyle = '#ffffff'; c.lineWidth = 6.5;
-      c.beginPath();
-      c.moveTo(4, h - 4); c.lineTo(w / 2, 4); c.lineTo(w - 4, h - 4);
-      c.stroke();
+    // Minimap and world markers. Flat shapes: they are drawn at 12 px.
+    const mark = (name: string, draw: DrawFn) => this.place(name, 22, 22, draw);
+    mark('markTown', (c, w, h) => {
+      this.poly(c, [w / 2, 2, w - 3, 9, w - 6, h - 3, 6, h - 3, 3, 9], '#ffffff');
     });
-    this.place('symX', 30, 30, (c, w, h) => {
-      c.strokeStyle = '#ffffff'; c.lineWidth = 6.5;
-      c.beginPath();
-      c.moveTo(5, 5); c.lineTo(w - 5, h - 5);
-      c.moveTo(w - 5, 5); c.lineTo(5, h - 5);
-      c.stroke();
+    mark('markCamp', (c, w, h) => {
+      this.poly(c, [w / 2, 3, w - 3, h - 4, 3, h - 4], '#ffffff');
+    });
+    mark('markRuin', (c, w, h) => {
+      c.fillStyle = '#ffffff';
+      c.fillRect(3, 6, 5, h - 9);
+      c.fillRect(w - 8, 3, 5, h - 6);
+      c.fillRect(3, h - 6, w - 6, 3);
+    });
+    mark('markShrine', (c, w, h) => {
+      this.dot(c, w / 2, h / 2, 7, '#ffffff');
+      c.globalCompositeOperation = 'destination-out';
+      this.dot(c, w / 2, h / 2, 3.2, '#000');
+      c.globalCompositeOperation = 'source-over';
+    });
+    mark('markLair', (c, w, h) => {
+      c.fillStyle = '#ffffff';
+      for (let i = 0; i < 8; i++) {
+        c.save(); c.translate(w / 2, h / 2); c.rotate((i * Math.PI) / 4);
+        c.fillRect(-1.8, -10, 3.6, 5); c.restore();
+      }
+      this.dot(c, w / 2, h / 2, 5, '#ffffff');
+    });
+    mark('markPlayer', (c, w, h) => {
+      this.poly(c, [w / 2, 2, w - 4, h - 3, w / 2, h - 7, 4, h - 3], '#ffffff');
+    });
+
+    // An interact pip that floats over whatever you are standing next to.
+    this.place('pip', 20, 24, (c, w) => {
+      const cx = w / 2;
+      this.poly(c, [cx - 7, 12, cx + 7, 12, cx, 22], '#ffffff');
+      this.rr(c, cx - 8, 0, 16, 13, 3, '#ffffff');
+      c.globalCompositeOperation = 'destination-out';
+      this.rr(c, cx - 5.5, 2.5, 11, 8, 2, '#000');
+      c.globalCompositeOperation = 'source-over';
     });
   }
 
@@ -522,17 +566,8 @@ export class GameAtlas {
     }
   }
 
-  // ---------- particles, projectiles, items ----------
-  private paintParticlesAndItems(): void {
-    // A nail. Fired from a nail gun. This is the whole armoury.
-    this.place('arrow', 10, 28, (c, w) => {
-      const cx = w / 2;
-      c.strokeStyle = P.steel; c.lineWidth = 2.4;
-      c.beginPath(); c.moveTo(cx, 4); c.lineTo(cx, 24); c.stroke();
-      this.poly(c, [cx - 2.6, 6, cx + 2.6, 6, cx, 0], P.bone);
-      c.fillStyle = P.steelDark; c.fillRect(cx - 3.4, 23, 6.8, 2.6);
-    });
-
+  // ---------- particles ----------
+  private paintParticles(): void {
     this.place('softDot', 14, 14, (c, w, h) => {
       const g = c.createRadialGradient(w / 2, h / 2, 0.5, w / 2, h / 2, w / 2);
       g.addColorStop(0, 'rgba(255,255,255,1)');
@@ -552,7 +587,7 @@ export class GameAtlas {
       g.addColorStop(1, 'rgba(255,255,255,0)');
       c.fillStyle = g; c.fillRect(w / 2 - 1.4, 0, 2.8, h);
     });
-    // dust and grit shed by everything that moves down here
+    // dust and grit shed by everything that moves
     for (let i = 0; i < 3; i++) {
       this.place('glyph' + i, 12, 12, (c, w, h) => {
         const cx = w / 2, cy = h / 2;
@@ -565,49 +600,14 @@ export class GameAtlas {
       const cx = w / 2, cy = h / 2;
       this.poly(c, [cx, 0, cx + 3, cy - 3, w, cy, cx + 3, cy + 3, cx, h, cx - 3, cy + 3, 0, cy, cx - 3, cy - 3], '#ffffff');
     });
-
-    this.place('coin', 22, 22, (c, w, h) => {
-      this.dot(c, w / 2, h / 2, 10, P.rustDeep);
-      this.dot(c, w / 2, h / 2, 8.4, P.amber);
-      this.dot(c, w / 2 - 2, h / 2 - 2.4, 3.4, P.amberBright);
-      c.fillStyle = P.rustDeep;
-      c.fillRect(w / 2 - 1.4, h / 2 - 5, 2.8, 10);
-      c.fillRect(w / 2 - 5, h / 2 - 1.4, 10, 2.8);
-    });
-
-    // A loot box: a crate with a lid, tinted per tier by the scene.
-    this.place('lootBox', 120, 96, (c, w, h) => {
-      const cx = w / 2;
-      this.rr(c, cx - 44, 30, 88, h - 40, 3, '#ffffff');
-      c.fillStyle = 'rgba(0,0,0,0.22)';
-      c.fillRect(cx - 44, 30, 88, 8);
-      c.fillRect(cx - 6, 38, 12, h - 48);
-      // lid, cracked open
-      c.save();
-      c.translate(cx, 32);
-      c.rotate(-0.24);
-      this.rr(c, -46, -16, 92, 18, 3, '#ffffff');
-      c.fillStyle = 'rgba(255,255,255,0.55)';
-      c.fillRect(-46, -16, 92, 5);
-      c.restore();
-      // light escaping the seam
-      const g = c.createLinearGradient(0, 20, 0, 40);
-      g.addColorStop(0, 'rgba(255,255,255,0.85)');
-      g.addColorStop(1, 'rgba(255,255,255,0)');
-      c.fillStyle = g;
-      c.fillRect(cx - 40, 18, 80, 22);
-      // corner brackets
-      c.fillStyle = 'rgba(0,0,0,0.3)';
-      for (const sx of [-1, 1]) c.fillRect(cx + sx * 40 - 3, 34, 6, h - 46);
-    });
   }
 
   // ---------- UI ----------
   private paintUI(): void {
     // 9-slice bases (corner radius 14 design px → slice inset 16)
     this.place('panelDark', 48, 48, (c, w, h) => {
-      this.rr(c, 1.4, 1.4, w - 2.8, h - 2.8, 5, 'rgba(13,14,17,0.94)');
-      c.strokeStyle = P.concrete; c.lineWidth = 2;
+      this.rr(c, 1.4, 1.4, w - 2.8, h - 2.8, 5, 'rgba(20,17,25,0.94)');
+      c.strokeStyle = P.stoneDim; c.lineWidth = 2;
       c.beginPath(); c.roundRect(1.4, 1.4, w - 2.8, h - 2.8, 5); c.stroke();
     });
     this.place('btnGold', 48, 48, (c, w, h) => {
@@ -668,93 +668,7 @@ export class GameAtlas {
     });
 
 
-    // ── floor-map node icons ──
-    icon('iconEntry', (c, w, h) => {
-      c.strokeStyle = '#ffffff'; c.lineWidth = 3.4;
-      c.beginPath(); c.moveTo(w / 2, 5); c.lineTo(w / 2, h - 12); c.stroke();
-      this.poly(c, [w / 2 - 7, h - 16, w / 2 + 7, h - 16, w / 2, h - 6], '#ffffff');
-      c.fillRect(6, h - 5, w - 12, 3.4);
-    });
-    icon('iconTunnel', (c, w, h) => {
-      // an arched mouth with the dark going back into it
-      c.strokeStyle = '#ffffff'; c.lineWidth = 3.2;
-      c.beginPath();
-      c.moveTo(5, h - 5); c.lineTo(5, 15);
-      c.arc(w / 2, 15, w / 2 - 5, Math.PI, 0);
-      c.lineTo(w - 5, h - 5);
-      c.stroke();
-      c.globalAlpha = 0.45;
-      c.beginPath();
-      c.moveTo(11, h - 5); c.lineTo(11, 17);
-      c.arc(w / 2, 17, w / 2 - 11, Math.PI, 0);
-      c.lineTo(w - 11, h - 5);
-      c.stroke();
-      c.globalAlpha = 1;
-    });
-    icon('iconNest', (c, w, h) => {
-      // a cluster: several small things, one bigger thing
-      this.dot(c, w / 2, h / 2 - 3, 7, '#ffffff');
-      this.dot(c, 8, h - 9, 4.4, '#ffffff');
-      this.dot(c, w - 8, h - 9, 4.4, '#ffffff');
-      this.dot(c, w / 2, h - 6, 4, '#ffffff');
-      c.globalCompositeOperation = 'destination-out';
-      this.dot(c, w / 2 - 2.6, h / 2 - 4, 1.8, '#000');
-      this.dot(c, w / 2 + 2.6, h / 2 - 4, 1.8, '#000');
-      c.globalCompositeOperation = 'source-over';
-    });
-    icon('iconBox', (c, w, h) => {
-      this.rr(c, 5, 11, w - 10, h - 16, 2, '#ffffff');
-      c.globalCompositeOperation = 'destination-out';
-      c.fillRect(w / 2 - 2.6, 11, 5.2, h - 16);
-      c.fillRect(5, 17, w - 10, 3);
-      c.globalCompositeOperation = 'source-over';
-      this.rr(c, 3, 6, w - 6, 8, 2, '#ffffff');
-    });
-    icon('iconSafe', (c, w, h) => {
-      // a shield, because the only safe thing down here is a locked door
-      c.beginPath();
-      c.moveTo(w / 2, 4);
-      c.lineTo(w - 6, 10);
-      c.lineTo(w - 6, h / 2 + 2);
-      c.quadraticCurveTo(w - 6, h - 5, w / 2, h - 3);
-      c.quadraticCurveTo(6, h - 5, 6, h / 2 + 2);
-      c.lineTo(6, 10);
-      c.closePath();
-      c.fillStyle = '#ffffff'; c.fill();
-      c.globalCompositeOperation = 'destination-out';
-      c.fillRect(w / 2 - 2.6, 11, 5.2, 13);
-      c.fillRect(w / 2 - 6.4, 14.8, 12.8, 5.2);
-      c.globalCompositeOperation = 'source-over';
-    });
-    icon('iconBoss', (c, w) => {
-      // a skull, kept blocky so it survives being drawn at 25px
-      this.rr(c, 6, 5, w - 12, 17, 4, '#ffffff');
-      this.rr(c, 10, 21, w - 20, 6, 2, '#ffffff');
-      c.globalCompositeOperation = 'destination-out';
-      this.rr(c, 9.5, 10, 5.5, 6, 1.6, '#000');
-      this.rr(c, w - 15, 10, 5.5, 6, 1.6, '#000');
-      c.fillRect(w / 2 - 1.4, 22, 2.8, 5);
-      c.globalCompositeOperation = 'source-over';
-    });
-    icon('iconStairs', (c, w, h) => {
-      // three descending treads, read left-to-right as going down
-      c.fillStyle = '#ffffff';
-      for (let i = 0; i < 3; i++) {
-        c.fillRect(5 + i * 7.5, 8 + i * 7, 8.5, 3.4);
-        c.fillRect(5 + i * 7.5, 8 + i * 7, 3.4, 7 + (2 - i) * 0);
-      }
-      c.fillRect(5, h - 6, w - 10, 3.4);
-    });
-    icon('iconParty', (c, w, h) => {
-      this.dot(c, w / 2, 9, 4.6, '#ffffff');
-      this.rr(c, w / 2 - 5.4, 14, 10.8, 11, 3, '#ffffff');
-      this.dot(c, 8, 13, 3.8, '#ffffff');
-      this.rr(c, 3.6, 17, 8.8, 9, 3, '#ffffff');
-      this.dot(c, w - 8, 13, 3.8, '#ffffff');
-      this.rr(c, w - 12.4, 17, 8.8, 9, 3, '#ffffff');
-      void h;
-    });
-    // ── ability icons ──
+    // ── HUD and screen icons ──
     icon('iconBlast', (c, w, h) => {
       const cx = w / 2, cy = h / 2;
       c.fillStyle = '#ffffff';
@@ -769,15 +683,57 @@ export class GameAtlas {
       this.dot(c, cx, cy, 2.6, '#000');
       c.globalCompositeOperation = 'source-over';
     });
-    icon('iconRally', (c, w, h) => {
-      // two chevrons up plus a base line: pull them back into formation
-      c.strokeStyle = '#ffffff'; c.lineWidth = 4;
-      c.beginPath();
-      c.moveTo(7, 15); c.lineTo(w / 2, 6); c.lineTo(w - 7, 15);
-      c.moveTo(7, 24); c.lineTo(w / 2, 15); c.lineTo(w - 7, 24);
-      c.stroke();
+    icon('iconSurge', (c, w, h) => {
+      // a cross over a rising chevron: heal, and then move
       c.fillStyle = '#ffffff';
-      c.fillRect(6, h - 5, w - 12, 3.2);
+      c.fillRect(w / 2 - 3, 4, 6, 15);
+      c.fillRect(w / 2 - 7.5, 8.5, 15, 6);
+      c.strokeStyle = '#ffffff'; c.lineWidth = 3.4;
+      c.beginPath();
+      c.moveTo(6, h - 4); c.lineTo(w / 2, h - 11); c.lineTo(w - 6, h - 4);
+      c.stroke();
+    });
+    icon('iconBag', (c, w, h) => {
+      this.rr(c, 4, 10, w - 8, h - 13, 3, '#ffffff');
+      c.strokeStyle = '#ffffff'; c.lineWidth = 3;
+      c.beginPath(); c.arc(w / 2, 11, 6.4, Math.PI, 0); c.stroke();
+      c.globalCompositeOperation = 'destination-out';
+      c.fillRect(w / 2 - 2.4, 15, 4.8, 7);
+      c.globalCompositeOperation = 'source-over';
+    });
+    icon('iconQuest', (c, w, h) => {
+      this.rr(c, 6, 3, w - 12, h - 6, 2, '#ffffff');
+      c.globalCompositeOperation = 'destination-out';
+      for (let i = 0; i < 3; i++) c.fillRect(10, 9 + i * 6, w - 20, 3);
+      c.globalCompositeOperation = 'source-over';
+      this.poly(c, [w - 10, h - 12, w - 3, h - 5, w - 10, h - 3], '#ffffff');
+    });
+    icon('iconChar', (c, w) => {
+      this.dot(c, w / 2, 10, 6.4, '#ffffff');
+      this.rr(c, w / 2 - 8, 18, 16, 12, 4, '#ffffff');
+      c.fillRect(4, 20, w - 8, 3.4);
+    });
+    icon('iconMap', (c, w, h) => {
+      const a = w / 3;
+      this.poly(c, [3, 6, a, 3, a * 2, 7, w - 3, 4, w - 3, h - 4, a * 2, h - 1, a, h - 5, 3, h - 2], '#ffffff');
+      c.globalCompositeOperation = 'destination-out';
+      c.fillRect(a - 1.2, 4, 2.4, h - 8);
+      c.fillRect(a * 2 - 1.2, 6, 2.4, h - 8);
+      c.globalCompositeOperation = 'source-over';
+    });
+    icon('iconTalk', (c, w, h) => {
+      this.rr(c, 3, 4, w - 6, h - 12, 4, '#ffffff');
+      this.poly(c, [9, h - 8, 19, h - 8, 10, h - 2], '#ffffff');
+      c.globalCompositeOperation = 'destination-out';
+      for (let i = 0; i < 2; i++) c.fillRect(8, 10 + i * 5, w - 16, 2.6);
+      c.globalCompositeOperation = 'source-over';
+    });
+    icon('iconCoin', (c, w, h) => {
+      this.dot(c, w / 2, h / 2, 11, '#ffffff');
+      c.globalCompositeOperation = 'destination-out';
+      c.fillRect(w / 2 - 1.6, h / 2 - 6, 3.2, 12);
+      c.fillRect(w / 2 - 6, h / 2 - 1.6, 12, 3.2);
+      c.globalCompositeOperation = 'source-over';
     });
 
     this.place('iconStar', 40, 40, (c, w, h) => {
@@ -805,30 +761,28 @@ export class GameAtlas {
       c.beginPath(); c.roundRect(cx - 15, 26, 34, 34, 14); c.stroke();
     });
 
-    // The show's bug: a stair going down, framed like a broadcast logo.
+    // The show's bug: a horizon inside a broadcast frame.
     this.place('emblem', 120, 96, (c, w, h) => {
-      // outer frame with clipped corners
       c.strokeStyle = P.sys; c.lineWidth = 3;
       c.beginPath();
       c.moveTo(14, 6); c.lineTo(w - 6, 6); c.lineTo(w - 6, h - 14);
       c.lineTo(w - 14, h - 6); c.lineTo(6, h - 6); c.lineTo(6, 14);
       c.closePath(); c.stroke();
-      // descending treads
-      c.fillStyle = P.bone;
+      // a road running to a vanishing point
+      c.fillStyle = P.grass; c.fillRect(12, 44, w - 24, h - 56);
+      this.poly(c, [w / 2 - 4, 44, w / 2 + 4, 44, w / 2 + 26, h - 12, w / 2 - 26, h - 12], P.dirt);
+      c.fillStyle = P.forest;
       for (let i = 0; i < 4; i++) {
-        c.fillRect(22 + i * 17, 24 + i * 13, 20, 5);
-        c.fillRect(22 + i * 17, 24 + i * 13, 5, 13);
+        this.dot(c, 20 + i * 9, 48 + (i % 2) * 5, 5, P.forest);
+        this.dot(c, w - 20 - i * 9, 48 + (i % 2) * 5, 5, P.forest);
       }
-      // the dark the stair goes into
-      c.fillStyle = P.pit;
-      this.poly(c, [w - 20, h - 20, w - 12, h - 20, w - 12, h - 12, w - 20, h - 12], P.pit);
-      // a live dot, top-left, because it is always filming
-      this.dot(c, 16, 16, 4.4, P.trapRed);
+      // sky band and a low sun
+      c.fillStyle = P.sysDeep; c.fillRect(12, 18, w - 24, 26);
+      this.dot(c, w / 2, 44, 11, P.amberBright);
+      // a live dot, because it is always filming
+      this.dot(c, 16, 16, 4.4, P.hpRed);
       c.fillStyle = 'rgba(181,64,46,0.35)';
       c.beginPath(); c.arc(16, 16, 8, 0, Math.PI * 2); c.fill();
-      // signal ticks along the bottom edge
-      c.fillStyle = P.sysBright;
-      for (let i = 0; i < 5; i++) c.fillRect(20 + i * 7, h - 12, 3, 2 + i * 1.6);
     });
   }
 }
