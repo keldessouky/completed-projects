@@ -2,6 +2,7 @@ import { Container, Sprite } from 'pixi.js';
 import { CONFIG } from '../config';
 import { Pool } from '../core/pool';
 import { screenX, screenY } from '../iso';
+import { LOOK_S, STRIDE, frameFor, frameName, lookFrom, type Look } from '../anim';
 import type { GameAtlas } from '../assets/atlas';
 
 /**
@@ -23,7 +24,12 @@ export interface Member {
   vx: number; vy: number;
   /** which formation slot this member holds */
   slot: number;
+  /** walk-cycle position in cycles, advanced by distance travelled */
   phase: number;
+  /** the facing last drawn, kept so a stopped member does not snap to south */
+  look: Look;
+  /** counts down while the attack pose plays */
+  attackT: number;
   /** attack cooldown, seconds */
   cd: number;
   /** >0 while dying: the fly-off before the sprite is returned to the pool */
@@ -32,6 +38,9 @@ export interface Member {
 }
 
 const SQ = CONFIG.squad;
+
+/** How far back the whole crew is pushed in the depth sort. See draw(). */
+const CROWD_DEPTH_BIAS = 400;
 
 /**
  * Formation slot → offset from the hero, in world units.
@@ -73,13 +82,13 @@ export class Squad {
 
   constructor(private atlas: GameAtlas, layer: Container) {
     this.members = new Pool<Member>(SQ.max + 24, () => {
-      const sp = new Sprite(atlas.get('levy0_s'));
+      const sp = new Sprite(atlas.get('levy0_s_0'));
       sp.anchor.set(0.5, 1);
       sp.visible = false;
       layer.addChild(sp);
       return {
         sp, x: 0, y: 0, vx: 0, vy: 0, slot: 0, phase: 0, cd: 0,
-        dying: 0, dx: 0, dy: 0,
+        look: LOOK_S, attackT: 0, dying: 0, dx: 0, dy: 0,
       };
     });
   }
@@ -109,7 +118,11 @@ export class Squad {
       m.x = x + (Math.random() - 0.5) * 30;
       m.y = y + (Math.random() - 0.5) * 30;
       m.vx = m.vy = 0;
-      m.phase = Math.random() * Math.PI * 2;
+      // a random phase per member is the difference between a crowd and a
+      // marching band: sixty people in lockstep reads as one object
+      m.phase = Math.random();
+      m.look = LOOK_S;
+      m.attackT = 0;
       m.cd = Math.random() * SQ.interval;
       m.dying = 0;
       m.sp.visible = true;
@@ -197,10 +210,14 @@ export class Squad {
       const pull = d > SQ.slack ? (d - SQ.slack) / d : 0;
       m.vx += dx * pull * SQ.springK * dt - m.vx * SQ.springD * dt;
       m.vy += dy * pull * SQ.springK * dt - m.vy * SQ.springD * dt;
-      m.x += m.vx * dt;
-      m.y += m.vy * dt;
-      m.phase = t * 9 + m.slot;
+      const stepX = m.vx * dt, stepY = m.vy * dt;
+      m.x += stepX;
+      m.y += stepY;
+      // the cycle is driven by ground covered, so the feet never slide
+      m.phase = (m.phase + Math.hypot(stepX, stepY) / STRIDE) % 1;
+      if (m.attackT > 0) m.attackT -= dt;
       if (m.cd > 0) m.cd -= dt;
+      void t;
     }
   }
 
@@ -228,27 +245,30 @@ export class Squad {
     return Math.max(1, Math.round((SQ.damage * this.strength()) / throwerCount));
   }
 
-  /** Update every sprite. Called once per frame with the render interpolation. */
+  /**
+   * Update every sprite. Called once per frame.
+   *
+   * The bob that used to fake a gait is gone: the walk cycle carries it now,
+   * inside the art, where it can also move the arms and squash the shadow.
+   */
   draw(camX: number, camY: number): void {
-    const tier = this.tier();
+    const kind = 'levy' + this.tier();
     for (let i = 0; i < this.members.count; i++) {
       const m = this.members.items[i];
-      const sx = screenX(m.x, m.y) - camX;
-      const sy = screenY(m.x, m.y) - camY;
-      // the bob is a screen-space offset: it is the member's gait, not motion
-      // through the world, so it must not feed back into the projection
-      const bob = m.dying > 0 ? 0 : Math.abs(Math.sin(m.phase)) * 2.2;
-      m.sp.x = sx;
-      m.sp.y = sy - bob;
-      m.sp.zIndex = m.x + m.y;
-      const face = Math.abs(m.vx) + Math.abs(m.vy) < 6
-        ? 's'
-        : screenY(m.vx, m.vy) < -4 ? 'n' : 's';
-      const lateral = screenX(m.vx, m.vy);
-      m.sp.texture = this.atlas.get(
-        `levy${tier}_${Math.abs(lateral) > 26 ? 'e' : face}`,
-      );
-      m.sp.scale.x = lateral < -26 ? -1 : 1;
+      m.sp.x = screenX(m.x, m.y) - camX;
+      m.sp.y = screenY(m.x, m.y) - camY;
+      // The crew carries a constant depth penalty so the hero, the cat and
+      // anything trying to kill you are always legible over the mass. Sixty
+      // near-identical bodies will otherwise swallow the one the stick is
+      // attached to, and "where am I" is not a question this game should ever
+      // ask. Internally the crew still sorts correctly among itself.
+      m.sp.zIndex = m.x + m.y - CROWD_DEPTH_BIAS;
+
+      if (m.dying > 0) continue;   // keep the last pose while flying off
+      const moving = Math.abs(m.vx) + Math.abs(m.vy) > 8;
+      if (moving) m.look = lookFrom(m.vx, m.vy, m.look);
+      m.sp.texture = this.atlas.get(frameName(kind, m.look, frameFor(m.phase, moving, m.attackT)));
+      m.sp.scale.x = m.look.flip ? -1 : 1;
     }
   }
 

@@ -1,8 +1,10 @@
-import { Texture } from 'pixi.js';
+import { CanvasSource, Texture } from 'pixi.js';
 import { CONFIG } from '../config';
 import { ISO_X, ISO_Y, blockBounds, toScreen } from '../iso';
 import { biomeAt, clutterAt, getWorld, roadDist, type Biome } from '../world/worldgen';
 import { hex } from './palette';
+import { P } from './palette';
+import { cel, contactShadow, ellPath, polyPath, rrPath, tint } from './shade';
 
 /**
  * Terrain is baked one chunk at a time, already in SCREEN space.
@@ -64,201 +66,405 @@ function tilePath(c: CanvasRenderingContext2D, wx: number, wy: number, ox: numbe
 function paintProp(
   c: CanvasRenderingContext2D, kind: 'tree' | 'rock' | 'fence', sx: number, sy: number, r: () => number,
 ): void {
-  c.fillStyle = 'rgba(0,0,0,0.18)';
-  c.beginPath();
-  c.ellipse(sx, sy, kind === 'tree' ? 16 : 11, (kind === 'tree' ? 16 : 11) * 0.5, 0, 0, Math.PI * 2);
-  c.fill();
-
   if (kind === 'tree') {
-    const h = 40 + r() * 16;
-    c.fillStyle = hex(C.woodDark);
-    c.fillRect(sx - 3.5, sy - h * 0.42, 7, h * 0.42);
-    // three stacked cones, darkest at the base
-    for (let i = 0; i < 3; i++) {
-      const t = i / 2;
-      const w = 22 - i * 5;
-      const cy = sy - h * (0.36 + t * 0.42);
-      c.fillStyle = i === 2 ? hex(C.tree) : i === 1 ? '#379a34' : hex(C.treeDark);
+    const h = 44 + r() * 20;
+    contactShadow(c, sx + 5, sy + 1, 17, 0.3);
+    // trunk, with a visible flare at the base
+    cel(c, () => {
       c.beginPath();
-      c.moveTo(sx, cy - 22);
-      c.lineTo(sx + w, cy + 6);
-      c.lineTo(sx - w, cy + 6);
+      c.moveTo(sx - 3.6, sy);
+      c.lineTo(sx - 2.4, sy - h * 0.44);
+      c.lineTo(sx + 2.4, sy - h * 0.44);
+      c.lineTo(sx + 3.6, sy);
       c.closePath();
+    }, P.wood, { depth: 2, rim: 1 });
+
+    // Four overlapping canopy lobes rather than three flat cones. The lobes
+    // are what give a tree a silhouette you can read at 30 px and a surface
+    // the light can actually run across.
+    const lobes: [number, number, number][] = [
+      [-9, -h * 0.42, 13],
+      [9, -h * 0.46, 12],
+      [0, -h * 0.58, 15],
+      [0, -h * 0.78, 11],
+    ];
+    for (let i = 0; i < lobes.length; i++) {
+      const [ox, oy, rad] = lobes[i];
+      const wob = 0.85 + r() * 0.3;
+      cel(c, ellPath(c, sx + ox, sy + oy, rad * wob, rad * 0.86 * wob),
+        i === lobes.length - 1 ? tint(P.tree, 0.1) : P.tree,
+        { depth: rad * 0.42, rim: rad * 0.22, dark: P.treeDark });
+    }
+    // a couple of dapples on the lit side
+    c.save();
+    c.fillStyle = 'rgba(255,255,255,0.16)';
+    for (let i = 0; i < 3; i++) {
+      c.beginPath();
+      c.ellipse(sx - 7 + r() * 8, sy - h * (0.55 + r() * 0.24), 3.2, 2, -0.6, 0, Math.PI * 2);
       c.fill();
     }
+    c.restore();
   } else if (kind === 'rock') {
-    const w = 10 + r() * 7;
-    c.fillStyle = hex(C.stoneDark);
-    c.beginPath(); c.ellipse(sx, sy - 3, w, w * 0.62, 0, 0, Math.PI * 2); c.fill();
-    c.fillStyle = hex(C.stone);
-    c.beginPath(); c.ellipse(sx - 1, sy - 6, w * 0.82, w * 0.5, 0, 0, Math.PI * 2); c.fill();
+    const w = 11 + r() * 8;
+    contactShadow(c, sx + 3, sy + 1, w * 1.05, 0.28);
+    // A faceted boulder, not an ellipse: three planes catching different
+    // amounts of light is the whole difference between a rock and a pebble
+    // shaped hole in the grass.
+    cel(c, polyPath(c, [
+      sx - w, sy - 1, sx - w * 0.55, sy - w * 0.72, sx + w * 0.2, sy - w * 0.86,
+      sx + w * 0.85, sy - w * 0.42, sx + w, sy + 1, sx - w * 0.3, sy + w * 0.28,
+    ]), P.stone, { depth: w * 0.4, rim: w * 0.2, dark: P.stoneDark });
+    c.save();
+    c.fillStyle = 'rgba(255,255,255,0.2)';
+    c.beginPath();
+    c.moveTo(sx - w * 0.5, sy - w * 0.66);
+    c.lineTo(sx + w * 0.16, sy - w * 0.8);
+    c.lineTo(sx - w * 0.06, sy - w * 0.36);
+    c.closePath();
+    c.fill();
+    c.restore();
   } else {
-    // a short run of fence, angled along one of the iso axes
+    // a short run of split-rail fence, angled along one of the iso axes
     const dir = r() < 0.5 ? 1 : -1;
-    c.strokeStyle = hex(C.wood);
-    c.lineWidth = 3.4;
+    const dy = 20 * (ISO_Y / ISO_X) * 0.5 * dir;
+    contactShadow(c, sx + 3, sy + 1, 22, 0.22);
     for (let i = 0; i < 3; i++) {
       const px = sx + dir * (i - 1) * 20;
-      const py = sy + (i - 1) * 20 * (ISO_Y / ISO_X) * 0.5 * dir;
-      c.beginPath(); c.moveTo(px, py); c.lineTo(px, py - 18); c.stroke();
+      const py = sy + (i - 1) * dy;
+      cel(c, rrPath(c, px - 2.2, py - 19, 4.4, 20, 1.4), P.wood,
+        { depth: 1.4, rim: 0.8, line: 1.5 });
     }
-    c.lineWidth = 2.6;
+    for (const off of [-13, -5]) {
+      cel(c, () => {
+        c.beginPath();
+        c.moveTo(sx - dir * 22, sy + off - 11 * dir);
+        c.lineTo(sx + dir * 22, sy + off + 11 * dir);
+        c.lineTo(sx + dir * 22, sy + off + 3.4 + 11 * dir);
+        c.lineTo(sx - dir * 22, sy + off + 3.4 - 11 * dir);
+        c.closePath();
+      }, tint(P.wood, 0.08), { depth: 1.2, rim: 0.6, line: 1.4 });
+    }
+  }
+}
+
+/**
+ * A tuft of grass, scattered densely over the ground.
+ *
+ * The single biggest thing separating a flat green field from a lawn you would
+ * believe is high-frequency detail at the scale of a footstep. These are cheap
+ * — three strokes each — and there are thousands of them.
+ */
+function paintTuft(c: CanvasRenderingContext2D, sx: number, sy: number, r: () => number, base: string): void {
+  const n = 2 + Math.floor(r() * 2);
+  const lit = tint(base, 0.2);
+  const dark = tint(base, -0.16);
+  for (let i = 0; i < n; i++) {
+    const x = sx + (r() - 0.5) * 14;
+    const y = sy + (r() - 0.5) * 7;
+    const h = 3.4 + r() * 3.4;
+    const lean = (r() - 0.5) * 3.2;
+    c.strokeStyle = i === 0 ? dark : lit;
+    c.lineWidth = 1.5;
+    c.lineCap = 'round';
     c.beginPath();
-    c.moveTo(sx - dir * 22, sy - 12 - 11 * dir);
-    c.lineTo(sx + dir * 22, sy - 12 + 11 * dir);
+    c.moveTo(x, y);
+    c.quadraticCurveTo(x + lean * 0.4, y - h * 0.6, x + lean, y - h);
     c.stroke();
   }
 }
 
 // ─────────────────────────── structures ───────────────────────────
 
-/** A recruit pad: a flat plate on the ground with a hut behind it. */
-function paintPad(c: CanvasRenderingContext2D, sx: number, sy: number): void {
-  // The plate is a diamond so it sits flat in the world, and it is painted
-  // OLIVE rather than green: a bright green plate on a bright green field is
-  // invisible, which is exactly the mistake the first pass made.
-  const diamond = (w: number): void => {
-    const h = w * (ISO_Y / ISO_X);
+/** A diamond on the ground plane, `w` wide in screen px. */
+function groundDiamond(c: CanvasRenderingContext2D, sx: number, sy: number, w: number): void {
+  const h = w * (ISO_Y / ISO_X);
+  c.beginPath();
+  c.moveTo(sx, sy - h / 2);
+  c.lineTo(sx + w / 2, sy);
+  c.lineTo(sx, sy + h / 2);
+  c.lineTo(sx - w / 2, sy);
+  c.closePath();
+}
+
+/**
+ * A timber-framed hut in 3/4 view: a shaded gable roof with courses of tile, a
+ * plank wall with a beam frame, and a lit face on the side the sun is on.
+ * Every building in the game is a variation of this.
+ */
+function paintHut(
+  c: CanvasRenderingContext2D, hx: number, hy: number, w: number, h: number, roof: string,
+): void {
+  contactShadow(c, hx + w * 0.14, hy + h * 0.14, w * 0.78, 0.3);
+
+  // wall
+  cel(c, rrPath(c, hx - w / 2, hy - h * 0.34, w, h * 0.34, 1.5), P.wood, { depth: 3.4, rim: 1.8 });
+  // planking
+  c.save();
+  rrPath(c, hx - w / 2, hy - h * 0.34, w, h * 0.34, 1.5)();
+  c.clip();
+  c.strokeStyle = 'rgba(0,0,0,0.16)';
+  c.lineWidth = 1.1;
+  for (let x = hx - w / 2 + 6; x < hx + w / 2; x += 7) {
+    c.beginPath(); c.moveTo(x, hy - h * 0.34); c.lineTo(x, hy); c.stroke();
+  }
+  c.restore();
+  // corner posts
+  for (const d of [-1, 1]) {
+    cel(c, rrPath(c, hx + d * (w / 2 - 3.5) - 2, hy - h * 0.36, 4, h * 0.36, 1),
+      P.woodDark, { depth: 1.4, rim: 0.8, line: 1.4 });
+  }
+  // a door, so it reads as somewhere people live
+  cel(c, () => {
     c.beginPath();
-    c.moveTo(sx, sy - h / 2);
-    c.lineTo(sx + w / 2, sy);
-    c.lineTo(sx, sy + h / 2);
-    c.lineTo(sx - w / 2, sy);
-    c.closePath();
-  };
-  diamond(158);
+    c.roundRect(hx - w * 0.11, hy - h * 0.26, w * 0.22, h * 0.26, [w * 0.11, w * 0.11, 0, 0]);
+  }, '#3a2a1c', { depth: 1.4, rim: 0.8, line: 1.4 });
+
+  // roof: two slopes meeting at a ridge, with courses of tile
+  const eaves = w * 0.62;
+  const peak = hy - h;
+  cel(c, polyPath(c, [
+    hx - eaves, hy - h * 0.3, hx, peak, hx + eaves, hy - h * 0.3, hx + eaves * 0.86, hy - h * 0.22,
+    hx, peak + h * 0.08, hx - eaves * 0.86, hy - h * 0.22,
+  ]), roof, { depth: 4, rim: 2 });
+  c.save();
+  polyPath(c, [hx - eaves, hy - h * 0.3, hx, peak, hx + eaves, hy - h * 0.3])();
+  c.clip();
+  c.strokeStyle = 'rgba(0,0,0,0.18)';
+  c.lineWidth = 1.3;
+  for (let i = 1; i < 5; i++) {
+    const y = peak + (hy - h * 0.3 - peak) * (i / 5);
+    c.beginPath(); c.moveTo(hx - eaves, y); c.lineTo(hx + eaves, y); c.stroke();
+  }
+  // the lit slope
+  c.fillStyle = 'rgba(255,255,255,0.13)';
+  c.beginPath();
+  c.moveTo(hx, peak); c.lineTo(hx - eaves, hy - h * 0.3); c.lineTo(hx, hy - h * 0.3);
+  c.closePath(); c.fill();
+  c.restore();
+  // ridge beam
+  cel(c, rrPath(c, hx - 2, peak - 1, 4, h * 0.1, 1.4), P.woodDark, { depth: 1, rim: 0.6, line: 1.3 });
+}
+
+/** A recruit pad: a flat plate on the ground with a barracks hut behind it. */
+function paintPad(c: CanvasRenderingContext2D, sx: number, sy: number): void {
+  // The plate is painted OLIVE rather than green: a bright green plate on a
+  // bright green field is invisible, which is exactly the mistake a first pass
+  // makes. The bright inner diamond is the part you stand on.
+  groundDiamond(c, sx, sy, 158);
   c.fillStyle = 'rgba(0,0,0,0.16)';
   c.fill();
-  diamond(150);
+  groundDiamond(c, sx, sy, 150);
   c.fillStyle = '#8a8f4e';
   c.fill();
-  // the bright inner plate: the thing you are meant to stand on
-  diamond(112);
-  c.fillStyle = '#7fd23f';
+  groundDiamond(c, sx, sy, 118);
+  const g = c.createLinearGradient(sx - 60, sy - 30, sx + 60, sy + 30);
+  g.addColorStop(0, '#96e055');
+  g.addColorStop(1, '#63b52f');
+  c.fillStyle = g;
   c.fill();
-  diamond(150);
+  // paving joints across the plate, following the iso axes
+  c.save();
+  groundDiamond(c, sx, sy, 118);
+  c.clip();
+  c.strokeStyle = 'rgba(0,0,0,0.1)';
+  c.lineWidth = 1.4;
+  for (let i = -3; i <= 3; i++) {
+    c.beginPath();
+    c.moveTo(sx + i * 18, sy - 40); c.lineTo(sx + i * 18 + 60, sy - 40 + 34);
+    c.moveTo(sx + i * 18, sy + 40); c.lineTo(sx + i * 18 + 60, sy + 40 - 34);
+    c.stroke();
+  }
+  c.restore();
+  groundDiamond(c, sx, sy, 150);
   c.strokeStyle = hex(C.bone);
   c.lineWidth = 3;
   c.setLineDash([12, 9]);
   c.stroke();
   c.setLineDash([]);
 
-  // the hut, up and behind
-  const hx = sx - 96, hy = sy - 44;
-  c.fillStyle = 'rgba(0,0,0,0.2)';
-  c.beginPath(); c.ellipse(hx, hy + 26, 40, 18, 0, 0, Math.PI * 2); c.fill();
-  c.fillStyle = hex(C.woodDark);
-  c.fillRect(hx - 32, hy - 10, 64, 36);
-  c.fillStyle = hex(C.wood);
-  c.beginPath();
-  c.moveTo(hx - 42, hy - 8);
-  c.lineTo(hx, hy - 44);
-  c.lineTo(hx + 42, hy - 8);
-  c.closePath();
-  c.fill();
-  c.fillStyle = '#a06a3a';
-  for (let i = -36; i < 36; i += 9) c.fillRect(hx + i, hy - 8, 4, 34);
+  paintHut(c, sx - 96, sy - 30, 66, 56, '#8a4f34');
   // crossed weapons on the gable, the universal sign for "recruit here"
-  c.strokeStyle = hex(C.bone);
-  c.lineWidth = 3.2;
-  c.beginPath();
-  c.moveTo(hx - 15, hy - 6); c.lineTo(hx + 15, hy - 30);
-  c.moveTo(hx + 15, hy - 6); c.lineTo(hx - 15, hy - 30);
-  c.stroke();
+  const gx = sx - 96, gy = sy - 62;
+  for (const d of [-1, 1]) {
+    cel(c, rrPath(c, gx - 1.6, gy - 12, 3.2, 24, 1.4), P.bone, { depth: 1, rim: 0.6, line: 1.3 });
+    c.save();
+    c.translate(gx, gy);
+    c.rotate(d * 0.66);
+    c.translate(-gx, -gy);
+    cel(c, rrPath(c, gx - 1.6, gy - 12, 3.2, 24, 1.4), P.steel, { depth: 1, rim: 0.6, line: 1.3 });
+    c.restore();
+  }
 }
 
-/** A camp: a scorched circle, a firepit and some junk. */
+/** A camp: a scorched circle, a firepit, tents and junk. */
 function paintCamp(c: CanvasRenderingContext2D, sx: number, sy: number, r: () => number): void {
-  const w = 300, h = w * (ISO_Y / ISO_X);
-  c.fillStyle = 'rgba(120,86,44,0.5)';
-  c.beginPath(); c.ellipse(sx, sy, w / 2, h / 2, 0, 0, Math.PI * 2); c.fill();
-  c.fillStyle = '#3a2d1c';
-  c.beginPath(); c.ellipse(sx, sy, 22, 12, 0, 0, Math.PI * 2); c.fill();
-  c.fillStyle = hex(C.foeDark);
-  c.beginPath(); c.ellipse(sx, sy - 2, 12, 7, 0, 0, Math.PI * 2); c.fill();
+  groundDiamond(c, sx, sy, 300);
+  c.save();
+  c.beginPath();
+  c.ellipse(sx, sy, 150, 150 * (ISO_Y / ISO_X), 0, 0, Math.PI * 2);
+  c.fillStyle = 'rgba(122,88,46,0.55)';
+  c.fill();
+  c.clip();
+  // trodden ground: patches of bare earth inside the ring
+  for (let i = 0; i < 14; i++) {
+    c.fillStyle = i % 2 ? 'rgba(96,68,36,0.4)' : 'rgba(150,116,66,0.35)';
+    c.beginPath();
+    c.ellipse(sx + (r() - 0.5) * 250, sy + (r() - 0.5) * 130,
+      12 + r() * 26, (6 + r() * 12), 0, 0, Math.PI * 2);
+    c.fill();
+  }
+  c.restore();
+
+  // firepit: a ring of stones and a lit fire
   for (let i = 0; i < 7; i++) {
-    const a = r() * Math.PI * 2, d = 50 + r() * 90;
+    const a = (i / 7) * Math.PI * 2;
+    cel(c, ellPath(c, sx + Math.cos(a) * 22, sy + Math.sin(a) * 12, 5.4, 4),
+      P.stone, { depth: 1.6, rim: 0.9, line: 1.4, dark: P.stoneDark });
+  }
+  cel(c, ellPath(c, sx, sy, 15, 8), '#3a2d1c', { depth: 1.4, rim: 0.7 });
+  for (const d of [-1, 1]) {
+    cel(c, rrPath(c, sx - 9 * d, sy - 5, 18, 3.4, 1.4), P.woodDark,
+      { depth: 1, rim: 0.5, line: 1.3 });
+  }
+  cel(c, polyPath(c, [sx - 7, sy - 3, sx - 2, sy - 16, sx + 1, sy - 8, sx + 5, sy - 20, sx + 8, sy - 2]),
+    '#f7a53a', { depth: 2, rim: 1, line: 0 });
+
+  // tents, ringing the fire
+  for (let i = 0; i < 3; i++) {
+    const a = (i / 3) * Math.PI * 2 + 0.6;
+    const tx = sx + Math.cos(a) * 96;
+    const ty = sy + Math.sin(a) * 52;
+    contactShadow(c, tx + 4, ty + 2, 26, 0.28);
+    cel(c, polyPath(c, [tx - 24, ty, tx, ty - 34, tx + 24, ty]), '#7d4a3a',
+      { depth: 3, rim: 1.6 });
+    cel(c, polyPath(c, [tx - 6, ty, tx, ty - 20, tx + 6, ty]), '#2e1f18',
+      { depth: 1.4, rim: 0.7, line: 1.4 });
+  }
+
+  // junk: crates and barrels
+  for (let i = 0; i < 5; i++) {
+    const a = r() * Math.PI * 2, d = 60 + r() * 80;
     const px = sx + Math.cos(a) * d, py = sy + Math.sin(a) * d * (ISO_Y / ISO_X);
-    c.fillStyle = 'rgba(0,0,0,0.22)';
-    c.beginPath(); c.ellipse(px, py + 3, 11, 5, 0, 0, Math.PI * 2); c.fill();
-    c.fillStyle = i % 2 ? hex(C.woodDark) : hex(C.stoneDark);
-    c.fillRect(px - 9, py - 8, 18, 11);
+    contactShadow(c, px + 2, py + 1, 12, 0.24);
+    if (i % 2) {
+      cel(c, rrPath(c, px - 9, py - 15, 18, 15, 2), P.wood, { depth: 2.4, rim: 1.2 });
+      cel(c, rrPath(c, px - 9, py - 10, 18, 3, 1), P.woodDark, { depth: 1, rim: 0.5, line: 1.3 });
+    } else {
+      cel(c, rrPath(c, px - 7, py - 17, 14, 17, 5), P.stoneDark, { depth: 2.4, rim: 1.2 });
+    }
   }
 }
 
 /** The keep: a wall of blocks with a gate, filling the back of the map. */
 function paintCastle(c: CanvasRenderingContext2D, sx: number, sy: number): void {
   const wallW = 620;
-  c.fillStyle = 'rgba(0,0,0,0.22)';
-  c.beginPath(); c.ellipse(sx, sy + 20, wallW / 2, 90, 0, 0, Math.PI * 2); c.fill();
+  contactShadow(c, sx + 20, sy + 16, wallW * 0.44, 0.3);
 
   // three stepped blocks receding, so the wall reads as mass not a flat card
   for (let i = 2; i >= 0; i--) {
     const w = wallW - i * 90;
     const top = sy - 150 - i * 74;
-    c.fillStyle = i === 0 ? hex(C.stone) : i === 1 ? '#7c7e85' : hex(C.stoneDark);
-    c.fillRect(sx - w / 2, top, w, 130 + i * 40);
-    c.fillStyle = 'rgba(255,255,255,0.1)';
-    c.fillRect(sx - w / 2, top, w, 12);
+    const bh = 130 + i * 40;
+    const base = i === 0 ? P.stone : i === 1 ? tint(P.stone, -0.12) : P.stoneDark;
+    cel(c, rrPath(c, sx - w / 2, top, w, bh, 3), base, { depth: 10, rim: 5 });
     // crenellations
-    c.fillStyle = i === 0 ? hex(C.stone) : hex(C.stoneDark);
-    for (let x = -w / 2; x < w / 2 - 20; x += 46) c.fillRect(sx + x, top - 22, 26, 24);
+    for (let x = -w / 2; x < w / 2 - 20; x += 46) {
+      cel(c, rrPath(c, sx + x, top - 24, 28, 26, 2), base, { depth: 4, rim: 2 });
+    }
+    // courses of block, and a scatter of darker stones so the wall has texture
+    c.save();
+    rrPath(c, sx - w / 2, top, w, bh, 3)();
+    c.clip();
+    c.strokeStyle = 'rgba(0,0,0,0.17)';
+    c.lineWidth = 1.6;
+    for (let y = top + 22; y < top + bh; y += 24) {
+      c.beginPath(); c.moveTo(sx - w / 2, y); c.lineTo(sx + w / 2, y); c.stroke();
+    }
+    const rr2 = tileRng(Math.round(sx) + i, Math.round(sy), 313);
+    for (let k = 0; k < 26; k++) {
+      const bx = sx - w / 2 + rr2() * w;
+      const by = top + 22 + Math.floor(rr2() * ((bh - 22) / 24)) * 24;
+      c.fillStyle = rr2() < 0.5 ? 'rgba(0,0,0,0.09)' : 'rgba(255,255,255,0.09)';
+      c.fillRect(bx, by + 2, 22 + rr2() * 18, 20);
+    }
+    c.restore();
   }
-  // block seams
-  c.strokeStyle = 'rgba(0,0,0,0.2)';
-  c.lineWidth = 2;
-  for (let y = sy - 140; y < sy + 6; y += 26) {
-    c.beginPath(); c.moveTo(sx - wallW / 2, y); c.lineTo(sx + wallW / 2, y); c.stroke();
-  }
-  // the gate
-  c.fillStyle = '#241a12';
-  c.beginPath();
-  c.moveTo(sx - 74, sy + 10);
-  c.lineTo(sx - 74, sy - 74);
-  c.arc(sx, sy - 74, 74, Math.PI, 0);
-  c.lineTo(sx + 74, sy + 10);
-  c.closePath();
-  c.fill();
-  c.fillStyle = hex(C.wood);
-  c.fillRect(sx - 66, sy - 78, 132, 88);
-  c.fillStyle = hex(C.woodDark);
-  for (let x = -60; x < 62; x += 22) c.fillRect(sx + x, sy - 78, 8, 88);
-  c.strokeStyle = hex(C.goldDark);
-  c.lineWidth = 6;
-  c.strokeRect(sx - 66, sy - 78, 132, 88);
-  // banners either side
-  for (const dx of [-150, 150]) {
-    c.fillStyle = hex(C.foe);
+
+  // the gate: an arch, a portcullis and iron banding
+  cel(c, () => {
     c.beginPath();
-    c.moveTo(sx + dx - 18, sy - 150);
-    c.lineTo(sx + dx + 18, sy - 150);
-    c.lineTo(sx + dx + 18, sy - 60);
-    c.lineTo(sx + dx, sy - 78);
-    c.lineTo(sx + dx - 18, sy - 60);
+    c.moveTo(sx - 82, sy + 12);
+    c.lineTo(sx - 82, sy - 76);
+    c.arc(sx, sy - 76, 82, Math.PI, 0);
+    c.lineTo(sx + 82, sy + 12);
     c.closePath();
-    c.fill();
+  }, tint(P.stone, -0.2), { depth: 6, rim: 3 });
+  cel(c, () => {
+    c.beginPath();
+    c.moveTo(sx - 66, sy + 10);
+    c.lineTo(sx - 66, sy - 74);
+    c.arc(sx, sy - 74, 66, Math.PI, 0);
+    c.lineTo(sx + 66, sy + 10);
+    c.closePath();
+  }, P.wood, { depth: 5, rim: 2.6 });
+  c.save();
+  c.beginPath();
+  c.moveTo(sx - 66, sy + 10);
+  c.lineTo(sx - 66, sy - 74);
+  c.arc(sx, sy - 74, 66, Math.PI, 0);
+  c.lineTo(sx + 66, sy + 10);
+  c.closePath();
+  c.clip();
+  c.fillStyle = 'rgba(0,0,0,0.28)';
+  for (let x = -60; x < 62; x += 22) c.fillRect(sx + x, sy - 150, 7, 200);
+  c.restore();
+  // iron bands and studs
+  for (const y of [sy - 62, sy - 20]) {
+    cel(c, rrPath(c, sx - 68, y, 136, 9, 2), P.steelDark, { depth: 1.6, rim: 0.9, line: 1.4 });
+    for (let x = -58; x < 60; x += 20) {
+      cel(c, ellPath(c, sx + x, y + 4.5, 3, 3), P.steel, { depth: 1, rim: 0.6, line: 1 });
+    }
+  }
+
+  // banners either side, with a device on them
+  for (const dx of [-160, 160]) {
+    cel(c, polyPath(c, [
+      sx + dx - 20, sy - 156, sx + dx + 20, sy - 156,
+      sx + dx + 20, sy - 62, sx + dx, sy - 82, sx + dx - 20, sy - 62,
+    ]), P.foe, { depth: 5, rim: 2.4 });
+    cel(c, ellPath(c, sx + dx, sy - 122, 11, 11), P.gold, { depth: 3, rim: 1.6 });
   }
 }
 
-/** The muster point you start on: a friendly plaza. */
+/** The muster point you start on: a friendly plaza with a few huts. */
 function paintStart(c: CanvasRenderingContext2D, sx: number, sy: number): void {
-  const w = 340, h = w * (ISO_Y / ISO_X);
-  c.fillStyle = 'rgba(216,180,119,0.85)';
-  c.beginPath(); c.ellipse(sx, sy, w / 2, h / 2, 0, 0, Math.PI * 2); c.fill();
-  c.strokeStyle = 'rgba(255,246,226,0.5)';
+  const w = 340;
+  c.save();
+  c.beginPath();
+  c.ellipse(sx, sy, w / 2, (w / 2) * (ISO_Y / ISO_X), 0, 0, Math.PI * 2);
+  c.fillStyle = 'rgba(216,180,119,0.9)';
+  c.fill();
+  c.clip();
+  // cobbles
+  const r = tileRng(Math.round(sx), Math.round(sy), 55);
+  for (let i = 0; i < 90; i++) {
+    c.fillStyle = r() < 0.5 ? 'rgba(196,160,102,0.55)' : 'rgba(238,212,164,0.5)';
+    c.beginPath();
+    c.ellipse(sx + (r() - 0.5) * w, sy + (r() - 0.5) * w * 0.58,
+      5 + r() * 6, 3 + r() * 3, 0, 0, Math.PI * 2);
+    c.fill();
+  }
+  c.restore();
+  c.strokeStyle = 'rgba(255,246,226,0.55)';
   c.lineWidth = 4;
-  c.beginPath(); c.ellipse(sx, sy, w / 2, h / 2, 0, 0, Math.PI * 2); c.stroke();
+  c.beginPath();
+  c.ellipse(sx, sy, w / 2, (w / 2) * (ISO_Y / ISO_X), 0, 0, Math.PI * 2);
+  c.stroke();
+
   for (let i = 0; i < 5; i++) {
     const a = (i / 5) * Math.PI * 2 + 0.5;
-    const px = sx + Math.cos(a) * 132, py = sy + Math.sin(a) * 132 * (ISO_Y / ISO_X);
-    c.fillStyle = 'rgba(0,0,0,0.2)';
-    c.beginPath(); c.ellipse(px, py + 12, 26, 12, 0, 0, Math.PI * 2); c.fill();
-    c.fillStyle = hex(C.wood);
-    c.fillRect(px - 20, py - 20, 40, 32);
-    c.fillStyle = hex(C.woodDark);
-    c.beginPath();
-    c.moveTo(px - 26, py - 18); c.lineTo(px, py - 44); c.lineTo(px + 26, py - 18);
-    c.closePath(); c.fill();
+    paintHut(c, sx + Math.cos(a) * 138, sy + Math.sin(a) * 138 * (ISO_Y / ISO_X),
+      54, 46, i % 2 ? '#8a4f34' : '#6f5a3a');
   }
 }
 
@@ -299,6 +505,9 @@ export function getChunk(cx: number, cy: number): Texture {
   const wx0 = cx * BLOCK, wy0 = cy * BLOCK;
 
   // ── ground ──
+  // Two passes. The first lays the diamonds; the second scatters grass over
+  // the seams. A single flat pass is what makes procedural ground look like a
+  // spreadsheet, and the tufts cost a few strokes per tile.
   for (let ty = 0; ty < N; ty++) {
     for (let tx = 0; tx < N; tx++) {
       const wx = wx0 + tx * T, wy = wy0 + ty * T;
@@ -314,6 +523,31 @@ export function getChunk(cx: number, cy: number): Texture {
         c.fill();
         c.globalAlpha = 1;
       }
+      // a soft dark edge along the two far sides of each diamond, so the
+      // ground has grain instead of being a field of solid lozenges
+      if (r() < 0.5) {
+        const a = toScreen(wx, wy), b2 = toScreen(wx + T, wy), d2 = toScreen(wx + T, wy + T);
+        c.strokeStyle = 'rgba(40,64,26,0.09)';
+        c.lineWidth = 1.6;
+        c.beginPath();
+        c.moveTo(a.x - ox, a.y - oy);
+        c.lineTo(b2.x - ox, b2.y - oy);
+        c.lineTo(d2.x - ox, d2.y - oy);
+        c.stroke();
+      }
+    }
+  }
+
+  // grass, scattered on a finer grid than the tiles
+  for (let ty = 0; ty < N * 2; ty++) {
+    for (let tx = 0; tx < N * 2; tx++) {
+      const wx = wx0 + tx * (T / 2) + T / 4, wy = wy0 + ty * (T / 2) + T / 4;
+      const r = tileRng(Math.round(wx), Math.round(wy), 4242);
+      if (r() > 0.42) continue;
+      if (roadDist(wx, wy) < 60) continue;
+      const g = GROUND[biomeAt(wx, wy)];
+      const sp = toScreen(wx, wy);
+      paintTuft(c, sp.x - ox, sp.y - oy, r, g.speck);
     }
   }
 
@@ -327,6 +561,18 @@ export function getChunk(cx: number, cy: number): Texture {
       const a = d < 52 ? 0.95 : 0.95 * (1 - (d - 52) / 38);
       c.fillStyle = `rgba(216,180,119,${a.toFixed(3)})`;
       c.fill();
+      // ruts and stones, only on the packed middle of the track
+      if (d < 46) {
+        const r = tileRng(Math.round(wx), Math.round(wy), 707);
+        if (r() < 0.4) {
+          const s2 = toScreen(wx + T / 2, wy + T / 2);
+          c.fillStyle = r() < 0.5 ? 'rgba(176,142,88,0.5)' : 'rgba(238,212,164,0.45)';
+          c.beginPath();
+          c.ellipse(s2.x - ox + (r() - 0.5) * 20, s2.y - oy + (r() - 0.5) * 10,
+            3 + r() * 4, 1.6 + r() * 2, 0, 0, Math.PI * 2);
+          c.fill();
+        }
+      }
     }
   }
 
@@ -335,7 +581,9 @@ export function getChunk(cx: number, cy: number): Texture {
     for (let tx = 0; tx < N; tx++) {
       const wx = wx0 + tx * T + T / 2, wy = wy0 + ty * T + T / 2;
       const r = tileRng(Math.round(wx / T) + 7777, Math.round(wy / T) + 31);
-      if (r() > clutterAt(wx, wy) * 0.55) continue;
+      // props are denser and larger than they were, so fewer of them: a field
+      // you cannot see the enemies across is not a nicer field
+      if (r() > clutterAt(wx, wy) * 0.36) continue;
       if (roadDist(wx, wy) < 70) continue;
       // keep props out of every structure's footprint — this skips the TILE,
       // not the chunk, which an early return here would quietly do instead
@@ -392,7 +640,7 @@ const STRUCT_BOX: Record<string, { x: number; y: number; w: number; h: number }>
   // x/y are the origin's position inside the box
   pad: { x: 160, y: 100, w: 250, h: 150 },
   camp: { x: 175, y: 110, w: 350, h: 220 },
-  castle: { x: 340, y: 340, w: 680, h: 470 },
+  castle: { x: 340, y: 348, w: 680, h: 520 },
   start: { x: 195, y: 135, w: 390, h: 235 },
 };
 
@@ -406,10 +654,16 @@ export function getStructure(id: string): Structure | null {
   const box = STRUCT_BOX[p.kind];
   if (!box) return null;
 
+  // Structures are supersampled 2×. There are sixteen of them in the whole
+  // field and they are the things a player actually looks at, so the memory is
+  // well spent — unlike on terrain chunks, where the same trick would cost
+  // tens of megabytes for ground the eye slides over.
+  const SS = 2;
   const canvas = document.createElement('canvas');
-  canvas.width = box.w;
-  canvas.height = box.h;
+  canvas.width = box.w * SS;
+  canvas.height = box.h * SS;
   const c = canvas.getContext('2d')!;
+  c.scale(SS, SS);
   c.lineJoin = 'round';
   c.lineCap = 'round';
   const r = tileRng(Math.round(p.x), Math.round(p.y), 99);
@@ -418,7 +672,8 @@ export function getStructure(id: string): Structure | null {
   else if (p.kind === 'castle') paintCastle(c, box.x, box.y);
   else if (p.kind === 'start') paintStart(c, box.x, box.y);
 
-  const made = { tex: Texture.from(canvas), ox: box.x, oy: box.y };
+  const source = new CanvasSource({ resource: canvas, resolution: SS, scaleMode: 'linear' });
+  const made = { tex: new Texture({ source }), ox: box.x, oy: box.y };
   structs.set(id, made);
   return made;
 }

@@ -9,6 +9,7 @@ import { Entities, campPositions } from '../../world/entities';
 import { Squad } from '../../world/squad';
 import { coinSpots, getWorld, poiById } from '../../world/worldgen';
 import { screenX, screenY, stickToWorld, toScreen } from '../../iso';
+import { LOOK_S, STRIDE, frameFor, frameName, isFootfall, lookFrom, type Look } from '../../anim';
 import { Joystick } from '../../ui/joystick';
 import { showPause } from '../../ui/overlays';
 import { Scene } from '../scene';
@@ -72,13 +73,22 @@ export class WorldScene extends Scene implements Stepper {
   private heroRing!: Sprite;
   private px = 0; private py = 0;   // previous position, for interpolation
   private vx = 0; private vy = 0;
+  /** walk cycle, advanced by ground covered rather than by the clock */
+  private walk = 0;
+  private lastFrame = 0;
+  private look: Look = LOOK_S;
 
   // ── the companion ──
   private donut!: Sprite;
   private dx = 0; private dy = 0;
   private dpx = 0; private dpy = 0;
   private donutCd = 0;
+  private donutWalk = 0;
+  private donutLook: Look = LOOK_S;
+  private donutAttackT = 0;
   private quipCd = 0;
+  /** spins the coins in the field; one clock for all of them is plenty */
+  private coinSpin = 0;
 
   /** gold poured into recruits this run, for the spendthrift achievement */
   private spentOnRecruits = 0;
@@ -176,11 +186,11 @@ export class WorldScene extends Scene implements Stepper {
     this.heroRing.alpha = 0.75;
     this.actorLayer.addChild(this.heroRing);
 
-    this.hero = new Sprite(ctx.atlas.get('hero_s'));
+    this.hero = new Sprite(ctx.atlas.get('hero_s_0'));
     this.hero.anchor.set(0.5, 1);
     this.actorLayer.addChild(this.hero);
 
-    this.donut = new Sprite(ctx.atlas.get('donut_s'));
+    this.donut = new Sprite(ctx.atlas.get('donut_s_0'));
     this.donut.anchor.set(0.5, 1);
     this.actorLayer.addChild(this.donut);
     this.dx = this.dpx = run.x - 40;
@@ -302,6 +312,7 @@ export class WorldScene extends Scene implements Stepper {
     run.y = Math.max(pad, Math.min(CONFIG.world.size - pad, run.y));
     const lateral = screenX(this.vx, this.vy);
     if (Math.abs(lateral) > 6) run.face = lateral < 0 ? -1 : 1;
+    this.walk = (this.walk + (Math.hypot(this.vx, this.vy) * dt) / STRIDE) % 1;
 
     this.squad.step(dt, run.x, run.y, run.clock);
     this.squad.peak = Math.max(this.squad.peak, this.squad.count);
@@ -341,11 +352,17 @@ export class WorldScene extends Scene implements Stepper {
 
     const dx = run.x - this.dx, dy = run.y - this.dy;
     const d = Math.hypot(dx, dy);
+    let moved = 0;
     if (d > C.followDist) {
       const move = Math.min(C.speed * dt, d - C.followDist);
       this.dx += (dx / d) * move;
       this.dy += (dy / d) * move;
+      moved = move;
+      this.donutLook = lookFrom(dx, dy, this.donutLook);
     }
+    this.donutWalk = (this.donutWalk + moved / (STRIDE * 0.7)) % 1;
+    this.donutMoving = moved > 0.4;
+    if (this.donutAttackT > 0) this.donutAttackT -= dt;
 
     this.donutCd -= dt;
     if (this.donutCd > 0) return;
@@ -360,7 +377,10 @@ export class WorldScene extends Scene implements Stepper {
       C.damage, true,
     );
     this.donutCd = C.interval;
+    this.donutAttackT = 0.2;
+    this.donutLook = lookFrom(ex, ey, this.donutLook);
   }
+  private donutMoving = false;
 
   /**
    * Instantiate the populations of nearby camps and refund distant ones.
@@ -749,14 +769,22 @@ export class WorldScene extends Scene implements Stepper {
     this.mountChunks();
 
     // ── the hero ──
-    const facing = this.heroFacing();
-    if (!this.dead) this.hero.texture = ctx.atlas.get('hero_' + facing);
-    this.hero.scale.x = run.face < 0 && facing === 'e' ? -1 : 1;
     const moving = Math.hypot(this.vx, this.vy) > 8;
-    this.hero.position.set(
-      screenX(ix, iy),
-      screenY(ix, iy) - (moving && !this.dead ? Math.abs(Math.sin(performance.now() / 85)) * 2.6 : 0),
-    );
+    if (!this.dead) {
+      if (moving) this.look = lookFrom(this.vx, this.vy, this.look);
+      const frame = frameFor(this.walk, moving, 0);
+      this.hero.texture = ctx.atlas.get(frameName('hero', this.look, frame));
+      this.hero.scale.x = this.look.flip ? -1 : 1;
+      // dust on the two frames where a foot actually plants
+      if (isFootfall(this.lastFrame, frame) && moving) {
+        this.particles.burst(screenX(ix, iy), screenY(ix, iy), {
+          frame: 'puff', count: 1, tint: CONFIG.colors.sandDark,
+          speed: 12, ttl: 0.34, s0: 0.5, s1: 1.1, a0: 0.5, a1: 0,
+        });
+      }
+      this.lastFrame = frame;
+    }
+    this.hero.position.set(screenX(ix, iy), screenY(ix, iy));
     this.hero.zIndex = ix + iy;
     this.heroRing.position.set(screenX(ix, iy), screenY(ix, iy));
     // just behind the hero in the same sort, so it reads as under his feet
@@ -765,11 +793,10 @@ export class WorldScene extends Scene implements Stepper {
     // ── the companion ──
     const dix = this.dpx + (this.dx - this.dpx) * alpha;
     const diy = this.dpy + (this.dy - this.dpy) * alpha;
-    const dLateral = screenX(this.dx - this.px, this.dy - this.py);
-    const dFacing = screenY(run.x - this.dx, run.y - this.dy) < -6 ? 'n'
-      : Math.abs(screenX(run.x - this.dx, run.y - this.dy)) > 24 ? 'e' : 's';
-    this.donut.texture = ctx.atlas.get('donut_' + dFacing);
-    this.donut.scale.x = dLateral > 0 ? -1 : 1;
+    this.donut.texture = ctx.atlas.get(frameName(
+      'donut', this.donutLook, frameFor(this.donutWalk, this.donutMoving, this.donutAttackT),
+    ));
+    this.donut.scale.x = this.donutLook.flip ? -1 : 1;
     this.donut.position.set(screenX(dix, diy), screenY(dix, diy));
     this.donut.zIndex = dix + diy;
 
@@ -781,18 +808,29 @@ export class WorldScene extends Scene implements Stepper {
       const e = this.ents.enemies.items[i];
       const ex = e.px + (e.x - e.px) * alpha;
       const ey = e.py + (e.y - e.py) * alpha;
-      const face = this.enemyFacing(e.x - run.x, e.y - run.y);
+      const stepX = e.x - e.px, stepY = e.y - e.py;
+      const speed = Math.hypot(stepX, stepY) / Math.max(1e-4, dtReal);
+      const eMoving = speed > 12;
+      if (eMoving) {
+        e.look = lookFrom(stepX, stepY, e.look);
+        e.walk = (e.walk + Math.hypot(stepX, stepY) / STRIDE) % 1;
+      } else if (e.aggro) {
+        // a stopped enemy is one that has arrived and is swinging
+        e.look = lookFrom(run.x - e.x, run.y - e.y, e.look);
+        e.attackT = 0.3;
+      }
+      if (e.attackT > 0) e.attackT -= dtReal;
       if (e.flashT > 0) {
         e.flashT -= dtReal;
         e.sp.texture = ctx.atlas.get(e.kind + '_flash');
+        e.sp.scale.x = 1;
       } else {
-        e.sp.texture = ctx.atlas.get(`${e.kind}_${face}`);
+        e.sp.texture = ctx.atlas.get(
+          frameName(e.kind, e.look, frameFor(e.walk, eMoving, e.attackT)),
+        );
+        e.sp.scale.x = e.look.flip ? -1 : 1;
       }
-      e.sp.scale.x = face === 'e' && e.face < 0 ? -1 : 1;
-      e.sp.position.set(
-        screenX(ex, ey),
-        screenY(ex, ey) - (e.aggro ? Math.abs(Math.sin(e.phase)) * 2 : 0),
-      );
+      e.sp.position.set(screenX(ex, ey), screenY(ex, ey));
       e.sp.zIndex = ex + ey;
     }
 
@@ -805,11 +843,15 @@ export class WorldScene extends Scene implements Stepper {
       this.ents.shots.items[i].sp.position.set(screenX(sx, sy), screenY(sx, sy) - 18);
     }
 
-    // ── coins ──
+    // ── coins, turning ──
+    // A field of static discs reads as litter; a field of turning ones reads as
+    // treasure. The spin is one clock offset per coin, not one clock each.
+    this.coinSpin += dtReal * 3.2;
     for (let i = 0; i < this.ents.coins.count; i++) {
       const c = this.ents.coins.items[i];
       const hop = c.t < 1 ? Math.sin(c.t * Math.PI) * 16 : 0;
       const idle = Math.abs(Math.sin(performance.now() / 300 + c.x)) * 3;
+      c.sp.texture = ctx.atlas.get('coin_' + (Math.floor(this.coinSpin + c.x * 0.07) & 3));
       c.sp.position.set(screenX(c.x, c.y), screenY(c.x, c.y) - hop - idle);
       c.sp.zIndex = c.x + c.y;
     }
@@ -925,20 +967,6 @@ export class WorldScene extends Scene implements Stepper {
     if (keepD <= CONFIG.castle.range) return UI.attack;
     if (this.squad.count === 0) return `${UI.recruit} — ${KEEP_NAME} is east`;
     return null;
-  }
-
-  private heroFacing(): 's' | 'n' | 'e' {
-    const sx = screenX(this.vx, this.vy);
-    const sy = screenY(this.vx, this.vy);
-    if (Math.abs(sx) > Math.abs(sy) * 1.2 && Math.abs(sx) > 8) return 'e';
-    if (sy < -8) return 'n';
-    return 's';
-  }
-
-  private enemyFacing(dx: number, dy: number): 's' | 'n' | 'e' {
-    const sx = screenX(dx, dy), sy = screenY(dx, dy);
-    if (Math.abs(sx) > Math.abs(sy) * 1.2) return 'e';
-    return sy > 0 ? 'n' : 's';
   }
 
   /**

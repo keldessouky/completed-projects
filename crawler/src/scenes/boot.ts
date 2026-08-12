@@ -70,7 +70,13 @@ export class BootScene extends Scene {
       await loadFonts();
       this.setProgress(0.16);
 
+      const t0 = performance.now();
       ctx.atlas = GameAtlas.build();
+      // surfaced on the debug object: the atlas is the single biggest thing
+      // between a tap and a playable frame, so it is worth being able to see
+      (window as unknown as Record<string, { atlasMs?: number }>).__cr
+        && ((window as unknown as Record<string, { atlasMs?: number }>).__cr.atlasMs =
+          Math.round(performance.now() - t0));
       // the System's achievement card is the one notification with artwork
       ctx.system.atlas = ctx.atlas;
       this.setProgress(0.30);

@@ -87,6 +87,12 @@ decision the player makes is where to walk, which is the point.
 - **Depth sorting that includes the scenery** — structures are their own
   sprites in the same sorted layer as the crowd, so you can stand behind a
   castle wall.
+- **Animated, cel-shaded art at 3× supersampling** — one articulated rig
+  drives every person in the game through a four-frame walk cycle and an
+  attack pose, in five painted facings mirrored to eight. Every shape is
+  filled three times from a single path — light, base, shade — against one
+  fixed light direction, so a sprite, a tree and a castle wall are all lit by
+  the same sun.
 - **The System** — boxed, bureaucratic, faintly hostile notifications; twelve
   achievements that arrive with the pomp of an award and the content of a
   parking notice, each paying gold straight into the purse, because gold is
@@ -194,6 +200,37 @@ destroys the outgoing scene wholesale, and a run survives the wipe screen and
 the title card. `fromSave()` re-clamps every field rather than trusting it, so a
 hand-edited save produces a boring run instead of a crash.
 
+### The art is one rig and one lighting rule
+
+`assets/shade.ts` holds the whole style: clip to a shape, flood it with the
+light tone, re-fill the same path offset away from the light in the base tone,
+and once more offset further in the shade tone. One path, three tones, and the
+ramp always runs the same way — which is why adding detail anywhere is cheap
+and why nothing in the game is lit from the wrong side.
+
+`assets/figure.ts` is the other half: a single articulated humanoid — head,
+torso, two arms, two legs, cape — posed from frame data. Carl, a levy, a
+redcloak and a Floor Captain are the same skeleton with different materials
+and a different thing in its hands. That is not a shortcut. A game whose
+characters are each drawn from scratch looks assembled, and at 40 px the thing
+that sells a character is its silhouette and its gait, both of which live in
+one file.
+
+The walk is driven by **distance travelled**, not by wall time. A cycle on a
+clock keeps stepping while a character stands still and slides its feet when it
+slows down; on distance, the feet plant at a stop and the cadence rises and
+falls with speed for free.
+
+### Where the supersampling goes
+
+Characters get 3×, structures 2×, terrain 1×. That is a deliberate ranking
+rather than an oversight: sixteen structures and a few hundred character frames
+cost single-digit megabytes at those factors, while supersampling terrain
+chunks would cost tens of megabytes for ground the eye slides over. The atlas
+packer opens a new page when one fills and crops the last page to the height
+actually used, so the art budget is set by what the art needs rather than by a
+fixed sheet size.
+
 ### Flat things and tall things sort differently
 
 Structures are sprites rather than part of the terrain bake, but only the
@@ -202,6 +239,14 @@ recruit plates, a camp's scorch circle — are ground decals anchored at their
 centre, and sorting those by that centre paints them straight over anything
 standing on their near half. That is not a subtle artifact: it was erasing the
 companion every time she walked onto the plaza.
+
+### The crowd sorts behind everything
+
+Squad members carry a constant depth penalty. Strictly it is wrong — a levy
+standing in front of Carl should occlude him — but sixty near-identical bodies
+will otherwise swallow the one the stick is attached to, and "where am I" is
+not a question this game should ever ask. Internally the crew still sorts
+correctly among itself.
 
 ### Fixed timestep, decoupled render
 

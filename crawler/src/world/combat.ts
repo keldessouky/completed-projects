@@ -193,6 +193,9 @@ export class Combat {
         dmg, true,
       );
       m.cd = SQ.interval;
+      // hold the throw pose for a beat so the volley is visible on the bodies
+      // and not only in the projectiles
+      m.attackT = 0.22;
       fired = true;
     }
     if (fired) w.fx.shot(true);

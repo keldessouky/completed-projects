@@ -2,6 +2,7 @@ import { Sprite } from 'pixi.js';
 import { CONFIG, ENEMY_KINDS, type EnemyKind } from '../config';
 import { Pool } from '../core/pool';
 import { depth, screenX, screenY } from '../iso';
+import { LOOK_S, type Look } from '../anim';
 import type { GameAtlas } from '../assets/atlas';
 import type { Poi } from '../types';
 
@@ -28,6 +29,12 @@ export interface Enemy {
   flashT: number;
   /** −1 facing screen-left, 1 facing screen-right */
   face: number;
+  /** walk-cycle position in cycles, advanced by distance travelled */
+  walk: number;
+  /** the facing last drawn */
+  look: Look;
+  /** counts down while the attack pose plays */
+  attackT: number;
   /** leash anchor: where it was spawned */
   hx: number; hy: number;
   /** the camp whose population this belongs to */
@@ -121,7 +128,7 @@ export class Entities {
     coinLayer: import('pixi.js').Container,
   ) {
     this.enemies = new Pool<Enemy>(CONFIG.enemies.poolSize, () => {
-      const sp = new Sprite(atlas.get('grunt_s'));
+      const sp = new Sprite(atlas.get('grunt_s_0'));
       // anchored at the feet: the sprite stands ON the ground plane point
       sp.anchor.set(0.5, 1);
       sp.visible = false;
@@ -130,6 +137,7 @@ export class Entities {
         sp, kind: 'grunt', x: 0, y: 0, px: 0, py: 0, kx: 0, ky: 0,
         hp: 1, maxHp: 1, cd: 0, flashT: 0, face: 1, hx: 0, hy: 0,
         poi: '', aggro: false, phase: 0,
+        walk: 0, look: LOOK_S, attackT: 0,
       };
     });
 
@@ -211,7 +219,10 @@ export class Entities {
     e.poi = poi;
     e.aggro = false;
     e.phase = Math.random() * Math.PI * 2;
-    e.sp.texture = atlas.get(kind + '_s');
+    e.walk = Math.random();
+    e.look = LOOK_S;
+    e.attackT = 0;
+    e.sp.texture = atlas.get(kind + '_s_0');
     e.sp.visible = true;
     e.sp.alpha = 1;
     e.sp.scale.set(1);

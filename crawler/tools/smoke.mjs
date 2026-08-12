@@ -97,6 +97,28 @@ let pass = 0;
 const ok = (label) => { pass++; console.log(`  ✓ ${label}`); };
 
 /**
+ * Tap a button until the scene actually changes.
+ *
+ * A single blind click makes a check a coin toss: a scene flips its id before
+ * its first frame is painted, and the one-file build boots slowly enough that
+ * a tap can land on a button that is not listening yet.
+ */
+const tapUntilScene = async (x, y, want, tries = 6, waitMs = 4000) => {
+  for (let i = 0; i < tries; i++) {
+    await page.mouse.click(x, y);
+    const t0 = Date.now();
+    // wait properly before re-tapping: the first world entry bakes every
+    // structure in the field, and a tap that is merely SLOW is not a tap that
+    // missed
+    while (Date.now() - t0 < waitMs) {
+      if ((await scene()) === want) return true;
+      await page.waitForTimeout(200);
+    }
+  }
+  return false;
+};
+
+/**
  * Hold the joystick in a direction for a while.
  *
  * The direction is a SCREEN direction, because that is what a thumb gives the
@@ -222,7 +244,7 @@ try {
   ok('boot → title (assets loaded)');
 
   // ── take the field through the real button ──
-  await page.mouse.click(220, 592); // "Take the Field"
+  if (!await tapUntilScene(220, 592, 'world')) throw new Error('could not take the field from the title');
   await waitScene('world');
   await page.waitForTimeout(800);
   await shot('02-field');
@@ -411,7 +433,7 @@ try {
   if (!afterReload.run) throw new Error('run not persisted');
   if (!afterReload.run.breached) throw new Error('the breach was lost on reload');
   if (afterReload.run.cleared.length < 1) throw new Error('cleared camps lost on reload');
-  await page.mouse.click(220, 592); // Continue
+  if (!await tapUntilScene(220, 592, 'world')) throw new Error('could not continue the saved run');
   await waitScene('world');
   const resumed = await probe();
   if (Math.hypot(resumed.x - beforeReload.run.x, resumed.y - beforeReload.run.y) > 60) {
@@ -438,15 +460,15 @@ try {
   if (!paused) throw new Error('the pause button never opened the pause menu');
   await shot('11-pause');
   await page.mouse.click(220, 546); // Settings
-  await page.waitForTimeout(400);
+  await page.waitForTimeout(600);
   await page.mouse.click(362, 226); // close settings
-  await page.waitForTimeout(300);
-  await page.mouse.click(220, 622); // Quit
-  await waitScene('title', 10000);
+  await page.waitForTimeout(600);
+  // Quit sits under the settings sheet's fade-out; retry rather than hoping
+  if (!await tapUntilScene(220, 622, 'title')) throw new Error('quit never reached the title');
   ok('pause → settings → quit to title');
 
   // ── dev overlay ──
-  await page.mouse.click(220, 592);
+  if (!await tapUntilScene(220, 592, 'world')) throw new Error('could not re-enter the field');
   await waitScene('world');
   for (let i = 0; i < 5; i++) { await page.mouse.click(40, 40); await page.waitForTimeout(60); }
   await page.waitForTimeout(400);

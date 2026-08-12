@@ -43,6 +43,7 @@ export const P = {
   skin: '#f0c092',
   skinShade: '#cf9a6c',
   hair: '#3a2a1c',
+  hairLight: '#6b4a2c',
   /** the hero's boxer shorts, because that is the whole joke */
   shorts: '#5f7fb8',
   shortsLit: '#8aa5d6',
