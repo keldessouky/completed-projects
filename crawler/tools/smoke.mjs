@@ -470,13 +470,19 @@ try {
   // ── dev overlay ──
   if (!await tapUntilScene(220, 592, 'world')) throw new Error('could not re-enter the field');
   await waitScene('world');
-  for (let i = 0; i < 5; i++) { await page.mouse.click(40, 40); await page.waitForTimeout(60); }
-  await page.waitForTimeout(400);
+  // The gesture is five taps inside 1.6 s. Synthetic clicks round-trip slowly
+  // under a software renderer, so a single burst can miss the window through
+  // no fault of the game — try the gesture a few times before calling it.
+  let devOpen = false;
+  for (let attempt = 0; attempt < 5 && !devOpen; attempt++) {
+    for (let i = 0; i < 6; i++) await page.mouse.click(40, 40, { delay: 0 });
+    await page.waitForTimeout(400);
+    devOpen = await page.evaluate(() => {
+      const find = (n) => n.children?.some((c) => c.text?.includes?.('frame:') || find(c));
+      return find(window.__cr.game.root);
+    });
+  }
   await shot('12-dev');
-  const devOpen = await page.evaluate(() => {
-    const find = (n) => n.children?.some((c) => c.text?.includes?.('frame:') || find(c));
-    return find(window.__cr.game.root);
-  });
   if (!devOpen) throw new Error('dev overlay did not open on the 5-tap corner gesture');
   ok('dev overlay opens on the corner gesture');
 

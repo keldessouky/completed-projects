@@ -22,6 +22,8 @@ npm run build       # → dist/, a static bundle you can host anywhere
 npm run build:single # → dist-single/crawler.html, the whole game in one file
 npm run smoke        # headless Chromium playthrough of a whole run
 npm run smoke:single # …the same 19 checks against the one-file build
+npm run art:export   # → art-template/, the cast as PNG sheets you can repaint
+npm run art:check    # verify custom sheets in public/art/ before you reload
 ```
 
 To just play it: `npm run build && npm run build:single`, then open
@@ -128,6 +130,231 @@ Floor-specific proper nouns — camps, mobs, the keep — are invented in that
 register rather than lifted, so the homage is to the voice and the cast rather
 than to a page count.
 
+
+---
+
+# Replacing the character art
+
+The cast is drawn in code, but it does not have to be. Drop PNG sprite sheets
+into `public/art/` and the game loads them over its own art at boot — same
+names, same animation, same facing, same depth sorting, same hit flash. Nothing
+else in the codebase changes.
+
+This section is meant to be followed literally. At the end of it you will have
+a different-looking character walking around.
+
+## The five-minute version
+
+```bash
+npm install
+npm run build          # art:export reads the built game
+npm run art:export     # writes art-template/ — every character, correctly sized
+cp art-template/hero.png art-template/manifest.json public/art/
+```
+
+Open `public/art/manifest.json` and delete everything from `actors` except the
+line for `hero`, so it reads:
+
+```json
+{
+  "scale": 3,
+  "actors": {
+    "hero": { "file": "hero.png", "cell": [60, 76] }
+  }
+}
+```
+
+Now open `public/art/hero.png` in any image editor and paint over it. **Do not
+resize the file.** Then:
+
+```bash
+npm run art:check      # confirms the sheet is still the right size
+npm run dev            # http://localhost:5173
+```
+
+Carl is now whatever you painted. The browser console prints
+`[art] hero: replaced from hero.png` at boot.
+
+## Where everything lives
+
+| Thing | Path |
+| --- | --- |
+| Your sheets and manifest | `public/art/` |
+| Generated starting points | `art-template/` (gitignored, regenerate any time) |
+| The loader | `src/assets/overrides.ts` |
+| The painted art it replaces | `src/assets/atlas.ts`, `src/assets/figure.ts` |
+
+You never edit `src/` to replace art. `public/art/manifest.json` is the only
+file you write by hand.
+
+## What a sheet is
+
+One PNG per character. A grid of cells, **5 columns × 5 rows**, no padding, no
+margin, transparent background.
+
+```
+            col 0      col 1      col 2      col 3      col 4
+          ┌──────────┬──────────┬──────────┬──────────┬──────────┐
+ row 0  s │ walk 0   │ walk 1   │ walk 2   │ walk 3   │ attack   │   facing the camera
+          ├──────────┼──────────┼──────────┼──────────┼──────────┤
+ row 1 se │          │          │          │          │          │   down-right
+          ├──────────┼──────────┼──────────┼──────────┼──────────┤
+ row 2  e │          │          │          │          │          │   right
+          ├──────────┼──────────┼──────────┼──────────┼──────────┤
+ row 3 ne │          │          │          │          │          │   up-right
+          ├──────────┼──────────┼──────────┼──────────┼──────────┤
+ row 4  n │          │          │          │          │          │   away from the camera
+          └──────────┴──────────┴──────────┴──────────┴──────────┘
+```
+
+**Only the right-hand facings are drawn.** The game mirrors row 1 to get
+down-left, row 2 to get left and row 3 to get up-left, so you paint five
+directions and get eight. Do not add left-facing rows; they will be ignored.
+
+The walk is a standard four-frame cycle: **0** left foot planted, **1** passing
+(body at its highest), **2** right foot planted, **3** passing again. Column 4
+is a single attack pose, held for about a fifth of a second whenever that
+character throws, swings or bites.
+
+### Format
+
+- **PNG**, 32-bit RGBA, transparent background. (`.webp` also works.)
+- No premultiplied alpha, no colour profile, no interlacing — anything a plain
+  "export as PNG" produces is fine.
+- Nearest-neighbour or smooth art both work; the game samples it linearly.
+
+### Size
+
+Every cell is the same size. The size is up to you, but the sheet must be
+exactly `cell × scale × 5` in both directions.
+
+```
+sheet width  = cell width  × scale × 5
+sheet height = cell height × scale × 5
+```
+
+`scale` is how many image pixels you are drawing per **design pixel** — the
+game's own unit, of which the screen is 440 × 956. The shipped art uses
+`scale: 3`, so a character that occupies 60 × 76 design pixels on screen is
+painted at 180 × 228.
+
+These are the current cell sizes, which is what `art:export` gives you:
+
+| Sheet | Cell (design px) | Sheet at scale 3 | Who |
+| --- | --- | --- | --- |
+| `hero.png` | 60 × 76 | 900 × 1140 | Carl |
+| `donut.png` | 44 × 50 | 660 × 750 | Princess Donut |
+| `levy0.png` | 40 × 52 | 600 × 780 | your crew, under 12 |
+| `levy1.png` | 40 × 52 | 600 × 780 | your crew, 12–29 |
+| `levy2.png` | 40 × 52 | 600 × 780 | your crew, 30+ |
+| `grunt.png` | 46 × 54 | 690 × 810 | Redcloak |
+| `archer.png` | 48 × 54 | 720 × 810 | Slinger |
+| `heavy.png` | 64 × 68 | 960 × 1020 | Bruiser |
+| `captain.png` | 78 × 92 | 1170 × 1380 | Floor Captain |
+
+You can change a cell size — a taller hero just needs its `cell` updated and
+the PNG resized to match. `npm run art:check` does that arithmetic for you and
+tells you the exact pixel size it expects.
+
+Want crisper art without changing how big the character is on screen? Raise
+`scale` to 4 and make the sheet proportionally larger. Want a genuinely bigger
+character? Raise `cell` instead.
+
+### Where the character has to sit inside its cell
+
+Sprites are anchored **bottom-centre**. The game places the anchor on the exact
+point of ground the character is standing on.
+
+- **Feet at the very bottom edge** of the cell. Not floating, not cropped.
+- **Horizontally centred**, and centred consistently across all 25 cells — an
+  off-centre cell makes that frame of the walk jerk sideways.
+- Everything above the feet is free space: hats, plumes and raised weapons just
+  need cell height to live in.
+- Draw a **contact shadow** at the bottom of the cell if you want one. The game
+  does not add one; the shipped art paints its own.
+
+Empty space costs nothing but atlas memory, so leave a pixel or two of margin
+rather than clipping a helmet.
+
+## The manifest
+
+`public/art/manifest.json` is the only thing that decides what gets replaced.
+No manifest means no replacement — the folder can be full of PNGs and the game
+will happily ignore them (`art:check` warns about that).
+
+```json
+{
+  "scale": 3,
+  "actors": {
+    "hero":  { "file": "hero.png",  "cell": [60, 76] },
+    "grunt": { "file": "grunt.png", "cell": [46, 54] },
+    "boss":  { "file": "boss.png",  "cell": [96, 120], "scale": 4 }
+  }
+}
+```
+
+- `scale` at the top is the default for every sheet.
+- `scale` inside an entry overrides it for that one sheet, so you can mix a 4×
+  hero with 3× everything else.
+- `cell` is `[width, height]` in **design** pixels — not image pixels.
+- Anything you leave out keeps the art the game paints for itself. Replacing
+  only the hero is a perfectly normal end state.
+
+Valid actor keys: `hero`, `donut`, `levy0`, `levy1`, `levy2`, `grunt`,
+`archer`, `heavy`, `captain`. A key the game does not know is loaded and then
+never asked for, which is silent — check your spelling against that list.
+
+## Checking your work
+
+```bash
+npm run art:check
+```
+
+```
+  ok  hero: hero.png is 900×1140
+FAIL  grunt: grunt.png is 690×812, expected 690×810 (cell 46×54 × scale 3 × 5×5 cells)
+```
+
+Wrong sheet size is the failure worth having a command for, because it is the
+one that looks *nearly* right: a sheet two pixels too tall slices every row
+slightly off and the whole cast develops a twitch. Everything else announces
+itself — a missing file, a bad JSON comma or an unreadable PNG all print
+`[art] … FAILED` in the browser console and leave the painted art in place.
+
+The game never fails to start because of custom art. A broken sheet is always a
+logged line and the original character, never a black screen.
+
+## Shipping it
+
+```bash
+npm run build          # → dist/, with public/art/ copied alongside
+npm run build:single   # → dist-single/crawler.html, sheets inlined as data URLs
+```
+
+The single-file build embeds your PNGs in the HTML, so it keeps the
+zero-network-requests promise. It prints how much they added:
+
+```
+  + 1 custom art sheet inlined (0.17 MB)
+single-file build → dist-single/crawler.html  (5.44 MB)
+```
+
+That is the whole cost of custom art: bytes in the bundle. Keep an eye on it
+if you replace all nine characters at scale 4.
+
+## Two things this does not do
+
+- **It replaces frames, not behaviour.** Cell sizes change how big a character
+  is drawn; they do not change its speed, reach, health or hitbox. Those live in
+  `src/config.ts` and are deliberately separate — art and balance should not be
+  able to break each other.
+- **It is characters and still sprites only.** Terrain, buildings, particles and
+  UI are still painted in code (`src/assets/terrain.ts`, `src/assets/atlas.ts`).
+  A `sprites` block in the manifest can replace any single-frame atlas entry by
+  its exact name — `{ "sprites": { "coin": { "file": "coin.png", "size": [26, 30] } } }`
+  — but buildings are baked into their own textures and are not swappable this
+  way yet.
+
 ---
 
 ## Architecture
@@ -147,7 +374,10 @@ src/
     save.ts            Versioned persistence, →v5 migration
     scaler.ts audio.ts fx.ts haptics.ts pool.ts
   assets/
-    atlas.ts           Canvas2D painters → one 2048² spritesheet, 3/4 view
+    shade.ts           Colour maths + the three-tone cel primitive
+    figure.ts          The humanoid rig: poses, limbs, heads, weapons
+    overrides.ts       Loads replacement PNG sheets from public/art/
+    atlas.ts           Canvas2D painters → paged spritesheets, 3/4 view
     terrain.ts         Per-chunk diamond baking + LRU, structure sprites, and
                        the field overview used by the title card
     fonts.ts palette.ts
@@ -168,6 +398,8 @@ tools/
   gen-audio.mjs        Offline synthesizer → audio sprite + Howler sprite map
   build-single.mjs     Inlines everything into one self-contained .html
   smoke.mjs            Headless playthrough of a whole run
+  art-export.mjs       Exports the cast as PNG sheets to repaint
+  art-check.mjs        Validates public/art/ against its manifest
 ```
 
 ### The projection lives at the edge

@@ -3,6 +3,7 @@ import { CONFIG } from '../config';
 import { GameAtlas } from '../assets/atlas';
 import { getFieldTexture } from '../assets/terrain';
 import { loadFonts } from '../assets/fonts';
+import { loadArtOverrides } from '../assets/overrides';
 import { CORP, GAME_TITLE } from '../flavour';
 import { displayText, uiText } from '../ui/widgets';
 import { Scene } from './scene';
@@ -79,6 +80,13 @@ export class BootScene extends Scene {
           Math.round(performance.now() - t0));
       // the System's achievement card is the one notification with artwork
       ctx.system.atlas = ctx.atlas;
+      this.setProgress(0.26);
+
+      // Custom art, if any has been dropped into public/art/. This is the one
+      // asset step that is allowed to find nothing: no manifest is the normal
+      // case, and a broken sheet keeps the painted art rather than the screen.
+      const swapped = await loadArtOverrides(ctx.atlas);
+      for (const line of swapped) console.info('[art] ' + line);
       this.setProgress(0.30);
       // The world map thumbnail samples every biome across 5120 units; it is
       // the one terrain product worth paying for up front, because the title
