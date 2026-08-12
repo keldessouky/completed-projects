@@ -2,7 +2,7 @@
   "name": "crawler",
   "private": true,
   "version": "1.0.0",
-  "description": "Top-down open-world RPG on the Ziggurat Run engine: a seeded 5120-unit world, floating-joystick movement, real-time combat, quests, loot and gear. PixiJS 8 + Howler + tween.js, tuned for iPhone Pro Max Safari.",
+  "description": "Isometric squad game on the Ziggurat Run engine: a seeded 3600-unit field, a hero and a growing crowd, recruit pads, roaming enemy packs and a castle gate. PixiJS 8 + Howler + tween.js, tuned for iPhone Pro Max Safari.",
   "type": "module",
   "license": "AGPL-3.0-or-later",
   "scripts": {

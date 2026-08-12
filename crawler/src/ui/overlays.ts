@@ -45,7 +45,7 @@ export function showPause(ctx: Ctx, opts: PauseOpts): void {
   p.position.set(W / 2 - 160, H / 2 - 217);
   o.root.addChild(p);
 
-  const title = displayText('THE RUN WAITS', 26, CONFIG.colors.amber, '900');
+  const title = displayText('THE RUN WAITS', 26, CONFIG.colors.gold, '900');
   title.position.set(W / 2, H / 2 - 158);
   o.root.addChild(title);
 
@@ -126,7 +126,7 @@ export function showSettings(ctx: Ctx): void {
 
   const reset = new Btn(ctx, {
     w: 252, h: 56, kind: 'dark', label: 'Reset Progress', labelSize: 18,
-    labelColor: CONFIG.colors.hpRedBright,
+    labelColor: CONFIG.colors.hpRed,
     onTap: () => showConfirm(ctx, {
       title: 'BREAK THE TABLETS?',
       body: 'All stars, coins, upgrades and unlocks will be erased. Settings survive.',
@@ -156,14 +156,14 @@ export function showConfirm(ctx: Ctx, opts: ConfirmOpts): void {
   p.position.set(W / 2 - 170, H / 2 - 150);
   o.root.addChild(p);
 
-  const title = displayText(opts.title, 22, CONFIG.colors.hpRedBright, '900');
+  const title = displayText(opts.title, 22, CONFIG.colors.hpRed, '900');
   title.position.set(W / 2, H / 2 - 96);
   const body = uiText(opts.body, 16, CONFIG.colors.bone, '400', 280);
   body.position.set(W / 2, H / 2 - 26);
   o.root.addChild(title, body);
 
   const yes = new Btn(ctx, {
-    w: 132, h: 58, kind: 'dark', label: opts.yesLabel, labelColor: CONFIG.colors.hpRedBright, labelSize: 19,
+    w: 132, h: 58, kind: 'dark', label: opts.yesLabel, labelColor: CONFIG.colors.hpRed, labelSize: 19,
     onTap: () => { o.close(); opts.onYes(); },
   });
   yes.position.set(W / 2 - 74, H / 2 + 82);

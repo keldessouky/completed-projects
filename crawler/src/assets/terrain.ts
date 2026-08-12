@@ -1,38 +1,37 @@
 import { Texture } from 'pixi.js';
 import { CONFIG } from '../config';
-import type { Biome } from '../types';
-import { biomeAt, clutterAt, getWorld, roadDist } from '../world/worldgen';
+import { ISO_X, ISO_Y, blockBounds, toScreen } from '../iso';
+import { biomeAt, clutterAt, getWorld, roadDist, type Biome } from '../world/worldgen';
 import { hex } from './palette';
 
 /**
- * Terrain is baked one chunk at a time onto a Canvas2D surface and handed to
- * Pixi as a texture.
+ * Terrain is baked one chunk at a time, already in SCREEN space.
  *
- * Chunks are the right unit because terrain is static and pure: a chunk's
- * pixels are a function of its coordinates and the world seed, so it can be
- * thrown away and rebuilt identically. That turns a 5120² world into a small
- * LRU of textures around the player rather than anything that has to be stored
- * or streamed.
+ * A square block of world projects to a diamond, and a diamond is not something
+ * a plain Sprite can be. So rather than baking an axis-aligned tile sheet and
+ * shearing it at draw time, each chunk paints its tiles as diamonds directly
+ * onto a canvas sized to the block's projected bounding box. The result is one
+ * ordinary Sprite per chunk, no per-frame matrix work, and no seams.
+ *
+ * Chunks are pure functions of their coordinates and the world seed, so they
+ * can be thrown away and rebuilt identically — which is what makes an LRU
+ * around the player the whole of the memory story.
  */
 
 const T = CONFIG.world.tile;
 const N = CONFIG.world.chunkTiles;
-const CHUNK = T * N;
-
+const BLOCK = T * N;          // world units per chunk edge
 const C = CONFIG.colors;
 
-/** base ground colour per biome, plus the speckle it gets */
-const GROUND: Record<Biome, { base: string; speck: string; alt: string }> = {
-  grass:  { base: hex(C.grass),    speck: hex(C.grassDim), alt: '#50713f' },
-  forest: { base: hex(C.forest),   speck: '#25391f',       alt: '#334f30' },
-  ruins:  { base: hex(C.stoneDim), speck: hex(C.stone),    alt: '#51515a' },
-  swamp:  { base: '#3c4b3a',       speck: hex(C.water),    alt: '#38493c' },
-  waste:  { base: hex(C.waste),    speck: '#584a3a',       alt: '#655444' },
+/** three shades of one field, plus what speckles it */
+const GROUND: Record<Biome, { base: string; alt: string; speck: string }> = {
+  grass: { base: hex(C.grass),    alt: hex(C.grassAlt),  speck: hex(C.grassDark) },
+  field: { base: hex(C.grassAlt), alt: hex(C.grass),     speck: hex(C.sandDark) },
+  scrub: { base: hex(C.grassDark), alt: hex(C.grassAlt), speck: hex(C.sandDark) },
 };
 
-/** deterministic per-tile randomness, so a rebuilt chunk is pixel-identical */
-function tileRng(tx: number, ty: number): () => number {
-  let a = (tx * 73856093) ^ (ty * 19349663) ^ CONFIG.world.seed;
+function tileRng(tx: number, ty: number, salt = 0): () => number {
+  let a = (tx * 73856093) ^ (ty * 19349663) ^ (CONFIG.world.seed + salt);
   return () => {
     a |= 0; a = (a + 0x6d2b79f5) | 0;
     let t = Math.imul(a ^ (a >>> 15), 1 | a);
@@ -41,234 +40,309 @@ function tileRng(tx: number, ty: number): () => number {
   };
 }
 
-// ─────────────────────────── tile painters ───────────────────────────
-
-function paintTile(c: CanvasRenderingContext2D, px: number, py: number, wx: number, wy: number): void {
-  const r = tileRng(Math.floor(wx / T), Math.floor(wy / T));
-
-  // Sample the biome with a per-tile jitter. Without it, two regions meet along
-  // a dead-straight tile boundary and the whole map reads as graph paper; a
-  // few tiles of noise on the seam is the difference between a border and a
-  // coastline.
-  const j = T * 1.3;
-  const b = biomeAt(wx + (r() - 0.5) * j, wy + (r() - 0.5) * j);
-  const g = GROUND[b];
-
-  // base, with a light weave of two nearby values — mostly the base colour, so
-  // it reads as texture rather than as a chequerboard
-  c.fillStyle = r() < 0.72 ? g.base : g.alt;
-  c.fillRect(px, py, T, T);
-
-  // speckle
-  const n = 3 + Math.floor(r() * 4);
-  c.fillStyle = g.speck;
-  for (let i = 0; i < n; i++) {
-    c.globalAlpha = 0.25 + r() * 0.3;
-    c.fillRect(px + r() * T, py + r() * T, 1 + r() * 3, 1 + r() * 2);
-  }
-  c.globalAlpha = 1;
+/** Trace the diamond of one world tile whose top corner is (wx, wy). */
+function tilePath(c: CanvasRenderingContext2D, wx: number, wy: number, ox: number, oy: number): void {
+  const a = toScreen(wx, wy);
+  const b = toScreen(wx + T, wy);
+  const d = toScreen(wx + T, wy + T);
+  const e = toScreen(wx, wy + T);
+  c.beginPath();
+  c.moveTo(a.x - ox, a.y - oy);
+  c.lineTo(b.x - ox, b.y - oy);
+  c.lineTo(d.x - ox, d.y - oy);
+  c.lineTo(e.x - ox, e.y - oy);
+  c.closePath();
 }
 
-/** Clutter that sits on the ground: tufts, rubble, stumps, reeds. */
-function paintClutter(c: CanvasRenderingContext2D, px: number, py: number, wx: number, wy: number): void {
-  const b = biomeAt(wx, wy);
-  const density = clutterAt(wx, wy);
-  const r = tileRng(Math.floor(wx / T) + 7777, Math.floor(wy / T) + 31);
-  if (r() > density * 0.9) return;
+// ─────────────────────────── props ───────────────────────────
 
-  const x = px + 4 + r() * (T - 8);
-  const y = py + 4 + r() * (T - 8);
+/**
+ * Props are drawn in 3/4 view: a footprint ellipse on the ground plane and a
+ * body standing up from it. Height is pure screen-space — nothing in the
+ * simulation knows these exist.
+ */
+function paintProp(
+  c: CanvasRenderingContext2D, kind: 'tree' | 'rock' | 'fence', sx: number, sy: number, r: () => number,
+): void {
+  c.fillStyle = 'rgba(0,0,0,0.18)';
+  c.beginPath();
+  c.ellipse(sx, sy, kind === 'tree' ? 16 : 11, (kind === 'tree' ? 16 : 11) * 0.5, 0, 0, Math.PI * 2);
+  c.fill();
 
-  switch (b) {
-    case 'grass': {
-      c.strokeStyle = 'rgba(120,152,92,0.75)';
-      c.lineWidth = 1.4;
-      for (let i = 0; i < 3; i++) {
-        const bx = x + (i - 1) * 3;
-        c.beginPath(); c.moveTo(bx, y + 5); c.lineTo(bx + (r() - 0.5) * 4, y - 3 - r() * 4); c.stroke();
-      }
-      break;
+  if (kind === 'tree') {
+    const h = 40 + r() * 16;
+    c.fillStyle = hex(C.woodDark);
+    c.fillRect(sx - 3.5, sy - h * 0.42, 7, h * 0.42);
+    // three stacked cones, darkest at the base
+    for (let i = 0; i < 3; i++) {
+      const t = i / 2;
+      const w = 22 - i * 5;
+      const cy = sy - h * (0.36 + t * 0.42);
+      c.fillStyle = i === 2 ? hex(C.tree) : i === 1 ? '#379a34' : hex(C.treeDark);
+      c.beginPath();
+      c.moveTo(sx, cy - 22);
+      c.lineTo(sx + w, cy + 6);
+      c.lineTo(sx - w, cy + 6);
+      c.closePath();
+      c.fill();
     }
-    case 'forest': {
-      // a canopy blob with a trunk shadow — trees read as mass, not outline
-      c.fillStyle = 'rgba(18,30,16,0.55)';
-      c.beginPath(); c.ellipse(x + 2, y + 4, 9, 5, 0, 0, Math.PI * 2); c.fill();
-      c.fillStyle = r() < 0.5 ? '#2c4526' : '#365331';
-      c.beginPath(); c.arc(x, y, 8 + r() * 3, 0, Math.PI * 2); c.fill();
-      c.fillStyle = '#1f2f1b';
-      c.beginPath(); c.arc(x - 2, y - 2, 4, 0, Math.PI * 2); c.fill();
-      break;
+  } else if (kind === 'rock') {
+    const w = 10 + r() * 7;
+    c.fillStyle = hex(C.stoneDark);
+    c.beginPath(); c.ellipse(sx, sy - 3, w, w * 0.62, 0, 0, Math.PI * 2); c.fill();
+    c.fillStyle = hex(C.stone);
+    c.beginPath(); c.ellipse(sx - 1, sy - 6, w * 0.82, w * 0.5, 0, 0, Math.PI * 2); c.fill();
+  } else {
+    // a short run of fence, angled along one of the iso axes
+    const dir = r() < 0.5 ? 1 : -1;
+    c.strokeStyle = hex(C.wood);
+    c.lineWidth = 3.4;
+    for (let i = 0; i < 3; i++) {
+      const px = sx + dir * (i - 1) * 20;
+      const py = sy + (i - 1) * 20 * (ISO_Y / ISO_X) * 0.5 * dir;
+      c.beginPath(); c.moveTo(px, py); c.lineTo(px, py - 18); c.stroke();
     }
-    case 'ruins': {
-      c.fillStyle = 'rgba(0,0,0,0.35)';
-      c.fillRect(x - 5, y - 3, 12, 9);
-      c.fillStyle = r() < 0.5 ? '#7c7c86' : '#63636c';
-      c.fillRect(x - 6, y - 5, 12, 9);
-      c.fillStyle = 'rgba(162,84,43,0.7)';
-      c.fillRect(x - 6, y - 5, 12, 2);
-      break;
-    }
-    case 'swamp': {
-      c.fillStyle = 'rgba(47,93,120,0.55)';
-      c.beginPath(); c.ellipse(x, y, 8 + r() * 6, 4 + r() * 3, r(), 0, Math.PI * 2); c.fill();
-      c.strokeStyle = 'rgba(90,110,70,0.7)';
-      c.lineWidth = 1.2;
-      for (let i = 0; i < 3; i++) {
-        c.beginPath(); c.moveTo(x - 4 + i * 4, y + 2); c.lineTo(x - 5 + i * 4, y - 8 - r() * 5); c.stroke();
-      }
-      break;
-    }
-    case 'waste': {
-      c.fillStyle = 'rgba(109,54,24,0.5)';
-      c.fillRect(x - 4, y - 1, 9, 3);
-      c.fillStyle = 'rgba(0,0,0,0.25)';
-      c.fillRect(x - 4, y + 2, 9, 2);
-      break;
-    }
+    c.lineWidth = 2.6;
+    c.beginPath();
+    c.moveTo(sx - dir * 22, sy - 12 - 11 * dir);
+    c.lineTo(sx + dir * 22, sy - 12 + 11 * dir);
+    c.stroke();
   }
 }
 
-// ─────────────────────────── overlays ───────────────────────────
+// ─────────────────────────── structures ───────────────────────────
 
-/** Roads are painted per pixel-ish band rather than per tile so they curve. */
-function paintRoads(c: CanvasRenderingContext2D, ox: number, oy: number): void {
-  const step = 8;
-  for (let y = 0; y < CHUNK; y += step) {
-    for (let x = 0; x < CHUNK; x += step) {
-      const d = roadDist(ox + x + step / 2, oy + y + step / 2);
-      if (d > 46) continue;
-      const t = 1 - d / 46;
-      c.fillStyle = `rgba(122,92,58,${(0.18 + t * 0.62).toFixed(3)})`;
-      c.fillRect(x, y, step, step);
-      if (d < 16) {
-        c.fillStyle = `rgba(150,120,80,${(0.2 * t).toFixed(3)})`;
-        c.fillRect(x, y, step, step);
-      }
-    }
+/** A recruit pad: a flat plate on the ground with a hut behind it. */
+function paintPad(c: CanvasRenderingContext2D, sx: number, sy: number): void {
+  // the plate, drawn as a diamond so it sits flat in the world
+  const w = 150, h = w * (ISO_Y / ISO_X);
+  c.beginPath();
+  c.moveTo(sx, sy - h / 2);
+  c.lineTo(sx + w / 2, sy);
+  c.lineTo(sx, sy + h / 2);
+  c.lineTo(sx - w / 2, sy);
+  c.closePath();
+  c.fillStyle = 'rgba(0,0,0,0.14)';
+  c.fill();
+  c.fillStyle = '#8fd45a';
+  c.fill();
+  c.strokeStyle = hex(C.bone);
+  c.lineWidth = 3;
+  c.setLineDash([12, 9]);
+  c.stroke();
+  c.setLineDash([]);
+
+  // the hut, up and behind
+  const hx = sx - 96, hy = sy - 44;
+  c.fillStyle = 'rgba(0,0,0,0.2)';
+  c.beginPath(); c.ellipse(hx, hy + 26, 40, 18, 0, 0, Math.PI * 2); c.fill();
+  c.fillStyle = hex(C.woodDark);
+  c.fillRect(hx - 32, hy - 10, 64, 36);
+  c.fillStyle = hex(C.wood);
+  c.beginPath();
+  c.moveTo(hx - 42, hy - 8);
+  c.lineTo(hx, hy - 44);
+  c.lineTo(hx + 42, hy - 8);
+  c.closePath();
+  c.fill();
+  c.fillStyle = '#a06a3a';
+  for (let i = -36; i < 36; i += 9) c.fillRect(hx + i, hy - 8, 4, 34);
+  // crossed weapons on the gable, the universal sign for "recruit here"
+  c.strokeStyle = hex(C.bone);
+  c.lineWidth = 3.2;
+  c.beginPath();
+  c.moveTo(hx - 15, hy - 6); c.lineTo(hx + 15, hy - 30);
+  c.moveTo(hx + 15, hy - 6); c.lineTo(hx - 15, hy - 30);
+  c.stroke();
+}
+
+/** A camp: a scorched circle, a firepit and some junk. */
+function paintCamp(c: CanvasRenderingContext2D, sx: number, sy: number, r: () => number): void {
+  const w = 300, h = w * (ISO_Y / ISO_X);
+  c.fillStyle = 'rgba(120,86,44,0.5)';
+  c.beginPath(); c.ellipse(sx, sy, w / 2, h / 2, 0, 0, Math.PI * 2); c.fill();
+  c.fillStyle = '#3a2d1c';
+  c.beginPath(); c.ellipse(sx, sy, 22, 12, 0, 0, Math.PI * 2); c.fill();
+  c.fillStyle = hex(C.foeDark);
+  c.beginPath(); c.ellipse(sx, sy - 2, 12, 7, 0, 0, Math.PI * 2); c.fill();
+  for (let i = 0; i < 7; i++) {
+    const a = r() * Math.PI * 2, d = 50 + r() * 90;
+    const px = sx + Math.cos(a) * d, py = sy + Math.sin(a) * d * (ISO_Y / ISO_X);
+    c.fillStyle = 'rgba(0,0,0,0.22)';
+    c.beginPath(); c.ellipse(px, py + 3, 11, 5, 0, 0, Math.PI * 2); c.fill();
+    c.fillStyle = i % 2 ? hex(C.woodDark) : hex(C.stoneDark);
+    c.fillRect(px - 9, py - 8, 18, 11);
   }
 }
 
-/** Structures: town plazas, ruin slabs, camp scars, shrine pads, the Depot. */
-function paintPois(c: CanvasRenderingContext2D, ox: number, oy: number): void {
-  for (const p of getWorld().pois) {
-    const x = p.x - ox, y = p.y - oy;
-    const reach = p.kind === 'town' ? 230 : p.kind === 'lair' ? 300 : 180;
-    if (x < -reach || y < -reach || x > CHUNK + reach || y > CHUNK + reach) continue;
+/** The keep: a wall of blocks with a gate, filling the back of the map. */
+function paintCastle(c: CanvasRenderingContext2D, sx: number, sy: number): void {
+  const wallW = 620;
+  c.fillStyle = 'rgba(0,0,0,0.22)';
+  c.beginPath(); c.ellipse(sx, sy + 20, wallW / 2, 90, 0, 0, Math.PI * 2); c.fill();
 
-    if (p.kind === 'town') {
-      // flagstone plaza with a rim
-      c.fillStyle = 'rgba(111,111,120,0.92)';
-      c.beginPath(); c.arc(x, y, 168, 0, Math.PI * 2); c.fill();
-      c.strokeStyle = 'rgba(230,227,221,0.35)'; c.lineWidth = 4;
-      c.beginPath(); c.arc(x, y, 168, 0, Math.PI * 2); c.stroke();
-      c.strokeStyle = 'rgba(0,0,0,0.22)'; c.lineWidth = 2;
-      for (let i = -160; i <= 160; i += 40) {
-        c.beginPath(); c.moveTo(x - 160, y + i); c.lineTo(x + 160, y + i); c.stroke();
-        c.beginPath(); c.moveTo(x + i, y - 160); c.lineTo(x + i, y + 160); c.stroke();
-      }
-      // a few shack footprints around the rim
-      for (let i = 0; i < 6; i++) {
-        const a = (i / 6) * Math.PI * 2 + 0.4;
-        const sx = x + Math.cos(a) * 126, sy = y + Math.sin(a) * 126;
-        c.fillStyle = 'rgba(20,17,25,0.5)';
-        c.fillRect(sx - 22, sy - 16, 46, 36);
-        c.fillStyle = i % 2 ? '#6d3618' : '#5c4429';
-        c.fillRect(sx - 24, sy - 20, 46, 36);
-        c.fillStyle = 'rgba(230,227,221,0.18)';
-        c.fillRect(sx - 24, sy - 20, 46, 6);
-      }
-    } else if (p.kind === 'lair') {
-      // a loading yard: slab, bay doors, hazard paint
-      c.fillStyle = 'rgba(74,74,82,0.95)';
-      c.fillRect(x - 230, y - 180, 460, 360);
-      c.fillStyle = 'rgba(0,0,0,0.3)';
-      for (let i = -220; i < 230; i += 46) c.fillRect(x + i, y - 180, 3, 360);
-      c.fillStyle = '#2b2d31';
-      c.fillRect(x - 150, y - 168, 300, 66);
-      for (let i = 0; i < 5; i++) {
-        c.fillStyle = i % 2 ? '#d9a441' : '#141119';
-        c.fillRect(x - 150 + i * 60, y - 108, 60, 12);
-      }
-      c.strokeStyle = 'rgba(217,164,65,0.8)'; c.lineWidth = 5;
-      c.strokeRect(x - 230, y - 180, 460, 360);
-    } else if (p.kind === 'camp') {
-      c.fillStyle = 'rgba(92,68,41,0.65)';
-      c.beginPath(); c.arc(x, y, 128, 0, Math.PI * 2); c.fill();
-      // firepit
-      c.fillStyle = '#2b2118';
-      c.beginPath(); c.arc(x, y, 20, 0, Math.PI * 2); c.fill();
-      c.fillStyle = '#a2542b';
-      c.beginPath(); c.arc(x, y, 11, 0, Math.PI * 2); c.fill();
-      // a ring of junk
-      const r = tileRng(Math.round(p.x), Math.round(p.y));
-      for (let i = 0; i < 9; i++) {
-        const a = r() * Math.PI * 2, d = 46 + r() * 74;
-        c.fillStyle = 'rgba(20,17,25,0.55)';
-        c.fillRect(x + Math.cos(a) * d - 9, y + Math.sin(a) * d - 5, 20, 12);
-      }
-    } else if (p.kind === 'ruin') {
-      const r = tileRng(Math.round(p.x) + 5, Math.round(p.y) + 5);
-      c.fillStyle = 'rgba(74,74,82,0.85)';
-      c.fillRect(x - 132, y - 108, 264, 216);
-      // broken interior walls
-      c.fillStyle = '#7c7c86';
-      for (let i = 0; i < 7; i++) {
-        const wx = x - 120 + r() * 210, wy = y - 96 + r() * 180;
-        if (r() < 0.5) c.fillRect(wx, wy, 12, 40 + r() * 60);
-        else c.fillRect(wx, wy, 40 + r() * 70, 12);
-      }
-      c.strokeStyle = 'rgba(0,0,0,0.4)'; c.lineWidth = 3;
-      c.strokeRect(x - 132, y - 108, 264, 216);
-    } else if (p.kind === 'shrine') {
-      c.fillStyle = 'rgba(47,122,217,0.22)';
-      c.beginPath(); c.arc(x, y, 76, 0, Math.PI * 2); c.fill();
-      c.fillStyle = 'rgba(111,111,120,0.95)';
-      c.beginPath(); c.arc(x, y, 44, 0, Math.PI * 2); c.fill();
-      c.strokeStyle = '#63a8f0'; c.lineWidth = 3;
-      c.beginPath(); c.arc(x, y, 44, 0, Math.PI * 2); c.stroke();
-    }
+  // three stepped blocks receding, so the wall reads as mass not a flat card
+  for (let i = 2; i >= 0; i--) {
+    const w = wallW - i * 90;
+    const top = sy - 150 - i * 74;
+    c.fillStyle = i === 0 ? hex(C.stone) : i === 1 ? '#7c7e85' : hex(C.stoneDark);
+    c.fillRect(sx - w / 2, top, w, 130 + i * 40);
+    c.fillStyle = 'rgba(255,255,255,0.1)';
+    c.fillRect(sx - w / 2, top, w, 12);
+    // crenellations
+    c.fillStyle = i === 0 ? hex(C.stone) : hex(C.stoneDark);
+    for (let x = -w / 2; x < w / 2 - 20; x += 46) c.fillRect(sx + x, top - 22, 26, 24);
+  }
+  // block seams
+  c.strokeStyle = 'rgba(0,0,0,0.2)';
+  c.lineWidth = 2;
+  for (let y = sy - 140; y < sy + 6; y += 26) {
+    c.beginPath(); c.moveTo(sx - wallW / 2, y); c.lineTo(sx + wallW / 2, y); c.stroke();
+  }
+  // the gate
+  c.fillStyle = '#241a12';
+  c.beginPath();
+  c.moveTo(sx - 74, sy + 10);
+  c.lineTo(sx - 74, sy - 74);
+  c.arc(sx, sy - 74, 74, Math.PI, 0);
+  c.lineTo(sx + 74, sy + 10);
+  c.closePath();
+  c.fill();
+  c.fillStyle = hex(C.wood);
+  c.fillRect(sx - 66, sy - 78, 132, 88);
+  c.fillStyle = hex(C.woodDark);
+  for (let x = -60; x < 62; x += 22) c.fillRect(sx + x, sy - 78, 8, 88);
+  c.strokeStyle = hex(C.goldDark);
+  c.lineWidth = 6;
+  c.strokeRect(sx - 66, sy - 78, 132, 88);
+  // banners either side
+  for (const dx of [-150, 150]) {
+    c.fillStyle = hex(C.foe);
+    c.beginPath();
+    c.moveTo(sx + dx - 18, sy - 150);
+    c.lineTo(sx + dx + 18, sy - 150);
+    c.lineTo(sx + dx + 18, sy - 60);
+    c.lineTo(sx + dx, sy - 78);
+    c.lineTo(sx + dx - 18, sy - 60);
+    c.closePath();
+    c.fill();
   }
 }
 
-// ─────────────────────────── chunk cache ───────────────────────────
+/** The muster point you start on: a friendly plaza. */
+function paintStart(c: CanvasRenderingContext2D, sx: number, sy: number): void {
+  const w = 340, h = w * (ISO_Y / ISO_X);
+  c.fillStyle = 'rgba(216,180,119,0.85)';
+  c.beginPath(); c.ellipse(sx, sy, w / 2, h / 2, 0, 0, Math.PI * 2); c.fill();
+  c.strokeStyle = 'rgba(255,246,226,0.5)';
+  c.lineWidth = 4;
+  c.beginPath(); c.ellipse(sx, sy, w / 2, h / 2, 0, 0, Math.PI * 2); c.stroke();
+  for (let i = 0; i < 5; i++) {
+    const a = (i / 5) * Math.PI * 2 + 0.5;
+    const px = sx + Math.cos(a) * 132, py = sy + Math.sin(a) * 132 * (ISO_Y / ISO_X);
+    c.fillStyle = 'rgba(0,0,0,0.2)';
+    c.beginPath(); c.ellipse(px, py + 12, 26, 12, 0, 0, Math.PI * 2); c.fill();
+    c.fillStyle = hex(C.wood);
+    c.fillRect(px - 20, py - 20, 40, 32);
+    c.fillStyle = hex(C.woodDark);
+    c.beginPath();
+    c.moveTo(px - 26, py - 18); c.lineTo(px, py - 44); c.lineTo(px + 26, py - 18);
+    c.closePath(); c.fill();
+  }
+}
 
-interface Baked { tex: Texture; canvas: HTMLCanvasElement; used: number; }
+// ─────────────────────────── chunk baking ───────────────────────────
 
+interface Baked { tex: Texture; used: number; }
 const cache = new Map<string, Baked>();
 let clock = 0;
 
-export const chunkKey = (cx: number, cy: number): string => `${cx},${cy}`;
-export const CHUNK_SIZE = CHUNK;
+export const BLOCK_SIZE = BLOCK;
 
-/** Bake (or fetch) the chunk at chunk-coordinates cx,cy. */
+/** Screen-space bounds of a chunk, used both for baking and for placement. */
+export function chunkBounds(cx: number, cy: number): { x: number; y: number; w: number; h: number } {
+  return blockBounds(cx * BLOCK, cy * BLOCK, BLOCK);
+}
+
+/**
+ * Screen-space padding baked around every chunk.
+ *
+ * Only props and the one-tile road bleed need it — structures are their own
+ * sprites (see getStructure) precisely so a 620-px castle does not have to be
+ * paid for by every chunk on the map in canvas memory.
+ */
+const PAD = 110;
+
 export function getChunk(cx: number, cy: number): Texture {
-  const key = chunkKey(cx, cy);
+  const key = `${cx},${cy}`;
   const hit = cache.get(key);
   if (hit) { hit.used = ++clock; return hit.tex; }
 
+  const b = chunkBounds(cx, cy);
   const canvas = document.createElement('canvas');
-  canvas.width = CHUNK;
-  canvas.height = CHUNK;
+  canvas.width = Math.ceil(b.w + PAD * 2);
+  canvas.height = Math.ceil(b.h + PAD * 2);
   const c = canvas.getContext('2d')!;
-  const ox = cx * CHUNK, oy = cy * CHUNK;
+  const ox = b.x - PAD, oy = b.y - PAD;
 
+  const wx0 = cx * BLOCK, wy0 = cy * BLOCK;
+
+  // ── ground ──
   for (let ty = 0; ty < N; ty++) {
     for (let tx = 0; tx < N; tx++) {
-      paintTile(c, tx * T, ty * T, ox + tx * T, oy + ty * T);
+      const wx = wx0 + tx * T, wy = wy0 + ty * T;
+      const r = tileRng(Math.round(wx / T), Math.round(wy / T));
+      // jitter the biome sample so shade borders are ragged, not gridded
+      const g = GROUND[biomeAt(wx + (r() - 0.5) * T * 1.4, wy + (r() - 0.5) * T * 1.4)];
+      tilePath(c, wx, wy, ox, oy);
+      c.fillStyle = r() < 0.76 ? g.base : g.alt;
+      c.fill();
+      if (r() < 0.34) {
+        c.fillStyle = g.speck;
+        c.globalAlpha = 0.2 + r() * 0.2;
+        c.fill();
+        c.globalAlpha = 1;
+      }
     }
   }
-  paintRoads(c, ox, oy);
+
+  // ── road, painted per tile so it follows the diamonds ──
+  for (let ty = -1; ty <= N; ty++) {
+    for (let tx = -1; tx <= N; tx++) {
+      const wx = wx0 + tx * T, wy = wy0 + ty * T;
+      const d = roadDist(wx + T / 2, wy + T / 2);
+      if (d > 90) continue;
+      tilePath(c, wx, wy, ox, oy);
+      const a = d < 52 ? 0.95 : 0.95 * (1 - (d - 52) / 38);
+      c.fillStyle = `rgba(216,180,119,${a.toFixed(3)})`;
+      c.fill();
+    }
+  }
+
+  // ── props last: they sit on top of everything on the ground plane ──
   for (let ty = 0; ty < N; ty++) {
     for (let tx = 0; tx < N; tx++) {
-      paintClutter(c, tx * T, ty * T, ox + tx * T, oy + ty * T);
+      const wx = wx0 + tx * T + T / 2, wy = wy0 + ty * T + T / 2;
+      const r = tileRng(Math.round(wx / T) + 7777, Math.round(wy / T) + 31);
+      if (r() > clutterAt(wx, wy) * 0.55) continue;
+      if (roadDist(wx, wy) < 70) continue;
+      // keep props out of every structure's footprint — this skips the TILE,
+      // not the chunk, which an early return here would quietly do instead
+      let blocked = false;
+      for (const p of getWorld().pois) {
+        const rad = p.kind === 'castle' ? 420 : p.kind === 'start' ? 230 : 190;
+        if (Math.hypot(p.x - wx, p.y - wy) < rad) { blocked = true; break; }
+      }
+      if (blocked) continue;
+      const s = toScreen(wx, wy);
+      const roll = r();
+      paintProp(c, roll < 0.6 ? 'tree' : roll < 0.85 ? 'rock' : 'fence', s.x - ox, s.y - oy, r);
     }
   }
-  paintPois(c, ox, oy);
 
   const tex = Texture.from(canvas);
-  cache.set(key, { tex, canvas, used: ++clock });
+  cache.set(key, { tex, used: ++clock });
 
-  // evict the least recently used chunk once the cache is over budget
   while (cache.size > CONFIG.world.chunkCache) {
     let oldestKey = '';
     let oldest = Infinity;
@@ -281,32 +355,139 @@ export function getChunk(cx: number, cy: number): Texture {
   return tex;
 }
 
-/** Drop everything — used when the renderer context is lost. */
+/** Where a chunk sprite goes, accounting for the overhang padding. */
+export function chunkOrigin(cx: number, cy: number): { x: number; y: number } {
+  const b = chunkBounds(cx, cy);
+  return { x: b.x - PAD, y: b.y - PAD };
+}
+
+// ─────────────────────────── structures ───────────────────────────
+
+/**
+ * A structure's art, baked once into its own texture.
+ *
+ * Structures are NOT part of the terrain bake. A castle is 620 px wide and
+ * 440 px tall; folding that into the chunk grid would mean every chunk on the
+ * map carrying enough canvas padding to hold one, and it would also put the
+ * castle's silhouette on the wrong side of the depth sort — a wall you can
+ * stand behind has to sort against the actors, not under all of them.
+ *
+ * The returned offsets are where the POI's own world position sits inside the
+ * texture, so the caller can place it by anchor.
+ */
+export interface Structure { tex: Texture; ox: number; oy: number; }
+
+const STRUCT_BOX: Record<string, { x: number; y: number; w: number; h: number }> = {
+  // x/y are the origin's position inside the box
+  pad: { x: 160, y: 100, w: 250, h: 150 },
+  camp: { x: 175, y: 110, w: 350, h: 220 },
+  castle: { x: 340, y: 340, w: 680, h: 470 },
+  start: { x: 195, y: 135, w: 390, h: 235 },
+};
+
+const structs = new Map<string, Structure>();
+
+export function getStructure(id: string): Structure | null {
+  const hit = structs.get(id);
+  if (hit) return hit;
+  const p = getWorld().pois.find((q) => q.id === id);
+  if (!p) return null;
+  const box = STRUCT_BOX[p.kind];
+  if (!box) return null;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = box.w;
+  canvas.height = box.h;
+  const c = canvas.getContext('2d')!;
+  c.lineJoin = 'round';
+  c.lineCap = 'round';
+  const r = tileRng(Math.round(p.x), Math.round(p.y), 99);
+  if (p.kind === 'pad') paintPad(c, box.x, box.y);
+  else if (p.kind === 'camp') paintCamp(c, box.x, box.y, r);
+  else if (p.kind === 'castle') paintCastle(c, box.x, box.y);
+  else if (p.kind === 'start') paintStart(c, box.x, box.y);
+
+  const made = { tex: Texture.from(canvas), ox: box.x, oy: box.y };
+  structs.set(id, made);
+  return made;
+}
+
 export function clearChunks(): void {
   for (const v of cache.values()) v.tex.destroy(true);
   cache.clear();
 }
 
-/** A single small texture of the whole world, for the minimap backdrop. */
-let miniTex: Texture | null = null;
-export function getMinimapTexture(): Texture {
-  if (miniTex) return miniTex;
-  const S = 128;
+// ─────────────────────────── field overview ───────────────────────────
+
+let overview: Texture | null = null;
+
+/**
+ * A small painting of the whole field, baked once.
+ *
+ * The title card wants to show the place you are about to walk across, and a
+ * live camera over a 3600-unit world would cost a frame budget to render a
+ * still. This is 320 px of the same diamond grid with the structures marked —
+ * cheap, and it is the same layout the game generates, not a decoration.
+ */
+export function getFieldTexture(): Texture {
+  if (overview) return overview;
+  const size = CONFIG.world.size;
+  const b = blockBounds(0, 0, size);
+  const SW = 320;
+  const s = SW / b.w;
+
   const canvas = document.createElement('canvas');
-  canvas.width = S; canvas.height = S;
+  canvas.width = SW;
+  canvas.height = Math.ceil(b.h * s);
   const c = canvas.getContext('2d')!;
-  const step = CONFIG.world.size / S;
-  for (let y = 0; y < S; y++) {
-    for (let x = 0; x < S; x++) {
-      const wx = x * step, wy = y * step;
-      c.fillStyle = GROUND[biomeAt(wx, wy)].base;
-      c.fillRect(x, y, 1, 1);
-      if (roadDist(wx, wy) < 60) {
-        c.fillStyle = 'rgba(150,120,80,0.85)';
-        c.fillRect(x, y, 1, 1);
-      }
+  c.scale(s, s);
+  c.translate(-b.x, -b.y);
+
+  // the ground: one diamond, three shades of scattered field
+  const step = size / 26;
+  for (let wy = 0; wy < size; wy += step) {
+    for (let wx = 0; wx < size; wx += step) {
+      const r = tileRng(Math.round(wx), Math.round(wy), 5150);
+      const g = GROUND[biomeAt(wx + step / 2, wy + step / 2)];
+      const a = toScreen(wx, wy), q = toScreen(wx + step, wy);
+      const d = toScreen(wx + step, wy + step), e = toScreen(wx, wy + step);
+      c.beginPath();
+      c.moveTo(a.x, a.y); c.lineTo(q.x, q.y); c.lineTo(d.x, d.y); c.lineTo(e.x, e.y);
+      c.closePath();
+      c.fillStyle = r() < 0.7 ? g.base : g.alt;
+      c.fill();
     }
   }
-  miniTex = Texture.from(canvas);
-  return miniTex;
+
+  // the road, as a thick line through its waypoints
+  c.strokeStyle = hex(C.path);
+  c.lineWidth = size / 44;
+  c.lineJoin = 'round';
+  for (const line of getWorld().roads) {
+    c.beginPath();
+    line.forEach((p, i) => {
+      const q = toScreen(p.x, p.y);
+      i === 0 ? c.moveTo(q.x, q.y) : c.lineTo(q.x, q.y);
+    });
+    c.stroke();
+  }
+
+  // and what is on it
+  for (const p of getWorld().pois) {
+    const q = toScreen(p.x, p.y);
+    const r = p.kind === 'castle' ? size / 26 : size / 46;
+    c.fillStyle = p.kind === 'castle' ? hex(C.stone)
+      : p.kind === 'camp' ? hex(C.foe)
+      : p.kind === 'pad' ? hex(C.ally)
+      : hex(C.gold);
+    c.beginPath();
+    c.ellipse(q.x, q.y, r, r * 0.55, 0, 0, Math.PI * 2);
+    c.fill();
+    c.strokeStyle = hex(C.ink);
+    c.lineWidth = size / 300;
+    c.stroke();
+  }
+
+  overview = Texture.from(canvas);
+  return overview;
 }

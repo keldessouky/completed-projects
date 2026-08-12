@@ -1,15 +1,20 @@
 import { Sprite } from 'pixi.js';
-import { CONFIG, type EnemyKind } from '../config';
+import { CONFIG, ENEMY_KINDS, type EnemyKind } from '../config';
 import { Pool } from '../core/pool';
+import { depth, screenX, screenY } from '../iso';
 import type { GameAtlas } from '../assets/atlas';
-import type { GearItem, Poi } from '../types';
+import type { Poi } from '../types';
 
 /**
  * Everything that lives in world space and moves.
  *
- * Enemies are spawned from POI populations as the player approaches and
- * refunded to the pool when they fall far behind, so a 5120² world costs the
+ * Enemies are spawned from camp populations as the player approaches and
+ * refunded to the pool when they fall far behind, so a 3600² field costs the
  * same as one crowded screen. Nothing is constructed during play.
+ *
+ * Positions are cartesian; only the sprite placement is isometric, and that is
+ * a `screenX/screenY` call at draw time. Depth sorting uses `depth()`, which is
+ * just the sum of the world axes.
  */
 
 export interface Enemy {
@@ -21,14 +26,14 @@ export interface Enemy {
   hp: number; maxHp: number;
   cd: number;
   flashT: number;
-  /** −1 facing left, 1 facing right */
+  /** −1 facing screen-left, 1 facing screen-right */
   face: number;
   /** leash anchor: where it was spawned */
   hx: number; hy: number;
-  /** the POI whose population this belongs to */
+  /** the camp whose population this belongs to */
   poi: string;
   aggro: boolean;
-  /** walk-bob phase, so a crowd doesn't move in lockstep */
+  /** walk-bob phase, so a pack doesn't move in lockstep */
   phase: number;
 }
 
@@ -38,33 +43,33 @@ export interface Shot {
   vx: number; vy: number;
   dmg: number;
   life: number;
-  /** true when it came from the player or Donut */
+  maxLife: number;
+  /** true when it came from your line */
   friendly: boolean;
-  crit: boolean;
 }
 
-export interface Drop {
+/** A coin lying in the field, or one an enemy dropped. */
+export interface Coin {
   sp: Sprite;
   x: number; y: number;
-  /** hop animation */
+  /** hop-and-settle animation clock */
   t: number;
-  life: number;
-  /** exactly one of these is set */
-  gold: number;
-  gear: GearItem | null;
+  value: number;
+  /** index into the world's fixed coin table, or −1 for a drop */
+  spot: number;
+  /** magnet state: once hooked it flies to the hero and cannot be un-hooked */
+  hooked: boolean;
 }
 
 /** The biggest body in the game — the padding every proximity query needs. */
-const MAX_ENEMY_RADIUS = Math.max(
-  ...(['rat', 'brute', 'drone', 'elite', 'boss'] as const).map((k) => CONFIG.enemies[k].radius),
-);
+const MAX_ENEMY_RADIUS = Math.max(...ENEMY_KINDS.map((k) => CONFIG.enemies[k].radius));
 
 /**
  * Uniform-grid spatial hash over the world.
  *
  * Rebuilt from scratch every simulation step — with ~120 live enemies that is
- * 120 inserts, far cheaper than the alternative it removes: 220 projectiles ×
- * 120 enemies is 26k pair tests per step, which at 120 Hz is 3.2M tests a
+ * 120 inserts, far cheaper than the alternative it removes: 180 projectiles ×
+ * 120 enemies is 21k pair tests per step, which at 120 Hz is 2.6M tests a
  * second and exactly the kind of thing that cooks a phone.
  */
 export class SpatialHash {
@@ -72,7 +77,7 @@ export class SpatialHash {
   constructor(private cell = 128) {}
 
   private key(x: number, y: number): number {
-    // 16-bit fold: the world is 5120 units, so cell indices stay well inside
+    // 16-bit fold: the world is 3600 units, so cell indices stay well inside
     return ((Math.floor(x / this.cell) & 0xffff) << 16) | (Math.floor(y / this.cell) & 0xffff);
   }
 
@@ -105,7 +110,7 @@ export class SpatialHash {
 export class Entities {
   enemies: Pool<Enemy>;
   shots: Pool<Shot>;
-  drops: Pool<Drop>;
+  coins: Pool<Coin>;
   hash = new SpatialHash();
   private scratch: number[] = [];
 
@@ -113,34 +118,38 @@ export class Entities {
     atlas: GameAtlas,
     enemyLayer: import('pixi.js').Container,
     shotLayer: import('pixi.js').Container,
-    dropLayer: import('pixi.js').Container,
+    coinLayer: import('pixi.js').Container,
   ) {
     this.enemies = new Pool<Enemy>(CONFIG.enemies.poolSize, () => {
-      const sp = new Sprite(atlas.get('rat_s'));
-      sp.anchor.set(0.5, 0.72);
+      const sp = new Sprite(atlas.get('grunt_s'));
+      // anchored at the feet: the sprite stands ON the ground plane point
+      sp.anchor.set(0.5, 1);
       sp.visible = false;
       enemyLayer.addChild(sp);
       return {
-        sp, kind: 'rat', x: 0, y: 0, px: 0, py: 0, kx: 0, ky: 0,
+        sp, kind: 'grunt', x: 0, y: 0, px: 0, py: 0, kx: 0, ky: 0,
         hp: 1, maxHp: 1, cd: 0, flashT: 0, face: 1, hx: 0, hy: 0,
         poi: '', aggro: false, phase: 0,
       };
     });
 
-    this.shots = new Pool<Shot>(CONFIG.combat.projPoolSize, () => {
-      const sp = new Sprite(atlas.get('nail'));
+    this.shots = new Pool<Shot>(CONFIG.combat.shotPoolSize, () => {
+      const sp = new Sprite(atlas.get('spear'));
       sp.anchor.set(0.5);
       sp.visible = false;
       shotLayer.addChild(sp);
-      return { sp, x: 0, y: 0, px: 0, py: 0, vx: 0, vy: 0, dmg: 1, life: 0, friendly: true, crit: false };
+      return {
+        sp, x: 0, y: 0, px: 0, py: 0, vx: 0, vy: 0,
+        dmg: 1, life: 0, maxLife: 1, friendly: true,
+      };
     });
 
-    this.drops = new Pool<Drop>(64, () => {
-      const sp = new Sprite(atlas.get('coinDrop'));
-      sp.anchor.set(0.5, 0.8);
+    this.coins = new Pool<Coin>(CONFIG.coins.poolSize, () => {
+      const sp = new Sprite(atlas.get('coin'));
+      sp.anchor.set(0.5, 1);
       sp.visible = false;
-      dropLayer.addChild(sp);
-      return { sp, x: 0, y: 0, t: 0, life: 0, gold: 0, gear: null };
+      coinLayer.addChild(sp);
+      return { sp, x: 0, y: 0, t: 0, value: 1, spot: -1, hooked: false };
     });
   }
 
@@ -161,7 +170,6 @@ export class Entities {
     // over can still be touching. Without the pad, projectiles pass through
     // anything that happens to straddle a cell boundary.
     const found = this.hash.query(x, y, radius + MAX_ENEMY_RADIUS, this.scratch);
-    // the hash returns whole cells; narrow to an actual circle test
     let n = 0;
     for (const i of found) {
       const e = this.enemies.items[i];
@@ -188,7 +196,7 @@ export class Entities {
     return best;
   }
 
-  spawnEnemy(atlas: GameAtlas, kind: EnemyKind, x: number, y: number, poi: string, hpScale = 1): Enemy | null {
+  spawnEnemy(atlas: GameAtlas, kind: EnemyKind, x: number, y: number, poi: string): Enemy | null {
     const e = this.enemies.obtain();
     if (!e) return null;
     const stat = CONFIG.enemies[kind];
@@ -196,8 +204,8 @@ export class Entities {
     e.x = e.px = e.hx = x;
     e.y = e.py = e.hy = y;
     e.kx = e.ky = 0;
-    e.maxHp = e.hp = Math.round(stat.hp * hpScale);
-    e.cd = Math.random() * stat.cooldown;
+    e.maxHp = e.hp = stat.hp;
+    e.cd = Math.random() * CONFIG.enemies.contactInterval;
     e.flashT = 0;
     e.face = 1;
     e.poi = poi;
@@ -218,7 +226,7 @@ export class Entities {
 
   spawnShot(
     atlas: GameAtlas, x: number, y: number, vx: number, vy: number,
-    dmg: number, friendly: boolean, crit = false,
+    dmg: number, friendly: boolean,
   ): void {
     const s = this.shots.obtain();
     if (!s) return;
@@ -226,41 +234,56 @@ export class Entities {
     s.vx = vx; s.vy = vy;
     s.dmg = dmg;
     s.life = 0;
+    s.maxLife = friendly ? CONFIG.combat.spearLife : CONFIG.combat.arrowLife;
     s.friendly = friendly;
-    s.crit = crit;
-    s.sp.texture = atlas.get(friendly ? 'nail' : 'bolt');
-    s.sp.rotation = Math.atan2(vy, vx) + Math.PI / 2;
+    s.sp.texture = atlas.get(friendly ? 'spear' : 'arrow');
+    // the flight angle is a SCREEN angle: a shot travelling world-east reads
+    // as down-right, and pointing the sprite along the world vector would look
+    // wrong by exactly the projection.
+    s.sp.rotation = Math.atan2(screenY(vx, vy), screenX(vx, vy)) + Math.PI / 2;
     s.sp.visible = true;
   }
 
-  spawnDrop(atlas: GameAtlas, x: number, y: number, gold: number, gear: GearItem | null): void {
-    const d = this.drops.obtain();
-    if (!d) return;
-    d.x = x; d.y = y;
-    d.t = 0;
-    d.life = 0;
-    d.gold = gold;
-    d.gear = gear;
-    d.sp.texture = atlas.get(gear ? 'gearDrop' : 'coinDrop');
-    d.sp.tint = gear
-      ? (gear.tier === 'prime' ? CONFIG.colors.amberBright
-        : gear.tier === 'fine' ? CONFIG.colors.sysBright
-        : gear.tier === 'solid' ? CONFIG.colors.goodTeal
-        : CONFIG.colors.boneDim)
-      : 0xffffff;
-    d.sp.visible = true;
+  /**
+   * Put a coin in the field. `spot` ties it to the world's fixed coin table so
+   * a save can record which ones are gone; drops pass −1.
+   */
+  spawnCoin(x: number, y: number, value: number, spot: number): Coin | null {
+    const c = this.coins.obtain();
+    if (!c) return null;
+    c.x = x; c.y = y;
+    c.t = spot >= 0 ? 1 : 0;   // table coins are already settled; drops hop
+    c.value = value;
+    c.spot = spot;
+    c.hooked = false;
+    c.sp.visible = true;
+    c.sp.alpha = 1;
+    return c;
+  }
+
+  takeCoin(i: number): void {
+    this.coins.items[i].sp.visible = false;
+    this.coins.release(i);
+  }
+
+  /** Depth-sort a layer's children by their world position. */
+  static sortByDepth(layer: import('pixi.js').Container): void {
+    layer.children.sort((a, b) => (a.zIndex - b.zIndex));
   }
 }
 
-/** Where each member of a POI's population stands when it spawns. */
+/** The depth key a sprite should carry, given its world position. */
+export const spriteDepth = (x: number, y: number): number => depth(x, y);
+
+/** Where each member of a camp's population stands when it spawns. */
 export function campPositions(poi: Poi): { x: number; y: number; kind: EnemyKind }[] {
   const out: { x: number; y: number; kind: EnemyKind }[] = [];
   const spawns = poi.spawns ?? [];
-  const isLair = poi.kind === 'lair';
   spawns.forEach((kind, i) => {
-    if (kind === 'boss') { out.push({ x: poi.x, y: poi.y - 40, kind }); return; }
+    // captains hold the middle; everything else rings the fire
+    if (kind === 'captain') { out.push({ x: poi.x, y: poi.y, kind }); return; }
     const a = (i / Math.max(1, spawns.length)) * Math.PI * 2;
-    const r = isLair ? 130 + (i % 3) * 46 : CONFIG.poi.campRadius * (0.45 + (i % 3) * 0.22);
+    const r = CONFIG.poi.campRadius * (0.45 + (i % 3) * 0.2);
     out.push({ x: poi.x + Math.cos(a) * r, y: poi.y + Math.sin(a) * r, kind });
   });
   return out;

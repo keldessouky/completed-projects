@@ -4,10 +4,6 @@ import { SceneManager } from './scenes/scene';
 import { BootScene } from './scenes/boot';
 import { TitleScene } from './scenes/title';
 import { WorldScene } from './scenes/world/world';
-import { CharSheetScene } from './scenes/charsheet';
-import { InventoryScene } from './scenes/inventory';
-import { JournalScene } from './scenes/journal';
-import { ShopScene } from './scenes/shop';
 import { DeathScene } from './scenes/death';
 import { DevOverlay } from './ui/devoverlay';
 
@@ -17,10 +13,6 @@ async function boot(): Promise<void> {
   scenes.register('boot', (ctx) => new BootScene(ctx));
   scenes.register('title', (ctx) => new TitleScene(ctx));
   scenes.register('world', (ctx) => new WorldScene(ctx));
-  scenes.register('charsheet', (ctx) => new CharSheetScene(ctx));
-  scenes.register('inventory', (ctx) => new InventoryScene(ctx));
-  scenes.register('journal', (ctx) => new JournalScene(ctx));
-  scenes.register('shop', (ctx) => new ShopScene(ctx));
   scenes.register('death', (ctx) => new DeathScene(ctx));
   new DevOverlay(game);
 

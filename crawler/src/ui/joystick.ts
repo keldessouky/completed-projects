@@ -34,10 +34,10 @@ export class Joystick extends Container {
     if (!this.shown) {
       this.shown = true;
       this.base.clear();
-      this.base.circle(0, 0, J.baseRadius)
+      this.base.circle(0, 0, J.ringRadius)
         .fill({ color: CONFIG.colors.ink, alpha: 0.3 })
         .stroke({ color: CONFIG.colors.bone, width: 2, alpha: 0.35 });
-      this.base.circle(0, 0, J.baseRadius * (J.deadZone + 0.06))
+      this.base.circle(0, 0, J.ringRadius * (J.deadZone + 0.06))
         .stroke({ color: CONFIG.colors.bone, width: 1, alpha: 0.2 });
       this.knob.clear();
       this.knob.circle(0, 0, J.knobRadius)
@@ -47,8 +47,8 @@ export class Joystick extends Container {
 
     this.base.position.set(this.input.originX, this.input.originY);
     this.knob.position.set(
-      this.input.originX + this.input.dx * J.baseRadius,
-      this.input.originY + this.input.dy * J.baseRadius,
+      this.input.originX + this.input.dx * J.ringRadius,
+      this.input.originY + this.input.dy * J.ringRadius,
     );
   }
 }

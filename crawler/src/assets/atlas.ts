@@ -9,12 +9,19 @@ import { P } from './palette';
  *
  * Everything draws at 2× design resolution; TextureSource.resolution = 2
  * maps it back so a frame's design size is what gameplay code sees.
+ *
+ * The art is 3/4 view to sit on the isometric ground plane: characters stand
+ * upright and billboard toward the camera, and their contact shadow — an
+ * ellipse squashed to the same 2:1 the ground uses — is what actually plants
+ * them on it. Sprite anchors are (0.5, 1): the bottom edge is the feet.
  */
 const S = 2;               // atlas oversampling vs design px
 const PAD = 4;             // atlas px between frames (bleed guard)
 const SIZE = 2048;
 
 type DrawFn = (c: CanvasRenderingContext2D, w: number, h: number) => void;
+type Facing = 's' | 'n' | 'e';
+const FACINGS: Facing[] = ['s', 'n', 'e'];
 
 export class GameAtlas {
   canvas: HTMLCanvasElement;
@@ -102,7 +109,8 @@ export class GameAtlas {
     c.lineJoin = 'round';
     c.lineCap = 'round';
 
-    this.paintCast();
+    this.paintHero();
+    this.paintSquad();
     this.paintEnemies();
     this.paintWorldBits();
     this.paintDigits();
@@ -133,12 +141,23 @@ export class GameAtlas {
     c.fill();
   }
   /**
+   * The contact shadow. Squashed to the ground plane's own 2:1, which is the
+   * single cheapest thing that makes a billboarded sprite look like it is
+   * standing on an isometric field rather than floating in front of one.
+   */
+  private ground(c: CanvasRenderingContext2D, cx: number, cy: number, rx: number, hard = false): void {
+    c.fillStyle = hard ? P.shadowHard : P.shadow;
+    c.beginPath();
+    c.ellipse(cx, cy, rx, rx * 0.5, 0, 0, Math.PI * 2);
+    c.fill();
+  }
+  /**
    * The same drawing, washed toward white — the hit-flash frame.
    *
    * Not a flat silhouette: at these sprite sizes a solid white blob loses the
-   * shape entirely, and with a fast auto-attack it is on screen often enough
-   * that "what am I even shooting" becomes a real question. Keeping a quarter
-   * of the original through preserves the read.
+   * shape entirely, and with a squad of sixty firing constantly it is on screen
+   * often enough that "what am I even shooting" becomes a real question.
+   * Keeping a quarter of the original through preserves the read.
    */
   private whiteVariant(name: string, w: number, h: number, draw: DrawFn): void {
     this.place(name, w, h, (c, ww, hh) => {
@@ -150,391 +169,343 @@ export class GameAtlas {
     });
   }
 
-  // ---------- characters (three facings; east is mirrored for west) ----------
-  private paintCast(): void {
-    // A contact shadow under every character: at this camera angle it is the
-    // only thing that says "standing on ground" rather than "floating".
-    const shadow = (c: CanvasRenderingContext2D, cx: number, cy: number, rx: number): void => {
-      c.fillStyle = P.shadow;
-      c.beginPath(); c.ellipse(cx, cy, rx, rx * 0.42, 0, 0, Math.PI * 2); c.fill();
-    };
-
+  // ---------- the hero ----------
+  private paintHero(): void {
     /**
-     * Carl. Seen from above and slightly behind — head and shoulders carry the
-     * read at this size, so they get most of the frame and the legs are a hint.
+     * Carl. Barefoot, boxer shorts, no plan. Bigger-headed and bolder than the
+     * levies behind him so that in a crowd of sixty the one you steer is never
+     * in question.
      */
-    const carl = (facing: 's' | 'n' | 'e'): DrawFn => (c, w, h) => {
-      const cx = w / 2, foot = h - 5;
-      shadow(c, cx, foot, 12);
+    const hero = (facing: Facing): DrawFn => (c, w, h) => {
+      const cx = w / 2, foot = h - 4;
+      this.ground(c, cx, foot - 2, 14, true);
 
-      // legs and very bare feet
-      this.rr(c, cx - 8, foot - 15, 7, 13, 3, P.skinShade);
-      this.rr(c, cx + 1, foot - 15, 7, 13, 3, P.skin);
+      // bare legs and very bare feet
+      this.rr(c, cx - 8, foot - 16, 7, 14, 3, P.skinShade);
+      this.rr(c, cx + 1, foot - 16, 7, 14, 3, P.skin);
 
-      // boxer shorts, checked, because that is the whole joke
-      this.rr(c, cx - 10, foot - 24, 20, 12, 3, P.cloth);
-      c.fillStyle = P.clothLit;
-      c.fillRect(cx - 10, foot - 21, 20, 2);
-      c.fillRect(cx - 4, foot - 24, 3, 12);
-      c.fillRect(cx + 4, foot - 24, 3, 12);
+      // the shorts
+      this.rr(c, cx - 11, foot - 26, 22, 13, 4, P.shorts);
+      c.fillStyle = P.shortsLit;
+      c.fillRect(cx - 11, foot - 22, 22, 2.4);
+      c.fillRect(cx - 4, foot - 26, 3, 13);
+      c.fillRect(cx + 4, foot - 26, 3, 13);
 
       // bare torso
-      this.rr(c, cx - 10, foot - 36, 20, 14, 5, P.skin);
+      this.rr(c, cx - 11, foot - 39, 22, 15, 6, P.skin);
       c.fillStyle = P.skinShade;
-      if (facing === 'n') c.fillRect(cx - 1, foot - 35, 2, 12);   // spine
-      else if (facing === 'e') c.fillRect(cx + 5, foot - 36, 5, 14);
+      if (facing === 'n') c.fillRect(cx - 1, foot - 38, 2.4, 13);      // spine
+      else if (facing === 'e') c.fillRect(cx + 5, foot - 39, 6, 15);
 
-      // arms holding the nail gun forward
+      // arms, and the machete that started as a bit of scaffold
       if (facing === 'e') {
-        this.rr(c, cx + 4, foot - 33, 12, 6, 3, P.skin);
-        this.rr(c, cx + 14, foot - 36, 11, 9, 2, P.steelDark);
-        this.rr(c, cx + 22, foot - 34, 5, 5, 1.5, P.steel);
-        c.fillStyle = P.amberBright; c.fillRect(cx + 26, foot - 33, 3, 3);
+        this.rr(c, cx + 4, foot - 36, 13, 6.5, 3, P.skin);
+        c.save();
+        c.translate(cx + 16, foot - 34); c.rotate(-0.5);
+        this.rr(c, 0, -2.6, 22, 5.2, 2, P.steel);
+        c.fillStyle = P.leatherDark; c.fillRect(-5, -3.4, 6, 6.8);
+        c.restore();
       } else if (facing === 's') {
-        this.rr(c, cx - 15, foot - 32, 7, 8, 3, P.skin);
-        this.rr(c, cx + 8, foot - 32, 7, 8, 3, P.skin);
-        this.rr(c, cx - 7, foot - 28, 14, 10, 2, P.steelDark);
-        this.rr(c, cx - 4, foot - 20, 8, 5, 1.5, P.steel);
-        c.fillStyle = P.amberBright; c.fillRect(cx - 2, foot - 16, 4, 3);
+        this.rr(c, cx - 16, foot - 35, 7, 9, 3, P.skin);
+        this.rr(c, cx + 9, foot - 35, 7, 9, 3, P.skin);
+        c.save();
+        c.translate(cx + 12, foot - 30); c.rotate(-1.15);
+        this.rr(c, 0, -2.6, 21, 5.2, 2, P.steel);
+        c.fillStyle = P.leatherDark; c.fillRect(-5, -3.4, 6, 6.8);
+        c.restore();
       } else {
-        this.rr(c, cx - 15, foot - 32, 7, 8, 3, P.skinShade);
-        this.rr(c, cx + 8, foot - 32, 7, 8, 3, P.skinShade);
+        this.rr(c, cx - 16, foot - 35, 7, 9, 3, P.skinShade);
+        this.rr(c, cx + 9, foot - 35, 7, 9, 3, P.skinShade);
       }
 
-      // head: hair cap from above, face only when looking at the camera
-      const hy = foot - 43;
-      this.dot(c, cx, hy, 9, P.hair);
+      // head: hair cap from this angle, face only when looking at the camera
+      const hy = foot - 47;
+      this.dot(c, cx, hy, 10, P.hair);
       if (facing === 's') {
-        this.dot(c, cx, hy + 2.5, 7, P.skin);
+        this.dot(c, cx, hy + 2.8, 8, P.skin);
         c.fillStyle = P.hair;
-        c.beginPath(); c.arc(cx, hy, 8.6, Math.PI, 0); c.fill();
-        c.fillRect(cx - 8.6, hy - 1, 17.2, 2.6);
+        c.beginPath(); c.arc(cx, hy, 9.6, Math.PI, 0); c.fill();
+        c.fillRect(cx - 9.6, hy - 1, 19.2, 2.8);
         c.fillStyle = P.ink;
-        c.fillRect(cx - 4, hy + 1.6, 2.4, 2.4);
-        c.fillRect(cx + 1.6, hy + 1.6, 2.4, 2.4);
+        c.fillRect(cx - 4.4, hy + 1.8, 2.6, 2.6);
+        c.fillRect(cx + 1.8, hy + 1.8, 2.6, 2.6);
       } else if (facing === 'e') {
-        this.dot(c, cx + 3, hy + 2, 6.4, P.skin);
+        this.dot(c, cx + 3.4, hy + 2.2, 7.2, P.skin);
         c.fillStyle = P.hair;
-        c.beginPath(); c.arc(cx, hy, 8.6, Math.PI * 0.7, Math.PI * 1.9); c.fill();
-        c.fillStyle = P.ink; c.fillRect(cx + 5, hy + 1, 2.4, 2.4);
+        c.beginPath(); c.arc(cx, hy, 9.6, Math.PI * 0.7, Math.PI * 1.9); c.fill();
+        c.fillStyle = P.ink; c.fillRect(cx + 5.6, hy + 1, 2.6, 2.6);
       }
     };
-    for (const f of ['s', 'n', 'e'] as const) this.place('carl_' + f, 44, 56, carl(f));
-    this.place('carl_dead', 52, 40, (c, w, h) => {
+    for (const f of FACINGS) this.place('hero_' + f, 48, 60, hero(f));
+    this.whiteVariant('hero_flash', 48, 60, hero('s'));
+
+    this.place('hero_dead', 56, 44, (c, w, h) => {
       const cx = w / 2, cy = h / 2;
-      shadow(c, cx, cy + 10, 18);
-      c.save(); c.translate(cx, cy); c.rotate(Math.PI / 2);
-      this.rr(c, -10, -14, 20, 14, 5, P.skin);
-      this.rr(c, -10, 0, 20, 12, 3, P.cloth);
-      this.dot(c, 0, -21, 9, P.hair);
+      this.ground(c, cx, cy + 12, 20, true);
+      c.save(); c.translate(cx, cy + 2); c.rotate(Math.PI / 2);
+      this.rr(c, -11, -15, 22, 15, 6, P.skin);
+      this.rr(c, -11, 0, 22, 13, 4, P.shorts);
+      this.dot(c, 0, -23, 10, P.hair);
       c.restore();
     });
-
-    /** Princess Donut. Small, fluffy, deeply unimpressed. */
-    const donut = (facing: 's' | 'n' | 'e'): DrawFn => (c, w, h) => {
-      const cx = w / 2, foot = h - 4;
-      shadow(c, cx, foot, 9);
-      // body
-      c.fillStyle = P.furShade;
-      c.beginPath(); c.ellipse(cx, foot - 8, 10, 7, 0, 0, Math.PI * 2); c.fill();
-      c.fillStyle = P.fur;
-      c.beginPath(); c.ellipse(cx, foot - 10, 9, 6, 0, 0, Math.PI * 2); c.fill();
-      // tail, up and outraged
-      c.strokeStyle = P.fur; c.lineWidth = 3.2; c.lineCap = 'round';
-      c.beginPath();
-      const tx = facing === 'e' ? cx - 9 : cx + 8;
-      c.moveTo(tx, foot - 9);
-      c.quadraticCurveTo(tx + (facing === 'e' ? -7 : 7), foot - 16, tx + (facing === 'e' ? -3 : 3), foot - 24);
-      c.stroke();
-      // head
-      const hx = facing === 'e' ? cx + 5 : cx;
-      const hy = foot - (facing === 'n' ? 17 : 19);
-      this.dot(c, hx, hy, 7, P.fur);
-      this.poly(c, [hx - 6, hy - 4, hx - 4.6, hy - 10, hx - 2, hy - 4.6], P.fur);
-      this.poly(c, [hx + 2, hy - 4.6, hx + 4.6, hy - 10, hx + 6, hy - 4], P.fur);
-      // the tiara. she earned it. she will tell you about it.
-      c.fillStyle = P.amberBright;
-      c.fillRect(hx - 5.4, hy - 6.6, 10.8, 2);
-      this.poly(c, [hx - 1.6, hy - 6.8, hx, hy - 11, hx + 1.6, hy - 6.8], P.amberBright);
-      if (facing !== 'n') {
-        c.fillStyle = P.ink;
-        c.fillRect(hx - 3.4, hy - 1.4, 2, 2.4);
-        c.fillRect(hx + 1.4, hy - 1.4, 2, 2.4);
-        c.fillStyle = P.hpRed;
-        c.fillRect(hx - 1, hy + 2.4, 2, 1.4);
-      }
-    };
-    for (const f of ['s', 'n', 'e'] as const) this.place('donut_' + f, 32, 34, donut(f));
-
-    /** Townsfolk. Role reads from the colour of the coat, not a label. */
-    const npc = (coat: string, accent: string): DrawFn => (c, w, h) => {
-      const cx = w / 2, foot = h - 5;
-      shadow(c, cx, foot, 11);
-      this.rr(c, cx - 8, foot - 14, 6, 12, 2.5, P.inkLift);
-      this.rr(c, cx + 2, foot - 14, 6, 12, 2.5, P.inkLift);
-      this.rr(c, cx - 11, foot - 34, 22, 22, 5, coat);
-      c.fillStyle = accent;
-      c.fillRect(cx - 11, foot - 27, 22, 3.4);
-      c.fillRect(cx - 2, foot - 34, 4, 22);
-      this.rr(c, cx - 15, foot - 31, 6, 12, 3, coat);
-      this.rr(c, cx + 9, foot - 31, 6, 12, 3, coat);
-      this.dot(c, cx, foot - 41, 8.4, P.skin);
-      c.fillStyle = P.hair;
-      c.beginPath(); c.arc(cx, foot - 42, 8.4, Math.PI, 0); c.fill();
-      c.fillStyle = P.ink;
-      c.fillRect(cx - 3.6, foot - 41, 2.2, 2.2);
-      c.fillRect(cx + 1.4, foot - 41, 2.2, 2.2);
-    };
-    this.place('npc_vendor', 40, 52, npc(P.rustDeep, P.amber));
-    this.place('npc_quests', 40, 52, npc(P.sysDeep, P.sysBright));
-    this.place('npc_guide', 40, 52, npc('#3d3548', P.goodTeal));
   }
 
-  // ---------- mobs ----------
+  // ---------- the squad ----------
+  private paintSquad(): void {
+    /**
+     * One levy. Sixty of these are on screen at once, so the whole design brief
+     * is "reads as a person at 22 px, costs nothing, and is unmistakably not an
+     * enemy" — hence flat ally blue with no interior detail beyond a belt.
+     *
+     * `tier` only deepens the cloth and adds a helmet: the crowd should look
+     * like it is getting better equipped without any of them becoming
+     * individuals you might mourn.
+     */
+    const levy = (tier: 0 | 1 | 2, facing: Facing): DrawFn => (c, w, h) => {
+      const cx = w / 2, foot = h - 3;
+      const cloth = tier === 0 ? P.levy : tier === 1 ? P.ally : P.allyDark;
+      const trim = tier === 0 ? P.levyDark : tier === 1 ? P.allyDark : P.ally;
+      this.ground(c, cx, foot - 1, 9);
+
+      // legs
+      this.rr(c, cx - 6, foot - 11, 5, 10, 2, P.leatherDark);
+      this.rr(c, cx + 1, foot - 11, 5, 10, 2, P.leatherDark);
+      // tunic
+      this.rr(c, cx - 8, foot - 25, 16, 16, 4, cloth);
+      c.fillStyle = trim;
+      c.fillRect(cx - 8, foot - 16, 16, 2.6);
+      // arms — the near one carries a spear, angled by facing
+      this.rr(c, cx - 11, foot - 23, 5, 10, 2.4, cloth);
+      this.rr(c, cx + 6, foot - 23, 5, 10, 2.4, cloth);
+      if (facing !== 'n') {
+        c.strokeStyle = P.wood; c.lineWidth = 2.2;
+        c.beginPath(); c.moveTo(cx + 9, foot - 4); c.lineTo(cx + 12, foot - 30); c.stroke();
+        this.poly(c, [cx + 10.4, foot - 29, cx + 14, foot - 29, cx + 12.2, foot - 36], P.steel);
+      }
+      // head
+      const hy = foot - 30;
+      this.dot(c, cx, hy, 6.4, P.skin);
+      if (tier === 2) {
+        // helmet: the only thing that changes silhouette as the squad grows
+        c.fillStyle = P.steel;
+        c.beginPath(); c.arc(cx, hy, 7, Math.PI, 0); c.fill();
+        c.fillRect(cx - 7, hy - 1, 14, 2.4);
+      } else {
+        c.fillStyle = P.hair;
+        c.beginPath(); c.arc(cx, hy - 0.6, 6.6, Math.PI, 0); c.fill();
+      }
+      if (facing !== 'n') {
+        c.fillStyle = P.ink;
+        c.fillRect(cx - 3, hy + 1.4, 2, 2);
+        c.fillRect(cx + 1, hy + 1.4, 2, 2);
+      }
+    };
+    for (const t of [0, 1, 2] as const) {
+      for (const f of FACINGS) this.place(`levy${t}_${f}`, 32, 42, levy(t, f));
+    }
+    this.whiteVariant('levy_flash', 32, 42, levy(0, 's'));
+  }
+
+  // ---------- the enemy roster ----------
   private paintEnemies(): void {
-    const shadow = (c: CanvasRenderingContext2D, cx: number, cy: number, rx: number): void => {
-      c.fillStyle = P.shadow;
-      c.beginPath(); c.ellipse(cx, cy, rx, rx * 0.42, 0, 0, Math.PI * 2); c.fill();
+    /** Redcloak. The number you fight, not the fight itself. */
+    const grunt = (facing: Facing): DrawFn => (c, w, h) => {
+      const cx = w / 2, foot = h - 3;
+      this.ground(c, cx, foot - 1, 10);
+      this.rr(c, cx - 6, foot - 12, 5, 11, 2, P.ink);
+      this.rr(c, cx + 1, foot - 12, 5, 11, 2, P.ink);
+      // the cloak is the whole identity: one loud red shape
+      this.rr(c, cx - 9, foot - 28, 18, 18, 4, P.foe);
+      c.fillStyle = P.foeDark;
+      c.fillRect(cx - 9, foot - 18, 18, 3);
+      this.rr(c, cx - 12, foot - 26, 5, 11, 2.4, P.foeDark);
+      this.rr(c, cx + 7, foot - 26, 5, 11, 2.4, P.foeDark);
+      if (facing !== 'n') {
+        // a short blade held low
+        c.save(); c.translate(cx + 10, foot - 17); c.rotate(-0.35);
+        this.rr(c, 0, -1.8, 13, 3.6, 1.5, P.steel); c.restore();
+      }
+      const hy = foot - 33;
+      this.dot(c, cx, hy, 6.8, P.skinShade);
+      c.fillStyle = P.foeDark;
+      c.beginPath(); c.arc(cx, hy - 0.6, 7.2, Math.PI, 0); c.fill();
+      c.fillRect(cx - 7.2, hy - 1.4, 14.4, 2.6);
+      if (facing !== 'n') {
+        c.fillStyle = P.ink;
+        c.fillRect(cx - 3.2, hy + 1.4, 2.2, 2.2);
+        c.fillRect(cx + 1, hy + 1.4, 2.2, 2.2);
+      }
     };
 
-    /** Sewer rat: low, fast, and much too large. */
-    const rat = (facing: 's' | 'n' | 'e'): DrawFn => (c, w, h) => {
+    /** Bruiser. Wide, slow, and it takes two of you with it. */
+    const heavy = (facing: Facing): DrawFn => (c, w, h) => {
       const cx = w / 2, foot = h - 4;
-      shadow(c, cx, foot, 12);
-      // tail
-      c.strokeStyle = P.rustDeep; c.lineWidth = 2.6; c.lineCap = 'round';
-      c.beginPath();
-      const tx = facing === 'e' ? cx - 10 : cx;
-      c.moveTo(tx, foot - 7);
-      c.quadraticCurveTo(tx - 12, foot - 3, tx - 8, foot + 2);
-      c.stroke();
-      // body
-      c.fillStyle = P.rustDeep;
-      c.beginPath(); c.ellipse(cx, foot - 8, 13, 8, 0, 0, Math.PI * 2); c.fill();
-      c.fillStyle = P.rust;
-      c.beginPath(); c.ellipse(cx, foot - 10, 11, 6.4, 0, 0, Math.PI * 2); c.fill();
-      // head + ears
-      const hx = facing === 'e' ? cx + 10 : cx;
-      const hy = foot - (facing === 'n' ? 13 : 15);
-      this.dot(c, hx, hy, 7, P.rust);
-      this.dot(c, hx - 5.4, hy - 4.6, 3.4, P.rustDeep);
-      this.dot(c, hx + 5.4, hy - 4.6, 3.4, P.rustDeep);
+      this.ground(c, cx, foot - 2, 16, true);
+      this.rr(c, cx - 11, foot - 15, 9, 14, 3, P.ink);
+      this.rr(c, cx + 2, foot - 15, 9, 14, 3, P.ink);
+      // slab of a torso, iron over red
+      this.rr(c, cx - 16, foot - 40, 32, 27, 6, P.foeDark);
+      this.rr(c, cx - 13, foot - 36, 26, 13, 4, P.steelDark);
+      c.fillStyle = P.steel;
+      c.fillRect(cx - 13, foot - 34, 26, 2.6);
+      this.rr(c, cx - 21, foot - 38, 7, 16, 3.4, P.foeDark);
+      this.rr(c, cx + 14, foot - 38, 7, 16, 3.4, P.foeDark);
       if (facing !== 'n') {
-        this.poly(c, [hx - 2.6, hy + 2, hx + 2.6, hy + 2, hx, hy + 8], P.skinShade);
+        // a maul, because the contact hit costs two people
+        c.save(); c.translate(cx + 18, foot - 26); c.rotate(-0.5);
+        c.strokeStyle = P.wood; c.lineWidth = 3.4;
+        c.beginPath(); c.moveTo(0, 0); c.lineTo(0, -20); c.stroke();
+        this.rr(c, -7, -27, 14, 9, 2, P.stoneDark);
+        c.restore();
+      }
+      const hy = foot - 47;
+      this.dot(c, cx, hy, 8, P.skinShade);
+      c.fillStyle = P.steelDark;
+      c.beginPath(); c.arc(cx, hy - 1, 8.6, Math.PI, 0); c.fill();
+      c.fillRect(cx - 8.6, hy - 2, 17.2, 4.4);
+      if (facing !== 'n') {
         c.fillStyle = P.hpRed;
-        c.fillRect(hx - 4, hy - 1, 2.4, 2.2);
-        c.fillRect(hx + 1.6, hy - 1, 2.4, 2.2);
+        c.fillRect(cx - 4.4, hy + 2, 3, 2.4);
+        c.fillRect(cx + 1.4, hy + 2, 3, 2.4);
       }
     };
 
-    /** Rubble brute: a slab of collapsed building that stood back up. */
-    const brute = (facing: 's' | 'n' | 'e'): DrawFn => (c, w, h) => {
-      const cx = w / 2, foot = h - 5;
-      shadow(c, cx, foot, 19);
-      this.rr(c, cx - 15, foot - 16, 11, 15, 2, P.stoneDim);
-      this.rr(c, cx + 4, foot - 16, 11, 15, 2, P.stoneDim);
-      this.rr(c, cx - 19, foot - 44, 38, 30, 3, P.stone);
-      c.fillStyle = P.stoneDim;
-      c.fillRect(cx - 19, foot - 32, 38, 3);
-      // rebar bristling out of the shoulders
-      c.strokeStyle = P.rust; c.lineWidth = 2.4;
-      c.beginPath();
-      c.moveTo(cx - 15, foot - 42); c.lineTo(cx - 23, foot - 54);
-      c.moveTo(cx + 13, foot - 43); c.lineTo(cx + 22, foot - 53);
-      c.stroke();
-      // head block
-      this.rr(c, cx - 10, foot - 58, 20, 16, 2, P.stoneDim);
+    /** Slinger. Thin, hangs back, and is the reason you keep moving. */
+    const archer = (facing: Facing): DrawFn => (c, w, h) => {
+      const cx = w / 2, foot = h - 3;
+      this.ground(c, cx, foot - 1, 10);
+      this.rr(c, cx - 6, foot - 12, 5, 11, 2, P.leatherDark);
+      this.rr(c, cx + 1, foot - 12, 5, 11, 2, P.leatherDark);
+      this.rr(c, cx - 8, foot - 28, 16, 17, 4, P.leather);
+      c.fillStyle = P.foe;
+      c.fillRect(cx - 8, foot - 24, 16, 3);              // a red sash: still theirs
+      this.rr(c, cx - 11, foot - 26, 5, 11, 2.4, P.leather);
+      this.rr(c, cx + 6, foot - 26, 5, 11, 2.4, P.leather);
+      // the bow, drawn side-on so the shape carries at distance
       if (facing !== 'n') {
-        c.fillStyle = P.amberBright;
-        c.fillRect(cx - 6, foot - 52, 4.6, 3.4);
-        c.fillRect(cx + 1.4, foot - 52, 4.6, 3.4);
+        c.strokeStyle = P.wood; c.lineWidth = 2.6;
+        c.beginPath(); c.arc(cx + 8, foot - 22, 12, -1.15, 1.15); c.stroke();
+        c.strokeStyle = P.boneDim; c.lineWidth = 1.2;
+        c.beginPath();
+        c.moveTo(cx + 8 + Math.cos(-1.15) * 12, foot - 22 + Math.sin(-1.15) * 12);
+        c.lineTo(cx + 8 + Math.cos(1.15) * 12, foot - 22 + Math.sin(1.15) * 12);
+        c.stroke();
       }
-      // fracture lines
-      c.strokeStyle = 'rgba(0,0,0,0.45)'; c.lineWidth = 1.6;
-      c.beginPath();
-      c.moveTo(cx - 8, foot - 40); c.lineTo(cx - 2, foot - 32); c.lineTo(cx - 6, foot - 22);
-      c.stroke();
-      if (facing === 'e') { c.fillStyle = 'rgba(0,0,0,0.22)'; c.fillRect(cx + 8, foot - 44, 11, 30); }
-    };
-
-    /** Maintenance drone: a municipal fan that was given opinions. */
-    const drone = (facing: 's' | 'n' | 'e'): DrawFn => (c, w, h) => {
-      const cx = w / 2, base = h - 6;
-      shadow(c, cx, base + 2, 13);
-      // it hovers: the body sits well above its shadow
-      const by = base - 22;
-      for (const sx of [-1, 1]) {
-        const ax = cx + sx * 17;
-        this.rr(c, cx + (sx < 0 ? -18 : 4), by - 2, 14, 5, 2, P.steelDark);
-        c.fillStyle = 'rgba(141,146,153,0.5)';
-        c.beginPath(); c.ellipse(ax, by - 4, 11, 4, 0, 0, Math.PI * 2); c.fill();
-        this.dot(c, ax, by - 4, 2.6, P.steel);
-      }
-      this.rr(c, cx - 10, by - 10, 20, 20, 5, P.steel);
-      this.rr(c, cx - 8, by - 8, 16, 8, 2, P.steelDark);
-      if (facing !== 'n') {
-        this.dot(c, cx, by + 4, 5, P.steelDark);
-        this.dot(c, cx, by + 4, 3.2, P.sys);
-        this.dot(c, cx - 1, by + 3, 1.3, P.sysBright);
-      }
-      c.fillStyle = P.hpRed; c.fillRect(cx + 5, by - 7, 2.8, 2.8);
-      this.poly(c, [cx - 4, by + 10, cx + 4, by + 10, cx, by + 17], P.steelDark);
-    };
-
-    /** Foreman: an elite in a hard hat who thinks this is a job. */
-    const elite = (facing: 's' | 'n' | 'e'): DrawFn => (c, w, h) => {
-      const cx = w / 2, foot = h - 5;
-      shadow(c, cx, foot, 15);
-      this.rr(c, cx - 9, foot - 16, 7, 14, 3, P.inkLift);
-      this.rr(c, cx + 2, foot - 16, 7, 14, 3, P.inkLift);
-      this.rr(c, cx - 13, foot - 40, 26, 26, 5, P.hiVisDark);
-      c.fillStyle = P.hiVis;
-      c.fillRect(cx - 13, foot - 33, 26, 5);
-      c.fillRect(cx - 13, foot - 24, 26, 4);
-      this.rr(c, cx - 18, foot - 37, 7, 15, 3, P.hiVisDark);
-      this.rr(c, cx + 11, foot - 37, 7, 15, 3, P.hiVisDark);
-      // the clipboard, held like a weapon
-      if (facing !== 'n') {
-        this.rr(c, cx + 13, foot - 30, 10, 13, 2, P.dirtDim);
-        c.fillStyle = P.bone; c.fillRect(cx + 15, foot - 28, 6, 9);
-      }
-      this.dot(c, cx, foot - 47, 9, P.skin);
-      // hard hat
-      c.fillStyle = P.amberBright;
-      c.beginPath(); c.arc(cx, foot - 48, 9.6, Math.PI, 0); c.fill();
-      c.fillRect(cx - 11, foot - 49, 22, 3.4);
+      // quiver over the far shoulder
+      c.save(); c.translate(cx - 9, foot - 28); c.rotate(0.4);
+      this.rr(c, -3, 0, 6, 14, 2, P.leatherDark);
+      c.fillStyle = P.bone; c.fillRect(-2, -4, 1.6, 5); c.fillRect(0.6, -5, 1.6, 6);
+      c.restore();
+      const hy = foot - 33;
+      this.dot(c, cx, hy, 6.4, P.skinShade);
+      c.fillStyle = P.foeDark;
+      c.beginPath(); c.arc(cx, hy - 0.6, 6.8, Math.PI, 0); c.fill();
       if (facing !== 'n') {
         c.fillStyle = P.ink;
-        c.fillRect(cx - 4, foot - 46, 2.4, 2.4);
-        c.fillRect(cx + 1.6, foot - 46, 2.4, 2.4);
+        c.fillRect(cx - 3, hy + 1.4, 2, 2);
+        c.fillRect(cx + 1, hy + 1.4, 2, 2);
       }
     };
 
-    /** The Chief Inspector: middle management with a firing solution. */
-    const boss = (facing: 's' | 'n' | 'e'): DrawFn => (c, w, h) => {
-      const cx = w / 2, foot = h - 6;
-      shadow(c, cx, foot, 30);
-      // heavy boots
-      this.rr(c, cx - 18, foot - 22, 15, 20, 3, P.ink);
-      this.rr(c, cx + 3, foot - 22, 15, 20, 3, P.ink);
-      // longcoat
-      this.rr(c, cx - 26, foot - 62, 52, 44, 7, P.hiVisDark);
-      c.fillStyle = P.hiVis;
-      c.fillRect(cx - 26, foot - 50, 52, 7);
-      c.fillRect(cx - 26, foot - 34, 52, 6);
-      c.fillStyle = 'rgba(0,0,0,0.3)';
-      c.fillRect(cx - 2, foot - 62, 4, 44);
-      // shoulder plates and the arm cannon
-      this.rr(c, cx - 34, foot - 60, 12, 20, 4, P.steel);
-      this.rr(c, cx + 22, foot - 60, 12, 20, 4, P.steel);
+    /** Captain. A camp's worth of health with a plume on top. */
+    const captain = (facing: Facing): DrawFn => (c, w, h) => {
+      const cx = w / 2, foot = h - 5;
+      this.ground(c, cx, foot - 2, 22, true);
+      this.rr(c, cx - 14, foot - 20, 11, 19, 3, P.ink);
+      this.rr(c, cx + 3, foot - 20, 11, 19, 3, P.ink);
+      // the cloak behind, then plate over it
+      this.poly(c, [cx - 19, foot - 50, cx + 19, foot - 50, cx + 25, foot - 8, cx - 25, foot - 8], P.foeDark);
+      this.rr(c, cx - 17, foot - 52, 34, 34, 6, P.steelDark);
+      c.fillStyle = P.steel;
+      c.fillRect(cx - 17, foot - 42, 34, 3.4);
+      c.fillStyle = P.gold;
+      c.fillRect(cx - 2.4, foot - 52, 4.8, 34);           // gilt sternum band
+      // pauldrons
+      this.rr(c, cx - 25, foot - 52, 11, 17, 5, P.steel);
+      this.rr(c, cx + 14, foot - 52, 11, 17, 5, P.steel);
       if (facing !== 'n') {
-        this.rr(c, cx + 24, foot - 44, 20, 13, 3, P.steelDark);
-        this.rr(c, cx + 40, foot - 41, 8, 7, 2, P.steel);
-        c.fillStyle = P.amberBright; c.fillRect(cx + 46, foot - 40, 4, 5);
+        // greatsword, point down, both hands
+        c.save(); c.translate(cx + 22, foot - 34); c.rotate(0.35);
+        this.rr(c, -3, -6, 6, 40, 2, P.steel);
+        c.fillStyle = P.gold; c.fillRect(-9, -8, 18, 5);
+        c.restore();
       }
-      // head, hard hat, and the shoulder lamp that finds you in the dark
-      this.dot(c, cx, foot - 72, 12, P.skin);
-      c.fillStyle = P.bone;
-      c.beginPath(); c.arc(cx, foot - 74, 13, Math.PI, 0); c.fill();
-      c.fillRect(cx - 15, foot - 75, 30, 4.4);
+      const hy = foot - 60;
+      this.dot(c, cx, hy, 9, P.skinShade);
+      // helm and plume
+      c.fillStyle = P.steelDark;
+      c.beginPath(); c.arc(cx, hy - 1, 9.8, Math.PI, 0); c.fill();
+      c.fillRect(cx - 9.8, hy - 2, 19.6, 5);
+      c.fillStyle = P.foe;
+      c.beginPath();
+      c.moveTo(cx - 2.6, hy - 10);
+      c.quadraticCurveTo(cx + 2, hy - 24, cx + 12, hy - 22);
+      c.quadraticCurveTo(cx + 5, hy - 16, cx + 3, hy - 9);
+      c.closePath(); c.fill();
       if (facing !== 'n') {
-        c.fillStyle = P.ink;
-        c.fillRect(cx - 6, foot - 71, 3.4, 3.4);
-        c.fillRect(cx + 2.6, foot - 71, 3.4, 3.4);
-        c.fillStyle = P.steelDark;
-        c.fillRect(cx - 8, foot - 64, 16, 3.4);
+        c.fillStyle = P.hpRed;
+        c.fillRect(cx - 5, hy + 2, 3.4, 2.6);
+        c.fillRect(cx + 1.6, hy + 2, 3.4, 2.6);
       }
-      const lamp = c.createRadialGradient(cx - 30, foot - 62, 2, cx - 30, foot - 62, 16);
-      lamp.addColorStop(0, 'rgba(240,194,104,0.9)');
-      lamp.addColorStop(1, 'rgba(240,194,104,0)');
-      c.fillStyle = lamp;
-      c.beginPath(); c.arc(cx - 30, foot - 62, 16, 0, Math.PI * 2); c.fill();
     };
 
     const mobs = [
-      ['rat', rat, 42, 34], ['brute', brute, 48, 66], ['drone', drone, 46, 50],
-      ['elite', elite, 46, 58], ['boss', boss, 108, 92],
+      ['grunt', grunt, 36, 44], ['heavy', heavy, 52, 56],
+      ['archer', archer, 40, 44], ['captain', captain, 64, 76],
     ] as const;
     for (const [name, fn, fw, fh] of mobs) {
-      for (const f of ['s', 'n', 'e'] as const) {
-        this.place(`${name}_${f}`, fw, fh, (fn as (f: 's' | 'n' | 'e') => DrawFn)(f));
+      for (const f of FACINGS) {
+        this.place(`${name}_${f}`, fw, fh, (fn as (f: Facing) => DrawFn)(f));
       }
       // One flash frame per kind rather than per facing: it is on screen for
-      // 80 ms, and nobody has ever noticed a sprite turn to face them in that.
-      this.whiteVariant(`${name}_flash`, fw, fh, (fn as (f: 's' | 'n' | 'e') => DrawFn)('s'));
+      // 70 ms, and nobody has ever noticed a sprite turn to face them in that.
+      this.whiteVariant(`${name}_flash`, fw, fh, (fn as (f: Facing) => DrawFn)('s'));
     }
   }
 
-  // ---------- projectiles, drops, markers ----------
+  // ---------- coins, projectiles, markers ----------
   private paintWorldBits(): void {
-    // A nail. Fired from a nail gun. This is the whole armoury.
-    this.place('nail', 10, 24, (c, w) => {
+    // The coin. The entire economy, and it has to read at 14 px on grass.
+    this.place('coin', 24, 26, (c, w) => {
       const cx = w / 2;
-      c.strokeStyle = P.steel; c.lineWidth = 2.4;
-      c.beginPath(); c.moveTo(cx, 4); c.lineTo(cx, 20); c.stroke();
-      this.poly(c, [cx - 2.6, 6, cx + 2.6, 6, cx, 0], P.bone);
-      c.fillStyle = P.steelDark; c.fillRect(cx - 3.4, 19, 6.8, 2.6);
+      this.ground(c, cx, 23, 7);
+      this.dot(c, cx, 12, 9.6, P.goldDark);
+      this.dot(c, cx, 11, 8, P.gold);
+      c.fillStyle = P.goldDark;
+      c.fillRect(cx - 1.4, 6, 2.8, 10);
+      c.fillRect(cx - 5, 9.6, 10, 2.8);
+      this.dot(c, cx - 3, 7.6, 2.2, '#fff2b8');
     });
-    // What shoots back.
-    this.place('bolt', 12, 20, (c, w, h) => {
+    // A stack, for the HUD and for what a captain drops.
+    this.place('coinStack', 28, 26, (c, w) => {
       const cx = w / 2;
-      const g = c.createLinearGradient(0, 0, 0, h);
-      g.addColorStop(0, 'rgba(224,101,75,1)');
-      g.addColorStop(1, 'rgba(181,64,46,0)');
-      c.fillStyle = g;
-      c.beginPath(); c.ellipse(cx, h / 2, 4, h / 2, 0, 0, Math.PI * 2); c.fill();
-      this.dot(c, cx, h / 2 - 3, 3, '#ffd9c8');
-    });
-
-    this.place('coinDrop', 22, 22, (c, w, h) => {
-      this.dot(c, w / 2, h / 2 + 3, 9, P.shadow);
-      this.dot(c, w / 2, h / 2, 9, P.rustDeep);
-      this.dot(c, w / 2, h / 2, 7.4, P.amber);
-      this.dot(c, w / 2 - 2, h / 2 - 2.2, 3, P.amberBright);
-    });
-    // Gear on the ground: a satchel silhouette, tinted by tier at spawn time.
-    this.place('gearDrop', 26, 26, (c, w, h) => {
-      this.dot(c, w / 2, h - 4, 8, P.shadow);
-      this.rr(c, 4, 8, w - 8, h - 12, 3, '#ffffff');
-      c.fillStyle = 'rgba(0,0,0,0.3)';
-      c.fillRect(4, 13, w - 8, 3);
-      c.fillRect(w / 2 - 2, 8, 4, h - 12);
-      this.rr(c, w / 2 - 6, 3, 12, 7, 2, '#ffffff');
-    });
-
-    // Minimap and world markers. Flat shapes: they are drawn at 12 px.
-    const mark = (name: string, draw: DrawFn) => this.place(name, 22, 22, draw);
-    mark('markTown', (c, w, h) => {
-      this.poly(c, [w / 2, 2, w - 3, 9, w - 6, h - 3, 6, h - 3, 3, 9], '#ffffff');
-    });
-    mark('markCamp', (c, w, h) => {
-      this.poly(c, [w / 2, 3, w - 3, h - 4, 3, h - 4], '#ffffff');
-    });
-    mark('markRuin', (c, w, h) => {
-      c.fillStyle = '#ffffff';
-      c.fillRect(3, 6, 5, h - 9);
-      c.fillRect(w - 8, 3, 5, h - 6);
-      c.fillRect(3, h - 6, w - 6, 3);
-    });
-    mark('markShrine', (c, w, h) => {
-      this.dot(c, w / 2, h / 2, 7, '#ffffff');
-      c.globalCompositeOperation = 'destination-out';
-      this.dot(c, w / 2, h / 2, 3.2, '#000');
-      c.globalCompositeOperation = 'source-over';
-    });
-    mark('markLair', (c, w, h) => {
-      c.fillStyle = '#ffffff';
-      for (let i = 0; i < 8; i++) {
-        c.save(); c.translate(w / 2, h / 2); c.rotate((i * Math.PI) / 4);
-        c.fillRect(-1.8, -10, 3.6, 5); c.restore();
+      this.ground(c, cx, 23, 10);
+      for (let i = 2; i >= 0; i--) {
+        this.dot(c, cx - 3 + i * 3, 18 - i * 5, 8.4, P.goldDark);
+        this.dot(c, cx - 3 + i * 3, 17 - i * 5, 7, P.gold);
       }
-      this.dot(c, w / 2, h / 2, 5, '#ffffff');
-    });
-    mark('markPlayer', (c, w, h) => {
-      this.poly(c, [w / 2, 2, w - 4, h - 3, w / 2, h - 7, 4, h - 3], '#ffffff');
     });
 
-    // An interact pip that floats over whatever you are standing next to.
+    // What the slingers send back. Long, thin, and drawn pointing up so the
+    // sprite can simply be rotated to its flight angle.
+    this.place('arrow', 10, 26, (c, w) => {
+      const cx = w / 2;
+      c.strokeStyle = P.wood; c.lineWidth = 2.2;
+      c.beginPath(); c.moveTo(cx, 5); c.lineTo(cx, 22); c.stroke();
+      this.poly(c, [cx - 3, 6, cx + 3, 6, cx, 0], P.steel);
+      c.fillStyle = P.boneDim;
+      this.poly(c, [cx - 3.4, 26, cx, 19, cx, 24], P.boneDim);
+      this.poly(c, [cx + 3.4, 26, cx, 19, cx, 24], P.boneDim);
+    });
+    // A thrown spear from your own line — the squad's attack made visible.
+    this.place('spear', 8, 22, (c, w) => {
+      const cx = w / 2;
+      c.strokeStyle = P.wood; c.lineWidth = 2;
+      c.beginPath(); c.moveTo(cx, 6); c.lineTo(cx, 21); c.stroke();
+      this.poly(c, [cx - 3.2, 7, cx + 3.2, 7, cx, 0], P.steel);
+    });
+
+    // ── floating markers, drawn white and tinted at use ──
     this.place('pip', 20, 24, (c, w) => {
       const cx = w / 2;
       this.poly(c, [cx - 7, 12, cx + 7, 12, cx, 22], '#ffffff');
@@ -542,6 +513,28 @@ export class GameAtlas {
       c.globalCompositeOperation = 'destination-out';
       this.rr(c, cx - 5.5, 2.5, 11, 8, 2, '#000');
       c.globalCompositeOperation = 'source-over';
+    });
+    // The banner that hangs over a live recruit pad.
+    this.place('banner', 26, 40, (c, w, h) => {
+      const cx = w / 2;
+      c.strokeStyle = P.woodDark; c.lineWidth = 2.6;
+      c.beginPath(); c.moveTo(cx, 4); c.lineTo(cx, h - 2); c.stroke();
+      this.poly(c, [cx, 4, cx + 11, 8, cx, 12, cx, 4], '#ffffff');
+      this.poly(c, [cx, 12, cx + 11, 8, cx + 11, 20, cx, 22], '#ffffff');
+      this.dot(c, cx, 3, 2.6, P.gold);
+    });
+    // An off-screen objective chevron, drawn pointing up.
+    this.place('chevron', 26, 26, (c, w, h) => {
+      this.poly(c, [w / 2, 2, w - 3, h - 6, w / 2, h - 11, 3, h - 6], '#ffffff');
+    });
+    // The castle's gate health chrome, and the ram icon on the breach prompt.
+    this.place('iconGate', 32, 32, (c, w, h) => {
+      this.rr(c, 5, 8, w - 10, h - 11, 2, '#ffffff');
+      c.globalCompositeOperation = 'destination-out';
+      c.beginPath(); c.roundRect(9, 13, w - 18, h - 13, [7, 7, 0, 0]); c.fill();
+      c.globalCompositeOperation = 'source-over';
+      c.fillStyle = '#ffffff';
+      for (let i = 0; i < 4; i++) c.fillRect(4 + i * 7, 3, 4, 6);
     });
   }
 
@@ -596,6 +589,11 @@ export class GameAtlas {
         else this.poly(c, [cx - 2.6, cy + 2.4, cx, cy - 3, cx + 2.6, cy + 2.4], '#ffffff');
       });
     }
+    // A flat ring on the ground plane — recruit pulses and breach shockwaves.
+    this.place('ringFlat', 96, 56, (c, w, h) => {
+      c.strokeStyle = '#ffffff'; c.lineWidth = 5;
+      c.beginPath(); c.ellipse(w / 2, h / 2, w / 2 - 4, h / 2 - 4, 0, 0, Math.PI * 2); c.stroke();
+    });
     this.place('star4', 20, 20, (c, w, h) => {
       const cx = w / 2, cy = h / 2;
       this.poly(c, [cx, 0, cx + 3, cy - 3, w, cy, cx + 3, cy + 3, cx, h, cx - 3, cy + 3, 0, cy, cx - 3, cy - 3], '#ffffff');
@@ -606,26 +604,31 @@ export class GameAtlas {
   private paintUI(): void {
     // 9-slice bases (corner radius 14 design px → slice inset 16)
     this.place('panelDark', 48, 48, (c, w, h) => {
-      this.rr(c, 1.4, 1.4, w - 2.8, h - 2.8, 5, 'rgba(20,17,25,0.94)');
-      c.strokeStyle = P.stoneDim; c.lineWidth = 2;
+      this.rr(c, 1.4, 1.4, w - 2.8, h - 2.8, 5, 'rgba(24,28,20,0.92)');
+      c.strokeStyle = P.stoneDark; c.lineWidth = 2;
       c.beginPath(); c.roundRect(1.4, 1.4, w - 2.8, h - 2.8, 5); c.stroke();
     });
     this.place('btnGold', 48, 48, (c, w, h) => {
-      this.rr(c, 1.4, 3, w - 2.8, h - 4.4, 5, P.rustDeep);
-      this.rr(c, 1.4, 1.4, w - 2.8, h - 5.8, 5, P.amber);
-      c.strokeStyle = P.amberBright; c.lineWidth = 2;
+      this.rr(c, 1.4, 3, w - 2.8, h - 4.4, 5, P.goldDark);
+      this.rr(c, 1.4, 1.4, w - 2.8, h - 5.8, 5, P.gold);
+      c.strokeStyle = '#fff0b4'; c.lineWidth = 2;
       c.beginPath(); c.roundRect(2.6, 2.6, w - 5.2, h - 8.2, 4); c.stroke();
     });
     this.place('btnBlue', 48, 48, (c, w, h) => {
-      this.rr(c, 1.4, 3, w - 2.8, h - 4.4, 5, P.sysDeep);
-      this.rr(c, 1.4, 1.4, w - 2.8, h - 5.8, 5, P.sys);
-      c.strokeStyle = P.sysBright; c.lineWidth = 2;
+      this.rr(c, 1.4, 3, w - 2.8, h - 4.4, 5, P.allyDark);
+      this.rr(c, 1.4, 1.4, w - 2.8, h - 5.8, 5, P.ally);
+      c.strokeStyle = P.levy; c.lineWidth = 2;
+      c.beginPath(); c.roundRect(2.6, 2.6, w - 5.2, h - 8.2, 4); c.stroke();
+    });
+    this.place('btnRed', 48, 48, (c, w, h) => {
+      this.rr(c, 1.4, 3, w - 2.8, h - 4.4, 5, P.foeDark);
+      this.rr(c, 1.4, 1.4, w - 2.8, h - 5.8, 5, P.foe);
+      c.strokeStyle = '#f5847c'; c.lineWidth = 2;
       c.beginPath(); c.roundRect(2.6, 2.6, w - 5.2, h - 8.2, 4); c.stroke();
     });
 
     const icon = (name: string, draw: DrawFn) => this.place(name, 32, 32, draw);
     icon('iconPause', (c, w, h) => {
-      c.fillStyle = '#ffffff';
       this.rr(c, 7, 6, 6.5, h - 12, 2.4, '#ffffff');
       this.rr(c, w - 13.5, 6, 6.5, h - 12, 2.4, '#ffffff');
     });
@@ -648,8 +651,6 @@ export class GameAtlas {
         c.fillRect(-2.6, -13.4, 5.2, 7); c.restore();
       }
       this.dot(c, cx, cy, 8.6, '#ffffff');
-      this.dot(c, cx, cy, 4, 'rgba(0,0,0,1)');
-      // punch the center hole
       c.save(); c.globalCompositeOperation = 'destination-out';
       this.dot(c, cx, cy, 4, '#000'); c.restore();
     });
@@ -657,82 +658,38 @@ export class GameAtlas {
       c.strokeStyle = '#ffffff'; c.lineWidth = 4.6;
       c.beginPath(); c.moveTo(7, 7); c.lineTo(w - 7, h - 7); c.moveTo(w - 7, 7); c.lineTo(7, h - 7); c.stroke();
     });
-    icon('iconLock', (c, w, h) => {
-      c.strokeStyle = '#ffffff'; c.lineWidth = 3.6;
-      c.beginPath(); c.arc(w / 2, 12, 6.4, Math.PI, 0); c.stroke();
-      this.rr(c, 6.5, 12, w - 13, h - 18, 3.4, '#ffffff');
-    });
     icon('iconNext', (c, w, h) => {
       c.strokeStyle = '#ffffff'; c.lineWidth = 4.6;
       c.beginPath(); c.moveTo(8, 6); c.lineTo(w - 10, h / 2); c.lineTo(8, h - 6); c.stroke();
-    });
-
-
-    // ── HUD and screen icons ──
-    icon('iconBlast', (c, w, h) => {
-      const cx = w / 2, cy = h / 2;
-      c.fillStyle = '#ffffff';
-      for (let i = 0; i < 8; i++) {
-        const a = (i * Math.PI) / 4;
-        c.save(); c.translate(cx, cy); c.rotate(a);
-        this.poly(c, [-2.4, -6, 2.4, -6, 0, -14], '#ffffff');
-        c.restore();
-      }
-      this.dot(c, cx, cy, 6.4, '#ffffff');
-      c.globalCompositeOperation = 'destination-out';
-      this.dot(c, cx, cy, 2.6, '#000');
-      c.globalCompositeOperation = 'source-over';
-    });
-    icon('iconSurge', (c, w, h) => {
-      // a cross over a rising chevron: heal, and then move
-      c.fillStyle = '#ffffff';
-      c.fillRect(w / 2 - 3, 4, 6, 15);
-      c.fillRect(w / 2 - 7.5, 8.5, 15, 6);
-      c.strokeStyle = '#ffffff'; c.lineWidth = 3.4;
-      c.beginPath();
-      c.moveTo(6, h - 4); c.lineTo(w / 2, h - 11); c.lineTo(w - 6, h - 4);
-      c.stroke();
-    });
-    icon('iconBag', (c, w, h) => {
-      this.rr(c, 4, 10, w - 8, h - 13, 3, '#ffffff');
-      c.strokeStyle = '#ffffff'; c.lineWidth = 3;
-      c.beginPath(); c.arc(w / 2, 11, 6.4, Math.PI, 0); c.stroke();
-      c.globalCompositeOperation = 'destination-out';
-      c.fillRect(w / 2 - 2.4, 15, 4.8, 7);
-      c.globalCompositeOperation = 'source-over';
-    });
-    icon('iconQuest', (c, w, h) => {
-      this.rr(c, 6, 3, w - 12, h - 6, 2, '#ffffff');
-      c.globalCompositeOperation = 'destination-out';
-      for (let i = 0; i < 3; i++) c.fillRect(10, 9 + i * 6, w - 20, 3);
-      c.globalCompositeOperation = 'source-over';
-      this.poly(c, [w - 10, h - 12, w - 3, h - 5, w - 10, h - 3], '#ffffff');
-    });
-    icon('iconChar', (c, w) => {
-      this.dot(c, w / 2, 10, 6.4, '#ffffff');
-      this.rr(c, w / 2 - 8, 18, 16, 12, 4, '#ffffff');
-      c.fillRect(4, 20, w - 8, 3.4);
-    });
-    icon('iconMap', (c, w, h) => {
-      const a = w / 3;
-      this.poly(c, [3, 6, a, 3, a * 2, 7, w - 3, 4, w - 3, h - 4, a * 2, h - 1, a, h - 5, 3, h - 2], '#ffffff');
-      c.globalCompositeOperation = 'destination-out';
-      c.fillRect(a - 1.2, 4, 2.4, h - 8);
-      c.fillRect(a * 2 - 1.2, 6, 2.4, h - 8);
-      c.globalCompositeOperation = 'source-over';
-    });
-    icon('iconTalk', (c, w, h) => {
-      this.rr(c, 3, 4, w - 6, h - 12, 4, '#ffffff');
-      this.poly(c, [9, h - 8, 19, h - 8, 10, h - 2], '#ffffff');
-      c.globalCompositeOperation = 'destination-out';
-      for (let i = 0; i < 2; i++) c.fillRect(8, 10 + i * 5, w - 16, 2.6);
-      c.globalCompositeOperation = 'source-over';
     });
     icon('iconCoin', (c, w, h) => {
       this.dot(c, w / 2, h / 2, 11, '#ffffff');
       c.globalCompositeOperation = 'destination-out';
       c.fillRect(w / 2 - 1.6, h / 2 - 6, 3.2, 12);
       c.fillRect(w / 2 - 6, h / 2 - 1.6, 12, 3.2);
+      c.globalCompositeOperation = 'source-over';
+    });
+    /** The squad counter's icon: three heads, because that is what it counts. */
+    icon('iconSquad', (c, w) => {
+      c.fillStyle = '#ffffff';
+      this.dot(c, 10, 12, 5, '#ffffff');
+      this.dot(c, w - 10, 12, 5, '#ffffff');
+      this.dot(c, w / 2, 9, 6, '#ffffff');
+      c.beginPath(); c.roundRect(2, 18, 12, 10, 4); c.fill();
+      c.beginPath(); c.roundRect(w - 14, 18, 12, 10, 4); c.fill();
+      c.beginPath(); c.roundRect(w / 2 - 8, 16, 16, 12, 5); c.fill();
+    });
+    /** Crossed blades: a live camp. */
+    icon('iconCamp', (c, w, h) => {
+      c.strokeStyle = '#ffffff'; c.lineWidth = 4;
+      c.beginPath(); c.moveTo(6, 6); c.lineTo(w - 6, h - 6); c.moveTo(w - 6, 6); c.lineTo(6, h - 6); c.stroke();
+      this.dot(c, w / 2, h / 2, 4.4, '#ffffff');
+    });
+    /** A tent over a standard: a recruit pad. */
+    icon('iconPad', (c, w, h) => {
+      this.poly(c, [w / 2, 4, w - 4, h - 5, 4, h - 5], '#ffffff');
+      c.globalCompositeOperation = 'destination-out';
+      this.poly(c, [w / 2, 14, w / 2 + 6, h - 5, w / 2 - 6, h - 5], '#000');
       c.globalCompositeOperation = 'source-over';
     });
 
@@ -761,28 +718,45 @@ export class GameAtlas {
       c.beginPath(); c.roundRect(cx - 15, 26, 34, 34, 14); c.stroke();
     });
 
-    // The show's bug: a horizon inside a broadcast frame.
-    this.place('emblem', 120, 96, (c, w, h) => {
-      c.strokeStyle = P.sys; c.lineWidth = 3;
+    // The title emblem: a keep on a hill, with a crowd walking at it.
+    this.place('emblem', 132, 104, (c, w, h) => {
+      // sky
+      c.fillStyle = '#8fd0f0'; c.fillRect(6, 6, w - 12, h - 12);
+      // sun
+      this.dot(c, w - 28, 26, 13, '#fff0b4');
+      // hill
+      c.fillStyle = P.grass;
       c.beginPath();
-      c.moveTo(14, 6); c.lineTo(w - 6, 6); c.lineTo(w - 6, h - 14);
-      c.lineTo(w - 14, h - 6); c.lineTo(6, h - 6); c.lineTo(6, 14);
-      c.closePath(); c.stroke();
-      // a road running to a vanishing point
-      c.fillStyle = P.grass; c.fillRect(12, 44, w - 24, h - 56);
-      this.poly(c, [w / 2 - 4, 44, w / 2 + 4, 44, w / 2 + 26, h - 12, w / 2 - 26, h - 12], P.dirt);
-      c.fillStyle = P.forest;
-      for (let i = 0; i < 4; i++) {
-        this.dot(c, 20 + i * 9, 48 + (i % 2) * 5, 5, P.forest);
-        this.dot(c, w - 20 - i * 9, 48 + (i % 2) * 5, 5, P.forest);
+      c.moveTo(6, h - 6); c.lineTo(6, h - 34);
+      c.quadraticCurveTo(w / 2, h - 62, w - 6, h - 30);
+      c.lineTo(w - 6, h - 6); c.closePath(); c.fill();
+      c.fillStyle = P.grassDark;
+      c.beginPath();
+      c.moveTo(6, h - 6); c.lineTo(6, h - 18);
+      c.quadraticCurveTo(w / 2, h - 30, w - 6, h - 14);
+      c.lineTo(w - 6, h - 6); c.closePath(); c.fill();
+      // the keep on the crown of it
+      this.rr(c, w / 2 - 20, h - 76, 40, 26, 2, P.stone);
+      this.rr(c, w / 2 - 26, h - 68, 12, 20, 2, P.stoneDark);
+      this.rr(c, w / 2 + 14, h - 68, 12, 20, 2, P.stoneDark);
+      c.fillStyle = P.stoneDark;
+      for (let i = 0; i < 5; i++) c.fillRect(w / 2 - 20 + i * 9, h - 80, 5, 5);
+      c.fillStyle = P.ink;
+      c.beginPath(); c.roundRect(w / 2 - 6, h - 62, 12, 12, [6, 6, 0, 0]); c.fill();
+      // a red banner on the tower — whoever holds it is not you
+      c.fillStyle = P.foe;
+      c.fillRect(w / 2 + 18, h - 90, 2, 14);
+      this.poly(c, [w / 2 + 20, h - 90, w / 2 + 31, h - 86, w / 2 + 20, h - 81], P.foe);
+      // the crowd, walking east
+      for (let i = 0; i < 9; i++) {
+        const x = 14 + i * 6 + (i % 3) * 2;
+        const y = h - 12 - (i % 2) * 3;
+        this.dot(c, x, y - 7, 2.4, P.levy);
+        c.fillStyle = P.ally; c.fillRect(x - 2.2, y - 5, 4.4, 6);
       }
-      // sky band and a low sun
-      c.fillStyle = P.sysDeep; c.fillRect(12, 18, w - 24, 26);
-      this.dot(c, w / 2, 44, 11, P.amberBright);
-      // a live dot, because it is always filming
-      this.dot(c, 16, 16, 4.4, P.hpRed);
-      c.fillStyle = 'rgba(181,64,46,0.35)';
-      c.beginPath(); c.arc(16, 16, 8, 0, Math.PI * 2); c.fill();
+      // frame
+      c.strokeStyle = P.ink; c.lineWidth = 4;
+      c.beginPath(); c.roundRect(6, 6, w - 12, h - 12, 8); c.stroke();
     });
   }
 }

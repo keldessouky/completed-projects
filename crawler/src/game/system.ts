@@ -63,9 +63,9 @@ export class SystemFeed {
     const width = CONFIG.system.width;
     const view = new Container();
 
-    const accent = tone === 'good' ? CONFIG.colors.goodTeal
+    const accent = tone === 'good' ? CONFIG.colors.hpGreen
       : tone === 'bad' ? CONFIG.colors.hpRed
-      : CONFIG.colors.sysBright;
+      : CONFIG.colors.ally;
 
     const body = new Container();
     // Stack on MEASURED height, not on line index: any of these lines can wrap

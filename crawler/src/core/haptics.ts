@@ -15,6 +15,6 @@ export class Haptics {
   }
 
   hit(): void { this.buzz(CONFIG.fx.hapticHitMs); }
-  hurt(): void { this.buzz(CONFIG.fx.hapticHurtMs); }
-  boss(): void { this.buzz(CONFIG.fx.hapticBossMs); }
+  hurt(): void { this.buzz(CONFIG.fx.hapticLossMs); }
+  boss(): void { this.buzz(CONFIG.fx.hapticBreachMs); }
 }

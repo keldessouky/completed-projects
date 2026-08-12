@@ -1,7 +1,7 @@
 import { Graphics } from 'pixi.js';
 import { CONFIG } from '../config';
 import { GameAtlas } from '../assets/atlas';
-import { getMinimapTexture } from '../assets/terrain';
+import { getFieldTexture } from '../assets/terrain';
 import { loadFonts } from '../assets/fonts';
 import { CORP, GAME_TITLE } from '../flavour';
 import { displayText, uiText } from '../ui/widgets';
@@ -58,7 +58,7 @@ export class BootScene extends Scene {
   private setProgress(f: number): void {
     const w = Math.max(0.02, Math.min(1, f)) * 252;
     this.barFill.clear();
-    this.barFill.roundRect(W / 2 - 126, H / 2 + 77, Math.max(8, w), 8, 4).fill(CONFIG.colors.amber);
+    this.barFill.roundRect(W / 2 - 126, H / 2 + 77, Math.max(8, w), 8, 4).fill(CONFIG.colors.gold);
     this.pct.text = `${Math.round(f * 100)}%`;
   }
 
@@ -75,7 +75,7 @@ export class BootScene extends Scene {
       // The world map thumbnail samples every biome across 5120 units; it is
       // the one terrain product worth paying for up front, because the title
       // screen and the minimap both want it immediately.
-      getMinimapTexture();
+      getFieldTexture();
       this.setProgress(0.36);
 
       // Audio sprite with genuine byte progress (the heaviest asset).
@@ -130,7 +130,7 @@ export class BootScene extends Scene {
       z.rect(x, y, 40, 9).fill(CONFIG.colors.bone);
       z.rect(x, y, 9, 24).fill(CONFIG.colors.boneDim);
     }
-    z.rect(-54, 44, 112, 8).fill(CONFIG.colors.sys);
+    z.rect(-54, 44, 112, 8).fill(CONFIG.colors.ally);
     z.rect(18, 18, 40, 26).fill(CONFIG.colors.ink);
   }
 }

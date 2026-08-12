@@ -1,20 +1,38 @@
 import { CONFIG, type EnemyKind } from '../config';
-import {
-  CAMP_NAMES, LAIR_NAME, NPC, RUIN_NAMES, SHRINE_NAMES, TOWN_NAMES,
-} from '../flavour';
-import type { Biome, NpcDef, Poi, Vec, WorldDef } from '../types';
+import { CAMP_NAMES, PAD_NAMES } from '../flavour';
+import type { Vec } from '../iso';
 
 /**
  * The world is generated once from a single seed and never stored: terrain is a
- * pure function of position, and the POI layout is deterministic, so a save only
- * has to record what the player *did* — where they went, what they killed, what
- * they picked up. That keeps saves tiny and makes the world identical across
- * devices without shipping a map file.
+ * pure function of position and the layout is deterministic, so a save only has
+ * to record what the player *did* — which camps are dead, which pads are spent,
+ * how big the squad got.
  */
+
+export type Biome = 'grass' | 'field' | 'scrub';
+export type PoiKind = 'pad' | 'camp' | 'castle' | 'start';
+
+export interface Poi {
+  id: string;
+  kind: PoiKind;
+  x: number;
+  y: number;
+  name: string;
+  /** camps only */
+  spawns?: EnemyKind[];
+}
+
+export interface WorldDef {
+  size: number;
+  pois: Poi[];
+  /** road waypoints, drawn into terrain and used to bias scatter */
+  roads: Vec[][];
+  spawn: Vec;
+  castle: string;
+}
 
 // ─────────────────────────── noise ───────────────────────────
 
-/** integer hash → [0,1); the basis for every layer below */
 function hash2(x: number, y: number, seed: number): number {
   let h = (x * 374761393 + y * 668265263 + seed * 1274126177) | 0;
   h = (h ^ (h >>> 13)) * 1274126177;
@@ -24,7 +42,6 @@ function hash2(x: number, y: number, seed: number): number {
 
 const smooth = (t: number): number => t * t * (3 - 2 * t);
 
-/** classic value noise: bilinear-interpolated lattice with a smoothstep */
 function valueNoise(x: number, y: number, seed: number): number {
   const xi = Math.floor(x), yi = Math.floor(y);
   const xf = x - xi, yf = y - yi;
@@ -34,39 +51,31 @@ function valueNoise(x: number, y: number, seed: number): number {
   return (a * (1 - u) + b * u) * (1 - v) + (c * (1 - u) + d * u) * v;
 }
 
-/** three octaves is enough shape for a floor that is supposed to look built-over */
 export function fbm(x: number, y: number, seed: number): number {
   return (
-    valueNoise(x, y, seed) * 0.55 +
-    valueNoise(x * 2.1, y * 2.1, seed + 17) * 0.3 +
-    valueNoise(x * 4.3, y * 4.3, seed + 41) * 0.15
+    valueNoise(x, y, seed) * 0.6 +
+    valueNoise(x * 2.2, y * 2.2, seed + 17) * 0.28 +
+    valueNoise(x * 4.5, y * 4.5, seed + 41) * 0.12
   );
 }
-
-// ─────────────────────────── biomes ───────────────────────────
 
 const SEED = CONFIG.world.seed;
 
 /**
- * Which biome sits at a world position.
- *
- * Two independent fields — elevation and wet — are crossed rather than one
- * noise being sliced into bands, so regions interlock instead of forming
- * concentric rings around the middle of the map.
+ * Ground variation. Deliberately only three shades of the same green — the
+ * reference reads as one continuous sunlit field, and biome *borders* would
+ * fight the structures for attention.
  */
 export function biomeAt(x: number, y: number): Biome {
-  const s = 1 / 900;
-  const elev = fbm(x * s, y * s, SEED);
-  const wet = fbm(x * s + 100, y * s + 100, SEED + 999);
-  if (elev < 0.36 && wet > 0.5) return 'swamp';
-  if (elev > 0.63) return wet > 0.48 ? 'ruins' : 'waste';
-  if (wet > 0.58) return 'forest';
+  const n = fbm(x / 620, y / 620, SEED);
+  if (n > 0.58) return 'field';
+  if (n < 0.4) return 'scrub';
   return 'grass';
 }
 
-/** 0..1 clutter density — drives grass tufts, rubble, trees per tile. */
+/** 0..1 prop density — trees, rocks, fences. */
 export function clutterAt(x: number, y: number): number {
-  return fbm(x / 260, y / 260, SEED + 313);
+  return fbm(x / 210, y / 210, SEED + 313);
 }
 
 // ─────────────────────────── layout ───────────────────────────
@@ -83,18 +92,14 @@ function rng(seed: number): () => number {
 
 const dist = (a: Vec, b: Vec): number => Math.hypot(a.x - b.x, a.y - b.y);
 
-/** Camp populations get harder the further they sit from the first town. */
-function campSpawns(r: () => number, far: number): EnemyKind[] {
+/** Camps get meaner the closer they sit to the castle. */
+function campSpawns(r: () => number, near: number): EnemyKind[] {
   const out: EnemyKind[] = [];
-  const n = CONFIG.poi.campSize;
-  for (let i = 0; i < n; i++) {
-    // `far` biases the whole roll, so the camps you can walk to from the first
-    // town are rats and the ones across the map are not
-    const roll = r() * 0.8 + far * 0.9;
-    out.push(roll > 1.02 ? 'brute' : roll > 0.68 ? 'drone' : 'rat');
+  for (let i = 0; i < CONFIG.poi.campSize; i++) {
+    const roll = r() * 0.8 + near * 0.9;
+    out.push(roll > 1.05 ? 'heavy' : roll > 0.7 ? 'archer' : 'grunt');
   }
-  // the distant camps are run by a Foreman; the near ones are nobody's problem
-  if (far > 0.5 && r() < 0.7) out.push('elite');
+  if (near > 0.55 && r() < 0.75) out.push('captain');
   return out;
 }
 
@@ -109,100 +114,68 @@ export function getWorld(): WorldDef {
   const placed: Vec[] = [];
 
   const fits = (p: Vec): boolean =>
-    p.x > 420 && p.y > 420 && p.x < size - 420 && p.y < size - 420 &&
+    p.x > 280 && p.y > 280 && p.x < size - 280 && p.y < size - 280 &&
     placed.every((q) => dist(p, q) >= CONFIG.poi.minSpacing);
 
   const put = (poi: Poi): void => { pois.push(poi); placed.push(poi); };
 
-  // ── fixed anchors: two towns and the lair, spread across the map ──
-  const townA: Poi = {
-    id: 'town_a', kind: 'town', x: size * 0.2, y: size * 0.58, name: TOWN_NAMES[0],
-    npcs: ['guide', 'broker', 'quartermaster'],
-  };
-  const townB: Poi = {
-    id: 'town_b', kind: 'town', x: size * 0.56, y: size * 0.24, name: TOWN_NAMES[1],
-    npcs: ['quartermaster'],
-  };
-  const lair: Poi = {
-    id: 'lair', kind: 'lair', x: size * 0.84, y: size * 0.66, name: LAIR_NAME,
-    spawns: ['brute', 'drone', 'elite', 'boss'],
-  };
-  put(townA); put(townB); put(lair);
+  // ── the two fixed ends: where you start, and what you are walking toward ──
+  const start: Poi = { id: 'start', kind: 'start', x: size * 0.16, y: size * 0.84, name: 'Muster' };
+  const castle: Poi = { id: 'castle', kind: 'castle', x: size * 0.82, y: size * 0.18, name: 'The Keep' };
+  put(start); put(castle);
 
-  // ── scattered POIs by rejection sampling ──
-  const scatter = (
-    kind: 'camp' | 'ruin' | 'shrine', count: number, names: readonly string[],
-  ): void => {
+  // ── scatter pads and camps between them ──
+  const scatter = (kind: 'pad' | 'camp', count: number, names: readonly string[]): void => {
     for (let i = 0; i < count; i++) {
       let p: Vec | null = null;
-      // bounded attempts: a crowded map should thin out, never hang
-      for (let tries = 0; tries < 300 && !p; tries++) {
-        const c = { x: 420 + r() * (size - 840), y: 420 + r() * (size - 840) };
+      for (let tries = 0; tries < 400 && !p; tries++) {
+        const c = { x: 280 + r() * (size - 560), y: 280 + r() * (size - 560) };
         if (fits(c)) p = c;
       }
       if (!p) return;
-      const far = Math.min(1, dist(p, townA) / (size * 0.75));
+      const near = 1 - Math.min(1, dist(p, castle) / (size * 0.9));
       put({
         id: `${kind}_${i}`,
         kind,
         x: p.x,
         y: p.y,
         name: names[i % names.length],
-        spawns: kind === 'camp' ? campSpawns(r, far) : undefined,
+        spawns: kind === 'camp' ? campSpawns(r, near) : undefined,
       });
     }
   };
+  // pads first so the early ones are not crowded out by camps
+  scatter('pad', CONFIG.poi.pads, PAD_NAMES);
   scatter('camp', CONFIG.poi.camps, CAMP_NAMES);
-  scatter('ruin', CONFIG.poi.ruins, RUIN_NAMES);
-  scatter('shrine', CONFIG.poi.shrines, SHRINE_NAMES);
 
-  // ── roads: town A → town B → lair, with a wobble so they aren't rulers ──
+  // ── one meandering road from the muster point to the keep ──
   const road = (a: Poi, b: Poi): Vec[] => {
-    const steps = 8;
+    const steps = 10;
     const out: Vec[] = [];
     for (let i = 0; i <= steps; i++) {
       const t = i / steps;
-      const wob = i === 0 || i === steps ? 0 : (r() - 0.5) * 260;
+      const edge = i === 0 || i === steps;
       out.push({
-        x: a.x + (b.x - a.x) * t + wob,
-        y: a.y + (b.y - a.y) * t + (r() - 0.5) * (i === 0 || i === steps ? 0 : 260),
+        x: a.x + (b.x - a.x) * t + (edge ? 0 : (r() - 0.5) * 300),
+        y: a.y + (b.y - a.y) * t + (edge ? 0 : (r() - 0.5) * 300),
       });
     }
     return out;
   };
 
-  // ── NPCs stand around town centres ──
-  const npcs: NpcDef[] = [
-    { id: 'guide', poi: 'town_a', dx: 0, dy: -58, name: NPC.guide.name, role: 'guide' },
-    { id: 'broker', poi: 'town_a', dx: -72, dy: 34, name: NPC.broker.name, role: 'quests' },
-    { id: 'quartermaster', poi: 'town_a', dx: 74, dy: 30, name: NPC.quartermaster.name, role: 'vendor' },
-    { id: 'quartermaster_b', poi: 'town_b', dx: 0, dy: 52, name: NPC.quartermaster.name, role: 'vendor' },
-  ];
-
   cached = {
     size,
     pois,
-    npcs,
-    roads: [road(townA, townB), road(townB, lair), road(townA, lair)],
-    spawn: { x: townA.x, y: townA.y + 96 },
-    lair: 'lair',
+    roads: [road(start, castle)],
+    spawn: { x: start.x, y: start.y },
+    castle: 'castle',
   };
   return cached;
 }
 
 export const poiById = (id: string): Poi | undefined => getWorld().pois.find((p) => p.id === id);
-export const npcById = (id: string): NpcDef | undefined => getWorld().npcs.find((n) => n.id === id);
 
-/** World position of an NPC, resolved through the POI they stand in. */
-export function npcPos(n: NpcDef): Vec {
-  const p = poiById(n.poi);
-  return { x: (p?.x ?? 0) + n.dx, y: (p?.y ?? 0) + n.dy };
-}
-
-/**
- * How close a point is to the nearest road, in world units — capped, because
- * only the first few hundred units matter to the terrain painter.
- */
+/** Distance to the nearest road, capped — only the first few hundred units matter. */
 export function roadDist(x: number, y: number): number {
   let best = 1e9;
   for (const line of getWorld().roads) {
@@ -217,4 +190,34 @@ export function roadDist(x: number, y: number): number {
     }
   }
   return best;
+}
+
+/** True when a point sits inside a structure's footprint (no props, no coins). */
+export function insideStructure(x: number, y: number): boolean {
+  for (const p of getWorld().pois) {
+    const rad = p.kind === 'castle' ? 340 : p.kind === 'start' ? 190 : 150;
+    if (Math.hypot(p.x - x, p.y - y) < rad) return true;
+  }
+  return false;
+}
+
+/**
+ * Loose coins scattered over the map, generated deterministically so a save
+ * only has to remember which ones are gone.
+ */
+export function coinSpots(): Vec[] {
+  const size = CONFIG.world.size;
+  const n = Math.round((size * size) / 1_000_000 * CONFIG.coins.density * 1000 / 1000) * 1;
+  const total = Math.max(60, Math.round(((size / 1000) ** 2) * CONFIG.coins.density * 12));
+  const r = rng(SEED + 4242);
+  const out: Vec[] = [];
+  for (let i = 0; i < total * 3 && out.length < total; i++) {
+    const p = { x: 120 + r() * (size - 240), y: 120 + r() * (size - 240) };
+    if (insideStructure(p.x, p.y)) continue;
+    // bias toward the road: coins are a trail, not confetti
+    if (roadDist(p.x, p.y) > 260 && r() < 0.6) continue;
+    out.push(p);
+  }
+  void n;
+  return out;
 }

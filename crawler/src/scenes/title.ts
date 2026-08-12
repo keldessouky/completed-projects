@@ -2,9 +2,9 @@ import { Container, Graphics, Sprite } from 'pixi.js';
 import { Easing, Tween } from '@tweenjs/tween.js';
 import { CONFIG } from '../config';
 import {
-  CAST, CORP, GAME_SUBTITLE, GAME_TITLE, SHOW, WORLD_NAME, WORLD_TAG,
+  CAST, CORP, GAME_SUBTITLE, GAME_TITLE, KEEP_NAME, SHOW, WORLD_NAME, WORLD_TAG,
 } from '../flavour';
-import { getMinimapTexture } from '../assets/terrain';
+import { getFieldTexture } from '../assets/terrain';
 import { Btn } from '../ui/button';
 import { showConfirm, showSettings } from '../ui/overlays';
 import { displayText, uiText } from '../ui/widgets';
@@ -22,14 +22,14 @@ export class TitleScene extends Scene {
     bg.rect(-240, -240, W + 480, H + 480).fill(CONFIG.colors.ink);
     this.container.addChild(bg);
 
-    // The whole world, drifting behind the title — it is the one image that
-    // says "open" before a single word does.
-    const map = new Sprite(getMinimapTexture());
+    // The whole field, drifting behind the title — it is the one image that
+    // says "walk across this" before a single word does.
+    const map = new Sprite(getFieldTexture());
     map.anchor.set(0.5);
-    map.width = W * 1.6;
-    map.height = W * 1.6;
+    map.width = W * 1.7;
+    map.height = W * 1.7 * (map.texture.height / map.texture.width);
     map.position.set(W / 2, H * 0.42);
-    map.alpha = 0.32;
+    map.alpha = 0.34;
     this.container.addChild(map);
     const drift = { r: 0 };
     ctx.tweens.add(
@@ -47,13 +47,13 @@ export class TitleScene extends Scene {
 
     const emblem = new Sprite(ctx.atlas.get('emblem'));
     emblem.anchor.set(0.5);
-    emblem.scale.set(1.7);
+    emblem.scale.set(1.5);
     emblem.position.set(W / 2, H * 0.2);
     this.container.addChild(emblem);
 
     const title = displayText(GAME_TITLE, 60, CONFIG.colors.bone, '900');
     title.position.set(W / 2, H * 0.36);
-    const sub = displayText(GAME_SUBTITLE.toUpperCase(), 18, CONFIG.colors.sysBright, '700');
+    const sub = displayText(GAME_SUBTITLE.toUpperCase(), 18, CONFIG.colors.ally, '700');
     sub.position.set(W / 2, H * 0.415);
     const tag = uiText(`A ${CORP} production. ${SHOW}.`, 11, CONFIG.colors.boneDim);
     tag.position.set(W / 2, H * 0.45);
@@ -65,33 +65,31 @@ export class TitleScene extends Scene {
 
     // ── buttons ──
     const btns = new Container();
-    let y = H * 0.6;
-    const hasWorld = save.world !== null;
+    let y = H * 0.62;
+    const run = save.run;
 
-    if (hasWorld) {
+    if (run) {
       this.button(btns, y, 'Continue', 'gold', () => this.start(false));
       const note = uiText(
-        `Level ${save.level} · ${save.gold} gold · ${save.world?.discovered.length ?? 0} places found`,
+        run.breached
+          ? `${KEEP_NAME} is open · ${run.coins} coins`
+          : `${run.squad} in the squad · ${run.coins} coins · ${run.cleared.length} camps cleared`,
         11, CONFIG.colors.boneDim,
       );
       note.position.set(W / 2, y + 40);
       btns.addChild(note);
-      y += 96;
-      this.button(btns, y, 'New Crawl', 'dark', () => {
+      y += 100;
+      this.button(btns, y, 'Muster Again', 'dark', () => {
         showConfirm(ctx, {
           title: 'Start over?',
-          body: 'The world resets — places, quests and gear are lost. Your level and gold are kept.',
+          body: 'The field resets — camps refill, pads refill, and your squad goes home. Achievements are kept.',
           yesLabel: 'Start over',
           onYes: () => this.start(true),
         });
       });
-      y += 88;
     } else {
-      this.button(btns, y, 'Enter the Floor', 'gold', () => this.start(true));
-      y += 88;
+      this.button(btns, y, 'Take the Field', 'gold', () => this.start(true));
     }
-
-    this.button(btns, y, 'Character', 'blue', () => ctx.router.goto('charsheet', { from: 'title' }));
     this.container.addChild(btns);
 
     // pulse the primary action so the entry point is never ambiguous
@@ -105,8 +103,8 @@ export class TitleScene extends Scene {
 
     const stat = uiText(
       save.kills > 0
-        ? `${save.kills} kills · ${save.totalDeaths} deaths · level ${save.level}`
-        : `${CAST.hero} and ${CAST.companion}. No plan.`,
+        ? `${save.kills} killed · biggest squad ${save.bestSquad} · ${save.totalRuns} musters`
+        : `${CAST.hero}: ${CAST.heroTag}.`,
       12, CONFIG.colors.boneDim,
     );
     stat.position.set(W / 2, H - Math.max(ctx.scaler.safeBottom(), 12) - 18);

@@ -44,7 +44,7 @@ export class DevOverlay {
     this.stats.position.set(26, 104);
     this.root.addChild(this.stats);
 
-    // warp pad: jump straight to any POI, because walking 5,000 units to
+    // warp pad: jump straight to any POI, because walking 3,600 units to
     // check a camp is not debugging
     const pois = getWorld().pois.slice(0, 12);
     pois.forEach((p, i) => {
@@ -52,8 +52,8 @@ export class DevOverlay {
         w: 92, h: 38, kind: 'blue', label: p.name.slice(0, 11), labelSize: 10, silent: true,
         onTap: () => {
           this.toggle(false);
-          if (!ctx.world) ctx.enterWorld(false);
-          if (ctx.world) { ctx.world.x = p.x; ctx.world.y = p.y - 220; }
+          if (!ctx.run) ctx.enterWorld(false);
+          if (ctx.run) { ctx.run.x = p.x; ctx.run.y = p.y - 220; }
         },
       });
       b.position.set(70 + (i % 3) * 104, 314 + Math.floor(i / 3) * 46);
@@ -61,8 +61,8 @@ export class DevOverlay {
     });
 
     const coins = new Btn(ctx, {
-      w: 120, h: 44, kind: 'dark', label: '+500g +5pt', labelSize: 12, silent: true,
-      onTap: () => { ctx.save.data.gold += 500; ctx.save.data.points += 5; ctx.save.mark(); },
+      w: 120, h: 44, kind: 'dark', label: '+200 coins', labelSize: 12, silent: true,
+      onTap: () => { ctx.run?.addCoins(200); },
     });
     coins.position.set(84, 486);
     const turbo = new Btn(ctx, {

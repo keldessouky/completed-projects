@@ -17,7 +17,7 @@ export function displayText(text: string, size: number, color: number = CONFIG.c
 }
 
 /** Inter body/UI text. */
-export function uiText(text: string, size: number, color: number = CONFIG.colors.bone, weight: '400' | '600' | '800' = '400', wrap = 0): Text {
+export function uiText(text: string, size: number, color: number = CONFIG.colors.bone, weight: '400' | '600' | '700' | '800' = '400', wrap = 0): Text {
   const t = new Text({
     text,
     style: {
@@ -94,7 +94,7 @@ export class Toggle extends Container {
   private draw(): void {
     this.knob.clear();
     this.knob.circle(this.value ? 15 : -15, 0, 12.5)
-      .fill(this.value ? CONFIG.colors.amber : CONFIG.colors.boneDim);
+      .fill(this.value ? CONFIG.colors.gold : CONFIG.colors.boneDim);
     this.track.tint = this.value ? 0xffffff : 0x888888;
   }
 }
@@ -117,7 +117,7 @@ export class HSlider extends Container {
     track.roundRect(-w / 2, -5, w, 10, 5).fill(CONFIG.colors.inkLift)
       .stroke({ color: CONFIG.colors.boneDim, width: 2 });
     this.addChild(track, this.fill, this.knob);
-    this.knob.circle(0, 0, 15).fill(CONFIG.colors.bone).stroke({ color: CONFIG.colors.rustDeep, width: 3 });
+    this.knob.circle(0, 0, 15).fill(CONFIG.colors.bone).stroke({ color: CONFIG.colors.foeDark, width: 3 });
     this.hitArea = new Rectangle(-w / 2 - 18, -30, w + 36, 60);
     this.eventMode = 'static';
     this.cursor = 'pointer';
@@ -146,7 +146,7 @@ export class HSlider extends Container {
     this.knob.position.set(x, 0);
     this.fill.clear();
     if (this.value > 0.02) {
-      this.fill.roundRect(-this.w / 2 + 2, -3, (this.w - 4) * this.value, 6, 3).fill(CONFIG.colors.amber);
+      this.fill.roundRect(-this.w / 2 + 2, -3, (this.w - 4) * this.value, 6, 3).fill(CONFIG.colors.gold);
     }
   }
 }

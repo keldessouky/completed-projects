@@ -1,31 +1,26 @@
-import { CONFIG, STAT_KEYS } from '../config';
-import type { SaveData, SavedWorld, Stats } from '../types';
-import { baseStats } from '../game/stats';
+import { CONFIG } from '../config';
+import type { SaveData, SavedRun } from '../types';
 
 /**
  * Versioned localStorage persistence with safe migration.
  * - Unknown/corrupt payloads are backed up (once) and replaced with defaults,
  *   never thrown away silently mid-parse.
  * - Writes are debounced; flush() is called on pagehide for force-quit safety.
- * - v4 carries a whole open world. It stays small because the world itself is
- *   a pure function of the seed: only what the player *did* is stored.
+ * - v5 carries a whole field of play. It stays small because the field itself
+ *   is a pure function of the seed: only what the player *did* is stored.
  */
 
 function defaults(): SaveData {
   return {
-    v: 4,
-    gold: 0,
-    level: 1,
-    xp: 0,
-    points: 0,
-    stats: baseStats(),
-    hp: 0,               // 0 means "full"; resolved once the loadout is known
+    v: 5,
+    coins: 0,
+    bestSquad: 0,
     achievements: [],
-    totalDeaths: 0,
+    totalRuns: 0,
     kills: 0,
     playSec: 0,
     tutorialDone: false,
-    world: null,
+    run: null,
     settings: { music: 1, sfx: 1, haptics: true, reducedMotion: false, shake: 1 },
   };
 }
@@ -34,21 +29,12 @@ const clamp01 = (x: unknown, d: number) => (typeof x === 'number' && isFinite(x)
 const int = (x: unknown, d: number, lo: number, hi: number) =>
   typeof x === 'number' && isFinite(x) ? Math.min(hi, Math.max(lo, Math.round(x))) : d;
 
-function sanitizeStats(raw: unknown): Stats {
-  const s = baseStats();
-  if (raw && typeof raw === 'object') {
-    const o = raw as Record<string, unknown>;
-    for (const k of STAT_KEYS) s[k] = int(o[k], CONFIG.stats.base, CONFIG.stats.base, CONFIG.stats.max);
-  }
-  return s;
-}
-
-/** Shallow only; WorldState.fromSave re-validates every field itself. */
-function sanitizeWorld(raw: unknown): SavedWorld | null {
+/** Shallow only; RunState.fromSave re-validates every field itself. */
+function sanitizeRun(raw: unknown): SavedRun | null {
   if (!raw || typeof raw !== 'object') return null;
   const o = raw as Record<string, unknown>;
   if (typeof o.x !== 'number' || typeof o.y !== 'number') return null;
-  return o as unknown as SavedWorld;
+  return o as unknown as SavedRun;
 }
 
 function sanitizeSettings(d: SaveData, raw: unknown): void {
@@ -62,43 +48,40 @@ function sanitizeSettings(d: SaveData, raw: unknown): void {
 }
 
 /**
- * v3 → v4: v3 was the floor-crawl schema — per-floor clears, best times and a
- * mid-floor resume blob, none of which has an open-world equivalent. The
- * character survives intact (level, XP, attributes, gold, achievements); the
- * floor progress is dropped and the player starts the open floor at the gate.
+ * Anything older than v5 → v5.
+ *
+ * v4 was the open-world RPG schema — levels, attributes, gear, quests and fog,
+ * none of which has an equivalent in a game whose only stat is how many people
+ * are behind you. Nothing about that character can be carried forward
+ * honestly, so only the things that still mean the same thing survive:
+ * lifetime kills, playtime, the settings, and the fact that the player has
+ * seen the tutorial. Achievement ids are dropped too — they name different
+ * achievements now.
  */
-function migrateV3(raw: Record<string, unknown>): SaveData {
+function migrateOld(raw: Record<string, unknown>): SaveData {
   const d = defaults();
-  d.gold = int(raw.gold, 0, 0, 1e9);
-  d.level = int(raw.level, 1, 1, 999);
-  d.xp = int(raw.xp, 0, 0, 1e9);
-  d.points = int(raw.points, 0, 0, 9999);
-  d.stats = sanitizeStats(raw.stats);
-  d.totalDeaths = int(raw.totalDeaths, 0, 0, 1e9);
+  d.kills = int(raw.kills, 0, 0, 1e9);
+  d.playSec = int(raw.playSec, 0, 0, 1e9);
+  d.totalRuns = int(raw.totalDeaths, 0, 0, 1e9);
   d.tutorialDone = raw.tutorialDone === true;
-  if (Array.isArray(raw.achievements)) {
-    d.achievements = (raw.achievements as unknown[]).filter((a): a is string => typeof a === 'string');
-  }
   sanitizeSettings(d, raw.settings);
   return d;
 }
 
-/** Validate + clamp a parsed v4 payload field-by-field; junk fields fall back. */
+/** Validate + clamp a parsed v5 payload field-by-field; junk fields fall back. */
 function sanitize(raw: Record<string, unknown>): SaveData {
   const d = defaults();
-  d.gold = int(raw.gold, 0, 0, 1e9);
-  d.level = int(raw.level, 1, 1, 999);
-  d.xp = int(raw.xp, 0, 0, 1e9);
-  d.points = int(raw.points, 0, 0, 9999);
-  d.hp = int(raw.hp, 0, 0, 1e6);
-  d.totalDeaths = int(raw.totalDeaths, 0, 0, 1e9);
+  d.coins = int(raw.coins, 0, 0, 1e9);
+  d.bestSquad = int(raw.bestSquad, 0, 0, CONFIG.squad.max);
+  d.totalRuns = int(raw.totalRuns, 0, 0, 1e9);
   d.kills = int(raw.kills, 0, 0, 1e9);
   d.playSec = int(raw.playSec, 0, 0, 1e9);
   d.tutorialDone = raw.tutorialDone === true;
-  d.stats = sanitizeStats(raw.stats);
-  d.world = sanitizeWorld(raw.world);
+  d.run = sanitizeRun(raw.run);
   if (Array.isArray(raw.achievements)) {
-    d.achievements = (raw.achievements as unknown[]).filter((a): a is string => typeof a === 'string').slice(0, 200);
+    d.achievements = (raw.achievements as unknown[])
+      .filter((a): a is string => typeof a === 'string')
+      .slice(0, 200);
   }
   sanitizeSettings(d, raw.settings);
   return d;
@@ -129,8 +112,8 @@ export class Save {
     if (!text) return defaults();
     try {
       const raw = JSON.parse(text) as Record<string, unknown>;
-      if (raw.v === 4) return sanitize(raw);
-      if (raw.v === 3 || raw.v === 2 || raw.v === 1) return migrateV3(raw);
+      if (raw.v === 5) return sanitize(raw);
+      if (typeof raw.v === 'number' && raw.v >= 1 && raw.v <= 4) return migrateOld(raw);
       localStorage.setItem(CONFIG.save.key + '.backup', text);
       return defaults();
     } catch {

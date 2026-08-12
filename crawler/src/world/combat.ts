@@ -1,42 +1,46 @@
 import { CONFIG, type EnemyKind } from '../config';
 import type { GameAtlas } from '../assets/atlas';
 import type { Entities } from './entities';
+import type { Squad } from './squad';
 
 /**
  * Presentation hooks the simulation needs but must not own. Combat decides
  * *that* something was hit; the scene decides what that looks and sounds like.
  */
 export interface CombatFx {
-  hit(x: number, y: number, dmg: number, crit: boolean, kind: EnemyKind): void;
+  hit(x: number, y: number, dmg: number, kind: EnemyKind): void;
   die(x: number, y: number, kind: EnemyKind): void;
-  playerHurt(dmg: number): void;
   shot(friendly: boolean): void;
 }
 
 export interface CombatWorld {
   entities: Entities;
+  squad: Squad;
   atlas: GameAtlas;
   fx: CombatFx;
-  /** live player state, read every step */
+  /** live hero position, refreshed every step */
   px: number;
   py: number;
-  playerRadius: number;
-  /** true while the player is in i-frames or already dead */
-  playerInvulnerable: boolean;
-  /** called when an enemy connects; returns true if the hit landed */
-  onPlayerHit(dmg: number): boolean;
+  heroRadius: number;
+  /** called when an enemy connects; the scene decides who in the line dies */
+  onSquadHit(contact: number, kind: EnemyKind, x: number, y: number): void;
   /** called when an enemy dies, before it is released */
   onEnemyDeath(kind: EnemyKind, x: number, y: number, poi: string): void;
 }
 
 const E = CONFIG.enemies;
+const SQ = CONFIG.squad;
 
 /**
- * Enemy behaviour and every projectile in the world.
+ * Enemy behaviour, the squad's volleys, and every projectile in the world.
  *
  * The AI is deliberately three states — idle, chasing, returning — because at
  * a phone's screen size anything subtler is invisible, and a leash that
- * actually works is what lets a player disengage from a camp they misjudged.
+ * actually works is what lets a player walk away from a camp they misjudged.
+ *
+ * Note that enemies path toward the HERO, not toward the nearest squad member:
+ * a crowd of sixty would otherwise shred any pack from the flanks before it
+ * ever arrived, and the fight would stop being about where you stand.
  */
 export class Combat {
   constructor(private w: CombatWorld) {}
@@ -44,12 +48,11 @@ export class Combat {
   /** The scene refreshes these every step; the AI reads them constantly. */
   set px(v: number) { this.w.px = v; }
   set py(v: number) { this.w.py = v; }
-  set playerInvulnerable(v: boolean) { this.w.playerInvulnerable = v; }
 
   step(dt: number): void {
-    const w = this.w;
-    w.entities.reindex();
+    this.w.entities.reindex();
     this.stepEnemies(dt);
+    this.stepVolley(dt);
     this.stepShots(dt);
   }
 
@@ -70,17 +73,17 @@ export class Combat {
       if (e.kx !== 0 || e.ky !== 0) {
         e.x += e.kx * dt;
         e.y += e.ky * dt;
-        const decay = Math.max(0, 1 - CONFIG.combat.knockbackDecay * dt);
+        const decay = Math.max(0, 1 - E.knockbackDecay * dt);
         e.kx *= decay; e.ky *= decay;
         if (Math.abs(e.kx) < 2 && Math.abs(e.ky) < 2) { e.kx = 0; e.ky = 0; }
       }
 
       const dx = w.px - e.x, dy = w.py - e.y;
-      const distToPlayer = Math.hypot(dx, dy);
+      const toHero = Math.hypot(dx, dy);
       const fromHome = Math.hypot(e.x - e.hx, e.y - e.hy);
 
       if (!e.aggro) {
-        if (distToPlayer < stat.aggro) e.aggro = true;
+        if (toHero < stat.aggro) e.aggro = true;
         else {
           // idle drift around the spawn point, so a camp looks occupied
           e.x += Math.cos(e.phase * 0.22) * 9 * dt;
@@ -93,32 +96,38 @@ export class Combat {
         e.x += (hx / d) * stat.speed * dt;
         e.y += (hy / d) * stat.speed * dt;
         e.face = hx < 0 ? -1 : 1;
+        this.clampToWorld(e);
         if (d < 40) e.aggro = false;
         continue;
       }
 
       if (e.aggro) {
         e.face = dx < 0 ? -1 : 1;
-        const stopAt = stat.range > 0
-          ? stat.range * 0.8
-          : stat.radius + w.playerRadius + 2;
+        const ranged = 'range' in stat ? (stat as { range: number }).range : 0;
+        // A ranged enemy must never out-range the squad, or the correct play
+        // becomes standing still and losing people to something you cannot
+        // reach. Cap its stand-off inside the squad's own throwing range.
+        const stopAt = ranged > 0
+          ? Math.min(ranged * 0.85, SQ.range * 0.8)
+          : stat.radius + w.heroRadius + 2;
 
-        if (distToPlayer > stopAt) {
-          const d = distToPlayer || 1;
+        if (toHero > stopAt) {
+          const d = toHero || 1;
           e.x += (dx / d) * stat.speed * dt;
           e.y += (dy / d) * stat.speed * dt;
         } else if (e.cd <= 0) {
-          e.cd = stat.cooldown;
-          if (stat.range > 0) {
-            const d = distToPlayer || 1;
+          if (ranged > 0) {
+            e.cd = E.shotInterval;
+            const d = toHero || 1;
             ents.spawnShot(
-              w.atlas, e.x, e.y - 10,
-              (dx / d) * E.shotSpeed, (dy / d) * E.shotSpeed,
+              w.atlas, e.x, e.y,
+              (dx / d) * E.arrowSpeed, (dy / d) * E.arrowSpeed,
               stat.dmg, false,
             );
             w.fx.shot(false);
-          } else if (!w.playerInvulnerable) {
-            w.onPlayerHit(stat.dmg);
+          } else {
+            e.cd = E.contactInterval;
+            w.onSquadHit(stat.contact, e.kind, e.x, e.y);
           }
         }
       }
@@ -154,6 +163,41 @@ export class Combat {
     e.y = Math.max(pad, Math.min(size - pad, e.y));
   }
 
+  // ─────────────────────────── the squad's volley ───────────────────────────
+
+  /**
+   * The squad attacks on its own. There is no fire button in this game — the
+   * player's only decision is where the crowd stands, so the crowd has to be
+   * trusted to shoot at whatever it can reach.
+   */
+  private stepVolley(dt: number): void {
+    void dt;
+    const w = this.w;
+    const ents = w.entities;
+    if (ents.enemies.count === 0) return;
+
+    const throwers = w.squad.throwers();
+    if (throwers.length === 0) return;
+    const dmg = w.squad.spearDamage(throwers.length);
+
+    let fired = false;
+    for (const m of throwers) {
+      const t = ents.nearest(m.x, m.y, SQ.range);
+      if (t < 0) continue;
+      const e = ents.enemies.items[t];
+      const dx = e.x - m.x, dy = e.y - m.y;
+      const d = Math.hypot(dx, dy) || 1;
+      ents.spawnShot(
+        w.atlas, m.x, m.y,
+        (dx / d) * CONFIG.combat.spearSpeed, (dy / d) * CONFIG.combat.spearSpeed,
+        dmg, true,
+      );
+      m.cd = SQ.interval;
+      fired = true;
+    }
+    if (fired) w.fx.shot(true);
+  }
+
   // ─────────────────────────── projectiles ───────────────────────────
 
   private stepShots(dt: number): void {
@@ -168,31 +212,33 @@ export class Combat {
       s.y += s.vy * dt;
       s.life += dt;
 
-      if (s.life > CONFIG.combat.projLifeSec || s.x < 0 || s.y < 0 || s.x > size || s.y > size) {
+      if (s.life > s.maxLife || s.x < 0 || s.y < 0 || s.x > size || s.y > size) {
         s.sp.visible = false;
         ents.shots.release(i);
         continue;
       }
 
       if (s.friendly) {
-        const hits = ents.near(s.x, s.y, CONFIG.combat.projRadius);
+        const hits = ents.near(s.x, s.y, CONFIG.combat.hitRadius);
         if (hits.length > 0) {
-          // nearest of the candidates, so a shot into a crowd hits the front
+          // nearest of the candidates, so a spear into a pack hits the front
           let best = hits[0], bestD = Infinity;
           for (const j of hits) {
             const e = ents.enemies.items[j];
             const d = (e.x - s.x) ** 2 + (e.y - s.y) ** 2;
             if (d < bestD) { bestD = d; best = j; }
           }
-          this.damageEnemy(best, s.dmg, s.crit, s.vx, s.vy);
+          this.damageEnemy(best, s.dmg, s.vx, s.vy);
           s.sp.visible = false;
           ents.shots.release(i);
         }
       } else {
+        // An arrow is aimed at the hero but lands on the crowd: anything that
+        // reaches the formation costs you a person, wherever it actually is.
         const dx = s.x - w.px, dy = s.y - w.py;
-        const r = CONFIG.combat.projRadius + w.playerRadius;
+        const r = CONFIG.combat.hitRadius + w.heroRadius + 14;
         if (dx * dx + dy * dy <= r * r) {
-          if (!w.playerInvulnerable) w.onPlayerHit(s.dmg);
+          w.onSquadHit(1, 'archer', s.x, s.y);
           s.sp.visible = false;
           ents.shots.release(i);
         }
@@ -203,22 +249,21 @@ export class Combat {
   // ─────────────────────────── damage ───────────────────────────
 
   /** Apply damage to one enemy, with knockback along the shot direction. */
-  damageEnemy(index: number, dmg: number, crit: boolean, dirX = 0, dirY = 0): void {
+  damageEnemy(index: number, dmg: number, dirX = 0, dirY = 0): void {
     const w = this.w;
     const e = w.entities.enemies.items[index];
     if (!e) return;
     e.hp -= dmg;
-    e.flashT = CONFIG.combat.hitFlashMs / 1000;
+    e.flashT = E.hitFlashMs / 1000;
     e.aggro = true;
-    w.fx.hit(e.x, e.y, dmg, crit, e.kind);
+    w.fx.hit(e.x, e.y, dmg, e.kind);
 
-    // the boss is too heavy to shove around; everything else slides
-    if (e.kind !== 'boss') {
+    // a captain is too heavy to shove around; everything else slides
+    if (e.kind !== 'captain') {
       const d = Math.hypot(dirX, dirY);
       if (d > 0.01) {
-        const k = CONFIG.combat.knockback * (crit ? 1.6 : 1);
-        e.kx += (dirX / d) * k;
-        e.ky += (dirY / d) * k;
+        e.kx += (dirX / d) * E.knockback;
+        e.ky += (dirY / d) * E.knockback;
       }
     }
 
@@ -229,7 +274,7 @@ export class Combat {
     }
   }
 
-  /** Everything inside a circle takes damage — the Firecracker. */
+  /** Everything inside a circle takes damage — the gate's collapse. */
   blast(x: number, y: number, radius: number, dmg: number): number {
     const hits = this.w.entities.near(x, y, radius);
     // iterate high-to-low: killing an enemy swap-removes it from the pool
@@ -238,7 +283,7 @@ export class Combat {
     for (const i of hits) {
       const e = this.w.entities.enemies.items[i];
       if (!e) continue;
-      this.damageEnemy(i, dmg, false, e.x - x, e.y - y);
+      this.damageEnemy(i, dmg, e.x - x, e.y - y);
       struck++;
     }
     return struck;

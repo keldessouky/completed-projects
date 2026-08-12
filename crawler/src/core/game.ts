@@ -11,10 +11,8 @@ import { Loop } from './loop';
 import { Save } from './save';
 import { Scaler } from './scaler';
 import { SystemFeed } from '../game/system';
-import { WorldState } from '../world/worldstate';
-import { getWorld, npcPos } from '../world/worldgen';
-import { grantXp, maxHp, spendPoint, xpToNext } from '../game/stats';
-import type { StatKey } from '../config';
+import { RunState } from '../world/worldstate';
+import { getWorld } from '../world/worldgen';
 
 /** Implemented by the scene manager; kept as an interface to avoid import cycles. */
 export interface SceneRouter {
@@ -49,13 +47,13 @@ export class Game {
   atlas!: GameAtlas;
 
   /**
-   * The live world, or null before it has been entered.
+   * The live run, or null before the field has been entered.
    *
    * This lives here rather than in a scene because scenes are destroyed on
-   * every transition, and roaming is punctuated by inventory, shop, dialogue
-   * and character screens. It is also what gets serialised on every autosave.
+   * every transition, and a run survives the wipe screen and the title card.
+   * It is also what gets serialised on every autosave.
    */
-  world: WorldState | null = null;
+  run: RunState | null = null;
 
   /** The System's notification feed — outlives the scene that raised it. */
   system = new SystemFeed();
@@ -72,15 +70,8 @@ export class Game {
    */
   worldProbe: (() => Record<string, unknown>) | null = null;
   worldInteract: (() => void) | null = null;
-  /**
-   * Live node positions on the floor map, in design space. The floor map
-   * publishes them so the headless harness can tap the real buttons rather
-   * than reimplementing the graph layout — the test drives the UI, it does
-   * not bypass it.
-   */
-  mapNodes: (() => {
-    id: string; kind: string; layer: number; x: number; y: number; walkable: boolean; spent: boolean;
-  }[]) | null = null;
+  /** the same "lose n from the line" call a contact hit makes */
+  worldLose: ((n: number) => void) | null = null;
 
   private contextLost = false;
 
@@ -91,7 +82,8 @@ export class Game {
     const preference = params.get('gl') === 'webgl' ? 'webgl' : 'webgpu';
     await app.init({
       preference,
-      background: CONFIG.colors.ink,
+      // off-map reads as more field receding into haze, not as a hole
+      background: CONFIG.colors.grassDark,
       resolution: Math.min(window.devicePixelRatio || 1, CONFIG.design.maxResolution),
       autoDensity: true,
       antialias: false, // chunky art; the fill-rate is better spent on 120 fps
@@ -159,12 +151,13 @@ export class Game {
   }
   private reported = new Set<string>();
 
-  /** Enter the world, resuming the saved one when there is one. */
+  /** Take the field, resuming the saved run when there is one. */
   enterWorld(fresh = false): void {
     this.system.clear();
-    const saved = this.save.data.world;
-    this.world = !fresh && saved ? WorldState.fromSave(saved) : new WorldState();
-    this.save.data.world = this.world.toSave();
+    const saved = this.save.data.run;
+    this.run = !fresh && saved ? RunState.fromSave(saved) : new RunState();
+    if (fresh) this.save.data.totalRuns++;
+    this.save.data.run = this.run.toSave();
     this.router?.goto('world');
   }
 
@@ -219,34 +212,20 @@ export class Game {
       enterWorld: (fresh = false) => this.enterWorld(fresh),
       probe: () => this.worldProbe?.() ?? null,
       interact: () => this.worldInteract?.(),
-      /** teleport — the only way a test can cross 5,000 units in finite time */
-      warp: (x: number, y: number) => { if (this.world) { this.world.x = x; this.world.y = y; } },
-      /** the POI and NPC layout, so a test can navigate without hard-coding it */
+      /** teleport — the only way a test can cross 3,600 units in finite time */
+      warp: (x: number, y: number) => { if (this.run) { this.run.x = x; this.run.y = y; } },
+      /** the field layout, so a test can navigate without hard-coding it */
       worldDef: () => ({
         pois: getWorld().pois.map((p) => ({ id: p.id, kind: p.kind, x: p.x, y: p.y, name: p.name })),
-        npcs: getWorld().npcs.map((n) => ({ id: n.id, ...npcPos(n) })),
       }),
-      /**
-       * Level up and actually spend the points, the way a player would. A
-       * character carrying forty unspent attribute points is not "level 15",
-       * it is level 1 with a big number over its head — and a test that skips
-       * the spending would be measuring the wrong character entirely.
-       */
-      grantLevels: (n: number) => {
-        const save = this.save.data;
-        for (let i = 0; i < n; i++) grantXp(save, xpToNext(save.level));
-        const spread: StatKey[] = ['str', 'con', 'dex', 'str', 'con', 'luck', 'wis'];
-        for (let i = 0; save.points > 0 && i < 500; i++) spendPoint(save, spread[i % spread.length]);
-        if (this.world) this.world.hp = maxHp(save, this.world.equipped);
-        this.save.mark();
-      },
       goto: (id: SceneId) => this.router?.goto(id),
       turbo: (x: number) => { this.loop.turbo = Math.max(1, x); },
-      hurt: (n: number) => { if (this.world) this.world.hp = Math.max(0, this.world.hp - n); },
+      /** hand the run coins, so a test can reach a pad solvent */
+      grantCoins: (n: number) => { if (this.run) this.run.addCoins(n); },
+      /** take people off the line, the same call a contact hit makes */
+      hurt: (n: number) => this.worldLose?.(n),
       stats: () => ({ ...(this.runStats?.() ?? {}), fps: 1000 / Math.max(0.01, this.loop.avgFrameMs) }),
       save: () => this.save.data,
-      grantGold: (n: number) => { this.save.data.gold += n; this.save.mark(); },
-      grantPoints: (n: number) => { this.save.data.points += n; this.save.mark(); },
       errors: [] as string[],
     };
     window.addEventListener('error', (e) => dbg.errors.push(String(e.message)));
