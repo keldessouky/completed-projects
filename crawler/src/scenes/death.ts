@@ -1,7 +1,7 @@
 import { Container, Graphics } from 'pixi.js';
 import { Easing, Tween } from '@tweenjs/tween.js';
 import { CONFIG } from '../config';
-import { DEATH_LINES, KEEP_NAME, SHOW, UI } from '../flavour';
+import { CAST, DEATH_LINES, KEEP_NAME, SHOW, UI } from '../flavour';
 import { Btn } from '../ui/button';
 import { displayText, panel, uiText } from '../ui/widgets';
 import { Scene } from './scene';
@@ -82,7 +82,8 @@ export class DeathScene extends Scene {
     this.container.addChild(block);
 
     const where = uiText(
-      `Back at the muster post. ${KEEP_NAME} has not moved.`,
+      `Back at the muster post. ${CAST.companion} is unharmed and has opinions. `
+      + `${KEEP_NAME} has not moved.`,
       12, CONFIG.colors.boneDim, '400', W - 70,
     );
     where.position.set(W / 2, H * 0.52 + h + 34);

@@ -110,6 +110,21 @@ export const CONFIG = {
     heroWeight: 3,
   },
 
+  /**
+   * The companion. She is not a squad slot: she cannot be lost, she does not
+   * take a formation position, and she keeps fighting when the crew is gone —
+   * which is what makes a wipe a setback rather than a game over.
+   */
+  companion: {
+    followDist: 96,
+    speed: 210,
+    damage: 9,
+    interval: 0.8,
+    range: 190,
+    /** how often she has something to say about it, seconds */
+    quipCooldown: 24,
+  },
+
   /** Recruit pads: stand on one and it turns coins into people. */
   pad: {
     /** coins drained per second while standing on the pad */

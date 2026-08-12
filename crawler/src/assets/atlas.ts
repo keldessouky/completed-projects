@@ -239,6 +239,96 @@ export class GameAtlas {
     for (const f of FACINGS) this.place('hero_' + f, 48, 60, hero(f));
     this.whiteVariant('hero_flash', 48, 60, hero('s'));
 
+    /**
+     * Princess Donut. Small, fluffy, deeply unimpressed, and — importantly —
+     * not a member of the crew: she is drawn a little larger than a levy and
+     * with a colour nothing else in the game uses, so that in a crowd of sixty
+     * the one who cannot die is instantly findable.
+     */
+    const donut = (facing: Facing): DrawFn => (c, w, h) => {
+      const cx = w / 2, foot = h - 3;
+      this.ground(c, cx, foot - 1, 12, true);
+
+      // A dark keyline under the whole cat. Every other sprite gets its read
+      // from big blocks of hair and cloth; she is one small warm shape, and
+      // without an outline she dissolves into a sand path.
+      const outline = (draw: () => void): void => {
+        c.save();
+        c.strokeStyle = P.ink;
+        c.lineWidth = 3;
+        c.lineJoin = 'round';
+        draw();
+        c.restore();
+      };
+
+      // tail, up and outraged
+      const tx = facing === 'e' ? cx - 11 : cx + 10;
+      const tailPath = (): void => {
+        c.beginPath();
+        c.moveTo(tx, foot - 10);
+        c.quadraticCurveTo(
+          tx + (facing === 'e' ? -9 : 9), foot - 20,
+          tx + (facing === 'e' ? -3 : 3), foot - 30,
+        );
+      };
+      outline(() => { c.lineWidth = 7.5; tailPath(); c.stroke(); });
+      c.strokeStyle = P.fur; c.lineWidth = 4.4; c.lineCap = 'round';
+      tailPath(); c.stroke();
+
+      // body
+      const bodyPath = (): void => {
+        c.beginPath(); c.ellipse(cx, foot - 10, 12.5, 8.5, 0, 0, Math.PI * 2);
+      };
+      outline(() => { bodyPath(); c.stroke(); });
+      c.fillStyle = P.furShade; bodyPath(); c.fill();
+      c.fillStyle = P.fur;
+      c.beginPath(); c.ellipse(cx, foot - 12, 11, 7, 0, 0, Math.PI * 2); c.fill();
+
+      // head, ears
+      const hx = facing === 'e' ? cx + 5 : cx;
+      const hy = foot - (facing === 'n' ? 20 : 22);
+      const earL = [hx - 7.4, hy - 3.6, hx - 5.4, hy - 12, hx - 2, hy - 4.6];
+      const earR = [hx + 2, hy - 4.6, hx + 5.4, hy - 12, hx + 7.4, hy - 3.6];
+      outline(() => {
+        c.beginPath(); c.arc(hx, hy, 8.6, 0, Math.PI * 2); c.stroke();
+        for (const e of [earL, earR]) {
+          c.beginPath(); c.moveTo(e[0], e[1]); c.lineTo(e[2], e[3]); c.lineTo(e[4], e[5]);
+          c.closePath(); c.stroke();
+        }
+      });
+      this.poly(c, earL, P.fur);
+      this.poly(c, earR, P.fur);
+      this.dot(c, hx, hy, 8.6, P.fur);
+      if (facing !== 'n') {
+        // cream muzzle and chest, so the face is not one flat orange disc
+        c.fillStyle = P.furLight;
+        c.beginPath(); c.ellipse(hx, hy + 3, 6, 4.4, 0, 0, Math.PI * 2); c.fill();
+        c.beginPath(); c.ellipse(cx, foot - 11, 5, 4, 0, 0, Math.PI * 2); c.fill();
+      }
+
+      // the tiara. she earned it. she will tell you about it.
+      c.fillStyle = P.goldDark;
+      c.fillRect(hx - 6.6, hy - 8.6, 13.2, 3);
+      c.fillStyle = P.gold;
+      c.fillRect(hx - 6.6, hy - 8.6, 13.2, 2);
+      this.poly(c, [hx - 2, hy - 8.8, hx, hy - 14, hx + 2, hy - 8.8], P.gold);
+      this.dot(c, hx, hy - 13.4, 1.7, '#fff2b8');
+
+      if (facing !== 'n') {
+        c.fillStyle = P.ink;
+        c.fillRect(hx - 4.2, hy - 1.6, 2.4, 3);
+        c.fillRect(hx + 1.8, hy - 1.6, 2.4, 3);
+        this.poly(c, [hx - 1.8, hy + 1.6, hx + 1.8, hy + 1.6, hx, hy + 3.6], P.foe);
+        // whiskers: three pixels of personality
+        c.strokeStyle = P.ink; c.lineWidth = 1;
+        c.beginPath();
+        c.moveTo(hx - 5, hy + 3); c.lineTo(hx - 10, hy + 2);
+        c.moveTo(hx + 5, hy + 3); c.lineTo(hx + 10, hy + 2);
+        c.stroke();
+      }
+    };
+    for (const f of FACINGS) this.place('donut_' + f, 40, 44, donut(f));
+
     this.place('hero_dead', 56, 44, (c, w, h) => {
       const cx = w / 2, cy = h / 2;
       this.ground(c, cx, cy + 12, 20, true);
@@ -503,6 +593,14 @@ export class GameAtlas {
       c.strokeStyle = P.wood; c.lineWidth = 2;
       c.beginPath(); c.moveTo(cx, 6); c.lineTo(cx, 21); c.stroke();
       this.poly(c, [cx - 3.2, 7, cx + 3.2, 7, cx, 0], P.steel);
+    });
+
+    // A plain white rounded bar. Health bars scale this rather than redrawing
+    // a Graphics every frame — with twenty enemies on screen at 120 Hz, the
+    // difference between a scaled sprite and a re-tessellated rounded rect is
+    // the whole frame budget.
+    this.place('bar', 28, 8, (c, w, h) => {
+      this.rr(c, 0, 0, w, h, h / 2, '#ffffff');
     });
 
     // ── floating markers, drawn white and tinted at use ──

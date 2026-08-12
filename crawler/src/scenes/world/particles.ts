@@ -188,7 +188,9 @@ export class NumberPops extends Container {
       p.vy *= 1 - 1.6 * dt;
       // overshoot pop: 0→1.15→settle, then shrink out
       // sized against a 44 px character, not a full-width HUD
-      const base = p.big ? 0.5 : 0.32;
+      // Sized against the reference: damage numbers are one of the loudest
+      // things on its screen, not a footnote beside a 44 px character.
+      const base = p.big ? 0.72 : 0.5;
       const pop = t < 0.18 ? (t / 0.18) * 1.18 : t > 0.7 ? 1 - (t - 0.7) / 0.3 : 1.18 - 0.18 * ((t - 0.18) / 0.52);
       p.view.position.set(p.x, p.y);
       p.view.scale.set(base * Math.max(0.01, pop));

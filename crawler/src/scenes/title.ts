@@ -104,7 +104,7 @@ export class TitleScene extends Scene {
     const stat = uiText(
       save.kills > 0
         ? `${save.kills} killed · biggest squad ${save.bestSquad} · ${save.totalRuns} musters`
-        : `${CAST.hero}: ${CAST.heroTag}.`,
+        : `${CAST.hero}: ${CAST.heroTag}. ${CAST.companion}: ${CAST.companionTag}`,
       12, CONFIG.colors.boneDim,
     );
     stat.position.set(W / 2, H - Math.max(ctx.scaler.safeBottom(), 12) - 18);

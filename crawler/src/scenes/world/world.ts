@@ -2,8 +2,8 @@ import { Container, Sprite } from 'pixi.js';
 import { CONFIG, type EnemyKind } from '../../config';
 import type { Stepper } from '../../core/loop';
 import { BLOCK_SIZE, chunkBounds, chunkOrigin, getChunk, getStructure } from '../../assets/terrain';
-import { KEEP_NAME, MOB_BLAME, SQUAD_TIER, SYS, UI } from '../../flavour';
-import { announce, checkAchievements, onCaptainKill } from '../../game/achievements';
+import { CAST, DONUT, GUIDE, KEEP_NAME, MOB_BLAME, SQUAD_TIER, SYS, UI } from '../../flavour';
+import { checkAchievements, onCaptainKill, type AchievementDef } from '../../game/achievements';
 import { Combat } from '../../world/combat';
 import { Entities, campPositions } from '../../world/entities';
 import { Squad } from '../../world/squad';
@@ -13,6 +13,7 @@ import { Joystick } from '../../ui/joystick';
 import { showPause } from '../../ui/overlays';
 import { Scene } from '../scene';
 import { Compass, WorldHud } from './hud';
+import { ChevronTrail, CoinStack, HealthBars, PadTag, SquadRing } from './marks';
 import { NumberPops, Particles } from './particles';
 
 const W = CONFIG.design.width;
@@ -36,13 +37,24 @@ export class WorldScene extends Scene implements Stepper {
   private camera = new Container();
   private chunkLayer = new Container();
   private coinLayer = new Container();
+  /** flat structures painted onto the ground: plazas, plates, scorch circles */
+  private decalLayer = new Container();
+  /** flat marks on the ground, under everything that stands on it */
+  private groundLayer = new Container();
   private actorLayer = new Container();
   private shotLayer = new Container();
+  /** bars and tags, above the world and never depth-sorted into it */
+  private overlayLayer = new Container();
   private hud!: WorldHud;
   private compass!: Compass;
   private joystick!: Joystick;
   private particles!: Particles;
   private pops!: NumberPops;
+  private squadRing!: SquadRing;
+  private trail!: ChevronTrail;
+  private bars!: HealthBars;
+  private coinStack!: CoinStack;
+  private padTags = new Map<string, PadTag>();
 
   // ── world plumbing ──
   private ents!: Entities;
@@ -60,6 +72,19 @@ export class WorldScene extends Scene implements Stepper {
   private heroRing!: Sprite;
   private px = 0; private py = 0;   // previous position, for interpolation
   private vx = 0; private vy = 0;
+
+  // ── the companion ──
+  private donut!: Sprite;
+  private dx = 0; private dy = 0;
+  private dpx = 0; private dpy = 0;
+  private donutCd = 0;
+  private quipCd = 0;
+
+  /** gold poured into recruits this run, for the spendthrift achievement */
+  private spentOnRecruits = 0;
+  /** one-shot guidance flags: Mordecai says each thing exactly once */
+  private saidPad = false;
+  private saidCamp = false;
   private dead = false;
   private deathT = 0;
   private lowWarned = false;
@@ -92,8 +117,19 @@ export class WorldScene extends Scene implements Stepper {
     // the chunk behind it, and unsorted insertion order would let that
     // neighbour's ground repaint over the tree as the player walks.
     this.chunkLayer.sortableChildren = true;
-    this.camera.addChild(this.chunkLayer, this.coinLayer, this.actorLayer, this.shotLayer);
+    this.camera.addChild(
+      this.chunkLayer, this.decalLayer, this.groundLayer, this.coinLayer,
+      this.actorLayer, this.shotLayer, this.overlayLayer,
+    );
     this.container.addChild(this.camera);
+
+    this.squadRing = new SquadRing();
+    this.groundLayer.addChild(this.squadRing);
+    this.trail = new ChevronTrail(ctx.atlas);
+    this.groundLayer.addChild(this.trail);
+    this.bars = new HealthBars(ctx.atlas);
+    this.coinStack = new CoinStack(ctx.atlas);
+    this.overlayLayer.addChild(this.bars, this.coinStack);
 
     this.particles = new Particles(ctx.atlas);
     this.pops = new NumberPops(ctx.atlas);
@@ -104,31 +140,51 @@ export class WorldScene extends Scene implements Stepper {
     this.squad = new Squad(ctx.atlas, this.actorLayer);
 
     // ── structures: sprites, not terrain ──
-    // A castle you can stand behind has to sort against the actors, so every
-    // structure joins the same depth-sorted layer the crowd is in.
+    //
+    // The castle is the only structure tall enough to stand behind, so it is
+    // the only one that joins the depth-sorted actor layer. The rest are
+    // effectively ground decals — a plaza, a plate, a scorch circle — and they
+    // are anchored at their CENTRE, which means sorting them by that centre
+    // paints them straight over anything standing on their near half. That is
+    // not a subtle artifact: the muster plaza was erasing the companion.
     for (const p of getWorld().pois) {
       const st = getStructure(p.id);
       if (!st) continue;
       const sp = new Sprite(st.tex);
       sp.position.set(screenX(p.x, p.y) - st.ox, screenY(p.x, p.y) - st.oy);
-      sp.zIndex = p.x + p.y;
-      this.actorLayer.addChild(sp);
+      if (p.kind === 'castle') {
+        sp.zIndex = p.x + p.y;
+        this.actorLayer.addChild(sp);
+      } else {
+        this.decalLayer.addChild(sp);
+      }
+
+      if (p.kind === 'pad') {
+        const tag = new PadTag(ctx.atlas);
+        this.padTags.set(p.id, tag);
+        this.overlayLayer.addChild(tag);
+      }
     }
 
-    // A flat ring on the ground under the hero. In a crowd of sixty
-    // near-identical blue bodies, the one the stick is attached to has to be
-    // findable at a glance — and a marker on the ground plane says it without
-    // adding anything to the silhouette.
+    // A small gold disc on the ground under the hero specifically. The white
+    // squad ring says where the crowd is; this says which of the sixty bodies
+    // inside it the stick is actually attached to.
     this.heroRing = new Sprite(ctx.atlas.get('ringFlat'));
     this.heroRing.anchor.set(0.5);
-    this.heroRing.scale.set(0.5);
+    this.heroRing.scale.set(0.34);
     this.heroRing.tint = CONFIG.colors.gold;
-    this.heroRing.alpha = 0.55;
+    this.heroRing.alpha = 0.75;
     this.actorLayer.addChild(this.heroRing);
 
     this.hero = new Sprite(ctx.atlas.get('hero_s'));
     this.hero.anchor.set(0.5, 1);
     this.actorLayer.addChild(this.hero);
+
+    this.donut = new Sprite(ctx.atlas.get('donut_s'));
+    this.donut.anchor.set(0.5, 1);
+    this.actorLayer.addChild(this.donut);
+    this.dx = this.dpx = run.x - 40;
+    this.dy = this.dpy = run.y + 30;
 
     // The squad the run remembers walks back on; a fresh run is handed a small
     // one at the post. Starting at zero would mean the hero has no attack at
@@ -181,6 +237,7 @@ export class WorldScene extends Scene implements Stepper {
 
     if (!ctx.save.data.tutorialDone) {
       ctx.system.push(SYS.welcome(), 'info');
+      ctx.system.push(SYS.donutJoins(), 'good');
       ctx.save.data.tutorialDone = true;
       ctx.save.mark();
     }
@@ -218,6 +275,8 @@ export class WorldScene extends Scene implements Stepper {
     run.clock += dt;
     save.playSec += dt;
     this.px = run.x; this.py = run.y;
+    this.dpx = this.dx; this.dpy = this.dy;
+    this.quipCd = Math.max(0, this.quipCd - dt);
 
     if (this.dead) {
       this.deathT -= dt;
@@ -246,6 +305,7 @@ export class WorldScene extends Scene implements Stepper {
 
     this.squad.step(dt, run.x, run.y, run.clock);
     this.squad.peak = Math.max(this.squad.peak, this.squad.count);
+    this.stepCompanion(dt);
 
     // ── the world around the hero ──
     this.combat.px = run.x;
@@ -267,6 +327,42 @@ export class WorldScene extends Scene implements Stepper {
   }
 
   /**
+   * The companion follows and fights on her own account.
+   *
+   * She is deliberately outside the squad: no formation slot, no contribution
+   * to `strength()`, and nothing can take her off the board. A wipe therefore
+   * leaves the player with a cat and a direction rather than with nothing,
+   * which is the difference between a setback and a game over.
+   */
+  private stepCompanion(dt: number): void {
+    const ctx = this.ctx;
+    const run = ctx.run!;
+    const C = CONFIG.companion;
+
+    const dx = run.x - this.dx, dy = run.y - this.dy;
+    const d = Math.hypot(dx, dy);
+    if (d > C.followDist) {
+      const move = Math.min(C.speed * dt, d - C.followDist);
+      this.dx += (dx / d) * move;
+      this.dy += (dy / d) * move;
+    }
+
+    this.donutCd -= dt;
+    if (this.donutCd > 0) return;
+    const t = this.ents.nearest(this.dx, this.dy, C.range);
+    if (t < 0) return;
+    const e = this.ents.enemies.items[t];
+    const ex = e.x - this.dx, ey = e.y - this.dy;
+    const len = Math.hypot(ex, ey) || 1;
+    this.ents.spawnShot(
+      ctx.atlas, this.dx, this.dy,
+      (ex / len) * CONFIG.combat.spearSpeed, (ey / len) * CONFIG.combat.spearSpeed,
+      C.damage, true,
+    );
+    this.donutCd = C.interval;
+  }
+
+  /**
    * Instantiate the populations of nearby camps and refund distant ones.
    * This is what keeps a 3600² field the same cost as one busy screen.
    */
@@ -285,6 +381,10 @@ export class WorldScene extends Scene implements Stepper {
           this.ents.spawnEnemy(ctx.atlas, s.kind, s.x, s.y, p.id);
         }
         this.populated.add(p.id);
+        if (!this.saidCamp) {
+          this.saidCamp = true;
+          ctx.system.push(GUIDE.firstCamp, 'info');
+        }
       } else if (live && d > near) {
         for (let i = this.ents.enemies.count - 1; i >= 0; i--) {
           if (this.ents.enemies.items[i].poi === p.id) this.ents.killEnemy(i);
@@ -368,6 +468,10 @@ export class WorldScene extends Scene implements Stepper {
       this.padDrain = 0;
     }
     if (!found) return;
+    if (!this.saidPad) {
+      this.saidPad = true;
+      this.ctx.system.push(GUIDE.firstPad, 'info');
+    }
 
     const left = run.padLeft(found);
     if (left <= 0 || this.squad.count >= CONFIG.squad.max) return;
@@ -384,7 +488,9 @@ export class WorldScene extends Scene implements Stepper {
       const p = poiById(found)!;
       if (this.squad.add(1, p.x + (Math.random() - 0.5) * 40, p.y + (Math.random() - 0.5) * 40) === 0) break;
       run.padTake(found);
+      this.spentOnRecruits += cost;
       ctx.audio.play('partyGain', { throttleMs: 90, vol: 0.5 });
+      this.quip(DONUT.recruit);
       ctx.haptics.hit();
       this.particles.burst(screenX(p.x, p.y), screenY(p.x, p.y), {
         frame: 'softDot', count: 4, tint: CONFIG.colors.ally,
@@ -392,6 +498,7 @@ export class WorldScene extends Scene implements Stepper {
       });
       if (run.padLeft(found) <= 0) {
         ctx.system.push(SYS.padEmpty(p.name), 'info');
+        ctx.system.push(GUIDE.padDry, 'info');
         break;
       }
     }
@@ -445,6 +552,7 @@ export class WorldScene extends Scene implements Stepper {
     });
     this.combat.blast(x, y, 320, 9999);
     ctx.system.push(SYS.keepBreached(), 'good');
+    this.quip(DONUT.keep);
     this.awardAchievements();
     this.persist();
   }
@@ -497,7 +605,7 @@ export class WorldScene extends Scene implements Stepper {
     }
     if (kind === 'captain') {
       const a = onCaptainKill(save);
-      if (a) { ctx.run!.addCoins(a.coins); ctx.system.push(announce(a), 'good'); }
+      if (a) this.grantAchievement(a);
     }
     this.awardAchievements();
   }
@@ -522,6 +630,7 @@ export class WorldScene extends Scene implements Stepper {
     ctx.audio.play('partyLoss', { throttleMs: 110, vol: 0.55 });
     this.pops.spawn(screenX(x, y), screenY(x, y) - 40, `−${lost}`, CONFIG.colors.hpRed, true);
     ctx.system.push(SYS.squadLost(lost, MOB_BLAME[kind]), 'bad');
+    this.quip(DONUT.loss);
 
     if (this.squad.count <= 5 && !this.lowWarned) {
       this.lowWarned = true;
@@ -544,6 +653,7 @@ export class WorldScene extends Scene implements Stepper {
       run.markCleared(id);
       const p = poiById(id);
       if (p) ctx.system.push(SYS.campCleared(p.name), 'good');
+      this.quip(DONUT.camp);
       this.awardAchievements();
       this.persist();
     }
@@ -551,10 +661,31 @@ export class WorldScene extends Scene implements Stepper {
 
   private awardAchievements(): void {
     const ctx = this.ctx;
-    for (const a of checkAchievements(ctx.save.data, ctx.run!, this.squad.count)) {
-      ctx.run!.addCoins(a.coins);
-      ctx.system.push(announce(a), 'good');
-    }
+    const earned = checkAchievements(ctx.save.data, ctx.run!, {
+      squad: this.squad.count,
+      spent: this.spentOnRecruits,
+    });
+    for (const a of earned) this.grantAchievement(a);
+  }
+
+  private grantAchievement(a: AchievementDef): void {
+    const ctx = this.ctx;
+    ctx.run!.addCoins(a.coins);
+    ctx.system.pushAchievement({ name: a.name, sting: a.sting, coins: a.coins });
+    ctx.audio.play('starPop', { vol: 0.7 });
+    ctx.haptics.hit();
+  }
+
+  /**
+   * Donut, interjecting. She has an opinion about everything, so the only
+   * interesting design question is how often — a cooldown, not a probability,
+   * because a run of three bad rolls in a row would make her look absent.
+   */
+  private quip(lines: readonly string[]): void {
+    if (this.quipCd > 0) return;
+    this.quipCd = CONFIG.companion.quipCooldown;
+    const line = lines[Math.floor(Math.random() * lines.length)];
+    this.ctx.system.push([`${CAST.companion}:`, line], 'info');
   }
 
   // ============================== WIPE ==============================
@@ -570,6 +701,8 @@ export class WorldScene extends Scene implements Stepper {
     ctx.audio.play('failSting');
     ctx.audio.music(null);
     ctx.system.push(SYS.wiped(), 'bad');
+    this.quipCd = 0;
+    this.quip(DONUT.wipe);
   }
 
   private finishDeath(): void {
@@ -629,6 +762,17 @@ export class WorldScene extends Scene implements Stepper {
     // just behind the hero in the same sort, so it reads as under his feet
     this.heroRing.zIndex = ix + iy - 0.5;
 
+    // ── the companion ──
+    const dix = this.dpx + (this.dx - this.dpx) * alpha;
+    const diy = this.dpy + (this.dy - this.dpy) * alpha;
+    const dLateral = screenX(this.dx - this.px, this.dy - this.py);
+    const dFacing = screenY(run.x - this.dx, run.y - this.dy) < -6 ? 'n'
+      : Math.abs(screenX(run.x - this.dx, run.y - this.dy)) > 24 ? 'e' : 's';
+    this.donut.texture = ctx.atlas.get('donut_' + dFacing);
+    this.donut.scale.x = dLateral > 0 ? -1 : 1;
+    this.donut.position.set(screenX(dix, diy), screenY(dix, diy));
+    this.donut.zIndex = dix + diy;
+
     // the squad draws itself; it owns sixty sprites and their gait
     this.squad.draw(0, 0);
 
@@ -670,6 +814,17 @@ export class WorldScene extends Scene implements Stepper {
       c.sp.zIndex = c.x + c.y;
     }
 
+    // ── the read-at-a-glance layer ──
+    this.squadRing.update(ix, iy, this.crowdRadius());
+    this.bars.fromEnemies(this.ents.enemies.items, this.ents.enemies.count, alpha);
+    this.coinStack.update(screenX(ix, iy) + 13, screenY(ix, iy) - 34, run.coins);
+    for (const [id, tag] of this.padTags) {
+      const p = poiById(id)!;
+      const left = run.padLeft(id);
+      tag.set(screenX(p.x, p.y), screenY(p.x, p.y) - 34, run.padCost(id), left <= 0);
+    }
+    this.updateTrail(dtReal, ix, iy, run.breached);
+
     this.particles.budgetScale = ctx.loop.thermalSoften() ? CONFIG.thermal.particleBudgetScale : 1;
     this.particles.update(dtV);
     this.pops.update(dtReal);
@@ -690,6 +845,55 @@ export class WorldScene extends Scene implements Stepper {
       !run.breached && keepD > 500,
     );
     this.joystick.update(dtReal);
+  }
+
+  /**
+   * The crowd's radius in world units — the outermost occupied formation ring
+   * plus a margin. The white ring is drawn to this, so it grows with the crew
+   * and a glance at its size tells you roughly how many you have.
+   */
+  private crowdRadius(): number {
+    const SQ = CONFIG.squad;
+    let ring = 0, base = 0;
+    const n = Math.max(1, this.squad.count);
+    for (;;) {
+      const cap = SQ.perRing * (ring + 1);
+      if (n <= base + cap) break;
+      base += cap;
+      ring++;
+    }
+    return Math.max(46, SQ.ringGap * (ring + 1) + 26);
+  }
+
+  /**
+   * Where the trail points.
+   *
+   * Not always the keep: a player with no gold and no crew needs a pad far more
+   * than they need the objective, and a trail that only ever pointed at the
+   * gate would be pointing them at a wipe.
+   */
+  private updateTrail(dt: number, ix: number, iy: number, breached: boolean): void {
+    const run = this.ctx.run!;
+    const world = getWorld();
+    const wantPad = !breached && (run.coins >= CONFIG.pad.costBase * 6 || this.squad.count < 6);
+
+    let target: { x: number; y: number } | null = null;
+    let tint: number = CONFIG.colors.gold;
+    if (wantPad) {
+      let best = Infinity;
+      for (const p of world.pois) {
+        if (p.kind !== 'pad' || run.padLeft(p.id) <= 0) continue;
+        const d = Math.hypot(p.x - ix, p.y - iy);
+        if (d < best) { best = d; target = p; }
+      }
+      tint = CONFIG.colors.ally;
+    }
+    if (!target && !breached) {
+      target = poiById(world.castle)!;
+      tint = CONFIG.colors.gold;
+    }
+    if (!target) { this.trail.hide(); return; }
+    this.trail.update(dt, ix, iy, target.x, target.y, tint, 34, this.crowdRadius() + 18);
   }
 
   private squadTierName(): string {
@@ -803,6 +1007,7 @@ export class WorldScene extends Scene implements Stepper {
       x: Math.round(run.x), y: Math.round(run.y),
       squad: this.squad.count,
       peak: this.squad.peak,
+      donut: { x: Math.round(this.dx), y: Math.round(this.dy), vis: this.donut.visible },
       coins: run.coins,
       kills: save.kills,
       enemies: this.ents.enemies.count,

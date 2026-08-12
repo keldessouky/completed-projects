@@ -1,14 +1,15 @@
 # Crawler — Muster
 
 An isometric squad game built on the [Ziggurat Run](../ziggurat-run) engine.
-One continuous 3,600-unit field seen at a 2:1 dimetric angle, a hero, and a
-crowd of people who walk where you walk. Pick up coins, spend them at a recruit
-pad, and march the crowd east until the castle gate comes down.
+One continuous 3,600-unit field seen at a 2:1 dimetric angle, a hero, a cat, and
+a crowd of people who walk where you walk. Pick up gold, spend it at a recruit
+pad, and march the crowd east until the Iron Keep's gate comes down.
 
 Earth's basements have been repossessed by a game show, and somebody built a
 countryside on floor three and then fortified it. You are Carl, barefoot and in
-boxer shorts, and the only weapon you have is however many people you can talk
-into following you.
+boxer shorts, accompanied by Princess Donut, who is a cat with a title she
+awarded herself. The only weapon either of you has is however many people you
+can talk into following you.
 
 Built with **PixiJS 8**, **Howler.js**, **tween.js**, **TypeScript** and **Vite**.
 Ships as a single static bundle. Tuned for **iPhone Pro Max Safari**.
@@ -51,6 +52,9 @@ like.
   range. Their reach is deliberately *shorter* than every enemy's aggro radius,
   so packs always reach the line and always cost you bodies — a crowd that
   killed everything on the approach would be a number that only went up.
+- **Princess Donut** is not part of the crew. She has no formation slot, she
+  fights on her own account, and nothing can take her off the board — so a wipe
+  leaves you with a cat and a direction rather than with nothing.
 - **Camps** hold eight or so hostiles and stay cleared. The closer one sits to
   the keep, the worse what lives in it.
 - **The Keep**, far north-east, has a gate with 1,800 health and archers on the
@@ -83,8 +87,14 @@ decision the player makes is where to walk, which is the point.
 - **Depth sorting that includes the scenery** — structures are their own
   sprites in the same sorted layer as the crowd, so you can stand behind a
   castle wall.
-- **The System** — boxed, bureaucratic, faintly hostile notifications, and
-  eight sarcastic achievements.
+- **The System** — boxed, bureaucratic, faintly hostile notifications; twelve
+  achievements that arrive with the pomp of an award and the content of a
+  parking notice, each paying gold straight into the purse, because gold is
+  people and an achievement that paid out nothing would be a sticker.
+- **A read-at-a-glance world layer** — the white ring the crew stands in and
+  which grows with it, a chevron trail along the ground to whatever you should
+  be walking at, health bars that appear only once something has been hit, and
+  the gold you are carrying drawn as an actual stack on Carl's back.
 - **Accessibility** — honours `prefers-reduced-motion`, ≥52 design-px tap
   targets, contrast-checked HUD text, keyboard movement on desktop.
 - **Dev overlay** — five taps in the top-left corner: FPS, frame time, live
@@ -97,6 +107,20 @@ and nothing else in the codebase contains a proper noun. The current cast is a
 homage to *Dungeon Crawler Carl*; replacing that one file re-skins the game to an
 original one, which is what a distributable build would want. Gameplay numbers
 live in `config.ts`, strings live in `flavour/`, and neither imports the other.
+
+That file also carries the style guide, because the voice is the flavour:
+
+> The System is a bored municipal computer that finds you tedious. It uses
+> bureaucratic register for atrocities and never once acknowledges that a person
+> has died. Carl is exhausted and out of his depth and keeps going anyway; he
+> does not quip, he states things. Donut is a cat with a title she awarded
+> herself — everything is beneath her and she is nonetheless the loudest thing
+> in the room. Nothing is ever framed as heroic. It is a broadcast, and you are
+> content.
+
+Floor-specific proper nouns — camps, mobs, the keep — are invented in that
+register rather than lifted, so the homage is to the voice and the cast rather
+than to a page count.
 
 ---
 
@@ -128,9 +152,10 @@ src/
     entities.ts        Pooled enemies/projectiles/coins + the spatial hash
     combat.ts          Enemy AI, the squad's volley, projectiles, damage
   game/
-    system.ts achievements.ts
+    system.ts          The System's feed, and the achievement unlock card
+    achievements.ts
   scenes/
-    boot title death, world/{world,hud,particles}
+    boot title death, world/{world,hud,marks,particles}
   ui/
     joystick button digits widgets overlays devoverlay
 tools/
@@ -168,6 +193,15 @@ square units.
 destroys the outgoing scene wholesale, and a run survives the wipe screen and
 the title card. `fromSave()` re-clamps every field rather than trusting it, so a
 hand-edited save produces a boring run instead of a crash.
+
+### Flat things and tall things sort differently
+
+Structures are sprites rather than part of the terrain bake, but only the
+castle joins the depth-sorted actor layer. The rest — the muster plaza, the
+recruit plates, a camp's scorch circle — are ground decals anchored at their
+centre, and sorting those by that centre paints them straight over anything
+standing on their near half. That is not a subtle artifact: it was erasing the
+companion every time she walked onto the plaza.
 
 ### Fixed timestep, decoupled render
 

@@ -71,6 +71,8 @@ export class BootScene extends Scene {
       this.setProgress(0.16);
 
       ctx.atlas = GameAtlas.build();
+      // the System's achievement card is the one notification with artwork
+      ctx.system.atlas = ctx.atlas;
       this.setProgress(0.30);
       // The world map thumbnail samples every biome across 5120 units; it is
       // the one terrain product worth paying for up front, because the title

@@ -114,18 +114,29 @@ function paintProp(
 
 /** A recruit pad: a flat plate on the ground with a hut behind it. */
 function paintPad(c: CanvasRenderingContext2D, sx: number, sy: number): void {
-  // the plate, drawn as a diamond so it sits flat in the world
-  const w = 150, h = w * (ISO_Y / ISO_X);
-  c.beginPath();
-  c.moveTo(sx, sy - h / 2);
-  c.lineTo(sx + w / 2, sy);
-  c.lineTo(sx, sy + h / 2);
-  c.lineTo(sx - w / 2, sy);
-  c.closePath();
-  c.fillStyle = 'rgba(0,0,0,0.14)';
+  // The plate is a diamond so it sits flat in the world, and it is painted
+  // OLIVE rather than green: a bright green plate on a bright green field is
+  // invisible, which is exactly the mistake the first pass made.
+  const diamond = (w: number): void => {
+    const h = w * (ISO_Y / ISO_X);
+    c.beginPath();
+    c.moveTo(sx, sy - h / 2);
+    c.lineTo(sx + w / 2, sy);
+    c.lineTo(sx, sy + h / 2);
+    c.lineTo(sx - w / 2, sy);
+    c.closePath();
+  };
+  diamond(158);
+  c.fillStyle = 'rgba(0,0,0,0.16)';
   c.fill();
-  c.fillStyle = '#8fd45a';
+  diamond(150);
+  c.fillStyle = '#8a8f4e';
   c.fill();
+  // the bright inner plate: the thing you are meant to stand on
+  diamond(112);
+  c.fillStyle = '#7fd23f';
+  c.fill();
+  diamond(150);
   c.strokeStyle = hex(C.bone);
   c.lineWidth = 3;
   c.setLineDash([12, 9]);

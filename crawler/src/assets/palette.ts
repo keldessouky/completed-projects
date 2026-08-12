@@ -53,6 +53,14 @@ export const P = {
   leatherDark: '#75492a',
   steel: '#c3ccd6',
   steelDark: '#7d8794',
+  /**
+   * Donut. A cream cat on a sand path is invisible, which the first pass
+   * proved: she is warm orange with a cream face, and nothing else in the game
+   * is either, so she reads instantly against grass, path and a blue crowd.
+   */
+  fur: '#f0954a',
+  furShade: '#c46f2c',
+  furLight: '#ffe0bd',
   /** shadow on grass: warm, not a grey hole */
   shadow: 'rgba(38,58,26,0.30)',
   shadowHard: 'rgba(38,58,26,0.42)',
