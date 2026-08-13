@@ -27,6 +27,11 @@
  *   node tools/art-import.mjs <image> --kind hero --cell 60x76 [options]
  *
  * Source layout:
+ *   --preset <name>    fill in the flags for a known pack layout. `lpc` is the
+ *                      Liberated Pixel Cup universal sheet — 13×21 of 64px,
+ *                      walk on rows 8-11 and slash on rows 12-15, both in
+ *                      up/left/down/right order. Anything you pass explicitly
+ *                      wins over the preset.
  *   --grid CxR         the source IS a grid of C columns × R rows: slice it
  *                      (omit for a generated contact sheet — see above)
  *   --map <spec>       what the source's rows ARE, top to bottom, so they can
@@ -36,6 +41,10 @@
  *                        skip          a row that is not a facing
  *                      e.g. --map down,left,right,up
  *                      Or five raw source-row indices: --map 0,2,2,3,3
+ *   --attack-map <spec>  the same, for the attack pose, when a pack keeps its
+ *                      attack animation in DIFFERENT ROWS from its walk —
+ *                      which every LPC-descended pack does. Omit and the
+ *                      attack pose is cut from the walk rows.
  *   --walk a,b,c,d     source columns for the four walk frames
  *                      (default: as many as the grid has, cycled)
  *   --attack N         source column for the attack pose (default: last, or 0)
@@ -76,11 +85,54 @@ const FACINGS = ['s', 'se', 'e', 'ne', 'n'];
 // ─────────────────────────── arguments ───────────────────────────
 
 const argv = process.argv.slice(2);
+
+/**
+ * Known pack layouts.
+ *
+ * A preset is not a shortcut so much as the only usable interface for the
+ * layouts that need one. Describing the LPC sheet by hand means a --map of
+ * twenty-one comma-separated tokens, nineteen of which are `skip`; nobody is
+ * typing that correctly on the first go, and getting it wrong shows up as a
+ * character who moonwalks rather than as an error.
+ */
+const PRESETS = {
+  lpc: {
+    grid: '13x21',
+    // rows 0-7 spellcast + thrust, 8-11 walk, 12-15 slash, 16-19 shoot, 20 hurt
+    map: [
+      ...Array(8).fill('skip'),
+      'up', 'left', 'down', 'right',
+      ...Array(9).fill('skip'),
+    ].join(','),
+    'attack-map': [
+      ...Array(12).fill('skip'),
+      'up', 'left', 'down', 'right',
+      ...Array(5).fill('skip'),
+    ].join(','),
+    // column 0 of an LPC walk is a standing pose, not part of the cycle
+    walk: '1,3,5,7',
+    attack: '4',
+    pixel: true,
+  },
+};
+
+const presetName = (() => {
+  const i = argv.indexOf('--preset');
+  return i >= 0 ? argv[i + 1] : null;
+})();
+if (presetName && !(presetName in PRESETS)) {
+  console.error(`unknown --preset "${presetName}". Known: ${Object.keys(PRESETS).join(', ')}`);
+  process.exit(1);
+}
+const preset = presetName ? PRESETS[presetName] : {};
+
+/** An explicit flag always beats the preset; the preset beats the default. */
 const flag = (name, fallback = null) => {
   const i = argv.indexOf('--' + name);
-  return i >= 0 && argv[i + 1] && !argv[i + 1].startsWith('--') ? argv[i + 1] : fallback;
+  if (i >= 0 && argv[i + 1] && !argv[i + 1].startsWith('--')) return argv[i + 1];
+  return preset[name] ?? fallback;
 };
-const has = (name) => argv.includes('--' + name);
+const has = (name) => argv.includes('--' + name) || preset[name] === true;
 
 const SRC = argv.find((a) => !a.startsWith('--') && /\.(png|jpe?g|webp)$/i.test(a));
 const KIND = flag('kind');
@@ -102,6 +154,7 @@ const OUT = resolvePath(flag('out', join(ROOT, 'public/art')));
 const REGION = flag('region');
 const PICK = flag('pick');
 const MAP = flag('map');
+const ATTACK_MAP = flag('attack-map');
 const DRY = has('dry');
 const PREVIEW = has('preview');
 const PIXEL = has('pixel');
@@ -222,6 +275,9 @@ function planCols(srcCols) {
 }
 
 const ROW_PLAN = GRID ? planRows(MAP, gridRows) : null;
+// The attack pose defaults to being cut from the walk rows; a pack that keeps
+// its attack animation somewhere else says so with --attack-map.
+const ATK_PLAN = GRID ? (ATTACK_MAP ? planRows(ATTACK_MAP, gridRows) : ROW_PLAN) : null;
 const COL_PLAN = GRID ? planCols(gridCols) : null;
 const ROWS = GRID
   ? FACINGS.length
@@ -439,7 +495,8 @@ const result = await page.evaluate(async (opts) => {
     // margin they all share.
     let lx = Infinity, ly = Infinity, hx = -Infinity, hy = -Infinity;
     const used = new Set();
-    for (const rp of opts.rowPlan) for (const c of opts.colPlan) used.add(rp.src + ',' + c);
+    for (const rp of opts.rowPlan) for (const c of opts.colPlan.slice(0, 4)) used.add(rp.src + ',' + c);
+    for (const rp of opts.atkPlan) used.add(rp.src + ',' + opts.colPlan[4]);
     for (const key of used) {
       const [r, c] = key.split(',').map(Number);
       const cell = cellAt(c, r);
@@ -458,8 +515,10 @@ const result = await page.evaluate(async (opts) => {
     const dh = crop.h * k;
 
     for (let r = 0; r < opts.rows; r++) {
-      const rp = opts.rowPlan[Math.min(r, opts.rowPlan.length - 1)];
       for (let n = 0; n < opts.cols; n++) {
+        // the last column is the attack pose, which may live in its own rows
+        const plan = n === opts.cols - 1 ? opts.atkPlan : opts.rowPlan;
+        const rp = plan[Math.min(r, plan.length - 1)];
         const cell = cellAt(opts.colPlan[Math.min(n, opts.colPlan.length - 1)], rp.src);
         const sx = cell.x0 + crop.x;
         const sy = cell.y0 + crop.y;
@@ -646,7 +705,7 @@ const result = await page.evaluate(async (opts) => {
   cols: COLS, rows: ROWS, cellW: CELL_W, cellH: CELL_H, scale: SCALE,
   preview: PREVIEW, pixel: PIXEL,
   grid: GRID ? { cols: gridCols, rows: gridRows } : null,
-  rowPlan: ROW_PLAN, colPlan: COL_PLAN,
+  rowPlan: ROW_PLAN, atkPlan: ATK_PLAN, colPlan: COL_PLAN,
 });
 
 await browser.close();
@@ -661,6 +720,9 @@ if (result.mode === 'grid') {
   console.log(`cells       ${result.cellPx[0]}×${result.cellPx[1]} px, cropped to ${result.crop.w}×${result.crop.h}`);
   console.log('rows        ' + FACINGS.map((f, i) => `${f}←${ROW_PLAN[i].src}(${ROW_PLAN[i].why})`).join('  '));
   console.log(`cols        walk ${COL_PLAN.slice(0, 4).join(',')}  attack ${COL_PLAN[4]}`);
+  if (ATK_PLAN !== ROW_PLAN) {
+    console.log('attack rows ' + FACINGS.map((f, i) => `${f}←${ATK_PLAN[i].src}(${ATK_PLAN[i].why})`).join('  '));
+  }
 } else {
   console.log(`figures     ${result.found} found, ${result.used} placed`
     + (result.found < COLS * ROWS ? '  (short — the last one repeats)' : ''));

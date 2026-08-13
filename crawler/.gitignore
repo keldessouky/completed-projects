@@ -4,3 +4,6 @@ dist-single/
 *.local
 .DS_Store
 art-template/
+
+# LPC layer downloads and intermediate composites — rebuildable with `npm run art:lpc`
+.lpc-cache/

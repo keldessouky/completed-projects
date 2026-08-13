@@ -24,6 +24,7 @@ npm run smoke        # headless Chromium playthrough of a whole run
 npm run smoke:single # …the same 19 checks against the one-file build
 npm run art:export   # → art-template/, the cast as PNG sheets you can repaint
 npm run art:import   # slice a downloaded pack or a generated sheet into one
+npm run art:lpc      # build the cast from Liberated Pixel Cup layers
 npm run art:check    # verify custom sheets in public/art/ before you reload
 ```
 
@@ -310,6 +311,59 @@ will happily ignore them (`art:check` warns about that).
 Valid actor keys: `hero`, `donut`, `levy0`, `levy1`, `levy2`, `grunt`,
 `archer`, `heavy`, `captain`. A key the game does not know is loaded and then
 never asked for, which is silent — check your spelling against that list.
+
+## The shipped LPC cast
+
+`public/art/` currently holds a real, hand-drawn, animated cast — built from
+Liberated Pixel Cup layers, not painted by this repo:
+
+```bash
+npm run art:lpc              # every character
+npm run art:lpc -- hero grunt  # just these
+```
+
+LPC art is not one sprite per character. It is a body sheet plus a stack of
+clothing, armour and weapon sheets, all on the same 13×21 grid of 64 px cells,
+drawn to line up frame for frame. So a character is a **recipe** — an ordered
+list of layers, some recoloured — and that is exactly why it is worth the
+trouble over a fixed pack: this game needs a barefoot man in boxer shorts, a
+crowd of levies in matching blue, a red-hooded thug and a captain in gold, and
+no single downloadable pack contains that set. Stacking does.
+
+The recipes live at the top of [`tools/art-lpc.mjs`](tools/art-lpc.mjs) and are
+the file's whole point — edit a colour or swap a layer and rerun:
+
+```js
+grunt: {
+  cell: '52x64',
+  layers: [
+    [L.bodyDark], [L.pants, '#4a3f38'], [L.shirt, '#8c3a2c'],
+    [L.belt], [L.shoes], [L.hood, '#d63a2c'], [L.dagger],
+  ],
+},
+```
+
+Colours **multiply** rather than replace, so the artist's own shading survives —
+a flat recolour would throw away the only thing making these read as cloth.
+
+Three things worth knowing:
+
+- **Princess Donut is deliberately not in it.** She is a cat, LPC is a library
+  of humanoids, and a humanoid Donut would be worse than the painted cat. She
+  is the one character still drawn by `src/assets/atlas.ts`, along with all the
+  terrain, structures, props and UI.
+- **Spear carriers get a wider cell.** The shared crop box has to contain the
+  spear, and a box 60 px wide inside a 48 px cell costs a whole scale step —
+  which would draw the veteran levy *smaller* than the recruit beside him. The
+  extra width is transparent margin that buys the body its scale back. It does
+  mean the body sits a few pixels off-centre, since the box is centred on
+  body-plus-spear.
+- **The attack pose comes from LPC's slash rows, not its walk rows.** That is
+  what `--attack-map` is for. LPC's slash animation is drawn for swords, so a
+  spear carrier drops the spear in that one frame.
+
+**To go back to the painted art, empty `public/art/`.** Nothing else changes;
+the loader falls through to the generated frames.
 
 ## Importing a downloaded pack
 
