@@ -1,10 +1,10 @@
 import { CanvasSource, Texture } from 'pixi.js';
 import { CONFIG } from '../config';
 import { ISO_X, ISO_Y, blockBounds, toScreen } from '../iso';
-import { biomeAt, clutterAt, getWorld, roadDist, type Biome } from '../world/worldgen';
+import { biomeAt, clutterAt, fbm, getWorld, roadDist, type Biome } from '../world/worldgen';
 import { hex } from './palette';
 import { P } from './palette';
-import { cel, contactShadow, ellPath, polyPath, rrPath, tint } from './shade';
+import { cel, contactShadow, ellPath, mix, polyPath, rrPath, tint } from './shade';
 
 /**
  * Terrain is baked one chunk at a time, already in SCREEN space.
@@ -32,6 +32,32 @@ const GROUND: Record<Biome, { base: string; alt: string; speck: string }> = {
   scrub: { base: hex(C.grassDark), alt: hex(C.grassAlt), speck: hex(C.sandDark) },
 };
 
+/**
+ * The colour of the ground at a point, as a continuous field.
+ *
+ * This replaced a per-tile coin flip between two shades, and the difference is
+ * the single biggest thing in this file. A coin flip gives every tile an
+ * independent colour, and independent colours on a regular grid read as a
+ * CHECKERBOARD — the eye finds the lattice immediately and the whole field
+ * stops being ground and becomes a spreadsheet with grass on it.
+ *
+ * Three octaves of noise at different scales instead: a broad one that makes
+ * meadows and darker hollows tens of tiles across, a medium one for patchiness,
+ * and a fine one that keeps neighbouring tiles from ever being identical. The
+ * lattice disappears because there is no longer anything aligned to it.
+ */
+function groundTone(wx: number, wy: number, g: { base: string; alt: string; speck: string }): string {
+  const broad = fbm(wx * 0.0016, wy * 0.0016, 91);
+  const mid = fbm(wx * 0.0075, wy * 0.0075, 137);
+  const fine = fbm(wx * 0.031, wy * 0.031, 211);
+  // weighted so the broad shape leads and the fine detail only ever nudges
+  const t = broad * 0.5 + mid * 0.34 + fine * 0.16;
+  // dry, sun-bleached in the high places; lush and dark in the hollows
+  if (t > 0.56) return mix(g.base, g.alt, Math.min(1, (t - 0.56) * 3.4));
+  if (t < 0.44) return mix(g.base, g.speck, Math.min(1, (0.44 - t) * 2.6));
+  return g.base;
+}
+
 function tileRng(tx: number, ty: number, salt = 0): () => number {
   let a = (tx * 73856093) ^ (ty * 19349663) ^ (CONFIG.world.seed + salt);
   return () => {
@@ -44,6 +70,13 @@ function tileRng(tx: number, ty: number, salt = 0): () => number {
 
 /** Trace the diamond of one world tile whose top corner is (wx, wy). */
 function tilePath(c: CanvasRenderingContext2D, wx: number, wy: number, ox: number, oy: number): void {
+  tilePathSize(c, wx, wy, T, ox, oy);
+}
+
+/** The same, at an arbitrary edge length — used to quarter a tile. */
+function tilePathSize(
+  c: CanvasRenderingContext2D, wx: number, wy: number, T: number, ox: number, oy: number,
+): void {
   const a = toScreen(wx, wy);
   const b = toScreen(wx + T, wy);
   const d = toScreen(wx + T, wy + T);
@@ -64,10 +97,16 @@ function tilePath(c: CanvasRenderingContext2D, wx: number, wy: number, ox: numbe
  * simulation knows these exist.
  */
 function paintProp(
-  c: CanvasRenderingContext2D, kind: 'tree' | 'rock' | 'fence', sx: number, sy: number, r: () => number,
+  c: CanvasRenderingContext2D, kind: PropKind, sx: number, sy: number, r: () => number,
 ): void {
+  // Every leafy thing takes its own hue off the base green. A wood painted in
+  // one colour reads as wallpaper however good the individual tree is; ±8% of
+  // hue across a stand is the difference between "trees" and "a tree, copied".
+  const leaf = mix(P.tree, r() < 0.5 ? '#5aa34a' : '#2f7a35', r() * 0.55);
+  const leafDark = tint(leaf, -0.3);
+
   if (kind === 'tree') {
-    const h = 44 + r() * 20;
+    const h = 44 + r() * 22;
     contactShadow(c, sx + 5, sy + 1, 17, 0.3);
     // trunk, with a visible flare at the base
     cel(c, () => {
@@ -92,8 +131,8 @@ function paintProp(
       const [ox, oy, rad] = lobes[i];
       const wob = 0.85 + r() * 0.3;
       cel(c, ellPath(c, sx + ox, sy + oy, rad * wob, rad * 0.86 * wob),
-        i === lobes.length - 1 ? tint(P.tree, 0.1) : P.tree,
-        { depth: rad * 0.42, rim: rad * 0.22, dark: P.treeDark });
+        i === lobes.length - 1 ? tint(leaf, 0.1) : leaf,
+        { depth: rad * 0.42, rim: rad * 0.22, dark: leafDark });
     }
     // a couple of dapples on the lit side
     c.save();
@@ -122,6 +161,110 @@ function paintProp(
     c.lineTo(sx - w * 0.06, sy - w * 0.36);
     c.closePath();
     c.fill();
+    // moss on the shaded side of most of them — a bare grey boulder in a
+    // damp meadow is the one thing in this scene nothing has grown on
+    if (r() < 0.7) {
+      c.fillStyle = 'rgba(92,150,54,0.5)';
+      for (let i = 0; i < 3; i++) {
+        c.beginPath();
+        c.ellipse(sx + w * (0.1 + r() * 0.5), sy - w * (0.1 + r() * 0.3),
+          w * 0.22, w * 0.13, r() * 2, 0, Math.PI * 2);
+        c.fill();
+      }
+    }
+    c.restore();
+  } else if (kind === 'conifer') {
+    // A second species. One tree shape repeated across a whole map is the
+    // clearest tell that a field was generated rather than made, and a spruce
+    // is a different SILHOUETTE — a triangle among circles — so it reads as
+    // variety even at thirty pixels.
+    const h = 52 + r() * 26;
+    contactShadow(c, sx + 4, sy + 1, 13, 0.3);
+    cel(c, () => {
+      c.beginPath();
+      c.moveTo(sx - 2.6, sy);
+      c.lineTo(sx - 1.8, sy - h * 0.3);
+      c.lineTo(sx + 1.8, sy - h * 0.3);
+      c.lineTo(sx + 2.6, sy);
+      c.closePath();
+    }, P.woodDark, { depth: 1.6, rim: 0.8 });
+    const dark = mix(leaf, '#1f5c2e', 0.45);
+    for (let i = 0; i < 4; i++) {
+      const t = i / 3;
+      const w = 15 - t * 8.5;
+      const yy = sy - h * (0.24 + t * 0.62);
+      cel(c, polyPath(c, [
+        sx - w, yy, sx, yy - h * 0.24, sx + w, yy, sx, yy + 3.6,
+      ]), dark, { depth: w * 0.42, rim: w * 0.2, dark: tint(dark, -0.3) });
+    }
+  } else if (kind === 'bush') {
+    contactShadow(c, sx + 3, sy + 1, 12, 0.26);
+    const n = 3;
+    for (let i = 0; i < n; i++) {
+      const bx = sx + (i - 1) * 7 + (r() - 0.5) * 3;
+      const by = sy - 5 - r() * 4;
+      const rad = 7 + r() * 4;
+      cel(c, ellPath(c, bx, by, rad, rad * 0.82), leaf,
+        { depth: rad * 0.44, rim: rad * 0.22, dark: leafDark });
+    }
+    // a few berries, on half of them
+    if (r() < 0.5) {
+      c.fillStyle = '#c8384a';
+      for (let i = 0; i < 4; i++) {
+        c.beginPath();
+        c.arc(sx + (r() - 0.5) * 18, sy - 4 - r() * 9, 1.5, 0, Math.PI * 2);
+        c.fill();
+      }
+    }
+  } else if (kind === 'log') {
+    // A fallen trunk lying along one of the iso axes, with end grain showing.
+    const dir = r() < 0.5 ? 1 : -1;
+    const len = 12 + r() * 6;
+    const ey = len * (ISO_Y / ISO_X) * 0.5 * dir;
+    const th = 5.2;
+    contactShadow(c, sx + 2, sy + 2, len * 0.9, 0.24);
+    cel(c, () => {
+      c.beginPath();
+      c.moveTo(sx - dir * len, sy - ey - th);
+      c.lineTo(sx + dir * len, sy + ey - th);
+      c.lineTo(sx + dir * len, sy + ey + th * 0.5);
+      c.lineTo(sx - dir * len, sy - ey + th * 0.5);
+      c.closePath();
+    }, P.wood, { depth: 2.6, rim: 1.3 });
+    // bark: two strokes along the length, or it reads as a sawn plank
+    c.save();
+    c.strokeStyle = 'rgba(58,34,14,0.34)';
+    c.lineWidth = 0.9;
+    for (const o of [-1.6, 1.4]) {
+      c.beginPath();
+      c.moveTo(sx - dir * len * 0.8, sy - ey * 0.8 - th * 0.4 + o);
+      c.lineTo(sx + dir * len * 0.8, sy + ey * 0.8 - th * 0.4 + o);
+      c.stroke();
+    }
+    c.restore();
+    cel(c, ellPath(c, sx + dir * len, sy + ey - th * 0.25, 2.2, th * 0.75),
+      tint(P.wood, 0.24), { depth: 1, rim: 0.5, line: 1.3 });
+  } else if (kind === 'stump') {
+    contactShadow(c, sx + 2, sy + 1, 9, 0.26);
+    cel(c, () => {
+      c.beginPath();
+      c.moveTo(sx - 6, sy);
+      c.lineTo(sx - 5, sy - 9);
+      c.lineTo(sx + 5, sy - 9);
+      c.lineTo(sx + 6, sy);
+      c.closePath();
+    }, P.woodDark, { depth: 1.8, rim: 0.9 });
+    cel(c, ellPath(c, sx, sy - 9, 5.4, 2.9), tint(P.wood, 0.16),
+      { depth: 1.2, rim: 0.6 });
+    // rings
+    c.save();
+    c.strokeStyle = 'rgba(60,38,18,0.45)';
+    c.lineWidth = 0.8;
+    for (const rr of [1.6, 3.2]) {
+      c.beginPath();
+      c.ellipse(sx, sy - 9, rr, rr * 0.54, 0, 0, Math.PI * 2);
+      c.stroke();
+    }
     c.restore();
   } else {
     // a short run of split-rail fence, angled along one of the iso axes
@@ -155,14 +298,14 @@ function paintProp(
  * — three strokes each — and there are thousands of them.
  */
 function paintTuft(c: CanvasRenderingContext2D, sx: number, sy: number, r: () => number, base: string): void {
-  const n = 2 + Math.floor(r() * 2);
-  const lit = tint(base, 0.2);
-  const dark = tint(base, -0.16);
+  const n = 2 + Math.floor(r() * 3);
+  const lit = tint(base, 0.24);
+  const dark = tint(base, -0.18);
   for (let i = 0; i < n; i++) {
-    const x = sx + (r() - 0.5) * 14;
+    const x = sx + (r() - 0.5) * 15;
     const y = sy + (r() - 0.5) * 7;
-    const h = 3.4 + r() * 3.4;
-    const lean = (r() - 0.5) * 3.2;
+    const h = 3.4 + r() * 4.2;
+    const lean = (r() - 0.5) * 3.6;
     c.strokeStyle = i === 0 ? dark : lit;
     c.lineWidth = 1.5;
     c.lineCap = 'round';
@@ -171,6 +314,106 @@ function paintTuft(c: CanvasRenderingContext2D, sx: number, sy: number, r: () =>
     c.quadraticCurveTo(x + lean * 0.4, y - h * 0.6, x + lean, y - h);
     c.stroke();
   }
+}
+
+/**
+ * Wildflowers — three or four dots of one colour on short stems.
+ *
+ * Cheap, and worth more than they cost. A green field with nothing but green
+ * in it reads as a texture; the moment there are three white flowers and two
+ * yellow ones in shot, the same field reads as a MEADOW. They cluster because
+ * flowers do, and the cluster colour is picked once so a patch is one species
+ * rather than a bag of confetti.
+ */
+const FLOWERS = ['#f4f1e4', '#f2d05a', '#e08bb8', '#cfd8f0'];
+
+function paintFlowers(c: CanvasRenderingContext2D, sx: number, sy: number, r: () => number): void {
+  const col = FLOWERS[(r() * FLOWERS.length) | 0];
+  const n = 3 + Math.floor(r() * 4);
+  for (let i = 0; i < n; i++) {
+    const x = sx + (r() - 0.5) * 22;
+    const y = sy + (r() - 0.5) * 11;
+    const h = 3 + r() * 3;
+    c.strokeStyle = 'rgba(78,112,48,0.9)';
+    c.lineWidth = 1;
+    c.beginPath();
+    c.moveTo(x, y);
+    c.lineTo(x + (r() - 0.5) * 1.6, y - h);
+    c.stroke();
+    c.fillStyle = col;
+    c.beginPath();
+    c.arc(x + (r() - 0.5) * 1.6, y - h - 0.8, 1.5 + r() * 0.8, 0, Math.PI * 2);
+    c.fill();
+  }
+}
+
+// ─────────────────────────── props ───────────────────────────
+
+/** What can stand on a tile, and how often relative to each other. */
+export type PropKind = 'tree' | 'conifer' | 'rock' | 'fence' | 'bush' | 'log' | 'stump';
+
+/**
+ * Pick a prop for one tile.
+ *
+ * Weighted rather than uniform, and deliberately lopsided: broadleaf trees are
+ * the field's signature and everything else is seasoning. A field with equal
+ * numbers of seven prop types reads as a sample sheet, not a place.
+ */
+function pickProp(roll: number): PropKind {
+  if (roll < 0.32) return 'tree';
+  if (roll < 0.50) return 'conifer';
+  if (roll < 0.74) return 'bush';
+  if (roll < 0.88) return 'rock';
+  if (roll < 0.93) return 'log';
+  if (roll < 0.97) return 'stump';
+  return 'fence';
+}
+
+/**
+ * The light pass: broad cloud shadows over the whole chunk.
+ *
+ * Everything under this is lit identically everywhere, and uniform light is
+ * the thing that keeps reading as "computer graphics" no matter how good the
+ * texture underneath is — real ground outdoors is never one brightness across
+ * fifty metres. Two octaves of very slow noise, sampled on a coarse grid and
+ * painted as soft overlapping discs, put slow bands of shade across the field
+ * that a player walks in and out of.
+ *
+ * Drawn on the ground plane only, UNDER the props, so a tree is never dimmed
+ * by a cloud its own trunk is standing in the sun of. Cheap: a few dozen
+ * gradient discs per chunk, baked once.
+ */
+function paintCloudShade(
+  c: CanvasRenderingContext2D, wx0: number, wy0: number, ox: number, oy: number,
+): void {
+  const STEP = BLOCK / 4;
+  c.save();
+  for (let gy = -1; gy <= 4; gy++) {
+    for (let gx = -1; gx <= 4; gx++) {
+      const wx = wx0 + gx * STEP + STEP / 2;
+      const wy = wy0 + gy * STEP + STEP / 2;
+      const n = fbm(wx * 0.00085, wy * 0.00085, 1301);
+      if (n > 0.47) continue;
+      const strength = Math.min(0.16, (0.47 - n) * 0.55);
+      const s = toScreen(wx, wy);
+      const rad = STEP * 1.5;
+      const g = c.createRadialGradient(s.x - ox, s.y - oy, 0, s.x - ox, s.y - oy, rad);
+      g.addColorStop(0, `rgba(30,54,26,${strength.toFixed(3)})`);
+      g.addColorStop(1, 'rgba(30,54,26,0)');
+      c.fillStyle = g;
+      c.save();
+      // squashed to the ground plane, so the shadow lies ON the field rather
+      // than hanging in front of it as a circle
+      c.translate(s.x - ox, s.y - oy);
+      c.scale(1, ISO_Y / ISO_X);
+      c.translate(-(s.x - ox), -(s.y - oy));
+      c.beginPath();
+      c.arc(s.x - ox, s.y - oy, rad, 0, Math.PI * 2);
+      c.fill();
+      c.restore();
+    }
+  }
+  c.restore();
 }
 
 // ─────────────────────────── structures ───────────────────────────
@@ -514,26 +757,20 @@ export function getChunk(cx: number, cy: number): Texture {
       const r = tileRng(Math.round(wx / T), Math.round(wy / T));
       // jitter the biome sample so shade borders are ragged, not gridded
       const g = GROUND[biomeAt(wx + (r() - 0.5) * T * 1.4, wy + (r() - 0.5) * T * 1.4)];
-      tilePath(c, wx, wy, ox, oy);
-      c.fillStyle = r() < 0.76 ? g.base : g.alt;
-      c.fill();
-      if (r() < 0.34) {
-        c.fillStyle = g.speck;
-        c.globalAlpha = 0.2 + r() * 0.2;
-        c.fill();
-        c.globalAlpha = 1;
-      }
-      // a soft dark edge along the two far sides of each diamond, so the
-      // ground has grain instead of being a field of solid lozenges
-      if (r() < 0.5) {
-        const a = toScreen(wx, wy), b2 = toScreen(wx + T, wy), d2 = toScreen(wx + T, wy + T);
-        c.strokeStyle = 'rgba(40,64,26,0.09)';
-        c.lineWidth = 1.6;
-        c.beginPath();
-        c.moveTo(a.x - ox, a.y - oy);
-        c.lineTo(b2.x - ox, b2.y - oy);
-        c.lineTo(d2.x - ox, d2.y - oy);
-        c.stroke();
+
+      // Each tile is quartered and each quarter takes its own sample of the
+      // continuous field. Sampling once per TILE would still leave a lattice —
+      // finer than before, but a lattice. Quartering costs four fills instead
+      // of one and puts the colour steps at half the frequency the eye is
+      // looking for, which is what finally kills the grid.
+      const half = T / 2;
+      for (let qy = 0; qy < 2; qy++) {
+        for (let qx = 0; qx < 2; qx++) {
+          const sx0 = wx + qx * half, sy0 = wy + qy * half;
+          tilePathSize(c, sx0, sy0, half, ox, oy);
+          c.fillStyle = groundTone(sx0 + half * 0.5, sy0 + half * 0.5, g);
+          c.fill();
+        }
       }
     }
   }
@@ -548,6 +785,12 @@ export function getChunk(cx: number, cy: number): Texture {
       const g = GROUND[biomeAt(wx, wy)];
       const sp = toScreen(wx, wy);
       paintTuft(c, sp.x - ox, sp.y - oy, r, g.speck);
+      // Flowers come in patches, not evenly. Gating them on a slow noise field
+      // rather than on the per-tile roll means a meadow has flowery corners
+      // and bare corners, which is what a meadow has.
+      if (fbm(wx * 0.006, wy * 0.006, 55) > 0.62 && r() < 0.22) {
+        paintFlowers(c, sp.x - ox, sp.y - oy, r);
+      }
     }
   }
 
@@ -557,24 +800,61 @@ export function getChunk(cx: number, cy: number): Texture {
       const wx = wx0 + tx * T, wy = wy0 + ty * T;
       const d = roadDist(wx + T / 2, wy + T / 2);
       if (d > 90) continue;
+      const r = tileRng(Math.round(wx), Math.round(wy), 707);
+      // A ragged edge, not a clean one. The road is a track worn by feet, and
+      // the give-away that it was drawn by a distance function is a border of
+      // perfectly constant width — so the fade threshold itself gets noise.
+      const edge = 52 + fbm(wx * 0.02, wy * 0.02, 909) * 26 - 13;
+      const a = d < edge ? 0.95 : 0.95 * (1 - (d - edge) / 38);
+      if (a <= 0) continue;
       tilePath(c, wx, wy, ox, oy);
-      const a = d < 52 ? 0.95 : 0.95 * (1 - (d - 52) / 38);
-      c.fillStyle = `rgba(216,180,119,${a.toFixed(3)})`;
+      // Dust in the middle, damp packed earth at the margins, because the
+      // middle is where boots keep the grass off.
+      c.fillStyle = d < edge * 0.55
+        ? `rgba(222,188,128,${a.toFixed(3)})`
+        : `rgba(198,163,106,${a.toFixed(3)})`;
       c.fill();
-      // ruts and stones, only on the packed middle of the track
-      if (d < 46) {
-        const r = tileRng(Math.round(wx), Math.round(wy), 707);
-        if (r() < 0.4) {
-          const s2 = toScreen(wx + T / 2, wy + T / 2);
-          c.fillStyle = r() < 0.5 ? 'rgba(176,142,88,0.5)' : 'rgba(238,212,164,0.45)';
+
+      if (d < edge * 0.9) {
+        // Ruts run ALONG the track. Two parallel wheel lines drawn on the
+        // screen's axes would cross the road diagonally and read as scratches;
+        // stepping along the road's own gradient keeps them where cart wheels
+        // would actually have cut them.
+        const g = 6;
+        const gx = (roadDist(wx + g, wy) - roadDist(wx - g, wy));
+        const gy = (roadDist(wx, wy + g) - roadDist(wx, wy - g));
+        const gl = Math.hypot(gx, gy) || 1;
+        // along the road = perpendicular to the distance gradient
+        const ax = -gy / gl, ay = gx / gl;
+        for (const side of [-1, 1]) {
+          if (r() > 0.5) continue;
+          const cx = wx + T / 2 + (gx / gl) * side * 15;
+          const cy = wy + T / 2 + (gy / gl) * side * 15;
+          const p0 = toScreen(cx - ax * T * 0.4, cy - ay * T * 0.4);
+          const p1 = toScreen(cx + ax * T * 0.4, cy + ay * T * 0.4);
+          c.strokeStyle = 'rgba(168,133,80,0.32)';
+          c.lineWidth = 2.4;
+          c.lineCap = 'round';
           c.beginPath();
-          c.ellipse(s2.x - ox + (r() - 0.5) * 20, s2.y - oy + (r() - 0.5) * 10,
-            3 + r() * 4, 1.6 + r() * 2, 0, 0, Math.PI * 2);
+          c.moveTo(p0.x - ox, p0.y - oy);
+          c.lineTo(p1.x - ox, p1.y - oy);
+          c.stroke();
+        }
+        // loose stones
+        if (r() < 0.45) {
+          const s2 = toScreen(wx + T / 2, wy + T / 2);
+          c.fillStyle = r() < 0.5 ? 'rgba(150,140,128,0.55)' : 'rgba(238,212,164,0.5)';
+          c.beginPath();
+          c.ellipse(s2.x - ox + (r() - 0.5) * 22, s2.y - oy + (r() - 0.5) * 11,
+            1.6 + r() * 2.6, 1 + r() * 1.4, 0, 0, Math.PI * 2);
           c.fill();
         }
       }
     }
   }
+
+  // ── light, before anything that stands up off the ground ──
+  paintCloudShade(c, wx0, wy0, ox, oy);
 
   // ── props last: they sit on top of everything on the ground plane ──
   for (let ty = 0; ty < N; ty++) {
@@ -594,8 +874,7 @@ export function getChunk(cx: number, cy: number): Texture {
       }
       if (blocked) continue;
       const s = toScreen(wx, wy);
-      const roll = r();
-      paintProp(c, roll < 0.6 ? 'tree' : roll < 0.85 ? 'rock' : 'fence', s.x - ox, s.y - oy, r);
+      paintProp(c, pickProp(r()), s.x - ox, s.y - oy, r);
     }
   }
 
@@ -620,7 +899,7 @@ export function chunkOrigin(cx: number, cy: number): { x: number; y: number } {
   return { x: b.x - PAD, y: b.y - PAD };
 }
 
-// ─────────────────────────── structures ───────────────────────────
+
 
 /**
  * A structure's art, baked once into its own texture.
