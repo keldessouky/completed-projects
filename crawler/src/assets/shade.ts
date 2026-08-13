@@ -140,6 +140,64 @@ export function cel(
   }
 }
 
+/**
+ * Cel-shade a metal surface: the same three tones plus a hard specular sliver
+ * along the lit edge and a bounce-light band along the dark edge.
+ *
+ * Metal is the one material where three tones is not enough — what makes steel
+ * read as steel rather than as grey cloth is the narrow blown-out highlight and
+ * the fact that its shadow is never as dark as cloth's, because it is picking
+ * up light from everything around it.
+ */
+export function celMetal(
+  c: CanvasRenderingContext2D, path: PathFn, base: string, opts: CelOpts = {},
+): void {
+  cel(c, path, base, {
+    depth: opts.depth ?? 2.4,
+    rim: opts.rim ?? 1.1,
+    line: opts.line,
+    dark: opts.dark ?? tint(base, -0.34),
+    light: opts.light ?? tint(base, 0.34),
+  });
+  // Specular: a bright band hugging the lit edge, drawn as a STROKE of the
+  // path shifted toward the light and clipped to the shape.
+  //
+  // The obvious implementation — flood the shape white, then punch the middle
+  // back out with destination-out — does not work: destination-out removes the
+  // pixels underneath as well as the white, so every metal surface ends up
+  // full of holes. On a fully armoured character that reads as a ghost.
+  const rim = (opts.rim ?? 1.1) * 1.5;
+  c.save();
+  path();
+  c.clip();
+  c.strokeStyle = 'rgba(255,253,244,0.5)';
+  c.lineWidth = rim;
+  c.lineJoin = 'round';
+  c.save();
+  c.translate(LIGHT_X * rim * 0.5, LIGHT_Y * rim * 0.5);
+  path();
+  c.stroke();
+  c.restore();
+  c.restore();
+}
+
+/**
+ * Darken a strip just inside a path's edge — the occlusion where one piece of
+ * kit overlaps another. Plate on cloth without this reads as a sticker.
+ */
+export function occlude(
+  c: CanvasRenderingContext2D, under: PathFn, over: PathFn, spread = 2.4, strength = 0.3,
+): void {
+  c.save();
+  under();
+  c.clip();
+  c.strokeStyle = `rgba(12,10,16,${strength})`;
+  c.lineWidth = spread * 2;
+  over();
+  c.stroke();
+  c.restore();
+}
+
 // ─────────────────────────── path helpers ───────────────────────────
 
 export const rrPath = (

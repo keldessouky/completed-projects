@@ -2,7 +2,7 @@ import { CanvasSource, Rectangle, Texture } from 'pixi.js';
 import { P } from './palette';
 import {
   FRAMES_PER_FACING, FACINGS, type Facing, type FigureOpts, type Materials,
-  BUILD, blade, bow, drawFigure, drawHead, hafted, poseFor, scaleBuild, spearArm,
+  BUILD, blade, bow, drawFigure, hafted, poseFor, scaleBuild, spearArm,
 } from './figure';
 import {
   INK, alpha, cel, circPath, contactShadow, ellPath, mix, polyPath, rrPath, tint,
@@ -219,95 +219,110 @@ export class GameAtlas {
 
   // ---------- the cast ----------
   private paintCast(): void {
-    const carlBuild = scaleBuild(BUILD, 1.3, 1.06);
+    /**
+     * Carl. Barefoot, boxer shorts, no plan — and now with a leather belt, a
+     * strap across the chest and an actual machete rather than a wedge. Built
+     * a head taller and broader than a levy so the one the stick is attached
+     * to is never in question in a crowd of sixty.
+     */
+    const carlBuild = scaleBuild(BUILD, 1.2, 1.02);
     const carlMat: Materials = {
       skin: P.skin, hair: P.hair, cloth: P.skin,
       trouser: P.shorts, leather: P.leatherDark, steel: P.steel,
+      trim: P.goldDark,
     };
-
-    /**
-     * Carl. Barefoot, boxer shorts, no plan. Built a head taller and a shade
-     * broader than a levy so that in a crowd of sixty the one the stick is
-     * attached to is never in question.
-     */
-    this.paintActor('hero', 60, 76, (facing, frame) => ({
+    this.paintActor('hero', 66, 84, (facing, frame) => ({
       build: carlBuild,
       mat: carlMat,
       facing,
       pose: poseFor(frame),
       bareArms: true,
       bareLegs: true,
-      weapon: (c, hx, hy, a) => blade(c, hx, hy, a, 22, 4.4, P.steel, P.leatherDark),
-      overlay: (c, cx, foot) => {
-        // the checked waistband of the shorts, over the hips
-        const b = carlBuild;
-        const y = foot - b.leg - 2.6;
+      weapon: (c, hx, hy, a) => blade(c, hx, hy, a, 24, 4.6, P.steel, P.leatherDark),
+      overlay: (c, cx, foot, o) => {
+        const b = o.build;
+        const hipY = foot - b.thigh - b.shin + o.pose.bob;
+        // the check on the shorts, clipped to the leg tops
         c.save();
-        rrPath(c, cx - b.torsoW * 0.56, y, b.torsoW * 1.12, 4.6, 1.6)();
+        c.beginPath();
+        c.rect(cx - b.hip * 1.4, hipY - 1, b.hip * 2.8, b.thigh * 0.7);
         c.clip();
-        c.fillStyle = tint(P.shorts, 0.24);
-        for (let i = -6; i < 7; i++) c.fillRect(cx + i * 4.4, y, 2.1, 5);
+        c.fillStyle = tint(P.shorts, 0.22);
+        for (let i = -5; i < 6; i++) c.fillRect(cx + i * 4.2, hipY - 1, 2, b.thigh);
         c.restore();
+        // a scavenged strap across the chest
+        const shoulderY = hipY - b.torsoH;
+        cel(c, () => {
+          c.beginPath();
+          c.moveTo(cx - b.shoulder * 0.85, shoulderY + 2);
+          c.lineTo(cx - b.shoulder * 0.4, shoulderY + 2);
+          c.lineTo(cx + b.hip * 0.9, hipY - 3);
+          c.lineTo(cx + b.hip * 0.45, hipY - 3);
+          c.closePath();
+        }, P.leather, { depth: 1.4, rim: 0.7, line: 1.4 });
       },
     }));
 
-    this.place('hero_dead', 62, 46, (c, w, h) => {
+    this.place('hero_dead', 70, 50, (c, w, h) => {
       const cx = w / 2, cy = h / 2;
-      contactShadow(c, cx, cy + 12, 22, 0.4);
+      contactShadow(c, cx, cy + 13, 24, 0.4);
       c.save();
       c.translate(cx, cy + 4);
       c.rotate(Math.PI / 2);
-      cel(c, rrPath(c, -11, -17, 22, 17, 7), P.skin, { depth: 3, rim: 1.5 });
-      cel(c, rrPath(c, -11, 0, 22, 14, 4), P.shorts, { depth: 2.6, rim: 1.4 });
-      cel(c, circPath(c, 0, -26, 10.4), P.skin, { depth: 3, rim: 1.6 });
+      cel(c, rrPath(c, -11, -18, 22, 18, 7), P.skin, { depth: 3, rim: 1.5 });
+      cel(c, rrPath(c, -11, 0, 22, 15, 4), P.shorts, { depth: 2.6, rim: 1.4 });
+      cel(c, circPath(c, 0, -28, 11), P.skin, { depth: 3, rim: 1.6 });
       cel(c, () => {
         c.beginPath();
-        c.arc(0, -26.6, 10.7, Math.PI * 0.99, Math.PI * 2.01);
+        c.arc(0, -28.6, 11.3, Math.PI * 0.99, Math.PI * 2.01);
         c.closePath();
       }, P.hair, { depth: 3, rim: 1.5 });
       c.restore();
-      // the System does not acknowledge that a person has died, but the art can
       c.strokeStyle = INK;
-      c.lineWidth = 1.6;
-      for (const dx of [-6, 6]) {
+      c.lineWidth = 1.7;
+      for (const dx of [-7, 7]) {
         c.beginPath();
-        c.moveTo(cx + dx - 3, cy - 16); c.lineTo(cx + dx + 3, cy - 10);
-        c.moveTo(cx + dx + 3, cy - 16); c.lineTo(cx + dx - 3, cy - 10);
+        c.moveTo(cx + dx - 3.4, cy - 17); c.lineTo(cx + dx + 3.4, cy - 10);
+        c.moveTo(cx + dx + 3.4, cy - 17); c.lineTo(cx + dx - 3.4, cy - 10);
         c.stroke();
       }
     });
 
-    // ── the crew ──
-    const levyBuild = scaleBuild(BUILD, 0.94);
-    const TIER: { cloth: string; trouser: string; helm?: string }[] = [
-      { cloth: P.levy, trouser: P.leatherDark },
-      { cloth: P.ally, trouser: P.leatherDark, helm: undefined },
-      { cloth: P.allyDark, trouser: P.leatherDark, helm: P.steel },
-    ];
-    TIER.forEach((t, i) => {
-      const mat: Materials = {
-        skin: P.skin, hair: P.hair, cloth: t.cloth, trouser: t.trouser,
+    // ── the crew: three tiers of increasingly real kit ──
+    const levyBuild = scaleBuild(BUILD, 0.96);
+    const TIER: Materials[] = [
+      // conscript: a tunic, a belt, nothing else
+      {
+        skin: P.skin, hair: P.hair, cloth: P.levy, trouser: P.leatherDark,
         leather: P.leatherDark, steel: P.steel,
-        accent: i > 0 ? tint(t.cloth, -0.24) : undefined,
-        helm: t.helm,
-      };
-      this.paintActor(`levy${i}`, 40, 52, (facing, frame) => ({
+      },
+      // militia: a surcoat over the tunic and bracers
+      {
+        skin: P.skin, hair: P.hair, cloth: P.ally, trouser: P.leatherDark,
+        leather: P.leatherDark, steel: P.steel,
+        tabard: P.allyDark, trim: P.goldDark, bracer: P.leather,
+      },
+      // veteran: helmet, breastplate, pauldrons, greaves
+      {
+        skin: P.skin, hair: P.hair, cloth: P.allyDark, trouser: P.ink,
+        leather: P.leatherDark, steel: P.steel,
+        plate: P.steel, pauldron: P.steelDark, bracer: P.steelDark,
+        greave: P.steelDark, helm: P.steel, tabard: P.ally, trim: P.gold,
+      },
+    ];
+    TIER.forEach((mat, i) => {
+      this.paintActor(`levy${i}`, 48, 62, (facing, frame) => ({
         build: levyBuild,
         mat,
         facing,
         pose: poseFor(frame),
-        weapon: (c, hx, hy, a) => spearArm(c, hx, hy, a, 24, P.wood, P.steel),
+        weapon: (c, hx, hy, a) => spearArm(c, hx, hy, a, 26, P.wood, P.steel),
       }));
     });
 
     this.paintDonut();
   }
 
-  /**
-   * Princess Donut. Not the rig — she is a cat, and forcing her onto a
-   * humanoid skeleton to save a hundred lines would cost the one silhouette in
-   * the game that has to be recognisable at a glance in a crowd of people.
-   */
   private paintDonut(): void {
     const donut = (facing: Facing, frame: number): DrawFn => (c, w, h) => {
       const cx = w / 2, foot = h - 3;
@@ -330,15 +345,16 @@ export class GameAtlas {
         c.closePath();
       }, P.fur, { depth: 2, rim: 1 });
 
-      // legs
-      for (const d of [-1, 1]) {
-        const lx = cx + d * 6 + side * 2;
-        cel(c, rrPath(c, lx - 2.4, by + 5 + (d * stride > 0 ? -1 : 0), 4.8, 9, 2.2),
-          tint(P.fur, d < 0 ? -0.14 : 0), { depth: 1.4, rim: 0.7, line: 1.5 });
+      // four legs, front pair offset from the back pair by the stride
+      for (const [d, back] of [[-1, 1], [1, 1], [-1, 0], [1, 0]] as const) {
+        const lx = cx + d * 5.4 - back * side * 5 + side * 2.5;
+        const lift = (back ? -1 : 1) * d * stride;
+        cel(c, rrPath(c, lx - 2.1, by + 5.5 + (lift > 0 ? -1.6 : 0), 4.2, 9.5, 2),
+          tint(P.fur, back || d < 0 ? -0.16 : 0), { depth: 1.3, rim: 0.7, line: 1.4 });
       }
 
-      // body
-      cel(c, ellPath(c, cx, by, 13, 9.4), P.fur, { depth: 3, rim: 1.6 });
+      // body: an oval lying along the ground, not a ball
+      cel(c, ellPath(c, cx, by + 1, 11.5, 7.4), P.fur, { depth: 3, rim: 1.6 });
       if (away < 0.7) {
         cel(c, ellPath(c, cx - side * 2, by + 2.4, 6.4, 5), P.furLight,
           { depth: 1.4, rim: 0.8, line: 0 });
@@ -346,8 +362,8 @@ export class GameAtlas {
 
       // head
       const hx = cx + side * 5;
-      const hy = by - 12 - (away > 0.6 ? 1 : 0);
-      const r = 9.2;
+      const hy = by - 13 - (away > 0.6 ? 1 : 0);
+      const r = 8.6;
       cel(c, polyPath(c, [hx - 8, hy - 3.6, hx - 5.8, hy - 13, hx - 2, hy - 4.8]), P.fur,
         { depth: 1.6, rim: 0.9, line: 1.6 });
       cel(c, polyPath(c, [hx + 2, hy - 4.8, hx + 5.8, hy - 13, hx + 8, hy - 3.6]), P.fur,
@@ -386,113 +402,104 @@ export class GameAtlas {
 
   // ---------- the enemy roster ----------
   private paintEnemies(): void {
-    // ── Redcloak: the number you fight, not the fight itself ──
+    // ── Redcloak: a hooded footsoldier in a red surcoat ──
     const gruntMat: Materials = {
-      skin: P.skinShade, hair: P.hair, cloth: P.foe, trouser: P.ink,
-      leather: P.leatherDark, steel: P.steel, accent: P.foeDark, cape: P.foeDark,
+      skin: P.skinShade, hair: P.hair, cloth: P.foeDark, trouser: P.ink,
+      leather: P.leatherDark, steel: P.steel,
+      tabard: P.foe, trim: P.goldDark, hood: P.foe,
+      bracer: P.leather,
     };
-    this.paintActor('grunt', 46, 54, (facing, frame) => ({
-      build: scaleBuild(BUILD, 0.98),
+    this.paintActor('grunt', 52, 64, (facing, frame) => ({
+      build: scaleBuild(BUILD, 1.0),
       mat: gruntMat,
       facing,
       pose: poseFor(frame),
-      weapon: (c, hx, hy, a) => blade(c, hx, hy, a, 14, 3.6, P.steel, P.leatherDark),
-      head: (c, hx, hy, o) => {
-        drawHead(c, hx, hy, { ...o, mat: { ...o.mat, helm: undefined } });
-        // the hood is the identity: one loud red shape over the skull
-        const r = o.build.head;
-        cel(c, () => {
-          c.beginPath();
-          c.arc(hx, hy - r * 0.05, r * 1.12, Math.PI * 0.94, Math.PI * 2.06);
-          c.lineTo(hx + r * 1.12, hy + r * 0.5);
-          c.quadraticCurveTo(hx, hy - r * 0.1, hx - r * 1.12, hy + r * 0.5);
-          c.closePath();
-        }, P.foe, { depth: r * 0.3, rim: r * 0.16 });
-      },
+      weapon: (c, hx, hy, a) => blade(c, hx, hy, a, 16, 3.8, P.steel, P.leatherDark),
     }));
 
-    // ── Slinger: thin, hangs back, and the reason you keep moving ──
+    // ── Slinger: leather, a red sash, a quiver and a bow ──
     const archerMat: Materials = {
       skin: P.skinShade, hair: P.hairLight, cloth: P.leather, trouser: P.leatherDark,
-      leather: P.leatherDark, steel: P.steel, accent: P.foe,
+      leather: P.leatherDark, steel: P.steel,
+      trim: P.foe, bracer: P.leatherDark,
     };
-    this.paintActor('archer', 48, 54, (facing, frame) => ({
-      build: scaleBuild(BUILD, 0.95),
+    this.paintActor('archer', 54, 64, (facing, frame) => ({
+      build: scaleBuild(BUILD, 0.97),
       mat: archerMat,
       facing,
       pose: poseFor(frame),
-      weapon: (c, hx, hy, a, o) => bow(c, hx, hy, a, 13, P.wood, o.pose.swing > 0),
-      back: (c, cx, foot, o) => {
-        // quiver over the far shoulder, with arrows in it
+      weapon: (c, hx, hy, a, o) => bow(c, hx, hy, a, 10, P.wood, o.pose.swing > 0),
+      overlay: (c, cx, foot, o) => {
+        // a red sash across the chest: still theirs, without a slab of surcoat
         const b = o.build;
-        const y = foot - b.leg - b.torsoH + 2;
+        const hipY = foot - b.thigh - b.shin + o.pose.bob;
+        const shoulderY = hipY - b.torsoH;
+        cel(c, () => {
+          c.beginPath();
+          c.moveTo(cx - b.shoulder * 0.8, shoulderY + 2.5);
+          c.lineTo(cx - b.shoulder * 0.36, shoulderY + 2.5);
+          c.lineTo(cx + b.hip * 0.95, hipY - 3.5);
+          c.lineTo(cx + b.hip * 0.5, hipY - 3.5);
+          c.closePath();
+        }, P.foe, { depth: 1.4, rim: 0.7, line: 1.4 });
+      },
+      back: (c, cx, foot, o) => {
+        const b = o.build;
+        const y = foot - b.thigh - b.shin - b.torsoH + 2;
         c.save();
-        c.translate(cx - b.shoulder * 0.7, y);
-        c.rotate(0.42);
-        cel(c, rrPath(c, -3.4, 0, 6.8, 15, 2.4), P.leatherDark, { depth: 1.4, rim: 0.8, line: 1.5 });
+        c.translate(cx - b.shoulder * 1.05, y + 2);
+        c.rotate(0.5);
+        cel(c, rrPath(c, -2.8, 0, 5.6, 13, 2), P.leatherDark, { depth: 1.3, rim: 0.7, line: 1.4 });
         for (let i = -1; i <= 1; i++) {
-          cel(c, rrPath(c, i * 2.1 - 0.5, -6, 1.4, 7, 0.6), P.bone, { depth: 0.5, rim: 0.3, line: 0.9 });
+          cel(c, rrPath(c, i * 1.8 - 0.5, -5.5, 1.2, 6.5, 0.6), P.bone,
+            { depth: 0.4, rim: 0.25, line: 0.8 });
         }
         c.restore();
       },
     }));
 
-    // ── Bruiser: wide, slow, and it takes two of you with it ──
+    // ── Bruiser: full plate, a closed helm and a maul ──
     const heavyMat: Materials = {
-      skin: P.skinShade, hair: P.hair, cloth: P.foeDark, trouser: P.ink,
-      leather: P.leatherDark, steel: P.steelDark, accent: P.steelDark, helm: P.steelDark,
+      skin: P.skinShade, hair: P.hair, cloth: P.foeDark, trouser: P.leatherDark,
+      leather: P.leatherDark, steel: P.steel,
+      plate: P.steel, pauldron: P.steel, fauld: P.steelDark,
+      bracer: P.steelDark, greave: P.steelDark, helm: P.steel,
+      trim: P.foe, beard: P.hair,
     };
-    this.paintActor('heavy', 64, 68, (facing, frame) => ({
-      build: scaleBuild(BUILD, 1.24, 0.92),
+    this.paintActor('heavy', 72, 80, (facing, frame) => ({
+      build: scaleBuild(BUILD, 1.24, 0.9),
       mat: heavyMat,
       facing,
       pose: poseFor(frame),
-      weapon: (c, hx, hy, a) => hafted(c, hx, hy, a, 24, P.wood, 17, 11, P.stoneDark),
-      overlay: (c, cx, foot, o) => {
-        // a slab of plate over the chest, so the silhouette is unmistakably
-        // heavier than a redcloak's at the same distance
-        const b = o.build;
-        const y = foot - b.leg - b.torsoH;
-        cel(c, rrPath(c, cx - b.torsoW * 0.46, y + 2, b.torsoW * 0.92, b.torsoH * 0.62, 3),
-          P.steelDark, { depth: 2.6, rim: 1.4 });
-        cel(c, rrPath(c, cx - b.torsoW * 0.62, y + 1, b.torsoW * 0.3, b.torsoH * 0.42, 3),
-          P.steel, { depth: 1.8, rim: 1 });
-        cel(c, rrPath(c, cx + b.torsoW * 0.32, y + 1, b.torsoW * 0.3, b.torsoH * 0.42, 3),
-          P.steel, { depth: 1.8, rim: 1 });
-      },
+      weapon: (c, hx, hy, a) => hafted(c, hx, hy, a, 26, P.wood, 18, 12, P.stoneDark),
     }));
 
-    // ── Floor Captain: a camp's worth of health with a plume on top ──
+    // ── Floor Captain: gilt plate, a cape and a plumed helm ──
     const captainMat: Materials = {
       skin: P.skinShade, hair: P.hair, cloth: P.steelDark, trouser: P.ink,
-      leather: P.leatherDark, steel: P.steel, accent: P.gold,
-      cape: P.foeDark, helm: P.steelDark,
+      leather: P.leatherDark, steel: P.steel,
+      plate: P.steel, pauldron: P.steel, fauld: P.steelDark,
+      bracer: P.steelDark, greave: P.steelDark, helm: P.steelDark,
+      cape: P.foeDark, trim: P.gold,
     };
-    this.paintActor('captain', 78, 92, (facing, frame) => ({
-      build: scaleBuild(BUILD, 1.5, 0.86),
+    this.paintActor('captain', 88, 106, (facing, frame) => ({
+      build: scaleBuild(BUILD, 1.46, 0.88),
       mat: captainMat,
       facing,
       pose: poseFor(frame),
-      weapon: (c, hx, hy, a) => blade(c, hx, hy, a, 40, 6.4, P.steel, P.gold),
+      weapon: (c, hx, hy, a) => blade(c, hx, hy, a, 40, 6.4, P.steel, P.gold, 1.15),
       overlay: (c, cx, foot, o) => {
         const b = o.build;
-        const y = foot - b.leg - b.torsoH;
-        // pauldrons
-        for (const d of [-1, 1]) {
-          cel(c, ellPath(c, cx + d * b.shoulder * 0.92, y + 3, b.shoulder * 0.42, b.shoulder * 0.34),
-            P.steel, { depth: 2.2, rim: 1.2 });
-        }
-        // gilt sternum band
-        cel(c, rrPath(c, cx - 2, y + 2, 4, b.torsoH - 2, 1.4), P.gold, { depth: 1.4, rim: 0.8, line: 1.4 });
-        // the plume, above the helm
-        const hy = y - b.head * 0.72;
+        const hipY = foot - b.thigh - b.shin + o.pose.bob;
+        const headY = hipY - b.torsoH - b.head * 0.86;
+        // the plume, sweeping back off the crown
         cel(c, () => {
           c.beginPath();
-          c.moveTo(cx - 3, hy - b.head * 1.05);
-          c.quadraticCurveTo(cx + 3, hy - b.head * 2.4, cx + 15, hy - b.head * 2.1);
-          c.quadraticCurveTo(cx + 6, hy - b.head * 1.5, cx + 4, hy - b.head * 0.95);
+          c.moveTo(cx - 3.4, headY - b.head * 1.24);
+          c.quadraticCurveTo(cx + 3, headY - b.head * 2.7, cx + 17, headY - b.head * 2.3);
+          c.quadraticCurveTo(cx + 7, headY - b.head * 1.7, cx + 4.6, headY - b.head * 1.1);
           c.closePath();
-        }, P.foe, { depth: 2.6, rim: 1.4 });
+        }, P.foe, { depth: 3, rim: 1.5 });
       },
     }));
   }
