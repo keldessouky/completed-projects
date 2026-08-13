@@ -23,7 +23,7 @@ npm run build:single # → dist-single/crawler.html, the whole game in one file
 npm run smoke        # headless Chromium playthrough of a whole run
 npm run smoke:single # …the same 19 checks against the one-file build
 npm run art:export   # → art-template/, the cast as PNG sheets you can repaint
-npm run art:import   # slice a generated contact sheet into a usable sheet
+npm run art:import   # slice a downloaded pack or a generated sheet into one
 npm run art:check    # verify custom sheets in public/art/ before you reload
 ```
 
@@ -160,7 +160,7 @@ line for `hero`, so it reads:
 {
   "scale": 3,
   "actors": {
-    "hero": { "file": "hero.png", "cell": [60, 76] }
+    "hero": { "file": "hero.png", "cell": [66, 84] }
   }
 }
 ```
@@ -236,22 +236,22 @@ sheet height = cell height × scale × 5
 
 `scale` is how many image pixels you are drawing per **design pixel** — the
 game's own unit, of which the screen is 440 × 956. The shipped art uses
-`scale: 3`, so a character that occupies 60 × 76 design pixels on screen is
-painted at 180 × 228.
+`scale: 3`, so a character that occupies 66 × 84 design pixels on screen is
+painted at 198 × 252.
 
 These are the current cell sizes, which is what `art:export` gives you:
 
 | Sheet | Cell (design px) | Sheet at scale 3 | Who |
 | --- | --- | --- | --- |
-| `hero.png` | 60 × 76 | 900 × 1140 | Carl |
+| `hero.png` | 66 × 84 | 990 × 1260 | Carl |
 | `donut.png` | 44 × 50 | 660 × 750 | Princess Donut |
-| `levy0.png` | 40 × 52 | 600 × 780 | your crew, under 12 |
-| `levy1.png` | 40 × 52 | 600 × 780 | your crew, 12–29 |
-| `levy2.png` | 40 × 52 | 600 × 780 | your crew, 30+ |
-| `grunt.png` | 46 × 54 | 690 × 810 | Redcloak |
-| `archer.png` | 48 × 54 | 720 × 810 | Slinger |
-| `heavy.png` | 64 × 68 | 960 × 1020 | Bruiser |
-| `captain.png` | 78 × 92 | 1170 × 1380 | Floor Captain |
+| `levy0.png` | 48 × 62 | 720 × 930 | your crew, under 12 |
+| `levy1.png` | 48 × 62 | 720 × 930 | your crew, 12–29 |
+| `levy2.png` | 48 × 62 | 720 × 930 | your crew, 30+ |
+| `grunt.png` | 52 × 64 | 780 × 960 | Redcloak |
+| `archer.png` | 54 × 64 | 810 × 960 | Slinger |
+| `heavy.png` | 72 × 80 | 1080 × 1200 | Bruiser |
+| `captain.png` | 88 × 106 | 1320 × 1590 | Floor Captain |
 
 You can change a cell size — a taller hero just needs its `cell` updated and
 the PNG resized to match. `npm run art:check` does that arithmetic for you and
@@ -287,8 +287,8 @@ will happily ignore them (`art:check` warns about that).
 {
   "scale": 3,
   "actors": {
-    "hero":  { "file": "hero.png",  "cell": [60, 76] },
-    "grunt": { "file": "grunt.png", "cell": [46, 54] },
+    "hero":  { "file": "hero.png",  "cell": [66, 84] },
+    "grunt": { "file": "grunt.png", "cell": [52, 64] },
     "boss":  { "file": "boss.png",  "cell": [96, 120], "scale": 4 }
   }
 }
@@ -387,7 +387,7 @@ some characters on a background, at whatever scale and spacing they felt like,
 usually with labels baked in. `art:import` bridges that gap:
 
 ```bash
-npm run art:import -- sheet.png --kind hero --cell 60x76 --rows 1 --preview
+npm run art:import -- sheet.png --kind hero --cell 66x84 --rows 1 --preview
 ```
 
 It keys out the background, finds each figure, resamples them all by one
@@ -428,8 +428,8 @@ npm run art:check
 ```
 
 ```
-  ok  hero: hero.png is 900×1140
-FAIL  grunt: grunt.png is 690×812, expected 690×810 (cell 46×54 × scale 3 × 5×5 cells)
+  ok  hero: hero.png is 990×1260  (5 of 5 facing rows)
+FAIL  grunt: grunt.png is 780×962, expected 780 wide and a whole number of 192px rows
 ```
 
 Wrong sheet size is the failure worth having a command for, because it is the

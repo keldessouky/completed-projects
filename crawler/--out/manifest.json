@@ -1,0 +1,68 @@
+{
+  "scale": 3,
+  "actors": {
+    "archer": {
+      "file": "archer.png",
+      "cell": [
+        54,
+        64
+      ]
+    },
+    "captain": {
+      "file": "captain.png",
+      "cell": [
+        88,
+        106
+      ]
+    },
+    "donut": {
+      "file": "donut.png",
+      "cell": [
+        44,
+        50
+      ]
+    },
+    "grunt": {
+      "file": "grunt.png",
+      "cell": [
+        52,
+        64
+      ]
+    },
+    "heavy": {
+      "file": "heavy.png",
+      "cell": [
+        72,
+        80
+      ]
+    },
+    "hero": {
+      "file": "hero.png",
+      "cell": [
+        66,
+        84
+      ]
+    },
+    "levy0": {
+      "file": "levy0.png",
+      "cell": [
+        48,
+        62
+      ]
+    },
+    "levy1": {
+      "file": "levy1.png",
+      "cell": [
+        48,
+        62
+      ]
+    },
+    "levy2": {
+      "file": "levy2.png",
+      "cell": [
+        48,
+        62
+      ]
+    }
+  }
+}
