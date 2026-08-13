@@ -32,6 +32,8 @@ export interface ActorEntry {
   cell: [number, number];
   /** pixels per design pixel in this sheet; overrides the manifest default */
   scale?: number;
+  /** sample this sheet with nearest-neighbour; overrides the manifest default */
+  pixelArt?: boolean;
 }
 
 export interface SpriteEntry {
@@ -39,11 +41,22 @@ export interface SpriteEntry {
   /** the frame's size in design pixels: [width, height] */
   size: [number, number];
   scale?: number;
+  pixelArt?: boolean;
 }
 
 export interface ArtManifest {
   /** default pixels per design pixel for every sheet in this manifest */
   scale?: number;
+  /**
+   * Sample every sheet with nearest-neighbour instead of bilinear.
+   *
+   * Turn this on for pixel art, which is nearly all free sprite art. A 32 px
+   * character drawn at 128 px through a bilinear filter is a smear; through
+   * nearest it is what the artist drew, four times the size. Getting this
+   * wrong is the single most common way imported pixel art looks worse than
+   * the code-painted art it replaced.
+   */
+  pixelArt?: boolean;
   /** animated cast, keyed by the atlas kind: hero, donut, levy0…2, grunt… */
   actors?: Record<string, ActorEntry>;
   /** anything else, keyed by the exact atlas frame name */
@@ -84,7 +97,8 @@ const load = (url: string): Promise<HTMLImageElement> =>
  * answer, and this is that answer.
  */
 function flashFrom(
-  img: HTMLImageElement, sx: number, sy: number, sw: number, sh: number, scale: number,
+  img: HTMLImageElement, sx: number, sy: number, sw: number, sh: number,
+  scale: number, pixelArt: boolean,
 ): Texture {
   const canvas = document.createElement('canvas');
   canvas.width = sw;
@@ -94,7 +108,9 @@ function flashFrom(
   c.globalCompositeOperation = 'source-atop';
   c.fillStyle = 'rgba(255,255,255,0.78)';
   c.fillRect(0, 0, sw, sh);
-  const source = new CanvasSource({ resource: canvas, resolution: scale, scaleMode: 'linear' });
+  const source = new CanvasSource({
+    resource: canvas, resolution: scale, scaleMode: pixelArt ? 'nearest' : 'linear',
+  });
   return new Texture({ source });
 }
 
@@ -107,9 +123,11 @@ function flashFrom(
  * which is a perfectly reasonable way to start.
  */
 async function installActor(
-  atlas: GameAtlas, kind: string, entry: ActorEntry, defScale: number, notes: string[],
+  atlas: GameAtlas, kind: string, entry: ActorEntry, defScale: number,
+  defPixel: boolean, notes: string[],
 ): Promise<void> {
   const scale = entry.scale ?? defScale;
+  const pixelArt = entry.pixelArt ?? defPixel;
   const [cw, ch] = entry.cell;
   const pw = Math.round(cw * scale);
   const ph = Math.round(ch * scale);
@@ -124,7 +142,9 @@ async function installActor(
     );
   }
 
-  const source = new ImageSource({ resource: img, resolution: scale, scaleMode: 'linear' });
+  const source = new ImageSource({
+    resource: img, resolution: scale, scaleMode: pixelArt ? 'nearest' : 'linear',
+  });
   for (let r = 0; r < SHEET_ROWS.length; r++) {
     const row = Math.min(r, rows - 1);
     for (let n = 0; n < SHEET_COLS; n++) {
@@ -136,16 +156,19 @@ async function installActor(
       atlas.frames[`${kind}_${SHEET_ROWS[r]}_${n}`] = new Texture({ source, frame });
     }
   }
-  atlas.frames[`${kind}_flash`] = flashFrom(img, 0, 0, pw, ph, scale);
+  atlas.frames[`${kind}_flash`] = flashFrom(img, 0, 0, pw, ph, scale, pixelArt);
 }
 
 /** Install one still frame, by its exact atlas name. */
 async function installSprite(
-  atlas: GameAtlas, name: string, entry: SpriteEntry, defScale: number,
+  atlas: GameAtlas, name: string, entry: SpriteEntry, defScale: number, defPixel: boolean,
 ): Promise<void> {
   const scale = entry.scale ?? defScale;
   const img = await load(artUrl(entry.file));
-  const source = new ImageSource({ resource: img, resolution: scale, scaleMode: 'linear' });
+  const source = new ImageSource({
+    resource: img, resolution: scale,
+    scaleMode: (entry.pixelArt ?? defPixel) ? 'nearest' : 'linear',
+  });
   atlas.frames[name] = new Texture({ source });
   void entry.size;
 }
@@ -174,9 +197,10 @@ export async function loadArtOverrides(atlas: GameAtlas): Promise<string[]> {
   }
 
   const defScale = manifest.scale ?? 3;
+  const defPixel = manifest.pixelArt === true;
   for (const [kind, entry] of Object.entries(manifest.actors ?? {})) {
     try {
-      await installActor(atlas, kind, entry, defScale, notes);
+      await installActor(atlas, kind, entry, defScale, defPixel, notes);
       notes.push(`${kind}: replaced from ${entry.file}`);
     } catch (err) {
       notes.push(`${kind}: FAILED (${String(err)}) — keeping the painted art`);
@@ -184,7 +208,7 @@ export async function loadArtOverrides(atlas: GameAtlas): Promise<string[]> {
   }
   for (const [name, entry] of Object.entries(manifest.sprites ?? {})) {
     try {
-      await installSprite(atlas, name, entry, defScale);
+      await installSprite(atlas, name, entry, defScale, defPixel);
       notes.push(`${name}: replaced from ${entry.file}`);
     } catch (err) {
       notes.push(`${name}: FAILED (${String(err)}) — keeping the painted art`);
