@@ -34,6 +34,15 @@ export interface Member {
    * Rank is worth, art and damage all at once — see CONFIG.squad.rankWorth.
    */
   rank: number;
+  /**
+   * Worth already knocked off this unit.
+   *
+   * Units are atomic — you cannot field two thirds of a knight — but losses
+   * are counted in WORTH, so a hit that does not finish a unit has to be
+   * remembered somewhere. When `hurt` reaches the unit's worth it dies and
+   * any excess carries to the next one.
+   */
+  hurt: number;
   /** >0 while this member is being consumed by a merge */
   merging: number;
   /** where the merge is pulling it, so the five converge on one point */
@@ -107,7 +116,7 @@ export class Squad {
       return {
         sp, x: 0, y: 0, vx: 0, vy: 0, slot: 0, phase: 0, cd: 0,
         look: LOOK_S, attackT: 0, dying: 0, dx: 0, dy: 0, variant: 0,
-        rank: 0, merging: 0, mx: 0, my: 0,
+        rank: 0, hurt: 0, merging: 0, mx: 0, my: 0,
       };
     });
   }
@@ -130,7 +139,7 @@ export class Squad {
       // whole set — the number spikes to 64 and then drops to 36 as the
       // animation ends, which is the falling counter this design exists to
       // avoid, arriving by the back door.
-      if (m.dying <= 0 && m.merging <= 0) n += SQ.rankWorth[m.rank] ?? 1;
+      if (m.dying <= 0 && m.merging <= 0) n += Math.max(0, (SQ.rankWorth[m.rank] ?? 1) - m.hurt);
     }
     return n;
   }
@@ -213,6 +222,7 @@ export class Squad {
       m.dying = 0;
       m.variant = (Math.random() * 1024) | 0;
       m.rank = 0;
+      m.hurt = 0;
       m.merging = 0;
       m.sp.visible = true;
       m.sp.alpha = 1;
@@ -258,6 +268,7 @@ export class Squad {
         m.cd = Math.random() * SQ.interval;
         m.dying = 0;
         m.merging = 0;
+        m.hurt = 0;
         m.rank = rank;
         m.variant = (Math.random() * 1024) | 0;
         m.sp.visible = true;
@@ -312,9 +323,10 @@ export class Squad {
    * inward, which is both what it should look like and what keeps the
    * formation from developing holes.
    */
-  lose(n: number): number {
-    let lost = 0;
-    for (let k = 0; k < n; k++) {
+  lose(worth: number): number {
+    let paid = 0;
+    let debt = Math.max(0, Math.round(worth));
+    while (debt > 0) {
       // Lowest rank first, and among equals the outermost slot.
       //
       // Taking the outermost body regardless of rank would mean one unlucky
@@ -331,16 +343,28 @@ export class Squad {
         }
       }
       if (worst < 0) break;
+
       const m = this.members.items[worst];
+      const left = (SQ.rankWorth[m.rank] ?? 1) - m.hurt;
+      if (debt < left) {
+        // Not enough to finish it. The damage sticks, so a knight genuinely
+        // absorbs thirty-six recruits' worth of punishment rather than dying
+        // to the first bite that reaches him.
+        m.hurt += debt;
+        paid += debt;
+        debt = 0;
+        break;
+      }
+      debt -= left;
+      paid += left;
       m.dying = SQ.deathFlyMs / 1000;
       const a = Math.random() * Math.PI * 2;
       m.dx = Math.cos(a) * 130;
       m.dy = Math.sin(a) * 130;
       this.count--;
-      lost++;
     }
     this.reslot();
-    return lost;
+    return paid;
   }
 
   /** Pack the live members back into slots 0..count−1, closest first. */

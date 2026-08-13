@@ -72,6 +72,7 @@ export class Game {
   worldInteract: (() => void) | null = null;
   /** the same "lose n from the line" call a contact hit makes */
   worldLose: ((n: number) => void) | null = null;
+  worldBreach: (() => void) | null = null;
 
   private contextLost = false;
 
@@ -224,6 +225,14 @@ export class Game {
       grantCoins: (n: number) => { if (this.run) this.run.addCoins(n); },
       /** take people off the line, the same call a contact hit makes */
       hurt: (n: number) => this.worldLose?.(n),
+      /**
+       * Bring the gate down and wake the Warden immediately.
+       *
+       * A test cannot reach this fight the honest way inside a time budget:
+       * the gate takes an army and the army is spent standing in its fire, so
+       * a harness that plays it properly spends its whole run dying at a door.
+       */
+      breach: () => this.worldBreach?.(),
       stats: () => ({ ...(this.runStats?.() ?? {}), fps: 1000 / Math.max(0.01, this.loop.avgFrameMs) }),
       save: () => this.save.data,
       errors: [] as string[],

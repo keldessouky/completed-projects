@@ -2,11 +2,12 @@ import { Container, Sprite } from 'pixi.js';
 import { CONFIG, type EnemyKind } from '../../config';
 import type { Stepper } from '../../core/loop';
 import { BLOCK_SIZE, chunkBounds, chunkOrigin, getChunk, getStructure } from '../../assets/terrain';
-import { CAST, DONUT, GUIDE, KEEP_NAME, MOB_BLAME, PROMOTION, SQUAD_TIER, SYS, UI, UNIT_RANK } from '../../flavour';
+import { BOSS, CAST, DONUT, GUIDE, KEEP_NAME, MOB_BLAME, PROMOTION, SQUAD_TIER, SYS, UI, UNIT_RANK } from '../../flavour';
 import { checkAchievements, onCaptainKill, type AchievementDef } from '../../game/achievements';
 import { Combat } from '../../world/combat';
 import { Entities, campPositions } from '../../world/entities';
 import { Squad } from '../../world/squad';
+import { Boss, type BossEvents } from '../../world/boss';
 import { coinSpots, getWorld, poiById } from '../../world/worldgen';
 import { screenX, screenY, stickToWorld, toScreen } from '../../iso';
 import { LOOK_S, STRIDE, frameFor, frameName, isFootfall, lookFrom, type Look } from '../../anim';
@@ -61,6 +62,9 @@ export class WorldScene extends Scene implements Stepper {
   private ents!: Entities;
   private squad!: Squad;
   private combat!: Combat;
+  private boss!: Boss;
+  private bossEvents: BossEvents = { phase: null, telegraphed: null, slamHit: 0, summon: [] };
+
   private mounted = new Map<string, Sprite>();
   /** camps whose population is currently instantiated */
   private populated = new Set<string>();
@@ -148,6 +152,8 @@ export class WorldScene extends Scene implements Stepper {
 
     this.ents = new Entities(ctx.atlas, this.actorLayer, this.shotLayer, this.coinLayer);
     this.squad = new Squad(ctx.atlas, this.actorLayer);
+    // ground marks go UNDER everything that stands on the field
+    this.boss = new Boss(this.groundLayer);
 
     // ── structures: sprites, not terrain ──
     //
@@ -233,6 +239,10 @@ export class WorldScene extends Scene implements Stepper {
     ctx.audio.music('musicRun');
     ctx.loop.stepper = this;
     ctx.onAutoPause = () => this.openPause(true);
+    ctx.worldBreach = () => {
+      const k = poiById(getWorld().castle)!;
+      if (!run.breached) { run.gateHp = 0; this.breach(k.x, k.y); }
+    };
     ctx.runStats = () => ({
       x: Math.round(run.x), y: Math.round(run.y),
       squad: this.squad.headcount(),
@@ -325,6 +335,7 @@ export class WorldScene extends Scene implements Stepper {
     this.streamCamps();
     this.streamCoins();
     this.combat.step(dt);
+    this.stepBoss(dt);
     this.collectCoins(dt);
     this.stepPad(dt);
     this.stepGate(dt);
@@ -646,6 +657,103 @@ export class WorldScene extends Scene implements Stepper {
     this.quip(DONUT.keep);
     this.awardAchievements();
     this.persist();
+    this.wakeBoss(x, y);
+  }
+
+  // ============================== THE WARDEN ==============================
+
+  /**
+   * The gate coming down is not the end of the floor any more — it is the
+   * door opening. He is placed a little back from the gate so he walks OUT of
+   * it rather than appearing on top of you.
+   */
+  private wakeBoss(x: number, y: number): void {
+    const ctx = this.ctx;
+    const e = this.ents.spawnEnemy(ctx.atlas, 'boss', x, y + CONFIG.boss.offsetY, 'keep_boss');
+    if (!e) return;
+    this.boss.attach(e);
+    ctx.audio.play('bossWake', { vol: 0.9 });
+    ctx.fx.shake(CONFIG.fx.shakeBreach * 0.6);
+    ctx.haptics.boss();
+    ctx.system.push(BOSS.wake, 'bad');
+    this.quip([BOSS.donutWake]);
+  }
+
+  /**
+   * Drive the boss and turn what it reports into noise and consequences.
+   *
+   * The controller itself touches nothing but its own state and the enemy
+   * record, so everything the player actually experiences — the shake, the
+   * sound, the losses, the System lines — is assembled here where the rest of
+   * the scene's effects already live.
+   */
+  private stepBoss(dt: number): void {
+    if (!this.boss.alive) return;
+    const ctx = this.ctx;
+    const run = ctx.run!;
+    const ev = this.bossEvents;
+    this.boss.aim(run.x, run.y);
+    this.boss.step(dt, run.x, run.y, ev);
+
+    if (ev.phase === 2) {
+      ctx.system.push(BOSS.phase2, 'bad');
+      ctx.fx.shake(CONFIG.fx.shakeLoss);
+      ctx.audio.play('bossWake', { vol: 0.6 });
+    } else if (ev.phase === 3) {
+      ctx.system.push(BOSS.phase3, 'bad');
+      ctx.fx.shake(CONFIG.fx.shakeBreach * 0.5);
+      ctx.fx.flash(0.5, 1.2);
+      ctx.audio.play('bossWake', { vol: 0.8 });
+      ctx.haptics.boss();
+    }
+
+    if (ev.telegraphed === 'charge') {
+      ctx.audio.play('whoosh', { vol: 0.5 });
+      this.quip([BOSS.charge]);
+    } else if (ev.telegraphed === 'slam') {
+      ctx.audio.play('bossWake', { vol: 0.45 });
+      this.quip([BOSS.slam]);
+    }
+
+    if (ev.slamHit > 0) {
+      this.loseSquad(ev.slamHit, 'boss', run.x, run.y);
+      ctx.fx.shake(CONFIG.fx.shakeLoss);
+      ctx.haptics.hurt();
+      ctx.audio.play('shieldClang', { vol: 0.7 });
+    }
+
+    for (const s of ev.summon) {
+      if (this.ents.enemies.count >= CONFIG.boss.summonCap + 6) break;
+      const e = this.ents.spawnEnemy(ctx.atlas, 'grunt', s.x, s.y, 'keep_boss');
+      if (!e) continue;
+      this.particles.burst(screenX(s.x, s.y), screenY(s.x, s.y), {
+        frame: 'softDot', count: 6, tint: CONFIG.colors.foe,
+        speed: 120, ttl: 0.4, additive: true, s0: 1.2, s1: 0,
+      });
+    }
+    if (ev.summon.length) ctx.audio.play('bossWake', { vol: 0.4 });
+
+    // ── he died ──
+    if (this.boss.e && this.boss.e.hp <= 0) {
+      const bx = this.boss.e.x, by = this.boss.e.y;
+      this.boss.clear();
+      ctx.fx.shake(CONFIG.fx.shakeBreach);
+      ctx.fx.flash(1, 2.2);
+      ctx.haptics.boss();
+      ctx.audio.play('winJingle', { vol: 0.9 });
+      ctx.system.push(BOSS.dead, 'good');
+      this.quip([BOSS.donutDead]);
+      this.particles.burst(screenX(bx, by), screenY(bx, by) - 30, {
+        frame: 'shard', count: 40, tint: CONFIG.colors.stone,
+        speed: 300, speedVar: 160, gravity: 420, ttl: 1.2, spin: 9, s0: 1.5, s1: 0.5,
+      });
+      this.particles.burst(screenX(bx, by), screenY(bx, by) - 30, {
+        frame: 'softDot', count: 20, tint: CONFIG.colors.gold,
+        speed: 220, ttl: 0.9, additive: true, s0: 1.8, s1: 0,
+      });
+      this.awardAchievements();
+      this.persist();
+    }
   }
 
   // ============================== COMBAT HOOKS ==============================
@@ -945,12 +1053,20 @@ export class WorldScene extends Scene implements Stepper {
 
     // ── HUD ──
     this.hud.setSquad(this.squad.headcount(), this.squadTierName());
+    this.boss.draw(this.camX, this.camY);
     this.hud.setCoins(run.coins);
     const keep = poiById(getWorld().castle)!;
     const keepD = Math.hypot(keep.x - run.x, keep.y - run.y);
-    this.hud.setGate(
-      run.breached || keepD > CONFIG.castle.range * 3 ? -1 : run.gateHp / CONFIG.castle.hp,
-    );
+    // The Warden takes the bar over the moment he is on his feet; before that
+    // it belongs to the gate. They can never both be live — he comes out of it.
+    if (this.boss.alive) {
+      this.hud.setBoss(this.boss.hpFrac, BOSS.name);
+    } else {
+      this.hud.resetGateLabel();
+      this.hud.setGate(
+        run.breached || keepD > CONFIG.castle.range * 3 ? -1 : run.gateHp / CONFIG.castle.hp,
+      );
+    }
     this.hud.setPad(this.padId ? this.padText(this.padId) : null, this.padFrac());
     this.hud.setHint(this.hintText(keepD));
     this.compass.aim(
@@ -1119,6 +1235,9 @@ export class WorldScene extends Scene implements Stepper {
       padLeft: this.padId ? run.padLeft(this.padId) : 0,
       gateHp: Math.round(run.gateHp),
       breached: run.breached,
+      boss: this.boss.alive
+        ? { alive: true, hp: this.boss.hpFrac, phase: this.boss.phase, act: this.boss.act }
+        : { alive: false, hp: 0, phase: 0, act: 'none' },
       dead: this.dead,
       chunks: this.mounted.size,
       achievements: [...save.achievements],

@@ -533,6 +533,47 @@ export class GameAtlas {
         }, P.foe, { depth: 3, rim: 1.5 });
       },
     }));
+
+    // ── The Warden: the floor boss ──
+    //
+    // Painted for the case where no override sheets are installed. He has to
+    // read as a different CLASS of thing from a Floor Captain rather than as a
+    // larger one, so the differences are structural: half again the mass, a
+    // closed helm with no face, and a greatsword long enough to change the
+    // silhouette on its own.
+    const wardenMat: Materials = {
+      skin: P.skinShade, hair: P.ink, cloth: P.ink, trouser: P.ink,
+      leather: P.stoneDark, steel: P.stone,
+      plate: P.stone, pauldron: P.stone, fauld: P.stoneDark,
+      bracer: P.stoneDark, greave: P.stoneDark, helm: P.stoneDark,
+      cape: P.foeDark, trim: P.foe,
+    };
+    this.paintActor('boss', 112, 120, (facing, frame) => ({
+      build: scaleBuild(BUILD, 1.72, 1.06),
+      mat: wardenMat,
+      facing,
+      pose: poseFor(frame),
+      weapon: (c, hx, hy, a) => blade(c, hx, hy, a, 54, 8.4, P.stone, P.foe, 1.2),
+      overlay: (c, cx, foot, o) => {
+        const b = o.build;
+        const hipY = foot - b.thigh - b.shin + o.pose.bob;
+        const headY = hipY - b.torsoH - b.head * 0.86;
+        // the visor slit: one hard bar of shadow where a face should be, which
+        // is the whole reason he is unsettling at forty pixels
+        c.save();
+        c.fillStyle = 'rgba(10,8,14,0.92)';
+        c.fillRect(cx - b.head * 0.62, headY - b.head * 0.18, b.head * 1.24, b.head * 0.22);
+        c.restore();
+        // a low crown of spikes
+        for (let i = -2; i <= 2; i++) {
+          cel(c, polyPath(c, [
+            cx + i * b.head * 0.36 - 1.2, headY - b.head * 1.1,
+            cx + i * b.head * 0.36, headY - b.head * 1.52,
+            cx + i * b.head * 0.36 + 1.2, headY - b.head * 1.1,
+          ]), P.stoneDark, { depth: 1, rim: 0.5, line: 1 });
+        }
+      },
+    }));
   }
 
   // ---------- coins, projectiles, markers ----------

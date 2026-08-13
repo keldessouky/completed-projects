@@ -125,6 +125,27 @@ export class WorldHud extends Container {
     if (on) this.gateBar.set(frac);
   }
 
+  /**
+   * The boss bar, which is the gate bar wearing a different hat.
+   *
+   * Reused rather than added alongside because the two can never be on screen
+   * together — the gate has to be down before the Warden walks out of it — and
+   * a second bar in the same slot would be a second thing to lay out, keep in
+   * sync and hide correctly for no gain the player can see.
+   */
+  setBoss(frac: number, label: string): void {
+    const on = frac >= 0;
+    if (this.gateWrap.visible !== on) this.gateWrap.visible = on;
+    if (!on) return;
+    if (this.gateLabel.text !== label) this.gateLabel.text = label;
+    this.gateBar.set(frac);
+  }
+
+  /** Put the shared bar's label back to the keep's name. */
+  resetGateLabel(): void {
+    if (this.gateLabel.text !== KEEP_NAME) this.gateLabel.text = KEEP_NAME;
+  }
+
   setPad(label: string | null, frac: number): void {
     const on = label !== null;
     if (this.padWrap.visible !== on) this.padWrap.visible = on;

@@ -71,6 +71,33 @@ export const MOB_BLAME = {
   heavy: 'a bruiser',
   archer: 'the slingers',
   captain: 'a Floor Captain',
+  boss: 'the Warden of the Third Floor',
+} as const;
+
+/** The boss, and what the System says while he is killing you. */
+export const BOSS = {
+  name: 'THE WARDEN',
+  subtitle: 'Floor Three · Compliance Officer',
+  wake: [
+    'GATE BREACHED. COMPLIANCE OFFICER DISPATCHED.',
+    'The Warden has held this door for nine seasons. Borant regrets the inconvenience to him.',
+  ],
+  phase2: [
+    'WARDEN — SECOND PROTOCOL',
+    'He is calling the garrison. They were not doing anything anyway.',
+  ],
+  phase3: [
+    'WARDEN — FINAL PROTOCOL',
+    'He has stopped pacing himself. Viewers are reminded that this is content.',
+  ],
+  charge: 'He plants his feet.',
+  slam: 'The ground remembers this part.',
+  dead: [
+    'COMPLIANCE OFFICER RETIRED',
+    'The Warden of the Third Floor is relieved of duty. His pension is forfeit.',
+  ],
+  donutWake: 'That is a LOT of armour, Carl. Hit the parts that squeak.',
+  donutDead: 'I softened him up. You may thank me at your convenience.',
 } as const;
 
 /** What the people following you are called, by squad size. */

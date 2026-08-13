@@ -197,6 +197,11 @@ export const CONFIG = {
     heavy:  { hp: 280,  dmg: 16, speed: 78,  radius: 21, contact: 2, coins: 5,  aggro: 380, leash: 820 },
     archer: { hp: 140,  dmg: 10, speed: 96,  radius: 16, contact: 1, coins: 4,  aggro: 460, leash: 980, range: 150 },
     captain:{ hp: 1400, dmg: 22, speed: 88,  radius: 26, contact: 3, coins: 22, aggro: 520, leash: 1200 },
+    /**
+     * The floor boss. Never spawned by a camp — see `boss` below for how it
+     * arrives. A vast leash so it never gives up and wanders home mid-fight.
+     */
+    boss:   { hp: 3000, dmg: 30, speed: 74,  radius: 40, contact: 2, coins: 300, aggro: 1600, leash: 4000 },
     poolSize: 140,
     despawnDist: 1500,
     respawnSec: 999,        // a cleared camp stays cleared for the session
@@ -228,6 +233,44 @@ export const CONFIG = {
     arrowLife: 1.6,
     /** a shot is spent when it lands within this of a body */
     hitRadius: 12,
+  },
+
+  /**
+   * The floor boss: the Warden, who is behind the gate.
+   *
+   * Three phases on health, each ADDING a behaviour rather than swapping one
+   * out, so the fight visibly escalates instead of cycling. Everything is
+   * telegraphed on the ground before it lands — the fight should be readable
+   * at a glance on a phone, and a boss that hits you from off-screen with no
+   * warning is not difficult, it is unfair.
+   */
+  boss: {
+    /** phase thresholds as a fraction of max health */
+    phase2At: 0.66,
+    phase3At: 0.33,
+    /** where he waits, relative to the castle */
+    offsetY: -150,
+    /** CHARGE: winds up, then crosses the arena fast */
+    chargeTellSec: 0.85,
+    chargeSpeed: 620,
+    chargeSec: 0.75,
+    chargeCooldown: 6.5,
+    chargeContact: 3,
+    /** SUMMON (phase 2+): calls Redcloaks out of the keep */
+    summonEvery: 7.5,
+    summonCount: 3,
+    summonCap: 14,
+    /** SLAM (phase 3): an expanding ring that costs you people */
+    slamEvery: 5,
+    slamTellSec: 0.7,
+    slamRadius: 340,
+    slamGrowSec: 0.55,
+    slamContact: 2,
+    /** phase 3 speed multiplier */
+    enrageSpeed: 1.35,
+    /** the death sequence */
+    dieFreezeMs: 420,
+    dieFlashMs: 520,
   },
 
   /** Camps and the castle. */
@@ -353,5 +396,12 @@ export const CONFIG = {
   },
 } as const;
 
-export type EnemyKind = 'grunt' | 'heavy' | 'archer' | 'captain';
+export type EnemyKind = 'grunt' | 'heavy' | 'archer' | 'captain' | 'boss';
+/**
+ * Kinds a camp may contain. The boss is deliberately absent: it is placed by
+ * the boss controller when the gate comes down, and a camp that could roll one
+ * would put the floor's climax behind a random tent.
+ */
 export const ENEMY_KINDS: EnemyKind[] = ['grunt', 'heavy', 'archer', 'captain'];
+/** Every kind that exists, including the ones camps never roll. */
+export const ALL_ENEMY_KINDS: EnemyKind[] = [...ENEMY_KINDS, 'boss'];

@@ -176,6 +176,14 @@
         74
       ],
       "pixelArt": true
+    },
+    "boss": {
+      "file": "boss.png",
+      "cell": [
+        112,
+        120
+      ],
+      "pixelArt": true
     }
   }
 }

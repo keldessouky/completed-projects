@@ -23,6 +23,8 @@ export interface Enemy {
   kind: EnemyKind;
   /** which alternate look this one wears; rolled once at spawn */
   variant: number;
+  /** multiplies this one's move speed; the boss raises it when enraged */
+  speedMul: number;
   x: number; y: number; px: number; py: number;
   /** knockback velocity, decayed every step */
   kx: number; ky: number;
@@ -140,7 +142,7 @@ export class Entities {
       sp.visible = false;
       enemyLayer.addChild(sp);
       return {
-        sp, kind: 'grunt', variant: 0, x: 0, y: 0, px: 0, py: 0, kx: 0, ky: 0,
+        sp, kind: 'grunt', variant: 0, speedMul: 1, x: 0, y: 0, px: 0, py: 0, kx: 0, ky: 0,
         hp: 1, maxHp: 1, cd: 0, flashT: 0, face: 1, hx: 0, hy: 0,
         poi: '', aggro: false, phase: 0,
         walk: 0, look: LOOK_S, attackT: 0,
@@ -217,6 +219,7 @@ export class Entities {
     e.kind = kind;
     // A camp of eight identical thugs reads as a decal, not a gang.
     e.variant = (Math.random() * 1024) | 0;
+    e.speedMul = 1;
     e.x = e.px = e.hx = x;
     e.y = e.py = e.hy = y;
     e.kx = e.ky = 0;

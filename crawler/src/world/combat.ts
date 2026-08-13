@@ -113,8 +113,8 @@ export class Combat {
 
         if (toHero > stopAt) {
           const d = toHero || 1;
-          e.x += (dx / d) * stat.speed * dt;
-          e.y += (dy / d) * stat.speed * dt;
+          e.x += (dx / d) * stat.speed * e.speedMul * dt;
+          e.y += (dy / d) * stat.speed * e.speedMul * dt;
         } else if (e.cd <= 0) {
           if (ranged > 0) {
             e.cd = E.shotInterval;
