@@ -176,6 +176,37 @@ const CAST = {
     ],
   },
 
+  levy3: {
+    // Rank three onward exists because of unit promotion: five swordsmen fuse
+    // into one knight. The art has to make that legible across a crowd at
+    // thirty pixels, so the jump is deliberately a MATERIAL change — cloth and
+    // leather to plate — rather than another shade of the same shirt.
+    cell: '52x66',
+    note: 'Knight — plate over the crew blue',
+    slots: {
+      body: [L.bodyLight], legs: [L.pants, '#3f4550'], torso: [L.shirt, '#4a6ba8'],
+      armor: [L.plateChest], shoulders: [L.plateArms], belt: [L.belt],
+      feet: [L.shoes], hands: [L.gloves, '#c6ccd4'], hair: [L.hairPlain],
+      weapon: [L.dagger],
+    },
+    variants: [
+      { body: [L.bodyTan], hair: [L.hairRed], torso: [L.shirt, '#3c5c96'] },
+    ],
+  },
+  levy4: {
+    cell: '78x74',
+    note: 'Champion — plate, gold and a crew-blue tabard',
+    slots: {
+      body: [L.bodyLight], legs: [L.pants, '#343a45'], torso: [L.shirt, '#2f4f8c'],
+      armor: [L.plateChest], shoulders: [L.plateArms], skirt: [L.skirt, '#4a6ba8'],
+      belt: [L.belt], feet: [L.shoes], hands: [L.gloves],
+      hair: [L.hairWhite], weapon: [L.dagger],
+    },
+    variants: [
+      { body: [L.bodyTan2], hair: [L.hairBlonde] },
+    ],
+  },
+
   // ── what lives in the camps ──
   grunt: {
     cell: '52x64',

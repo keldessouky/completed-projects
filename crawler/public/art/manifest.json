@@ -144,6 +144,38 @@
         80
       ],
       "pixelArt": true
+    },
+    "levy3": {
+      "file": "levy3.png",
+      "cell": [
+        52,
+        66
+      ],
+      "pixelArt": true
+    },
+    "levy3_v1": {
+      "file": "levy3_v1.png",
+      "cell": [
+        52,
+        66
+      ],
+      "pixelArt": true
+    },
+    "levy4": {
+      "file": "levy4.png",
+      "cell": [
+        78,
+        74
+      ],
+      "pixelArt": true
+    },
+    "levy4_v1": {
+      "file": "levy4_v1.png",
+      "cell": [
+        78,
+        74
+      ],
+      "pixelArt": true
     }
   }
 }

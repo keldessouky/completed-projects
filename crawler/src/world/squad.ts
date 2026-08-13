@@ -28,6 +28,16 @@ export interface Member {
   phase: number;
   /** the facing last drawn, kept so a stopped member does not snap to south */
   look: Look;
+  /**
+   * Promotion rank: 0 straggler … CONFIG.squad.maxRank champion.
+   *
+   * Rank is worth, art and damage all at once — see CONFIG.squad.rankWorth.
+   */
+  rank: number;
+  /** >0 while this member is being consumed by a merge */
+  merging: number;
+  /** where the merge is pulling it, so the five converge on one point */
+  mx: number; my: number;
   /** counts down while the attack pose plays */
   attackT: number;
   /** attack cooldown, seconds */
@@ -97,13 +107,38 @@ export class Squad {
       return {
         sp, x: 0, y: 0, vx: 0, vy: 0, slot: 0, phase: 0, cd: 0,
         look: LOOK_S, attackT: 0, dying: 0, dx: 0, dy: 0, variant: 0,
+        rank: 0, merging: 0, mx: 0, my: 0,
       };
     });
   }
 
-  /** Cloth tier, which is the only thing that changes as the crowd grows. */
+  /**
+   * Effective head count: what the crowd is worth in recruits.
+   *
+   * This, not `count`, is the number the player is shown. Promotion trades
+   * five bodies for one better one, so the number of BODIES falls at every
+   * merge — and a counter that fell when you got stronger would read as a
+   * loss no matter how good the trade was. Worth only ever goes up.
+   */
+  headcount(): number {
+    let n = 0;
+    for (let i = 0; i < this.members.count; i++) {
+      const m = this.members.items[i];
+      // `merging` must be excluded as well as `dying`. The four being consumed
+      // still hold their old rank for the length of the fuse animation, and
+      // counting them alongside the survivor's NEW rank double-counts the
+      // whole set — the number spikes to 64 and then drops to 36 as the
+      // animation ends, which is the falling counter this design exists to
+      // avoid, arriving by the back door.
+      if (m.dying <= 0 && m.merging <= 0) n += SQ.rankWorth[m.rank] ?? 1;
+    }
+    return n;
+  }
+
+  /** The name band the HUD shows, driven by worth rather than by bodies. */
   tier(): 0 | 1 | 2 {
-    return this.count < 12 ? 0 : this.count < 30 ? 1 : 2;
+    const h = this.headcount();
+    return h < 12 ? 0 : h < 30 ? 1 : 2;
   }
 
   /**
@@ -111,7 +146,50 @@ export class Squad {
    * so that a squad of zero is still a fight rather than a cutscene.
    */
   strength(): number {
-    return this.count + SQ.heroWeight;
+    return this.headcount() + SQ.heroWeight;
+  }
+
+  /**
+   * Fuse every full set of `mergeAt` same-rank units into one of the next.
+   *
+   * Runs lowest rank upward and repeats, so a single recruitment can cascade:
+   * the fifth straggler makes a spearman, which may complete a set of five
+   * spearmen, which makes a swordsman. Returns the ranks reached, so the
+   * caller can announce them.
+   *
+   * The four consumed are marked `merging` rather than deleted outright —
+   * they fly into the survivor and vanish there, which is what makes a merge
+   * read as five people becoming one instead of four people evaporating.
+   */
+  promote(): number[] {
+    const reached: number[] = [];
+    for (let rank = 0; rank < SQ.maxRank; rank++) {
+      for (;;) {
+        const pool: Member[] = [];
+        for (let i = 0; i < this.members.count && pool.length < SQ.mergeAt; i++) {
+          const m = this.members.items[i];
+          if (m.dying <= 0 && m.merging <= 0 && m.rank === rank) pool.push(m);
+        }
+        if (pool.length < SQ.mergeAt) break;
+
+        // the survivor is the one closest to the hero's slot, so the promoted
+        // unit appears at the front of the crowd rather than at its edge
+        pool.sort((a, b) => a.slot - b.slot);
+        const keep = pool[0];
+        keep.rank = rank + 1;
+        keep.variant = (Math.random() * 1024) | 0;
+        for (let k = 1; k < pool.length; k++) {
+          const m = pool[k];
+          m.merging = SQ.mergeMs / 1000;
+          m.mx = keep.x;
+          m.my = keep.y;
+          this.count--;
+        }
+        reached.push(rank + 1);
+      }
+    }
+    if (reached.length) this.reslot();
+    return reached;
   }
 
   /** Add up to `n` members around (x, y). Returns how many actually joined. */
@@ -134,13 +212,97 @@ export class Squad {
       m.cd = Math.random() * SQ.interval;
       m.dying = 0;
       m.variant = (Math.random() * 1024) | 0;
+      m.rank = 0;
+      m.merging = 0;
       m.sp.visible = true;
       m.sp.alpha = 1;
+      m.sp.scale.set(1);
       this.count++;
       joined++;
     }
     this.reslot();
     return joined;
+  }
+
+  /**
+   * Rebuild an army worth `worth` recruits, from the top rank down.
+   *
+   * This is how a run reloads. Saving the body count would lose every
+   * promotion — twelve knights would come back as twelve stragglers — so the
+   * save stores WORTH, and worth decomposes exactly.
+   *
+   * Greedy from the highest rank is not an approximation here: rankWorth is
+   * powers of `mergeAt + 1`, and promotion never leaves `mergeAt` of a rank
+   * unmerged, so an army's canonical shape is simply its worth written in
+   * base six. Taking the largest unit that fits, repeatedly, reproduces it.
+   */
+  addWorth(worth: number, x: number, y: number): number {
+    let rem = Math.max(0, Math.floor(worth));
+    let made = 0;
+    for (let rank = SQ.maxRank; rank >= 0 && rem > 0; rank--) {
+      const w = SQ.rankWorth[rank] ?? 1;
+      let n = Math.floor(rem / w);
+      if (n <= 0) continue;
+      n = Math.min(n, SQ.max - this.count);
+      if (n <= 0) break;
+      for (let i = 0; i < n; i++) {
+        const m = this.members.obtain();
+        if (!m) break;
+        m.slot = this.nextSlot++;
+        m.x = x + (Math.random() - 0.5) * 30;
+        m.y = y + (Math.random() - 0.5) * 30;
+        m.vx = m.vy = 0;
+        m.phase = Math.random();
+        m.look = LOOK_S;
+        m.attackT = 0;
+        m.cd = Math.random() * SQ.interval;
+        m.dying = 0;
+        m.merging = 0;
+        m.rank = rank;
+        m.variant = (Math.random() * 1024) | 0;
+        m.sp.visible = true;
+        m.sp.alpha = 1;
+        m.sp.scale.set(1);
+        this.count++;
+        made++;
+        rem -= w;
+      }
+    }
+    this.reslot();
+    return made;
+  }
+
+  /** Live units per rank, lowest first — for the dev overlay and the tests. */
+  rankTally(): number[] {
+    const out = new Array<number>(SQ.maxRank + 1).fill(0);
+    for (let i = 0; i < this.members.count; i++) {
+      const m = this.members.items[i];
+      if (m.dying <= 0 && m.merging <= 0) out[m.rank]++;
+    }
+    return out;
+  }
+
+  /** How many live units currently hold a given rank. */
+  rankCount(rank: number): number {
+    let n = 0;
+    for (let i = 0; i < this.members.count; i++) {
+      const m = this.members.items[i];
+      if (m.dying <= 0 && m.merging <= 0 && m.rank === rank) n++;
+    }
+    return n;
+  }
+
+  /** Where the highest-ranked unit stands, for centring a promotion effect. */
+  bestPosition(out: { x: number; y: number }): boolean {
+    let best: Member | null = null;
+    for (let i = 0; i < this.members.count; i++) {
+      const m = this.members.items[i];
+      if (m.dying > 0 || m.merging > 0) continue;
+      if (!best || m.rank > best.rank) best = m;
+    }
+    if (!best) return false;
+    out.x = best.x; out.y = best.y;
+    return true;
   }
 
   /**
@@ -153,11 +315,20 @@ export class Squad {
   lose(n: number): number {
     let lost = 0;
     for (let k = 0; k < n; k++) {
-      let worst = -1, worstSlot = -1;
+      // Lowest rank first, and among equals the outermost slot.
+      //
+      // Taking the outermost body regardless of rank would mean one unlucky
+      // hit deletes a Champion worth 1,296 recruits while five stragglers
+      // stand behind it, which turns every contact into a lottery on the whole
+      // run. Losses eat the cheap bodies first — the crowd is armour for the
+      // units it promoted.
+      let worst = -1, worstRank = Infinity, worstSlot = -1;
       for (let i = 0; i < this.members.count; i++) {
         const m = this.members.items[i];
-        if (m.dying > 0) continue;
-        if (m.slot > worstSlot) { worstSlot = m.slot; worst = i; }
+        if (m.dying > 0 || m.merging > 0) continue;
+        if (m.rank < worstRank || (m.rank === worstRank && m.slot > worstSlot)) {
+          worstRank = m.rank; worstSlot = m.slot; worst = i;
+        }
       }
       if (worst < 0) break;
       const m = this.members.items[worst];
@@ -177,7 +348,7 @@ export class Squad {
     const live: Member[] = [];
     for (let i = 0; i < this.members.count; i++) {
       const m = this.members.items[i];
-      if (m.dying <= 0) live.push(m);
+      if (m.dying <= 0 && m.merging <= 0) live.push(m);
     }
     live.sort((a, b) => a.slot - b.slot);
     live.forEach((m, i) => { m.slot = i; });
@@ -195,6 +366,24 @@ export class Squad {
   step(dt: number, hx: number, hy: number, t: number): void {
     for (let i = this.members.count - 1; i >= 0; i--) {
       const m = this.members.items[i];
+
+      // Being consumed by a merge: fly into the survivor and shrink out.
+      if (m.merging > 0) {
+        m.merging -= dt;
+        const k = Math.min(1, dt * 14);
+        m.x += (m.mx - m.x) * k;
+        m.y += (m.my - m.y) * k;
+        const f = Math.max(0, m.merging / (SQ.mergeMs / 1000));
+        m.sp.alpha = f;
+        m.sp.scale.set(f * (m.look.flip ? -1 : 1), f);
+        if (m.merging <= 0) {
+          m.sp.visible = false;
+          m.sp.alpha = 1;
+          m.sp.scale.set(1);
+          this.members.release(i);
+        }
+        continue;
+      }
 
       if (m.dying > 0) {
         m.dying -= dt;
@@ -243,7 +432,7 @@ export class Squad {
     const want = Math.min(12, Math.max(1, this.count));
     for (let i = 0; i < this.members.count && out.length < want; i++) {
       const m = this.members.items[i];
-      if (m.dying <= 0 && m.cd <= 0) out.push(m);
+      if (m.dying <= 0 && m.merging <= 0 && m.cd <= 0) out.push(m);
     }
     return out;
   }
@@ -261,9 +450,11 @@ export class Squad {
    * inside the art, where it can also move the arms and squash the shadow.
    */
   draw(camX: number, camY: number): void {
-    const base = 'levy' + this.tier();
     for (let i = 0; i < this.members.count; i++) {
       const m = this.members.items[i];
+      // Rank is the art now, not the crowd's size. A knight standing next to
+      // a straggler is the whole point of promotion being visible.
+      const base = 'levy' + m.rank;
       m.sp.x = screenX(m.x, m.y) - camX;
       m.sp.y = screenY(m.x, m.y) - camY;
       // The crew carries a constant depth penalty so the hero, the cat and
@@ -273,7 +464,7 @@ export class Squad {
       // ask. Internally the crew still sorts correctly among itself.
       m.sp.zIndex = m.x + m.y - CROWD_DEPTH_BIAS;
 
-      if (m.dying > 0) continue;   // keep the last pose while flying off
+      if (m.dying > 0 || m.merging > 0) continue;  // keep the last pose
       const moving = Math.abs(m.vx) + Math.abs(m.vy) > 8;
       if (moving) m.look = lookFrom(m.vx, m.vy, m.look);
       const kind = this.atlas.variantKind(base, m.variant);

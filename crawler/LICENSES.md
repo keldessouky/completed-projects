@@ -175,5 +175,5 @@ Both licences are compatible with this project's AGPL-3.0-or-later, and both
 require attribution and share-alike. The per-layer author list lives with the
 upstream repository; if you ship this, carry that list too.
 
-Composited into: hero, levy0, levy0_v1, levy0_v2, levy1, levy1_v1, levy1_v2, levy2, levy2_v1, levy2_v2, grunt, grunt_v1, grunt_v2, archer, archer_v1, heavy, heavy_v1, captain.
+Composited into: levy3, levy3_v1, levy4, levy4_v1.
 <!-- lpc-credit-end -->

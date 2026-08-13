@@ -115,6 +115,28 @@ export const CONFIG = {
     range: 120,
     /** the hero himself is worth this many members in a fight */
     heroWeight: 3,
+
+    /**
+     * Unit promotion: this many of one rank fuse into a single unit of the
+     * next, up to `maxRank`.
+     *
+     * Two things at once. It caps how many bodies are ever animated — sixty
+     * recruits become twelve spearmen become two swordsmen — and it makes the
+     * crowd stronger rather than merely larger, so late recruits still matter
+     * once the formation is full.
+     *
+     * The arithmetic is deliberately clean: five go in, and the unit that
+     * comes out is worth SIX of what went in. That 20% is the reward for
+     * consolidating, and it means the number over your head goes UP at a merge
+     * even though the number of bodies on screen goes down. A merge that made
+     * the counter fall would read as a loss however good the trade was.
+     */
+    mergeAt: 5,
+    maxRank: 4,
+    /** worth of one unit of rank r, in recruits. mergeAt x this per step. */
+    rankWorth: [1, 6, 36, 216, 1296] as number[],
+    /** how long the fuse animation holds before the survivor is promoted */
+    mergeMs: 260,
   },
 
   /**

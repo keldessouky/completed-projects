@@ -76,6 +76,18 @@ export const MOB_BLAME = {
 /** What the people following you are called, by squad size. */
 export const SQUAD_TIER = ['Alone', 'Stragglers', 'A Mob', 'An Actual Army'] as const;
 
+/** What a unit of each rank is called, lowest first. */
+export const UNIT_RANK = ['Straggler', 'Spearman', 'Swordsman', 'Knight', 'Champion'] as const;
+
+/**
+ * The System announcing a promotion. It does not congratulate you; it files
+ * the paperwork and implies the loss of the four who did not get the title.
+ */
+export const PROMOTION = (rank: string, n: number): readonly string[] => [
+  'FIELD PROMOTION PROCESSED',
+  `${n} \u00d7 ${rank}. The other four are accounted for.`,
+];
+
 export const UI = {
   squad: 'CREW',
   coins: 'GOLD',

@@ -2,7 +2,7 @@ import { Container, Sprite } from 'pixi.js';
 import { CONFIG, type EnemyKind } from '../../config';
 import type { Stepper } from '../../core/loop';
 import { BLOCK_SIZE, chunkBounds, chunkOrigin, getChunk, getStructure } from '../../assets/terrain';
-import { CAST, DONUT, GUIDE, KEEP_NAME, MOB_BLAME, SQUAD_TIER, SYS, UI } from '../../flavour';
+import { CAST, DONUT, GUIDE, KEEP_NAME, MOB_BLAME, PROMOTION, SQUAD_TIER, SYS, UI, UNIT_RANK } from '../../flavour';
 import { checkAchievements, onCaptainKill, type AchievementDef } from '../../game/achievements';
 import { Combat } from '../../world/combat';
 import { Entities, campPositions } from '../../world/entities';
@@ -200,8 +200,9 @@ export class WorldScene extends Scene implements Stepper {
     // one at the post. Starting at zero would mean the hero has no attack at
     // all and no way to lose, which makes "the squad is the health bar" a rule
     // with a hole in it on the very first screen.
-    this.squad.add(run.squad > 0 ? run.squad : CONFIG.squad.start, run.x, run.y);
-    run.squad = this.squad.count;
+    // run.squad is WORTH, not bodies — see Squad.addWorth
+    this.squad.addWorth(run.squad > 0 ? run.squad : CONFIG.squad.start, run.x, run.y);
+    run.squad = this.squad.headcount();
 
     // ── HUD ──
     this.hud = new WorldHud(ctx, { onPause: () => this.openPause() });
@@ -234,7 +235,7 @@ export class WorldScene extends Scene implements Stepper {
     ctx.onAutoPause = () => this.openPause(true);
     ctx.runStats = () => ({
       x: Math.round(run.x), y: Math.round(run.y),
-      squad: this.squad.count,
+      squad: this.squad.headcount(),
       coins: run.coins,
       enemies: this.ents.enemies.count,
       shots: this.ents.shots.count,
@@ -269,7 +270,7 @@ export class WorldScene extends Scene implements Stepper {
   private persist(): void {
     const ctx = this.ctx;
     if (!ctx.run) return;
-    ctx.run.squad = this.squad.count;
+    ctx.run.squad = this.squad.headcount();
     ctx.save.data.run = ctx.run.toSave();
     ctx.save.data.bestSquad = Math.max(ctx.save.data.bestSquad, this.squad.peak);
     ctx.save.mark();
@@ -315,7 +316,7 @@ export class WorldScene extends Scene implements Stepper {
     this.walk = (this.walk + (Math.hypot(this.vx, this.vy) * dt) / STRIDE) % 1;
 
     this.squad.step(dt, run.x, run.y, run.clock);
-    this.squad.peak = Math.max(this.squad.peak, this.squad.count);
+    this.squad.peak = Math.max(this.squad.peak, this.squad.headcount());
     this.stepCompanion(dt);
 
     // ── the world around the hero ──
@@ -544,6 +545,7 @@ export class WorldScene extends Scene implements Stepper {
         frame: 'softDot', count: 4, tint: CONFIG.colors.ally,
         speed: 90, ttl: 0.35, additive: true, s0: 1.2, s1: 0.2,
       });
+      this.runPromotions();
       if (run.padLeft(found) <= 0) {
         ctx.system.push(SYS.padEmpty(p.name), 'info');
         ctx.system.push(GUIDE.padDry, 'info');
@@ -552,6 +554,47 @@ export class WorldScene extends Scene implements Stepper {
     }
   }
   private padPaid = 0;
+
+  /**
+   * Fuse full sets into higher ranks, and sell it.
+   *
+   * A merge deletes four bodies, so without something loud happening at the
+   * same moment it reads as the crowd being culled. The flash, the ring of
+   * sparks and the System line are all there to make five-into-one land as a
+   * promotion rather than as a loss.
+   */
+  private runPromotions(): void {
+    const ranks = this.squad.promote();
+    if (!ranks.length) return;
+    const ctx = this.ctx;
+    const at = { x: 0, y: 0 };
+    if (!this.squad.bestPosition(at)) return;
+    const sx = screenX(at.x, at.y), sy = screenY(at.x, at.y);
+
+    const top = Math.max(...ranks);
+    this.particles.burst(sx, sy - 18, {
+      frame: 'softDot', count: 14, tint: CONFIG.colors.gold,
+      speed: 150, ttl: 0.5, additive: true, s0: 1.4, s1: 0,
+    });
+    this.particles.burst(sx, sy - 18, {
+      frame: 'shard', count: 8, tint: CONFIG.colors.bone,
+      speed: 190, ttl: 0.42, gravity: 180,
+    });
+    this.pops.spawn(sx, sy - 46, UNIT_RANK[top] ?? 'Promoted', CONFIG.colors.gold, true);
+    ctx.audio.play('upgrade', { throttleMs: 200, vol: 0.62 });
+    ctx.fx.shake(CONFIG.fx.shakeRecruit);
+    ctx.haptics.hit();
+
+    // Announce only the best rank reached, and only when it is a NEW high for
+    // the run. A cascade can promote three ranks in one coin, and three toasts
+    // for one event is the System being chatty rather than bureaucratic.
+    if (top > this.bestRankSeen) {
+      this.bestRankSeen = top;
+      const n = this.squad.rankCount(top);
+      ctx.system.push(PROMOTION(UNIT_RANK[top] ?? 'Unit', n), 'good');
+    }
+  }
+  private bestRankSeen = 0;
 
   // ============================== THE GATE ==============================
 
@@ -670,8 +713,8 @@ export class WorldScene extends Scene implements Stepper {
     const lost = this.squad.lose(n);
     this.lastBlame = MOB_BLAME[kind];
     if (lost === 0) return;   // already empty; step() owns the wipe
-    run.squad = this.squad.count;
-    if (this.squad.count < 10) run.untouched = false;
+    run.squad = this.squad.headcount();
+    if (this.squad.headcount() < 10) run.untouched = false;
 
     ctx.fx.shake(CONFIG.fx.shakeLoss * Math.min(1, lost / 2));
     ctx.haptics.hurt();
@@ -680,7 +723,7 @@ export class WorldScene extends Scene implements Stepper {
     ctx.system.push(SYS.squadLost(lost, MOB_BLAME[kind]), 'bad');
     this.quip(DONUT.loss);
 
-    if (this.squad.count <= 5 && !this.lowWarned) {
+    if (this.squad.headcount() <= 5 && !this.lowWarned) {
       this.lowWarned = true;
       ctx.system.push(SYS.lowSquad(), 'bad');
     }
@@ -710,7 +753,7 @@ export class WorldScene extends Scene implements Stepper {
   private awardAchievements(): void {
     const ctx = this.ctx;
     const earned = checkAchievements(ctx.save.data, ctx.run!, {
-      squad: this.squad.count,
+      squad: this.squad.headcount(),
       spent: this.spentOnRecruits,
     });
     for (const a of earned) this.grantAchievement(a);
@@ -901,7 +944,7 @@ export class WorldScene extends Scene implements Stepper {
     this.pops.update(dtReal);
 
     // ── HUD ──
-    this.hud.setSquad(this.squad.count, this.squadTierName());
+    this.hud.setSquad(this.squad.headcount(), this.squadTierName());
     this.hud.setCoins(run.coins);
     const keep = poiById(getWorld().castle)!;
     const keepD = Math.hypot(keep.x - run.x, keep.y - run.y);
@@ -926,7 +969,7 @@ export class WorldScene extends Scene implements Stepper {
   private crowdRadius(): number {
     const SQ = CONFIG.squad;
     let ring = 0, base = 0;
-    const n = Math.max(1, this.squad.count);
+    const n = Math.max(1, this.squad.headcount());
     for (;;) {
       const cap = SQ.perRing * (ring + 1);
       if (n <= base + cap) break;
@@ -946,7 +989,7 @@ export class WorldScene extends Scene implements Stepper {
   private updateTrail(dt: number, ix: number, iy: number, breached: boolean): void {
     const run = this.ctx.run!;
     const world = getWorld();
-    const wantPad = !breached && (run.coins >= CONFIG.pad.costBase * 6 || this.squad.count < 6);
+    const wantPad = !breached && (run.coins >= CONFIG.pad.costBase * 6 || this.squad.headcount() < 6);
 
     let target: { x: number; y: number } | null = null;
     let tint: number = CONFIG.colors.gold;
@@ -968,7 +1011,7 @@ export class WorldScene extends Scene implements Stepper {
   }
 
   private squadTierName(): string {
-    const n = this.squad.count;
+    const n = this.squad.headcount();
     const i = n < 1 ? 0 : n < 12 ? 1 : n < 30 ? 2 : 3;
     return SQUAD_TIER[i];
   }
@@ -994,7 +1037,7 @@ export class WorldScene extends Scene implements Stepper {
     if (this.padId) return null;
     if (run.breached) return null;
     if (keepD <= CONFIG.castle.range) return UI.attack;
-    if (this.squad.count === 0) return `${UI.recruit} — ${KEEP_NAME} is east`;
+    if (this.squad.headcount() === 0) return `${UI.recruit} — ${KEEP_NAME} is east`;
     return null;
   }
 
@@ -1062,7 +1105,9 @@ export class WorldScene extends Scene implements Stepper {
     const save = this.ctx.save.data;
     return {
       x: Math.round(run.x), y: Math.round(run.y),
-      squad: this.squad.count,
+      squad: this.squad.headcount(),
+      bodies: this.squad.count,
+      ranks: this.squad.rankTally(),
       peak: this.squad.peak,
       donut: { x: Math.round(this.dx), y: Math.round(this.dy), vis: this.donut.visible },
       coins: run.coins,
