@@ -443,24 +443,52 @@ export class WorldScene extends Scene implements Stepper {
   private collectCoins(dt: number): void {
     const ctx = this.ctx;
     const run = ctx.run!;
+    const C = CONFIG.coins;
     for (let i = this.ents.coins.count - 1; i >= 0; i--) {
       const c = this.ents.coins.items[i];
       c.t = Math.min(1, c.t + dt * 3);
       const dx = run.x - c.x, dy = run.y - c.y;
-      const d = Math.hypot(dx, dy);
-      if (!c.hooked && d < HERO.pickupRadius) c.hooked = true;
+      const d = Math.hypot(dx, dy) || 1;
+
+      if (!c.hooked && d < HERO.pickupRadius) {
+        c.hooked = true;
+        c.mv = C.magnet;
+        c.ht = 0;
+        // a puff as it tears loose, so the hook reads as a moment and not a
+        // coin that simply started moving
+        this.particles.burst(screenX(c.x, c.y), screenY(c.x, c.y) - 6, {
+          frame: 'softDot', count: 2, tint: CONFIG.colors.gold,
+          speed: 42, ttl: 0.24, s0: 0.5, s1: 0, additive: true,
+        });
+      }
       if (!c.hooked) continue;
 
-      const step = CONFIG.coins.magnet * dt;
+      // Accelerating, not constant. A coin that closes at one speed reads as
+      // a coin sliding along the floor; one that starts slow and finishes fast
+      // reads as being PULLED, and that difference is the whole feel of pickup.
+      c.ht += dt;
+      c.mv = Math.min(C.magnetMax, c.mv * (1 + (C.magnetAccel - 1) * dt));
+      const step = c.mv * dt;
+
       if (d <= step) {
         run.addCoins(c.value);
-        ctx.audio.play('coin', { throttleMs: 55, vol: 0.42 });
+        ctx.audio.play('coin', { throttleMs: 40, vol: 0.42 });
         if (c.spot >= 0) { run.takeCoinSpot(c.spot); this.liveCoins.delete(c.spot); }
+        this.particles.burst(screenX(run.x, run.y), screenY(run.x, run.y) - 22, {
+          frame: 'softDot', count: 3, tint: CONFIG.colors.gold,
+          speed: 70, ttl: 0.2, s0: 0.42, s1: 0, additive: true,
+        });
         this.ents.takeCoin(i);
         continue;
       }
-      c.x += (dx / d) * step;
-      c.y += (dy / d) * step;
+
+      // Curve in rather than tracking dead straight. The sideways push decays
+      // with the trip, so the path is a hook that ends pointing at the hero —
+      // sixty coins converging on straight lines looks like a spreadsheet.
+      const ux = dx / d, uy = dy / d;
+      const swirl = C.magnetArc * Math.exp(-c.ht * 3.2);
+      c.x += (ux * step) - uy * swirl * dt * 6;
+      c.y += (uy * step) + ux * swirl * dt * 6;
     }
   }
 
@@ -820,13 +848,14 @@ export class WorldScene extends Scene implements Stepper {
         e.attackT = 0.3;
       }
       if (e.attackT > 0) e.attackT -= dtReal;
+      const eKind = ctx.atlas.variantKind(e.kind, e.variant);
       if (e.flashT > 0) {
         e.flashT -= dtReal;
-        e.sp.texture = ctx.atlas.get(e.kind + '_flash');
+        e.sp.texture = ctx.atlas.get(eKind + '_flash');
         e.sp.scale.x = 1;
       } else {
         e.sp.texture = ctx.atlas.get(
-          frameName(e.kind, e.look, frameFor(e.walk, eMoving, e.attackT)),
+          frameName(eKind, e.look, frameFor(e.walk, eMoving, e.attackT)),
         );
         e.sp.scale.x = e.look.flip ? -1 : 1;
       }

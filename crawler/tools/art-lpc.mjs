@@ -50,8 +50,18 @@ const REPO = 'https://raw.githubusercontent.com/jrconway3/Universal-LPC-spritesh
 const L = {
   bodyLight: 'body/male/light.png',
   bodyDark: 'body/male/dark.png',
+  bodyTan: 'body/male/tanned.png',
+  bodyTan2: 'body/male/tanned2.png',
+  bodyElf: 'body/male/darkelf.png',
   hairPlain: 'hair/male/plain/black.png',
+  hairBrown: 'hair/male/plain/brown.png',
+  hairRed: 'hair/male/plain/redhead.png',
+  hairWhite: 'hair/male/plain/white.png',
   hairMessy: 'hair/male/messy1/black.png',
+  hairMessy2: 'hair/male/messy2/black.png',
+  hairMohawk: 'hair/male/mohawk/black.png',
+  hairHawk: 'hair/male/longhawk/black.png',
+  hairBangs: 'hair/male/bangs/black.png',
   hairBlonde: 'hair/male/bangs/blonde.png',
   shirt: 'torso/shirts/longsleeve/male/white_longsleeve.png',
   leatherChest: 'torso/leather/chest_male.png',
@@ -69,10 +79,21 @@ const L = {
   dagger: 'weapons/right hand/male/dagger_male.png',
 };
 
+/**
+ * Draw order, back to front. Recipes name SLOTS rather than listing layers in
+ * order, for two reasons: the order is a property of the LPC rig and not of
+ * any one character, and naming slots is what makes a variant a one-line
+ * override instead of a copied-and-edited layer list.
+ */
+const ORDER = [
+  'body', 'legs', 'feet', 'torso', 'armor', 'shoulders',
+  'skirt', 'belt', 'hands', 'hair', 'head', 'weapon',
+];
+
 // ─────────────────────────── the cast ───────────────────────────
 
 /**
- * A layer is `[name]`, `[name, tint]` or `[name, tint, clip]`.
+ * A slot holds `[file]`, `[file, tint]` or `[file, tint, clip]`.
  *
  * `tint` multiplies the layer's colour, which is how one white shirt sheet
  * becomes a blue levy and a red thug. It multiplies rather than replaces so
@@ -84,32 +105,56 @@ const L = {
  * no boxer shorts, but trousers clipped at the thigh are boxer shorts, and
  * Carl being barefoot in boxer shorts is not a detail — it is the joke the
  * whole character is built on.
+ *
+ * `variants` are PATCHES over the base slots, and they are the answer to a
+ * crowd of sixty reading as one object cloned sixty times. Each patch becomes
+ * its own sheet — `levy0_v1`, `levy0_v2` — which the game picks between with a
+ * stable per-member hash. Overriding a slot is a line; the alternative, a
+ * copied and hand-edited layer list per look, is how these files rot.
+ *
+ * Set `null` to clear a slot a variant should not have.
  */
 const CAST = {
   hero: {
     cell: '66x84',
     note: 'Carl — barefoot, bare-chested, blue boxers',
-    layers: [
-      [L.bodyLight],
+    slots: {
+      body: [L.bodyLight],
       // No clip: this pack's "pants" layer is already cut like briefs, sitting
       // at roughly y 44-56 of the 64 px cell. Clipping it to the thigh — which
       // is what you would reach for to turn trousers into shorts — leaves a
       // two-pixel sliver at the waistband and nothing else.
-      [L.pants, '#4f6ea8'],
-      [L.hairMessy],
-    ],
+      legs: [L.pants, '#4f6ea8'],
+      hair: [L.hairMessy],
+    },
   },
+
+  // ── the crew ──
+  //
+  // Three tiers of kit, each with three faces. The tier says how well armed
+  // the crowd is; the variants stop it looking like one man photocopied.
   levy0: {
     cell: '48x62',
     note: 'crew, under 12 — whatever they had on',
-    layers: [[L.bodyLight], [L.pants, '#6a6f7d'], [L.shirt, '#6b8fd6'], [L.shoes], [L.hairPlain]],
+    slots: {
+      body: [L.bodyLight], legs: [L.pants, '#6a6f7d'],
+      torso: [L.shirt, '#6b8fd6'], feet: [L.shoes], hair: [L.hairPlain],
+    },
+    variants: [
+      { body: [L.bodyTan], hair: [L.hairBrown], torso: [L.shirt, '#5d82cc'], legs: [L.pants, '#7b6f5e'] },
+      { body: [L.bodyDark], hair: [L.hairMessy2], torso: [L.shirt, '#7fa2e0'], legs: [L.pants, '#5f6470'] },
+    ],
   },
   levy1: {
     cell: '48x62',
     note: 'crew, 12-29 — someone found the leather',
-    layers: [
-      [L.bodyLight], [L.pants, '#5b6070'], [L.shirt, '#6b8fd6'],
-      [L.leatherChest], [L.belt], [L.shoes], [L.hairPlain],
+    slots: {
+      body: [L.bodyLight], legs: [L.pants, '#5b6070'], torso: [L.shirt, '#6b8fd6'],
+      armor: [L.leatherChest], belt: [L.belt], feet: [L.shoes], hair: [L.hairPlain],
+    },
+    variants: [
+      { body: [L.bodyTan2], hair: [L.hairRed], torso: [L.shirt, '#5d82cc'], armor: [L.leatherChest, '#b8875a'] },
+      { body: [L.bodyDark], hair: [L.hairMohawk], torso: [L.shirt, '#7fa2e0'], armor: [L.leatherChest, '#8a6242'] },
     ],
   },
   levy2: {
@@ -120,36 +165,52 @@ const CAST = {
     // buys the body back its scale.
     cell: '64x62',
     note: 'crew, 30+ — an actual line unit, with spears',
-    layers: [
-      [L.bodyLight], [L.pants, '#5b6070'], [L.shirt, '#6b8fd6'],
-      [L.leatherChest], [L.leatherShoulders], [L.belt], [L.shoes],
-      [L.hairPlain], [L.spear],
+    slots: {
+      body: [L.bodyLight], legs: [L.pants, '#5b6070'], torso: [L.shirt, '#6b8fd6'],
+      armor: [L.leatherChest], shoulders: [L.leatherShoulders], belt: [L.belt],
+      feet: [L.shoes], hair: [L.hairPlain], weapon: [L.spear],
+    },
+    variants: [
+      { body: [L.bodyTan], hair: [L.hairWhite], torso: [L.shirt, '#5d82cc'], shoulders: [L.leatherShoulders, '#b8875a'] },
+      { body: [L.bodyTan2], hair: [L.hairHawk], torso: [L.shirt, '#7fa2e0'], armor: [L.leatherChest, '#8a6242'] },
     ],
   },
+
+  // ── what lives in the camps ──
   grunt: {
     cell: '52x64',
     note: 'Redcloak — red hood, short blade',
-    layers: [
-      [L.bodyDark], [L.pants, '#4a3f38'], [L.shirt, '#8c3a2c'],
-      [L.belt], [L.shoes], [L.hood, '#d63a2c'], [L.dagger],
+    slots: {
+      body: [L.bodyDark], legs: [L.pants, '#4a3f38'], torso: [L.shirt, '#8c3a2c'],
+      belt: [L.belt], feet: [L.shoes], head: [L.hood, '#d63a2c'], weapon: [L.dagger],
+    },
+    variants: [
+      { body: [L.bodyTan2], torso: [L.shirt, '#a8452f'], head: [L.hood, '#b8302a'] },
+      { body: [L.bodyElf], torso: [L.shirt, '#71301f'], head: [L.hood, '#e04a38'], legs: [L.pants, '#3b332c'] },
     ],
   },
   archer: {
     cell: '54x64',
-    note: 'Slinger — leather, hood, no bow in this pack (see the report)',
-    layers: [
-      [L.bodyLight], [L.pants, '#6b5638'], [L.shirt, '#a8875c'],
-      [L.leatherChest], [L.leatherShoulders], [L.belt], [L.shoes],
-      [L.hood, '#8c6a3f'], [L.dagger],
+    note: 'Slinger — leather and hood (this pack has no bow layer)',
+    slots: {
+      body: [L.bodyLight], legs: [L.pants, '#6b5638'], torso: [L.shirt, '#a8875c'],
+      armor: [L.leatherChest], shoulders: [L.leatherShoulders], belt: [L.belt],
+      feet: [L.shoes], head: [L.hood, '#8c6a3f'], weapon: [L.dagger],
+    },
+    variants: [
+      { body: [L.bodyTan], torso: [L.shirt, '#c2a06e'], head: [L.hood, '#6f5330'] },
     ],
   },
   heavy: {
     cell: '72x80',
     note: 'Bruiser — full plate',
-    layers: [
-      [L.bodyDark], [L.pants, '#4a4a52'], [L.shirt, '#7a7f8c'],
-      [L.plateChest], [L.plateArms], [L.greaves, '#c6ccd4'],
-      [L.belt], [L.shoes], [L.gloves, '#c6ccd4'], [L.dagger],
+    slots: {
+      body: [L.bodyDark], legs: [L.pants, '#4a4a52'], torso: [L.shirt, '#7a7f8c'],
+      armor: [L.plateChest], shoulders: [L.plateArms], skirt: null,
+      belt: [L.belt], feet: [L.shoes], hands: [L.gloves, '#c6ccd4'], weapon: [L.dagger],
+    },
+    variants: [
+      { body: [L.bodyTan2], armor: [L.plateChest, '#b9a06a'], shoulders: [L.plateArms, '#b9a06a'], hands: [L.gloves] },
     ],
   },
   captain: {
@@ -157,14 +218,32 @@ const CAST = {
     // meant to read as the biggest thing on the field.
     cell: '110x106',
     note: 'Floor Captain — plate and gold, red tabard',
-    layers: [
-      [L.bodyLight], [L.pants, '#3f3f48'], [L.shirt, '#8c1f18'],
-      [L.plateChest], [L.plateArms], [L.skirt, '#d63a2c'],
-      [L.greaves], [L.belt], [L.shoes], [L.gloves],
-      [L.hairBlonde], [L.spear],
-    ],
+    slots: {
+      body: [L.bodyLight], legs: [L.pants, '#3f3f48'], torso: [L.shirt, '#8c1f18'],
+      armor: [L.plateChest], shoulders: [L.plateArms], skirt: [L.skirt, '#d63a2c'],
+      belt: [L.belt], feet: [L.shoes], hands: [L.gloves],
+      hair: [L.hairBlonde], weapon: [L.spear],
+    },
   },
 };
+
+/** Every sheet to build: each recipe, plus one per variant patch. */
+function expand(name) {
+  const r = CAST[name];
+  const out = [{ key: name, cell: r.cell, note: r.note, slots: r.slots }];
+  (r.variants ?? []).forEach((patch, i) => {
+    out.push({
+      key: `${name}_v${i + 1}`,
+      cell: r.cell,
+      note: `${r.note} (variant ${i + 1})`,
+      slots: { ...r.slots, ...patch },
+    });
+  });
+  return out;
+}
+
+/** Slots → an ordered layer list the compositor can draw. */
+const layersOf = (slots) => ORDER.map((k) => slots[k]).filter(Boolean);
 
 // Princess Donut is deliberately absent. She is a cat, this is a library of
 // humanoids, and a humanoid Donut would be worse than the painted cat.
@@ -181,6 +260,8 @@ const SHEETS_ONLY = argv.includes('--sheets-only');
 const SCALE = flagOf('scale', '3');
 const want = argv.filter((a) => !a.startsWith('--') && a in CAST);
 const kinds = want.length ? want : Object.keys(CAST);
+/** Every sheet to build: each named recipe, followed by its variant patches. */
+const builds = kinds.flatMap(expand);
 
 // ─────────────────────────── fetch, cached ───────────────────────────
 
@@ -202,7 +283,7 @@ async function fetchLayer(path) {
   return local;
 }
 
-const needed = [...new Set(kinds.flatMap((k) => CAST[k].layers.map((l) => l[0])))];
+const needed = [...new Set(builds.flatMap((b) => layersOf(b.slots).map((l) => l[0])))];
 console.log(`layers      ${needed.length} needed`);
 const paths = {};
 for (const p of needed) {
@@ -238,8 +319,9 @@ await page.goto(`http://127.0.0.1:${port}/`);
 const SHEETS = join(ROOT, '.lpc-cache/sheets');
 mkdirSync(SHEETS, { recursive: true });
 
-for (const kind of kinds) {
-  const recipe = CAST[kind];
+for (const build of builds) {
+  const kind = build.key;
+  const recipe = { ...build, layers: layersOf(build.slots) };
   const png = await page.evaluate(async ({ base, layers }) => {
     const load = (u) => new Promise((ok, no) => {
       const i = new Image();
@@ -335,7 +417,7 @@ Both licences are compatible with this project's AGPL-3.0-or-later, and both
 require attribution and share-alike. The per-layer author list lives with the
 upstream repository; if you ship this, carry that list too.
 
-Composited into: ${kinds.join(', ')}.
+Composited into: ${builds.map((b) => b.key).join(', ')}.
 ${CREDIT_END}`;
 
 const licPath = join(ROOT, 'LICENSES.md');

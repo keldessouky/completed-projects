@@ -21,6 +21,8 @@ import type { Poi } from '../types';
 export interface Enemy {
   sp: Sprite;
   kind: EnemyKind;
+  /** which alternate look this one wears; rolled once at spawn */
+  variant: number;
   x: number; y: number; px: number; py: number;
   /** knockback velocity, decayed every step */
   kx: number; ky: number;
@@ -66,6 +68,10 @@ export interface Coin {
   spot: number;
   /** magnet state: once hooked it flies to the hero and cannot be un-hooked */
   hooked: boolean;
+  /** current magnet speed, world units/sec; ramps while hooked */
+  mv: number;
+  /** seconds since hooking, which drives the sideways arc */
+  ht: number;
 }
 
 /** The biggest body in the game — the padding every proximity query needs. */
@@ -134,7 +140,7 @@ export class Entities {
       sp.visible = false;
       enemyLayer.addChild(sp);
       return {
-        sp, kind: 'grunt', x: 0, y: 0, px: 0, py: 0, kx: 0, ky: 0,
+        sp, kind: 'grunt', variant: 0, x: 0, y: 0, px: 0, py: 0, kx: 0, ky: 0,
         hp: 1, maxHp: 1, cd: 0, flashT: 0, face: 1, hx: 0, hy: 0,
         poi: '', aggro: false, phase: 0,
         walk: 0, look: LOOK_S, attackT: 0,
@@ -157,7 +163,7 @@ export class Entities {
       sp.anchor.set(0.5, 1);
       sp.visible = false;
       coinLayer.addChild(sp);
-      return { sp, x: 0, y: 0, t: 0, value: 1, spot: -1, hooked: false };
+      return { sp, x: 0, y: 0, t: 0, value: 1, spot: -1, hooked: false, mv: 0, ht: 0 };
     });
   }
 
@@ -209,6 +215,8 @@ export class Entities {
     if (!e) return null;
     const stat = CONFIG.enemies[kind];
     e.kind = kind;
+    // A camp of eight identical thugs reads as a decal, not a gang.
+    e.variant = (Math.random() * 1024) | 0;
     e.x = e.px = e.hx = x;
     e.y = e.py = e.hy = y;
     e.kx = e.ky = 0;
@@ -222,7 +230,7 @@ export class Entities {
     e.walk = Math.random();
     e.look = LOOK_S;
     e.attackT = 0;
-    e.sp.texture = atlas.get(kind + '_s_0');
+    e.sp.texture = atlas.get(atlas.variantKind(kind, e.variant) + '_s_0');
     e.sp.visible = true;
     e.sp.alpha = 1;
     e.sp.scale.set(1);
@@ -267,6 +275,8 @@ export class Entities {
     c.value = value;
     c.spot = spot;
     c.hooked = false;
+    c.mv = 0;
+    c.ht = 0;
     c.sp.visible = true;
     c.sp.alpha = 1;
     return c;

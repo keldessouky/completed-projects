@@ -64,6 +64,86 @@
         106
       ],
       "pixelArt": true
+    },
+    "levy0_v1": {
+      "file": "levy0_v1.png",
+      "cell": [
+        48,
+        62
+      ],
+      "pixelArt": true
+    },
+    "levy0_v2": {
+      "file": "levy0_v2.png",
+      "cell": [
+        48,
+        62
+      ],
+      "pixelArt": true
+    },
+    "levy1_v1": {
+      "file": "levy1_v1.png",
+      "cell": [
+        48,
+        62
+      ],
+      "pixelArt": true
+    },
+    "levy1_v2": {
+      "file": "levy1_v2.png",
+      "cell": [
+        48,
+        62
+      ],
+      "pixelArt": true
+    },
+    "levy2_v1": {
+      "file": "levy2_v1.png",
+      "cell": [
+        64,
+        62
+      ],
+      "pixelArt": true
+    },
+    "levy2_v2": {
+      "file": "levy2_v2.png",
+      "cell": [
+        64,
+        62
+      ],
+      "pixelArt": true
+    },
+    "grunt_v1": {
+      "file": "grunt_v1.png",
+      "cell": [
+        52,
+        64
+      ],
+      "pixelArt": true
+    },
+    "grunt_v2": {
+      "file": "grunt_v2.png",
+      "cell": [
+        52,
+        64
+      ],
+      "pixelArt": true
+    },
+    "archer_v1": {
+      "file": "archer_v1.png",
+      "cell": [
+        54,
+        64
+      ],
+      "pixelArt": true
+    },
+    "heavy_v1": {
+      "file": "heavy_v1.png",
+      "cell": [
+        72,
+        80
+      ],
+      "pixelArt": true
     }
   }
 }

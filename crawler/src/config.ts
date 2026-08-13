@@ -66,8 +66,15 @@ export const CONFIG = {
     speed: 172,
     /** how close to a pad or gate counts as standing on it */
     useRadius: 58,
-    /** coins are hoovered up from this far away */
-    pickupRadius: 62,
+    /**
+     * Coins are hoovered up from this far away.
+     *
+     * Deliberately huge — nearly three body-lengths, wider than the squad's
+     * inner ring. Bending the walk to collect a coin would make the coin the
+     * decision, and the only decision this game wants is where the crowd goes.
+     * You should never think about coins; they should simply arrive.
+     */
+    pickupRadius: 168,
   },
 
   /**
@@ -147,8 +154,19 @@ export const CONFIG = {
     dropMin: 1,
     dropMax: 3,
     poolSize: 220,
-    /** magnet speed once inside pickupRadius */
-    magnet: 420,
+    /**
+     * Magnet speed once hooked, world units/sec, and how hard it accelerates.
+     *
+     * A constant-speed magnet reads as a coin sliding along the floor. Real
+     * pickup juice is a coin that hesitates, then snaps: it starts at `magnet`
+     * and multiplies by `magnetAccel` every second it stays hooked, so the last
+     * third of the trip is a whip. `magnetMax` stops that becoming a teleport.
+     */
+    magnet: 260,
+    magnetAccel: 5.2,
+    magnetMax: 1500,
+    /** how far a hooked coin arcs sideways before homing — pure garnish */
+    magnetArc: 26,
   },
 
   /** Enemy packs. `contact` is squad members lost when one reaches your line. */

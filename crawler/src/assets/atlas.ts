@@ -70,6 +70,37 @@ export class GameAtlas {
   /** True when the named frame exists — animation code asks before assuming. */
   has(name: string): boolean { return this.frames[name] !== undefined; }
 
+  /**
+   * How many alternate looks exist for a kind, counting the base as one.
+   *
+   * A crowd of sixty identical bodies reads as one object cloned sixty times,
+   * which is the single biggest thing separating this from art that looks
+   * authored. Extra looks arrive as sibling sheets — `levy0_v1`, `levy0_v2` —
+   * installed over the atlas the same way the base sheet is.
+   *
+   * Counted lazily and cached because it is asked once per member per frame,
+   * and answered honestly: with no override sheets installed there is exactly
+   * one look, and the procedurally painted cast keeps working untouched.
+   */
+  variantCount(kind: string): number {
+    const known = this.variantCache.get(kind);
+    if (known !== undefined) return known;
+    let n = 1;
+    while (this.has(`${kind}_v${n}_s_0`)) n++;
+    this.variantCache.set(kind, n);
+    return n;
+  }
+
+  /** The kind name for one member's look. `variant` may be any integer. */
+  variantKind(kind: string, variant: number): string {
+    const n = this.variantCount(kind);
+    if (n <= 1) return kind;
+    const v = ((variant % n) + n) % n;
+    return v === 0 ? kind : `${kind}_v${v}`;
+  }
+
+  private variantCache = new Map<string, number>();
+
   private newPage(): Page {
     const canvas = document.createElement('canvas');
     canvas.width = PAGE;

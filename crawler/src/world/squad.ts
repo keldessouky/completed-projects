@@ -35,6 +35,14 @@ export interface Member {
   /** >0 while dying: the fly-off before the sprite is returned to the pool */
   dying: number;
   dx: number; dy: number;
+  /**
+   * Which alternate look this member wears, fixed for its whole life.
+   *
+   * Rolled once on recruitment rather than derived from the slot, because
+   * slots are re-packed every time somebody dies — deriving the look from the
+   * slot would make the whole crowd change clothes each time it took a hit.
+   */
+  variant: number;
 }
 
 const SQ = CONFIG.squad;
@@ -88,7 +96,7 @@ export class Squad {
       layer.addChild(sp);
       return {
         sp, x: 0, y: 0, vx: 0, vy: 0, slot: 0, phase: 0, cd: 0,
-        look: LOOK_S, attackT: 0, dying: 0, dx: 0, dy: 0,
+        look: LOOK_S, attackT: 0, dying: 0, dx: 0, dy: 0, variant: 0,
       };
     });
   }
@@ -125,6 +133,7 @@ export class Squad {
       m.attackT = 0;
       m.cd = Math.random() * SQ.interval;
       m.dying = 0;
+      m.variant = (Math.random() * 1024) | 0;
       m.sp.visible = true;
       m.sp.alpha = 1;
       this.count++;
@@ -252,7 +261,7 @@ export class Squad {
    * inside the art, where it can also move the arms and squash the shadow.
    */
   draw(camX: number, camY: number): void {
-    const kind = 'levy' + this.tier();
+    const base = 'levy' + this.tier();
     for (let i = 0; i < this.members.count; i++) {
       const m = this.members.items[i];
       m.sp.x = screenX(m.x, m.y) - camX;
@@ -267,6 +276,7 @@ export class Squad {
       if (m.dying > 0) continue;   // keep the last pose while flying off
       const moving = Math.abs(m.vx) + Math.abs(m.vy) > 8;
       if (moving) m.look = lookFrom(m.vx, m.vy, m.look);
+      const kind = this.atlas.variantKind(base, m.variant);
       m.sp.texture = this.atlas.get(frameName(kind, m.look, frameFor(m.phase, moving, m.attackT)));
       m.sp.scale.x = m.look.flip ? -1 : 1;
     }
