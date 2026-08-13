@@ -457,7 +457,18 @@ try {
     await page.waitForTimeout(450);
     paused = await page.evaluate(() => window.__cr.game.loop.paused);
   }
-  if (!paused) throw new Error('the pause button never opened the pause menu');
+  if (!paused) {
+    // openPause() refuses silently in two states — already paused, and dead —
+    // and a bot parked in the gate's fire can be dead by the time it gets
+    // here. Say which, or this failure is a guessing game every time.
+    const why = await page.evaluate(() => ({
+      scene: window.__cr.scene(),
+      dead: window.__cr.probe()?.dead ?? null,
+      squad: window.__cr.probe()?.squad ?? null,
+    }));
+    throw new Error('the pause button never opened the pause menu '
+      + `(scene ${why.scene}, dead ${why.dead}, squad ${why.squad})`);
+  }
   await shot('11-pause');
   await page.mouse.click(220, 546); // Settings
   await page.waitForTimeout(600);
