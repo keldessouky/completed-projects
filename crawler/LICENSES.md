@@ -157,14 +157,17 @@ One row per pack.
 | `public/art/*.png` (23 sheets) | Universal LPC Spritesheet | Liberated Pixel Cup contributors | GPL-3.0 **and** CC-BY-SA-3.0 | https://github.com/jrconway3/Universal-LPC-spritesheet |
 | `public/art/boss.png` | LPC, vendored at `crown-and-circuit/public/lpc` | see that folder's CREDITS.md | GPL / CC-BY-SA / OGA-BY | same repository |
 
-### Not shipped, and not clearable
+### Reference art, not shipped
 
-`art-source/dcc-books-1-3-sheet.png` is a third-party showcase sheet of
-*Dungeon Crawler Carl* characters, supplied by the repository owner. Those
-characters are Matt Dinniman's. The file is **reference only**: it is excluded
-from every build, no loader reads it, and it carries no licence permitting
-redistribution. It is committed so the owner has it alongside the project, and
-this repository is public — see `art-source/README.md`.
+`art-source/dcc-books-1-3-sheet.png` is a fan-made showcase sheet of *Dungeon
+Crawler Carl* characters, supplied by the repository owner.
+
+*Dungeon Crawler Carl* is by Matt Dinniman; this project is a non-commercial
+fan work and is not affiliated with or endorsed by him or his publishers.
+
+The sheet is kept out of the build for a technical reason rather than a legal
+one: it has no walk cycles, so it cannot drive an animated cast. See
+`art-source/README.md` for what it *is* useful for.
 
 ---
 
