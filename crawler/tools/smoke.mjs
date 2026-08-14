@@ -207,7 +207,16 @@ const fight = async (ms, shotName = null, anchor = null) => {
 const reviveIfDead = async () => {
   const s = await scene();
   if (s === 'world' && !(await probe())?.dead) return false;
-  await waitScene(['death', 'world'], 20000);
+
+  // Wait for the DEATH screen specifically, not "death or world".
+  //
+  // A wipe does not leave the world scene immediately — the death animation
+  // holds for 1.4 s first — so at this moment the bot is dead and still in
+  // 'world'. Waiting for either scene therefore matched 'world' instantly,
+  // the click never happened, and this returned "revived" with a dead run and
+  // an empty squad. Every later check then measured a corpse, which surfaced
+  // as the nonsense failure "could not build a crowd (0 after four pads)".
+  await waitScene('death', 20000);
   if ((await scene()) === 'death') {
     await page.mouse.click(220, 890);
     await waitScene('world');

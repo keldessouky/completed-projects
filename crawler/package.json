@@ -13,6 +13,7 @@
     "gen:audio": "node tools/gen-audio.mjs",
     "smoke": "node tools/smoke.mjs",
     "smoke:single": "node tools/smoke.mjs --single",
+    "smoke:file": "node tools/smoke-file.mjs",
     "art:export": "node tools/art-export.mjs",
     "art:check": "node tools/art-check.mjs",
     "art:contact": "node tools/art-contact.mjs",

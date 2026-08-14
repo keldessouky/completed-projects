@@ -38,9 +38,26 @@ await build({
     cssCodeSplit: false,
     // inline every referenced asset (fonts) straight into the CSS as data URIs
     assetsInlineLimit: 1024 * 1024 * 64,
+    // No module-preload polyfill: an IIFE has no modules to preload.
+    modulePreload: false,
     rollupOptions: {
       output: {
-        // Pixi lazy-loads its renderer backends; fold them into one chunk
+        /**
+         * IIFE, not ESM, and this is the whole reason the one-file build is
+         * openable at all.
+         *
+         * WebKit REFUSES to execute `<script type="module">` from a `file://`
+         * origin: module scripts are fetched with CORS, and a local file has
+         * an opaque origin, so the request is blocked before a line of code
+         * runs. On a desktop that is invisible, because you serve the folder
+         * over HTTP without thinking about it. On an iPhone — where the only
+         * way to open a downloaded page is to tap it in Files — the bundle sat
+         * on its static splash forever and never started, which broke the
+         * single promise this build exists to make: save it and open it.
+         */
+        format: 'iife',
+        // Pixi lazy-loads its renderer backends; a lone file cannot go and
+        // fetch its own chunks, so they are folded in.
         inlineDynamicImports: true,
         entryFileNames: 'app.js',
         assetFileNames: 'app[extname]',
@@ -109,7 +126,9 @@ const splice = (haystack, needle, value) => haystack.replace(needle, () => value
 
 const payload =
   `<script type="application/base64" id="zr-audio">${wav.toString('base64')}</script>\n`
-  + `${audioBoot}\n${artBoot}<script type="module">\n${js}\n</script>\n`;
+  // A CLASSIC script tag. `type="module"` here would be blocked from file://
+  // — see the rollup output config above.
+  + `${audioBoot}\n${artBoot}<script>\n${js}\n</script>\n`;
 
 if (EMBED) {
   // Body fragment: keep the page chrome (splash, context-loss notice, styles)

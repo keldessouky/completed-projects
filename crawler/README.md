@@ -22,6 +22,7 @@ npm run build       # → dist/, a static bundle you can host anywhere
 npm run build:single # → dist-single/crawler.html, the whole game in one file
 npm run smoke        # headless Chromium playthrough of a whole run
 npm run smoke:single # …the same 19 checks against the one-file build
+npm run smoke:file   # open the one-file build from file:// — how a player opens it
 npm run art:export   # → art-template/, the cast as PNG sheets you can repaint
 npm run art:import   # slice a downloaded pack or a generated sheet into one
 npm run art:lpc      # build the cast from Liberated Pixel Cup layers

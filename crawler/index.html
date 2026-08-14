@@ -96,6 +96,38 @@
   <div id="splash" aria-hidden="true"><div class="mark"></div><div>CRAWLER</div></div>
   <div id="gl-lost"><div>The feed cut out.</div><small>Tap anywhere to restore.</small></div>
   <noscript><div style="color:#EDE3D2;font-family:serif;padding:40px;text-align:center">Crawler needs JavaScript.</div></noscript>
+  <!--
+    Watchdog. Deliberately a CLASSIC inline script, because the failure it
+    exists to report is precisely "the main script never ran" — and the most
+    common cause of that is a module script blocked from a file:// origin,
+    which would take a module watchdog down with it.
+
+    Without this, a bundle that never executes looks exactly like a bundle
+    that is still loading: the static splash sits there, pulsing, forever.
+    That is what a player sees, and they have no way to tell you why.
+  -->
+  <script>
+    (function () {
+      var STALL_MS = 9000;
+      setTimeout(function () {
+        if (window.__cr) return;              // engine is up, nothing to say
+        var el = document.getElementById('splash');
+        if (!el) return;
+        el.style.letterSpacing = '0';
+        el.style.fontSize = '14px';
+        el.style.lineHeight = '1.5';
+        el.style.padding = '0 28px';
+        el.style.textAlign = 'center';
+        el.innerHTML =
+          '<div style="font-size:17px;letter-spacing:.2em;margin-bottom:14px">CRAWLER</div>'
+          + '<div style="color:#E0574A">The engine did not start.</div>'
+          + '<div style="opacity:.75;margin-top:10px">The page loaded but its script never ran. '
+          + 'On iOS this usually means the file was opened somewhere that blocks local scripts.</div>'
+          + '<div style="opacity:.75;margin-top:10px">Try opening it in Safari rather than the Files preview, '
+          + 'or serve it over http.</div>';
+      }, STALL_MS);
+    })();
+  </script>
   <script type="module" src="/src/main.ts"></script>
 </body>
 </html>
