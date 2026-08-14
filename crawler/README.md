@@ -26,6 +26,7 @@ npm run art:export   # → art-template/, the cast as PNG sheets you can repaint
 npm run art:import   # slice a downloaded pack or a generated sheet into one
 npm run art:lpc      # build the cast from Liberated Pixel Cup layers
 npm run art:check    # verify custom sheets in public/art/ before you reload
+npm run art:contact  # → art-contact.png, every installed sheet in one picture
 ```
 
 To just play it: `npm run build && npm run build:single`, then open

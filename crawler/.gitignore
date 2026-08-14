@@ -7,3 +7,4 @@ art-template/
 
 # LPC layer downloads and intermediate composites — rebuildable with `npm run art:lpc`
 .lpc-cache/
+art-contact.png
