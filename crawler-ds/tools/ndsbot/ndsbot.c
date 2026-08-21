@@ -49,6 +49,17 @@ static const void *g_frame;
 static unsigned g_fw, g_fh, g_fpitch;
 static bool g_quiet;
 
+/*  Where the core is allowed to litter. DeSmuME writes a .dsv save file next to
+ *  whatever it is told is the save directory, and a test harness has no
+ *  business dropping that into the repository. */
+static char g_scratch_dir[512];
+
+static void scratch_dir_init(void) {
+    const char *tmp = getenv("TMPDIR");
+    snprintf(g_scratch_dir, sizeof g_scratch_dir, "%s/ndsbot", tmp && *tmp ? tmp : "/tmp");
+    mkdir(g_scratch_dir, 0755);
+}
+
 static uint32_t g_joypad;      /* RETRO_DEVICE_ID_JOYPAD_* bitmap */
 static bool g_touching;
 static int g_touch_x, g_touch_y;
@@ -62,7 +73,7 @@ static bool env_cb(unsigned cmd, void *data) {
     switch (cmd) {
     case RETRO_ENVIRONMENT_SET_PIXEL_FORMAT: return *(const enum retro_pixel_format *)data == RETRO_PIXEL_FORMAT_RGB565;
     case RETRO_ENVIRONMENT_GET_SYSTEM_DIRECTORY:
-    case RETRO_ENVIRONMENT_GET_SAVE_DIRECTORY: *(const char **)data = "."; return true;
+    case RETRO_ENVIRONMENT_GET_SAVE_DIRECTORY: *(const char **)data = g_scratch_dir; return true;
     case RETRO_ENVIRONMENT_GET_CAN_DUPE: *(bool *)data = true; return true;
     case RETRO_ENVIRONMENT_GET_LOG_INTERFACE: ((struct retro_log_callback *)data)->log = core_log; return true;
     case RETRO_ENVIRONMENT_SET_VARIABLES: {
@@ -301,6 +312,7 @@ int main(int argc, char **argv) {
     }
     if (!rom || !script) die("usage: ndsbot --rom FILE --script FILE [--shots DIR]");
     if (shots) mkdir(shots, 0755);
+    scratch_dir_init();
 
     core_load(core_path);
     core.init();
