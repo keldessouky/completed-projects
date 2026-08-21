@@ -1,0 +1,88 @@
+# Licenses & Attribution — Dungeon Crawler Carl: Book One (DS)
+
+## This is a fan game
+
+***Dungeon Crawler Carl*** is a novel series by **Matt Dinniman**. Carl,
+Princess Donut, Mordecai, the Bopca, the System and the premise of a televised
+dungeon under a repossessed Earth are his creation, and this ROM is an
+unofficial, non-commercial homage made by a reader.
+
+**No text from the books appears in this game.** Every line the System speaks,
+every item description, every monster caption and every achievement name was
+written for this ROM. The bestiary is original: there is no Screaming Sofa, Bone
+Bailiff or Neon Mimic in the novels. The three floors, their layouts and their
+bosses are inventions of this game, not adaptations of specific scenes.
+
+If the author or his publisher would prefer this not exist, it comes down.
+
+---
+
+## The game's own code and assets
+
+Everything in `src/`, `tools/`, `assets/` and `docs/` was written for this
+project and is offered under the **MIT license**, with the fan-work caveat above:
+the code is yours to reuse, the characters are not mine to license.
+
+**No third-party art, audio or font file is bundled.** Every sprite, glyph,
+floor plan, sound effect and piece of music in the ROM is produced by code in
+this repository:
+
+| Asset | Made by | Shipped as |
+| --- | --- | --- |
+| 26 sprites (party, bestiary, bosses, props) | `tools/art/cast.py`, `bestiary.py`, `props.py`, on `forge_tools.py` | `src/gen/art.c` |
+| The 5×7 font, 104 glyphs | `tools/art/font5x7.py` | `src/gen/art.c` |
+| Three floor maps | `tools/mapgen.py` → `tools/floors/*.txt` | `src/gen/art.c` |
+| Four songs, nine sound effects | `src/core/audio.c` (note tables, PSG) | compiled in |
+| The ROM banner icon | `tools/forge.py` | `assets/icon.bmp` |
+
+---
+
+## Runtime dependencies (linked into the ROM)
+
+| Component | Version | License | Source |
+| --- | --- | --- | --- |
+| **libnds** | 1.8.3 | zlib / MPL-2.0 (mixed, per file) | https://github.com/devkitPro/libnds |
+| **devkitarm-crtls** (crt0 + linker scripts) | `1c0c102` | MPL-2.0 | https://github.com/devkitPro/devkitarm-crtls |
+| newlib (C library) | as packaged by your distribution | BSD-style, per file | https://sourceware.org/newlib/ |
+| libgcc | GCC 13.2 (`gcc-arm-none-eabi`) | GPL-3.0 **with the GCC Runtime Library Exception** | https://gcc.gnu.org/ |
+
+The Runtime Library Exception is what allows a program compiled with GCC to be
+distributed under its own terms; nothing here defeats it.
+
+`tools/setup-sdk.sh` fetches libnds and devkitarm-crtls at the pinned revisions
+above and builds them locally. Neither is vendored into this repository — the
+`sdk/` directory it produces is git-ignored — so the licenses above apply to
+sources fetched at build time and to the object code linked into
+`dist/crawler-ds.nds`.
+
+## Build-time tools (not linked into the ROM)
+
+| Tool | Version | License | Source |
+| --- | --- | --- | --- |
+| **ndstool** | `76e8b68` | GPL-2.0-or-later | https://github.com/devkitPro/ndstool |
+| GNU Make, binutils, GCC (host) | distribution | GPL | — |
+| Python 3 (`tools/*.py`) | 3.8+ | PSF | https://python.org |
+| zlib (PNG writing in the harnesses) | distribution | zlib | https://zlib.net |
+
+ndstool packs the two ARM binaries into the ROM container; it is a separate
+program invoked by the Makefile, not a library, so its GPL applies to ndstool
+itself and not to the ROM it produces.
+
+## Test-only dependencies (not shipped, not linked)
+
+| Component | License | Source |
+| --- | --- | --- |
+| **DeSmuME** libretro core — runs the ROM in `make test` | GPL-2.0-or-later | https://github.com/libretro/desmume |
+| `libretro.h` — the API header `tools/ndsbot` compiles against | MIT (permissive, deliberately) | https://github.com/libretro/libretro-common |
+
+`tools/ndsbot` loads the DeSmuME core at runtime with `dlopen`; the core is not
+distributed here and no DeSmuME source is included. The harness is a development
+tool and forms no part of the game.
+
+---
+
+## What is not here
+
+No commercial ROM, BIOS image, firmware dump or save file from any Nintendo
+product is included, required or referenced. The game boots from HLE and needs
+none of them.
