@@ -29,7 +29,7 @@ this repository:
 
 | Asset | Made by | Shipped as |
 | --- | --- | --- |
-| 26 sprites (party, bestiary, bosses, props) | `tools/art/sprites.py` | `src/gen/art.c` |
+| 26 sprites (party, bestiary, bosses, props) | `tools/art/cast.py`, `bestiary.py`, `props.py`, on `forge_tools.py` | `src/gen/art.c` |
 | The 5×7 font, 104 glyphs | `tools/art/font5x7.py` | `src/gen/art.c` |
 | Three floor maps | `tools/mapgen.py` → `tools/floors/*.txt` | `src/gen/art.c` |
 | Four songs, nine sound effects | `src/core/audio.c` (note tables, PSG) | compiled in |

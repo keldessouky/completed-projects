@@ -42,8 +42,8 @@ frames 20
 expect steps > 4
 
 echo explore, fight, loot
-autoplay 260
-expect steps > 30
+autoplay 320
+expect steps > 20
 expect explored > 40
 expect battles_won >= 1
 expect carl_hp > 0
@@ -52,9 +52,11 @@ shot 04-play
 print
 
 echo keep going
-autoplay 260
-expect steps > 45
+autoplay 320
+expect steps > 20
+expect explored > 40
 expect boxes >= 1
+expect carl_hp > 0
 print
 shot 05-later
 

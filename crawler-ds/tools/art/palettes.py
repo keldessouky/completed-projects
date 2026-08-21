@@ -1,30 +1,74 @@
-"""Colour ramps for the sprite forge.
+"""Colour for the sprite forge.
 
-Everything the game draws is built from short ramps: a base hue lit from the
-upper left and shaded into shadow, which is what gives the cast a single light
-source without anybody hand-picking pixels.
+The single biggest difference between pixel art that reads as drawn and pixel
+art that reads as generated is what happens inside a ramp. Scaling a colour's
+brightness up and down gives you five shades of the same plastic. Real ramps
+move in hue as well as value: shadows drift toward the ambient light (cool,
+blue), highlights drift toward the key light (warm, yellow), and the middle of
+the ramp is the most saturated part of it.
+
+Everything the cast is drawn with comes out of `ramp()` below, so the whole game
+is lit by the same two lights.
 """
+
+# The two lights every ramp is built between.
+AMBIENT = (46, 58, 116)      # cool bounce, the colour shadows fall toward
+KEY = (255, 240, 198)        # warm key light, the colour highlights climb to
 
 
 def clamp(v):
     return max(0, min(255, int(round(v))))
 
 
-def ramp(base, steps=4, lighten=0.55, darken=0.45):
-    """A ramp from shadow to highlight around `base`, darkest first."""
-    r, g, b = base
+def mix(a, b, t):
+    return tuple(clamp(a[i] + (b[i] - a[i]) * t) for i in range(3))
+
+
+def saturate(c, amount):
+    """Pushes a colour away from its own grey, which keeps mid-tones from going
+    muddy as they darken."""
+    grey = (c[0] * 30 + c[1] * 59 + c[2] * 11) / 100.0
+    return tuple(clamp(grey + (c[i] - grey) * amount) for i in range(3))
+
+
+def ramp(base, steps=5, dark=0.62, light=0.42, cool=0.30, warm=0.26):
+    """A lit ramp for one material, darkest first.
+
+    `dark`/`light` are how far the ends travel in value; `cool`/`warm` are how
+    far they travel in hue, toward AMBIENT and KEY respectively.
+    """
     out = []
     for i in range(steps):
         t = i / (steps - 1) if steps > 1 else 0.5
         if t < 0.5:
-            k = 1.0 - darken * (1.0 - t * 2)
-            out.append((clamp(r * k), clamp(g * k), clamp(b * k)))
+            k = (0.5 - t) * 2.0                      # 1.0 at the darkest step
+            c = tuple(base[j] * (1.0 - dark * k) for j in range(3))
+            c = mix(c, AMBIENT, cool * k * 0.55)
+            c = saturate(c, 1.0 + 0.30 * k)
         else:
-            k = (t - 0.5) * 2
-            out.append((clamp(r + (255 - r) * lighten * k),
-                        clamp(g + (255 - g) * lighten * k),
-                        clamp(b + (255 - b) * lighten * k)))
+            k = (t - 0.5) * 2.0                      # 1.0 at the brightest step
+            c = tuple(base[j] + (255 - base[j]) * light * k for j in range(3))
+            c = mix(c, KEY, warm * k * 0.5)
+            c = saturate(c, 1.0 - 0.18 * k)
+        out.append(tuple(clamp(v) for v in c))
     return out
+
+
+def outline_for(base):
+    """The colour a shape is drawn against: its own hue, taken almost to black
+    and cooled off. Far better than a uniform black key line."""
+    c = tuple(base[i] * 0.20 for i in range(3))
+    return mix(c, AMBIENT, 0.35)
+
+
+def rim_for(base):
+    """A cool backlight for the edge that faces away from the key.
+
+    Kept close to the material: a rim that travels too far toward white stops
+    looking like light and starts looking like chrome trim.
+    """
+    lifted = tuple(clamp(base[i] + (255 - base[i]) * 0.30) for i in range(3))
+    return mix(lifted, (140, 190, 255), 0.34)
 
 
 def rgb555(c):
@@ -32,8 +76,8 @@ def rgb555(c):
     return 0x8000 | ((b >> 3) << 10) | ((g >> 3) << 5) | (r >> 3)
 
 
-# The game's fixed UI colours, in the System's own taste: black glass, amber
-# type, a hot magenta for anything the show wants you to look at.
+# The System's own chrome: black glass, amber type, hot magenta for anything the
+# show wants you looking at. Shared with src/render/theme.h.
 UI = {
     'void':      (8, 8, 12),
     'panel':     (18, 20, 30),

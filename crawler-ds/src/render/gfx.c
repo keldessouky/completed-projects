@@ -145,18 +145,36 @@ void gfx_sprite(Surface *s, const Sprite *sp, int x, int y) {
     }
 }
 
+/*  Scaled blits are the hot path in a fight, and the ARM9 has no divider: doing
+ *  `i * den / num` per pixel costs more than the rest of the screen put
+ *  together. The column map is built once per call and the source row is
+ *  stepped with an accumulator, which takes the divisions from width*height
+ *  down to width. */
 void gfx_sprite_scaled(Surface *s, const Sprite *sp, int x, int y, int num, int den) {
+    if (num == den) { gfx_sprite(s, sp, x, y); return; }
     int w = sp->w * num / den, h = sp->h * num / den;
+    if (w <= 0 || h <= 0) return;
+
+    static uint8_t colmap[SCREEN_W];
+    int cols = w > SCREEN_W ? SCREEN_W : w;
+    for (int i = 0; i < cols; i++) colmap[i] = (uint8_t)(i * den / num);
+
+    int sy = 0, err = 0;
     for (int j = 0; j < h; j++) {
         int yy = y + j;
-        if ((unsigned)yy >= (unsigned)s->h) continue;
-        const uint8_t *row = sp->pix + (j * den / num) * sp->w;
-        uint16_t *dst = s->px + yy * s->w;
-        for (int i = 0; i < w; i++) {
-            uint8_t idx = row[i * den / num];
-            int xx = x + i;
-            if (idx && (unsigned)xx < (unsigned)s->w) dst[xx] = sp->pal[idx];
+        if ((unsigned)yy < (unsigned)s->h && sy < sp->h) {
+            const uint8_t *row = sp->pix + sy * sp->w;
+            uint16_t *dst = s->px + yy * s->w;
+            int i0 = 0, i1 = cols;
+            if (x < 0) i0 = -x;
+            if (x + i1 > s->w) i1 = s->w - x;
+            for (int i = i0; i < i1; i++) {
+                uint8_t idx = row[colmap[i]];
+                if (idx) dst[x + i] = sp->pal[idx];
+            }
         }
+        err += den;                       /* advance the source row */
+        while (err >= num) { err -= num; sy++; }
     }
 }
 

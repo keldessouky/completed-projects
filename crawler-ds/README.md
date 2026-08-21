@@ -89,8 +89,19 @@ the one thing the code does not carry.
 No sprite was drawn in an image editor, no sample was recorded, no font was
 licensed.
 
-- **`tools/art/sprites.py`** — the cast. Each creature is a stack of ellipses,
-  polygons and lines with one light source and an outline pass. 26 sprites.
+- **`tools/art/forge_tools.py`** — the drawing toolkit. Forms are shaded by a
+  real lambert term against one key light, so the highlight lands off-centre
+  instead of filling the middle of every shape. Ramps move in hue as well as
+  value (`tools/art/palettes.py`): shadows drift toward a cool ambient, highlights
+  toward a warm key, which is the difference between a lit material and five
+  shades of the same plastic. Two passes finish every sprite — a cool rim light
+  on the edges facing away from the key, and an outline that takes its colour
+  from the material it wraps rather than being a flat black key line. Faces are
+  placed pixel by pixel with `stamp()`, because nothing procedural reads as a
+  face.
+- **`tools/art/cast.py`, `bestiary.py`, `props.py`** — the 26 drawings
+  themselves: the party at 56×72, the bestiary at 72×72, the bosses at 96×96 and
+  the furniture at 40×40.
 - **`tools/art/font5x7.py`** — the font, drawn as ASCII art, seven rows of five
   cells per glyph, 104 glyphs including the System's arrows and pips.
 - **`tools/mapgen.py`** — the floors. A perfect maze with rooms punched through
@@ -212,10 +223,12 @@ DS running this at 30 frames a second and at 60.
 
 ## Next version
 
-The look gets a full pass: this build's art and UI are a working first draft, not
-the finished thing. Everything the redesign needs is already isolated —
-`tools/art/*` for the cast, `src/render/theme.h` for the palette, and one
-renderer per screen — so it can be replaced without touching the game.
+The cast has had its pass — proportions, lighting, hand-drawn faces — and the
+screens were re-laid-out around it. The **UI** is next: the panels, the HUD and
+the type are still the working first draft the art used to be. Everything that
+redesign needs is isolated: `src/render/theme.h` holds every colour, and each
+screen has its own function in `src/render/render.c`, so it can be replaced
+without touching the game underneath.
 
 Also queued: ceiling detail on the lower floors, an encounter transition, and
 floors four onward.

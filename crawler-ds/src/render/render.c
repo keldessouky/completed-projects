@@ -73,16 +73,22 @@ static void draw_title(Surface *top, Surface *bot) {
         int y = (int)((i * 4211 + g.anim * (1 + (i & 3))) % SCREEN_H);
         gfx_pixel(top, x, y, gfx_scale_colour(C_AMBER, 6 + (i & 7), 16));
     }
-    gfx_rect(top, 0, 60, SCREEN_W, 46, RGB(14, 10, 20));
-    gfx_hline(top, 0, SCREEN_W - 1, 60, C_AMBER_DK);
-    gfx_hline(top, 0, SCREEN_W - 1, 105, C_AMBER_DK);
-    gfx_text_big(top, 20, 68, C_AMBER, "DUNGEON CRAWLER");
-    gfx_text_big(top, 96, 86, C_MAGENTA, "CARL");
-    gfx_text(top, 20, 110, C_DIM, "BOOK ONE   an unofficial fan game");
+    /* The title block, then a floor for the two of them to stand on. */
+    gfx_rect(top, 0, 26, SCREEN_W, 44, RGB(14, 10, 20));
+    gfx_hline(top, 0, SCREEN_W - 1, 26, C_AMBER_DK);
+    gfx_hline(top, 0, SCREEN_W - 1, 69, C_AMBER_DK);
+    gfx_text_big(top, 20, 32, C_AMBER, "DUNGEON CRAWLER");
+    gfx_text_big(top, 96, 50, C_MAGENTA, "CARL");
+    gfx_text(top, 26, 76, C_DIM, "BOOK ONE   an unofficial fan game");
 
-    gfx_sprite(top, &spr_carl, 26, 118);
-    gfx_sprite(top, &spr_donut, 176, 126);
-    gfx_text(top, 8, 178, C_DIM, "18 floors. He is not wearing shoes.");
+    int floor_y = SCREEN_H - 4;
+    gfx_vgradient(top, 0, floor_y - 14, SCREEN_W, 18, RGB(16, 13, 22), RGB(34, 27, 38));
+    gfx_hline(top, 0, SCREEN_W - 1, floor_y - 14, gfx_scale_colour(C_AMBER_DK, 10, 16));
+    for (int i = 0; i < 3; i++)                       /* light pooling on the floor */
+        gfx_dither(top, 0, floor_y - 12 + i * 5, SCREEN_W, 5, C_AMBER_DK, 6 - i * 2);
+    gfx_sprite(top, &spr_carl, 22, floor_y - spr_carl.h);
+    gfx_sprite(top, &spr_donut, SCREEN_W - 80, floor_y - spr_donut.h + 2);
+    gfx_text(top, 24, 92, C_INK, "18 floors. He is not wearing shoes.");
 
     gfx_clear(bot, C_VOID);
     gfx_vgradient(bot, 0, 0, SCREEN_W, 40, C_PANEL, C_VOID);
@@ -271,12 +277,13 @@ static void draw_foe_slots(Surface *s) {
         const FoeDef *d = &foe_defs[f->def];
         const Sprite *sp = sprite_table[d->sprite];
         /* Enemies live in the middle band so the party can stand in the
-           corners without anyone standing inside anyone else. */
-        int band = 168, left = 44;
+           corners without anyone standing inside anyone else. One enemy gets
+           the whole stage and is drawn big; three have to share it. */
+        int band = 160, left = 48;
         int cx = n > 1 ? left + band * i / (n - 1) : SCREEN_W / 2;
-        int scale = n >= 3 ? 82 : 100;
+        int scale = g.bat.boss ? 105 : n >= 3 ? 88 : n == 2 ? 108 : 130;
         int w = sp->w * scale / 100, h = sp->h * scale / 100;
-        int base = n >= 3 ? 150 : 156;
+        int base = g.bat.boss ? 158 : n >= 3 ? 150 : 156;
         int shake = (g.bat.shake && i == g.bat.target) ? ((g.anim & 2) ? 2 : -2) : 0;
         if (!f->alive) continue;
         /* A soft dithered shadow, so the thing is standing on the floor rather
@@ -352,11 +359,17 @@ static void draw_battle(Surface *top, Surface *bot) {
            way a camera behind them would frame it. */
         int bob = (g.anim / 12) & 1;
         const Sprite *c = &spr_carl, *dn = &spr_donut;
-        int ch = c->h * 88 / 100, dh = dn->h * 88 / 100;
-        gfx_sprite_scaled(top, c, -6, SCREEN_H - ch + 6 + bob, 88, 100);
-        gfx_sprite_scaled(top, dn, SCREEN_W - dn->w * 88 / 100 + 6, SCREEN_H - dh + 8 - bob, 88, 100);
-        if (g.hero[0].hp <= 0) gfx_shade(top, 0, SCREEN_H - ch, 56, ch, 8);
-        if (g.hero[1].hp <= 0) gfx_shade(top, SCREEN_W - 56, SCREEN_H - dh, 56, dh, 8);
+        const int party_scale = 68;
+        int cw = c->w * party_scale / 100, ch = c->h * party_scale / 100;
+        int dw = dn->w * party_scale / 100, dh = dn->h * party_scale / 100;
+        for (int i = 0; i < 5; i++) {                  /* contact shadows */
+            gfx_dither(top, 4 + i, SCREEN_H - 4 + i - 3, cw - i * 2, 1, C_SHADOW, 13 - i * 2);
+            gfx_dither(top, SCREEN_W - dw - 2 + i, SCREEN_H - 4 + i - 3, dw - i * 2, 1, C_SHADOW, 13 - i * 2);
+        }
+        gfx_sprite_scaled(top, c, 2, SCREEN_H - ch - 2 + bob, party_scale, 100);
+        gfx_sprite_scaled(top, dn, SCREEN_W - dw - 2, SCREEN_H - dh - 2 - bob, party_scale, 100);
+        if (g.hero[0].hp <= 0) gfx_shade(top, 0, SCREEN_H - ch - 2, cw + 4, ch, 8);
+        if (g.hero[1].hp <= 0) gfx_shade(top, SCREEN_W - dw - 4, SCREEN_H - dh - 2, dw + 4, dh, 8);
     }
     if (g.hurt_flash) gfx_shade(top, 0, 0, SCREEN_W, SCREEN_H, 16 + g.hurt_flash);
 
@@ -458,7 +471,7 @@ static void draw_menu(Surface *top, Surface *bot) {
         const Hero *h = &g.hero[i];
         int x = 4 + i * 128;
         gfx_panel(top, x, 18, 124, 168, C_PANEL, C_EDGE);
-        gfx_sprite_scaled(top, i ? &spr_donut : &spr_carl, x + 34, 22, 100, 100);
+        gfx_sprite_scaled(top, i ? &spr_donut : &spr_carl, x + 40, 22, 75, 100);
         gfx_text(top, x + 6, 84, C_AMBER, h->name);
         gfx_text(top, x + 6, 94, C_DIM, h->title);
         gfx_text(top, x + 6, 106, C_INK, "LV");
@@ -545,8 +558,8 @@ static void draw_menu(Surface *top, Surface *bot) {
 static void draw_shop(Surface *top, Surface *bot) {
     gfx_vgradient(top, 0, 0, SCREEN_W, SCREEN_H, RGB(18, 14, 12), RGB(38, 26, 18));
     system_bar(top, "BOPCA PROVISIONS", "STOCK IS WHAT IT IS");
-    gfx_sprite_scaled(top, &spr_bopca, 12, 60, 180, 100);
-    gfx_sprite(top, &spr_shop, 190, 40);
+    gfx_sprite_scaled(top, &spr_bopca, 4, 58, 150, 100);
+    gfx_sprite_scaled(top, &spr_shop, 196, 22, 120, 100);
 
     int stock[INVENTORY], n = 0;
     for (int i = 1; i < item_count; i++)
@@ -634,7 +647,7 @@ static void draw_levelup(Surface *top, Surface *bot) {
     const Hero *h = &g.hero[hero];
     gfx_vgradient(top, 0, 0, SCREEN_W, SCREEN_H, RGB(12, 16, 14), RGB(24, 40, 30));
     system_bar(top, "LEVEL UP", h->name);
-    gfx_sprite_scaled(top, hero ? &spr_donut : &spr_carl, 20, 40, 200, 100);
+    gfx_sprite_scaled(top, hero ? &spr_donut : &spr_carl, 16, 40, 150, 100);
     gfx_text_big(top, 150, 50, C_GREEN, "LEVEL");
     gfx_text_big(top, 150, 70, C_AMBER, gfx_num(h->level));
     gfx_text(top, 150, 100, C_DIM, "POINTS LEFT");
@@ -647,7 +660,7 @@ static void draw_levelup(Surface *top, Surface *bot) {
     gfx_text(bot, 180, 12, C_INK, gfx_num(h->points));
     gfx_text(bot, 196, 12, C_DIM, "left");
     static const char *const names[6] = { "STRENGTH", "DEXTERITY", "CONSTITUTION", "WITS", "CHARISMA", "LUCK" };
-    static const char *const what[6] = { "damage", "speed, dodge", "health", "stamina, healing", "damage, the crowd", "crits, loot" };
+    static const char *const what[6] = { "damage", "dodge, speed", "health", "stamina", "the crowd", "crits, loot" };
     const uint8_t *stats = &h->st.str;
     for (int i = 0; i < 6; i++) {
         int on = g.menu_cursor == i;
@@ -738,7 +751,7 @@ static void draw_gameover(Surface *top, Surface *bot) {
     gfx_text(top, 70, 104, C_AMBER, gfx_num(g.dun.index + 1));
     gfx_text(top, 100, 104, C_DIM, "Fights won");
     gfx_text(top, 180, 104, C_AMBER, gfx_num(g.battles_won));
-    gfx_sprite_scaled(top, &spr_boss_producer, 150, 110, 80, 100);
+    gfx_sprite_scaled(top, &spr_boss_producer, 158, 112, 80, 100);
 
     gfx_clear(bot, C_VOID);
     gfx_text_wrapped(bot, 12, 40, 232, C_INK,
@@ -755,8 +768,8 @@ static void draw_victory(Surface *top, Surface *bot) {
         gfx_pixel(top, x, y, i & 1 ? C_GOLD : C_MAGENTA);
     }
     gfx_text_big(top, 30, 40, C_GOLD, "END OF BOOK ONE");
-    gfx_sprite(top, &spr_carl, 40, 90);
-    gfx_sprite(top, &spr_donut, 160, 96);
+    gfx_sprite(top, &spr_carl, 34, 108);
+    gfx_sprite(top, &spr_donut, 150, 112);
     gfx_text(top, 24, 168, C_INK, "Three floors down. Fifteen to go.");
 
     gfx_clear(bot, C_VOID);
@@ -798,7 +811,7 @@ static uint32_t render_signature(void) {
     for (int i = 0; i < MAX_TOASTS; i++) MIX(g.toast[i].life ? g.toast[i].life / 4 + 1 : 0);
     if (g.scene == SCENE_BATTLE) {
         MIX(g.bat.phase); MIX(g.bat.cursor); MIX(g.bat.target); MIX(g.bat.actor);
-        MIX(g.bat.n_log); MIX(g.bat.shake); MIX(g.bat.timer);
+        MIX(g.bat.n_log); MIX(g.bat.shake); MIX(g.bat.timer / 6);
         for (int i = 0; i < MAX_FOES; i++) { MIX(g.bat.foes[i].hp); MIX(g.bat.foes[i].alive); }
         for (int i = 0; i < PARTY + MAX_FOES; i++) MIX(g.bat.pop_life[i] / 4);
         MIX(g.anim >> 2);
@@ -838,7 +851,9 @@ int render_frame(void) {
     default: break;
     }
 
-    if (g.scene != SCENE_DUNGEON && g.scene != SCENE_BATTLE) toasts(&top);
+    /* Paused screens are for reading; the System can wait its turn. */
+    if (g.scene != SCENE_DUNGEON && g.scene != SCENE_BATTLE &&
+        g.scene != SCENE_MENU && g.scene != SCENE_CODE && g.scene != SCENE_SHOP) toasts(&top);
     if (g.fade) {                                   /* a short wipe between scenes */
         int a = g.fade;
         gfx_shade(&top, 0, 0, SCREEN_W, SCREEN_H, 16 - a);
