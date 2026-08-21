@@ -123,12 +123,12 @@ def _cat_eye(s, cx, cy, key, flip=1):
     """
     grid = [
         "..kkkkk..",
-        ".kkgggkk.",
-        "kkgGGGgkk",
-        "kgGGpGGgk",
-        "kgGGpGGgk",
-        "kgGGpGGgk",
-        ".kgGGGgk.",
+        ".kdgggdk.",
+        "kdgGGGgdk",
+        "kgGGpGGGk",
+        "kgGGpGGLk",
+        "kgGGpGGGk",
+        ".kgGGGgd.",
         "..kkkkk..",
     ]
     for j, row in enumerate(grid):
@@ -137,11 +137,18 @@ def _cat_eye(s, cx, cy, key, flip=1):
                 continue
             x = cx + (i - 4) * flip
             s.put(x, cy + j - 4, key[ch])
-    s.put(cx - 2 * flip, cy - 2, key['w'])           # the catchlight
+    for j, i in ((-2, -1), (-1, 2), (1, -2), (2, 1)):            # iris fibres
+        s.put(cx + i * flip, cy + j, key['f'])
+    s.put(cx - 2 * flip, cy - 2, key['w'])                       # the catchlight
     s.put(cx - 1 * flip, cy - 3, key['w'])
-    s.put(cx + 2 * flip, cy + 2, key['b'])           # the bounce
-    s.put(cx - 4 * flip, cy + 1, key['t'])           # tear duct, inner corner
+    s.put(cx - 1 * flip, cy - 2, key['W'])                       # its soft edge
+    s.put(cx - 2 * flip, cy - 1, key['W'])
+    s.put(cx + 2 * flip, cy + 2, key['b'])                       # the bounce
+    s.put(cx + 1 * flip, cy + 3, key['b'])
+    s.put(cx - 4 * flip, cy + 1, key['t'])                       # tear duct
     s.put(cx + 4 * flip, cy - 1, key['k'])
+    for i in range(-3, 4):                                       # wet lower lid
+        s.put(cx + i * flip, cy + 4, key['l'])
 
 
 def donut():
@@ -152,11 +159,21 @@ def donut():
     means anything. Seated, front on, chin very slightly up.
     """
     s = Sprite(PARTY_W, PARTY_H)
-    coat = s.register_family(s.ramp((226, 142, 66), 7))
-    saddle = s.register_family(s.ramp((186, 104, 46), 6))
-    cream = s.register_family(s.ramp((252, 226, 184), 6, cool=0.12, dark=0.5))
-    gold = s.register_family(s.ramp((250, 198, 60), 6))
-    ear_pink = s.register_family(s.ramp((214, 128, 138), 5))
+    coat = s.register_family(s.ramp((214, 130, 54), 14, dark=0.72, light=0.30, warm=0.32))
+    saddle = s.register_family(s.ramp((168, 90, 38), 12, dark=0.78, light=0.26))
+    # A near-white base wastes half a ramp: every step above the midpoint lands
+    # inside five units of luma. Cream is a mid-value material lit brightly,
+    # not a white one darkened, and it keeps almost no cool in shadow or the
+    # bib — the largest single area on her — turns grey.
+    # The two coats have to occupy different value bands or the whole animal
+    # below the neck reads as one grey mass. White fur in shadow is still
+    # light: cream keeps a high floor and lives in the top of the range, and
+    # the ginger is capped below it so the bib always reads as the brighter
+    # material no matter which way the lamp is pointing.
+    cream = s.register_family(s.ramp((228, 206, 172), 14,
+                                     cool=0.02, dark=0.30, light=0.64, warm=0.30))
+    gold = s.register_family(s.ramp((250, 198, 60), 12, dark=0.76, light=0.55))
+    ear_pink = s.register_family(s.ramp((214, 128, 138), 9))
 
     dark = s.ink((32, 22, 24))
     rim = s.ink((40, 28, 30))
@@ -176,121 +193,171 @@ def donut():
     s.limb(44, 44, 52, 56, 11, 14, coat)
     s.limb(52, 56, 42, 69, 14, 11, coat)
     for i, (x, y) in enumerate(((46, 46), (50, 52), (51, 60), (47, 66), (42, 69))):
-        band = saddle[2] if i % 2 else coat[4]       # a tail is always banded
+        band = saddle[4] if i % 2 else coat[7]       # a tail is always banded
         s.line(x - 4, y, x + 4, y + 2, band)
-        s.line(x - 4, y + 1, x + 4, y + 3, band if i % 2 else coat[5])
+        s.line(x - 4, y + 1, x + 4, y + 3, band if i % 2 else coat[9])
     s.form(41, 69, 7, 3, cream, squash=0.5)          # the white tip
     for k in range(5):                               # plume, breaking the outline
-        s.taper_line(53 - k, 48 + k * 4, 56, 44 + k * 5, coat[5], coat[3])
+        s.taper_line(53 - k, 48 + k * 4, 56, 44 + k * 5, coat[9], coat[6])
 
     # ---- body: a seated cone, mostly coat -----------------------------------
-    s.poly([(28, 34), (42, 54), (44, 67), (12, 67), (14, 54)], coat[3])
-    s.form(28, 54, 17, 14, coat, wrap=0.8)
+    s.poly([(28, 34), (42, 54), (44, 67), (12, 67), (14, 54)], coat[6])
+    s.form(28, 54, 17, 14, coat, wrap=0.62)
     s.separate(43, 50, 44, 65, coat, 2)              # the tail sits in front
-    s.form(28, 30, 15, 12, saddle, wrap=0.8)         # darker over the shoulders
+    s.form(28, 30, 15, 12, saddle, wrap=0.66)        # darker over the shoulders
     for x, y, n, side in ((13, 48, 3, -1), (14, 58, 3, -1),
                           (43, 50, 3, 1), (42, 60, 3, 1)):
         for k in range(n):                           # coat breaking the silhouette
-            s.taper_line(x, y + k * 3, x + side * 3, y + k * 3 + 2, coat[5], coat[4])
+            s.taper_line(x, y + k * 3, x + side * 3, y + k * 3 + 2, coat[9], coat[7])
 
     # ---- the ruff: the biggest single thing about a Persian -----------------
-    s.form(28, 47, 14, 11, cream, wrap=0.65)
-    s.form(28, 43, 11, 6, cream, wrap=0.6)
-    s.feather(15, 41, 56, cream, coat, depth=5, seed=3)      # bib into the belly
-    s.feather(16, 40, 39, cream, saddle, depth=4, seed=7)    # bib into the chest
-    for x, y0, y1 in ((20, 44, 54), (36, 45, 55)):   # the chest has a middle
-        s.taper_line(x, y0, x - 1, y1, cream[2], cream[3])
-    s.taper_line(28, 42, 28, 53, cream[5], cream[4])
+    s.form(28, 47, 14, 11, cream, wrap=0.96)
+    s.form(28, 43, 11, 6, cream, wrap=0.90)
+    s.feather(15, 41, 58, cream, coat, depth=3, seed=3)      # bib into the belly
+    s.feather(16, 40, 39, cream, saddle, depth=3, seed=7)    # bib into the chest
+    for x, y0, y1 in ((20, 44, 55), (36, 45, 56)):   # the ruff falls in panels
+        s.taper_line(x, y0, x - 1, y1, cream[6], cream[8])
+    s.taper_line(28, 42, 28, 54, cream[12], cream[10])   # the lit centre line
 
     # ---- front paws ---------------------------------------------------------
     for px in (19, 35):
-        s.form(px, 65, 7, 5, cream, wrap=0.7)
-        s.form(px, 68, 7, 3, cream, squash=0.5)
-        for k in (-4, -1, 2):                        # toes
-            s.line(px + k, 65, px + k, 70, cream[1])
-            s.put(px + k + 1, 70, cream[5])
-        s.shade_band(px - 7, 69, px + 7, 71, -1)
+        s.form(px, 65, 7, 6, cream, wrap=0.94)
+        s.form(px, 69, 7, 3, cream, squash=0.5)
+        s.shade_band(px - 7, 61, px + 7, 62, -3)                  # the belly casts
+        s.stroke_shade(px - 6, 63, px + 6, 63, -2, only=cream)    # where the leg ends
+        s.stroke_shade(px - 5, 64, px + 5, 64, 2, only=cream)     # and catches again
+        for k in (-4, -1, 2):                                     # toes
+            s.stroke_shade(px + k, 66, px + k, 71, -4, only=cream)
+            s.stroke_shade(px + k + 1, 66, px + k + 1, 71, 2, only=cream)
+        s.shade_band(px - 7, 71, px + 7, 71, -3)
+    s.shade_form(28, 68, 4, 5, -3, soft=0)                        # between the paws
 
     # ---- head ---------------------------------------------------------------
-    s.form(28, 25, 16, 13, coat, wrap=0.8)           # skull, wide and round
-    s.form(28, 20, 13, 7, saddle, wrap=0.7)          # darker across the top
-    s.form(14, 31, 7, 6, cream, wrap=0.6)            # cheek furnishings, low
-    s.form(42, 31, 7, 6, cream, wrap=0.6)
+    s.form(28, 25, 16, 13, coat, wrap=0.6)           # skull, wide and round
+    s.form(28, 20, 13, 7, saddle, wrap=0.58)         # darker across the top
+    s.form(14, 31, 7, 6, cream, wrap=0.92)           # cheek furnishings, low
+    s.form(42, 31, 7, 6, cream, wrap=0.86)
     s.feather(8, 20, 27, cream, coat, depth=3, seed=11)
     s.feather(36, 48, 27, cream, coat, depth=3, seed=13)
     for i, (dy, out) in enumerate(((1, 5), (6, 6), (11, 4))):  # tufts, tip-lit
-        s.poly([(13, 24 + dy), (13 - out, 27 + dy), (14, 31 + dy)], cream[3])
-        s.poly([(13, 26 + dy), (13 - out + 1, 28 + dy), (14, 30 + dy)], cream[5])
-        s.poly([(43, 24 + dy), (43 + out, 27 + dy), (42, 31 + dy)], cream[2])
-        s.poly([(43, 26 + dy), (43 + out - 1, 28 + dy), (42, 30 + dy)], cream[4])
-    s.form(28, 35, 11, 6, cream, wrap=0.6)           # cream from the nose down
+        s.poly([(13, 24 + dy), (13 - out, 27 + dy), (14, 31 + dy)], cream[6])
+        s.poly([(13, 26 + dy), (13 - out + 1, 28 + dy), (14, 30 + dy)], cream[9])
+        s.poly([(43, 24 + dy), (43 + out, 27 + dy), (42, 31 + dy)], cream[4])
+        s.poly([(43, 26 + dy), (43 + out - 1, 28 + dy), (42, 30 + dy)], cream[7])
+    # ---- how the light actually falls -------------------------------------
+    # Everything above is drawn at its own local value; this is where the sprite
+    # gets a light direction you can read across the room. Key from the upper
+    # left, occlusion under every overhang.
+    s.shade_form(29, 41, 12, 4, -2, soft=0)          # the head onto the ruff
+    s.shade_form(28, 59, 13, 3, -1, soft=0)          # the ruff onto the belly
+    s.shade_form(43, 55, 5, 11, -2, soft=0)          # the flank behind the tail
+    s.shade_form(28, 70, 5, 3, -2, soft=0)           # between the front legs
+
+    s.relight(strength=0.46, ambient=0.24)
+
+    # Re-cut the joins the lamp softened. A relight is a lighting pass, not a
+    # drawing pass: it does not know that the head sits in front of the ruff.
+    s.shade_form(28, 44, 13, 4, -2, soft=0)          # the head onto the ruff
+    s.shade_form(28, 19, 11, 3, -2, soft=0)          # the tiara onto the brow
+    s.shade_form(43, 54, 5, 12, -1, soft=0)          # the flank behind the tail
+    # Fur on the chest runs down and outward from the throat. Drawn as short
+    # tapers rather than pixels so it reads as hair lying in a direction.
+    for x, y in ((21, 46), (25, 44), (32, 44), (36, 46),
+                 (19, 53), (24, 52), (33, 52), (37, 54)):
+        out = -1 if x < 28 else 1
+        s.stroke_shade(x, y, x + out * 2, y + 7, -1, out * 0.4, only=cream)
+    s.stroke_shade(28, 43, 28, 56, 1, only=cream)    # the light down her front
+    s.stroke_shade(26, 44, 25, 57, -1, skip=1, only=cream)   # the fold beside it
+
+    # Everything from here is a feature with a value of its own — the
+    # muzzle, the eyes, the metal — and is drawn after the lamp so the
+    # relight cannot average it away.
+    s.form(28, 35, 11, 6, cream, wrap=0.92)           # cream from the nose down
     s.feather(17, 39, 30, cream, coat, depth=3, seed=23)
     # A ginger cat wears a bar of colour down the bridge of the nose. It also
     # frames the eyes, which otherwise float on a pale field.
-    s.poly([(25, 18), (31, 18), (30, 30), (26, 30)], coat[3])
-    s.line(28, 20, 28, 29, coat[4])
+    s.poly([(25, 18), (31, 18), (30, 30), (26, 30)], coat[6])
+    s.line(28, 20, 28, 29, coat[7])
     s.feather(25, 31, 30, coat, cream, depth=2, seed=29)
 
     # The muzzle is drawn whole rather than assembled: at this size the nose,
     # the philtrum and the two whisker pads are four or five pixels each, and
     # anything procedural turns them into one brown smudge.
     muzzle = {
-        'c': cream[3], 'C': cream[4], 'h': cream[5], 's': cream[2],
-        'n': nose, 'N': nose_dark, 'H': s.ink((255, 212, 216)), 'm': mouth,
+        's': cream[2], 'd': cream[3], 'h': cream[4], 'v': cream[5],
+        'c': cream[7], 'C': cream[9], 'H': cream[11], 'A': cream[12],
+        'n': nose, 'N': nose_dark, 'P': s.ink((255, 206, 212)),
+        'm': mouth, 'M': s.ink((168, 116, 100)),   # the mouth, fading at its corners
     }
     # Opaque all the way to its edge: a gap in the middle of the muzzle shows
     # the underside of the head form, which is the darkest fur on the sprite.
+    # Odd width so the nose, the philtrum and the mouth share one centre
+    # column — an even one puts the mouth half a pixel off and it stops
+    # reading as a mouth and starts reading as a drip.
     rows = [
-        "...cccccccccc...",
-        ".ccCCCCCCCCCCcc.",
-        ".cCCCCnnnnCCCCc.",
-        ".cCCChnHNnhCCCc.",
-        ".cCCCChnnhCCCCc.",
-        ".cCChhCmChhCCCc.",       # the philtrum, one pixel wide
-        ".cChhhCmChhhCCc.",
-        ".cChhhmCmhhhCCc.",       # where the mouth splits
-        ".cCshmCCCmhsCCc.",
-        "..ccsCCCCCsCcc..",
-        "...ccCCCCCCcc...",       # chin
-        "....cccccccc....",
+        "....cCCCCCc....",
+        "..cCHnnnnnCcv..",
+        ".cCHHnPNNnCcvh.",
+        "cCHHHCnNnCcvvhh",
+        "cCHHHCCmCCcvvhh",
+        "cCHHCCCmCCcvvhh",
+        "cCdHCCmCmCcvdhh",       # whisker roots, one dot to a pad
+        ".cCHCMCCCMcvvh.",       # the mouth splays and stops
+        ".cCdCCHHHCcdvh.",       # the chin, catching the key
+        "..cCCCHHHcvvh..",
+        "...cCCCcvvh....",
+        "....cvsssvh....",
     ]
     for row in rows:
-        assert len(row) == 16, row
-    s.stamp(20, 28, rows, muzzle)
-    s.shade_band(19, 40, 37, 41, -1)                 # what the chin casts
+        assert len(row) == 15, (len(row), row)
+    s.stamp(21, 30, rows, muzzle)
+    s.shade_band(20, 42, 36, 43, -2)                 # what the chin casts
 
     # ---- ears, in front of the tiara so they read ---------------------------
+    # A Persian's ears are small, low and wide-set, and they are mostly fur: a
+    # big pale-pink triangle reads as a paper flag stapled to her head. The
+    # opening is a third of the ear, sits at the bottom of it, and is half
+    # closed by the furnishings spilling out.
     for side in (-1, 1):
-        bx = 28 + side * 13
-        s.poly([(bx - side * 6, 18), (bx + side * 2, 2), (bx + side * 9, 16)], coat[2])
-        s.poly([(bx - side * 3, 16), (bx + side * 2, 6), (bx + side * 6, 15)], ear_pink[2])
-        s.poly([(bx - side * 1, 15), (bx + side * 2, 9), (bx + side * 4, 14)], ear_pink[3])
-        for k in range(5):                           # ear furnishings
-            s.taper_line(bx - side * 3, 15 - k * 2, bx - side * 8 - k, 12 - k * 2,
-                         cream[5], cream[4])
-        s.put(bx + side * 2, 8, ear_pink[4])
-        s.taper_line(bx + side * 2, 3, bx + side * 3, 9, coat[5], coat[4])
+        bx = 28 + side * 12
+        tx, ty = bx + side * 4, 6
+        s.poly([(bx - side * 6, 19), (tx, ty), (bx + side * 8, 18)], coat[3])
+        s.taper_line(tx, ty, bx + side * 8, 18, coat[10], coat[6])   # lit outer edge
+        s.taper_line(tx, ty, bx - side * 6, 19, coat[1], coat[3])    # inner, in shade
+        s.poly([(bx - side * 2, 17), (bx + side * 3, 10), (bx + side * 5, 16)], ear_pink[2])
+        s.poly([(bx - side * 1, 16), (bx + side * 3, 12), (bx + side * 4, 15)], ear_pink[4])
+        s.put(bx + side * 3, 14, ear_pink[6])        # light through thin skin
+        for k in range(4):                           # furnishings, spilling out
+            s.taper_line(bx - side * 2, 16 - k * 2, bx - side * 7 - k, 13 - k * 2,
+                         cream[11], cream[8])
 
     # ---- the tiara she awarded herself --------------------------------------
-    s.poly([(17, 13), (21, 3), (24, 10), (28, 0), (32, 10), (35, 3), (39, 13)], gold[3])
-    s.rect(16, 12, 40, 15, gold[4])
-    s.rect(16, 15, 40, 16, gold[1])
-    s.line(17, 13, 39, 13, gold[5])
-    for x, jewel in ((21, s.ink((236, 96, 148))), (28, s.ink((124, 214, 250))),
-                     (35, s.ink((236, 96, 148)))):
-        s.put(x, 4 if x == 28 else 5, jewel)
-        s.put(x, 5 if x == 28 else 6, gold[5])
-    for x in (19, 24, 32, 37):                       # settings along the band
-        s.put(x, 14, gold[5])
-    s.shade_band(17, 17, 39, 19, -1)                 # the tiara casts on the fur
+    # Worn forward on the brow and narrow enough to sit between the ears: a
+    # band wide enough to cross them turns the ears into background.
+    s.poly([(20, 14), (23, 4), (25, 11), (28, 1), (31, 11), (33, 4), (36, 14)], gold[7])
+    s.rect(19, 13, 37, 16, gold[9])
+    s.rect(19, 16, 37, 17, gold[2])
+    s.line(20, 14, 36, 14, gold[11])
+    for x, jewel in ((23, s.ink((236, 96, 148))), (28, s.ink((124, 214, 250))),
+                     (33, s.ink((236, 96, 148)))):
+        s.put(x, 5 if x == 28 else 6, jewel)
+        s.put(x, 6 if x == 28 else 7, gold[11])
+    for x in (21, 25, 31, 35):                       # settings along the band
+        s.put(x, 15, gold[11])
+    s.shade_band(19, 18, 37, 20, -1)                 # the tiara casts on the fur
 
     # ---- the face -----------------------------------------------------------
     key = {'k': rim, 'g': iris_dark, 'G': iris_light, 'p': pupil,
-           'w': spec, 'b': bounce, 't': tear}
+           'w': spec, 'b': bounce, 't': tear,
+           'd': s.ink((26, 74, 58)),          # the rim, a shade off black
+           'L': s.ink((186, 240, 186)),       # light pooling at the far side
+           'f': s.ink((70, 168, 116)),        # fibres in the iris
+           'W': s.ink((214, 240, 246)),       # the catchlight's soft edge
+           'l': s.ink((250, 236, 210))}       # wet lower lid
     _cat_eye(s, 21, 27, key, flip=1)
     _cat_eye(s, 35, 27, key, flip=-1)
-    s.line(15, 21, 22, 23, saddle[1])                # brows, lowered
-    s.line(41, 21, 34, 23, saddle[1])
+    s.line(15, 21, 22, 23, saddle[2])                # brows, lowered
+    s.line(41, 21, 34, 23, saddle[2])
 
 
     # Whiskers live outside the head. Drawn across the cheek fur they turn the
@@ -298,14 +365,17 @@ def donut():
     # line beyond the silhouette, they read as whiskers at any size.
     s.line(17, 22, 25, 22, saddle[0])                # lids, cast over the eyes
     s.line(31, 22, 39, 22, saddle[0])
-    s.line(17, 32, 24, 32, cream[5])                 # cream fur seating them
-    s.line(32, 32, 39, 32, cream[5])
+    s.line(17, 32, 24, 32, cream[9])                 # cream fur seating them
+    s.line(32, 32, 39, 32, cream[9])
     for dy, spread, bend in ((-2, -7, -1.1), (1, 1, 0.3), (4, 7, 1.4)):
         s.taper_line(11, 31 + dy, 0, 29 + spread, whisk, whisk_far, bend)
         s.taper_line(45, 31 + dy, 55, 29 + spread, whisk, whisk_far, bend)
 
     s.soften_edges(coat)
-    return s.finish().emit()
+    s.soften_edges(cream)
+    s.finish()
+    s.antialias_outline()
+    return s.emit()
 
 
 def mordecai():

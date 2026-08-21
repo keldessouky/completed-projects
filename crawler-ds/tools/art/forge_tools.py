@@ -288,12 +288,188 @@ class Sprite:
                 if idx in lower:
                     pos = min(len(upper) - 1, max(0, len(upper) - 2 - d))
                     self.put(x, y + d, upper[pos])
-            for d in range(depth - reach):
+            # Tongues of the lower coat coming up have to start at the boundary
+            # and stay joined to it. Scattering them by chance leaves isolated
+            # pixels in the middle of the other coat, which read as dirt.
+            climb = (h >> 17) % (depth - reach + 1) if depth > reach else 0
+            for d in range(climb):
+                below = self.get(x, y - d)
+                if below not in lower and d:
+                    break
                 idx = self.get(x, y - 1 - d)
-                if idx in upper:
-                    pos = min(len(lower) - 1, len(lower) - 2)
-                    if (h >> (12 + d)) & 1:
-                        self.put(x, y - 1 - d, lower[pos])
+                if idx not in upper:
+                    break
+                self.put(x, y - 1 - d, lower[min(len(lower) - 1, len(lower) - 2)])
+
+    def shade_form(self, cx, cy, rx, ry, shift=-1, soft=1):
+        """Steps everything inside an ellipse along its own ramp.
+
+        This is how a sprite gets occlusion — under a chin, beneath a ruff,
+        where a tail crosses a flank — without introducing new colours. The
+        outer ring is dithered so the shadow has an edge that fur can live on.
+        """
+        for y in range(int(cy - ry) - 1, int(cy + ry) + 2):
+            for x in range(int(cx - rx) - 1, int(cx + rx) + 2):
+                dx = (x - cx) / max(0.5, rx)
+                dy = (y - cy) / max(0.5, ry)
+                d2 = dx * dx + dy * dy
+                if d2 > 1.0:
+                    continue
+                if soft and d2 > 0.62 and ((x + y) & 1):
+                    continue                      # dithered edge
+                idx = self.get(x, y)
+                fam = self.family(idx)
+                if not fam or idx not in fam:
+                    continue
+                pos = fam.index(idx)
+                self.put(x, y, fam[max(0, min(len(fam) - 1, pos + shift))])
+
+    def key_light(self, cx, cy, rx, ry, shift=1, soft=1):
+        """The opposite: lifts the surfaces the key actually reaches."""
+        self.shade_form(cx, cy, rx, ry, shift=shift, soft=soft)
+
+    def relight(self, strength=0.55, depth=7.0, light=LIGHT, ambient=0.20):
+        """Relights the whole sprite under one lamp.
+
+        Stacking a dozen separately-shaded forms gives a dozen little lights and
+        a flat result. This throws that away and derives a surface from the
+        silhouette instead: a distance transform gives how far inside the shape
+        each pixel is, its gradient gives which way the surface leans, and the
+        distance itself stands in for how much the pixel faces the viewer. Every
+        pixel is then moved toward the value that lamp implies, along its own
+        material's ramp, so markings keep their identity while the whole
+        character finally agrees about where the light is.
+        """
+        w, h = self.w, self.h
+        far = 1e9
+        dist = [0.0 if not self.px[i] else far for i in range(w * h)]
+        for y in range(h):                                   # chamfer, forward
+            for x in range(w):
+                i = y * w + x
+                if dist[i] == 0.0:
+                    continue
+                best = dist[i]
+                if x: best = min(best, dist[i - 1] + 1.0)
+                if y: best = min(best, dist[i - w] + 1.0)
+                if x and y: best = min(best, dist[i - w - 1] + 1.4)
+                if x + 1 < w and y: best = min(best, dist[i - w + 1] + 1.4)
+                dist[i] = best
+        for y in range(h - 1, -1, -1):                       # chamfer, backward
+            for x in range(w - 1, -1, -1):
+                i = y * w + x
+                if dist[i] == 0.0:
+                    continue
+                best = dist[i]
+                if x + 1 < w: best = min(best, dist[i + 1] + 1.0)
+                if y + 1 < h: best = min(best, dist[i + w] + 1.0)
+                if x + 1 < w and y + 1 < h: best = min(best, dist[i + w + 1] + 1.4)
+                if x and y + 1 < h: best = min(best, dist[i + w - 1] + 1.4)
+                dist[i] = best
+
+        # The distance field alone says "deep interior faces the viewer", which
+        # left to itself lights the whole middle of a large shape the same. The
+        # second term is a plain sweep across the sprite's own bounds, from the
+        # corner the key is in to the one opposite: that is what gives a big
+        # form a lit side and a shadow side.
+        xs = [i % w for i in range(w * h) if self.px[i]]
+        ys = [i // w for i in range(w * h) if self.px[i]]
+        if not xs:
+            return
+        x0, x1, y0, y1 = min(xs), max(xs), min(ys), max(ys)
+        hx = max(1.0, (x1 - x0) / 2.0)
+        hy = max(1.0, (y1 - y0) / 2.0)
+        cx, cy = (x0 + x1) / 2.0, (y0 + y1) / 2.0
+
+        out = bytearray(self.px)
+        for y in range(h):
+            for x in range(w):
+                i = y * w + x
+                idx = self.px[i]
+                if not idx:
+                    continue
+                fam = self.family(idx)
+                if not fam or idx not in fam:
+                    continue
+                gx = (dist[i + 1] if x + 1 < w else 0.0) - (dist[i - 1] if x else 0.0)
+                gy = (dist[i + w] if y + 1 < h else 0.0) - (dist[i - w] if y else 0.0)
+                mag = math.hypot(gx, gy)
+                if mag > 0.001:
+                    nx, ny = gx / mag, gy / mag          # points inward, uphill
+                else:
+                    nx = ny = 0.0
+                nz = min(1.0, dist[i] / depth)
+                flat = nz * nz                           # deep interior faces us
+                nx *= (1.0 - flat)
+                ny *= (1.0 - flat)
+                lam = nx * light[0] + ny * light[1] + nz * light[2]
+                u = (x - cx) / hx
+                v = (y - cy) / hy
+                sweep = 0.5 - (u * -light[0] + v * -light[1]) * 0.62
+                lam = lam * 0.45 + max(0.0, min(1.0, sweep)) * 0.55
+                target = ambient + (1.0 - ambient) * max(0.0, min(1.0, lam))
+                here = fam.index(idx) / (len(fam) - 1)
+                mixed = here + (target - here) * strength
+                pos = int(round(max(0.0, min(1.0, mixed)) * (len(fam) - 1)))
+                out[i] = fam[pos]
+        self.px = out
+
+    def stroke_shade(self, x0, y0, x1, y1, shift=1, bend=0.0, skip=0, only=None):
+        """A fur stroke that steps whatever it lands on along that pixel's own
+        ramp, instead of painting a fixed colour.
+
+        After a relight, a stroke drawn at a fixed value is a value jump — it
+        reads as dirt. Stepping the pixel that is already there keeps every
+        stroke consistent with the light that was just established.
+        """
+        steps = int(max(abs(x1 - x0), abs(y1 - y0)) * 1.3) + 1
+        for i in range(steps + 1):
+            if skip and i % (skip + 1):
+                continue
+            t = i / steps
+            x = int(x0 + (x1 - x0) * t)
+            y = int(y0 + (y1 - y0) * t + bend * (t - t * t) * 4.0)
+            idx = self.get(x, y)
+            fam = self.family(idx)
+            if not fam or idx not in fam:
+                continue
+            pos = fam.index(idx)
+            self.put(x, y, fam[max(0, min(len(fam) - 1, pos + shift))])
+
+    def antialias_outline(self, samples=2):
+        """Blends the key line into what it wraps.
+
+        A hard one-pixel outline is a 16-bit convention. Mixing each outline
+        pixel part-way toward the fill it touches — a real colour, not a
+        dither — is what makes a 32-bit-era sprite's edge look drawn with a
+        brush rather than stamped.
+        """
+        src = bytes(self.px)
+        outlines = set(self.outline_of.values())
+        for y in range(self.h):
+            for x in range(self.w):
+                idx = src[y * self.w + x]
+                if idx not in outlines:
+                    continue
+                neighbours = []
+                for dx, dy in ((-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (1, 1), (1, -1), (-1, 1)):
+                    xx, yy = x + dx, y + dy
+                    if 0 <= xx < self.w and 0 <= yy < self.h:
+                        n = src[yy * self.w + xx]
+                        if n and n not in outlines:
+                            neighbours.append(self.pal[n])
+                if len(neighbours) < samples:
+                    continue
+                r = sum(c[0] for c in neighbours) / len(neighbours)
+                g = sum(c[1] for c in neighbours) / len(neighbours)
+                b = sum(c[2] for c in neighbours) / len(neighbours)
+                base = self.pal[idx]
+                # Weak on purpose. Blending the key line too far toward the fill
+                # buys smoothness at three times zoom and loses the silhouette
+                # at one, which is the size the handheld actually draws.
+                t = 0.26 if len(neighbours) >= 4 else 0.15
+                self.put(x, y, self.ink((base[0] + (r - base[0]) * t,
+                                         base[1] + (g - base[1]) * t,
+                                         base[2] + (b - base[2]) * t)))
 
     def despeckle(self):
         """Clears lone pixels, which are the tell of a shape that was computed
