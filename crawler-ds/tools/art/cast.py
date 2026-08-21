@@ -117,17 +117,19 @@ def carl():
 def _cat_eye(s, cx, cy, key, flip=1):
     """One eye, placed pixel by pixel and mirrored for the other side.
 
-    Cats read as cats through the eye: a dark rim all the way round, an iris
-    that is darker at the top where the lid shadows it, a tall pupil, one hard
-    catchlight from the key light and one soft bounce opposite it.
+    A vertical slit is a predator's eye — it is the single thing that made
+    this face read as menacing rather than pettable. Donut gets a big round
+    pupil filling most of the iris, a wide catchlight sitting on it, and a
+    soft rim, which is what a cat's eye looks like in low light and what
+    every friendly cat in every game has ever had.
     """
     grid = [
         "..kkkkk..",
-        ".kdgggdk.",
-        "kdgGGGgdk",
-        "kgGGpGGGk",
-        "kgGGpGGLk",
-        "kgGGpGGGk",
+        ".kdGGGdk.",
+        "kdGGGGGdk",
+        "kGGpppGGk",
+        "kGGpppGGk",
+        "kdGpppGLk",
         ".kgGGGgd.",
         "..kkkkk..",
     ]
@@ -137,14 +139,14 @@ def _cat_eye(s, cx, cy, key, flip=1):
                 continue
             x = cx + (i - 4) * flip
             s.put(x, cy + j - 4, key[ch])
-    for j, i in ((-2, -1), (-1, 2), (1, -2), (2, 1)):            # iris fibres
+    for j, i in ((-1, -3), (1, 3), (0, -3), (0, 3)):             # fibres in the iris
         s.put(cx + i * flip, cy + j, key['f'])
-    s.put(cx - 2 * flip, cy - 2, key['w'])                       # the catchlight
-    s.put(cx - 1 * flip, cy - 3, key['w'])
-    s.put(cx - 1 * flip, cy - 2, key['W'])                       # its soft edge
-    s.put(cx - 2 * flip, cy - 1, key['W'])
+    for dx, dy in ((-2, -2), (-1, -2), (-2, -1), (-1, -1)):      # the catchlight
+        s.put(cx + dx * flip, cy + dy, key['w'])
+    for dx, dy in ((0, -2), (-3, -2), (-2, 0)):                  # its soft edge
+        s.put(cx + dx * flip, cy + dy, key['W'])
     s.put(cx + 2 * flip, cy + 2, key['b'])                       # the bounce
-    s.put(cx + 1 * flip, cy + 3, key['b'])
+    s.put(cx + 1 * flip, cy + 2, key['b'])
     s.put(cx - 4 * flip, cy + 1, key['t'])                       # tear duct
     s.put(cx + 4 * flip, cy - 1, key['k'])
     for i in range(-3, 4):                                       # wet lower lid
@@ -301,10 +303,10 @@ def donut():
         "..cCHnnnnnCcv..",
         ".cCHHnPNNnCcvh.",
         "cCHHHCnNnCcvvhh",
-        "cCHHHCCmCCcvvhh",
-        "cCHHCCCmCCcvvhh",
-        "cCdHCCmCmCcvdhh",       # whisker roots, one dot to a pad
-        ".cCHCMCCCMcvvh.",       # the mouth splays and stops
+        "cCHHHCCmCCcvvhh",       # the philtrum, one pixel of it
+        "cCHHCCMCMCcvvhh",       # and the mouth, barely there
+        "cCdHCCCCCCcvdhh",       # whisker roots, one dot to a pad
+        ".cCHCCCCCCcvvh.",
         ".cCdCCHHHCcdvh.",       # the chin, catching the key
         "..cCCCHHHcvvh..",
         "...cCCCcvvh....",
@@ -363,12 +365,15 @@ def donut():
     for side in (-1, 1):
         bx = 28 + side * 12
         tx, ty = bx + side * 4, 6
-        s.poly([(bx - side * 6, 19), (tx, ty), (bx + side * 8, 18)], coat[3])
-        s.taper_line(tx, ty, bx + side * 8, 18, coat[10], coat[6])   # lit outer edge
-        s.taper_line(tx, ty, bx - side * 6, 19, coat[1], coat[3])    # inner, in shade
-        s.poly([(bx - side * 2, 17), (bx + side * 3, 10), (bx + side * 5, 16)], ear_pink[2])
-        s.poly([(bx - side * 1, 16), (bx + side * 3, 12), (bx + side * 4, 15)], ear_pink[4])
-        s.put(bx + side * 3, 14, ear_pink[6])        # light through thin skin
+        s.poly([(bx - side * 6, 19), (tx, ty), (bx + side * 8, 18)], coat[7])
+        s.taper_line(tx, ty, bx + side * 8, 18, coat[11], coat[8])   # lit outer edge
+        s.taper_line(tx, ty, bx - side * 6, 19, coat[4], coat[6])    # inner, in shade
+        s.put(tx + side, ty + 1, coat[8])            # the tip, rounded rather than pointed
+        s.put(tx - side, ty + 1, coat[6])
+        s.poly([(bx - side * 3, 17), (bx + side * 3, 9), (bx + side * 6, 16)], ear_pink[3])
+        s.poly([(bx - side * 2, 16), (bx + side * 3, 11), (bx + side * 5, 15)], ear_pink[5])
+        s.poly([(bx - side * 1, 15), (bx + side * 3, 13), (bx + side * 3, 15)], ear_pink[7])
+        s.put(bx + side * 3, 13, ear_pink[8])        # light through thin skin
         for k in range(4):                           # furnishings, spilling out
             s.taper_line(bx - side * 2, 16 - k * 2, bx - side * 7 - k, 13 - k * 2,
                          cream[11], cream[8])
@@ -412,17 +417,15 @@ def donut():
            'f': s.ink((70, 168, 116)),        # fibres in the iris
            'W': s.ink((214, 240, 246)),       # the catchlight's soft edge
            'l': s.ink((250, 236, 210))}       # wet lower lid
-    _cat_eye(s, 21, 27, key, flip=1)
-    _cat_eye(s, 35, 27, key, flip=-1)
-    s.line(15, 21, 22, 23, saddle[2])                # brows, lowered
-    s.line(41, 21, 34, 23, saddle[2])
+    _cat_eye(s, 22, 27, key, flip=1)
+    _cat_eye(s, 34, 27, key, flip=-1)
 
 
     # Whiskers live outside the head. Drawn across the cheek fur they turn the
     # whole face into a grey haze; kept to a root mark on the pad and a thin
     # line beyond the silhouette, they read as whiskers at any size.
-    s.line(17, 22, 25, 22, saddle[0])                # lids, cast over the eyes
-    s.line(31, 22, 39, 22, saddle[0])
+    s.shade_band(17, 21, 25, 21, -1)                 # the brow ridge, barely there
+    s.shade_band(31, 21, 39, 21, -1)
     s.line(17, 32, 24, 32, cream[9])                 # cream fur seating them
     s.line(32, 32, 39, 32, cream[9])
     for dy, spread, bend in ((-2, -7, -1.1), (1, 1, 0.3), (4, 7, 1.4)):
