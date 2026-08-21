@@ -1,0 +1,16 @@
+build/
+sdk/
+tools/ndsbot/ndsbot
+tools/hostsim/hostsim
+*.o
+*.d
+
+# The built ROM is committed on purpose — see README.md — so only the rest of
+# dist/ is ignored.
+dist/*
+!dist/crawler-ds.nds
+
+# DeSmuME writes a save file next to the ROM while `make test` runs.
+*.dsv
+*.sav
+__pycache__/

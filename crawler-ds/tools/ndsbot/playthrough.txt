@@ -1,0 +1,63 @@
+# The ROM, played on the real thing: DeSmuME running dist/crawler-ds.nds with
+# nothing going in but button presses and stylus taps, and the game's own
+# telemetry read back out of emulated main RAM.
+
+echo boot
+frames 150
+expect scene = 0
+expect carl_hp > 0
+expect floor = 1
+shot 01-title
+
+echo the System says hello
+until a scene = 2 40
+frames 30
+expect explored > 8
+shot 02-corridor
+
+echo walking the floor
+press up 10
+press right 10
+press up 10
+press up 10
+press left 10
+press up 10
+frames 20
+expect steps > 2
+
+echo the party screen
+press start 10
+frames 25
+expect scene = 4
+shot 03-party
+press b 10
+frames 20
+expect scene = 2
+
+echo the stylus alone can play it
+touch 47 128 12
+touch 47 128 12
+touch 78 150 12
+frames 20
+expect steps > 4
+
+echo explore, fight, loot
+autoplay 260
+expect steps > 30
+expect explored > 40
+expect battles_won >= 1
+expect carl_hp > 0
+frames 20
+shot 04-play
+print
+
+echo keep going
+autoplay 260
+expect steps > 45
+expect boxes >= 1
+print
+shot 05-later
+
+echo the ROM is still running and has not wedged
+expect frame > 3000
+expect scene != 9
