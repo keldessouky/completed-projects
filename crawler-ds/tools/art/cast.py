@@ -159,8 +159,8 @@ def donut():
     means anything. Seated, front on, chin very slightly up.
     """
     s = Sprite(PARTY_W, PARTY_H)
-    coat = s.register_family(s.ramp((214, 130, 54), 14, dark=0.72, light=0.30, warm=0.32))
-    saddle = s.register_family(s.ramp((168, 90, 38), 12, dark=0.78, light=0.26))
+    coat = s.register_family(s.ramp((198, 140, 92), 14, dark=0.72, light=0.30, warm=0.30))
+    saddle = s.register_family(s.ramp((150, 102, 66), 12, dark=0.78, light=0.26))
     # A near-white base wastes half a ramp: every step above the midpoint lands
     # inside five units of luma. Cream is a mid-value material lit brightly,
     # not a white one darkened, and it keeps almost no cool in shadow or the
@@ -174,6 +174,8 @@ def donut():
                                      cool=0.02, dark=0.30, light=0.64, warm=0.30))
     gold = s.register_family(s.ramp((250, 198, 60), 12, dark=0.76, light=0.55))
     ear_pink = s.register_family(s.ramp((214, 128, 138), 9))
+    collar = s.register_family(s.ramp((226, 132, 166), 10, dark=0.70, light=0.42))
+    glaze = s.register_family(s.ramp((242, 150, 188), 10, dark=0.66, light=0.46))
 
     dark = s.ink((32, 22, 24))
     rim = s.ink((40, 28, 30))
@@ -258,7 +260,7 @@ def donut():
     # Re-cut the joins the lamp softened. A relight is a lighting pass, not a
     # drawing pass: it does not know that the head sits in front of the ruff.
     s.shade_form(28, 44, 13, 4, -2, soft=0)          # the head onto the ruff
-    s.shade_form(28, 19, 11, 3, -2, soft=0)          # the tiara onto the brow
+    s.shade_form(28, 22, 11, 3, -2, soft=0)          # the crown onto the brow
     s.shade_form(43, 54, 5, 12, -1, soft=0)          # the flank behind the tail
     # Fur on the chest runs down and outward from the throat. Drawn as short
     # tapers rather than pixels so it reads as hair lying in a direction.
@@ -313,7 +315,47 @@ def donut():
     s.stamp(21, 30, rows, muzzle)
     s.shade_band(20, 42, 36, 43, -2)                 # what the chin casts
 
-    # ---- ears, in front of the tiara so they read ---------------------------
+    # ---- the collar, and the donut she is named after -----------------------
+    # Drawn after the lamp, like the muzzle and the metal: this is the single
+    # thing that tells you which cat this is, and a relight would average it
+    # into the ruff.
+    for x in range(18, 39):
+        t = (x - 28) / 10.0
+        y = 44 + int(round((1.0 - t * t) * 3.0))          # a band around a throat
+        lit = x < 28
+        s.put(x, y, collar[8 if lit else 6])              # the edge catching light
+        s.put(x, y + 1, collar[7 if lit else 5])
+        s.put(x, y + 2, collar[5 if lit else 3])
+        s.put(x, y + 3, collar[2])                        # rolling under
+        if x % 5 == 3:                                    # studs, set into the band
+            s.put(x, y + 1, gold[10])
+            s.put(x, y + 2, gold[6])
+
+    donut = {
+        'd': s.ink((198, 96, 132)), 'g': glaze[8], 'G': glaze[6], 'k': glaze[3],
+        'h': glaze[9], 'b': s.ink((214, 168, 110)), 'B': s.ink((176, 128, 78)),
+        'o': s.ink((92, 52, 62)), 's': s.ink((255, 248, 232)),
+        'S': s.ink((160, 226, 220)),
+    }
+    rows = [
+        "..ddddd..",
+        ".dhhggGd.",
+        "dhhgsgGkd",                                      # sprinkles on the glaze
+        "dhgoooGkd",
+        "dggoooGkd",
+        "dgSgggGkd",
+        ".dgGGGkd.",
+        ".dbbbbBd.",                                      # the dough underneath
+        "..dBBBd..",
+    ]
+    for row in rows:
+        assert len(row) == 9, row
+    s.stamp(24, 49, rows, donut)
+    s.put(27, 48, gold[9])                                # the ring it hangs from
+    s.put(28, 48, gold[5])
+    s.shade_band(23, 58, 33, 59, -1)                      # what it casts on the bib
+
+    # ---- ears, drawn before the crown so it sits between them ---------------
     # A Persian's ears are small, low and wide-set, and they are mostly fur: a
     # big pale-pink triangle reads as a paper flag stapled to her head. The
     # opening is a third of the ear, sits at the bottom of it, and is half
@@ -332,19 +374,35 @@ def donut():
                          cream[11], cream[8])
 
     # ---- the tiara she awarded herself --------------------------------------
-    # Worn forward on the brow and narrow enough to sit between the ears: a
-    # band wide enough to cross them turns the ears into background.
-    s.poly([(20, 14), (23, 4), (25, 11), (28, 1), (31, 11), (33, 4), (36, 14)], gold[7])
-    s.rect(19, 13, 37, 16, gold[9])
-    s.rect(19, 16, 37, 17, gold[2])
-    s.line(20, 14, 36, 14, gold[11])
-    for x, jewel in ((23, s.ink((236, 96, 148))), (28, s.ink((124, 214, 250))),
-                     (33, s.ink((236, 96, 148)))):
-        s.put(x, 5 if x == 28 else 6, jewel)
-        s.put(x, 6 if x == 28 else 7, gold[11])
-    for x in (21, 25, 31, 35):                       # settings along the band
-        s.put(x, 15, gold[11])
-    s.shade_band(19, 18, 37, 20, -1)                 # the tiara casts on the fur
+    # Five points, a jewelled band and a gem on every tip: she does not wear a
+    # tiara, she wears a crown. Each point is a solid facet with a lit face and
+    # a shadowed one meeting at a centre ridge — drawn as thin spikes it reads
+    # as a picket fence.
+    gem = s.ink((228, 92, 140))
+    gem_hi = s.ink((252, 168, 200))
+    gem_lo = s.ink((156, 44, 92))
+    # Narrow enough that the valleys between the points stay open. The two
+    # faces carry the form on their own; a highlight up every ridge as well
+    # corrugates the whole crown.
+    for bx, apex in ((20, 7), (24, 4), (28, 1), (32, 4), (36, 7)):
+        s.poly([(bx - 2, 15), (bx, apex), (bx + 2, 15)], gold[6])
+        s.poly([(bx - 2, 15), (bx, apex), (bx, 15)], gold[10])        # lit face
+        s.poly([(bx, apex), (bx + 2, 15), (bx, 15)], gold[3])         # turned away
+        s.put(bx, apex, gem)                                          # a stone on the tip
+        s.put(bx, apex + 1, gem_lo)
+    s.rect(18, 14, 38, 19, gold[8])                       # the band
+    s.line(18, 14, 38, 14, gold[11])                      # a highlight along the top
+    s.rect(18, 19, 38, 20, gold[2])                       # its underside
+    for x in (28,):                                       # one stone set in it
+        s.put(x, 17, gem)
+        s.put(x + 1, 17, gem)
+        s.put(x, 18, gem_lo)
+        s.put(x + 1, 18, gem_lo)
+        s.put(x, 16, gem_hi)
+    for x in (22, 25, 32, 35):                            # settings along the band
+        s.put(x, 17, gold[11])
+        s.put(x, 18, gold[5])
+    s.shade_band(19, 21, 37, 23, -1)                      # the crown casts on the fur
 
     # ---- the face -----------------------------------------------------------
     key = {'k': rim, 'g': iris_dark, 'G': iris_light, 'p': pupil,
