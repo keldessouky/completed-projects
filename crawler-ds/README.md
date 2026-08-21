@@ -98,7 +98,11 @@ licensed.
   on the edges facing away from the key, and an outline that takes its colour
   from the material it wraps rather than being a flat black key line. Faces are
   placed pixel by pixel with `stamp()`, because nothing procedural reads as a
-  face.
+  face. Coats meet along `feather()`, which interlocks two materials with
+  tongues of fur so a boundary reads as hair instead of a shelf; `soften_edges()`
+  anti-aliases a curve by stepping the inside corner of each staircase one down
+  its own ramp; and `taper_line()` draws a whisker that fades instead of a line
+  that scratches.
 - **`tools/art/cast.py`, `bestiary.py`, `props.py`** — the 26 drawings
   themselves: the party at 56×72, the bestiary at 72×72, the bosses at 96×96 and
   the furniture at 40×40.

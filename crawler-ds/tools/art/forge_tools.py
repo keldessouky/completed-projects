@@ -237,6 +237,64 @@ class Sprite:
             if idx in ids:
                 self.put(x, y, ids[max(0, ids.index(idx) - depth)])
 
+    def soften_edges(self, ids, corners=2):
+        """Internal anti-aliasing.
+
+        A curve drawn on a grid turns in staircases. Darkening the fill pixel
+        that sits in the inside corner of each step — never adding a colour, only
+        stepping one down the material's own ramp — reads as a smooth edge at
+        normal size, and is the single biggest difference between a shape that
+        looks drawn and one that looks plotted.
+        """
+        src = bytes(self.px)
+        for y in range(self.h):
+            for x in range(self.w):
+                idx = src[y * self.w + x]
+                if idx not in ids:
+                    continue
+                empty = 0
+                for dx, dy in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+                    xx, yy = x + dx, y + dy
+                    if not (0 <= xx < self.w and 0 <= yy < self.h) or not src[yy * self.w + xx]:
+                        empty += 1
+                if empty >= corners:
+                    pos = ids.index(idx)
+                    self.put(x, y, ids[max(0, pos - 1)])
+
+    def taper_line(self, x0, y0, x1, y1, near, far, bend=0.0):
+        """A hair: one pixel wide, bright at the root and fading to nothing, with
+        an optional bow in it. Straight two-pixel whiskers look like scratches."""
+        steps = int(max(abs(x1 - x0), abs(y1 - y0)) * 1.4) + 1
+        for i in range(steps + 1):
+            t = i / steps
+            x = x0 + (x1 - x0) * t
+            y = y0 + (y1 - y0) * t + bend * (t - t * t) * 4.0
+            self.put(x, y, near if t < 0.45 else far)
+
+    def feather(self, x0, x1, y, upper, lower, depth=4, seed=1):
+        """Interlocks two coats along a boundary.
+
+        Fur does not end in a straight line. This walks the boundary putting
+        tongues of the upper material down into the lower one and back, at
+        heights that do not repeat, so the join reads as hair rather than as a
+        shelf.
+        """
+        h = seed * 2654435761 & 0xFFFFFFFF
+        for x in range(int(x0), int(x1) + 1):
+            h = (h * 1103515245 + 12345) & 0x7FFFFFFF
+            reach = (h >> 9) % (depth + 1)
+            for d in range(reach):
+                idx = self.get(x, y + d)
+                if idx in lower:
+                    pos = min(len(upper) - 1, max(0, len(upper) - 2 - d))
+                    self.put(x, y + d, upper[pos])
+            for d in range(depth - reach):
+                idx = self.get(x, y - 1 - d)
+                if idx in upper:
+                    pos = min(len(lower) - 1, len(lower) - 2)
+                    if (h >> (12 + d)) & 1:
+                        self.put(x, y - 1 - d, lower[pos])
+
     def despeckle(self):
         """Clears lone pixels, which are the tell of a shape that was computed
         rather than drawn."""
