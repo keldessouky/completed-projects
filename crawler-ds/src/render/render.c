@@ -27,6 +27,20 @@ static void system_bar(Surface *s, const char *left, const char *right) {
     if (right) gfx_text(s, SCREEN_W - 4 - gfx_text_width(right), 3, C_INK, right);
 }
 
+/*  "S347". The dungeon is generated per run, so which one you are in is real
+ *  information and not decoration: two players comparing notes need it, and a
+ *  recall code carries it. */
+static void season_tag(Surface *s, int x, int y, uint16_t colour) {
+    char tag[8];
+    int n = game_season_number();
+    tag[0] = 'S';
+    tag[1] = (char)('0' + n / 100 % 10);
+    tag[2] = (char)('0' + n / 10 % 10);
+    tag[3] = (char)('0' + n % 10);
+    tag[4] = 0;
+    gfx_text(s, x, y, colour, tag);
+}
+
 static void bar_meter(Surface *s, int x, int y, int w, int h, int value, int max,
                       uint16_t fill, const char *label) {
     if (max < 1) max = 1;
@@ -499,6 +513,7 @@ static void draw_menu(Surface *top, Surface *bot) {
 
     if (g.menu_tab == 0) {
         gfx_text(bot, 6, 34, C_AMBER, "THE RUN SO FAR");
+        season_tag(bot, 214, 34, C_MAGENTA);
         gfx_text(bot, 6, 48, C_DIM, "Gold");        gfx_text(bot, 110, 48, C_GOLD, gfx_num(g.gold));
         gfx_text(bot, 6, 60, C_DIM, "Fights won");  gfx_text(bot, 110, 60, C_INK, gfx_num(g.battles_won));
         gfx_text(bot, 6, 72, C_DIM, "Boxes opened");gfx_text(bot, 110, 72, C_INK, gfx_num(g.boxes_opened));
@@ -747,10 +762,17 @@ static void draw_gameover(Surface *top, Surface *bot) {
     gfx_vgradient(top, 0, 0, SCREEN_W, SCREEN_H, RGB(24, 6, 10), RGB(6, 4, 6));
     gfx_text_big(top, 44, 60, C_RED, "CRAWLER DOWN");
     gfx_text(top, 30, 90, C_INK, "The audience is already watching someone else.");
-    gfx_text(top, 30, 104, C_DIM, "Floor");
-    gfx_text(top, 70, 104, C_AMBER, gfx_num(g.dun.index + 1));
-    gfx_text(top, 100, 104, C_DIM, "Fights won");
-    gfx_text(top, 180, 104, C_AMBER, gfx_num(g.battles_won));
+    season_tag(top, 30, 104, C_MAGENTA);
+    gfx_text(top, 60, 104, C_DIM, "ended on floor");
+    gfx_text(top, 156, 104, C_AMBER, gfx_num(g.dun.index + 1));
+    gfx_text(top, 30, 118, C_DIM, "Level");
+    gfx_text(top, 70, 118, C_AMBER, gfx_num(g.hero[0].level));
+    gfx_text(top, 96, 118, C_DIM, "Fights");
+    gfx_text(top, 144, 118, C_AMBER, gfx_num(g.battles_won));
+    gfx_text(top, 30, 132, C_DIM, "Boxes");
+    gfx_text(top, 70, 132, C_AMBER, gfx_num(g.boxes_opened));
+    gfx_text(top, 96, 132, C_DIM, "Steps");
+    gfx_text(top, 144, 132, C_AMBER, gfx_num(g.dun.steps));
     gfx_sprite_scaled(top, &spr_boss_producer, 158, 112, 80, 100);
 
     gfx_clear(bot, C_VOID);
@@ -768,6 +790,7 @@ static void draw_victory(Surface *top, Surface *bot) {
         gfx_pixel(top, x, y, i & 1 ? C_GOLD : C_MAGENTA);
     }
     gfx_text_big(top, 30, 40, C_GOLD, "END OF BOOK ONE");
+    season_tag(top, 30, 62, C_MAGENTA);
     gfx_sprite(top, &spr_carl, 34, 108);
     gfx_sprite(top, &spr_donut, 150, 112);
     gfx_text(top, 24, 168, C_INK, "Three floors down. Fifteen to go.");

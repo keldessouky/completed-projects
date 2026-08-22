@@ -2,8 +2,11 @@
  *
  *  A DS cartridge saves to a chip; a homebrew ROM running under whichever
  *  emulator the handheld ships with often cannot count on one. So the System
- *  issues a code instead — sixteen characters at a System kiosk that put a run
+ *  issues a code instead — twenty characters at a System kiosk that put a run
  *  back on its floor with its levels, purse, achievements and story intact.
+ *  It carries the season seed too, because with the floors generated rather
+ *  than drawn a code that restored your level into somebody else's dungeon
+ *  would not be the same run.
  *  Attribute points spent on the way are re-spent for you, which is the one
  *  thing the code does not carry.
  */
@@ -14,10 +17,13 @@
 /* No I, O, 0 or 1: nobody should lose a run to a squinting mistake. */
 static const char kAlphabet[33] = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
-#define CODE_BITS 80
+#define CODE_BITS 100
 #define CODE_CHARS (CODE_BITS / 5)
+/* Round up: 100 bits is twelve and a half bytes, and truncating loses the
+   tail of the checksum. */
+#define CODE_BYTES ((CODE_BITS + 7) / 8)
 
-typedef struct { uint8_t bits[CODE_BITS / 8]; int pos; } BitBuf;
+typedef struct { uint8_t bits[CODE_BYTES]; int pos; } BitBuf;
 
 static void put_bits(BitBuf *b, uint32_t value, int n) {
     for (int i = n - 1; i >= 0; i--) {
@@ -43,16 +49,17 @@ static uint32_t get_bits(BitBuf *b, int n) {
 static uint32_t checksum(const BitBuf *b) {
     BitBuf t = *b;
     t.bits[(CODE_BITS - 10) >> 3] &= (uint8_t)~((1u << (8 - ((CODE_BITS - 10) & 7))) - 1u);
-    for (int i = ((CODE_BITS - 10) >> 3) + 1; i < CODE_BITS / 8; i++) t.bits[i] = 0;
+    for (int i = ((CODE_BITS - 10) >> 3) + 1; i < CODE_BYTES; i++) t.bits[i] = 0;
     uint32_t sum = 0x5A;
-    for (int i = 0; i < CODE_BITS / 8; i++) sum = (sum * 31 + t.bits[i]) & 0xFFFF;
+    for (int i = 0; i < CODE_BYTES; i++) sum = (sum * 31 + t.bits[i]) & 0xFFFF;
     return sum & 0x3FF;
 }
 
 void save_make_code(char *out) {
     BitBuf b;
     memset(&b, 0, sizeof b);
-    put_bits(&b, 1, 3);                              /* format version        */
+    put_bits(&b, 2, 3);                              /* format version        */
+    put_bits(&b, g.season & 0xFFFF, 16);             /* the season's seed     */
     put_bits(&b, g.dun.index, 2);                    /* floor                 */
     put_bits(&b, g.hero[0].level, 5);
     put_bits(&b, g.hero[1].level, 5);
@@ -94,7 +101,8 @@ int save_apply_code(const char *code) {
 
     BitBuf r = b;
     r.pos = 0;
-    if (get_bits(&r, 3) != 1) return 0;
+    if (get_bits(&r, 3) != 2) return 0;
+    uint32_t season = get_bits(&r, 16);
     int floor_index = (int)get_bits(&r, 2);
     int carl_level = (int)get_bits(&r, 5);
     int donut_level = (int)get_bits(&r, 5);
@@ -109,6 +117,8 @@ int save_apply_code(const char *code) {
     if (floor_index >= FLOORS || carl_level < 1 || carl_level > 30 || donut_level < 1) return 0;
 
     party_new();
+    g.season = season ? season : 0x1BADCA7Du;
+    rng_seed(0x9E3779B9u ^ (g.season * 2654435761u));
     g.gold = (int16_t)gold;
     g.flags = flags;
     g.achievements = achievements;

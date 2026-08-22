@@ -74,11 +74,20 @@ skills; gear in three slots; potions, bombs and revives; a Bopca-run shop; a
 shrine; achievements that pay out in boxes; and a floor timer that eventually
 stops being a suggestion.
 
+**A new season every run.** The three floors are generated when you descend,
+from a seed the run picks at the title screen — rooms, corridors, the shop, the
+shrine, the kiosk, the loot and the story beats all land somewhere different.
+The way out is always the room farthest from the way in, sealed, with the boss
+standing in its only doorway, so a floor is a journey that ends in a fight
+rather than a corridor you might walk straight down. The run's season number
+shows on the party screen and on the screen that tells you how it ended.
+
 **Recall codes instead of a save chip.** A System kiosk on each floor prints
-sixteen characters. Type them in from the title screen — there is a keyboard on
-the touch screen — and the run comes back: floor, levels, purse, achievements
-and story. Attribute points are re-spent along each hero's own line, which is
-the one thing the code does not carry.
+twenty characters. Type them in from the title screen — there is a keyboard on
+the touch screen — and the run comes back: floor, levels, purse, achievements,
+story, and the season seed, so you return to the same dungeon rather than
+somebody else's. Attribute points are re-spent along each hero's own line, which
+is the one thing the code does not carry.
 
 ![A recall code](docs/shots/10-recall-code.png)
 
@@ -108,10 +117,16 @@ licensed.
   the furniture at 40×40.
 - **`tools/art/font5x7.py`** — the font, drawn as ASCII art, seven rows of five
   cells per glyph, 104 glyphs including the System's arrows and pips.
-- **`tools/mapgen.py`** — the floors. A perfect maze with rooms punched through
-  it, extra loops, most dead ends pruned, then fixtures placed by walking
-  distance from the entrance. It writes ASCII to `tools/floors/*.txt`, which is
-  what the game actually reads — edit the text and the floor changes.
+- **`src/core/mapgen.c`** — the floors, built on the DS itself when you
+  descend. Rooms are placed and joined in sequence, which makes the floor
+  connected by construction; then the exit room is sealed, one doorway is cut
+  into it, and the boss is put in that doorway. Sealing can strand a branch
+  whose only corridor ran along the ring, so anything the flood cannot see is
+  dug back in — by breadth-first route rather than an L, because an L can be
+  blocked at both elbows by the ring and then every repair pass retries the same
+  blocked route. `hostsim --mapsweep` checks four thousand seeds on every test
+  run: a layout that looks fine and has its stairs behind a wall is a dead run,
+  and it is exactly what a generator produces once in a few hundred tries.
 - **`src/core/audio.c`** — the soundtrack. Four PSG channels, four songs and
   nine effects, written as note tables. A few hundred bytes.
 - **`tools/forge.py`** — turns all of it into `src/gen/art.c`, plus the ROM's
@@ -179,9 +194,14 @@ make test       # the ROM, in an emulator
 uses — against a stub platform layer, and plays the game with a bot that reads
 the map and walks it. A full three-floor run takes about two seconds, so five
 seeded playthroughs are a routine check that the game is still completable and
-still roughly the right difficulty. It also checks the touch layout and
-round-trips recall codes, including rejecting corrupted ones. Every screenshot in
-`docs/shots/` comes from it.
+still roughly the right difficulty. It also checks the touch layout, round-trips
+recall codes including rejecting corrupted ones, and sweeps four thousand season
+seeds to prove every generated floor can actually be finished. Every screenshot
+in `docs/shots/` comes from it.
+
+`hostsim --map <seed>` prints a season's three floors as text, with any floor
+the party cannot reach marked `?`. Three separate generator bugs were each
+found by looking at that output rather than by reasoning about the code.
 
 **`tools/ndsbot`** drives the actual ROM. It loads DeSmuME's libretro core, feeds
 it button presses and stylus taps from a script, writes PNGs, and — the useful
@@ -212,7 +232,6 @@ src/render/    the software renderer: corridor view, map, every screen
 src/ds/        the DS: framebuffers, input, sound, and the ARM7 core
 src/gen/       generated art and floor data (committed)
 tools/art/     the sprite and font sources
-tools/floors/  the three floors, as text you can edit
 tools/hostsim/ the desktop build and its bot
 tools/ndsbot/  the emulator harness
 docs/          screenshots and art sheets

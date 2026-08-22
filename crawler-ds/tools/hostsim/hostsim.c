@@ -255,25 +255,80 @@ static void play_run(int seed, int assertions) {
         for (int i = 0; i < 40 && g.scene != SCENE_DUNGEON; i++) tap(BTN_A);
         if (g.scene == SCENE_GAMEOVER) break;
         int before = g.dun.index;
+        int32_t collapse_at_exit;
+        collapse_at_exit = g.dun.collapse;
         walk_to(T_DOWN, 800);
         for (int i = 0; i < 60 && g.scene != SCENE_DUNGEON && g.scene != SCENE_VICTORY; i++) tap(BTN_A);
         if (assertions) {
             char label[64];
             snprintf(label, sizeof label, "floor %d cleared", floor_no);
             check(g.dun.index > before || g.scene == SCENE_VICTORY, label);
+            if (verbose)
+                printf("       floor %d: %ld s of collapse timer left\n",
+                       floor_no, (long)(collapse_at_exit / 60));
         }
         if (g.scene == SCENE_VICTORY || g.scene == SCENE_GAMEOVER) break;
     }
 }
 
+/*  Is this floor actually completable? Flood from the entrance and insist
+ *  every feature the game needs is standing somewhere the party can reach.
+ *  Printing the map with unreachable floor marked is how the three separate
+ *  generator bugs behind this were each found. */
+static int floor_is_sound(int show) {
+    static uint8_t seen[MAP_MAX * MAP_MAX];
+    static int16_t qx[MAP_MAX * MAP_MAX], qy[MAP_MAX * MAP_MAX];
+    static const int ddx[4] = { 0, 1, 0, -1 }, ddy[4] = { -1, 0, 1, 0 };
+    memset(seen, 0, sizeof seen);
+    int head = 0, tail = 0;
+    qx[tail] = g.dun.px; qy[tail++] = g.dun.py;
+    seen[g.dun.py * MAP_MAX + g.dun.px] = 1;
+    while (head < tail) {
+        int cx = qx[head], cy = qy[head]; head++;
+        for (int d = 0; d < 4; d++) {
+            int nx = cx + ddx[d], ny = cy + ddy[d];
+            if (nx < 0 || ny < 0 || nx >= g.dun.w || ny >= g.dun.h) continue;
+            if (seen[ny * MAP_MAX + nx] || dungeon_tile(nx, ny) == T_WALL) continue;
+            seen[ny * MAP_MAX + nx] = 1;
+            qx[tail] = (int16_t)nx; qy[tail++] = (int16_t)ny;
+        }
+    }
+    if (show) {
+        for (int y = 0; y < g.dun.h; y++) {
+            for (int x = 0; x < g.dun.w; x++) {
+                char t = dungeon_tile(x, y);
+                putchar(t != T_WALL && !seen[y * MAP_MAX + x] ? '?' : t);
+            }
+            putchar('\n');
+        }
+    }
+    int bad = 0;
+    for (const char *c = ">bSR*1234"; *c; c++) {
+        int found = 0, reach2 = 0;
+        for (int y = 0; y < g.dun.h; y++)
+            for (int x = 0; x < g.dun.w; x++)
+                if (dungeon_tile(x, y) == *c) {
+                    found = 1;
+                    if (seen[y * MAP_MAX + x]) reach2 = 1;
+                }
+        if (!found) { if (show) printf("  MISSING '%c'\n", *c); bad++; }
+        else if (!reach2) { if (show) printf("  UNREACHABLE '%c'\n", *c); bad++; }
+    }
+    return !bad;
+}
+
 int main(int argc, char **argv) {
     int bot = 0, runs = 1, want_shots = 0, touch_check = 0, code_check = 0;
+    uint32_t map_seed = 0;
+    int sweep = 0;
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "--bot")) bot = 1;
         else if (!strcmp(argv[i], "--shots") && i + 1 < argc) { shots_dir = argv[++i]; want_shots = 1; }
         else if (!strcmp(argv[i], "--runs") && i + 1 < argc) runs = atoi(argv[++i]);
         else if (!strcmp(argv[i], "--touch")) touch_check = 1;
         else if (!strcmp(argv[i], "--codes")) code_check = 1;
+        else if (!strcmp(argv[i], "--map") && i + 1 < argc) map_seed = (uint32_t)atoi(argv[++i]);
+        else if (!strcmp(argv[i], "--mapsweep") && i + 1 < argc) sweep = atoi(argv[++i]);
         else if (!strcmp(argv[i], "-v")) verbose = 1;
         else { fprintf(stderr, "unknown argument %s\n", argv[i]); return 2; }
     }
@@ -385,6 +440,42 @@ int main(int argc, char **argv) {
             if (save_apply_code(broken)) { printf("  FAIL %s was accepted\n", broken); bad++; }
         }
         printf("%s: %d bad\n", bad ? "FAILED" : "passed", bad);
+        return bad ? 1 : 0;
+    }
+
+    if (sweep) {
+        /* Every season has to be finishable. A layout that looks fine and has
+           its stairs behind a wall is a dead run, and it is exactly the kind
+           of thing a generator produces once in a few hundred tries — too
+           rare to meet by playing, certain to be met by somebody. */
+        int bad = 0;
+        for (int s2 = 1; s2 <= sweep; s2++) {
+            game_boot();
+            g.season = (uint32_t)s2;
+            for (int f = 0; f < FLOORS; f++) {
+                dungeon_enter(f);
+                if (!floor_is_sound(0)) {
+                    printf("  FAIL season seed %d floor %d is not completable\n", s2, f + 1);
+                    bad++;
+                }
+            }
+        }
+        printf("  %s %d season seeds generate completable floors\n",
+               bad ? "FAIL" : "ok  ", sweep);
+        return bad ? 1 : 0;
+    }
+
+    if (map_seed) {
+        game_boot();
+        g.season = map_seed;
+        int bad = 0;
+        for (int f = 0; f < FLOORS; f++) {
+            dungeon_enter(f);
+            printf("--- season %d floor %d  (%dx%d)  start %d,%d\n",
+                   game_season_number(), f + 1, g.dun.w, g.dun.h, g.dun.px, g.dun.py);
+            if (!floor_is_sound(1)) bad++;
+        }
+        printf("%s\n", bad ? "FLOOR CHECK FAILED" : "all features present and reachable");
         return bad ? 1 : 0;
     }
 

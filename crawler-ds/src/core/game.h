@@ -172,6 +172,7 @@ typedef struct {
 typedef struct {
     uint8_t  index;                       /* 0..FLOORS-1 */
     uint8_t  w, h;
+    char     tiles[MAP_MAX * MAP_MAX];    /* built per run by mapgen */
     uint8_t  px, py, facing;
     uint8_t  seen[MAP_MAX * MAP_MAX / 8];
     uint8_t  used[MAP_MAX * MAP_MAX / 8]; /* boxes opened, triggers fired */
@@ -194,6 +195,7 @@ typedef struct {
     Scene    scene_return;
     uint32_t frame;
     uint32_t rng;
+    uint32_t season;            /* the seed this run's dungeon is built from */
 
     Hero     hero[PARTY];
     int16_t  gold;
@@ -239,6 +241,8 @@ extern Game g;
 /* ------------------------------------------------------------------- api -- */
 
 /* rng.c */
+void     mapgen_build(int floor_index, uint32_t season);
+int      game_season_number(void);
 void     rng_seed(uint32_t seed);
 uint32_t rng_next(void);
 int      rng_range(int lo, int hi);      /* inclusive */

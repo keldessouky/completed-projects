@@ -168,7 +168,13 @@ static void update_title(const PlatInput *in) {
     if (in->pressed & (BTN_UP | BTN_DOWN)) g.title_cursor ^= 1;
     if ((in->pressed & (BTN_A | BTN_START)) || touch_in(in, &play)) {
         if (g.title_cursor == 0) {
-            rng_seed(0x1BADCA7Du ^ (g.frame * 2654435761u));
+            /* The season is what the recall code carries, so it has to fit
+               the sixteen bits the code has room for. Loot is seeded off a
+               mix of it rather than from it, so two seasons that happen to
+               share a layout still roll differently. */
+            g.season = ((0x1BADCA7Du ^ (g.frame * 2654435761u)) & 0xFFFF);
+            if (!g.season) g.season = 0x1BAD;
+            rng_seed(0x9E3779B9u ^ (g.season * 2654435761u));
             start_new_run();
         } else {
             g.code_mode = 1;
@@ -422,6 +428,14 @@ static void update_end(const PlatInput *in) {
     }
 }
 
+/*  The show numbers its seasons, so the run does too: a stable three-digit
+ *  label derived from the same seed the dungeon is built from. */
+int game_season_number(void) {
+    uint32_t h = g.season;
+    h ^= h >> 16; h *= 0x7FEB352Du; h ^= h >> 15;
+    return (int)(h % 899u) + 101;
+}
+
 /* ------------------------------------------------------------------ loop -- */
 
 void game_boot(void) {
@@ -429,8 +443,8 @@ void game_boot(void) {
     rng_seed(0x1BADCA7Du);
     party_new();
     g.scene = SCENE_TITLE;
-    g.dun.w = floor_maps[0].w;
-    g.dun.h = floor_maps[0].h;
+    g.season = 0x1BADCA7Du;
+    mapgen_build(0, g.season);          /* the title screen has a map behind it */
     publish_telemetry();
 }
 

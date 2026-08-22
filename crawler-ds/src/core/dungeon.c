@@ -1,7 +1,7 @@
 /*  The floor itself: walking it, seeing it, and the things standing on it.
  *
- *  Maps come straight from the ASCII files under tools/floors via the forge,
- *  so a tile is literally the character an editor typed.
+ *  Tiles are generated per run by mapgen from the season seed, so the same
+ *  code always rebuilds the same floor and no two seasons share a layout.
  */
 #include "game.h"
 
@@ -17,9 +17,8 @@ static const int dy4[4] = { -1, 0, 1, 0 };
 static const int32_t collapse_frames[FLOORS] = { 60 * 60 * 14, 60 * 60 * 16, 60 * 60 * 20 };
 
 char dungeon_tile(int x, int y) {
-    const FloorMap *m = &floor_maps[g.dun.index];
-    if (x < 0 || y < 0 || x >= m->w || y >= m->h) return T_WALL;
-    return m->tiles[y * m->w + x];
+    if (x < 0 || y < 0 || x >= g.dun.w || y >= g.dun.h) return T_WALL;
+    return g.dun.tiles[y * MAP_MAX + x];
 }
 
 static int bit_index(int x, int y) { return y * MAP_MAX + x; }
@@ -79,14 +78,12 @@ void dungeon_light_of_sight(void) {
 
 void dungeon_enter(int floor_index) {
     if (floor_index >= FLOORS) floor_index = FLOORS - 1;
-    const FloorMap *m = &floor_maps[floor_index];
     memset(&g.dun, 0, sizeof g.dun);
     g.dun.index = (uint8_t)floor_index;
-    g.dun.w = m->w;
-    g.dun.h = m->h;
-    for (int y = 0; y < m->h; y++)
-        for (int x = 0; x < m->w; x++) {
-            char t = m->tiles[y * m->w + x];
+    mapgen_build(floor_index, g.season);
+    for (int y = 0; y < g.dun.h; y++)
+        for (int x = 0; x < g.dun.w; x++) {
+            char t = g.dun.tiles[y * MAP_MAX + x];
             if (t == T_START || t == T_UP) { g.dun.px = (uint8_t)x; g.dun.py = (uint8_t)y; }
         }
     /* Face whichever way there is floor to walk on. */

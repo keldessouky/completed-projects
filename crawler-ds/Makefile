@@ -60,11 +60,11 @@ $(BUILD)/arm7.elf: $(OBJ7)
 
 $(BUILD)/src/ds/arm7/%.o: src/ds/arm7/%.c
 	@mkdir -p $(dir $@)
-	$(CC) $(CFLAGS7) -c $< -o $@
+	$(CC) $(CFLAGS7) -MMD -MP -c $< -o $@
 
 $(BUILD)/%.o: %.c
 	@mkdir -p $(dir $@)
-	$(CC) $(CFLAGS9) -c $< -o $@
+	$(CC) $(CFLAGS9) -MMD -MP -c $< -o $@
 
 $(DIST):
 	@mkdir -p $(DIST)
@@ -91,6 +91,7 @@ host:
 hosttest: host
 	tools/hostsim/hostsim --touch
 	tools/hostsim/hostsim --codes
+	tools/hostsim/hostsim --mapsweep 4000
 	tools/hostsim/hostsim --bot --runs 5
 
 clean:

@@ -70,8 +70,4 @@ extern const Sprite spr_shrine;
 extern const Sprite spr_door;
 extern const Sprite *const sprite_table[SPR_COUNT];
 
-#define FLOOR_COUNT 3
-typedef struct { uint8_t w, h; const char *tiles; } FloorMap;
-extern const FloorMap floor_maps[FLOOR_COUNT];
-
 #endif
