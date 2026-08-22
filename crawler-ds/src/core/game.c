@@ -158,8 +158,9 @@ static void start_new_run(void) {
     g.boxes_opened = 0;
     g.battles_won = 0;
     g.story_beat = 0;
-    dungeon_enter(0);
-    game_story(1, TRIG_FLOOR_ENTER, SCENE_DUNGEON);
+    /*  Book One starts above ground. The dungeon is entered at the end of
+        chapter one, not before it. */
+    chapter_begin(1);
 }
 
 static void update_title(const PlatInput *in) {
@@ -436,6 +437,112 @@ int game_season_number(void) {
     return (int)(h % 899u) + 101;
 }
 
+/* --------------------------------------------------------------- chapter -- */
+
+/*  A chapter is read, not fought. It runs on the same rule as a battle
+ *  message: type the line out, wait to be dismissed, and stop for an answer
+ *  when the line wants one. */
+void chapter_begin(int chapter) {
+    g.chapter = (uint8_t)chapter;
+    g.cut_line = 0;
+    g.cut_reveal = 0;
+    g.cut_answer = 255;
+    g.cut_choice = 0;
+    g.cut_shake = 0;
+    g.cut_backdrop = BD_STREET;
+    game_set_scene(SCENE_CUTSCENE);
+}
+
+static const Chapter *chapter_now(void) {
+    for (int i = 0; i < chapter_count; i++)
+        if (chapters[i].chapter == g.chapter) return &chapters[i];
+    return &chapters[0];
+}
+
+const CutLine *chapter_line(void) {
+    const Chapter *c = chapter_now();
+    if (g.cut_line >= c->count) return 0;
+    return &c->lines[g.cut_line];
+}
+
+/*  What is on screen right now: the line itself, or the reply to the answer
+ *  just given. Returns how much of it has been typed. */
+int chapter_text(const char **out) {
+    const CutLine *l = chapter_line();
+    if (!l) { if (out) *out = ""; return 0; }
+    const char *text = l->text;
+    if ((l->flags & CUT_CHOICE) && g.cut_answer != 255)
+        text = l->reply[g.cut_answer] ? l->reply[g.cut_answer] : l->text;
+    if (out) *out = text;
+    return g.cut_reveal;
+}
+
+int chapter_asking(void) {
+    const CutLine *l = chapter_line();
+    if (!l || !(l->flags & CUT_CHOICE) || g.cut_answer != 255) return 0;
+    const char *text = l->text;
+    int len = 0;
+    while (text[len]) len++;
+    return g.cut_reveal >= (uint16_t)len;      /* only once it has been read */
+}
+
+static void chapter_advance(void) {
+    const CutLine *l = chapter_line();
+    if (l && (l->flags & CUT_CHOICE) && g.cut_answer == 255) return;
+    if (l && (l->flags & CUT_AWARD)) game_award(l->award);
+    g.cut_line++;
+    g.cut_reveal = 0;
+    g.cut_answer = 255;
+    g.cut_choice = 0;
+    const CutLine *next = chapter_line();
+    if (!next) {                                /* chapter over: into the floor */
+        dungeon_enter(0);
+        game_set_scene(SCENE_DUNGEON);
+        return;
+    }
+    if (next->backdrop != BD_KEEP) g.cut_backdrop = next->backdrop;
+    if (next->flags & CUT_SHAKE) g.cut_shake = 40;
+    if (next->flags & CUT_FLASH) g.fade = 14;
+}
+
+void chapter_update(const PlatInput *in) {
+    if (g.cut_shake) g.cut_shake--;
+    const CutLine *l = chapter_line();
+    if (!l) { chapter_advance(); return; }
+
+    const char *text = 0;
+    chapter_text(&text);
+    int len = 0;
+    while (text[len]) len++;
+    int go = (in->pressed & (BTN_A | BTN_START)) || in->touch_pressed;
+
+    if (g.cut_reveal < (uint16_t)len) {
+        g.cut_reveal += 2;
+        if (go || g.cut_reveal > (uint16_t)len) g.cut_reveal = (uint16_t)len;
+        return;
+    }
+
+    if (chapter_asking()) {                     /* the line wants an answer */
+        int n = 0;
+        while (n < 3 && l->opt[n]) n++;
+        if (in->pressed & BTN_DOWN) g.cut_choice = (uint8_t)((g.cut_choice + 1) % n);
+        if (in->pressed & BTN_UP) g.cut_choice = (uint8_t)((g.cut_choice + n - 1) % n);
+        for (int i = 0; i < n; i++) {
+            Rect r = { 8, (int16_t)(96 + i * 30), 240, 26, 0 };
+            if (touch_in(in, &r)) g.cut_choice = (uint8_t)i;
+        }
+        int fire = (in->pressed & BTN_A) != 0;
+        for (int i = 0; i < n && !fire; i++) {
+            Rect r = { 8, (int16_t)(96 + i * 30), 240, 26, 0 };
+            if (touch_in(in, &r) && g.cut_choice == i) fire = 1;
+        }
+        if (fire) { g.cut_answer = g.cut_choice; g.cut_reveal = 0; }
+        return;
+    }
+
+    if (go) chapter_advance();
+}
+
 /* ------------------------------------------------------------------ loop -- */
 
 void game_boot(void) {
@@ -459,6 +566,7 @@ int game_frame(const PlatInput *in) {
     switch (g.scene) {
     case SCENE_TITLE:    update_title(in);   break;
     case SCENE_STORY:    update_story(in);   break;
+    case SCENE_CUTSCENE: chapter_update(in); break;
     case SCENE_DUNGEON:  update_dungeon(in); break;
     case SCENE_BATTLE:   battle_update(in);  break;
     case SCENE_MENU:     update_menu(in);    break;

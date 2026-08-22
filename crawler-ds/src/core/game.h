@@ -25,7 +25,7 @@
 typedef enum {
     SCENE_TITLE, SCENE_STORY, SCENE_DUNGEON, SCENE_BATTLE, SCENE_MENU,
     SCENE_SHOP, SCENE_BOX, SCENE_LEVELUP, SCENE_CODE, SCENE_GAMEOVER,
-    SCENE_VICTORY, SCENE_COUNT
+    SCENE_VICTORY, SCENE_CUTSCENE, SCENE_COUNT
 } Scene;
 
 typedef enum { DIR_N, DIR_E, DIR_S, DIR_W } Dir;
@@ -88,12 +88,53 @@ typedef struct {
     int16_t     gold;
 } AchDef;
 
-typedef enum { SP_SYSTEM, SP_CARL, SP_DONUT, SP_MORDECAI, SP_BOPCA, SP_ANNOUNCER } Speaker;
+typedef enum { SP_SYSTEM, SP_CARL, SP_DONUT, SP_MORDECAI, SP_BOPCA, SP_ANNOUNCER,
+               SP_NARRATOR } Speaker;
 
 typedef struct {
     uint8_t     speaker;
     const char *text;
 } Line;
+
+/* ------------------------------------------------------------- cutscene -- */
+
+/*  Book One opens above ground, so the game has to as well: the chapter that
+ *  matters most has no dungeon in it at all. A cutscene is a backdrop, a
+ *  speaker and a line, with the occasional question that expects an answer.
+ */
+enum {
+    BD_KEEP = 0,        /* leave the backdrop as it was */
+    BD_STREET, BD_STREET_CAT, BD_COLLAPSE, BD_ANNOUNCE, BD_STAIRS, BD_DUNGEON,
+    BD_COUNT
+};
+
+enum {
+    CUT_NONE   = 0,
+    CUT_SHAKE  = 1 << 0,     /* the world coming down                     */
+    CUT_FLASH  = 1 << 1,     /* the System cutting in                     */
+    CUT_CHOICE = 1 << 2,     /* stop and wait for an answer               */
+    CUT_AWARD  = 1 << 3,     /* hand over whatever this line is worth     */
+};
+
+typedef struct {
+    uint8_t     speaker;
+    uint8_t     backdrop;
+    uint8_t     flags;
+    uint8_t     award;          /* achievement index when CUT_AWARD       */
+    const char *text;
+    const char *opt[3];         /* the answers, when CUT_CHOICE           */
+    const char *reply[3];       /* what the answer gets you               */
+} CutLine;
+
+typedef struct {
+    uint8_t      chapter;       /* 1-based, as printed on the card        */
+    const char  *title;
+    const CutLine *lines;
+    uint8_t      count;
+} Chapter;
+
+extern const Chapter chapters[];
+extern const int chapter_count;
 
 typedef struct {
     uint8_t      id;
@@ -214,6 +255,15 @@ typedef struct {
     Dungeon  dun;
     Battle   bat;
 
+    /* chapters and cutscenes */
+    uint8_t  chapter;           /* which chapter of Book One is running   */
+    uint8_t  cut_line;
+    uint16_t cut_reveal;
+    uint8_t  cut_backdrop;
+    uint8_t  cut_choice;        /* cursor while a question is up          */
+    uint8_t  cut_answer;        /* which answer was taken, 255 = not yet  */
+    uint16_t cut_shake;
+
     /* story scene */
     const Beat *beat;
     uint8_t  beat_line;
@@ -247,6 +297,11 @@ extern Game g;
 
 /* rng.c */
 int      battle_message(const char **out);   /* the line being read, if any */
+void     chapter_begin(int chapter);
+void     chapter_update(const PlatInput *in);
+const CutLine *chapter_line(void);
+int      chapter_text(const char **out);   /* characters typed so far */
+int      chapter_asking(void);             /* a question is up and readable */
 void     mapgen_build(int floor_index, uint32_t season);
 int      game_season_number(void);
 void     rng_seed(uint32_t seed);

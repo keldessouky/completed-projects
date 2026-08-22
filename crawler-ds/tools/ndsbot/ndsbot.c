@@ -370,9 +370,20 @@ int main(int argc, char **argv) {
                     if (steps == last_steps) stuck++;
                     else stuck = 0;
                 } else {
-                    stuck = 0;               /* a fight or a briefing: keep tapping A */
-                    g_joypad |= 1u << button_id("a"); run_frames(8);
-                    g_joypad &= ~(1u << button_id("a")); run_frames(6);
+                    /*  A fight, a briefing or a chapter. All three now say one
+                     *  thing at a time and wait to be read, so a single tap a
+                     *  round is nowhere near enough to get through one. */
+                    /*  A advances a message, confirms a menu and buys from a
+                     *  shop, which means A alone can never leave a shop: it
+                     *  just keeps buying. B backs out of anything A cannot
+                     *  finish, so the walk always resumes. */
+                    stuck = 0;
+                    for (int t = 0; t < 5; t++) {
+                        g_joypad |= 1u << button_id("a"); run_frames(6);
+                        g_joypad &= ~(1u << button_id("a")); run_frames(4);
+                    }
+                    g_joypad |= 1u << button_id("b"); run_frames(6);
+                    g_joypad &= ~(1u << button_id("b")); run_frames(4);
                 }
                 last_steps = steps;
             }

@@ -59,15 +59,28 @@ top screen, the map and your hands on the bottom one.
 
 | | |
 | --- | --- |
-| ![Corridor](docs/shots/03-corridor.png) | ![A fight](docs/shots/06-battle-orders.png) |
-| **The floor.** Nested wall projections, per-floor palettes, side corridors that read as somewhere to go. The map draws itself as you walk. | **A fight.** Turn order by speed, six skills each, targets you can tap, and the show narrating over the top. |
+| ![Chapter one](docs/shots/02b-chapter-cat.png) | ![A fight](docs/shots/06-battle-orders.png) |
+| **Chapter one.** Book One opens above ground, so the game does too: a street at three in the morning, a cat up a fire escape, and questions that expect an answer. | **A fight.** Laid out the way the DS Pokemon games do it — their box top-left, yours bottom-right, one message at a time, four commands on the touch screen. |
+| ![Corridor](docs/shots/03-corridor.png) | ![The System](docs/shots/05-chapter-system.png) |
+| **The floor.** Nested wall projections, per-floor palettes, side corridors that read as somewhere to go. The map draws itself as you walk. | **The announcement.** The surface has been repossessed, entry is voluntary, and the audience is already watching. |
 | ![The party](docs/shots/08-party.png) | ![A loot box](docs/shots/07-reward.png) |
 | **The party.** Six attributes each, spent by hand on level-up, feeding every number in a fight. | **Loot boxes.** The show's entire economy, in four rarities. |
 
-**Three floors, the arc of Book One.** The collapse and the tutorial floor; the
-Works, where Mordecai turns up and classes get assigned; the Over City, where
-there is a club and everything in it wants a piece of you. Sixteen briefings of
-original prose in the System's voice, one boss per floor, and an ending.
+**Book One, a chapter at a time.** Chapter one is above ground and has no
+dungeon in it at all: Carl outside at three in the morning after his ex's cat,
+the ninety seconds that kill everyone who was indoors, and the offer that
+follows. It is played as a cutscene with backdrops and choices, and it ends with
+him going down the stairs. Then three floors — the tutorial floor, the Works
+where Mordecai turns up, the Over City — with a boss on each and an ending.
+
+Everything written for this game is original prose in the System's voice. No
+text from the books is reproduced anywhere in it.
+
+**Fights are laid out like the DS Pokemon games.** Battle on the top screen,
+commands on the touch screen. Their health box top-left, yours bottom-right,
+name and level and a bar that turns gold then red. One message at a time, typed
+out, waiting to be read — a turn that resolves faster than you can follow it is
+a turn nobody saw. FIGHT, BAG, GUARD, RUN in a two-by-two block.
 
 **Systems.** Six attributes per hero with points you spend yourself; twelve
 skills; gear in three slots; potions, bombs and revives; a Bopca-run shop; a

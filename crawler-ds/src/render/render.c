@@ -535,6 +535,164 @@ static void draw_battle(Surface *top, Surface *bot) {
         draw_button(bot, &kBatCommands[i], g.bat.cursor == i);
 }
 
+/* -------------------------------------------------------------- cutscene -- */
+
+/*  Five backdrops, drawn rather than stored: a street at three in the morning,
+ *  the same street ninety seconds later, the sky when it starts talking, the
+ *  stairwell, and the first corridor. Each is a gradient, a silhouette and one
+ *  moving thing, which is all a backdrop has to be when the words are doing
+ *  the work. */
+static void backdrop_street(Surface *s, int lit)
+{
+    gfx_vgradient(s, 0, 0, SCREEN_W, SCREEN_H, RGB(6, 7, 16), RGB(20, 22, 40));
+    for (int i = 0; i < 7; i++) {                       /* blocks against the sky */
+        int bx = i * 40 - 8, bw = 34;
+        int bh = 70 + ((i * 37) % 5) * 12;
+        gfx_rect(s, bx, SCREEN_H - bh - 26, bw, bh, RGB(10, 11, 20));
+        for (int wy = 0; wy < bh - 12; wy += 12)        /* a few lights still on */
+            for (int wx = 0; wx < bw - 8; wx += 10)
+                if (((i * 7 + wx + wy) % 11) < 3)
+                    gfx_rect(s, bx + 4 + wx, SCREEN_H - bh - 20 + wy, 4, 5,
+                             RGB(90, 80, 40));
+    }
+    gfx_rect(s, 0, SCREEN_H - 26, SCREEN_W, 26, RGB(14, 14, 20));
+    gfx_hline(s, 0, SCREEN_W - 1, SCREEN_H - 26, RGB(30, 30, 42));
+    for (int i = 0; i < 70; i++) {                      /* rain, going sideways */
+        int x = (i * 53 + g.anim * 3) % (SCREEN_W + 40) - 20;
+        int y = (i * 31 + g.anim * 6) % SCREEN_H;
+        gfx_pixel(s, x, y, RGB(60, 70, 100));
+        gfx_pixel(s, x + 1, y + 2, RGB(40, 48, 70));
+    }
+    if (lit) {                                          /* the cat, up the ironwork */
+        for (int y = 96; y < SCREEN_H - 26; y += 8)     /* the ladder she went up */
+            gfx_rect(s, 172, y, 22, 2, RGB(58, 58, 74));
+        gfx_rect(s, 170, 96, 3, SCREEN_H - 122, RGB(72, 72, 88));
+        gfx_rect(s, 192, 96, 3, SCREEN_H - 122, RGB(48, 48, 62));
+        gfx_rect(s, 148, 92, 60, 4, RGB(76, 76, 92));  /* the landing she is on */
+        gfx_hline(s, 148, 207, 92, RGB(104, 104, 120));
+        gfx_sprite_scaled(s, &spr_donut, 162, 92 - spr_donut.h * 52 / 100, 52, 100);
+    }
+    gfx_sprite_scaled(s, &spr_carl, 40, SCREEN_H - 26 - spr_carl.h * 78 / 100, 78, 100);
+}
+
+static void backdrop_collapse(Surface *s)
+{
+    gfx_vgradient(s, 0, 0, SCREEN_W, SCREEN_H, RGB(36, 14, 10), RGB(12, 8, 10));
+    for (int i = 0; i < 7; i++) {                       /* what is left of them */
+        int bx = i * 40 - 8, bw = 34;
+        int bh = 10 + ((i * 29) % 4) * 8;
+        gfx_rect(s, bx, SCREEN_H - bh - 26, bw, bh, RGB(16, 12, 14));
+    }
+    gfx_rect(s, 0, SCREEN_H - 26, SCREEN_W, 26, RGB(20, 16, 16));
+    for (int i = 0; i < 120; i++) {                     /* dust, going up */
+        int x = (i * 71 + g.anim) % SCREEN_W;
+        int y = SCREEN_H - ((i * 37 + g.anim * 2) % SCREEN_H);
+        gfx_pixel(s, x, y, i & 1 ? RGB(80, 66, 58) : RGB(52, 42, 40));
+    }
+    gfx_sprite_scaled(s, &spr_carl, 40, SCREEN_H - 26 - spr_carl.h * 78 / 100, 78, 100);
+}
+
+static void backdrop_announce(Surface *s)
+{
+    gfx_vgradient(s, 0, 0, SCREEN_W, SCREEN_H, RGB(4, 4, 8), RGB(14, 6, 20));
+    for (int i = 0; i < 40; i++) {                      /* the broadcast carrier */
+        int y = (i * 9 + g.anim / 2) % SCREEN_H;
+        gfx_hline(s, 0, SCREEN_W - 1, y, RGB(18, 10, 26));
+    }
+    int w = 200, x = (SCREEN_W - w) / 2;
+    gfx_panel(s, x, 62, w, 60, C_PANEL, C_MAGENTA);
+    gfx_text_big(s, x + 20, 72, C_MAGENTA, "THE SYSTEM");
+    gfx_text(s, x + 20, 96, C_DIM, "BORANT CORPORATION");
+    gfx_text(s, x + 20, 108, C_AMBER, "DUNGEON CRAWLER WORLD");
+    if (g.anim & 16) gfx_rect(s, x + w - 22, 68, 8, 8, C_RED);
+}
+
+static void backdrop_stairs(Surface *s)
+{
+    gfx_vgradient(s, 0, 0, SCREEN_W, SCREEN_H, RGB(10, 10, 16), RGB(4, 4, 6));
+    for (int i = 0; i < 9; i++) {                       /* steps going down */
+        int inset = i * 12;
+        gfx_rect(s, 40 + inset, 30 + i * 16, SCREEN_W - 80 - inset * 2, 12,
+                 gfx_scale_colour(RGB(70, 66, 76), 14 - i, 16));
+        gfx_hline(s, 40 + inset, SCREEN_W - 41 - inset, 30 + i * 16, RGB(26, 24, 30));
+    }
+    gfx_rect(s, 112, 158, 32, 34, RGB(2, 2, 4));
+    gfx_sprite_scaled(s, &spr_carl, 22, 120, 70, 100);
+    gfx_sprite_scaled(s, &spr_donut, 186, 128, 58, 100);
+}
+
+static void draw_cutscene(Surface *top, Surface *bot)
+{
+    int shake = g.cut_shake ? (int)((g.anim * 7) % 5) - 2 : 0;
+
+    switch (g.cut_backdrop) {
+    case BD_STREET:     backdrop_street(top, 0); break;
+    case BD_STREET_CAT: backdrop_street(top, 1); break;
+    case BD_COLLAPSE:   backdrop_collapse(top);  break;
+    case BD_ANNOUNCE:   backdrop_announce(top);  break;
+    case BD_STAIRS:     backdrop_stairs(top);    break;
+    default:            draw_arena(top, 0);      break;
+    }
+    if (shake) {                    /* a cheap jolt: bands of the frame slid sideways */
+        for (int y = 0; y < SCREEN_H; y += 4)
+            gfx_rect(top, 0, y, (shake < 0 ? -shake : shake), 4, RGB(0, 0, 0));
+    }
+    if (g.fade) gfx_shade(top, 0, 0, SCREEN_W, SCREEN_H, 16 + g.fade);
+
+    {
+        const Chapter *c = 0;
+        for (int i = 0; i < chapter_count; i++)
+            if (chapters[i].chapter == g.chapter) c = &chapters[i];
+        char label[24];
+        int o = 0;
+        for (const char *p = "CHAPTER "; *p; p++) label[o++] = *p;
+        for (const char *p = gfx_num(g.chapter); *p; p++) label[o++] = *p;
+        label[o] = 0;
+        system_bar(top, label, c ? c->title : "");
+    }
+
+    /* ---- the words, on the screen you are holding a stylus over ---------- */
+    gfx_clear(bot, C_VOID);
+    gfx_vgradient(bot, 0, 0, SCREEN_W, 30, C_PANEL, C_VOID);
+
+    const CutLine *l = chapter_line();
+    if (!l) return;
+    const char *text = 0;
+    int reveal = chapter_text(&text);
+
+    const char *who = speaker_names[l->speaker];
+    if (who && *who) {
+        uint16_t tint = l->speaker == SP_SYSTEM ? C_MAGENTA
+                      : l->speaker == SP_CARL   ? C_AMBER
+                      : l->speaker == SP_DONUT  ? C_GOLD : C_INK;
+        gfx_text(bot, 8, 9, tint, who);
+    }
+
+    char shown[320];
+    int n = 0;
+    for (const char *p = text; *p && n < (int)sizeof shown - 1 && n < reveal; p++)
+        shown[n++] = *p;
+    shown[n] = 0;
+    gfx_panel(bot, 4, 24, SCREEN_W - 8, chapter_asking() ? 64 : 120, C_PANEL, C_AMBER_DK);
+    gfx_text_wrapped(bot, 10, 30, SCREEN_W - 20, C_INK, shown);
+
+    if (chapter_asking()) {
+        int count = 0;
+        while (count < 3 && l->opt[count]) count++;
+        for (int i = 0; i < count; i++) {
+            Rect r = { 8, (int16_t)(96 + i * 30), 240, 26, 0 };
+            int on = g.cut_choice == i;
+            gfx_panel(bot, r.x, r.y, r.w, r.h, on ? C_PANEL_LIT : C_PANEL,
+                      on ? C_AMBER : C_EDGE);
+            gfx_text(bot, r.x + 10, r.y + 9, on ? C_AMBER : C_INK, l->opt[i]);
+            if (on) gfx_text(bot, r.x + 2, r.y + 9, C_AMBER, "\177");
+        }
+        return;
+    }
+    if (!text[n] && (g.anim & 16))
+        gfx_text(bot, SCREEN_W - 16, 132, C_AMBER, "\177");
+}
+
 /* ----------------------------------------------------------------- menu --- */
 
 static void draw_menu(Surface *top, Surface *bot) {
@@ -895,9 +1053,15 @@ static uint32_t render_signature(void) {
     if (g.scene == SCENE_BATTLE) {
         MIX(g.bat.phase); MIX(g.bat.cursor); MIX(g.bat.target); MIX(g.bat.actor);
         MIX(g.bat.n_log); MIX(g.bat.shake); MIX(g.bat.timer / 6);
+        MIX(g.bat.log_shown); MIX(g.bat.reveal);   /* the line being typed out */
         for (int i = 0; i < MAX_FOES; i++) { MIX(g.bat.foes[i].hp); MIX(g.bat.foes[i].alive); }
         for (int i = 0; i < PARTY + MAX_FOES; i++) MIX(g.bat.pop_life[i] / 4);
         MIX(g.anim >> 2);
+    }
+    if (g.scene == SCENE_CUTSCENE) {
+        MIX(g.chapter); MIX(g.cut_line); MIX(g.cut_reveal);
+        MIX(g.cut_backdrop); MIX(g.cut_choice); MIX(g.cut_answer);
+        MIX(g.cut_shake); MIX(g.anim >> 1);        /* rain and dust keep moving */
     }
     /* Scenes that are alive even when the player is not. */
     if (g.scene == SCENE_TITLE || g.scene == SCENE_STORY || g.scene == SCENE_BOX ||
@@ -931,6 +1095,7 @@ int render_frame(void) {
     case SCENE_CODE:     draw_code(&top, &bot);     break;
     case SCENE_GAMEOVER: draw_gameover(&top, &bot); break;
     case SCENE_VICTORY:  draw_victory(&top, &bot);  break;
+    case SCENE_CUTSCENE: draw_cutscene(&top, &bot); break;
     default: break;
     }
 

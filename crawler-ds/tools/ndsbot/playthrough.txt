@@ -9,11 +9,18 @@ expect carl_hp > 0
 expect floor = 1
 shot 01-title
 
-echo the System says hello
-until a scene = 2 40
+# The game opens above ground now: chapter one is a couple of dozen lines with
+# questions in it, so getting to the first corridor takes a lot more taps than
+# a briefing did.
+echo chapter one
+until a scene = 11 12
+frames 20
+expect scene = 11
+shot 02-chapter
+until a scene = 2 260
 frames 30
 expect explored > 8
-shot 02-corridor
+shot 03-corridor
 
 # The stylus test goes first, at the entrance, where it is deterministic: the
 # floor is generated per season now, but the party always arrives facing a
@@ -44,7 +51,7 @@ frames 20
 expect scene = 2
 
 echo explore, fight, loot
-autoplay 320
+autoplay 520
 expect steps > 20
 expect explored > 40
 expect battles_won >= 1
@@ -54,7 +61,7 @@ shot 04-play
 print
 
 echo keep going
-autoplay 320
+autoplay 520
 expect steps > 20
 expect explored > 40
 expect boxes >= 1

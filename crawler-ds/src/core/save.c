@@ -58,14 +58,14 @@ static uint32_t checksum(const BitBuf *b) {
 void save_make_code(char *out) {
     BitBuf b;
     memset(&b, 0, sizeof b);
-    put_bits(&b, 2, 3);                              /* format version        */
+    put_bits(&b, 3, 3);                              /* format version        */
     put_bits(&b, g.season & 0xFFFF, 16);             /* the season's seed     */
     put_bits(&b, g.dun.index, 2);                    /* floor                 */
     put_bits(&b, g.hero[0].level, 5);
     put_bits(&b, g.hero[1].level, 5);
     put_bits(&b, (uint32_t)(g.gold < 0 ? 0 : g.gold > 16000 ? 16000 : g.gold) / 4, 12);
     put_bits(&b, g.flags & 0xFFF, 12);
-    put_bits(&b, g.achievements & 0xFFF, 12);
+    put_bits(&b, g.achievements & 0xFFFF, 16);   /* fourteen of them now */
     put_bits(&b, g.battles_won > 255 ? 255 : g.battles_won, 8);
     put_bits(&b, g.boxes_opened > 63 ? 63 : g.boxes_opened, 6);
     put_bits(&b, g.story_beat & 0xF, 4);
@@ -101,14 +101,14 @@ int save_apply_code(const char *code) {
 
     BitBuf r = b;
     r.pos = 0;
-    if (get_bits(&r, 3) != 2) return 0;
+    if (get_bits(&r, 3) != 3) return 0;
     uint32_t season = get_bits(&r, 16);
     int floor_index = (int)get_bits(&r, 2);
     int carl_level = (int)get_bits(&r, 5);
     int donut_level = (int)get_bits(&r, 5);
     int gold = (int)get_bits(&r, 12) * 4;
     uint32_t flags = get_bits(&r, 12);
-    uint32_t achievements = get_bits(&r, 12);
+    uint32_t achievements = get_bits(&r, 16);
     int battles = (int)get_bits(&r, 8);
     int boxes = (int)get_bits(&r, 6);
     int beat = (int)get_bits(&r, 4);

@@ -87,21 +87,21 @@ const AchDef ach_defs[] = {
     { "Cancelled",        "Finish the Producer.",                3, 400 },
     { "Deep Pockets",     "Carry four kinds of gear at once.",   1, 60 },
     { "Read The Room",    "Sit through every System briefing.",  1,  70 },
+    /*  Chapter one: neither of these is earned in a dungeon, and neither pays
+        out in a box — a loot box scene opening in the middle of a cutscene
+        takes the screen away from the thing the player was reading. */
+    { "No Shoes",         "Go outside for the cat anyway.",    255,  40 },
+    { "Outside At The Time", "Be in the road when it happened.", 255,  0 },
 };
 const int ach_count = (int)(sizeof ach_defs / sizeof ach_defs[0]);
 
-const char *const speaker_names[] = { "THE SYSTEM", "CARL", "PRINCESS DONUT", "MORDECAI", "BOPCA", "THE SHOW" };
+const char *const speaker_names[] = { "THE SYSTEM", "CARL", "PRINCESS DONUT",
+                                     "MORDECAI", "BOPCA", "THE SHOW", "" };
 
+/*  Chapter one now opens the game, so the old floor-one briefing that used
+ *  to do that job is gone: it said the same things worse and later. */
 /* ---------------------------------------------------------------- script -- */
 
-static const Line beat_intro[] = {
-    { SP_SYSTEM, "Attention, crawler." },
-    { SP_SYSTEM, "The surface has been repossessed. Everything above you is rubble, and the rubble is being televised." },
-    { SP_SYSTEM, "You entered wearing boxer shorts and no shoes. The audience has already decided this is a bit." },
-    { SP_CARL,   "I came out to get the cat." },
-    { SP_SYSTEM, "The cat is downstairs. So is everything else. Eighteen floors, one direction." },
-    { SP_SYSTEM, "Welcome to the dungeon, Carl." },
-};
 
 static const Line beat_f1_1[] = {
     { SP_SYSTEM, "Tutorial floor. The rules are short." },
@@ -210,7 +210,6 @@ static const Line beat_end[] = {
 };
 
 const Beat story_beats[] = {
-    { 0,  1, TRIG_FLOOR_ENTER, beat_intro,   (uint8_t)(sizeof beat_intro / sizeof(Line)) },
     { 1,  1, 1,                beat_f1_1,    (uint8_t)(sizeof beat_f1_1 / sizeof(Line)) },
     { 2,  1, 2,                beat_f1_2,    (uint8_t)(sizeof beat_f1_2 / sizeof(Line)) },
     { 3,  1, 3,                beat_f1_3,    (uint8_t)(sizeof beat_f1_3 / sizeof(Line)) },

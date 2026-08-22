@@ -185,7 +185,7 @@ static void grind_to(int level, int max_steps) {
     for (int i = 0; i < max_steps && g.hero[0].level < level; i++) {
         if ((int)g.scene == pause_scene) return;
         if (g.scene == SCENE_BATTLE) { play_battle(); continue; }
-        if (g.scene == SCENE_STORY || g.scene == SCENE_BOX || g.scene == SCENE_LEVELUP ||
+        if (g.scene == SCENE_STORY || g.scene == SCENE_CUTSCENE || g.scene == SCENE_BOX || g.scene == SCENE_LEVELUP ||
             g.scene == SCENE_SHOP || g.scene == SCENE_CODE) { tap(BTN_A); continue; }
         if (g.scene == SCENE_GAMEOVER || g.scene == SCENE_VICTORY) return;
         if (g.scene != SCENE_DUNGEON) { tap(BTN_B); continue; }
@@ -203,7 +203,7 @@ static int walk_to(char want, int max_steps) {
     for (int steps = 0; steps < max_steps; steps++) {
         if ((int)g.scene == pause_scene) return 1;
         if (g.scene == SCENE_BATTLE) { play_battle(); continue; }
-        if (g.scene == SCENE_STORY || g.scene == SCENE_BOX || g.scene == SCENE_LEVELUP ||
+        if (g.scene == SCENE_STORY || g.scene == SCENE_CUTSCENE || g.scene == SCENE_BOX || g.scene == SCENE_LEVELUP ||
             g.scene == SCENE_SHOP || g.scene == SCENE_CODE) { tap(BTN_A); continue; }
         if (g.scene == SCENE_GAMEOVER || g.scene == SCENE_VICTORY) return 0;
         if (g.scene != SCENE_DUNGEON) { tap(BTN_B); continue; }
@@ -233,7 +233,8 @@ static void play_run(int seed, int assertions) {
     rng_seed((uint32_t)seed);
     idle(2 + seed % 41);        /* the title screen seeds from the frame you press on */
     tap(BTN_A);                                        /* title -> descend */
-    for (int i = 0; i < 40 && g.scene == SCENE_STORY; i++) tap(BTN_A);
+    for (int i = 0; i < 900 && (g.scene == SCENE_STORY || g.scene == SCENE_CUTSCENE); i++) tap(BTN_A);
+    if (verbose) printf("  after chapter: scene=%d floor=%d line=%d\n", g.scene, g.dun.index + 1, g.cut_line);
 
     for (int floor_no = 1; floor_no <= FLOORS; floor_no++) {
         if (assertions) printf("floor %d\n", floor_no);
@@ -340,9 +341,28 @@ int main(int argc, char **argv) {
         idle(4);
         shot("01-title");
         tap(BTN_A);
-        idle(30);
-        shot("02-system");
-        for (int i = 0; i < 40 && g.scene == SCENE_STORY; i++) tap(BTN_A);
+        idle(60);
+        shot("02-chapter-street");
+        /* Walk the chapter, stopping to photograph each backdrop the first
+           time it comes up and the first question it asks. */
+        {
+            int seen[BD_COUNT] = { 0 }, asked = 0;
+            for (int i = 0; i < 1200 && g.scene == SCENE_CUTSCENE; i++) {
+                if (chapter_asking() && !asked) {
+                    asked = 1; idle(2); shot("03-chapter-choice");
+                }
+                if (g.cut_backdrop < BD_COUNT && !seen[g.cut_backdrop] && g.cut_reveal > 30) {
+                    seen[g.cut_backdrop] = 1;
+                    idle(2);
+                    shot(g.cut_backdrop == BD_COLLAPSE ? "04-chapter-collapse"
+                       : g.cut_backdrop == BD_ANNOUNCE ? "05-chapter-system"
+                       : g.cut_backdrop == BD_STAIRS   ? "06-chapter-stairs"
+                       : g.cut_backdrop == BD_STREET_CAT ? "02b-chapter-cat" : "02c-chapter");
+                }
+                tap(BTN_A);
+            }
+        }
+        for (int i = 0; i < 900 && (g.scene == SCENE_STORY || g.scene == SCENE_CUTSCENE); i++) tap(BTN_A);
         idle(4);
         shot("03-corridor");
         pause_scene = SCENE_BOX;
@@ -352,7 +372,7 @@ int main(int argc, char **argv) {
         for (int i = 0; i < 20 && g.scene != SCENE_DUNGEON; i++) tap(BTN_A);
         /* Pace the corridor until something takes an interest. */
         for (int guard = 0; g.scene != SCENE_BATTLE && guard < 400; guard++) {
-            if (g.scene == SCENE_STORY || g.scene == SCENE_BOX || g.scene == SCENE_LEVELUP ||
+            if (g.scene == SCENE_STORY || g.scene == SCENE_CUTSCENE || g.scene == SCENE_BOX || g.scene == SCENE_LEVELUP ||
                 g.scene == SCENE_SHOP || g.scene == SCENE_CODE) { tap(BTN_A); continue; }
             if (g.scene != SCENE_DUNGEON) { tap(BTN_B); continue; }
             tap(BTN_UP);
@@ -390,7 +410,7 @@ int main(int argc, char **argv) {
         walk_to(T_BOSS, 600);
         pause_scene = -1;
         if (g.scene == SCENE_BATTLE) { idle(30); shot("12-boss"); play_battle(); }
-        for (int i = 0; i < 30 && g.scene == SCENE_STORY; i++) {
+        for (int i = 0; i < 900 && (g.scene == SCENE_STORY || g.scene == SCENE_CUTSCENE); i++) {
             if (i == 2) shot("13-story-cast");
             tap(BTN_A);
         }
@@ -425,7 +445,7 @@ int main(int argc, char **argv) {
             if (!save_apply_code(code)) { printf("  FAIL %s did not parse\n", code); bad++; continue; }
             int same = g.dun.index == floor_index && g.hero[0].level == carl &&
                        g.hero[1].level == donut && g.battles_won == (uint16_t)(fights & 0xFF) &&
-                       g.flags == (flags & 0xFFF) && g.achievements == (achievements & 0xFFF) &&
+                       g.flags == (flags & 0xFFF) && g.achievements == (achievements & 0xFFFF) &&
                        g.gold / 4 == gold / 4;
             printf("  %s %s -> floor %d, Carl %d, Donut %d, %d gold\n",
                    same ? "ok  " : "FAIL", code, g.dun.index + 1, g.hero[0].level,
@@ -487,7 +507,7 @@ int main(int argc, char **argv) {
         input.touch_x = 128; input.touch_y = 130;      /* DESCEND */
         step();
         printf("  title tap -> scene %d\n", g.scene);
-        for (int i = 0; i < 40 && g.scene == SCENE_STORY; i++) tap(BTN_A);
+        for (int i = 0; i < 900 && (g.scene == SCENE_STORY || g.scene == SCENE_CUTSCENE); i++) tap(BTN_A);
         int before = g.dun.steps;
         for (int i = 0; i < 3; i++) {
             input.touching = input.touch_pressed = 1;
