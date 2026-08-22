@@ -29,6 +29,9 @@ const int item_count = (int)(sizeof item_defs / sizeof item_defs[0]);
 /* ---------------------------------------------------------------- skills -- */
 
 const SkillDef skill_defs[] = {
+    /* FIGHT opens this list, so the free option has to be in it: every hero
+       has one move that costs nothing and always works. */
+    { "Barefoot Kick", 0, SK_HIT_ONE,    0, 100,  1, "No stamina, no wind-up, no shoes." },
     /* Carl fights with what the apocalypse left him: bare feet and momentum. */
     { "Stomp",         0, SK_HIT_ONE,    3, 145,  1, "Both heels, one target, no follow-through." },
     { "Shoulder Check",0, SK_STUN,       5,  90,  3, "Puts something on the floor and keeps it there a turn." },
@@ -37,6 +40,7 @@ const SkillDef skill_defs[] = {
     { "Righteous Fury",0, SK_BUFF_ATK,   6,   5,  6, "Three turns of extremely poor decisions." },
     { "Haymaker",      0, SK_HIT_ONE,   10, 235,  8, "Wind-up included. Worth it." },
     /* Princess Donut fights with claws and an audience. */
+    { "Swipe",         1, SK_HIT_ONE,    0, 100,  1, "One paw, full commitment, free of charge." },
     { "Claw Flurry",   1, SK_HIT_ONE,    3, 125,  1, "Seven strikes, one second, no apology." },
     { "Hiss",          1, SK_DEBUFF_DEF, 4,  40,  2, "The target's defence remembers it has other plans." },
     { "Royal Grooming",1, SK_HEAL,       5,  55,  3, "She licks a wound closed and expects thanks." },

@@ -19,6 +19,7 @@ static void log_line(const char *a, const char *b, const char *c) {
         for (int i = 1; i < MAX_LOG; i++)
             memcpy(g.bat.log[i - 1], g.bat.log[i], sizeof g.bat.log[0]);
         g.bat.n_log--;
+        if (g.bat.log_shown) g.bat.log_shown--;
     }
     char *dst = g.bat.log[g.bat.n_log];
     int o = 0;
@@ -424,26 +425,22 @@ static void use_item(int item) {
 static void choose_action(int action) {
     int actor = g.bat.actor;
     switch (action) {
-    case 0:   /* strike */
-        g.bat.phase = BAT_TARGET;
-        g.bat.menu = 0;
-        break;
-    case 1:   /* skill */
+    case 0:   /* fight: pick a move */
         g.bat.phase = BAT_SKILL;
         g.bat.cursor = 0;
         break;
-    case 2:   /* item */
+    case 1:   /* bag */
         g.bat.phase = BAT_ITEM;
         g.bat.cursor = 0;
         break;
-    case 3:   /* guard */
+    case 2:   /* guard */
         g.hero[actor].guard = 1;
         hero_heal(&g.hero[actor], 4 + g.hero[actor].level);
         log_line(g.hero[actor].name, " braces.", 0);
         g.bat.phase = BAT_RESOLVE;
         g.bat.timer = 24;
         break;
-    case 4:   /* run */
+    case 3:   /* run */
         if (g.bat.boss) {
             log_line("There is", " nowhere to run to.", 0);
             g.bat.phase = BAT_RESOLVE;
@@ -463,7 +460,7 @@ static void choose_action(int action) {
 }
 
 static void update_choose(const PlatInput *in) {
-    int commands = 5;
+    int commands = 4;
     if (in->pressed & (BTN_RIGHT | BTN_DOWN)) g.bat.cursor = (uint8_t)((g.bat.cursor + 1) % commands);
     if (in->pressed & (BTN_LEFT | BTN_UP)) g.bat.cursor = (uint8_t)((g.bat.cursor + commands - 1) % commands);
     if (in->pressed & BTN_A) { choose_action(g.bat.cursor); return; }
@@ -491,7 +488,7 @@ static void update_target(const PlatInput *in) {
         if (g.bat.foes[i].alive && touch_in(in, &r)) g.bat.target = (uint8_t)i;
     }
     if (in->pressed & BTN_B) { g.bat.phase = BAT_CHOOSE; return; }
-    if (touch_in(in, &kBatCommands[5])) { g.bat.phase = BAT_CHOOSE; return; }
+    if (touch_in(in, &kBatCommands[BAT_BACK])) { g.bat.phase = BAT_CHOOSE; return; }
 
     int fire = (in->pressed & BTN_A) != 0;
     for (int i = 0; i < 3 && !fire; i++)
@@ -522,7 +519,7 @@ static void update_skill(const PlatInput *in) {
     if (in->pressed & BTN_DOWN) g.bat.cursor = (uint8_t)((g.bat.cursor + 1) % n);
     if (in->pressed & BTN_UP) g.bat.cursor = (uint8_t)((g.bat.cursor + n - 1) % n);
     if (in->pressed & BTN_B) { g.bat.phase = BAT_CHOOSE; return; }
-    if (touch_in(in, &kBatCommands[5])) { g.bat.phase = BAT_CHOOSE; return; }
+    if (touch_in(in, &kBatCommands[BAT_BACK])) { g.bat.phase = BAT_CHOOSE; return; }
     for (int i = 0; i < n; i++) {
         Rect r = { 6, (int16_t)(30 + i * 18), 244, 17, 0 };
         if (touch_in(in, &r)) g.bat.cursor = (uint8_t)i;
@@ -561,7 +558,7 @@ static void update_item(const PlatInput *in) {
             usable[n++] = i;
     }
     if (in->pressed & BTN_B) { g.bat.phase = BAT_CHOOSE; return; }
-    if (touch_in(in, &kBatCommands[5])) { g.bat.phase = BAT_CHOOSE; return; }
+    if (touch_in(in, &kBatCommands[BAT_BACK])) { g.bat.phase = BAT_CHOOSE; return; }
     if (!n) return;
     if (in->pressed & BTN_DOWN) g.bat.cursor = (uint8_t)((g.bat.cursor + 1) % n);
     if (in->pressed & BTN_UP) g.bat.cursor = (uint8_t)((g.bat.cursor + n - 1) % n);
@@ -576,9 +573,46 @@ static void update_item(const PlatInput *in) {
     g.bat.timer = 34;
 }
 
+/*  The message the player is currently reading, if there is one. Returns how
+ *  many characters of it have been typed out. */
+int battle_message(const char **out) {
+    if (g.bat.log_shown >= g.bat.n_log) {
+        if (out) *out = g.bat.n_log ? g.bat.log[g.bat.n_log - 1] : "";
+        return -1;                                  /* nothing pending */
+    }
+    if (out) *out = g.bat.log[g.bat.log_shown];
+    return g.bat.reveal;
+}
+
+/*  Types the pending line out, then waits to be dismissed. Everything else in
+ *  the battle stops while this runs, which is the whole point: a turn that
+ *  resolves faster than it can be read is a turn nobody saw. */
+static int pump_messages(const PlatInput *in) {
+    if (g.bat.log_shown >= g.bat.n_log) return 0;
+    const char *line = g.bat.log[g.bat.log_shown];
+    int len = 0;
+    while (line[len]) len++;
+    int go = (in->pressed & (BTN_A | BTN_B)) || in->touch_pressed;
+
+    if (g.bat.reveal < (uint16_t)len) {
+        g.bat.reveal += 2;                          /* two characters a frame */
+        if (go || g.bat.reveal > (uint16_t)len) g.bat.reveal = (uint16_t)len;
+        if (g.bat.reveal >= (uint16_t)len) g.bat.hold = 46;
+        return 1;
+    }
+    if (g.bat.hold) g.bat.hold--;
+    if (go || !g.bat.hold) {
+        g.bat.log_shown++;
+        g.bat.reveal = 0;
+        g.bat.hold = 0;
+    }
+    return 1;
+}
+
 void battle_update(const PlatInput *in) {
     if (g.bat.shake) g.bat.shake--;
     for (int i = 0; i < PARTY + MAX_FOES; i++) if (g.bat.pop_life[i]) g.bat.pop_life[i]--;
+    if (pump_messages(in)) return;
 
     switch (g.bat.phase) {
     case BAT_INTRO:

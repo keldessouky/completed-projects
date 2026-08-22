@@ -284,37 +284,6 @@ static void draw_dungeon(Surface *top, Surface *bot) {
 
 /* --------------------------------------------------------------- battle --- */
 
-static void draw_foe_slots(Surface *s) {
-    int n = g.bat.n_foes;
-    for (int i = 0; i < n; i++) {
-        const Foe *f = &g.bat.foes[i];
-        const FoeDef *d = &foe_defs[f->def];
-        const Sprite *sp = sprite_table[d->sprite];
-        /* Enemies live in the middle band so the party can stand in the
-           corners without anyone standing inside anyone else. One enemy gets
-           the whole stage and is drawn big; three have to share it. */
-        int band = 160, left = 48;
-        int cx = n > 1 ? left + band * i / (n - 1) : SCREEN_W / 2;
-        int scale = g.bat.boss ? 105 : n >= 3 ? 88 : n == 2 ? 108 : 130;
-        int w = sp->w * scale / 100, h = sp->h * scale / 100;
-        int base = g.bat.boss ? 158 : n >= 3 ? 150 : 156;
-        int shake = (g.bat.shake && i == g.bat.target) ? ((g.anim & 2) ? 2 : -2) : 0;
-        if (!f->alive) continue;
-        /* A soft dithered shadow, so the thing is standing on the floor rather
-           than on a plinth. */
-        for (int j = 0; j < 7; j++) {
-            int half = (w / 3) * (7 - j) / 7 + 2;
-            gfx_dither(s, cx - half, base + j - 2, half * 2, 1, C_SHADOW, 14 - j * 2);
-        }
-        if (g.bat.phase == BAT_TARGET && i == g.bat.target) {
-            gfx_frame(s, cx - w / 2 - 3, base - h - 3, w + 6, h + 6, C_MAGENTA);
-            gfx_text(s, cx - gfx_text_width(d->name) / 2, base - h - 14, C_MAGENTA, d->name);
-        }
-        gfx_sprite_scaled(s, sp, cx - w / 2 + shake, base - h, scale, 100);
-        bar_meter(s, cx - 28, base + 10, 56, 7, f->hp, f->hp_max, C_RED, 0);
-        if (f->status[ST_BLEED]) gfx_text(s, cx + 30, base + 10, C_BLOOD, "\206");
-    }
-}
 
 static void draw_damage_pops(Surface *s) {
     for (int i = 0; i < PARTY + MAX_FOES; i++) {
@@ -362,75 +331,163 @@ static void draw_arena(Surface *s, int floor_index) {
     }
 }
 
+/*  A Pokemon battle box: name, level, a health bar that changes colour as it
+ *  empties, and — on your own side only — the numbers. The shape is doing the
+ *  work here, so it is drawn rather than assembled out of panels: a slab with
+ *  one corner cut, pointing at whoever it belongs to. */
+static void hp_box(Surface *s, int x, int y, int w, const char *name, int level,
+                   int hp, int hp_max, int mine) {
+    int h = mine ? 30 : 24;
+    gfx_panel(s, x, y, w, h, C_PANEL, C_EDGE);
+    gfx_hline(s, x + 1, x + w - 2, y + 1, gfx_scale_colour(C_INK, 3, 16));
+    gfx_text(s, x + 5, y + 4, C_INK, name);
+    gfx_text(s, x + w - 26, y + 4, C_DIM, "L");
+    gfx_text(s, x + w - 20, y + 4, C_AMBER, gfx_num(level));
+
+    if (hp_max < 1) hp_max = 1;
+    if (hp < 0) hp = 0;
+    int bw = w - 30, bx = x + 24, by = y + 15;
+    gfx_text(s, x + 5, by - 1, C_GOLD, "HP");
+    gfx_panel(s, bx, by, bw, 6, C_VOID, C_EDGE);
+    int filled = hp * (bw - 2) / hp_max;
+    int pct = hp * 100 / hp_max;
+    uint16_t fill = pct > 50 ? C_GREEN : pct > 20 ? C_GOLD : C_RED;
+    if (filled > 0) gfx_rect(s, bx + 1, by + 1, filled, 4, fill);
+    if (pct <= 20 && (g.anim & 16)) gfx_rect(s, bx + 1, by + 1, filled, 4, C_INK);
+
+    if (mine) {                                    /* only your own numbers show */
+        char num[16];
+        int o = 0;
+        for (const char *p = gfx_num(hp); *p; p++) num[o++] = *p;
+        num[o++] = '/';
+        for (const char *p = gfx_num(hp_max); *p; p++) num[o++] = *p;
+        num[o] = 0;
+        gfx_text(s, x + w - 6 - gfx_text_width(num), y + 22, C_INK, num);
+    }
+}
+
+/*  The message box across the bottom of the battle, typed out a couple of
+ *  characters a frame with the little blinking marker that says the game is
+ *  waiting for you and not stuck. */
+static void message_box(Surface *s) {
+    const char *line = 0;
+    int reveal = battle_message(&line);
+    int y = SCREEN_H - 38;
+    gfx_panel(s, 4, y, SCREEN_W - 8, 34, C_PANEL, C_AMBER_DK);
+    gfx_hline(s, 6, SCREEN_W - 7, y + 2, gfx_scale_colour(C_AMBER_DK, 8, 16));
+    if (!line || !*line) return;
+
+    char shown[48];
+    int n = 0;
+    for (const char *p = line; *p && n < (int)sizeof shown - 1; p++) {
+        if (reveal >= 0 && n >= reveal) break;
+        shown[n++] = *p;
+    }
+    shown[n] = 0;
+    gfx_text_wrapped(s, 10, y + 8, SCREEN_W - 20, C_INK, shown);
+    int done = reveal < 0 || !line[n];
+    if (done && (g.anim & 16))
+        gfx_text(s, SCREEN_W - 18, y + 22, C_AMBER, "\177");
+}
+
 static void draw_battle(Surface *top, Surface *bot) {
     int floor_index = g.dun.index;
     draw_arena(top, floor_index);
-    draw_foe_slots(top);
-    draw_damage_pops(top);
+
+    /*  Foes on the far side, party in the near corner, the way the camera sits
+     *  in every turn-based fight since 1996. */
+    int msg_top = SCREEN_H - 38;
+    for (int i = 0; i < g.bat.n_foes; i++) {
+        const Foe *f = &g.bat.foes[i];
+        const Sprite *sp = sprite_table[foe_defs[f->def].sprite];
+        int scale = g.bat.boss ? 96 : g.bat.n_foes >= 3 ? 62 : g.bat.n_foes == 2 ? 76 : 92;
+        int fw = sp->w * scale / 100, fh = sp->h * scale / 100;
+        int fx = SCREEN_W - 20 - fw - i * (g.bat.n_foes >= 3 ? 58 : 74);
+        int fy = 46 + (i & 1) * 14 - (int)((g.anim / 14 + i) & 1);
+        if (fx < 4) fx = 4;
+        for (int k = 0; k < 4; k++)                 /* the platform it stands on */
+            gfx_dither(top, fx + k, fy + fh + k - 2, fw - k * 2, 1, C_SHADOW, 12 - k * 3);
+        if (!f->alive) { gfx_shade(top, fx, fy, fw, fh, 11); continue; }
+        gfx_sprite_scaled(top, sp, fx, fy, scale, 100);
+        if (g.bat.shake && g.bat.target == i)
+            gfx_shade(top, fx, fy, fw, fh, 10);
+    }
 
     {
-        /* The party stands in the front corners, feet past the bottom edge, the
-           way a camera behind them would frame it. */
         int bob = (g.anim / 12) & 1;
         const Sprite *c = &spr_carl, *dn = &spr_donut;
-        const int party_scale = 68;
+        const int party_scale = 72;
         int cw = c->w * party_scale / 100, ch = c->h * party_scale / 100;
         int dw = dn->w * party_scale / 100, dh = dn->h * party_scale / 100;
-        for (int i = 0; i < 5; i++) {                  /* contact shadows */
-            gfx_dither(top, 4 + i, SCREEN_H - 4 + i - 3, cw - i * 2, 1, C_SHADOW, 13 - i * 2);
-            gfx_dither(top, SCREEN_W - dw - 2 + i, SCREEN_H - 4 + i - 3, dw - i * 2, 1, C_SHADOW, 13 - i * 2);
-        }
-        gfx_sprite_scaled(top, c, 2, SCREEN_H - ch - 2 + bob, party_scale, 100);
-        gfx_sprite_scaled(top, dn, SCREEN_W - dw - 2, SCREEN_H - dh - 2 - bob, party_scale, 100);
-        if (g.hero[0].hp <= 0) gfx_shade(top, 0, SCREEN_H - ch - 2, cw + 4, ch, 8);
-        if (g.hero[1].hp <= 0) gfx_shade(top, SCREEN_W - dw - 4, SCREEN_H - dh - 2, dw + 4, dh, 8);
+        int base = msg_top - 2;
+        for (int i = 0; i < 5; i++)
+            gfx_dither(top, 6 + i, base - 3 + i, cw - i * 2, 1, C_SHADOW, 13 - i * 2);
+        gfx_sprite_scaled(top, c, 4, base - ch + bob, party_scale, 100);
+        gfx_sprite_scaled(top, dn, 4 + cw + 2, base - dh - bob, party_scale, 100);
+        if (g.hero[0].hp <= 0) gfx_shade(top, 4, base - ch, cw, ch, 9);
+        if (g.hero[1].hp <= 0) gfx_shade(top, 4 + cw + 2, base - dh, dw, dh, 9);
     }
+    draw_damage_pops(top);
     if (g.hurt_flash) gfx_shade(top, 0, 0, SCREEN_W, SCREEN_H, 16 + g.hurt_flash);
 
-    const char *header = g.bat.boss ? "BOSS ENCOUNTER" : "ENCOUNTER";
-    system_bar(top, header, g.bat.boss ? foe_defs[g.bat.foes[0].def].name : kFloorNames[floor_index]);
-    if (g.bat.phase == BAT_INTRO) {
-        const char *quip = foe_defs[g.bat.foes[0].def].quip;
-        int lines = gfx_text_wrapped_count(228, quip);
-        gfx_panel(top, 8, 16, SCREEN_W - 16, 10 + lines * TEXT_H, C_PANEL, C_MAGENTA);
-        gfx_text_wrapped(top, 14, 21, 228, C_INK, quip);
+    /*  Their boxes on the left, yours on the right: opposite corners, so a
+     *  glance tells you which side is losing. */
+    for (int i = 0, shown = 0; i < g.bat.n_foes; i++) {
+        const Foe *f = &g.bat.foes[i];
+        if (!f->alive) continue;
+        hp_box(top, 4, 4 + shown * 27, 116, foe_defs[f->def].name,
+               foe_defs[f->def].floor ? foe_defs[f->def].floor : g.dun.index + 1,
+               f->hp, f->hp_max, 0);
+        shown++;
     }
+    for (int i = 0; i < PARTY; i++)
+        hp_box(top, SCREEN_W - 122, msg_top - 66 + i * 33, 118,
+               g.hero[i].name, g.hero[i].level, g.hero[i].hp, g.hero[i].hp_max, 1);
+
+    message_box(top);
+
     if (g.bat.phase == BAT_WON) {
-        gfx_panel(top, 28, 70, 200, 52, C_PANEL, C_GOLD);
-        gfx_text_big(top, 62, 78, C_GOLD, "CLEARED");
-        gfx_text(top, 44, 98, C_INK, "XP");
-        gfx_text(top, 66, 98, C_AMBER, gfx_num(g.bat.xp_won));
-        gfx_text(top, 124, 98, C_INK, "GOLD");
-        gfx_text(top, 158, 98, C_GOLD, gfx_num(g.bat.gold_won));
+        gfx_panel(top, 44, 56, 168, 44, C_PANEL, C_GOLD);
+        gfx_text_big(top, 74, 62, C_GOLD, "WON");
+        gfx_text(top, 54, 82, C_INK, "XP");
+        gfx_text(top, 76, 82, C_AMBER, gfx_num(g.bat.xp_won));
+        gfx_text(top, 130, 82, C_INK, "GOLD");
+        gfx_text(top, 164, 82, C_GOLD, gfx_num(g.bat.gold_won));
     }
     if (g.bat.phase == BAT_LOST) {
         gfx_shade(top, 0, 0, SCREEN_W, SCREEN_H, 7);
-        gfx_text_big(top, 40, 84, C_RED, "PARTY DOWN");
+        gfx_text_big(top, 40, 70, C_RED, "PARTY DOWN");
     }
 
+    /* ---- bottom screen: the four buttons, and what each opens -------------- */
     gfx_clear(bot, C_VOID);
     gfx_rect(bot, 0, 0, SCREEN_W, 20, C_PANEL);
     party_strip(bot, 6);
     gfx_hline(bot, 0, SCREEN_W - 1, 20, C_AMBER_DK);
 
+    if (battle_message(0) >= 0) {                   /* reading: no menu yet */
+        gfx_text(bot, 8, 88, C_DIM, "A or tap to continue");
+        return;
+    }
+
     if (g.bat.phase == BAT_SKILL) {
         const SkillDef *skills[8];
         int n = game_hero_skills(g.bat.actor, skills, 8);
-        gfx_text(bot, 6, 24, C_AMBER, "SKILLS");
+        gfx_text(bot, 6, 24, C_AMBER, "MOVES");
         for (int i = 0; i < n; i++) {
             int on = g.bat.cursor == i;
             int afford = g.hero[g.bat.actor].mp >= skills[i]->cost;
             gfx_panel(bot, 6, 30 + i * 18, 244, 17, on ? C_PANEL_LIT : C_PANEL, on ? C_AMBER : C_EDGE);
             gfx_text(bot, 12, 35 + i * 18, afford ? (on ? C_AMBER : C_INK) : C_DIM, skills[i]->name);
-            gfx_text(bot, 190, 35 + i * 18, afford ? C_CYAN : C_RED, gfx_num(skills[i]->cost));
-            gfx_text(bot, 208, 35 + i * 18, C_DIM, "SP");
+            gfx_text(bot, 186, 35 + i * 18, C_DIM, "SP");
+            gfx_text(bot, 204, 35 + i * 18, afford ? C_CYAN : C_RED, gfx_num(skills[i]->cost));
         }
         if (n) gfx_text_wrapped(bot, 6, 142, 244, C_DIM, skills[g.bat.cursor < n ? g.bat.cursor : 0]->blurb);
-        draw_button(bot, &kBatCommands[5], 0);
+        draw_button(bot, &kBatCommands[BAT_BACK], 0);
         return;
     }
     if (g.bat.phase == BAT_ITEM) {
-        gfx_text(bot, 6, 24, C_AMBER, "ITEMS");
+        gfx_text(bot, 6, 24, C_AMBER, "BAG");
         int shown = 0;
         for (int i = 1; i < item_count && shown < 6; i++) {
             if (!g.inventory[i]) continue;
@@ -439,40 +496,43 @@ static void draw_battle(Surface *top, Surface *bot) {
             int on = g.bat.cursor == shown;
             gfx_panel(bot, 6, 30 + shown * 18, 244, 17, on ? C_PANEL_LIT : C_PANEL, on ? C_AMBER : C_EDGE);
             gfx_text(bot, 12, 35 + shown * 18, on ? C_AMBER : C_INK, item_defs[i].name);
-            gfx_text(bot, 214, 35 + shown * 18, C_INK, gfx_num(g.inventory[i]));
+            gfx_text(bot, 208, 35 + shown * 18, C_INK, "x");
+            gfx_text(bot, 216, 35 + shown * 18, C_INK, gfx_num(g.inventory[i]));
             shown++;
         }
         if (!shown) gfx_text(bot, 12, 40, C_DIM, "The bag is empty. Bold strategy.");
-        draw_button(bot, &kBatCommands[5], 0);
+        draw_button(bot, &kBatCommands[BAT_BACK], 0);
+        return;
+    }
+    if (g.bat.phase == BAT_TARGET) {
+        gfx_text(bot, 6, 24, C_AMBER, "WHICH ONE");
+        for (int i = 0; i < g.bat.n_foes; i++) {
+            if (!g.bat.foes[i].alive) continue;
+            Rect r = { (int16_t)(8 + i * 82), 40, 76, 40, 0 };
+            draw_button(bot, &r, g.bat.target == i);
+            gfx_text(bot, r.x + 4, r.y + 6, g.bat.target == i ? C_AMBER : C_INK,
+                     foe_defs[g.bat.foes[i].def].name);
+            bar_meter(bot, r.x + 4, r.y + 24, 68, 8, g.bat.foes[i].hp,
+                      g.bat.foes[i].hp_max, C_RED, 0);
+        }
+        draw_button(bot, &kBatCommands[BAT_BACK], 0);
         return;
     }
 
-    gfx_text(bot, 6, 24, C_AMBER, g.bat.phase == BAT_TARGET ? "PICK A TARGET" : "ORDERS");
-    if (g.bat.phase == BAT_CHOOSE) {
+    /*  actor indexes the party for 0..PARTY-1 and the foes above that, so the
+        prompt is only asking anybody anything while a hero has the turn. */
+    if (g.bat.phase != BAT_CHOOSE || g.bat.actor >= PARTY) {
+        gfx_text(bot, 8, 88, C_DIM, "...");
+        return;
+    }
+    {
         const char *who = g.hero[g.bat.actor].name;
-        gfx_text(bot, SCREEN_W - 8 - gfx_text_width(who), 24, C_MAGENTA, who);
+        gfx_text(bot, 6, 24, C_DIM, "What will");
+        gfx_text(bot, 62, 24, C_MAGENTA, who);
+        gfx_text(bot, 62 + gfx_text_width(who) + 4, 24, C_DIM, "do?");
     }
-    gfx_panel(bot, 4, 34, SCREEN_W - 8, 48, C_PANEL, C_EDGE);
-    for (int i = 0; i < g.bat.n_log && i < 4; i++)
-        gfx_text(bot, 10, 39 + i * 11, i == 0 ? C_INK : C_DIM,
-                 g.bat.log[g.bat.n_log - 1 - i]);
-
-    if (g.bat.phase == BAT_TARGET) {
-        gfx_rect(bot, 4, 34, SCREEN_W - 8, 48, C_VOID);
-        for (int i = 0; i < g.bat.n_foes; i++) {
-            if (!g.bat.foes[i].alive) continue;
-            Rect r = { (int16_t)(8 + i * 82), 44, 76, 34, 0 };
-            draw_button(bot, &r, g.bat.target == i);
-            const char *nm = foe_defs[g.bat.foes[i].def].name;
-            gfx_text(bot, r.x + 4, r.y + 6, g.bat.target == i ? C_AMBER : C_INK, nm);
-            bar_meter(bot, r.x + 4, r.y + 20, 68, 8, g.bat.foes[i].hp, g.bat.foes[i].hp_max, C_RED, 0);
-        }
-    }
-    for (int i = 0; i < 6; i++) {
-        if (i == 5 && g.bat.phase != BAT_TARGET) continue;
-        draw_button(bot, &kBatCommands[i], g.bat.phase == BAT_CHOOSE && g.bat.cursor == i);
-    }
-
+    for (int i = 0; i < 4; i++)
+        draw_button(bot, &kBatCommands[i], g.bat.cursor == i);
 }
 
 /* ----------------------------------------------------------------- menu --- */

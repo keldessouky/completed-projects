@@ -165,6 +165,11 @@ typedef struct {
     uint8_t  pop_life[MAX_FOES + PARTY];
     char     log[MAX_LOG][40];
     uint8_t  n_log;
+    /*  A Pokemon battle says one thing at a time and waits to be read. The
+     *  log was already the right data; what was missing was the pacing. */
+    uint8_t  log_shown;         /* lines the player has actually been shown */
+    uint16_t reveal;            /* characters of the current line typed out */
+    uint16_t hold;              /* frames to wait once a line is fully typed */
 } Battle;
 
 /* --------------------------------------------------------------- dungeon -- */
@@ -241,6 +246,7 @@ extern Game g;
 /* ------------------------------------------------------------------- api -- */
 
 /* rng.c */
+int      battle_message(const char **out);   /* the line being read, if any */
 void     mapgen_build(int floor_index, uint32_t season);
 int      game_season_number(void);
 void     rng_seed(uint32_t seed);

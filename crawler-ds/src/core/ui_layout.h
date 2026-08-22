@@ -19,15 +19,19 @@ static const Rect kDunActions[] = {
     { 176, 144, 76, 24, "CODE" },
 };
 
-/* Bottom screen, battle: four commands and a row of targets. */
+/*  Four commands in a two-by-two block. Pokemon puts the party switch in the
+    third slot; both of these two fight every turn, so that slot is GUARD —
+    same shape, and the label says what the button actually does. */
 static const Rect kBatCommands[] = {
-    {   6, 108, 72, 30, "STRIKE" },
-    {  84, 108, 72, 30, "SKILL" },
-    { 162, 108, 88, 30, "ITEM" },
-    {   6, 144, 72, 30, "GUARD" },
-    {  84, 144, 72, 30, "RUN" },
-    { 162, 144, 88, 30, "BACK" },
+    {   8,  92, 116, 40, "FIGHT" },
+    { 132,  92, 116, 40, "BAG" },
+    {   8, 136, 116, 40, "GUARD" },
+    { 132, 136, 116, 40, "RUN" },
+    {  84, 176, 88,  14, "BACK" },
 };
+/* Referring to the last entry by a bare 5 is how it ended up reading one Rect
+   off the end of the array when the third and fourth buttons merged. */
+#define BAT_BACK ((int)(sizeof kBatCommands / sizeof kBatCommands[0]) - 1)
 
 /* Menu tabs across the top of the bottom screen. */
 static const Rect kMenuTabs[] = {

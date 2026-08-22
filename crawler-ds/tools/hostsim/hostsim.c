@@ -137,43 +137,43 @@ static void face_and_step(int dx, int dy) {
 
 /* Fights: hit the biggest thing until it stops moving, drink when low. */
 static void play_battle(void) {
+    /*  Battles now say one thing at a time and wait to be read, so the bot has
+     *  to read too: any tap while a message is up dismisses the message rather
+     *  than pressing a button. Commands are FIGHT, BAG, GUARD, RUN. */
     int guard = 0;
-    while (g.scene == SCENE_BATTLE && guard++ < 4000) {
-        if (g.bat.phase == BAT_CHOOSE) {
-            int hero = g.bat.actor;
-            int hurt = g.hero[hero].hp * 100 / g.hero[hero].hp_max;
-            const SkillDef *skills[8];
-            int n = game_hero_skills(hero, skills, 8);
-            int have_potion = 0;
-            for (int i = 1; i < item_count; i++)
-                if (item_defs[i].kind == IT_HEAL && g.inventory[i]) have_potion = 1;
-            if (hurt < 35 && have_potion) {
-                g.bat.cursor = 2;                      /* item */
-                tap(BTN_A);
-                g.bat.cursor = 0;
-                tap(BTN_A);
-                continue;
-            }
-            /* Use a skill when there is stamina for the best one available. */
-            int best = -1;
-            for (int i = 0; i < n; i++)
-                if (skills[i]->cost <= g.hero[hero].mp &&
-                    (skills[i]->kind == SK_HIT_ONE || skills[i]->kind == SK_HIT_ALL) &&
-                    (best < 0 || skills[i]->power > skills[best]->power)) best = i;
-            if (best >= 0 && g.bat.n_foes > 0) {
-                g.bat.cursor = 1;
-                tap(BTN_A);
-                g.bat.cursor = (uint8_t)best;
-                tap(BTN_A);
-                if (g.bat.phase == BAT_TARGET) tap(BTN_A);
-                continue;
-            }
-            g.bat.cursor = 0;
+    while (g.scene == SCENE_BATTLE && guard++ < 9000) {
+        if (battle_message(0) >= 0) { tap(BTN_A); continue; }
+        if (g.bat.phase != BAT_CHOOSE || g.bat.actor >= PARTY) { tap(BTN_A); continue; }
+
+        int hero = g.bat.actor;
+        int hurt = g.hero[hero].hp * 100 / (g.hero[hero].hp_max ? g.hero[hero].hp_max : 1);
+        const SkillDef *skills[8];
+        int n = game_hero_skills(hero, skills, 8);
+        int have_potion = 0;
+        for (int i = 1; i < item_count; i++)
+            if (item_defs[i].kind == IT_HEAL && g.inventory[i]) have_potion = 1;
+
+        if (hurt < 35 && have_potion) {                  /* BAG, first item */
+            g.bat.cursor = 1;
             tap(BTN_A);
-            if (g.bat.phase == BAT_TARGET) tap(BTN_A);
+            if (g.bat.phase == BAT_ITEM) { g.bat.cursor = 0; tap(BTN_A); }
             continue;
         }
+
+        /* FIGHT, then the hardest damaging move there is stamina for. The
+           free move is in the list, so there is always something to pick. */
+        int best = -1;
+        for (int i = 0; i < n; i++)
+            if (skills[i]->cost <= g.hero[hero].mp &&
+                (skills[i]->kind == SK_HIT_ONE || skills[i]->kind == SK_HIT_ALL) &&
+                (best < 0 || skills[i]->power > skills[best]->power)) best = i;
+        g.bat.cursor = 0;
         tap(BTN_A);
+        if (g.bat.phase == BAT_SKILL) {
+            g.bat.cursor = (uint8_t)(best >= 0 ? best : 0);
+            tap(BTN_A);
+            if (g.bat.phase == BAT_TARGET) tap(BTN_A);
+        }
     }
 }
 
