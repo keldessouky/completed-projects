@@ -103,6 +103,19 @@ from a seed the run picks at the title screen — rooms, corridors, the shop, th
 shrine, the kiosk, the loot and the story beats all land somewhere different.
 Floors grow and the bestiary scales with depth, so a floor-fourteen Bramble
 Hound is the same drawing and a different problem.
+
+**Neighbourhoods.** Book One describes the first floor not as one maze but as
+squares of neighbourhoods bordered by wide passageways, each with its own local
+mob — so that is what the generator builds. Every room is tagged, the top bar
+says which one you are standing in (`F1 GOBLIN WORKSHOP`), and what jumps you
+depends on where you are rather than only on how deep. The named ones on the
+early floors are the book's; which creature stands in each is this game's own
+bestiary, and nothing in it claims to be what is actually in the Goblin
+Workshop.
+
+**On what Book One actually covers:** floors one and two. The Over City is
+where Book Two goes, and floors four to eighteen are this game's invention —
+the show runs eighteen floors whatever the books have got to so far.
 The way out is always the room farthest from the way in, sealed, with the boss
 standing in its only doorway, so a floor is a journey that ends in a fight
 rather than a corridor you might walk straight down. The run's season number

@@ -86,6 +86,36 @@ const FoeDef foe_defs[] = {
 };
 const int foe_count = (int)(sizeof foe_defs / sizeof foe_defs[0]);
 
+/* ---------------------------------------------------------- neighbourhood -- */
+
+/*  Book One's first floor is not one maze. It is squares of neighbourhoods
+ *  bordered by wide passageways, each neighbourhood with its own local mob,
+ *  and that structure is what the generator now builds: rooms get tagged, the
+ *  top bar says where you are, and what jumps you depends on it.
+ *
+ *  The named ones here are the book's, on the floors the book covers. Which
+ *  creature stands in each is this game's own bestiary — nothing below claims
+ *  to be what is actually in the Goblin Workshop.
+ */
+const ZoneDef zone_defs[] = {
+    /* Floor one, where the book spends most of its time. */
+    { "THE TUNNELS",          0,  1 },   /* Sewer Rat      */
+    { "GOBLIN WORKSHOP",      1,  1 },   /* Goblin Trapper */
+    { "ROT STICKER BLOCK",    3,  1 },   /* Sludge Mound   */
+    { "KOBOLD QUADRANT",      4,  1 },   /* Kobold Sapper  */
+    { "KOBOLD FIGHTING PITS", 4,  2 },
+    { "THE FURNISHED ROOMS",  2,  2 },   /* Screaming Sofa */
+    /* Floor two: boroughs, and something guarding every staircase. */
+    { "THE BOROUGHS",         5,  3 },   /* Bramble Hound  */
+    { "BAILIFF ROW",          7,  4 },   /* Bone Bailiff   */
+    { "THE HATCHERY",         6,  5 },   /* Doom Beetle    */
+    /* Past where Book One goes. */
+    { "THE SILK ROAD",        8,  7 },   /* Neon Mimic     */
+    { "THE DOOR POLICY",      9,  9 },   /* Club Bouncer   */
+    { "THE CHEAP SEATS",     10, 11 },   /* Vulture Fan    */
+};
+const int zone_count = (int)(sizeof zone_defs / sizeof zone_defs[0]);
+
 /* -------------------------------------------------------------- crawlers -- */
 
 /*  Four of them, drawn from what the show has on file. Two go down each

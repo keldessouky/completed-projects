@@ -12,9 +12,12 @@
 
 void view3d_draw(Surface *s);
 
+/*  Book One covers the first two floors. The Over City is where Book Two
+    goes, and everything below that is this game's own invention — the show
+    runs eighteen floors whatever the books have got to. */
 static const char *const kFloorNames[FLOORS] = {
-    "FLOOR 1  THE BEDROOM FLOOR",
-    "FLOOR 2  THE WORKS",
+    "FLOOR 1  THE TUTORIAL FLOOR",
+    "FLOOR 2  THE BOROUGHS",
     "FLOOR 3  THE OVER CITY",
     "FLOOR 4  THE LONG COMMUTE",
     "FLOOR 5  THE PARKING STRUCTURE",
@@ -292,7 +295,17 @@ static void draw_dungeon(Surface *top, Surface *bot) {
         while (*ss) timer[o++] = *ss++;
         timer[o] = 0;
     }
-    system_bar(top, kFloorNames[g.dun.index], secs ? timer : "COLLAPSING");
+    {   /*  "F3 GOBLIN WORKSHOP": which floor, and where on it. */
+        char where[40];
+        int o = 0;
+        where[o++] = 'F';
+        for (const char *p = gfx_num(g.dun.index + 1); *p; p++) where[o++] = *p;
+        where[o++] = ' ';
+        for (const char *p = zone_defs[dungeon_zone()].name;
+             *p && o < (int)sizeof where - 1; p++) where[o++] = *p;
+        where[o] = 0;
+        system_bar(top, where, secs ? timer : "COLLAPSING");
+    }
     if (!secs && (g.anim & 16)) gfx_rect(top, 0, 0, SCREEN_W, 13, C_BLOOD);
     if (!secs) gfx_text(top, SCREEN_W - 4 - gfx_text_width("COLLAPSING"), 3, C_RED, "COLLAPSING");
     toasts(top);

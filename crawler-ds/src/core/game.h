@@ -22,6 +22,7 @@
 #define INVENTORY    12
 #define MAX_TOASTS   4
 #define MAX_LOG      6
+#define MAX_ROOMS    9
 
 
 typedef enum {
@@ -192,6 +193,17 @@ typedef struct {
     const char *blurb;
 } CrawlerDef;
 
+/* ---------------------------------------------------------- neighbourhood -- */
+
+typedef struct {
+    const char *name;
+    uint8_t     foe;        /* index into foe_defs: the local mob */
+    uint8_t     from_floor; /* first floor this neighbourhood turns up on */
+} ZoneDef;
+
+extern const ZoneDef zone_defs[];
+extern const int zone_count;
+
 extern const CrawlerDef crawler_defs[];
 extern const int crawler_count;
 
@@ -245,6 +257,15 @@ typedef struct {
     int32_t  collapse;                    /* frames left before the floor goes */
     uint16_t steps;
     uint16_t explored;
+
+    /*  Book One describes the first floor as squares of neighbourhoods, each
+     *  with its own local mob, rather than one undifferentiated maze. The
+     *  generator already builds rooms; tagging each one with a neighbourhood
+     *  is what turns "a floor" into "somewhere on a floor". */
+    uint8_t  n_rooms;
+    int8_t   room_x[MAX_ROOMS], room_y[MAX_ROOMS];
+    int8_t   room_w[MAX_ROOMS], room_h[MAX_ROOMS];
+    uint8_t  room_zone[MAX_ROOMS];
 } Dungeon;
 
 /* ------------------------------------------------------------------ game -- */
@@ -389,6 +410,7 @@ extern const int      ach_count;
 extern const Beat     story_beats[];
 extern const int      beat_count;
 extern const char    *const speaker_names[];
+int   dungeon_zone(void);            /* which neighbourhood the party is in */
 int   foe_pick(int floor_no);
 int   foe_boss(int floor_no);
 int   foe_scale(int floor_no);   /* percent, by depth */

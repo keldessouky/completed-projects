@@ -57,6 +57,22 @@ void dungeon_set_used(int x, int y) {
     g.dun.used[i >> 3] |= (uint8_t)(1 << (i & 7));
 }
 
+/*  Which neighbourhood the party is standing in. Corridors between rooms
+ *  belong to whichever room is nearest, so the top bar never goes blank on
+ *  the walk between two of them. */
+int dungeon_zone(void) {
+    int best = 0, best_d = 1 << 30;
+    for (int i = 0; i < g.dun.n_rooms; i++) {
+        int cx = g.dun.room_x[i] + g.dun.room_w[i] / 2;
+        int cy = g.dun.room_y[i] + g.dun.room_h[i] / 2;
+        int dx = g.dun.px - cx, dy = g.dun.py - cy;
+        if (dx < 0) dx = -dx;
+        if (dy < 0) dy = -dy;
+        if (dx + dy < best_d) { best_d = dx + dy; best = i; }
+    }
+    return g.dun.n_rooms ? g.dun.room_zone[best] : 0;
+}
+
 int dungeon_walkable(int x, int y) {
     char t = dungeon_tile(x, y);
     if (t == T_WALL) return 0;

@@ -90,7 +90,11 @@ void battle_start(int boss) {
     } else {
         int count = rng_range(1, floor_no >= 2 ? 3 : 2);
         g.bat.n_foes = (uint8_t)count;
-        for (int i = 0; i < count; i++) g.bat.foes[i].def = (uint8_t)foe_pick(floor_no);
+        /*  Mostly the neighbourhood's own mob, sometimes something that has
+            wandered in from next door. */
+        int local = zone_defs[dungeon_zone()].foe;
+        for (int i = 0; i < count; i++)
+            g.bat.foes[i].def = (uint8_t)(rng_chance(72) ? local : foe_pick(floor_no));
     }
     int scale = foe_scale(floor_no);
     for (int i = 0; i < g.bat.n_foes; i++) {

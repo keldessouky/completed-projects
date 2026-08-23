@@ -532,6 +532,9 @@ int main(int argc, char **argv) {
             dungeon_enter(f);
             printf("--- season %d floor %d  (%dx%d)  start %d,%d\n",
                    game_season_number(), f + 1, g.dun.w, g.dun.h, g.dun.px, g.dun.py);
+            for (int r = 0; r < g.dun.n_rooms; r++)
+                printf("    room %d at %d,%d  %s\n", r, g.dun.room_x[r], g.dun.room_y[r],
+                       zone_defs[g.dun.room_zone[r]].name);
             if (!floor_is_sound(1)) bad++;
         }
         printf("%s\n", bad ? "FLOOR CHECK FAILED" : "all features present and reachable");

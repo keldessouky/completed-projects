@@ -17,8 +17,6 @@
 
 #include <string.h>
 
-#define MAX_ROOMS 9
-
 typedef struct { int8_t x, y, w, h; } Room;
 
 static uint32_t gs;
@@ -324,6 +322,22 @@ void mapgen_build(int floor_index, uint32_t season) {
     int boxes = grange(3, 5);
     for (int i = 0; i < boxes; i++)
         place(&rooms[gnext() % (uint32_t)(n - 1)], i == 0 ? T_BOX_GOLD : T_BOX);
+
+    /*  Tag every room with a neighbourhood that has turned up by this depth.
+        The entrance room is always the quiet one, so a floor does not open
+        with something eating you. */
+    int pool[16], np = 0;
+    for (int i = 0; i < zone_count && np < 16; i++)
+        if (zone_defs[i].from_floor <= floor_index + 1) pool[np++] = i;
+    if (!np) pool[np++] = 0;
+    g.dun.n_rooms = (uint8_t)n;
+    for (int i = 0; i < n; i++) {
+        g.dun.room_x[i] = rooms[i].x;
+        g.dun.room_y[i] = rooms[i].y;
+        g.dun.room_w[i] = rooms[i].w;
+        g.dun.room_h[i] = rooms[i].h;
+        g.dun.room_zone[i] = (uint8_t)(i == 0 ? pool[0] : pool[gnext() % (uint32_t)np]);
+    }
 
     g.dun.w = (uint8_t)W;
     g.dun.h = (uint8_t)H;
