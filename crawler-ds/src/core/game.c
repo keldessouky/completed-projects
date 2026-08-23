@@ -88,6 +88,13 @@ static void toast_join(const char *a, const char *b) {
     game_toast(buf, 1);
 }
 
+/*  What survives a season. The DS has no save chip here and recall codes are a
+ *  suspend rather than a life, so this is deliberately small and deliberately
+ *  not written anywhere: it is the tally for this sitting, the way an arcade
+ *  cabinet remembers until it is unplugged. */
+static uint16_t s_seasons_run, s_best_floor, s_best_level, s_best_kills;
+static uint8_t  s_cold_open_seen;
+
 void game_award(int achievement) {
     if (achievement < 0 || achievement >= ach_count) return;
     if (g.achievements & (1u << achievement)) return;
@@ -158,9 +165,15 @@ static void start_new_run(void) {
     g.boxes_opened = 0;
     g.battles_won = 0;
     g.story_beat = 0;
-    /*  Book One starts above ground. The dungeon is entered at the end of
-        chapter one, not before it. */
-    chapter_begin(1);
+    /*  The collapse happens to everybody and it happens once. After the first
+        season of a sitting, the show skips the recap and goes straight to
+        casting — which is what it would do. */
+    if (!s_cold_open_seen) {
+        s_cold_open_seen = 1;
+        chapter_begin(1);
+    } else {
+        draft_begin();
+    }
 }
 
 static void update_title(const PlatInput *in) {
@@ -421,8 +434,22 @@ static void update_code(const PlatInput *in) {
     if (touch_in(in, &back)) game_set_scene(SCENE_TITLE);
 }
 
+int season_count(void)      { return s_seasons_run; }
+int season_best_floor(void) { return s_best_floor; }
+int season_best_level(void) { return s_best_level; }
+int season_best_kills(void) { return s_best_kills; }
+
+static void season_record(void) {
+    s_seasons_run++;
+    int reached = g.dun.index + 1;
+    if (reached > s_best_floor) s_best_floor = (uint16_t)reached;
+    if (g.hero[0].level > s_best_level) s_best_level = g.hero[0].level;
+    if (g.battles_won > s_best_kills) s_best_kills = g.battles_won;
+}
+
 static void update_end(const PlatInput *in) {
     if ((in->pressed & (BTN_A | BTN_START)) || in->touch_pressed) {
+        season_record();
         memset(&g.dun, 0, sizeof g.dun);
         g.scene = SCENE_TITLE;
         g.title_cursor = 0;
@@ -435,6 +462,76 @@ int game_season_number(void) {
     uint32_t h = g.season;
     h ^= h >> 16; h *= 0x7FEB352Du; h ^= h >> 15;
     return (int)(h % 899u) + 101;
+}
+
+/* ----------------------------------------------------------------- draft -- */
+
+/*  Two crawlers go down and the season is named after the seed, not after
+ *  them. Picking is the first real decision of a run and it is made before
+ *  anything is known about the dungeon, which is the point. */
+void draft_begin(void) {
+    g.draft_slot = 0;
+    g.draft_cursor = 0;
+    g.draft_pick[0] = 0;
+    g.draft_pick[1] = (uint8_t)(crawler_count > 1 ? 1 : 0);
+    game_set_scene(SCENE_DRAFT);
+}
+
+static void draft_confirm(void) {
+    party_draft(g.draft_pick[0], g.draft_pick[1]);
+    memset(g.inventory, 0, sizeof g.inventory);
+    inventory_add(1, 3);
+    inventory_add(3, 2);
+    g.gold = 0;
+    g.battles_won = 0;
+    g.boxes_opened = 0;
+    dungeon_enter(0);
+    game_set_scene(SCENE_DUNGEON);
+}
+
+void draft_update(const PlatInput *in) {
+    int n = crawler_count;
+    if (in->pressed & (BTN_RIGHT | BTN_DOWN)) g.draft_cursor = (uint8_t)((g.draft_cursor + 1) % n);
+    if (in->pressed & (BTN_LEFT | BTN_UP)) g.draft_cursor = (uint8_t)((g.draft_cursor + n - 1) % n);
+
+    for (int i = 0; i < n; i++) {
+        Rect r = { (int16_t)(6 + (i % 2) * 124), (int16_t)(30 + (i / 2) * 60), 120, 56, 0 };
+        if (touch_in(in, &r)) g.draft_cursor = (uint8_t)i;
+    }
+    int fire = (in->pressed & BTN_A) != 0;
+    for (int i = 0; i < n && !fire; i++) {
+        Rect r = { (int16_t)(6 + (i % 2) * 124), (int16_t)(30 + (i / 2) * 60), 120, 56, 0 };
+        if (touch_in(in, &r) && g.draft_cursor == i) fire = 1;
+    }
+
+    /*  DESCEND takes whoever the cursor is on as the second, so the button is
+        never a dead end once the first chair is filled. */
+    Rect go = { 6, 158, 244, 28, "DESCEND" };
+    if ((touch_in(in, &go) || (in->pressed & BTN_START)) &&
+        g.draft_slot >= 1 && g.draft_pick[0] != g.draft_cursor) {
+        g.draft_pick[1] = g.draft_cursor;
+        draft_confirm();
+        return;
+    }
+    if (in->pressed & BTN_B) {                   /* undo the last pick */
+        if (g.draft_slot) g.draft_slot--;
+        return;
+    }
+    if (!fire) return;
+
+    /*  Nobody goes down twice. Taking the first crawler steps the cursor off
+        them as well: otherwise pressing A twice without touching the pad
+        leaves you on a name you cannot pick, with the button doing nothing
+        and no way to tell why. */
+    if (g.draft_slot == 1 && g.draft_pick[0] == g.draft_cursor) return;
+    g.draft_pick[g.draft_slot] = g.draft_cursor;
+    if (g.draft_slot == 0) {
+        g.draft_slot = 1;
+        g.draft_cursor = (uint8_t)((g.draft_cursor + 1) % n);
+        g.draft_pick[1] = g.draft_cursor;
+    } else {
+        draft_confirm();
+    }
 }
 
 /* --------------------------------------------------------------- chapter -- */
@@ -495,9 +592,8 @@ static void chapter_advance(void) {
     g.cut_answer = 255;
     g.cut_choice = 0;
     const CutLine *next = chapter_line();
-    if (!next) {                                /* chapter over: into the floor */
-        dungeon_enter(0);
-        game_set_scene(SCENE_DUNGEON);
+    if (!next) {                                /* the cold open is over: draft */
+        draft_begin();
         return;
     }
     if (next->backdrop != BD_KEEP) g.cut_backdrop = next->backdrop;
@@ -567,6 +663,7 @@ int game_frame(const PlatInput *in) {
     case SCENE_TITLE:    update_title(in);   break;
     case SCENE_STORY:    update_story(in);   break;
     case SCENE_CUTSCENE: chapter_update(in); break;
+    case SCENE_DRAFT:    draft_update(in);   break;
     case SCENE_DUNGEON:  update_dungeon(in); break;
     case SCENE_BATTLE:   battle_update(in);  break;
     case SCENE_MENU:     update_menu(in);    break;

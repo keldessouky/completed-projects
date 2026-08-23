@@ -33,6 +33,17 @@ static void log_line(const char *a, const char *b, const char *c) {
 
 void battle_log(const char *text) { log_line(text, 0, 0); }
 
+/*  A foe's printed attack, reward and defence, scaled for how deep this is.
+ *  Without this the bestiary runs out of threat around floor four and the
+ *  back half of the descent is a walk. */
+static int foe_atk(int index) {
+    return foe_defs[g.bat.foes[index].def].atk * foe_scale(g.dun.index + 1) / 100;
+}
+
+static int foe_def_at_depth(int index) {
+    return foe_defs[g.bat.foes[index].def].def * foe_scale(g.dun.index + 1) / 100;
+}
+
 static int foe_alive_count(void) {
     int n = 0;
     for (int i = 0; i < g.bat.n_foes; i++) if (g.bat.foes[i].alive) n++;
@@ -81,9 +92,12 @@ void battle_start(int boss) {
         g.bat.n_foes = (uint8_t)count;
         for (int i = 0; i < count; i++) g.bat.foes[i].def = (uint8_t)foe_pick(floor_no);
     }
+    int scale = foe_scale(floor_no);
     for (int i = 0; i < g.bat.n_foes; i++) {
         const FoeDef *d = &foe_defs[g.bat.foes[i].def];
-        int hp = d->hp + rng_range(-d->hp / 10, d->hp / 10);
+        int hp = d->hp * scale / 100;
+        hp += rng_range(-hp / 10, hp / 10);
+        if (hp > 30000) hp = 30000;
         g.bat.foes[i].hp = g.bat.foes[i].hp_max = (int16_t)hp;
         g.bat.foes[i].alive = 1;
     }
@@ -158,11 +172,11 @@ static void apply_effect(int kind, int power, int from_hero, int actor, int targ
         if (from_hero)
             hurt_foe(target, roll_damage(hero_attack(&g.hero[actor]) +
                                          (g.hero[actor].status[ST_ATKUP] ? 6 : 0),
-                                         foe_defs[g.bat.foes[target].def].def -
+                                         foe_def_at_depth(target) -
                                          (g.bat.foes[target].status[ST_DEFDOWN] ? 4 : 0),
                                          power, g.hero[actor].st.luck));
         else
-            hurt_hero(target, roll_damage(foe_defs[g.bat.foes[actor].def].atk,
+            hurt_hero(target, roll_damage(foe_atk(actor),
                                           hero_defence(&g.hero[target]), power, 0));
         break;
     case SK_HIT_ALL:
@@ -170,26 +184,26 @@ static void apply_effect(int kind, int power, int from_hero, int actor, int targ
             for (int i = 0; i < g.bat.n_foes; i++)
                 if (g.bat.foes[i].alive)
                     hurt_foe(i, roll_damage(hero_attack(&g.hero[actor]),
-                                            foe_defs[g.bat.foes[i].def].def, power,
+                                            foe_def_at_depth(i), power,
                                             g.hero[actor].st.luck));
         } else {
             for (int i = 0; i < PARTY; i++)
                 if (g.hero[i].hp > 0)
-                    hurt_hero(i, roll_damage(foe_defs[g.bat.foes[actor].def].atk,
+                    hurt_hero(i, roll_damage(foe_atk(actor),
                                              hero_defence(&g.hero[i]), power, 0));
         }
         break;
     case SK_BLEED:
         if (from_hero) {
             hurt_foe(target, roll_damage(hero_attack(&g.hero[actor]),
-                                         foe_defs[g.bat.foes[target].def].def, power,
+                                         foe_def_at_depth(target), power,
                                          g.hero[actor].st.luck));
             if (g.bat.foes[target].alive) {
                 g.bat.foes[target].status[ST_BLEED] = 3;
                 log_line(foe_defs[g.bat.foes[target].def].name, " is bleeding.", 0);
             }
         } else {
-            hurt_hero(target, roll_damage(foe_defs[g.bat.foes[actor].def].atk,
+            hurt_hero(target, roll_damage(foe_atk(actor),
                                           hero_defence(&g.hero[target]), power, 0));
             if (g.hero[target].hp > 0) g.hero[target].status[ST_BLEED] = 3;
         }
@@ -197,14 +211,14 @@ static void apply_effect(int kind, int power, int from_hero, int actor, int targ
     case SK_STUN:
         if (from_hero) {
             hurt_foe(target, roll_damage(hero_attack(&g.hero[actor]),
-                                         foe_defs[g.bat.foes[target].def].def, power,
+                                         foe_def_at_depth(target), power,
                                          g.hero[actor].st.luck));
             if (g.bat.foes[target].alive && rng_chance(65)) {
                 g.bat.foes[target].status[ST_STUN] = 1;
                 log_line(foe_defs[g.bat.foes[target].def].name, " loses its footing.", 0);
             }
         } else {
-            hurt_hero(target, roll_damage(foe_defs[g.bat.foes[actor].def].atk,
+            hurt_hero(target, roll_damage(foe_atk(actor),
                                           hero_defence(&g.hero[target]), power, 0));
             if (g.hero[target].hp > 0 && rng_chance(40)) g.hero[target].status[ST_STUN] = 1;
         }
@@ -342,8 +356,9 @@ static void finish_battle(int won, int fled) {
     int xp = 0, gold = 0;
     for (int i = 0; i < g.bat.n_foes; i++) {
         const FoeDef *d = &foe_defs[g.bat.foes[i].def];
-        xp += d->xp;
-        gold += d->gold + rng_range(0, d->gold / 3);
+        int scale = foe_scale(g.dun.index + 1);
+        xp += d->xp * scale / 100;
+        gold += (d->gold + rng_range(0, d->gold / 3)) * scale / 100;
     }
     g.bat.xp_won = (int16_t)xp;
     g.bat.gold_won = (int16_t)gold;

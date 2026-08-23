@@ -47,6 +47,20 @@ const SkillDef skill_defs[] = {
     { "Pounce",        1, SK_BLEED,      5, 110,  4, "Opens something that keeps opening." },
     { "Adoring Public",1, SK_TAUNT,      6,   0,  5, "The viewers scream. Everything looks at her." },
     { "Command Presence",1, SK_HIT_ALL,  9, 120,  7, "The room is reminded whose show this is." },
+    /* Mordecai fights the way a man fights who would rather not. */
+    { "Read The Room", 2, SK_HIT_ONE,    0, 100,  1, "Finds the soft spot. Costs nothing but dignity." },
+    { "Old Trick",     2, SK_DEBUFF_DEF, 3,  55,  1, "Something he has done a thousand times to a thousand of these." },
+    { "Field Dressing",2, SK_HEAL,       4,  40,  2, "Not medicine. Adjacent to medicine." },
+    { "Hard Word",     2, SK_STUN,       5,  85,  3, "One sentence, delivered flatly, and the thing stops." },
+    { "Long Odds",     2, SK_BUFF_ATK,   6,   5,  5, "He has done the maths and is choosing to ignore it." },
+    { "Closing Time",  2, SK_HIT_ALL,    9, 150,  7, "Everyone out." },
+    /* The Bopca was drafted and is compensating with inventory and luck. */
+    { "Till Swing",    3, SK_HIT_ONE,    0, 100,  1, "Free, heavy, and entirely unlicensed." },
+    { "Price Gouge",   3, SK_HIT_ONE,    4, 165,  2, "Charges the target for the privilege." },
+    { "Stock Take",    3, SK_BUFF_ATK,   4,   4,  3, "Counts what is left and gets alarming about it." },
+    { "Loss Prevention",3,SK_GUARD_ALL,  5,   0,  4, "Nothing leaves this floor unpaid for." },
+    { "Clearance",     3, SK_HIT_ALL,    8, 145,  6, "Everything must go, including you." },
+    { "Final Notice",  3, SK_BLEED,      7, 175,  8, "Written in red, twice." },
 };
 const int skill_count = (int)(sizeof skill_defs / sizeof skill_defs[0]);
 
@@ -71,6 +85,28 @@ const FoeDef foe_defs[] = {
     { "The Producer",   SPR_BOSS_PRODUCER,560, 34, 20, 14, 900, 400, 50, SK_HIT_ALL, 120, 3, "The show, wearing a person." },
 };
 const int foe_count = (int)(sizeof foe_defs / sizeof foe_defs[0]);
+
+/* -------------------------------------------------------------- crawlers -- */
+
+/*  Four of them, drawn from what the show has on file. Two go down each
+ *  season. The spread is deliberate: nothing here is strictly better than
+ *  anything else, and the Bopca is a genuinely bad idea that sometimes works.
+ */
+const CrawlerDef crawler_defs[] = {
+    { "Carl",     "Crawler",     SPR_CARL,
+      { 9, 6, 9, 5, 4, 5 },
+      "No shoes, no plan, no reverse gear. Hits hard and stays up." },
+    { "Donut",    "Princess",    SPR_DONUT,
+      { 4, 10, 5, 6, 12, 8 },
+      "Fastest thing on the floor and knows it. Fragile, lucky, insufferable." },
+    { "Mordecai", "Guide",       SPR_MORDECAI,
+      { 6, 5, 7, 11, 7, 6 },
+      "Has seen more seasons than you have had floors. Fights with the wit." },
+    { "Bopca",    "Shopkeeper",  SPR_BOPCA,
+      { 7, 8, 4, 4, 3, 12 },
+      "Was not supposed to be a crawler. Enormously lucky about it." },
+};
+const int crawler_count = (int)(sizeof crawler_defs / sizeof crawler_defs[0]);
 
 /* ---------------------------------------------------------- achievements -- */
 
@@ -239,16 +275,39 @@ const Beat *beat_find(int floor, int trigger) {
 }
 
 /* Which mob wanders which floor. */
-int foe_pick(int floor_index) {
-    int candidates[8], n = 0;
-    for (int i = 0; i < foe_count && n < 8; i++)
-        if (foe_defs[i].floor == floor_index && foe_defs[i].hp < 150) candidates[n++] = i;
-    if (!n) return 0;
-    return candidates[rng_range(0, n - 1)];
+/*  The bestiary is written in three tiers and the dungeon is eighteen floors
+ *  deep, so depth picks the tier and then scales what it finds. A floor-14
+ *  Bramble Hound is the same drawing and a different problem. */
+static int tier_for(int floor_no) {
+    int tier = (floor_no + 5) / 6;          /* 1-6 -> 1, 7-12 -> 2, 13-18 -> 3 */
+    if (tier < 1) tier = 1;
+    if (tier > 3) tier = 3;
+    return tier;
 }
 
-int foe_boss(int floor_index) {
+int foe_pick(int floor_no) {
+    int tier = tier_for(floor_no);
+    for (int spread = 0; spread < 3; spread++) {
+        int candidates[12], n = 0;
+        int lo = tier - spread < 1 ? 1 : tier - spread;
+        for (int i = 0; i < foe_count && n < 12; i++)
+            if (foe_defs[i].floor >= lo && foe_defs[i].floor <= tier && foe_defs[i].hp < 150)
+                candidates[n++] = i;
+        if (n) return candidates[rng_range(0, n - 1)];
+    }
+    return 0;
+}
+
+int foe_boss(int floor_no) {
+    int tier = tier_for(floor_no);
     for (int i = 0; i < foe_count; i++)
-        if (foe_defs[i].floor == floor_index && foe_defs[i].hp >= 150) return i;
+        if (foe_defs[i].floor == tier && foe_defs[i].hp >= 150) return i;
     return foe_count - 1;
+}
+
+/*  Percent to scale a foe by at this depth. Floor one is the printed
+ *  statline; by broadcast it is a little under four times it. */
+int foe_scale(int floor_no) {
+    if (floor_no < 1) floor_no = 1;
+    return 100 + (floor_no - 1) * 17;
 }

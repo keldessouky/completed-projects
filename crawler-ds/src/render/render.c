@@ -16,7 +16,30 @@ static const char *const kFloorNames[FLOORS] = {
     "FLOOR 1  THE BEDROOM FLOOR",
     "FLOOR 2  THE WORKS",
     "FLOOR 3  THE OVER CITY",
+    "FLOOR 4  THE LONG COMMUTE",
+    "FLOOR 5  THE PARKING STRUCTURE",
+    "FLOOR 6  ADMINISTRATION",
+    "FLOOR 7  THE WET FLOOR",
+    "FLOOR 8  THE FULFILMENT CENTRE",
+    "FLOOR 9  THE QUIET WARD",
+    "FLOOR 10 THE GREEN ROOM",
+    "FLOOR 11 THE STACKS",
+    "FLOOR 12 CATERING",
+    "FLOOR 13 THE CUTTING ROOM",
+    "FLOOR 14 THE KENNELS",
+    "FLOOR 15 THE LONG DARK RETAIL",
+    "FLOOR 16 THE ARCHIVE",
+    "FLOOR 17 THE BOARDROOM",
+    "FLOOR 18 BROADCAST",
 };
+
+/*  Whoever is actually in that party slot this season. Everything below used
+ *  to name Carl and Donut directly, which stopped being true the moment the
+ *  roster did. */
+static const Sprite *hero_sprite(int slot) {
+    if (slot < 0 || slot >= PARTY) slot = 0;
+    return sprite_table[crawler_defs[g.hero[slot].crawler].sprite];
+}
 
 /* ------------------------------------------------------------- furniture -- */
 
@@ -93,23 +116,31 @@ static void draw_title(Surface *top, Surface *bot) {
     gfx_hline(top, 0, SCREEN_W - 1, 69, C_AMBER_DK);
     gfx_text_big(top, 20, 32, C_AMBER, "DUNGEON CRAWLER");
     gfx_text_big(top, 96, 50, C_MAGENTA, "CARL");
-    gfx_text(top, 26, 76, C_DIM, "BOOK ONE   an unofficial fan game");
+    gfx_text(top, 26, 76, C_DIM, "EIGHTEEN FLOORS   one season at a time");
 
     int floor_y = SCREEN_H - 4;
     gfx_vgradient(top, 0, floor_y - 14, SCREEN_W, 18, RGB(16, 13, 22), RGB(34, 27, 38));
     gfx_hline(top, 0, SCREEN_W - 1, floor_y - 14, gfx_scale_colour(C_AMBER_DK, 10, 16));
     for (int i = 0; i < 3; i++)                       /* light pooling on the floor */
         gfx_dither(top, 0, floor_y - 12 + i * 5, SCREEN_W, 5, C_AMBER_DK, 6 - i * 2);
-    gfx_sprite(top, &spr_carl, 22, floor_y - spr_carl.h);
-    gfx_sprite(top, &spr_donut, SCREEN_W - 80, floor_y - spr_donut.h + 2);
-    gfx_text(top, 24, 92, C_INK, "18 floors. He is not wearing shoes.");
+    gfx_sprite(top, hero_sprite(0), 22, floor_y - hero_sprite(0)->h);
+    gfx_sprite(top, hero_sprite(1), SCREEN_W - 80, floor_y - hero_sprite(1)->h + 2);
+    if (season_count()) {
+        gfx_text(top, 24, 88, C_DIM, "Seasons run");
+        gfx_text(top, 104, 88, C_INK, gfx_num(season_count()));
+        gfx_text(top, 132, 88, C_DIM, "Deepest");
+        gfx_text(top, 188, 88, C_AMBER, gfx_num(season_best_floor()));
+        gfx_text(top, 24, 100, C_DIM, "Nobody who went down has come back up.");
+    } else {
+        gfx_text(top, 24, 92, C_INK, "Eighteen floors. Nobody is wearing shoes.");
+    }
 
     gfx_clear(bot, C_VOID);
     gfx_vgradient(bot, 0, 0, SCREEN_W, 40, C_PANEL, C_VOID);
     gfx_text(bot, 8, 10, C_AMBER, "THE SYSTEM AWAITS YOUR DECISION");
-    gfx_text(bot, 8, 24, C_DIM, "The audience is already watching.");
+    gfx_text(bot, 8, 24, C_DIM, "A season ends when the crawler does.");
 
-    static const char *const opts[2] = { "DESCEND", "ENTER RECALL CODE" };
+    static const char *const opts[2] = { "NEW SEASON", "RESUME FROM CODE" };
     for (int i = 0; i < 2; i++) {
         int y = 118 + i * 32;
         int on = g.title_cursor == i;
@@ -415,7 +446,7 @@ static void draw_battle(Surface *top, Surface *bot) {
 
     {
         int bob = (g.anim / 12) & 1;
-        const Sprite *c = &spr_carl, *dn = &spr_donut;
+        const Sprite *c = hero_sprite(0), *dn = hero_sprite(1);
         const int party_scale = 72;
         int cw = c->w * party_scale / 100, ch = c->h * party_scale / 100;
         int dw = dn->w * party_scale / 100, dh = dn->h * party_scale / 100;
@@ -535,6 +566,91 @@ static void draw_battle(Surface *top, Surface *bot) {
         draw_button(bot, &kBatCommands[i], g.bat.cursor == i);
 }
 
+/* ----------------------------------------------------------------- draft -- */
+
+static void draw_draft(Surface *top, Surface *bot)
+{
+    gfx_vgradient(top, 0, 0, SCREEN_W, SCREEN_H, RGB(10, 8, 18), RGB(34, 16, 34));
+    for (int i = 0; i < 50; i++) {                 /* the studio, always on */
+        int x = (int)((i * 8641 + g.anim / 2) % SCREEN_W);
+        int y = (int)((i * 4211 + g.anim) % SCREEN_H);
+        gfx_pixel(top, x, y, gfx_scale_colour(C_MAGENTA, 4 + (i & 5), 16));
+    }
+    {
+        char label[24];
+        int o = 0;
+        for (const char *p = "SEASON "; *p; p++) label[o++] = *p;
+        for (const char *p = gfx_num(game_season_number()); *p; p++) label[o++] = *p;
+        label[o] = 0;
+        system_bar(top, label, "WHO IS GOING DOWN");
+    }
+
+    /*  The two chairs. An empty one is a silhouette, because the shape of the
+        decision is "two of them" before it is "which two". */
+    for (int i = 0; i < PARTY; i++) {
+        int x = 14 + i * 122;
+        int filled = i < g.draft_slot;              /* chairs fill in order */
+        int previewing = (i == g.draft_slot);
+        gfx_panel(top, x, 22, 110, 132, C_PANEL, previewing ? C_AMBER : C_EDGE);
+        const CrawlerDef *c = &crawler_defs[filled ? g.draft_pick[i] : g.draft_cursor];
+        const Sprite *sp = sprite_table[c->sprite];
+        int sw = sp->w * 88 / 100;
+        if (filled || previewing) {
+            gfx_sprite_scaled(top, sp, x + (110 - sw) / 2, 30, 88, 100);
+            if (previewing) gfx_shade(top, x + 2, 24, 106, 100, 8);   /* not yours yet */
+            gfx_text(top, x + 6, 126, filled ? C_AMBER : C_DIM, c->name);
+            gfx_text(top, x + 6, 138, C_DIM, filled ? c->title : "not confirmed");
+        } else {
+            gfx_text(top, x + 30, 74, C_DIM, "EMPTY");
+            gfx_text(top, x + 12, 126, C_DIM, "second chair");
+        }
+    }
+    {
+        const CrawlerDef *c = &crawler_defs[g.draft_cursor];
+        gfx_panel(top, 6, 158, SCREEN_W - 12, 30, C_PANEL, C_EDGE);
+        gfx_text(top, 12, 163, C_MAGENTA, c->name);
+        gfx_text_wrapped(top, 12, 174, SCREEN_W - 24, C_INK, c->blurb);
+    }
+
+    /* ---- the roster ------------------------------------------------------- */
+    gfx_clear(bot, C_VOID);
+    gfx_rect(bot, 0, 0, SCREEN_W, 22, C_PANEL);
+    gfx_text(bot, 8, 7, C_AMBER, g.draft_slot ? "AND WHO ELSE" : "PICK A CRAWLER");
+    gfx_hline(bot, 0, SCREEN_W - 1, 22, C_AMBER_DK);
+
+    for (int i = 0; i < crawler_count; i++) {
+        int x = 6 + (i % 2) * 124, y = 30 + (i / 2) * 60;
+        int on = g.draft_cursor == i;
+        int taken = g.draft_slot == 1 && g.draft_pick[0] == i;
+        gfx_panel(bot, x, y, 120, 56, on ? C_PANEL_LIT : C_PANEL,
+                  on ? C_AMBER : taken ? C_DIM : C_EDGE);
+        const CrawlerDef *c = &crawler_defs[i];
+        const Sprite *sp = sprite_table[c->sprite];
+        gfx_sprite_scaled(bot, sp, x + 4, y + 3, 68, 100);
+        gfx_text(bot, x + 46, y + 8, taken ? C_DIM : on ? C_AMBER : C_INK, c->name);
+        gfx_text(bot, x + 46, y + 20, C_DIM, c->title);
+        const Stats *st = &c->st;
+        gfx_text(bot, x + 46, y + 34, C_DIM, "STR");
+        gfx_text(bot, x + 68, y + 34, C_INK, gfx_num(st->str));
+        gfx_text(bot, x + 84, y + 34, C_DIM, "DEX");
+        gfx_text(bot, x + 106, y + 34, C_INK, gfx_num(st->dex));
+        gfx_text(bot, x + 46, y + 44, C_DIM, "CON");
+        gfx_text(bot, x + 68, y + 44, C_INK, gfx_num(st->con));
+        gfx_text(bot, x + 84, y + 44, C_DIM, "LCK");
+        gfx_text(bot, x + 106, y + 44, C_INK, gfx_num(st->luck));
+        if (taken) gfx_shade(bot, x, y, 120, 56, 9);
+    }
+
+    {
+        Rect go = { 6, 158, 244, 28, "DESCEND" };
+        int ready = g.draft_slot >= 1 && g.draft_pick[0] != g.draft_cursor;
+        gfx_panel(bot, go.x, go.y, go.w, go.h, ready ? C_PANEL_LIT : C_PANEL,
+                  ready ? C_AMBER : C_EDGE);
+        gfx_text(bot, go.x + 96, go.y + 11, ready ? C_AMBER : C_DIM,
+                 g.draft_slot ? "DESCEND" : "PICK TWO");
+    }
+}
+
 /* -------------------------------------------------------------- cutscene -- */
 
 /*  Five backdrops, drawn rather than stored: a street at three in the morning,
@@ -617,8 +733,8 @@ static void backdrop_stairs(Surface *s)
         gfx_hline(s, 40 + inset, SCREEN_W - 41 - inset, 30 + i * 16, RGB(26, 24, 30));
     }
     gfx_rect(s, 112, 158, 32, 34, RGB(2, 2, 4));
-    gfx_sprite_scaled(s, &spr_carl, 22, 120, 70, 100);
-    gfx_sprite_scaled(s, &spr_donut, 186, 128, 58, 100);
+    gfx_sprite_scaled(s, hero_sprite(0), 22, 120, 70, 100);
+    gfx_sprite_scaled(s, hero_sprite(1), 186, 128, 58, 100);
 }
 
 static void draw_cutscene(Surface *top, Surface *bot)
@@ -703,7 +819,7 @@ static void draw_menu(Surface *top, Surface *bot) {
         const Hero *h = &g.hero[i];
         int x = 4 + i * 128;
         gfx_panel(top, x, 18, 124, 168, C_PANEL, C_EDGE);
-        gfx_sprite_scaled(top, i ? &spr_donut : &spr_carl, x + 40, 22, 75, 100);
+        gfx_sprite_scaled(top, hero_sprite(i), x + 40, 22, 75, 100);
         gfx_text(top, x + 6, 84, C_AMBER, h->name);
         gfx_text(top, x + 6, 94, C_DIM, h->title);
         gfx_text(top, x + 6, 106, C_INK, "LV");
@@ -880,7 +996,7 @@ static void draw_levelup(Surface *top, Surface *bot) {
     const Hero *h = &g.hero[hero];
     gfx_vgradient(top, 0, 0, SCREEN_W, SCREEN_H, RGB(12, 16, 14), RGB(24, 40, 30));
     system_bar(top, "LEVEL UP", h->name);
-    gfx_sprite_scaled(top, hero ? &spr_donut : &spr_carl, 16, 40, 150, 100);
+    gfx_sprite_scaled(top, hero_sprite(hero), 16, 40, 150, 100);
     gfx_text_big(top, 150, 50, C_GREEN, "LEVEL");
     gfx_text_big(top, 150, 70, C_AMBER, gfx_num(h->level));
     gfx_text(top, 150, 100, C_DIM, "POINTS LEFT");
@@ -978,26 +1094,53 @@ static void draw_code(Surface *top, Surface *bot) {
 
 static void draw_gameover(Surface *top, Surface *bot) {
     gfx_vgradient(top, 0, 0, SCREEN_W, SCREEN_H, RGB(24, 6, 10), RGB(6, 4, 6));
-    gfx_text_big(top, 44, 60, C_RED, "CRAWLER DOWN");
-    gfx_text(top, 30, 90, C_INK, "The audience is already watching someone else.");
-    season_tag(top, 30, 104, C_MAGENTA);
-    gfx_text(top, 60, 104, C_DIM, "ended on floor");
-    gfx_text(top, 156, 104, C_AMBER, gfx_num(g.dun.index + 1));
-    gfx_text(top, 30, 118, C_DIM, "Level");
-    gfx_text(top, 70, 118, C_AMBER, gfx_num(g.hero[0].level));
-    gfx_text(top, 96, 118, C_DIM, "Fights");
-    gfx_text(top, 144, 118, C_AMBER, gfx_num(g.battles_won));
-    gfx_text(top, 30, 132, C_DIM, "Boxes");
-    gfx_text(top, 70, 132, C_AMBER, gfx_num(g.boxes_opened));
-    gfx_text(top, 96, 132, C_DIM, "Steps");
-    gfx_text(top, 144, 132, C_AMBER, gfx_num(g.dun.steps));
-    gfx_sprite_scaled(top, &spr_boss_producer, 158, 112, 80, 100);
+    gfx_text_big(top, 30, 24, C_RED, "SEASON OVER");
+    season_tag(top, 30, 46, C_MAGENTA);
+    gfx_text(top, 60, 46, C_DIM, "ends here. There is no continue.");
+
+    /*  Depth is the score, so it is the biggest thing on the screen. */
+    gfx_panel(top, 24, 62, 116, 58, C_PANEL, C_AMBER_DK);
+    gfx_text(top, 30, 68, C_DIM, "REACHED");
+    gfx_text_big(top, 30, 80, C_AMBER, gfx_num(g.dun.index + 1));
+    gfx_text(top, 30, 106, C_DIM, "of eighteen floors");
+
+    gfx_panel(top, 148, 62, 84, 58, C_PANEL, C_EDGE);
+    gfx_text(top, 154, 68, C_DIM, "Level");
+    gfx_text(top, 200, 68, C_AMBER, gfx_num(g.hero[0].level));
+    gfx_text(top, 154, 80, C_DIM, "Fights");
+    gfx_text(top, 200, 80, C_AMBER, gfx_num(g.battles_won));
+    gfx_text(top, 154, 92, C_DIM, "Boxes");
+    gfx_text(top, 200, 92, C_AMBER, gfx_num(g.boxes_opened));
+    gfx_text(top, 154, 104, C_DIM, "Gold");
+    gfx_text(top, 200, 104, C_GOLD, gfx_num(g.gold));
+
+    for (int i = 0; i < PARTY; i++) {            /* who it was, for the record */
+        const Sprite *sp = hero_sprite(i);
+        int w = sp->w * 52 / 100;
+        gfx_sprite_scaled(top, sp, 24 + i * 64, 126, 52, 100);
+        gfx_shade(top, 24 + i * 64, 126, w, sp->h * 52 / 100, 10);
+        gfx_text(top, 24 + i * 64, 126 + sp->h * 52 / 100, C_DIM, g.hero[i].name);
+    }
+    gfx_sprite_scaled(top, &spr_boss_producer, 168, 120, 62, 100);
 
     gfx_clear(bot, C_VOID);
-    gfx_text_wrapped(bot, 12, 40, 232, C_INK,
-                     "Every run ends on the same note: something finally got a full turn. "
-                     "The System keeps your achievements and a recall code keeps your floor.");
-    gfx_text(bot, 12, 150, C_AMBER, "TAP TO RETURN TO THE TITLE");
+    gfx_text_wrapped(bot, 12, 24, 232, C_INK,
+                     "The floor took them, the feed cut, and the audience was "
+                     "already watching somebody else before the dust settled. "
+                     "Achievements stay on file. Nothing else does.");
+    gfx_panel(bot, 12, 76, 232, 62, C_PANEL, C_EDGE);
+    gfx_text(bot, 18, 82, C_AMBER, "THIS SITTING");
+    gfx_text(bot, 18, 96, C_DIM, "Seasons run");
+    gfx_text(bot, 150, 96, C_INK, gfx_num(season_count() + 1));
+    gfx_text(bot, 18, 108, C_DIM, "Deepest floor");
+    gfx_text(bot, 150, 108, C_AMBER,
+             gfx_num(g.dun.index + 1 > season_best_floor() ? g.dun.index + 1
+                                                           : season_best_floor()));
+    gfx_text(bot, 18, 120, C_DIM, "Most fights won");
+    gfx_text(bot, 150, 120, C_INK,
+             gfx_num(g.battles_won > season_best_kills() ? g.battles_won
+                                                         : season_best_kills()));
+    gfx_text(bot, 12, 156, C_AMBER, "TAP FOR THE NEXT SEASON");
 }
 
 static void draw_victory(Surface *top, Surface *bot) {
@@ -1009,8 +1152,8 @@ static void draw_victory(Surface *top, Surface *bot) {
     }
     gfx_text_big(top, 30, 40, C_GOLD, "END OF BOOK ONE");
     season_tag(top, 30, 62, C_MAGENTA);
-    gfx_sprite(top, &spr_carl, 34, 108);
-    gfx_sprite(top, &spr_donut, 150, 112);
+    gfx_sprite(top, hero_sprite(0), 34, 108);
+    gfx_sprite(top, hero_sprite(1), 150, 112);
     gfx_text(top, 24, 168, C_INK, "Three floors down. Fifteen to go.");
 
     gfx_clear(bot, C_VOID);
@@ -1058,12 +1201,17 @@ static uint32_t render_signature(void) {
         for (int i = 0; i < PARTY + MAX_FOES; i++) MIX(g.bat.pop_life[i] / 4);
         MIX(g.anim >> 2);
     }
+    if (g.scene == SCENE_DRAFT) {
+        MIX(g.draft_cursor); MIX(g.draft_slot);
+        MIX(g.draft_pick[0]); MIX(g.draft_pick[1]); MIX(g.anim >> 1);
+    }
     if (g.scene == SCENE_CUTSCENE) {
         MIX(g.chapter); MIX(g.cut_line); MIX(g.cut_reveal);
         MIX(g.cut_backdrop); MIX(g.cut_choice); MIX(g.cut_answer);
         MIX(g.cut_shake); MIX(g.anim >> 1);        /* rain and dust keep moving */
     }
     /* Scenes that are alive even when the player is not. */
+    if (g.scene == SCENE_TITLE) MIX(season_count());
     if (g.scene == SCENE_TITLE || g.scene == SCENE_STORY || g.scene == SCENE_BOX ||
         g.scene == SCENE_VICTORY)
         MIX(g.anim >> 1);
@@ -1096,6 +1244,7 @@ int render_frame(void) {
     case SCENE_GAMEOVER: draw_gameover(&top, &bot); break;
     case SCENE_VICTORY:  draw_victory(&top, &bot);  break;
     case SCENE_CUTSCENE: draw_cutscene(&top, &bot); break;
+    case SCENE_DRAFT:    draw_draft(&top, &bot);    break;
     default: break;
     }
 

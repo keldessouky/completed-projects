@@ -14,7 +14,9 @@
 /* ------------------------------------------------------------- constants -- */
 
 #define MAP_MAX      32
-#define FLOORS       3
+/*  The show runs eighteen floors and a season ends when the crawler does.
+    Depth is the score. */
+#define FLOORS       18
 #define MAX_FOES     3
 #define PARTY        2
 #define INVENTORY    12
@@ -25,7 +27,7 @@
 typedef enum {
     SCENE_TITLE, SCENE_STORY, SCENE_DUNGEON, SCENE_BATTLE, SCENE_MENU,
     SCENE_SHOP, SCENE_BOX, SCENE_LEVELUP, SCENE_CODE, SCENE_GAMEOVER,
-    SCENE_VICTORY, SCENE_CUTSCENE, SCENE_COUNT
+    SCENE_VICTORY, SCENE_CUTSCENE, SCENE_DRAFT, SCENE_COUNT
 } Scene;
 
 typedef enum { DIR_N, DIR_E, DIR_S, DIR_W } Dir;
@@ -174,7 +176,24 @@ typedef struct {
     uint8_t  points;            /* unspent level-up points */
     uint8_t  guard;
     const char *title;
+    uint8_t  crawler;           /* which CrawlerDef this slot was filled from */
 } Hero;
+
+/* -------------------------------------------------------------- crawlers -- */
+
+/*  A season is a new crawler, so who you take down is the run's first real
+ *  decision. Skills belong to a crawler rather than to a party slot: it is the
+ *  same list whether they are drafted first or second. */
+typedef struct {
+    const char *name;
+    const char *title;
+    uint8_t     sprite;
+    Stats       st;
+    const char *blurb;
+} CrawlerDef;
+
+extern const CrawlerDef crawler_defs[];
+extern const int crawler_count;
 
 typedef struct {
     uint8_t  def;               /* index into foe_defs */
@@ -255,6 +274,11 @@ typedef struct {
     Dungeon  dun;
     Battle   bat;
 
+    /* the draft: who goes down this season */
+    uint8_t  draft_cursor;
+    uint8_t  draft_pick[PARTY];
+    uint8_t  draft_slot;        /* 0 or 1: which chair is being filled */
+
     /* chapters and cutscenes */
     uint8_t  chapter;           /* which chapter of Book One is running   */
     uint8_t  cut_line;
@@ -311,6 +335,13 @@ int      rng_chance(int percent);
 
 /* party.c */
 void  party_new(void);
+int   season_count(void);
+int   season_best_floor(void);
+int   season_best_level(void);
+int   season_best_kills(void);
+void  draft_begin(void);
+void  draft_update(const PlatInput *in);
+void  party_draft(int a, int b);   /* fill both slots from the roster */
 int   hero_attack(const Hero *h);
 int   hero_defence(const Hero *h);
 int   hero_speed(const Hero *h);
@@ -358,8 +389,9 @@ extern const int      ach_count;
 extern const Beat     story_beats[];
 extern const int      beat_count;
 extern const char    *const speaker_names[];
-int   foe_pick(int floor_index);
-int   foe_boss(int floor_index);
+int   foe_pick(int floor_no);
+int   foe_boss(int floor_no);
+int   foe_scale(int floor_no);   /* percent, by depth */
 const Beat *beat_find(int floor, int trigger);
 
 /* save.c */

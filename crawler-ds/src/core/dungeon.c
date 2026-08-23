@@ -14,7 +14,13 @@ static const int dx4[4] = { 0, 1, 0, -1 };     /* N E S W */
 static const int dy4[4] = { -1, 0, 1, 0 };
 
 /* Frames of floor life. The show is generous on the tutorial and less so after. */
-static const int32_t collapse_frames[FLOORS] = { 60 * 60 * 14, 60 * 60 * 16, 60 * 60 * 20 };
+/*  How long a floor exists. Deeper floors are bigger and get more clock, but
+    not proportionally more: the squeeze is the point. */
+static int32_t collapse_frames_for(int floor_index) {
+    int minutes = 14 + floor_index * 2;
+    if (minutes > 40) minutes = 40;
+    return 60 * 60 * minutes;
+}
 
 char dungeon_tile(int x, int y) {
     if (x < 0 || y < 0 || x >= g.dun.w || y >= g.dun.h) return T_WALL;
@@ -90,7 +96,7 @@ void dungeon_enter(int floor_index) {
     for (int f = 0; f < 4; f++)
         if (dungeon_tile(g.dun.px + dx4[f], g.dun.py + dy4[f]) != T_WALL) { g.dun.facing = (uint8_t)f; break; }
     g.dun.steps_to_encounter = (uint16_t)rng_range(7, 14);
-    g.dun.collapse = collapse_frames[floor_index];
+    g.dun.collapse = collapse_frames_for(floor_index);
     dungeon_light_of_sight();
 }
 

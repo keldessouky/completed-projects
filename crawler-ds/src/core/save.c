@@ -7,6 +7,9 @@
  *  It carries the season seed too, because with the floors generated rather
  *  than drawn a code that restored your level into somebody else's dungeon
  *  would not be the same run.
+ *
+ *  A code is a suspend, not a life. The show only prints one while the crawler
+ *  is alive; when a season ends it ends, and the next one is somebody else.
  *  Attribute points spent on the way are re-spent for you, which is the one
  *  thing the code does not carry.
  */
@@ -58,17 +61,19 @@ static uint32_t checksum(const BitBuf *b) {
 void save_make_code(char *out) {
     BitBuf b;
     memset(&b, 0, sizeof b);
-    put_bits(&b, 3, 3);                              /* format version        */
+    put_bits(&b, 5, 3);                              /* format version        */
     put_bits(&b, g.season & 0xFFFF, 16);             /* the season's seed     */
-    put_bits(&b, g.dun.index, 2);                    /* floor                 */
+    put_bits(&b, g.hero[0].crawler & 3, 2);          /* who went down         */
+    put_bits(&b, g.hero[1].crawler & 3, 2);
+    put_bits(&b, g.dun.index, 5);                    /* floor, of eighteen    */
     put_bits(&b, g.hero[0].level, 5);
     put_bits(&b, g.hero[1].level, 5);
-    put_bits(&b, (uint32_t)(g.gold < 0 ? 0 : g.gold > 16000 ? 16000 : g.gold) / 4, 12);
+    put_bits(&b, (uint32_t)(g.gold < 0 ? 0 : g.gold > 16000 ? 16000 : g.gold) / 8, 11);
     put_bits(&b, g.flags & 0xFFF, 12);
     put_bits(&b, g.achievements & 0xFFFF, 16);   /* fourteen of them now */
-    put_bits(&b, g.battles_won > 255 ? 255 : g.battles_won, 8);
-    put_bits(&b, g.boxes_opened > 63 ? 63 : g.boxes_opened, 6);
-    put_bits(&b, g.story_beat & 0xF, 4);
+    put_bits(&b, g.battles_won > 127 ? 127 : g.battles_won, 7);
+    put_bits(&b, g.boxes_opened > 15 ? 15 : g.boxes_opened, 4);
+    put_bits(&b, g.story_beat & 3, 2);
     while (b.pos < CODE_BITS - 10) put_bits(&b, 0, 1);
     put_bits(&b, checksum(&b), 10);
 
@@ -101,22 +106,27 @@ int save_apply_code(const char *code) {
 
     BitBuf r = b;
     r.pos = 0;
-    if (get_bits(&r, 3) != 3) return 0;
+    if (get_bits(&r, 3) != 5) return 0;
     uint32_t season = get_bits(&r, 16);
-    int floor_index = (int)get_bits(&r, 2);
+    int crawler_a = (int)get_bits(&r, 2);
+    int crawler_b = (int)get_bits(&r, 2);
+    int floor_index = (int)get_bits(&r, 5);
     int carl_level = (int)get_bits(&r, 5);
     int donut_level = (int)get_bits(&r, 5);
-    int gold = (int)get_bits(&r, 12) * 4;
+    int gold = (int)get_bits(&r, 11) * 8;
     uint32_t flags = get_bits(&r, 12);
     uint32_t achievements = get_bits(&r, 16);
-    int battles = (int)get_bits(&r, 8);
-    int boxes = (int)get_bits(&r, 6);
-    int beat = (int)get_bits(&r, 4);
+    int battles = (int)get_bits(&r, 7);
+    int boxes = (int)get_bits(&r, 4);
+    int beat = (int)get_bits(&r, 2);
     r.pos = CODE_BITS - 10;
     if (get_bits(&r, 10) != checksum(&b)) return 0;
     if (floor_index >= FLOORS || carl_level < 1 || carl_level > 30 || donut_level < 1) return 0;
 
-    party_new();
+    /*  The code has to say who went down. Restoring a season's floor and
+        levels onto the default pair would hand the run to two people who were
+        never in it. */
+    party_draft(crawler_a, crawler_b);
     g.season = season ? season : 0x1BADCA7Du;
     rng_seed(0x9E3779B9u ^ (g.season * 2654435761u));
     g.gold = (int16_t)gold;

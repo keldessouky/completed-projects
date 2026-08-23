@@ -59,19 +59,30 @@ top screen, the map and your hands on the bottom one.
 
 | | |
 | --- | --- |
-| ![Chapter one](docs/shots/02b-chapter-cat.png) | ![A fight](docs/shots/06-battle-orders.png) |
-| **Chapter one.** Book One opens above ground, so the game does too: a street at three in the morning, a cat up a fire escape, and questions that expect an answer. | **A fight.** Laid out the way the DS Pokemon games do it — their box top-left, yours bottom-right, one message at a time, four commands on the touch screen. |
-| ![Corridor](docs/shots/03-corridor.png) | ![The System](docs/shots/05-chapter-system.png) |
-| **The floor.** Nested wall projections, per-floor palettes, side corridors that read as somewhere to go. The map draws itself as you walk. | **The announcement.** The surface has been repossessed, entry is voluntary, and the audience is already watching. |
-| ![The party](docs/shots/08-party.png) | ![A loot box](docs/shots/07-reward.png) |
-| **The party.** Six attributes each, spent by hand on level-up, feeding every number in a fight. | **Loot boxes.** The show's entire economy, in four rarities. |
+| ![The draft](docs/shots/07-draft.png) | ![A fight](docs/shots/06-battle-orders.png) |
+| **The draft.** Two of four go down each season. Nothing on the roster is strictly better than anything else, and the Bopca is a genuinely bad idea that sometimes works. | **A fight.** Laid out the way the DS Pokemon games do it — their box top-left, yours bottom-right, one message at a time, four commands on the touch screen. |
+| ![The cold open](docs/shots/02b-chapter-cat.png) | ![The System](docs/shots/05-chapter-system.png) |
+| **The cold open.** A street at three in the morning, a cat up a fire escape, and questions that expect an answer. Plays once a sitting. | **The announcement.** The surface has been repossessed, entry is voluntary, and the audience is already watching. |
+| ![Corridor](docs/shots/03-corridor.png) | ![A loot box](docs/shots/04-lootbox.png) |
+| **The floor.** Nested wall projections, per-floor palettes, side corridors that read as somewhere to go. The map draws itself as you walk. | **Loot boxes.** The show's entire economy, in four rarities. |
+| ![The party](docs/shots/08-party.png) | ![Recall code](docs/shots/10-recall-code.png) |
+| **The party.** Six attributes each, spent by hand on level-up, feeding every number in a fight. | **Recall codes.** A suspend, not a life: the show only prints one while the crawler is alive. |
 
-**Book One, a chapter at a time.** Chapter one is above ground and has no
-dungeon in it at all: Carl outside at three in the morning after his ex's cat,
-the ninety seconds that kill everyone who was indoors, and the offer that
-follows. It is played as a cutscene with backdrops and choices, and it ends with
-him going down the stairs. Then three floors — the tutorial floor, the Works
-where Mordecai turns up, the Over City — with a boss on each and an ending.
+**A roguelike, because the fiction already is one.** The dungeon is a game
+show that reruns with new crawlers every season, so permadeath is not a
+mechanic bolted on — it is the premise. Each run picks a season seed, generates
+eighteen floors from it, and ends when the crawlers do. Depth is the score.
+
+**Two crawlers go down per season, and you pick them.** Carl, Princess Donut,
+Mordecai and the Bopca, each with their own stats and their own six moves; the
+pair you take is the run's first real decision and it is made before anything
+is known about the dungeon. Recall codes carry who went down, so resuming a
+season gives you back the people who were in it.
+
+**The collapse plays once a sitting.** Book One's cold open — Carl outside at
+three in the morning after his ex's cat, the ninety seconds that kill everyone
+who was indoors, and the offer that follows — runs before your first season and
+is skipped after it, because it happens to everybody and it happens once.
 
 Everything written for this game is original prose in the System's voice. No
 text from the books is reproduced anywhere in it.
@@ -87,9 +98,11 @@ skills; gear in three slots; potions, bombs and revives; a Bopca-run shop; a
 shrine; achievements that pay out in boxes; and a floor timer that eventually
 stops being a suggestion.
 
-**A new season every run.** The three floors are generated when you descend,
+**A new season every run.** All eighteen floors are generated when you descend,
 from a seed the run picks at the title screen — rooms, corridors, the shop, the
 shrine, the kiosk, the loot and the story beats all land somewhere different.
+Floors grow and the bestiary scales with depth, so a floor-fourteen Bramble
+Hound is the same drawing and a different problem.
 The way out is always the room farthest from the way in, sealed, with the boss
 standing in its only doorway, so a floor is a journey that ends in a fight
 rather than a corridor you might walk straight down. The run's season number

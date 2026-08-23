@@ -174,9 +174,12 @@ static int connect(int ox, int oy) {
 void mapgen_build(int floor_index, uint32_t season) {
     /* Deeper floors are bigger, and the seed is per-floor so floor two does
        not become floor one's twin. */
-    static const uint8_t sizes[FLOORS][2] = { { 25, 19 }, { 29, 21 }, { 29, 23 } };
-    W = sizes[floor_index][0];
-    H = sizes[floor_index][1];
+    /*  Floors grow with depth up to what the tile buffer can hold, which is
+        MAP_MAX minus a wall on each side. */
+    W = 25 + floor_index;
+    H = 19 + floor_index;
+    if (W > MAP_MAX - 2) W = MAP_MAX - 2;
+    if (H > MAP_MAX - 2) H = MAP_MAX - 2;
     T = g.dun.tiles;
     seal = NULL;
     gs = (season ^ (0x9E3779B9u * (uint32_t)(floor_index + 1)));
@@ -186,7 +189,8 @@ void mapgen_build(int floor_index, uint32_t season) {
 
     Room rooms[MAX_ROOMS];
     int n = 0;
-    int want = 6 + floor_index;
+    int want = 6 + floor_index / 2;
+    if (want > MAX_ROOMS) want = MAX_ROOMS;
     for (int tries = 0; tries < 300 && n < want; tries++) {
         Room r;
         r.w = (int8_t)grange(4, 7);

@@ -70,29 +70,32 @@ int party_alive(void) {
     return n;
 }
 
-void party_new(void) {
+/*  Fills both party slots from the roster. Everything a crawler is comes from
+ *  their CrawlerDef, so drafting the same pair in a different order gives the
+ *  same two people. */
+void party_draft(int a, int b) {
+    if (a < 0 || a >= crawler_count) a = 0;
+    if (b < 0 || b >= crawler_count) b = 1 % crawler_count;
+    if (b == a) b = (a + 1) % crawler_count;
+    const int pick[PARTY] = { a, b };
+
     memset(g.hero, 0, sizeof g.hero);
-
-    Hero *carl = &g.hero[0];
-    carl->name = "Carl";
-    carl->title = "Crawler";
-    carl->st = (Stats){ 9, 6, 9, 5, 4, 5 };
-    carl->level = 1;
-    carl->equip[0] = carl->equip[1] = carl->equip[2] = -1;
-    hero_recompute(carl);
-    carl->hp = carl->hp_max;
-    carl->mp = carl->mp_max;
-
-    Hero *donut = &g.hero[1];
-    donut->name = "Donut";
-    donut->title = "Princess";
-    donut->st = (Stats){ 4, 10, 5, 6, 12, 8 };
-    donut->level = 1;
-    donut->equip[0] = donut->equip[1] = donut->equip[2] = -1;
-    hero_recompute(donut);
-    donut->hp = donut->hp_max;
-    donut->mp = donut->mp_max;
+    for (int i = 0; i < PARTY; i++) {
+        const CrawlerDef *c = &crawler_defs[pick[i]];
+        Hero *h = &g.hero[i];
+        h->crawler = (uint8_t)pick[i];
+        h->name = c->name;
+        h->title = c->title;
+        h->st = c->st;
+        h->level = 1;
+        h->equip[0] = h->equip[1] = h->equip[2] = -1;
+        hero_recompute(h);
+        h->hp = h->hp_max;
+        h->mp = h->mp_max;
+    }
 }
+
+void party_new(void) { party_draft(0, 1); }
 
 int inventory_add(int item, int count) {
     if (item <= 0 || item >= INVENTORY) return 0;
@@ -124,7 +127,8 @@ int equip_item(Hero *h, int item) {
 int game_hero_skills(int hero, const SkillDef **out, int max) {
     int n = 0;
     for (int i = 0; i < skill_count && n < max; i++)
-        if (skill_defs[i].owner == hero && skill_defs[i].unlock <= g.hero[hero].level)
+        if (skill_defs[i].owner == g.hero[hero].crawler &&
+            skill_defs[i].unlock <= g.hero[hero].level)
             out[n++] = &skill_defs[i];
     return n;
 }
