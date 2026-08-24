@@ -11,6 +11,7 @@
 #include "ui_layout.h"
 
 void view3d_draw(Surface *s);
+void view3d_arena(Surface *s, int floor_index);
 
 /*  Book One covers the first two floors. The Over City is where Book Two
     goes, and everything below that is this game's own invention — the show
@@ -388,31 +389,17 @@ static void draw_damage_pops(Surface *s) {
     }
 }
 
-/*  The arena is the corridor the party was standing in: the same walls, pulled
- *  back far enough to swing in, with the show's lights on the ceiling. */
+/*  The arena is drawn by the corridor renderer, so a fight happens in the same
+ *  place the party were standing. All this adds is the show's lighting rig,
+ *  which is the one thing down there that is not part of the building. */
 static void draw_arena(Surface *s, int floor_index) {
-    uint16_t wall = floor_index == 0 ? RGB(84, 88, 104) : floor_index == 1 ? RGB(104, 76, 52) : RGB(64, 58, 104);
-    uint16_t deep = gfx_scale_colour(wall, 5, 16);
-    uint16_t ground = gfx_scale_colour(wall, 9, 16);
-
-    gfx_vgradient(s, 0, 0, SCREEN_W, 148, gfx_scale_colour(wall, 3, 16), deep);
-    gfx_vgradient(s, 0, 148, SCREEN_W, SCREEN_H - 148, ground, gfx_scale_colour(ground, 20, 16));
-    /* Side walls, converging on a vanishing point behind the enemies. */
-    for (int i = 0; i < 46; i++) {
-        int t = i * 16 / 46;
-        uint16_t c = gfx_mix(gfx_scale_colour(wall, 12, 16), deep, t);
-        gfx_vline(s, i, 0, 148 - i, c);
-        gfx_vline(s, SCREEN_W - 1 - i, 0, 148 - i, c);
-    }
-    for (int i = 0; i < 5; i++) {                 /* floor courses */
-        int y = 150 + i * i * 2;
-        if (y < SCREEN_H) gfx_hline(s, 0, SCREEN_W - 1, y, gfx_scale_colour(ground, 22 - i * 2, 16));
-    }
+    view3d_arena(s, floor_index);
     for (int i = 0; i < 4; i++) {                 /* studio lights */
         int x = 26 + i * 68;
         int pulse = 10 + ((g.anim / 3 + i * 7) & 5);
-        gfx_rect(s, x, 6, 14, 5, gfx_scale_colour(C_AMBER, pulse, 16));
-        gfx_dither(s, x - 6, 11, 26, 22, gfx_scale_colour(C_AMBER, 5, 16), 5);
+        gfx_rect(s, x, 4, 14, 5, gfx_scale_colour(C_AMBER, pulse, 16));
+        gfx_rect(s, x, 9, 14, 1, gfx_scale_colour(C_AMBER, 4, 16));
+        gfx_dither(s, x - 6, 10, 26, 20, gfx_scale_colour(C_AMBER, 5, 16), 5);
     }
 }
 
@@ -422,7 +409,7 @@ static void draw_arena(Surface *s, int floor_index) {
  *  one corner cut, pointing at whoever it belongs to. */
 static void hp_box(Surface *s, int x, int y, int w, const char *name, int level,
                    int hp, int hp_max, int mine) {
-    int h = mine ? 30 : 24;
+    const int h = 24;
     window(s, x, y, w, h, 0);
     gfx_hline(s, x + 1, x + w - 2, y + 1, gfx_scale_colour(C_INK, 3, 16));
     gfx_text(s, x + 5, y + 4, C_INK, name);
@@ -431,7 +418,21 @@ static void hp_box(Surface *s, int x, int y, int w, const char *name, int level,
 
     if (hp_max < 1) hp_max = 1;
     if (hp < 0) hp = 0;
-    int bw = w - 30, bx = x + 24, by = y + 15;
+
+    /*  Your own numbers sit on the bar's line rather than under it. Two of
+     *  these stack above the message box, and the row they used to take was
+     *  the band the foes stand in. */
+    char num[16];
+    int nw = 0;
+    if (mine) {
+        int o = 0;
+        for (const char *p = gfx_num(hp); *p; p++) num[o++] = *p;
+        num[o++] = '/';
+        for (const char *p = gfx_num(hp_max); *p; p++) num[o++] = *p;
+        num[o] = 0;
+        nw = gfx_text_width(num) + 4;
+    }
+    int bx = x + 24, by = y + 15, bw = w - 30 - nw;
     gfx_text(s, x + 5, by - 1, C_GOLD, "HP");
     gfx_panel(s, bx, by, bw, 6, C_VOID, C_EDGE);
     int filled = hp * (bw - 2) / hp_max;
@@ -439,16 +440,7 @@ static void hp_box(Surface *s, int x, int y, int w, const char *name, int level,
     uint16_t fill = pct > 50 ? C_GREEN : pct > 20 ? C_GOLD : C_RED;
     if (filled > 0) gfx_rect(s, bx + 1, by + 1, filled, 4, fill);
     if (pct <= 20 && (g.anim & 16)) gfx_rect(s, bx + 1, by + 1, filled, 4, C_INK);
-
-    if (mine) {                                    /* only your own numbers show */
-        char num[16];
-        int o = 0;
-        for (const char *p = gfx_num(hp); *p; p++) num[o++] = *p;
-        num[o++] = '/';
-        for (const char *p = gfx_num(hp_max); *p; p++) num[o++] = *p;
-        num[o] = 0;
-        gfx_text(s, x + w - 6 - gfx_text_width(num), y + 22, C_INK, num);
-    }
+    if (mine) gfx_text(s, x + w - 5 - gfx_text_width(num), by - 1, C_INK, num);
 }
 
 /*  The message box across the bottom of the battle, typed out a couple of
@@ -506,7 +498,7 @@ static void draw_battle(Surface *top, Surface *bot) {
         const int party_scale = 72;
         int cw = c->w * party_scale / 100, ch = c->h * party_scale / 100;
         int dw = dn->w * party_scale / 100, dh = dn->h * party_scale / 100;
-        int base = msg_top - 2;
+        int base = msg_top - 6;
         for (int i = 0; i < 5; i++)
             gfx_dither(top, 6 + i, base - 3 + i, cw - i * 2, 1, C_SHADOW, 13 - i * 2);
         gfx_sprite_scaled(top, c, 4, base - ch + bob, party_scale, 100);
@@ -528,7 +520,7 @@ static void draw_battle(Surface *top, Surface *bot) {
         shown++;
     }
     for (int i = 0; i < PARTY; i++)
-        hp_box(top, SCREEN_W - 122, msg_top - 66 + i * 33, 118,
+        hp_box(top, SCREEN_W - 122, msg_top - 56 + i * 28, 118,
                g.hero[i].name, g.hero[i].level, g.hero[i].hp, g.hero[i].hp_max, 1);
 
     message_box(top);

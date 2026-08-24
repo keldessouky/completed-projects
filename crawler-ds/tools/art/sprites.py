@@ -7,6 +7,7 @@ same key light. `tools/forge.py` turns this list into src/gen/art.c.
 import bestiary
 import cast
 import props
+import textures
 
 ROSTER = [
     # the party and the two people who talk to them (56x72)
@@ -43,3 +44,7 @@ ROSTER = [
     ('shrine', props.shrine),
     ('door', props.door),
 ]
+
+# The corridor surfaces. Not sprites -- src/render/view3d.c samples these
+# directly and tiles them, so index 0 is a real colour here, not transparency.
+ROSTER += textures.ROSTER
