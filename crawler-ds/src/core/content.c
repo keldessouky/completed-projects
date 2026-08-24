@@ -70,6 +70,11 @@ const FoeDef foe_defs[] = {
     /* name             sprite         hp atk def spd   xp gold trick kind         pow fl quip */
     { "Sewer Rat",      SPR_RAT,       22,  6,  2,  7,  12,   8, 10, SK_BLEED,      60, 1, "It has been eating better than you." },
     { "Goblin Trapper", SPR_GOBLIN,    30,  8,  4,  6,  18,  14, 20, SK_DEBUFF_DEF, 30, 1, "Sponsored by nobody. Trying very hard." },
+    /*  A Rot Sticker is a delivery mechanism, not a fighter: almost no health,
+        almost no defence, and it hits the whole party when it goes. Killing it
+        fast is the entire counterplay, which is why it is also slow. */
+    { "Rot Sticker",    SPR_ROTSTICKER, 14, 11,  1,  2,  16,   6, 55, SK_HIT_ALL,   130, 1, "Do not let it get comfortable." },
+    { "Troglodyte",     SPR_TROGLODYTE, 34,  9,  5,  5,  20,  10, 20, SK_STUN,       60, 1, "No eyes. Did not need them to find you." },
     { "Screaming Sofa", SPR_SOFA,      44,  7,  8,  3,  22,  20, 15, SK_STUN,       70, 1, "Floor one keeps sending furniture." },
     { "Sludge Mound",   SPR_SLUDGE,    36,  7,  5,  4,  20,  12, 25, SK_HIT_ALL,    70, 1, "Wet. Patient. Faintly sweet." },
     { "Kobold Sapper",  SPR_KOBOLD,    46, 12,  6,  9,  34,  26, 30, SK_HIT_ALL,    85, 2, "Carrying something with a fuse." },
@@ -98,21 +103,23 @@ const int foe_count = (int)(sizeof foe_defs / sizeof foe_defs[0]);
  *  to be what is actually in the Goblin Workshop.
  */
 const ZoneDef zone_defs[] = {
-    /* Floor one, where the book spends most of its time. */
+    /* Floor one: squares of four, each with its own residents. */
     { "THE TUNNELS",          0,  1 },   /* Sewer Rat      */
     { "GOBLIN WORKSHOP",      1,  1 },   /* Goblin Trapper */
-    { "ROT STICKER BLOCK",    3,  1 },   /* Sludge Mound   */
-    { "KOBOLD QUADRANT",      4,  1 },   /* Kobold Sapper  */
-    { "KOBOLD FIGHTING PITS", 4,  2 },
-    { "THE FURNISHED ROOMS",  2,  2 },   /* Screaming Sofa */
+    { "ROT STICKER BLOCK",    2,  1 },   /* Rot Sticker    */
+    { "THE TROG WARRENS",     3,  1 },   /* Troglodyte     */
+    { "KOBOLD QUADRANT",      6,  1 },   /* Kobold Sapper  */
+    { "KOBOLD FIGHTING PITS", 6,  2 },
+    { "THE FURNISHED ROOMS",  4,  2 },   /* Screaming Sofa */
+    { "THE WET FLOOR",        5,  2 },   /* Sludge Mound   */
     /* Floor two: boroughs, and something guarding every staircase. */
-    { "THE BOROUGHS",         5,  3 },   /* Bramble Hound  */
-    { "BAILIFF ROW",          7,  4 },   /* Bone Bailiff   */
-    { "THE HATCHERY",         6,  5 },   /* Doom Beetle    */
+    { "THE BOROUGHS",         7,  3 },   /* Bramble Hound  */
+    { "BAILIFF ROW",          9,  4 },   /* Bone Bailiff   */
+    { "THE HATCHERY",         8,  5 },   /* Doom Beetle    */
     /* Past where Book One goes. */
-    { "THE SILK ROAD",        8,  7 },   /* Neon Mimic     */
-    { "THE DOOR POLICY",      9,  9 },   /* Club Bouncer   */
-    { "THE CHEAP SEATS",     10, 11 },   /* Vulture Fan    */
+    { "THE SILK ROAD",       10,  7 },   /* Neon Mimic     */
+    { "THE DOOR POLICY",     11,  9 },   /* Club Bouncer   */
+    { "THE CHEAP SEATS",     12, 11 },   /* Vulture Fan    */
 };
 const int zone_count = (int)(sizeof zone_defs / sizeof zone_defs[0]);
 

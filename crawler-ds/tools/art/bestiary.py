@@ -151,6 +151,80 @@ def sludge_mound():
     return s.finish().emit()
 
 
+def rot_sticker():
+    """Floor one's nastiest surprise: a thing that adheres to whatever walks
+    past and then goes off. Hand-placed from `rotsticker_grid`."""
+    import rotsticker_grid as rg
+
+    s = Sprite(rg.W, rg.H)
+    idx = {ch: s.ink(colour) for ch, colour in zip(rg.KEY, rg.PALETTE)}
+    for y, row in enumerate(rg.decorate(rg.grid())):
+        for x, ch in enumerate(row):
+            if ch != '.':
+                s.px[y * rg.W + x] = idx[ch]
+    return s.emit()
+
+
+def troglodyte():
+    """What a person shaped thing becomes after long enough with nothing to
+    look at. No eyes — not shut, not squinting, gone — so everything else on
+    the face has to carry the read: a heavy brow with a hollow under it, and a
+    nose and a mouth doing all the work."""
+    s = Sprite(FOE, FOE)
+    skin = s.register_family(s.ramp((176, 152, 148), 6, cool=0.12))
+    deep = s.register_family(s.ramp((104, 82, 86), 5))
+    rag = s.register_family(s.ramp((78, 88, 72), 5))
+    claw = s.register_family(s.ramp((236, 228, 208), 4))
+    dark = s.ink((22, 18, 24))
+    hollow = s.ink((30, 22, 28))
+    gum = s.ink((92, 34, 42))
+    tooth = s.ink((244, 238, 220))
+    wet = s.ink((250, 246, 236))
+
+    s.limb(30, 50, 27, 66, 12, 9, skin)              # legs, short and bowed
+    s.limb(43, 50, 47, 66, 12, 9, skin)
+    s.poly([(19, 66), (33, 66), (31, 71), (17, 71)], skin[1])
+    s.poly([(41, 66), (55, 66), (57, 71), (43, 71)], skin[1])
+
+    s.form(36, 40, 15, 16, skin, wrap=0.85)          # barrel chest
+    s.poly([(21, 30), (51, 30), (48, 40), (24, 40)], skin[3])     # shoulders
+
+    #  Arms long enough to reach the floor, because it gets around on them.
+    s.limb(23, 33, 15, 56, 8, 6, skin)
+    s.limb(49, 33, 57, 56, 8, 6, skin)
+    for hx in (14, 57):                              # hands, and the claws
+        s.form(hx, 59, 6, 5, skin)
+        for k in range(3):
+            s.line(hx - 4 + k * 4, 63, hx - 5 + k * 5, 69, claw[2])
+
+    #  The rag: a hide with a torn hem, tied at one shoulder.
+    s.poly([(22, 38), (50, 38), (47, 55), (25, 57)], rag[2])
+    s.poly([(22, 38), (36, 36), (50, 38), (36, 44)], rag[3])
+    for i, x in enumerate(range(24, 48, 4)):
+        s.poly([(x, 54), (x + 4, 54), (x + 2, 58 + (i % 3) * 2)], rag[1])
+    s.line(24, 34, 34, 40, rag[4])
+
+    s.form(36, 19, 12, 12, skin, wrap=0.85)          # skull
+    s.poly([(25, 17), (47, 17), (45, 22), (27, 22)], deep[3])     # the brow
+    s.poly([(27, 21), (45, 21), (44, 26), (28, 26)], hollow)      # nothing under it
+    s.line(28, 22, 43, 22, dark)
+
+    s.poly([(33, 23), (39, 23), (41, 30), (31, 30)], skin[4])     # the nose
+    s.put(35, 27, wet)
+    for x in (32, 33, 39, 40):
+        s.put(x, 29, hollow)
+        s.put(x, 30, hollow)
+
+    s.poly([(29, 31), (43, 31), (41, 36), (31, 36)], gum)         # lipless mouth
+    s.stamp(30, 31, [
+        "twtwtwtwtwtw",
+        "............",
+        "............",
+        "wtwtwtwtwtwt",
+    ], {'t': tooth, 'w': gum})
+    return s.finish().emit()
+
+
 def kobold_sapper():
     """Carrying something with a fuse, and pleased about it."""
     s = Sprite(FOE, FOE)

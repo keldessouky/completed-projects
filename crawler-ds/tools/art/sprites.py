@@ -19,6 +19,8 @@ ROSTER = [
     # the bestiary (72x72)
     ('rat', bestiary.sewer_rat),
     ('goblin', bestiary.goblin_trapper),
+    ('rotsticker', bestiary.rot_sticker),
+    ('troglodyte', bestiary.troglodyte),
     ('kobold', bestiary.kobold_sapper),
     ('sludge', bestiary.sludge_mound),
     ('sofa', bestiary.screaming_sofa),
