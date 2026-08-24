@@ -37,7 +37,7 @@ typedef enum { DIR_N, DIR_E, DIR_S, DIR_W } Dir;
 enum {
     T_WALL = '#', T_FLOOR = '.', T_START = '@', T_UP = '<', T_DOWN = '>',
     T_DOOR = '+', T_SHOP = 'S', T_SHRINE = 'R', T_KIOSK = '*',
-    T_BOX = 'c', T_BOX_GOLD = 'C', T_BOSS = 'b',
+    T_BOX = 'c', T_BOX_GOLD = 'C', T_BOSS = 'b', T_NBOSS = 'n',
 };
 
 /* --------------------------------------------------------------- content -- */
@@ -81,6 +81,10 @@ typedef struct {
     uint8_t     trick_kind; /* a SkillKind */
     uint8_t     trick_power;
     uint8_t     floor;      /* which floor it wanders */
+    /*  0 mob, 1 neighbourhood boss, 2 borough boss. The floor is four
+        neighbourhoods to a square, each with its own boss, and borough bosses
+        are the rarer ones that sit on a stairwell. */
+    uint8_t     rank;
     const char *quip;       /* the announcers love a caption */
 } FoeDef;
 
@@ -199,6 +203,8 @@ typedef struct {
     const char *name;
     const char *blurb;
 } SafeRoomDef;
+
+int32_t crawlers_left(void);
 
 extern const SafeRoomDef safe_room_defs[];
 extern const int safe_room_count;
@@ -330,6 +336,8 @@ typedef struct {
     uint8_t  shop_cursor;
     uint8_t  box_tier, box_phase, box_item;
     uint8_t  safe_room;         /* index into safe_room_defs, while in one */
+    uint16_t zone_cleared;      /* bit per zone whose boss is down */
+    uint8_t  pending_zone;      /* zone+1 whose boss is being fought, 0 for none */
     uint16_t box_timer;
     uint8_t  levelup_hero;
 
@@ -423,7 +431,10 @@ extern const int      beat_count;
 extern const char    *const speaker_names[];
 int   dungeon_zone(void);            /* which neighbourhood the party is in */
 int   foe_pick(int floor_no);
+int   dungeon_zone_at(int x, int y);
+int   dungeon_zone_cleared(void);
 int   foe_boss(int floor_no);
+int   foe_nboss(int floor_no);
 int   foe_scale(int floor_no);   /* percent, by depth */
 const Beat *beat_find(int floor, int trigger);
 

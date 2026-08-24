@@ -84,17 +84,22 @@ void battle_start(int boss) {
     g.bat.boss = (uint8_t)boss;
     int floor_no = g.dun.index + 1;
 
+    /*  boss: 0 a wandering encounter, 1 the borough boss on the stairwell,
+        2 the neighbourhood's own boss. */
     if (boss) {
         g.bat.n_foes = 1;
-        g.bat.foes[0].def = (uint8_t)foe_boss(floor_no);
+        g.bat.foes[0].def = (uint8_t)(boss == 2 ? foe_nboss(floor_no) : foe_boss(floor_no));
     } else {
         int count = rng_range(1, floor_no >= 2 ? 3 : 2);
         g.bat.n_foes = (uint8_t)count;
-        /*  Mostly the neighbourhood's own mob, sometimes something that has
-            wandered in from next door. */
+        /*  Mostly the neighbourhood's own mob, sometimes something wandered in
+            from next door -- and rats, which infest every neighbourhood on the
+            floor whatever else lives there, and eat what is left afterwards. */
         int local = zone_defs[dungeon_zone()].foe;
-        for (int i = 0; i < count; i++)
-            g.bat.foes[i].def = (uint8_t)(rng_chance(72) ? local : foe_pick(floor_no));
+        for (int i = 0; i < count; i++) {
+            int roll = rng_range(0, 99);
+            g.bat.foes[i].def = (uint8_t)(roll < 62 ? local : roll < 80 ? 0 : foe_pick(floor_no));
+        }
     }
     int scale = foe_scale(floor_no);
     for (int i = 0; i < g.bat.n_foes; i++) {
@@ -112,7 +117,9 @@ void battle_start(int boss) {
     g.bat.phase = BAT_INTRO;
     g.bat.timer = 70;
     g.bat.target = (uint8_t)first_live_foe();
-    log_line(foe_defs[g.bat.foes[0].def].name, boss ? " blocks the way." : " noticed you.", 0);
+    log_line(foe_defs[g.bat.foes[0].def].name,
+             boss == 2 ? " runs this neighbourhood." :
+             boss ? " blocks the way." : " noticed you.", 0);
     game_set_scene(SCENE_BATTLE);
 }
 
@@ -357,12 +364,22 @@ static void finish_battle(int won, int fled) {
         g.bat.timer = 90;
         return;
     }
+    /*  The neighbourhood shuts down the moment its boss does. */
+    if (g.pending_zone) {
+        g.zone_cleared |= (uint16_t)(1u << (g.pending_zone - 1));
+        game_toast("The neighbourhood goes quiet.", 0);
+        g.pending_zone = 0;
+    }
+
     int xp = 0, gold = 0;
     for (int i = 0; i < g.bat.n_foes; i++) {
         const FoeDef *d = &foe_defs[g.bat.foes[i].def];
         int scale = foe_scale(g.dun.index + 1);
         xp += d->xp * scale / 100;
-        gold += (d->gold + rng_range(0, d->gold / 3)) * scale / 100;
+        /*  Mobs do not drop gold until the second floor: the first floor pays
+            in loot boxes and experience only. */
+        if (g.dun.index > 0)
+            gold += (d->gold + rng_range(0, d->gold / 3)) * scale / 100;
     }
     g.bat.xp_won = (int16_t)xp;
     g.bat.gold_won = (int16_t)gold;

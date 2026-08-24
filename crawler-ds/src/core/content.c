@@ -67,27 +67,36 @@ const int skill_count = (int)(sizeof skill_defs / sizeof skill_defs[0]);
 /* ------------------------------------------------------------- bestiary --- */
 
 const FoeDef foe_defs[] = {
-    /* name             sprite         hp atk def spd   xp gold trick kind         pow fl quip */
-    { "Sewer Rat",      SPR_RAT,       22,  6,  2,  7,  12,   8, 10, SK_BLEED,      60, 1, "It has been eating better than you." },
-    { "Goblin Trapper", SPR_GOBLIN,    30,  8,  4,  6,  18,  14, 20, SK_DEBUFF_DEF, 30, 1, "Sponsored by nobody. Trying very hard." },
+    /* name             sprite         hp atk def spd   xp gold trick kind         pow fl rk quip */
+    { "Sewer Rat",      SPR_RAT,       22,  6,  2,  7,  12,   8, 10, SK_BLEED,      60, 1, 0, "It has been eating better than you." },
+    { "Goblin Trapper", SPR_GOBLIN,    30,  8,  4,  6,  18,  14, 20, SK_DEBUFF_DEF, 30, 1, 0, "Sponsored by nobody. Trying very hard." },
     /*  A Rot Sticker is a delivery mechanism, not a fighter: almost no health,
         almost no defence, and it hits the whole party when it goes. Killing it
         fast is the entire counterplay, which is why it is also slow. */
-    { "Rot Sticker",    SPR_ROTSTICKER, 14, 11,  1,  2,  16,   6, 55, SK_HIT_ALL,   130, 1, "Do not let it get comfortable." },
-    { "Troglodyte",     SPR_TROGLODYTE, 34,  9,  5,  5,  20,  10, 20, SK_STUN,       60, 1, "No eyes. Did not need them to find you." },
-    { "Screaming Sofa", SPR_SOFA,      44,  7,  8,  3,  22,  20, 15, SK_STUN,       70, 1, "Floor one keeps sending furniture." },
-    { "Sludge Mound",   SPR_SLUDGE,    36,  7,  5,  4,  20,  12, 25, SK_HIT_ALL,    70, 1, "Wet. Patient. Faintly sweet." },
-    { "Kobold Sapper",  SPR_KOBOLD,    46, 12,  6,  9,  34,  26, 30, SK_HIT_ALL,    85, 2, "Carrying something with a fuse." },
-    { "Bramble Hound",  SPR_HOUND,     54, 14,  7, 12,  40,  22, 25, SK_BLEED,      90, 2, "It was a dog. The floor improved it." },
-    { "Doom Beetle",    SPR_BEETLE,    62, 13, 12,  6,  44,  30, 20, SK_DEBUFF_DEF, 45, 2, "Armoured, unbothered, extremely purple." },
-    { "Bone Bailiff",   SPR_BAILIFF,   58, 16,  9,  8,  48,  38, 35, SK_STUN,       80, 2, "It has a warrant. It will not show you." },
-    { "Neon Mimic",     SPR_MIMIC,     72, 19, 10, 11,  62,  55, 35, SK_HIT_ONE,   150, 3, "A loot box with opinions." },
-    { "Club Bouncer",   SPR_BOUNCER,   88, 22, 14,  9,  72,  60, 30, SK_STUN,       90, 3, "You are not on the list." },
-    { "Vulture Fan",    SPR_VULTURE,   66, 20,  8, 15,  64,  44, 40, SK_BLEED,     110, 3, "Here for the highlights. Yours." },
-    /* Bosses */
-    { "The Rat King",   SPR_BOSS_RATKING, 220, 17,  9,  8, 260, 130, 40, SK_HIT_ALL,  95, 1, "Six heads. One deeply stupid crown." },
-    { "The Foreman",    SPR_BOSS_FOREMAN, 380, 26, 16, 10, 520, 250, 45, SK_STUN,    100, 2, "Management has come down to the floor." },
-    { "The Producer",   SPR_BOSS_PRODUCER,560, 34, 20, 14, 900, 400, 50, SK_HIT_ALL, 120, 3, "The show, wearing a person." },
+    { "Rot Sticker",    SPR_ROTSTICKER, 14, 11,  1,  2,  16,   6, 55, SK_HIT_ALL,   130, 1, 0, "Do not let it get comfortable." },
+    { "Troglodyte",     SPR_TROGLODYTE, 34,  9,  5,  5,  20,  10, 20, SK_STUN,       60, 1, 0, "No eyes. Did not need them to find you." },
+    { "Screaming Sofa", SPR_SOFA,      44,  7,  8,  3,  22,  20, 15, SK_STUN,       70, 1, 0, "Floor one keeps sending furniture." },
+    { "Sludge Mound",   SPR_SLUDGE,    36,  7,  5,  4,  20,  12, 25, SK_HIT_ALL,    70, 1, 0, "Wet. Patient. Faintly sweet." },
+    { "Kobold Sapper",  SPR_KOBOLD,    46, 12,  6,  9,  34,  26, 30, SK_HIT_ALL,    85, 2, 0, "Carrying something with a fuse." },
+    { "Bramble Hound",  SPR_HOUND,     54, 14,  7, 12,  40,  22, 25, SK_BLEED,      90, 2, 0, "It was a dog. The floor improved it." },
+    { "Doom Beetle",    SPR_BEETLE,    62, 13, 12,  6,  44,  30, 20, SK_DEBUFF_DEF, 45, 2, 0, "Armoured, unbothered, extremely purple." },
+    { "Bone Bailiff",   SPR_BAILIFF,   58, 16,  9,  8,  48,  38, 35, SK_STUN,       80, 2, 0, "It has a warrant. It will not show you." },
+    { "Neon Mimic",     SPR_MIMIC,     72, 19, 10, 11,  62,  55, 35, SK_HIT_ONE,   150, 3, 0, "A loot box with opinions." },
+    { "Club Bouncer",   SPR_BOUNCER,   88, 22, 14,  9,  72,  60, 30, SK_STUN,       90, 3, 0, "You are not on the list." },
+    { "Vulture Fan",    SPR_VULTURE,   66, 20,  8, 15,  64,  44, 40, SK_BLEED,     110, 3, 0, "Here for the highlights. Yours." },
+    /*  Neighbourhood bosses. The floor is four to a square, they sit between
+        levels seven and nine, and each is a caricature of the local mob
+        crossed with something from the surface. Killing one shuts its
+        neighbourhood down: nothing spawns there afterwards. */
+    { "The Hoarder",    SPR_SLUDGE,     120, 15,  9,  4, 110,   0, 40, SK_HIT_ALL,    80, 1, 1, "It has kept everything. All of it." },
+    { "The Juicer",     SPR_TROGLODYTE, 110, 18,  6,  7, 105,   0, 45, SK_BLEED,      95, 1, 1, "A troglodyte that found a use for people." },
+    { "Goblin War Chief", SPR_GOBLIN,   130, 16, 11,  6, 120,   0, 35, SK_DEBUFF_DEF, 70, 1, 1, "Sponsored. Finally." },
+    { "The Street Preacher", SPR_BAILIFF, 210, 21, 12,  8, 240,   0, 40, SK_STUN,     90, 2, 2, "Promoted to borough boss between episodes." },
+
+    /* Borough bosses: the ones with a stairwell in the room. */
+    { "Ball of Swine",  SPR_BOSS_RATKING, 220, 17,  9,  8, 260,   0, 40, SK_HIT_ALL,  95, 1, 2, "It only does one thing. It does it downhill." },
+    { "The Foreman",    SPR_BOSS_FOREMAN, 380, 26, 16, 10, 520, 250, 45, SK_STUN,    100, 2, 2, "Management has come down to the floor." },
+    { "The Producer",   SPR_BOSS_PRODUCER,560, 34, 20, 14, 900, 400, 50, SK_HIT_ALL, 120, 3, 2, "The show, wearing a person." },
 };
 const int foe_count = (int)(sizeof foe_defs / sizeof foe_defs[0]);
 
@@ -122,6 +131,27 @@ const ZoneDef zone_defs[] = {
     { "THE CHEAP SEATS",     12, 11 },   /* Vulture Fan    */
 };
 const int zone_count = (int)(sizeof zone_defs / sizeof zone_defs[0]);
+
+/* -------------------------------------------------------- the crawl itself -- */
+
+/*  How many crawlers are left. Just under thirteen million walk in; the number
+ *  on the safe room screens is the one everybody down there watches, because
+ *  it only ever goes one way and it moves while you are looking at it.
+ *
+ *  Derived rather than simulated: floor and elapsed time give a curve that
+ *  starts steep and flattens, which is the shape the real one has.
+ */
+int32_t crawlers_left(void) {
+    int32_t n = 12800000;
+    for (int f = 0; f < g.dun.index; f++)
+        n = n / 3 + n / 12;                     /* each floor takes most of them */
+    int32_t full = 60 * 60 * 14;
+    int32_t gone = full - (g.dun.collapse > 0 ? g.dun.collapse : 0);
+    if (gone < 0) gone = 0;
+    if (gone > full) gone = full;
+    /*  Within a floor, down by a bit over a third by the time it collapses. */
+    return n - (int32_t)((int64_t)n * 38 * gone / (100 * full));
+}
 
 /* ------------------------------------------------------------ safe rooms -- */
 
@@ -352,18 +382,33 @@ int foe_pick(int floor_no) {
         int candidates[12], n = 0;
         int lo = tier - spread < 1 ? 1 : tier - spread;
         for (int i = 0; i < foe_count && n < 12; i++)
-            if (foe_defs[i].floor >= lo && foe_defs[i].floor <= tier && foe_defs[i].hp < 150)
+            if (!foe_defs[i].rank && foe_defs[i].floor >= lo && foe_defs[i].floor <= tier)
                 candidates[n++] = i;
         if (n) return candidates[rng_range(0, n - 1)];
     }
     return 0;
 }
 
+/*  The boss on the stairwell. Borough bosses are the rare ones, and every one
+ *  of them has a stairwell in the room. */
 int foe_boss(int floor_no) {
     int tier = tier_for(floor_no);
-    for (int i = 0; i < foe_count; i++)
-        if (foe_defs[i].floor == tier && foe_defs[i].hp >= 150) return i;
+    int candidates[8], n = 0;
+    for (int i = 0; i < foe_count && n < 8; i++)
+        if (foe_defs[i].rank == 2 && foe_defs[i].floor == tier) candidates[n++] = i;
+    if (n) return candidates[rng_range(0, n - 1)];
     return foe_count - 1;
+}
+
+/*  A neighbourhood's own boss: a caricature of whatever lives there, so where
+ *  one exists for this depth it is preferred over a generic pick. */
+int foe_nboss(int floor_no) {
+    int tier = tier_for(floor_no);
+    int candidates[8], n = 0;
+    for (int i = 0; i < foe_count && n < 8; i++)
+        if (foe_defs[i].rank == 1 && foe_defs[i].floor == tier) candidates[n++] = i;
+    if (n) return candidates[rng_range(0, n - 1)];
+    return foe_boss(floor_no);
 }
 
 /*  Percent to scale a foe by at this depth. Floor one is the printed

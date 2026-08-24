@@ -289,6 +289,7 @@ static void draw_map(Surface *s, int x0, int y0, int w, int h, int cell) {
             case T_SHRINE: mark = C_CYAN; break;
             case T_KIOSK: mark = C_AMBER; break;
             case T_BOSS: mark = C_RED; break;
+            case T_NBOSS: mark = C_MAGENTA; break;
             case T_DOOR: mark = RGB(150, 110, 60); break;
             case T_BOX: case T_BOX_GOLD:
                 mark = dungeon_is_used(mx, my) ? 0 : (t == T_BOX_GOLD ? C_GOLD : RGB(190, 130, 80));
@@ -1072,16 +1073,69 @@ static void draw_safe_room(Surface *top, Surface *bot) {
         gfx_dither(top, x - 8, 31, 104, 18, warm_hi, 5);
     }
 
+    {   /*  The three screens every safe room has. One counts the floor down
+           and the crawlers with it, one is waiting for a leaderboard that
+           does not exist yet, and one is about this particular building.
+           The middle one is the joke: it is the same message everywhere. */
+        const uint16_t bez = RGB(38, 34, 40), bez_hi = RGB(86, 80, 88);
+        const uint16_t scr = RGB(16, 26, 30), lit = RGB(120, 226, 236);
+        /*  Twelve characters is what fits inside a bezel three-to-a-screen,
+            so the wording is cut to that rather than being clipped by it. */
+        static const char *const kScreenTwo[] = { "LEADERBOARD", "POPULATES ON",
+                                                  "COLLAPSE OF", "FLOOR THREE" };
+        for (int i = 0; i < 3; i++) {
+            int x = 3 + i * 85, y = 34, w = 82, h = 48;
+            gfx_rect(top, x, y, w, h, bez);
+            gfx_rect(top, x, y, w, 2, bez_hi);
+            gfx_rect(top, x + 3, y + 3, w - 6, h - 6, scr);
+            for (int sy = y + 3; sy < y + h - 3; sy += 2)   /* the scanlines */
+                gfx_hline(top, x + 3, x + w - 4, sy, gfx_scale_colour(scr, 22, 16));
+
+            if (i == 0) {
+                int secs = g.dun.collapse / 60;
+                char clock[8];
+                int o = 0;
+                for (const char *p = gfx_num(secs / 60); *p; p++) clock[o++] = *p;
+                clock[o++] = ':';
+                for (const char *p = gfx_numpad(secs % 60, 2); *p; p++) clock[o++] = *p;
+                clock[o] = 0;
+                gfx_text(top, x + 5, y + 7, C_DIM, "COLLAPSE IN");
+                gfx_text(top, x + 5, y + 18, C_RED, clock);
+                gfx_text(top, x + 5, y + 29, C_DIM, "CRAWLERS");
+                /*  It clicks down while you are standing there, which is the
+                    only reason anybody looks at it twice. */
+                /*  Grouped: eight bare digits read as a serial number, and
+                    this one is supposed to read as a population. */
+                char who[16];
+                const char *raw = gfx_num((int)crawlers_left());
+                int len = 0;
+                while (raw[len]) len++;
+                int w = 0;
+                for (int k = 0; k < len && w < 14; k++) {
+                    who[w++] = raw[k];
+                    int left = len - 1 - k;
+                    if (left && left % 3 == 0) who[w++] = ',';
+                }
+                who[w] = 0;
+                gfx_text(top, x + 5, y + 39, lit, who);
+            } else if (i == 1) {
+                for (int k = 0; k < 4; k++)
+                    gfx_text(top, x + 5, y + 7 + k * 11, C_DIM, kScreenTwo[k]);
+            } else {
+                gfx_text(top, x + 5, y + 7, C_GOLD, "THIS ROOM");
+                gfx_text(top, x + 5, y + 18, C_INK, "NO FIGHTING");
+                gfx_text(top, x + 5, y + 28, C_INK, "NO FILMING");
+                gfx_text(top, x + 5, y + 38, C_GREEN, "FREE REFILLS");
+            }
+            gfx_frame(top, x, y, w, h, RGB(14, 12, 16));
+        }
+    }
+
     {   /* The back counter, and the hatch behind it. Without them the upper
            half is a gradient, and a gradient is not a room. */
         const uint16_t lam = RGB(148, 74, 62), lam_hi = RGB(196, 118, 96);
         const uint16_t lam_lo = RGB(84, 40, 34), glass = RGB(198, 214, 208);
-        gfx_rect(top, 128, 52, 108, 44, gfx_scale_colour(glass, 11, 16));
-        gfx_rect(top, 130, 54, 104, 40, glass);
-        for (int i = 0; i < 4; i++)                  /* the menu board's lines */
-            gfx_rect(top, 138, 60 + i * 9, 60 - i * 8, 4, gfx_scale_colour(lam, 12, 16));
-        gfx_frame(top, 128, 52, 108, 44, lam_lo);
-
+        (void)glass;
         gfx_rect(top, 0, 100, 118, 28, lam);
         gfx_rect(top, 0, 100, 118, 3, lam_hi);
         gfx_rect(top, 0, 125, 118, 3, lam_lo);

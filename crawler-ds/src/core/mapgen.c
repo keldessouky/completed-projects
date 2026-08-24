@@ -319,6 +319,12 @@ void mapgen_build(int floor_index, uint32_t season) {
     int mid = n - 2 > 0 ? n - 2 : 1;
     for (int i = 0; i < (int)sizeof kit; i++)
         place(&rooms[1 + (int)(gnext() % (uint32_t)mid)], kit[i]);
+
+    /*  Neighbourhood bosses, each in a room of its own. Four to a square on
+        the real floor; three to a generated one, which is about the same
+        density and still leaves somewhere to walk. */
+    for (int i = 0; i < 3; i++)
+        place(&rooms[1 + (int)(gnext() % (uint32_t)mid)], T_NBOSS);
     int boxes = grange(3, 5);
     for (int i = 0; i < boxes; i++)
         place(&rooms[gnext() % (uint32_t)(n - 1)], i == 0 ? T_BOX_GOLD : T_BOX);

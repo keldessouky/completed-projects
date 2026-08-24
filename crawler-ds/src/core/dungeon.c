@@ -60,17 +60,24 @@ void dungeon_set_used(int x, int y) {
 /*  Which neighbourhood the party is standing in. Corridors between rooms
  *  belong to whichever room is nearest, so the top bar never goes blank on
  *  the walk between two of them. */
-int dungeon_zone(void) {
+int dungeon_zone_at(int x, int y) {
     int best = 0, best_d = 1 << 30;
     for (int i = 0; i < g.dun.n_rooms; i++) {
         int cx = g.dun.room_x[i] + g.dun.room_w[i] / 2;
         int cy = g.dun.room_y[i] + g.dun.room_h[i] / 2;
-        int dx = g.dun.px - cx, dy = g.dun.py - cy;
+        int dx = x - cx, dy = y - cy;
         if (dx < 0) dx = -dx;
         if (dy < 0) dy = -dy;
         if (dx + dy < best_d) { best_d = dx + dy; best = i; }
     }
     return g.dun.n_rooms ? g.dun.room_zone[best] : 0;
+}
+
+int dungeon_zone(void) { return dungeon_zone_at(g.dun.px, g.dun.py); }
+
+/*  A neighbourhood whose boss is down stops producing mobs. */
+int dungeon_zone_cleared(void) {
+    return (g.zone_cleared >> dungeon_zone()) & 1;
 }
 
 int dungeon_walkable(int x, int y) {
@@ -101,6 +108,8 @@ void dungeon_light_of_sight(void) {
 void dungeon_enter(int floor_index) {
     if (floor_index >= FLOORS) floor_index = FLOORS - 1;
     memset(&g.dun, 0, sizeof g.dun);
+    g.zone_cleared = 0;          /* a new floor is a new set of neighbourhoods */
+    g.pending_zone = 0;
     g.dun.index = (uint8_t)floor_index;
     mapgen_build(floor_index, g.season);
     for (int y = 0; y < g.dun.h; y++)
@@ -161,6 +170,16 @@ static void enter_tile(int x, int y) {
             battle_start(1);
         }
         break;
+    case T_NBOSS:
+        /*  A neighbourhood boss sits in its own chamber and cannot leave it.
+            Putting one down shuts the neighbourhood: nothing spawns there
+            afterwards, which is the floor's reward for clearing a square. */
+        if (!dungeon_is_used(x, y)) {
+            dungeon_set_used(x, y);
+            g.pending_zone = (uint8_t)(dungeon_zone_at(x, y) + 1);
+            battle_start(2);
+        }
+        break;
     case T_DOWN:
         if (g.dun.index + 1 < FLOORS) {
             audio_sfx(SFX_DOWN);
@@ -209,6 +228,7 @@ void dungeon_step(int forward) {
     if (g.dun.steps_to_encounter) g.dun.steps_to_encounter--;
     if (!g.dun.steps_to_encounter) {
         g.dun.steps_to_encounter = (uint16_t)rng_range(8, 16);
+        if (dungeon_zone_cleared()) return;      /* its boss is down */
         battle_start(0);
     }
 }
@@ -227,6 +247,7 @@ void dungeon_strafe(int right) {
     if (g.dun.steps_to_encounter) g.dun.steps_to_encounter--;
     if (!g.dun.steps_to_encounter) {
         g.dun.steps_to_encounter = (uint16_t)rng_range(8, 16);
+        if (dungeon_zone_cleared()) return;      /* its boss is down */
         battle_start(0);
     }
 }

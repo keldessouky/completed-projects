@@ -340,7 +340,7 @@ static int floor_is_sound(int show) {
         }
     }
     int bad = 0;
-    for (const char *c = ">bSR*1234"; *c; c++) {
+    for (const char *c = ">bnSR*1234"; *c; c++) {
         int found = 0, reach2 = 0;
         for (int y = 0; y < g.dun.h; y++)
             for (int x = 0; x < g.dun.w; x++)
