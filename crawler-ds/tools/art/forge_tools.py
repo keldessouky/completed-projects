@@ -494,5 +494,62 @@ class Sprite:
         self.outline()
         return self
 
+    def quantise(self, limit=16):
+        """Fit the palette into `limit` entries, transparency included.
+
+        Every sprite in pret's Emerald and HeartGold sets is exactly sixteen
+        colours, and that constraint is most of the reason they read the way
+        they do: with four or five steps to spend on a material, each step has
+        to be far enough from its neighbour to be a decision rather than a
+        gradient. A procedural ramp will happily emit thirty, which comes out
+        looking airbrushed.
+
+        So the near-duplicates get collapsed, cheapest pair first. Cost is
+        perceptual distance weighted by how much of the sprite is at stake, so
+        a two-pixel highlight loses to a body tone rather than the reverse, and
+        the survivor keeps its exact colour -- averaging the pair back together
+        would put the soft edge straight back.
+        """
+        counts = {}
+        for v in self.px:
+            if v:
+                counts[v] = counts.get(v, 0) + 1
+        live = sorted(counts)
+
+        def dist(a, b):
+            ca, cb = self.pal[a], self.pal[b]
+            dr, dg, db = ca[0] - cb[0], ca[1] - cb[1], ca[2] - cb[2]
+            return 2 * dr * dr + 4 * dg * dg + 3 * db * db
+
+        merged = {}
+        while len(live) > limit - 1:
+            best = None
+            for i in range(len(live)):
+                for j in range(i + 1, len(live)):
+                    a, b = live[i], live[j]
+                    cost = dist(a, b) * min(counts[a], counts[b])
+                    if best is None or cost < best[0]:
+                        best = (cost, a, b)
+            _, a, b = best
+            keep, drop = (a, b) if counts[a] >= counts[b] else (b, a)
+            counts[keep] += counts[drop]
+            del counts[drop]
+            merged[drop] = keep
+            live.remove(drop)
+
+        def resolve(i):
+            while i in merged:
+                i = merged[i]
+            return i
+
+        # Compact what is left, so the palette has no holes and no dead entries.
+        slot = {old: new for new, old in enumerate(live, start=1)}
+        pal = [(0, 0, 0)] + [self.pal[i] for i in live]
+        for n, v in enumerate(self.px):
+            self.px[n] = slot[resolve(v)] if v else 0
+        self.pal = pal
+        return self
+
     def emit(self):
+        self.quantise()
         return self, [rgb555(c) for c in self.pal]

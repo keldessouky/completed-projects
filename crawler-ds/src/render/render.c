@@ -94,6 +94,13 @@ static void season_tag(Surface *s, int x, int y, uint16_t colour) {
     gfx_text(s, x, y, colour, tag);
 }
 
+/*  Health reads by colour before it reads by length, so the rule lives in one
+ *  place: comfortable, hurt, about to go down. */
+static uint16_t health_colour(int hp, int hp_max) {
+    int pct = hp_max > 0 ? hp * 100 / hp_max : 0;
+    return pct > 50 ? C_GREEN : pct > 20 ? C_GOLD : C_RED;
+}
+
 static void bar_meter(Surface *s, int x, int y, int w, int h, int value, int max,
                       uint16_t fill, const char *label) {
     if (max < 1) max = 1;
@@ -437,8 +444,7 @@ static void hp_box(Surface *s, int x, int y, int w, const char *name, int level,
     gfx_panel(s, bx, by, bw, 6, C_VOID, C_EDGE);
     int filled = hp * (bw - 2) / hp_max;
     int pct = hp * 100 / hp_max;
-    uint16_t fill = pct > 50 ? C_GREEN : pct > 20 ? C_GOLD : C_RED;
-    if (filled > 0) gfx_rect(s, bx + 1, by + 1, filled, 4, fill);
+    if (filled > 0) gfx_rect(s, bx + 1, by + 1, filled, 4, health_colour(hp, hp_max));
     if (pct <= 20 && (g.anim & 16)) gfx_rect(s, bx + 1, by + 1, filled, 4, C_INK);
     if (mine) gfx_text(s, x + w - 5 - gfx_text_width(num), by - 1, C_INK, num);
 }
@@ -465,6 +471,28 @@ static void message_box(Surface *s) {
     int done = reveal < 0 || !line[n];
     if (done && (g.anim & 16))
         gfx_text(s, SCREEN_W - 18, y + 22, C_AMBER, "\177");
+}
+
+/*  The foes, listed with the health the top screen only hints at. Up there the
+ *  Pokemon idiom holds -- a bar and no numbers for the other side -- but the
+ *  touch screen is where the fight actually gets planned, so it gets the
+ *  detail, and it fills the band above the command buttons that was bare. */
+static void foe_roster(Surface *bot, int y) {
+    for (int i = 0; i < g.bat.n_foes; i++) {
+        const Foe *f = &g.bat.foes[i];
+        const FoeDef *def = &foe_defs[f->def];
+        int row = y + i * 17;
+        int targeted = g.bat.phase == BAT_TARGET && g.bat.target == i;
+        window(bot, 6, row, 244, 16, targeted);
+        gfx_text(bot, 12, row + 5, f->alive ? (targeted ? C_AMBER : C_INK) : C_DIM, def->name);
+        if (!f->alive) {
+            gfx_text(bot, 208, row + 5, C_DIM, "DOWN");
+            continue;
+        }
+        gfx_text(bot, 140, row + 5, C_DIM, "HP");
+        bar_meter(bot, 156, row + 5, 88, 6, f->hp, f->hp_max,
+                  health_colour(f->hp, f->hp_max), 0);
+    }
 }
 
 static void draw_battle(Surface *top, Surface *bot) {
@@ -545,7 +573,9 @@ static void draw_battle(Surface *top, Surface *bot) {
     gfx_hline(bot, 0, SCREEN_W - 1, 20, C_AMBER_DK);
 
     if (battle_message(0) >= 0) {                   /* reading: no menu yet */
-        gfx_text(bot, 8, 88, C_DIM, "A or tap to continue");
+        gfx_text(bot, 6, 26, C_AMBER, "AGAINST YOU");
+        foe_roster(bot, 36);
+        gfx_text(bot, 8, 176, C_DIM, "A or tap to continue");
         return;
     }
 
@@ -591,8 +621,8 @@ static void draw_battle(Surface *top, Surface *bot) {
             draw_button(bot, &r, g.bat.target == i);
             gfx_text(bot, r.x + 4, r.y + 6, g.bat.target == i ? C_AMBER : C_INK,
                      foe_defs[g.bat.foes[i].def].name);
-            bar_meter(bot, r.x + 4, r.y + 24, 68, 8, g.bat.foes[i].hp,
-                      g.bat.foes[i].hp_max, C_RED, 0);
+            bar_meter(bot, r.x + 4, r.y + 24, 68, 8, g.bat.foes[i].hp, g.bat.foes[i].hp_max,
+                      health_colour(g.bat.foes[i].hp, g.bat.foes[i].hp_max), 0);
         }
         draw_button(bot, &kBatCommands[BAT_BACK], 0);
         return;
@@ -601,15 +631,25 @@ static void draw_battle(Surface *top, Surface *bot) {
     /*  actor indexes the party for 0..PARTY-1 and the foes above that, so the
         prompt is only asking anybody anything while a hero has the turn. */
     if (g.bat.phase != BAT_CHOOSE || g.bat.actor >= PARTY) {
-        gfx_text(bot, 8, 88, C_DIM, "...");
+        /*  Somebody else's turn. The screen still carries the roster, because a
+         *  touch screen that empties out mid-fight reads as the game hanging. */
+        int foe = g.bat.actor - PARTY;
+        gfx_text(bot, 6, 26, C_AMBER, "AGAINST YOU");
+        if (foe >= 0 && foe < g.bat.n_foes) {
+            const char *name = foe_defs[g.bat.foes[foe].def].name;
+            gfx_text(bot, 6, 176, C_MAGENTA, name);
+            gfx_text(bot, 6 + gfx_text_width(name) + 4, 176, C_DIM, "is taking its turn.");
+        }
+        foe_roster(bot, 36);
         return;
     }
     {
         const char *who = g.hero[g.bat.actor].name;
-        gfx_text(bot, 6, 24, C_DIM, "What will");
-        gfx_text(bot, 62, 24, C_MAGENTA, who);
-        gfx_text(bot, 62 + gfx_text_width(who) + 4, 24, C_DIM, "do?");
+        gfx_text(bot, 6, 26, C_DIM, "What will");
+        gfx_text(bot, 62, 26, C_MAGENTA, who);
+        gfx_text(bot, 62 + gfx_text_width(who) + 4, 26, C_DIM, "do?");
     }
+    foe_roster(bot, 38);
     for (int i = 0; i < 4; i++)
         draw_button(bot, &kBatCommands[i], g.bat.cursor == i);
 }

@@ -615,8 +615,17 @@ def boss_producer():
     ], {'p': dark})
     s.rect(36, 12, 60, 13, glass[4])                 # screen glare
     s.line(38, 14, 44, 14, glass[3])
+    # A lighting truss, and his lamps hanging off it. Without the truss the
+    # lamps read as two squares floating in the air beside his head.
+    s.rect(4, 0, 92, 2, steel[1])
+    s.rect(4, 0, 92, 0, steel[3])
+    s.rect(4, 3, 92, 3, steel[0])
+    for x in range(8, 92, 12):                       # the truss's cross-bracing
+        s.line(x, 0, x + 6, 3, steel[2])
+        s.line(x + 6, 0, x, 3, steel[0])
     for x in (10, 84):                               # studio lamps, on him
-        s.rect(x - 5, 2, x + 5, 10, dark)
-        s.rect(x - 3, 4, x + 3, 8, s.ink((255, 246, 210)))
-        s.put(x, 6, s.ink((255, 255, 255)))
+        s.rect(x - 1, 3, x + 1, 5, steel[1])         # the yoke it hangs from
+        s.rect(x - 5, 5, x + 5, 13, dark)
+        s.rect(x - 3, 7, x + 3, 11, s.ink((255, 246, 210)))
+        s.put(x, 9, s.ink((255, 255, 255)))
     return s.finish().emit()
