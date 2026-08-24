@@ -254,6 +254,14 @@ static void draw_story(Surface *top, Surface *bot) {
 static void draw_map(Surface *s, int x0, int y0, int w, int h, int cell) {
     gfx_panel(s, x0, y0, w, h, C_VOID, C_EDGE);
     int cols = (w - 4) / cell, rows = (h - 4) / cell;
+
+    /*  A lattice under the whole map, so the ground the party has not walked
+     *  yet reads as somewhere they have not been rather than as a hole in the
+     *  screen. It also says how big the floor is before they have seen it. */
+    for (int j = 0; j <= rows; j++)
+        for (int i = 0; i <= cols; i++)
+            gfx_pixel(s, x0 + 2 + i * cell, y0 + 2 + j * cell, RGB(38, 42, 60));
+
     int cx = g.dun.px - cols / 2, cy = g.dun.py - rows / 2;
     if (cx < 0) cx = 0;
     if (cy < 0) cy = 0;

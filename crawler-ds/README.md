@@ -151,11 +151,38 @@ licensed.
   anti-aliases a curve by stepping the inside corner of each staircase one down
   its own ramp; and `taper_line()` draws a whisker that fades instead of a line
   that scratches.
-- **`tools/art/cast.py`, `bestiary.py`, `props.py`** — the 26 drawings
-  themselves: the party at 56×72, the bestiary at 72×72, the bosses at 96×96 and
+- **`tools/art/*_grid.py`** — the party, placed pixel by pixel. The toolkit
+  above shades a form the way a renderer would, and that is the wrong answer
+  for this hardware: it produces a smooth gradient, and a smooth gradient at
+  DS resolution looks airbrushed rather than drawn. Every sprite in pret's
+  Emerald and HeartGold sets is exactly sixteen colours, and that constraint
+  is most of the reason they read the way they do — with four or five steps to
+  spend on a material, each step has to be far enough from its neighbour to be
+  a decision rather than a blend. Carl, Donut, Mordecai, the Bopca and the
+  Goblin Trapper are hand-placed ASCII grids against a sixteen-colour palette
+  for exactly that reason. `Sprite.emit()` holds everything else to the same
+  rule, collapsing a bloated ramp to fit by merging its cheapest pair first.
+- **`tools/art/cast.py`, `bestiary.py`, `props.py`** — the rest of the
+  drawings: the party at 56×72, the bestiary at 72×72, the bosses at 96×96 and
   the furniture at 40×40.
+- **`tools/art/textures.py`** — nine tiling 32×32 surfaces, a wall, floor and
+  ceiling each for poured concrete, riveted steel and cut stone. The detail
+  that earns its place in every one of them is the band running round at a
+  constant height — hazard chevrons, a plate seam, a neon tube. It converges
+  with the corridor, and that is what makes the perspective legible at a
+  glance.
 - **`tools/art/font5x7.py`** — the font, drawn as ASCII art, seven rows of five
   cells per glyph, 104 glyphs including the System's arrows and pips.
+- **`src/render/view3d.c`** — the corridor, and the arena a fight happens in.
+  A pinhole camera sits at the centre of its own cell, so a surface `z` cells
+  away has screen half-width `PROJ/z`, and everything else falls out of that:
+  floor and ceiling are horizontal planes solved once per scanline, side walls
+  are vertical planes solved once per column, and the wall being faced is
+  parallel to the screen so it needs no correction at all. Distance is fog
+  rather than darkness, through a palette precomputed per shade level, so a
+  texel costs one lookup however far away it is. The whole renderer is about
+  four percent of a frame on the real thing — measured at 465 game frames per
+  600 emulator frames, against 483 for the flat-filled version it replaced.
 - **`src/core/mapgen.c`** — the floors, built on the DS itself when you
   descend. Rooms are placed and joined in sequence, which makes the floor
   connected by construction; then the exit room is sealed, one doorway is cut
@@ -231,14 +258,14 @@ make test       # the ROM, in an emulator
 
 **`tools/hostsim`** compiles `src/core` and `src/render` — the same files the ROM
 uses — against a stub platform layer, and plays the game with a bot that reads
-the map and walks it. A full three-floor run takes about two seconds, so five
+the map and walks it. A full season takes about two seconds, so five
 seeded playthroughs are a routine check that the game is still completable and
 still roughly the right difficulty. It also checks the touch layout, round-trips
 recall codes including rejecting corrupted ones, and sweeps four thousand season
 seeds to prove every generated floor can actually be finished. Every screenshot
 in `docs/shots/` comes from it.
 
-`hostsim --map <seed>` prints a season's three floors as text, with any floor
+`hostsim --map <seed>` prints a season's floors as text, with any floor
 the party cannot reach marked `?`. Three separate generator bugs were each
 found by looking at that output rather than by reasoning about the code.
 
@@ -258,7 +285,7 @@ $ make test
   ok   steps > 4
 == explore, fight, loot
   ok   battles_won >= 1
-passed: 17 checks, 0 failures
+passed: 22 checks, 0 failures
 ```
 
 ---
