@@ -1051,6 +1051,87 @@ static void draw_shop(Surface *top, Surface *bot) {
 
 /* ------------------------------------------------------------------ box --- */
 
+/*  A safe room. The whole point of them in the book is that they are mundane:
+ *  a Waffle House with the lights on, four hundred feet under a dead city, on
+ *  a floor that is going to stop existing. So this is the one screen down here
+ *  that is warm and evenly lit -- no fog, no vignette, no haze, and a chequer
+ *  floor, because that is what the floor of one of these actually looks like. */
+static void draw_safe_room(Surface *top, Surface *bot) {
+    const SafeRoomDef *r = &safe_room_defs[g.safe_room % safe_room_count];
+    const uint16_t warm_hi = RGB(252, 244, 214), warm = RGB(214, 196, 158);
+    const uint16_t wall = RGB(178, 158, 126), wall_lo = RGB(120, 104, 84);
+    const uint16_t tile_a = RGB(226, 220, 204), tile_b = RGB(92, 88, 84);
+
+    gfx_vgradient(top, 0, 0, SCREEN_W, 120, warm_hi, wall);
+    gfx_vgradient(top, 0, 120, SCREEN_W, 8, wall_lo, wall_lo);
+
+    for (int i = 0; i < 2; i++) {              /* the strip lights, humming */
+        int x = 34 + i * 116;
+        gfx_rect(top, x, 22, 88, 7, warm_hi);
+        gfx_rect(top, x, 29, 88, 2, warm);
+        gfx_dither(top, x - 8, 31, 104, 18, warm_hi, 5);
+    }
+
+    {   /* The back counter, and the hatch behind it. Without them the upper
+           half is a gradient, and a gradient is not a room. */
+        const uint16_t lam = RGB(148, 74, 62), lam_hi = RGB(196, 118, 96);
+        const uint16_t lam_lo = RGB(84, 40, 34), glass = RGB(198, 214, 208);
+        gfx_rect(top, 128, 52, 108, 44, gfx_scale_colour(glass, 11, 16));
+        gfx_rect(top, 130, 54, 104, 40, glass);
+        for (int i = 0; i < 4; i++)                  /* the menu board's lines */
+            gfx_rect(top, 138, 60 + i * 9, 60 - i * 8, 4, gfx_scale_colour(lam, 12, 16));
+        gfx_frame(top, 128, 52, 108, 44, lam_lo);
+
+        gfx_rect(top, 0, 100, 118, 28, lam);
+        gfx_rect(top, 0, 100, 118, 3, lam_hi);
+        gfx_rect(top, 0, 125, 118, 3, lam_lo);
+        for (int x = 8; x < 118; x += 26)            /* stools, bolted down */
+            gfx_rect(top, x, 96, 14, 4, RGB(160, 156, 150));
+    }
+
+    /*  The floor, in perspective by rows: squares get shorter and wider as they
+        run back, which is all a chequer needs to sit down flat. */
+    for (int y = 128; y < SCREEN_H; y++) {
+        int depth = y - 128;
+        /*  Find the band this row belongs to, and take the square size from
+            where the band starts -- not from the row. Sizing per row makes
+            every row in a band a different width and the whole floor shears. */
+        int band = 0, acc = 0, size;
+        for (;;) {
+            size = 11 + acc / 3;
+            int rows = size / 2 + 1;
+            if (depth < acc + rows) break;
+            acc += rows;
+            band++;
+        }
+        int off = (band & 1) ? size / 2 : 0;
+        for (int x = 0; x < SCREEN_W; x++)
+            top->px[y * SCREEN_W + x] = ((((x + off) / size) + band) & 1) ? tile_a : tile_b;
+    }
+    gfx_hline(top, 0, SCREEN_W - 1, 128, RGB(60, 56, 52));
+    gfx_hline(top, 0, SCREEN_W - 1, 129, RGB(112, 104, 96));
+
+    {   /* The party, standing in it, not fighting anything for once. */
+        const Sprite *a = hero_sprite(0), *b = hero_sprite(1);
+        const int sc = 96;
+        int ah = a->h * sc / 100, bh = b->h * sc / 100;
+        int bob = (g.anim / 20) & 1;
+        gfx_sprite_scaled(top, a, 42, 176 - ah + bob, sc, 100);
+        gfx_sprite_scaled(top, b, 42 + a->w * sc / 100 + 8, 178 - bh - bob, sc, 100);
+    }
+
+    system_bar(top, "SAFE ROOM", kFloorNames[g.dun.index]);
+
+    backdrop(bot);
+    gfx_text_big(bot, 12, 26, C_GOLD, r->name);
+    gfx_text_wrapped(bot, 12, 58, 232, C_INK, r->blurb);
+    window(bot, 8, 104, 240, 46, 0);
+    gfx_text(bot, 16, 112, C_GREEN, "Everyone is patched up.");
+    gfx_text(bot, 16, 128, C_DIM, "Health and stamina full. The floor");
+    gfx_text(bot, 16, 138, C_DIM, "outside has not stopped for this.");
+    gfx_text(bot, 12, 168, C_AMBER, "TAP TO CONTINUE");
+}
+
 static void draw_box(Surface *top, Surface *bot) {
     static const char *const tiers[4] = { "BRONZE", "SILVER", "GOLD", "LEGENDARY" };
     static const uint16_t tier_colour[4] = { RGB(190, 130, 80), RGB(200, 206, 218), RGB(250, 208, 80), RGB(206, 96, 236) };
@@ -1309,7 +1390,7 @@ static uint32_t render_signature(void) {
     /* Scenes that are alive even when the player is not. */
     if (g.scene == SCENE_TITLE) MIX(season_count());
     if (g.scene == SCENE_TITLE || g.scene == SCENE_STORY || g.scene == SCENE_BOX ||
-        g.scene == SCENE_VICTORY)
+        g.scene == SCENE_SAFEROOM || g.scene == SCENE_VICTORY)
         MIX(g.anim >> 1);
     if (g.scene == SCENE_CODE) MIX(g.anim >> 4);
     #undef MIX
@@ -1335,6 +1416,7 @@ int render_frame(void) {
     case SCENE_MENU:     draw_menu(&top, &bot);     break;
     case SCENE_SHOP:     draw_shop(&top, &bot);     break;
     case SCENE_BOX:      draw_box(&top, &bot);      break;
+    case SCENE_SAFEROOM: draw_safe_room(&top, &bot); break;
     case SCENE_LEVELUP:  draw_levelup(&top, &bot);  break;
     case SCENE_CODE:     draw_code(&top, &bot);     break;
     case SCENE_GAMEOVER: draw_gameover(&top, &bot); break;

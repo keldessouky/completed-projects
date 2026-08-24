@@ -116,6 +116,30 @@ const ZoneDef zone_defs[] = {
 };
 const int zone_count = (int)(sizeof zone_defs / sizeof zone_defs[0]);
 
+/* ------------------------------------------------------------ safe rooms -- */
+
+/*  The one thing about the dungeon that everybody who has read the book
+ *  remembers: the safe rooms are not shrines or checkpoints, they are ordinary
+ *  buildings from Earth, lifted whole and set into the rock. A Waffle House
+ *  with the lights still on, four hundred feet underground, on a floor that is
+ *  going to stop existing. The joke only works if they are mundane, so none of
+ *  these are impressive and one of them is a DMV.
+ *
+ *  Everything here is written for the game. The premise is Matt Dinniman's;
+ *  the specific rooms are not from the books.
+ */
+const SafeRoomDef safe_room_defs[] = {
+    { "PERUVIAN TACO BELL",   "The menu is in Spanish. The horchata is free and nobody can explain why it is here." },
+    { "ALABAMA WAFFLE HOUSE", "Open. Always was, always will be. The grill is hot and there is nobody working it." },
+    { "DMV WAITING ROOM",     "Now serving number 41. The board has been showing 41 since the world ended." },
+    { "AIRPORT SMOKING BOX",  "A glass cube that smells like 1994, and somehow the most comforting place on the floor." },
+    { "TURNPIKE REST STOP",   "Vending machines, a wall map of a state that is gone, and a bathroom that locks." },
+    { "LAUNDROMAT",           "Fluorescent, humming, warm. One dryer is running. Do not ask whose clothes." },
+    { "HOSPITAL CAFETERIA",   "Jello in four colours. Trays. The particular quiet of a room built for bad news." },
+    { "BOWLING ALLEY BAR",    "Lane three is set up. The pins reset if you knock them down, which is worse." },
+};
+const int safe_room_count = (int)(sizeof safe_room_defs / sizeof safe_room_defs[0]);
+
 /* -------------------------------------------------------------- crawlers -- */
 
 /*  Four of them, drawn from what the show has on file. Two go down each

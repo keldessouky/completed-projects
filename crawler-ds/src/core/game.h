@@ -28,7 +28,7 @@
 typedef enum {
     SCENE_TITLE, SCENE_STORY, SCENE_DUNGEON, SCENE_BATTLE, SCENE_MENU,
     SCENE_SHOP, SCENE_BOX, SCENE_LEVELUP, SCENE_CODE, SCENE_GAMEOVER,
-    SCENE_VICTORY, SCENE_CUTSCENE, SCENE_DRAFT, SCENE_COUNT
+    SCENE_VICTORY, SCENE_CUTSCENE, SCENE_DRAFT, SCENE_SAFEROOM, SCENE_COUNT
 } Scene;
 
 typedef enum { DIR_N, DIR_E, DIR_S, DIR_W } Dir;
@@ -193,6 +193,16 @@ typedef struct {
     const char *blurb;
 } CrawlerDef;
 
+/* ------------------------------------------------------------ safe rooms -- */
+
+typedef struct {
+    const char *name;
+    const char *blurb;
+} SafeRoomDef;
+
+extern const SafeRoomDef safe_room_defs[];
+extern const int safe_room_count;
+
 /* ---------------------------------------------------------- neighbourhood -- */
 
 typedef struct {
@@ -319,6 +329,7 @@ typedef struct {
     uint8_t  menu_tab, menu_cursor;
     uint8_t  shop_cursor;
     uint8_t  box_tier, box_phase, box_item;
+    uint8_t  safe_room;         /* index into safe_room_defs, while in one */
     uint16_t box_timer;
     uint8_t  levelup_hero;
 

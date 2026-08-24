@@ -189,7 +189,8 @@ static void grind_to(int level, int max_steps) {
             g.scene == SCENE_TITLE || g.scene == SCENE_DRAFT) return;
         if (g.scene == SCENE_STORY || g.scene == SCENE_CUTSCENE ||
             g.scene == SCENE_BOX || g.scene == SCENE_LEVELUP ||
-            g.scene == SCENE_SHOP || g.scene == SCENE_CODE) { tap(BTN_A); continue; }
+            g.scene == SCENE_SHOP || g.scene == SCENE_CODE ||
+            g.scene == SCENE_SAFEROOM) { tap(BTN_A); continue; }
         if (g.scene == SCENE_GAMEOVER || g.scene == SCENE_VICTORY) return;
         if (g.scene != SCENE_DUNGEON) { tap(BTN_B); continue; }
         uint16_t before = g.dun.steps;
@@ -220,7 +221,8 @@ static int walk_to(char want, int max_steps) {
             g.scene == SCENE_TITLE || g.scene == SCENE_DRAFT) return 0;
         if (g.scene == SCENE_STORY || g.scene == SCENE_CUTSCENE ||
             g.scene == SCENE_BOX || g.scene == SCENE_LEVELUP ||
-            g.scene == SCENE_SHOP || g.scene == SCENE_CODE) { tap(BTN_A); continue; }
+            g.scene == SCENE_SHOP || g.scene == SCENE_CODE ||
+            g.scene == SCENE_SAFEROOM) { tap(BTN_A); continue; }
         if (g.scene != SCENE_DUNGEON) { tap(BTN_B); continue; }
 
         int tx = -1, ty = -1;
@@ -404,6 +406,10 @@ int main(int argc, char **argv) {
         pause_scene = SCENE_BOX;
         walk_to(T_BOX, 500);
         if (g.scene == SCENE_BOX) { idle(50); shot("04-lootbox"); }
+        pause_scene = SCENE_SAFEROOM;
+        for (int i = 0; i < 20 && g.scene != SCENE_DUNGEON; i++) tap(BTN_A);
+        walk_to(T_SHRINE, 700);
+        if (g.scene == SCENE_SAFEROOM) { idle(8); shot("04b-safe-room"); }
         pause_scene = -1;
         for (int i = 0; i < 20 && g.scene != SCENE_DUNGEON; i++) tap(BTN_A);
         /* Pace the corridor until something takes an interest. */
@@ -412,7 +418,8 @@ int main(int argc, char **argv) {
             g.scene == SCENE_TITLE || g.scene == SCENE_DRAFT) return 0;
         if (g.scene == SCENE_STORY || g.scene == SCENE_CUTSCENE ||
             g.scene == SCENE_BOX || g.scene == SCENE_LEVELUP ||
-                g.scene == SCENE_SHOP || g.scene == SCENE_CODE) { tap(BTN_A); continue; }
+                g.scene == SCENE_SHOP || g.scene == SCENE_CODE ||
+            g.scene == SCENE_SAFEROOM) { tap(BTN_A); continue; }
             if (g.scene != SCENE_DUNGEON) { tap(BTN_B); continue; }
             tap(BTN_UP);
             if (g.scene == SCENE_DUNGEON && g.dun.steps == (uint16_t)(guard / 4)) tap(BTN_RIGHT);

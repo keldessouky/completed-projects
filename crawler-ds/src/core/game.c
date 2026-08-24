@@ -364,6 +364,15 @@ static void update_box(const PlatInput *in) {
     }
 }
 
+/*  A safe room is a beat, not a puzzle: the party is already healed by the
+ *  time the screen comes up, and any button leaves. */
+static void update_safe_room(const PlatInput *in) {
+    if ((in->pressed & (BTN_A | BTN_B)) || in->touch_pressed) {
+        if (g.hero[0].points || g.hero[1].points) game_set_scene(SCENE_LEVELUP);
+        else game_set_scene(SCENE_DUNGEON);
+    }
+}
+
 static void update_levelup(const PlatInput *in) {
     int hero = g.hero[0].points ? 0 : 1;
     g.levelup_hero = (uint8_t)hero;
@@ -669,6 +678,7 @@ int game_frame(const PlatInput *in) {
     case SCENE_MENU:     update_menu(in);    break;
     case SCENE_SHOP:     update_shop(in);    break;
     case SCENE_BOX:      update_box(in);     break;
+    case SCENE_SAFEROOM: update_safe_room(in); break;
     case SCENE_LEVELUP:  update_levelup(in); break;
     case SCENE_CODE:     update_code(in);    break;
     case SCENE_GAMEOVER:

@@ -135,6 +135,11 @@ static void enter_tile(int x, int y) {
         }
         break;
     case T_SHRINE:
+        /*  A safe room. Which building it is stays fixed for a given tile on a
+            given floor, so a player can learn a floor's layout and a recall
+            code brings back the same one. */
+        g.safe_room = (uint8_t)(((x * 73856093) ^ (y * 19349663) ^
+                                 ((g.dun.index + 1) * 83492791)) % safe_room_count);
         if (!dungeon_is_used(x, y)) {
             dungeon_set_used(x, y);
             for (int i = 0; i < PARTY; i++) {
@@ -142,8 +147,8 @@ static void enter_tile(int x, int y) {
                 hero_heal(&g.hero[i], g.hero[i].hp_max);
                 g.hero[i].mp = g.hero[i].mp_max;
             }
-            game_toast("Shrine: the party is patched up.", 0);
         }
+        game_set_scene(SCENE_SAFEROOM);
         break;
     case T_KIOSK:
         game_set_scene(SCENE_CODE);
