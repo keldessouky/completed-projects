@@ -36,6 +36,9 @@ void gfx_vline(Surface *s, int x, int y0, int y1, uint16_t c);
 void gfx_rect(Surface *s, int x, int y, int w, int h, uint16_t c);
 void gfx_frame(Surface *s, int x, int y, int w, int h, uint16_t c);
 void gfx_panel(Surface *s, int x, int y, int w, int h, uint16_t fill, uint16_t edge);
+void gfx_window(Surface *s, int x, int y, int w, int h,
+                uint16_t top, uint16_t bottom, uint16_t hi, uint16_t lo, uint16_t edge);
+void gfx_window_shadow(Surface *s, int x, int y, int w, int h);
 void gfx_vgradient(Surface *s, int x, int y, int w, int h, uint16_t top, uint16_t bottom);
 void gfx_dither(Surface *s, int x, int y, int w, int h, uint16_t c, int density);
 void gfx_shade(Surface *s, int x, int y, int w, int h, int amount);

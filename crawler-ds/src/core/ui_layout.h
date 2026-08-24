@@ -7,16 +7,16 @@ typedef struct { int16_t x, y, w, h; const char *label; } Rect;
 
 /* Bottom screen, dungeon: a d-pad on the left, actions on the right. */
 static const Rect kDunPad[] = {
-    {  30, 116, 34, 26, "\177" },      /* forward   */
-    {  30, 160, 34, 22, "\200" },      /* back      */
-    {   4, 138, 24, 26, "\201" },      /* turn left */
-    {  66, 138, 24, 26, "\202" },      /* turn right*/
+    {  36, 118, 28, 24, "\177" },      /* forward   */
+    {  36, 164, 28, 22, "\200" },      /* back      */
+    {   6, 142, 26, 22, "\201" },      /* turn left */
+    {  68, 142, 26, 22, "\202" },      /* turn right*/
 };
 static const Rect kDunActions[] = {
-    { 100, 116, 72, 24, "LOOK" },
-    { 176, 116, 76, 24, "PARTY" },
-    { 100, 144, 72, 24, "MAP+" },
-    { 176, 144, 76, 24, "CODE" },
+    { 102, 118, 72, 26, "LOOK" },
+    { 178, 118, 74, 26, "PARTY" },
+    { 102, 146, 72, 26, "MAP+" },
+    { 178, 146, 74, 26, "CODE" },
 };
 
 /*  Four commands in a two-by-two block. Pokemon puts the party switch in the

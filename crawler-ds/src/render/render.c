@@ -44,13 +44,39 @@ static const Sprite *hero_sprite(int slot) {
     return sprite_table[crawler_defs[g.hero[slot].crawler].sprite];
 }
 
+/*  Every framed thing in the game goes through these two, so the chrome is
+ *  one edit rather than ninety. A selected button swaps its gradient for the
+ *  warm one and keeps the bevel, which reads as lit rather than as outlined. */
+static void window(Surface *s, int x, int y, int w, int h, int lit) {
+    gfx_window_shadow(s, x, y, w, h);
+    gfx_window(s, x, y, w, h,
+               lit ? C_SEL_TOP : C_WIN_TOP, lit ? C_SEL_BOT : C_WIN_BOT,
+               lit ? C_SEL_HI : C_WIN_HI, C_WIN_LO, C_WIN_EDGE);
+}
+
+/*  The screen behind everything: a gradient with a faint weave in it, because
+ *  a flat black background is the single loudest thing saying "terminal". */
+static void backdrop(Surface *s) {
+    gfx_vgradient(s, 0, 0, SCREEN_W, SCREEN_H, C_BG_TOP, C_BG_BOT);
+    for (int y = 6; y < SCREEN_H; y += 16)      /* a faint weave, not a grid */
+        gfx_dither(s, 0, y, SCREEN_W, 1, C_WIN_HI, 1);
+    gfx_dither(s, 0, SCREEN_H - 26, SCREEN_W, 26, C_SHADOW, 3);
+}
+
 /* ------------------------------------------------------------- furniture -- */
 
 static void system_bar(Surface *s, const char *left, const char *right) {
-    gfx_rect(s, 0, 0, SCREEN_W, 13, C_PANEL);
-    gfx_hline(s, 0, SCREEN_W - 1, 13, C_AMBER_DK);
+    gfx_vgradient(s, 0, 0, SCREEN_W, 14, C_WIN_TOP, C_WIN_BOT);
+    gfx_hline(s, 0, SCREEN_W - 1, 0, C_WIN_HI);
+    gfx_hline(s, 0, SCREEN_W - 1, 14, C_WIN_EDGE);
+    gfx_hline(s, 0, SCREEN_W - 1, 13, C_WIN_LO);
+    gfx_text(s, 5, 4, C_WIN_EDGE, left);
     gfx_text(s, 4, 3, C_AMBER, left);
-    if (right) gfx_text(s, SCREEN_W - 4 - gfx_text_width(right), 3, C_INK, right);
+    if (right) {
+        int rx = SCREEN_W - 4 - gfx_text_width(right);
+        gfx_text(s, rx + 1, 4, C_WIN_EDGE, right);
+        gfx_text(s, rx, 3, C_INK, right);
+    }
 }
 
 /*  "S347". The dungeon is generated per run, so which one you are in is real
@@ -95,6 +121,9 @@ static void toasts(Surface *s) {
 }
 
 static void party_strip(Surface *s, int y) {
+    gfx_vgradient(s, 0, y - 6, SCREEN_W, 20, C_WIN_TOP, C_WIN_BOT);
+    gfx_hline(s, 0, SCREEN_W - 1, y - 6, C_WIN_HI);
+    gfx_hline(s, 0, SCREEN_W - 1, y + 13, C_WIN_EDGE);
     for (int i = 0; i < PARTY; i++) {
         const Hero *h = &g.hero[i];
         int x = 4 + i * 126;
@@ -138,7 +167,7 @@ static void draw_title(Surface *top, Surface *bot) {
         gfx_text(top, 24, 92, C_INK, "Eighteen floors. Nobody is wearing shoes.");
     }
 
-    gfx_clear(bot, C_VOID);
+    backdrop(bot);
     gfx_vgradient(bot, 0, 0, SCREEN_W, 40, C_PANEL, C_VOID);
     gfx_text(bot, 8, 10, C_AMBER, "THE SYSTEM AWAITS YOUR DECISION");
     gfx_text(bot, 8, 24, C_DIM, "A season ends when the crawler does.");
@@ -147,7 +176,7 @@ static void draw_title(Surface *top, Surface *bot) {
     for (int i = 0; i < 2; i++) {
         int y = 118 + i * 32;
         int on = g.title_cursor == i;
-        gfx_panel(bot, 40, y, 176, i ? 24 : 26, on ? C_PANEL_LIT : C_PANEL, on ? C_AMBER : C_EDGE);
+        window(bot, 40, y, 176, i ? 24 : 26, on);
         gfx_text(bot, 40 + (176 - gfx_text_width(opts[i])) / 2, y + (i ? 8 : 9),
                  on ? C_AMBER : C_DIM, opts[i]);
     }
@@ -198,8 +227,8 @@ static void draw_story(Surface *top, Surface *bot) {
         gfx_text(top, SCREEN_W - 26, 8, C_DIM, gfx_num(b->count));
     }
 
-    gfx_clear(bot, C_VOID);
-    gfx_panel(bot, 4, 4, SCREEN_W - 8, SCREEN_H - 30, C_PANEL, C_EDGE);
+    backdrop(bot);
+    window(bot, 4, 4, SCREEN_W - 8, SCREEN_H - 30, 0);
     if (b) {
         char shown[220];
         const char *src = b->lines[g.beat_line].text;
@@ -270,10 +299,13 @@ static void draw_map(Surface *s, int x0, int y0, int w, int h, int cell) {
 }
 
 static void draw_button(Surface *s, const Rect *r, int on) {
-    gfx_panel(s, r->x, r->y, r->w, r->h, on ? C_PANEL_LIT : C_PANEL, on ? C_AMBER : C_EDGE);
-    if (r->label)
-        gfx_text(s, r->x + (r->w - gfx_text_width(r->label)) / 2, r->y + (r->h - 7) / 2,
-                 on ? C_AMBER : C_INK, r->label);
+    window(s, r->x, r->y, r->w, r->h, on);
+    if (r->label) {
+        int tx = r->x + (r->w - gfx_text_width(r->label)) / 2;
+        int ty = r->y + (r->h - 7) / 2;
+        gfx_text(s, tx + 1, ty + 1, C_WIN_EDGE, r->label);      /* text shadow */
+        gfx_text(s, tx, ty, on ? C_SEL_HI : C_INK, r->label);
+    }
 }
 
 static void draw_dungeon(Surface *top, Surface *bot) {
@@ -310,20 +342,29 @@ static void draw_dungeon(Surface *top, Surface *bot) {
     if (!secs) gfx_text(top, SCREEN_W - 4 - gfx_text_width("COLLAPSING"), 3, C_RED, "COLLAPSING");
     toasts(top);
 
-    gfx_clear(bot, C_VOID);
+    backdrop(bot);
     gfx_rect(bot, 0, 0, SCREEN_W, 22, C_PANEL);
     party_strip(bot, 7);
     gfx_hline(bot, 0, SCREEN_W - 1, 22, C_AMBER_DK);
 
-    draw_map(bot, 4, 26, SCREEN_W - 8, 84, g.menu_cursor & 1 ? 8 : 6);
+    /*  The map is a hole in the console, so it gets an inset frame: dark
+        bevel on the top and left, light on the bottom and right — the
+        opposite of a button, which is what makes it read as recessed. */
+    gfx_window(bot, 3, 25, SCREEN_W - 6, 88, C_WIN_LO, C_WIN_LO,
+               C_WIN_LO, C_WIN_HI, C_WIN_EDGE);
+    draw_map(bot, 6, 28, SCREEN_W - 12, 82, g.menu_cursor & 1 ? 8 : 6);
 
-    gfx_text(bot, 6, 114, C_DIM, "GOLD");
-    gfx_text(bot, 6, 124, C_GOLD, gfx_num(g.gold));
-    gfx_text(bot, 6, 138, C_DIM, "BOXES");
-    gfx_text(bot, 6, 148, C_INK, gfx_num(g.boxes_opened));
-
+    /*  The d-pad needs somewhere to live, or four floating diamonds read as
+        an unfinished screen. The housing also keeps the run's numbers off it. */
+    window(bot, 2, 114, 96, 76, 0);
     for (int i = 0; i < 4; i++) draw_button(bot, &kDunPad[i], 0);
     for (int i = 0; i < 4; i++) draw_button(bot, &kDunActions[i], 0);
+
+    window(bot, 100, 174, 152, 16, 0);
+    gfx_text(bot, 106, 178, C_DIM, "GOLD");
+    gfx_text(bot, 134, 178, C_GOLD, gfx_num(g.gold));
+    gfx_text(bot, 180, 178, C_DIM, "BOXES");
+    gfx_text(bot, 222, 178, C_INK, gfx_num(g.boxes_opened));
 }
 
 /* --------------------------------------------------------------- battle --- */
@@ -382,7 +423,7 @@ static void draw_arena(Surface *s, int floor_index) {
 static void hp_box(Surface *s, int x, int y, int w, const char *name, int level,
                    int hp, int hp_max, int mine) {
     int h = mine ? 30 : 24;
-    gfx_panel(s, x, y, w, h, C_PANEL, C_EDGE);
+    window(s, x, y, w, h, 0);
     gfx_hline(s, x + 1, x + w - 2, y + 1, gfx_scale_colour(C_INK, 3, 16));
     gfx_text(s, x + 5, y + 4, C_INK, name);
     gfx_text(s, x + w - 26, y + 4, C_DIM, "L");
@@ -417,7 +458,7 @@ static void message_box(Surface *s) {
     const char *line = 0;
     int reveal = battle_message(&line);
     int y = SCREEN_H - 38;
-    gfx_panel(s, 4, y, SCREEN_W - 8, 34, C_PANEL, C_AMBER_DK);
+    window(s, 4, y, SCREEN_W - 8, 34, 0);
     gfx_hline(s, 6, SCREEN_W - 7, y + 2, gfx_scale_colour(C_AMBER_DK, 8, 16));
     if (!line || !*line) return;
 
@@ -444,10 +485,12 @@ static void draw_battle(Surface *top, Surface *bot) {
     for (int i = 0; i < g.bat.n_foes; i++) {
         const Foe *f = &g.bat.foes[i];
         const Sprite *sp = sprite_table[foe_defs[f->def].sprite];
-        int scale = g.bat.boss ? 96 : g.bat.n_foes >= 3 ? 62 : g.bat.n_foes == 2 ? 76 : 92;
+        int scale = g.bat.boss ? 104 : g.bat.n_foes >= 3 ? 64 : g.bat.n_foes == 2 ? 80 : 104;
         int fw = sp->w * scale / 100, fh = sp->h * scale / 100;
         int fx = SCREEN_W - 20 - fw - i * (g.bat.n_foes >= 3 ? 58 : 74);
-        int fy = 46 + (i & 1) * 14 - (int)((g.anim / 14 + i) & 1);
+        /*  High enough to clear the party's boxes, which sit in the bottom
+            right: a foe drawn under them reads as clipped. */
+        int fy = 16 + (i & 1) * 12 - (int)((g.anim / 14 + i) & 1);
         if (fx < 4) fx = 4;
         for (int k = 0; k < 4; k++)                 /* the platform it stands on */
             gfx_dither(top, fx + k, fy + fh + k - 2, fw - k * 2, 1, C_SHADOW, 12 - k * 3);
@@ -491,7 +534,7 @@ static void draw_battle(Surface *top, Surface *bot) {
     message_box(top);
 
     if (g.bat.phase == BAT_WON) {
-        gfx_panel(top, 44, 56, 168, 44, C_PANEL, C_GOLD);
+        window(top, 44, 56, 168, 44, 0);
         gfx_text_big(top, 74, 62, C_GOLD, "WON");
         gfx_text(top, 54, 82, C_INK, "XP");
         gfx_text(top, 76, 82, C_AMBER, gfx_num(g.bat.xp_won));
@@ -504,7 +547,7 @@ static void draw_battle(Surface *top, Surface *bot) {
     }
 
     /* ---- bottom screen: the four buttons, and what each opens -------------- */
-    gfx_clear(bot, C_VOID);
+    backdrop(bot);
     gfx_rect(bot, 0, 0, SCREEN_W, 20, C_PANEL);
     party_strip(bot, 6);
     gfx_hline(bot, 0, SCREEN_W - 1, 20, C_AMBER_DK);
@@ -521,7 +564,7 @@ static void draw_battle(Surface *top, Surface *bot) {
         for (int i = 0; i < n; i++) {
             int on = g.bat.cursor == i;
             int afford = g.hero[g.bat.actor].mp >= skills[i]->cost;
-            gfx_panel(bot, 6, 30 + i * 18, 244, 17, on ? C_PANEL_LIT : C_PANEL, on ? C_AMBER : C_EDGE);
+            window(bot, 6, 30 + i * 18, 244, 17, on);
             gfx_text(bot, 12, 35 + i * 18, afford ? (on ? C_AMBER : C_INK) : C_DIM, skills[i]->name);
             gfx_text(bot, 186, 35 + i * 18, C_DIM, "SP");
             gfx_text(bot, 204, 35 + i * 18, afford ? C_CYAN : C_RED, gfx_num(skills[i]->cost));
@@ -538,7 +581,7 @@ static void draw_battle(Surface *top, Surface *bot) {
             int k = item_defs[i].kind;
             if (k != IT_HEAL && k != IT_STAMINA && k != IT_BOMB && k != IT_REVIVE && k != IT_BUFF) continue;
             int on = g.bat.cursor == shown;
-            gfx_panel(bot, 6, 30 + shown * 18, 244, 17, on ? C_PANEL_LIT : C_PANEL, on ? C_AMBER : C_EDGE);
+            window(bot, 6, 30 + shown * 18, 244, 17, on);
             gfx_text(bot, 12, 35 + shown * 18, on ? C_AMBER : C_INK, item_defs[i].name);
             gfx_text(bot, 208, 35 + shown * 18, C_INK, "x");
             gfx_text(bot, 216, 35 + shown * 18, C_INK, gfx_num(g.inventory[i]));
@@ -620,13 +663,13 @@ static void draw_draft(Surface *top, Surface *bot)
     }
     {
         const CrawlerDef *c = &crawler_defs[g.draft_cursor];
-        gfx_panel(top, 6, 158, SCREEN_W - 12, 30, C_PANEL, C_EDGE);
+        window(top, 6, 158, SCREEN_W - 12, 30, 0);
         gfx_text(top, 12, 163, C_MAGENTA, c->name);
         gfx_text_wrapped(top, 12, 174, SCREEN_W - 24, C_INK, c->blurb);
     }
 
     /* ---- the roster ------------------------------------------------------- */
-    gfx_clear(bot, C_VOID);
+    backdrop(bot);
     gfx_rect(bot, 0, 0, SCREEN_W, 22, C_PANEL);
     gfx_text(bot, 8, 7, C_AMBER, g.draft_slot ? "AND WHO ELSE" : "PICK A CRAWLER");
     gfx_hline(bot, 0, SCREEN_W - 1, 22, C_AMBER_DK);
@@ -729,7 +772,7 @@ static void backdrop_announce(Surface *s)
         gfx_hline(s, 0, SCREEN_W - 1, y, RGB(18, 10, 26));
     }
     int w = 200, x = (SCREEN_W - w) / 2;
-    gfx_panel(s, x, 62, w, 60, C_PANEL, C_MAGENTA);
+    window(s, x, 62, w, 60, 0);
     gfx_text_big(s, x + 20, 72, C_MAGENTA, "THE SYSTEM");
     gfx_text(s, x + 20, 96, C_DIM, "BORANT CORPORATION");
     gfx_text(s, x + 20, 108, C_AMBER, "DUNGEON CRAWLER WORLD");
@@ -781,7 +824,7 @@ static void draw_cutscene(Surface *top, Surface *bot)
     }
 
     /* ---- the words, on the screen you are holding a stylus over ---------- */
-    gfx_clear(bot, C_VOID);
+    backdrop(bot);
     gfx_vgradient(bot, 0, 0, SCREEN_W, 30, C_PANEL, C_VOID);
 
     const CutLine *l = chapter_line();
@@ -802,7 +845,7 @@ static void draw_cutscene(Surface *top, Surface *bot)
     for (const char *p = text; *p && n < (int)sizeof shown - 1 && n < reveal; p++)
         shown[n++] = *p;
     shown[n] = 0;
-    gfx_panel(bot, 4, 24, SCREEN_W - 8, chapter_asking() ? 64 : 120, C_PANEL, C_AMBER_DK);
+    window(bot, 4, 24, SCREEN_W - 8, chapter_asking() ? 64 : 120, 0);
     gfx_text_wrapped(bot, 10, 30, SCREEN_W - 20, C_INK, shown);
 
     if (chapter_asking()) {
@@ -831,7 +874,7 @@ static void draw_menu(Surface *top, Surface *bot) {
     for (int i = 0; i < PARTY; i++) {
         const Hero *h = &g.hero[i];
         int x = 4 + i * 128;
-        gfx_panel(top, x, 18, 124, 168, C_PANEL, C_EDGE);
+        window(top, x, 18, 124, 168, 0);
         gfx_sprite_scaled(top, hero_sprite(i), x + 40, 22, 75, 100);
         gfx_text(top, x + 6, 84, C_AMBER, h->name);
         gfx_text(top, x + 6, 94, C_DIM, h->title);
@@ -854,7 +897,7 @@ static void draw_menu(Surface *top, Surface *bot) {
         gfx_text(top, x + 88, 176, C_AMBER, gfx_num(hero_defence(h)));
     }
 
-    gfx_clear(bot, C_VOID);
+    backdrop(bot);
     for (int i = 0; i < 4; i++) draw_button(bot, &kMenuTabs[i], g.menu_tab == i);
     gfx_hline(bot, 0, SCREEN_W - 1, 26, C_AMBER_DK);
 
@@ -883,7 +926,7 @@ static void draw_menu(Surface *top, Surface *bot) {
             if (g.inventory[i] && item_defs[i].kind >= IT_WEAPON) list[n++] = i;
         for (int i = 0; i < n && i < 6; i++) {
             int on = g.menu_cursor == i;
-            gfx_panel(bot, 6, 52 + i * 18, 244, 17, on ? C_PANEL_LIT : C_PANEL, on ? C_AMBER : C_EDGE);
+            window(bot, 6, 52 + i * 18, 244, 17, on);
             gfx_text(bot, 12, 57 + i * 18, on ? C_AMBER : C_INK, item_defs[list[i]].name);
             gfx_text(bot, 200, 57 + i * 18, C_CYAN, gfx_num(item_defs[list[i]].power));
         }
@@ -927,7 +970,7 @@ static void draw_shop(Surface *top, Surface *bot) {
     for (int i = 1; i < item_count; i++)
         if (item_defs[i].price > 0 && item_defs[i].price <= 500) stock[n++] = i;
     int sel = g.shop_cursor < n ? g.shop_cursor : 0;
-    gfx_panel(top, 120, 60, 130, 118, C_PANEL, C_EDGE);
+    window(top, 120, 60, 130, 118, 0);
     gfx_text(top, 126, 66, C_AMBER, item_defs[stock[sel]].name);
     gfx_text_wrapped(top, 126, 80, 120, C_INK, item_defs[stock[sel]].blurb);
     gfx_text(top, 126, 150, C_DIM, "PRICE");
@@ -935,7 +978,7 @@ static void draw_shop(Surface *top, Surface *bot) {
     gfx_text(top, 126, 162, C_DIM, "PURSE");
     gfx_text(top, 170, 162, C_GOLD, gfx_num(g.gold));
 
-    gfx_clear(bot, C_VOID);
+    backdrop(bot);
     gfx_rect(bot, 0, 0, SCREEN_W, 22, C_PANEL);
     gfx_text(bot, 6, 7, C_AMBER, "STOCK");
     gfx_text(bot, 150, 7, C_DIM, "PURSE");
@@ -947,7 +990,7 @@ static void draw_shop(Surface *top, Surface *bot) {
         int item = stock[top_row + i];
         int on = sel == top_row + i;
         int y = 28 + i * 18;
-        gfx_panel(bot, 6, y, 244, 17, on ? C_PANEL_LIT : C_PANEL, on ? C_AMBER : C_EDGE);
+        window(bot, 6, y, 244, 17, on);
         gfx_text(bot, 12, y + 5, on ? C_AMBER : C_INK, item_defs[item].name);
         gfx_text(bot, 186, y + 5, g.gold >= item_defs[item].price ? C_GOLD : C_RED,
                  gfx_num(item_defs[item].price));
@@ -994,7 +1037,7 @@ static void draw_box(Surface *top, Surface *bot) {
         gfx_text_wrapped(top, 36, 158, 186, C_INK, item_defs[g.box_item].blurb);
     }
 
-    gfx_clear(bot, C_VOID);
+    backdrop(bot);
     gfx_text_big(bot, 24, 60, c, tiers[g.box_tier]);
     gfx_text(bot, 24, 88, C_DIM, g.box_phase >= 2 ? "Added to the bag." : "The box is deciding.");
     gfx_text(bot, 24, 108, C_DIM, "Boxes opened this run");
@@ -1017,7 +1060,7 @@ static void draw_levelup(Surface *top, Surface *bot) {
     gfx_text_wrapped(top, 20, 160, 216, C_DIM,
                      "Spend them where the show can see: attributes drive every number in a fight.");
 
-    gfx_clear(bot, C_VOID);
+    backdrop(bot);
     gfx_text(bot, 8, 12, C_AMBER, "SPEND A POINT");
     gfx_text(bot, 180, 12, C_INK, gfx_num(h->points));
     gfx_text(bot, 196, 12, C_DIM, "left");
@@ -1026,7 +1069,7 @@ static void draw_levelup(Surface *top, Surface *bot) {
     const uint8_t *stats = &h->st.str;
     for (int i = 0; i < 6; i++) {
         int on = g.menu_cursor == i;
-        gfx_panel(bot, 12, 46 + i * 20, 232, 19, on ? C_PANEL_LIT : C_PANEL, on ? C_AMBER : C_EDGE);
+        window(bot, 12, 46 + i * 20, 232, 19, on);
         gfx_text(bot, 18, 52 + i * 20, on ? C_AMBER : C_INK, names[i]);
         gfx_text(bot, 140, 52 + i * 20, C_DIM, what[i]);
         gfx_text(bot, 224, 52 + i * 20, C_CYAN, gfx_num(stats[i]));
@@ -1042,7 +1085,7 @@ static void draw_code(Surface *top, Surface *bot) {
     system_bar(top, g.code_mode ? "RECALL CODE ENTRY" : "SYSTEM KIOSK", "THE SHOW REMEMBERS");
     gfx_sprite_scaled(top, &spr_shrine, 12, 60, 200, 100);
 
-    gfx_panel(top, 88, 56, 162, 96, C_PANEL, C_AMBER_DK);
+    window(top, 88, 56, 162, 96, 0);
     gfx_text(top, 94, 62, C_DIM, g.code_mode ? "TYPED" : "WRITE THIS DOWN");
     /* Sixteen characters do not fit across the panel at double size, so they
        go two groups to a line: XXXX-XXXX over XXXX-XXXX. */
@@ -1065,7 +1108,7 @@ static void draw_code(Surface *top, Surface *bot) {
         gfx_text(top, 94, 124, C_GREEN, "RUN RESTORED");
     }
 
-    gfx_clear(bot, C_VOID);
+    backdrop(bot);
     if (!g.code_mode) {
         gfx_text_wrapped(bot, 10, 20, 236, C_INK,
                          "The kiosk prints your progress as a code. Enter it from the title screen "
@@ -1075,7 +1118,7 @@ static void draw_code(Surface *top, Surface *bot) {
         return;
     }
     gfx_text(bot, 8, 10, C_AMBER, "ENTER THE CODE");
-    gfx_panel(bot, 8, 24, 240, 24, C_PANEL, C_EDGE);
+    window(bot, 8, 24, 240, 24, 0);
     {
         char shown[20];
         int o = 0;
@@ -1112,12 +1155,12 @@ static void draw_gameover(Surface *top, Surface *bot) {
     gfx_text(top, 60, 46, C_DIM, "ends here. There is no continue.");
 
     /*  Depth is the score, so it is the biggest thing on the screen. */
-    gfx_panel(top, 24, 62, 116, 58, C_PANEL, C_AMBER_DK);
+    window(top, 24, 62, 116, 58, 0);
     gfx_text(top, 30, 68, C_DIM, "REACHED");
     gfx_text_big(top, 30, 80, C_AMBER, gfx_num(g.dun.index + 1));
     gfx_text(top, 30, 106, C_DIM, "of eighteen floors");
 
-    gfx_panel(top, 148, 62, 84, 58, C_PANEL, C_EDGE);
+    window(top, 148, 62, 84, 58, 0);
     gfx_text(top, 154, 68, C_DIM, "Level");
     gfx_text(top, 200, 68, C_AMBER, gfx_num(g.hero[0].level));
     gfx_text(top, 154, 80, C_DIM, "Fights");
@@ -1136,12 +1179,12 @@ static void draw_gameover(Surface *top, Surface *bot) {
     }
     gfx_sprite_scaled(top, &spr_boss_producer, 168, 120, 62, 100);
 
-    gfx_clear(bot, C_VOID);
+    backdrop(bot);
     gfx_text_wrapped(bot, 12, 24, 232, C_INK,
                      "The floor took them, the feed cut, and the audience was "
                      "already watching somebody else before the dust settled. "
                      "Achievements stay on file. Nothing else does.");
-    gfx_panel(bot, 12, 76, 232, 62, C_PANEL, C_EDGE);
+    window(bot, 12, 76, 232, 62, 0);
     gfx_text(bot, 18, 82, C_AMBER, "THIS SITTING");
     gfx_text(bot, 18, 96, C_DIM, "Seasons run");
     gfx_text(bot, 150, 96, C_INK, gfx_num(season_count() + 1));
@@ -1169,7 +1212,7 @@ static void draw_victory(Surface *top, Surface *bot) {
     gfx_sprite(top, hero_sprite(1), 150, 112);
     gfx_text(top, 24, 168, C_INK, "Three floors down. Fifteen to go.");
 
-    gfx_clear(bot, C_VOID);
+    backdrop(bot);
     gfx_text(bot, 8, 10, C_AMBER, "FINAL STANDINGS");
     gfx_text(bot, 8, 30, C_DIM, "Carl");        gfx_text(bot, 120, 30, C_INK, gfx_num(g.hero[0].level));
     gfx_text(bot, 8, 42, C_DIM, "Princess Donut"); gfx_text(bot, 120, 42, C_INK, gfx_num(g.hero[1].level));

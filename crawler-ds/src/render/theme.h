@@ -21,4 +21,25 @@
 #define C_GOLD      RGB(250, 208, 80)
 #define C_SHADOW    RGB(4, 4, 8)
 
+/*  Window chrome.
+ *
+ *  Everything used to be a one-pixel amber outline on near-black, which is a
+ *  terminal, not a handheld. A DS window has a dark outline, a light bevel
+ *  down its top and left, a dark one down its bottom and right, a gradient
+ *  through the fill and a soft shadow under it — that is where the whole
+ *  "this is a game and not a console" impression comes from.
+ */
+#define C_WIN_TOP   RGB(62, 70, 112)
+#define C_WIN_BOT   RGB(28, 30, 58)
+#define C_WIN_HI    RGB(128, 140, 192)
+#define C_WIN_LO    RGB(16, 16, 32)
+#define C_WIN_EDGE  RGB(8, 8, 16)
+
+#define C_SEL_TOP   RGB(136, 100, 40)
+#define C_SEL_BOT   RGB(74, 50, 16)
+#define C_SEL_HI    RGB(240, 190, 96)
+
+#define C_BG_TOP    RGB(34, 30, 60)
+#define C_BG_BOT    RGB(12, 12, 26)
+
 #endif

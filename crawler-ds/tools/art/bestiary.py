@@ -57,56 +57,18 @@ def sewer_rat():
 
 
 def goblin_trapper():
-    """Sponsored by nobody, trying extremely hard."""
-    s = Sprite(FOE, FOE)
-    skin = s.register_family(s.ramp((112, 160, 84), 6))
-    rag = s.register_family(s.ramp((96, 76, 58), 5))
-    steel = s.register_family(s.ramp((168, 176, 190), 5, dark=0.7, warm=0.1))
-    dark = s.ink((24, 26, 20))
-    white = s.ink((244, 242, 228))
-    gold = s.ink((236, 202, 96))
+    """The first thing most crawlers meet, so the first thing that has to not
+    look like a smudge. Hand-placed from `goblin_grid`, fifteen colours, same
+    method as the crawler roster."""
+    import goblin_grid as gg
 
-    s.limb(30, 52, 26, 66, 10, 8, skin)              # legs, bandy
-    s.limb(42, 52, 46, 66, 10, 8, skin)
-    s.form(25, 67, 5, 4, skin, squash=0.5)
-    s.form(47, 67, 5, 4, skin, squash=0.5)
-
-    s.form(36, 44, 13, 14, skin, wrap=0.85)          # torso
-    s.poly([(24, 44), (48, 44), (50, 58), (22, 58)], rag[2])  # rags
-    for x in range(25, 48, 5):
-        s.poly([(x, 56), (x + 3, 56), (x + 1, 61)], rag[1])
-    s.line(30, 46, 44, 50, rag[4])
-    s.limb(24, 36, 16, 50, 9, 7, skin)               # arms
-    s.limb(48, 36, 56, 48, 9, 7, skin)
-    s.form(15, 52, 4, 4, skin)
-    s.form(57, 50, 4, 4, skin)
-
-    s.line(58, 8, 54, 52, s.ink((104, 78, 52)), 3)   # a rusty spike on a stick
-    s.poly([(56, 4), (62, 14), (56, 20), (52, 12)], steel[3])
-    s.line(57, 6, 59, 14, steel[4])
-    s.put(60, 16, steel[1])
-
-    s.form(36, 24, 12, 12, skin, wrap=0.85)          # head
-    s.poly([(25, 20), (6, 16), (10, 26), (26, 30)], skin[2])   # ears, out sideways
-    s.poly([(47, 20), (66, 16), (62, 26), (46, 30)], skin[2])
-    s.line(10, 19, 24, 23, skin[4])
-    s.line(62, 19, 48, 23, skin[1])
-    s.put(8, 25, gold)                               # an earring, obviously
-    s.stamp(26, 17, [
-        ".ddd......ddd.",
-        "dwwwwd..dwwwwd",
-        "dwwgpd..dwgppd",
-        ".dwppd..dwppd.",
-        "..ddd....ddd..",
-        "..............",
-        "......dd......",
-        ".....dppd.....",
-        "....wwwwww....",
-        "....wpwpww....",
-    ], {'d': skin[1], 'w': white, 'p': dark, 'g': gold})
-    s.line(29, 30, 43, 30, skin[0])                  # brow ridge
-    return s.finish().emit()
-
+    s = Sprite(gg.W, gg.H)
+    idx = {ch: s.ink(colour) for ch, colour in zip(gg.KEY, gg.PALETTE)}
+    for y, row in enumerate(gg.grid()):
+        for x, ch in enumerate(row):
+            if ch != '.':
+                s.px[y * gg.W + x] = idx[ch]
+    return s.emit()
 
 def screaming_sofa():
     """Floor one keeps sending furniture. Nobody has explained why."""

@@ -1,4 +1,5 @@
 #include "gfx.h"
+#include "theme.h"
 
 #include <string.h>
 
@@ -62,6 +63,40 @@ void gfx_panel(Surface *s, int x, int y, int w, int h, uint16_t fill, uint16_t e
     gfx_hline(s, x + 1, x + w - 2, y + h - 1, edge);
     gfx_vline(s, x, y + 1, y + h - 2, edge);
     gfx_vline(s, x + w - 1, y + 1, y + h - 2, edge);
+}
+
+/*  A window with a shape to it: corners chamfered so it does not read as a
+ *  spreadsheet cell, a light bevel down the top and left, a dark one down the
+ *  bottom and right, and a gradient through the fill. */
+void gfx_window(Surface *s, int x, int y, int w, int h,
+                uint16_t top, uint16_t bottom, uint16_t hi, uint16_t lo,
+                uint16_t edge) {
+    if (w < 6 || h < 6) { gfx_panel(s, x, y, w, h, top, edge); return; }
+
+    gfx_vgradient(s, x + 1, y + 1, w - 2, h - 2, top, bottom);
+
+    /* the outline, with the four corner pixels cut away */
+    gfx_hline(s, x + 2, x + w - 3, y, edge);
+    gfx_hline(s, x + 2, x + w - 3, y + h - 1, edge);
+    gfx_vline(s, x, y + 2, y + h - 3, edge);
+    gfx_vline(s, x + w - 1, y + 2, y + h - 3, edge);
+    gfx_pixel(s, x + 1, y + 1, edge);
+    gfx_pixel(s, x + w - 2, y + 1, edge);
+    gfx_pixel(s, x + 1, y + h - 2, edge);
+    gfx_pixel(s, x + w - 2, y + h - 2, edge);
+
+    /* the bevels, which are what make it look pressed out of something */
+    gfx_hline(s, x + 2, x + w - 3, y + 1, hi);
+    gfx_vline(s, x + 1, y + 2, y + h - 3, hi);
+    gfx_hline(s, x + 2, x + w - 3, y + h - 2, lo);
+    gfx_vline(s, x + w - 2, y + 2, y + h - 3, lo);
+}
+
+/*  A soft shadow under a window, dithered so it fades rather than stops. */
+void gfx_window_shadow(Surface *s, int x, int y, int w, int h) {
+    gfx_dither(s, x + 2, y + h, w - 2, 2, C_SHADOW, 11);
+    gfx_dither(s, x + w, y + 2, 2, h - 2, C_SHADOW, 11);
+    gfx_dither(s, x + 3, y + h + 2, w - 4, 1, C_SHADOW, 5);
 }
 
 uint16_t gfx_mix(uint16_t a, uint16_t b, int t) {
