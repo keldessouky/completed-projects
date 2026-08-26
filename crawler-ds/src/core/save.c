@@ -21,7 +21,8 @@
 static const char kAlphabet[33] = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
 #define CODE_BITS 100
-#define CODE_CHARS (CODE_BITS / 5)
+/*  CODE_CHARS lives in game.h: the display and the keyboard both have to agree
+    with it, and when this grew from sixteen to twenty they did not. */
 /* Round up: 100 bits is twelve and a half bytes, and truncating loses the
    tail of the checksum. */
 #define CODE_BYTES ((CODE_BITS + 7) / 8)
@@ -56,6 +57,16 @@ static uint32_t checksum(const BitBuf *b) {
     uint32_t sum = 0x5A;
     for (int i = 0; i < CODE_BYTES; i++) sum = (sum * 31 + t.bits[i]) & 0xFFFF;
     return sum & 0x3FF;
+}
+
+int code_format(char *out, const char *code, int from, int count, char sep) {
+    int o = 0;
+    for (int i = from; i < from + count && code[i]; i++) {
+        if (i > from && (i - from) % CODE_GROUP == 0) out[o++] = sep;
+        out[o++] = code[i];
+    }
+    out[o] = 0;
+    return o;
 }
 
 void save_make_code(char *out) {

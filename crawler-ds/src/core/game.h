@@ -197,6 +197,23 @@ typedef struct {
     const char *blurb;
 } CrawlerDef;
 
+/* ---------------------------------------------------------- recall codes -- */
+
+/*  One recall code, in characters. Everything that prints a code, accepts one,
+ *  or sizes a buffer for one derives from this. It used to be sixteen; when the
+ *  payload grew to carry the drafted crawlers it became twenty, and the three
+ *  places in the UI that had the old number written into them did not change --
+ *  which left the kiosk printing sixteen of twenty characters and the keyboard
+ *  refusing the last four, so no code the game printed could be typed back in.
+ */
+#define CODE_CHARS   20
+#define CODE_GROUP   5          /* characters between separators */
+#define CODE_PER_ROW 10         /* what fits across the kiosk panel at 2x */
+
+/*  Writes `count` characters of a code starting at `from`, with a separator
+ *  every CODE_GROUP. `out` needs room for count + count/CODE_GROUP + 1. */
+int   code_format(char *out, const char *code, int from, int count, char sep);
+
 /* ------------------------------------------------------------ safe rooms -- */
 
 typedef struct {

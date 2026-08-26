@@ -461,7 +461,7 @@ static void update_code(const PlatInput *in) {
             if (touch_in(in, &key)) typed = r * 8 + c;
         }
     if (in->pressed & BTN_A) typed = g.code_cursor;
-    if (typed >= 0 && g.code_len < 16) {
+    if (typed >= 0 && g.code_len < CODE_CHARS) {
         g.code[g.code_len++] = kKeyRows[typed / 8][typed % 8];
         g.code[g.code_len] = 0;
         g.code_status = 0;

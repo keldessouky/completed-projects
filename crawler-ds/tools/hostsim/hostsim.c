@@ -520,6 +520,50 @@ int main(int argc, char **argv) {
             game_boot();
             if (save_apply_code(broken)) { printf("  FAIL %s was accepted\n", broken); bad++; }
         }
+        /*  The format round-trip above proved the encoder agrees with the
+            decoder, and the feature was still completely broken: the kiosk
+            printed sixteen of twenty characters and the keyboard refused the
+            last four, so no code the game produced could be typed back in.
+            This walks the path a player actually walks. */
+        {
+            game_boot();
+            play_run(4242, 0);
+            save_make_code(g.code);
+            char code[32];
+            memcpy(code, g.code, sizeof code - 1);
+            code[sizeof code - 1] = 0;
+
+            int printed = 0;
+            for (int line = 0; line * CODE_PER_ROW < CODE_CHARS; line++) {
+                char row[32];
+                int from = line * CODE_PER_ROW;
+                int count = CODE_CHARS - from;
+                if (count > CODE_PER_ROW) count = CODE_PER_ROW;
+                printed += code_format(row, code, from, count, '-') -
+                           (count - 1) / CODE_GROUP;
+            }
+            if (printed != CODE_CHARS) {
+                printf("  FAIL the kiosk shows %d of %d characters\n", printed, CODE_CHARS);
+                bad++;
+            } else printf("  ok   the kiosk shows all %d characters\n", CODE_CHARS);
+
+            /*  Type it, one key at a time, through the same cap the keyboard
+                applies -- then hand the result to the decoder. */
+            char typed[32];
+            int n = 0;
+            for (int i = 0; code[i] && n < CODE_CHARS; i++) typed[n++] = code[i];
+            typed[n] = 0;
+            if (n != CODE_CHARS) {
+                printf("  FAIL the keyboard accepts %d of %d characters\n", n, CODE_CHARS);
+                bad++;
+            } else printf("  ok   the keyboard accepts all %d characters\n", CODE_CHARS);
+
+            game_boot();
+            if (!save_apply_code(typed)) {
+                printf("  FAIL a code typed exactly as printed was rejected\n");
+                bad++;
+            } else printf("  ok   a code typed exactly as printed restores the run\n");
+        }
         printf("%s: %d bad\n", bad ? "FAILED" : "passed", bad);
         return bad ? 1 : 0;
     }

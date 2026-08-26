@@ -1011,7 +1011,7 @@ static void draw_menu(Surface *top, Surface *bot) {
         gfx_text(bot, 6, 108, C_DIM, "Floor");
         gfx_text(bot, 180, 108, C_INK, gfx_num(g.dun.index + 1));
         gfx_text_wrapped(bot, 6, 128, 244, C_DIM,
-                         "A System kiosk on each floor prints a recall code. Sixteen characters, "
+                         "A System kiosk on each floor prints a recall code. Twenty characters, "
                          "and the run comes back.");
     }
     Rect back = { 194, 172, 56, 18, "BACK" };
@@ -1281,21 +1281,20 @@ static void draw_code(Surface *top, Surface *bot) {
 
     window(top, 88, 56, 162, 96, 0);
     gfx_text(top, 94, 62, C_DIM, g.code_mode ? "TYPED" : "WRITE THIS DOWN");
-    /* Sixteen characters do not fit across the panel at double size, so they
-       go two groups to a line: XXXX-XXXX over XXXX-XXXX. */
-    for (int line = 0; line < 2; line++) {
-        char row[12];
-        int o = 0;
-        for (int i = line * 8; i < line * 8 + 8 && g.code[i]; i++) {
-            row[o++] = g.code[i];
-            if ((i % 4) == 3 && g.code[i + 1] && i % 8 != 7) row[o++] = '-';
-        }
-        row[o] = 0;
+    /*  Ten characters to a row, split five and five: twenty at double size do
+        not fit across the panel, and the row count comes off CODE_CHARS so a
+        longer code cannot silently lose its tail again. */
+    for (int line = 0; line * CODE_PER_ROW < CODE_CHARS; line++) {
+        char row[CODE_PER_ROW + CODE_PER_ROW / CODE_GROUP + 2];
+        int from = line * CODE_PER_ROW;
+        int count = CODE_CHARS - from;
+        if (count > CODE_PER_ROW) count = CODE_PER_ROW;
+        code_format(row, g.code, from, count, '-');
         gfx_text_big(top, 94, 76 + line * 20, C_AMBER, row);
     }
     if (!g.code_mode) {
         gfx_text_wrapped(top, 94, 118, 150, C_INK,
-                         "Sixteen characters. They put this run back on this floor.");
+                         "Twenty characters. They put this run back on this floor.");
     } else if (g.code_status == 2) {
         gfx_text(top, 94, 124, C_RED, "THAT CODE IS NOT A CODE");
     } else if (g.code_status == 1) {
@@ -1312,17 +1311,23 @@ static void draw_code(Surface *top, Surface *bot) {
         return;
     }
     gfx_text(bot, 8, 10, C_AMBER, "ENTER THE CODE");
-    window(bot, 8, 24, 240, 24, 0);
+    window(bot, 8, 20, 240, 36, 0);
     {
-        char shown[20];
-        int o = 0;
-        for (int i = 0; g.code[i] && o < 19; i++) {
-            shown[o++] = g.code[i];
-            if ((i % 4) == 3 && g.code[i + 1]) shown[o++] = ' ';
+        /*  Laid out exactly like the kiosk prints it, so a player copying one
+            across is matching shapes rather than counting characters. */
+        int typed = 0;
+        while (typed < CODE_CHARS && g.code[typed]) typed++;
+        for (int line = 0; line * CODE_PER_ROW < CODE_CHARS; line++) {
+            char row[CODE_PER_ROW + CODE_PER_ROW / CODE_GROUP + 2];
+            int from = line * CODE_PER_ROW;
+            int count = typed - from;
+            if (count < 0) count = 0;
+            if (count > CODE_PER_ROW) count = CODE_PER_ROW;
+            int glyphs = code_format(row, g.code, from, count, ' ');
+            gfx_text_big(bot, 12, 24 + line * 16, C_INK, row);
+            if ((g.anim & 16) && typed >= from && typed < from + CODE_PER_ROW)
+                gfx_rect(bot, 12 + glyphs * 12, 24 + line * 16, 8, 14, C_AMBER);
         }
-        shown[o] = 0;
-        gfx_text_big(bot, 12, 30, C_INK, shown);
-        if (g.anim & 16) gfx_rect(bot, 12 + o * 12, 30, 8, 14, C_AMBER);
     }
     for (int r = 0; r < 4; r++)
         for (int c = 0; c < 8; c++) {
