@@ -37,7 +37,7 @@ static const Rect kBatCommands[] = {
 static const Rect kMenuTabs[] = {
     {   4, 4, 60, 20, "PARTY" },
     {  68, 4, 60, 20, "GEAR" },
-    { 132, 4, 60, 20, "BOX" },
+    { 132, 4, 60, 20, "FEATS" },   /* it lists achievements, not boxes */
     { 196, 4, 56, 20, "SHOW" },
 };
 

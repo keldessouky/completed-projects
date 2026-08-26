@@ -34,8 +34,10 @@ expect steps > 0
 # Everything after this has to be map-agnostic for the same reason. autoplay
 # walks, turns away from walls and confirms whatever the game puts on screen,
 # so it does not care what the season dealt.
+#  A run now owes the party a handful of loot boxes for walking in at all, and
+#  each one is a scene to tap through, so the budget covers the drip.
 echo walking the floor
-autoplay 16
+autoplay 30
 expect steps > 3
 
 # autoplay can leave the party mid-fight, and a fight is not over in twenty

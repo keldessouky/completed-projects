@@ -41,7 +41,7 @@ void dungeon_mark_seen(int x, int y) {
     if (!((g.dun.seen[i >> 3] >> (i & 7)) & 1)) {
         g.dun.seen[i >> 3] |= (uint8_t)(1 << (i & 7));
         g.dun.explored++;
-        if (g.dun.explored == 200) game_award(4);
+        if (g.dun.explored == 200) game_award(ACH_CARTOGRAPHER);
     }
 }
 
@@ -225,6 +225,10 @@ void dungeon_step(int forward) {
     enter_tile(nx, ny);
     if (g.scene != SCENE_DUNGEON) return;
 
+    /*  Owed boxes arrive a few steps apart. Walking in earns five of them at
+        once, and five box scenes back to back is a wall between the player and
+        the first corridor -- the show hands them over as you go instead. */
+    if (g.box_queue_n && g.dun.steps % 6 == 0) { game_drain_box_queue(); return; }
     if (g.dun.steps_to_encounter) g.dun.steps_to_encounter--;
     if (!g.dun.steps_to_encounter) {
         g.dun.steps_to_encounter = (uint16_t)rng_range(8, 16);
@@ -244,6 +248,10 @@ void dungeon_strafe(int right) {
     dungeon_light_of_sight();
     enter_tile(nx, ny);
     if (g.scene != SCENE_DUNGEON) return;
+    /*  Owed boxes arrive a few steps apart. Walking in earns five of them at
+        once, and five box scenes back to back is a wall between the player and
+        the first corridor -- the show hands them over as you go instead. */
+    if (g.box_queue_n && g.dun.steps % 6 == 0) { game_drain_box_queue(); return; }
     if (g.dun.steps_to_encounter) g.dun.steps_to_encounter--;
     if (!g.dun.steps_to_encounter) {
         g.dun.steps_to_encounter = (uint16_t)rng_range(8, 16);

@@ -95,6 +95,30 @@ static void toast_join(const char *a, const char *b) {
 static uint16_t s_seasons_run, s_best_floor, s_best_level, s_best_kills;
 static uint8_t  s_cold_open_seen;
 
+/*  The achievements the show hands out for the state you walked in with. They
+ *  fire before anyone has done anything, which is the joke: the dungeon has
+ *  already read you and decided what you are. Derived from the drafted pair,
+ *  so resuming from a code reproduces them exactly rather than storing them. */
+uint32_t game_entry_achievements(void) {
+    uint32_t bits = (1u << ACH_EARLY_ADOPTER)     /* crawler numbers in the low thousands */
+                  | (1u << ACH_EMPTY_POCKETS)
+                  | (1u << ACH_UNARMED)
+                  /*  Carl is the only human on the roster, so every party goes
+                      down with at most one, which is what Loner is for. */
+                  | (1u << ACH_LONER);
+    for (int i = 0; i < PARTY; i++) {
+        if (g.hero[i].crawler == CR_DONUT) bits |= 1u << ACH_CAT_LADY;
+        if (g.hero[i].crawler == CR_CARL) bits |= 1u << ACH_NO_PANTS;
+    }
+    return bits;
+}
+
+void game_award_entry(void) {
+    uint32_t bits = game_entry_achievements();
+    for (int i = 0; i < ACH_ENTRY_COUNT; i++)
+        if (bits & (1u << i)) game_award(i);
+}
+
 void game_award(int achievement) {
     if (achievement < 0 || achievement >= ach_count) return;
     if (g.achievements & (1u << achievement)) return;
@@ -102,7 +126,21 @@ void game_award(int achievement) {
     audio_sfx(SFX_LEVEL);
     toast_join("Achievement: ", ach_defs[achievement].name);
     g.gold = (int16_t)(g.gold + ach_defs[achievement].gold);
-    if (ach_defs[achievement].box < 4) game_open_box(ach_defs[achievement].box);
+    /*  Queued, not opened. Six of these land at once when a run starts, and
+        game_open_box sets the scene -- so opening them directly showed the
+        last one and silently swallowed the rest. */
+    if (ach_defs[achievement].box < 4 && g.box_queue_n < (int)sizeof g.box_queue)
+        g.box_queue[g.box_queue_n++] = ach_defs[achievement].box;
+}
+
+/*  Hand out one owed box. Called from the dungeon, which is the one place a
+ *  box scene can open without taking the screen away from something else. */
+void game_drain_box_queue(void) {
+    if (!g.box_queue_n) return;
+    int tier = g.box_queue[0];
+    for (int i = 1; i < g.box_queue_n; i++) g.box_queue[i - 1] = g.box_queue[i];
+    g.box_queue_n--;
+    game_open_box(tier);
 }
 
 /* ---------------------------------------------------------------- scenes -- */
@@ -121,7 +159,7 @@ void game_story(int floor, int trigger, Scene after) {
     g.beat_reveal = 0;
     g.beat_after = (uint8_t)after;
     if (b->id > g.story_beat) g.story_beat = b->id;
-    if (g.story_beat >= 14) game_award(11);
+    if (g.story_beat >= 14) game_award(ACH_READ_THE_ROOM);
     game_set_scene(SCENE_STORY);
 }
 
@@ -143,7 +181,7 @@ void game_open_box(int tier) {
     else if (tier == 1) item = better[rng_range(0, (int)sizeof better - 1)];
     else item = best[rng_range(0, (int)sizeof best - 1)];
     g.box_item = (uint8_t)item;
-    if (g.boxes_opened == 1) game_award(1);
+
     game_set_scene(SCENE_BOX);
 }
 
@@ -162,9 +200,12 @@ static void start_new_run(void) {
     inventory_add(1, 2);
     g.flags = 0;
     g.achievements = 0;
+    g.box_queue_n = 0;
     g.boxes_opened = 0;
     g.battles_won = 0;
     g.story_beat = 0;
+
+
     /*  The collapse happens to everybody and it happens once. After the first
         season of a sitting, the show skips the recap and goes straight to
         casting — which is what it would do. */
@@ -312,7 +353,7 @@ static void update_menu(const PlatInput *in) {
                     int kinds = 0;
                     for (int h = 0; h < PARTY; h++)
                         for (int s = 0; s < 3; s++) if (g.hero[h].equip[s] > 0) kinds++;
-                    if (kinds >= 4) game_award(10);
+
                 }
             }
         }
@@ -494,6 +535,9 @@ static void draft_confirm(void) {
     g.gold = 0;
     g.battles_won = 0;
     g.boxes_opened = 0;
+    /*  Here, not in start_new_run: these describe the pair that actually went
+        down, and start_new_run runs before anybody has picked one. */
+    game_award_entry();
     dungeon_enter(0);
     game_set_scene(SCENE_DUNGEON);
 }

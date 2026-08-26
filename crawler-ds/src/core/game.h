@@ -220,6 +220,10 @@ typedef struct {
 extern const ZoneDef zone_defs[];
 extern const int zone_count;
 
+/*  Indices into crawler_defs. Named for the same reason the achievements are:
+ *  a bare 1 in a condition somewhere else is a bug waiting to be written. */
+enum { CR_CARL, CR_DONUT, CR_MORDECAI, CR_BOPCA };
+
 extern const CrawlerDef crawler_defs[];
 extern const int crawler_count;
 
@@ -338,6 +342,10 @@ typedef struct {
     uint8_t  safe_room;         /* index into safe_room_defs, while in one */
     uint16_t zone_cleared;      /* bit per zone whose boss is down */
     uint8_t  pending_zone;      /* zone+1 whose boss is being fought, 0 for none */
+    /*  Boxes owed. Achievements can pay out several at once and each one is a
+        scene, so they wait here until the party is somewhere a scene can run. */
+    uint8_t  box_queue[8];
+    int      box_queue_n;
     uint16_t box_timer;
     uint8_t  levelup_hero;
 
@@ -424,6 +432,27 @@ extern const SkillDef skill_defs[];
 extern const int      skill_count;
 extern const FoeDef   foe_defs[];
 extern const int      foe_count;
+/*  Named, because these were bare integers scattered across four files and
+ *  that is exactly how an index drifts off the end of its array. */
+/*  The first six are decided entirely by which pair went down, and a recall
+ *  code already carries that. Keeping them at the bottom of the enum lets the
+ *  code store only the ones actually earned by playing -- which is what makes
+ *  twenty-one achievements fit a payload with no spare bits left in it. */
+enum {
+    ACH_CAT_LADY, ACH_EARLY_ADOPTER, ACH_EMPTY_POCKETS, ACH_NO_PANTS,
+    ACH_UNARMED, ACH_LONER,
+    ACH_ENTRY_COUNT,                    /* everything below is earned, not given */
+
+    ACH_DAMAGE = ACH_ENTRY_COUNT, ACH_FIRST_KILL, ACH_BARE_HANDS,
+    ACH_PODOPHILIA, ACH_BOOM, ACH_LEVEL_UP, ACH_LOOT, ACH_BOSS_BABE,
+    ACH_TWO_AT_ONCE, ACH_NEIGHBOURHOOD, ACH_STAIRWELL, ACH_CARTOGRAPHER,
+    ACH_READ_THE_ROOM, ACH_NO_SHOES, ACH_OUTSIDE
+};
+
+void     game_award_entry(void);        /* the six the draft decides */
+uint32_t game_entry_achievements(void);
+void     game_drain_box_queue(void);
+
 extern const AchDef   ach_defs[];
 extern const int      ach_count;
 extern const Beat     story_beats[];

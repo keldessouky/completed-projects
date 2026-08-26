@@ -974,13 +974,32 @@ static void draw_menu(Surface *top, Surface *bot) {
         if (!n) gfx_text(bot, 12, 56, C_DIM, "No gear yet. Boxes hold most of it.");
         else gfx_text_wrapped(bot, 6, 166, 244, C_DIM, item_defs[list[g.menu_cursor < n ? g.menu_cursor : 0]].blurb);
     } else if (g.menu_tab == 2) {
+        /*  Full width and scrolled, not a two-column grid: the show's own
+            achievement names run to twenty-eight characters and there are
+            twenty-one of them, so a 120px cell truncated most of the list and
+            a fixed twelve rows never showed the rest of it at all. */
+        int got_n = 0;
+        for (int i = 0; i < ach_count; i++) got_n += (g.achievements >> i) & 1;
         gfx_text(bot, 6, 34, C_AMBER, "ACHIEVEMENTS");
-        for (int i = 0; i < ach_count && i < 12; i++) {
+        gfx_text(bot, 186, 34, C_DIM, gfx_num(got_n));
+        gfx_text(bot, 204, 34, C_DIM, "of");
+        gfx_text(bot, 222, 34, C_INK, gfx_num(ach_count));
+
+        const int rows = 5;      /* six ran under the BACK button */
+        int sel = g.menu_cursor < ach_count ? g.menu_cursor : ach_count - 1;
+        int top = sel - rows / 2;
+        if (top > ach_count - rows) top = ach_count - rows;
+        if (top < 0) top = 0;
+        for (int r = 0; r < rows && top + r < ach_count; r++) {
+            int i = top + r, y = 48 + r * 23;
             int got = (g.achievements >> i) & 1;
-            int x = 6 + (i % 2) * 124, y = 48 + (i / 2) * 22;
-            gfx_panel(bot, x, y, 120, 20, C_PANEL, got ? C_GOLD : C_EDGE);
-            gfx_text(bot, x + 4, y + 3, got ? C_GOLD : C_DIM, ach_defs[i].name);
-            gfx_text(bot, x + 4, y + 11, C_DIM, got ? "unlocked" : ach_defs[i].how);
+            window(bot, 6, y, 244, 21, i == sel);
+            gfx_text(bot, 12, y + 3, got ? C_GOLD : C_DIM, ach_defs[i].name);
+            gfx_text(bot, 12, y + 12, C_DIM, got ? "unlocked" : ach_defs[i].how);
+            if (got && ach_defs[i].box < 4) {
+                static const char *const kTier[4] = { "BRZ", "SLV", "GLD", "LEG" };
+                gfx_text(bot, 222, y + 3, C_AMBER, kTier[ach_defs[i].box]);
+            }
         }
     } else {
         gfx_text(bot, 6, 34, C_AMBER, "THE SHOW");

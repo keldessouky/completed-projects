@@ -436,6 +436,10 @@ int main(int argc, char **argv) {
         tap(BTN_START);
         idle(4);
         shot("08-party");
+        g.menu_tab = 2;                 /* the achievement list, which is its own screen now */
+        idle(4);
+        shot("08b-achievements");
+        g.menu_tab = 0;
         tap(BTN_B);
         pause_scene = SCENE_SHOP;
         walk_to(T_SHOP, 400);
@@ -491,11 +495,22 @@ int main(int argc, char **argv) {
             if (!save_apply_code(code)) { printf("  FAIL %s did not parse\n", code); bad++; continue; }
             int same = g.dun.index == floor_index && g.hero[0].level == carl &&
                        g.hero[1].level == donut && g.battles_won == (uint16_t)(fights > 127 ? 127 : fights) &&
-                       g.flags == (flags & 0xFFF) && g.achievements == (achievements & 0xFFFF) &&
+                       g.flags == (flags & 0xFFF) &&
+                       /*  Lossless now: the earned achievements go in the code
+                           and the six the draft decides are rebuilt from the
+                           crawler pair, so nothing is truncated away. */
+                       g.achievements == achievements &&
                        g.gold / 8 == gold / 8;
             printf("  %s %s -> floor %d, Carl %d, Donut %d, %d gold\n",
                    same ? "ok  " : "FAIL", code, g.dun.index + 1, g.hero[0].level,
                    g.hero[1].level, g.gold);
+            if (!same)
+                printf("       floor %d/%d carl %d/%d donut %d/%d fights %u/%d "
+                       "flags %08X/%08X ach %08X/%08X gold %d/%d\n",
+                       g.dun.index, floor_index, g.hero[0].level, carl,
+                       g.hero[1].level, donut, (unsigned)g.battles_won, fights,
+                       g.flags, flags & 0xFFF, g.achievements, achievements,
+                       g.gold, gold);
             if (!same) bad++;
 
             /* A code with a character knocked out of it must be refused. */

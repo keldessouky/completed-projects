@@ -201,24 +201,48 @@ const int crawler_count = (int)(sizeof crawler_defs / sizeof crawler_defs[0]);
 
 /* ---------------------------------------------------------- achievements -- */
 
+/*  The first floor's achievement list, as the show actually hands them out.
+ *  Rewards are the box tier each one pays: 0 bronze, 1 silver, 2 gold,
+ *  3 legendary, 255 for the ones that pay nothing but a notification.
+ *
+ *  Two from the real list are deliberately absent. Both are jokes about
+ *  atrocity that work on the page, where nobody has to do them, and neither
+ *  survives being a thing a player is rewarded for pressing a button to do.
+ *  The rest are here, including the ones that pay nothing, because a list of
+ *  achievements where everything pays out is a list nobody reads.
+ */
 const AchDef ach_defs[] = {
-    { "First Blood",      "Win a fight.",                        0,  20 },
-    { "Box Opener",       "Open a loot box.",                    0,  0 },
-    { "Barefoot Doctrine","Reach level 5.",                      1,  30 },
-    { "Pest Control",     "Win ten fights.",                     1,  80 },
-    { "Cartographer",     "See two hundred tiles of one floor.", 1,  60 },
-    { "Solvent",          "Hold five hundred gold at once.",     0, 0 },
-    { "Untouchable",      "Win a fight without taking a hit.",   2, 150 },
-    { "Rat Deposed",      "Put the Rat King down.",              2, 120 },
-    { "Site Closed",      "Fire the Foreman.",                   2, 200 },
-    { "Cancelled",        "Finish the Producer.",                3, 400 },
-    { "Deep Pockets",     "Carry four kinds of gear at once.",   1, 60 },
-    { "Read The Room",    "Sit through every System briefing.",  1,  70 },
-    /*  Chapter one: neither of these is earned in a dungeon, and neither pays
-        out in a box — a loot box scene opening in the middle of a cutscene
-        takes the screen away from the thing the player was reading. */
-    { "No Shoes",         "Go outside for the cat anyway.",    255,  40 },
-    { "Outside At The Time", "Be in the road when it happened.", 255,  0 },
+    { "Crazy Cat Lady",   "Enter the dungeon with a cat.",         0,   0 },
+    { "Early Adopter",    "Be one of the first 5,000 in.",         1,   0 },
+    { "Empty Pockets",    "Enter with nothing at all.",            0,   0 },
+    { "Why Aren't You Wearing Pants",
+                          "Enter the dungeon in your boxers.",     2,   0 },
+    { "Unarmed Combat",   "Enter without a weapon.",               0,   0 },
+    { "Loner",            "Enter with no human company.",        255,   0 },
+    { "Damage",           "Inflict damage on a mob.",            255,   0 },
+    /*  The one that matters: until a crawler has killed something, they do
+        not earn experience at all. */
+    { "You've Killed a Mob",
+                          "Kill your first mob.",                255,   0 },
+    { "Bare Fucking Hands",
+                          "Kill an armed mob unarmed.",            0,   0 },
+    { "Podophilia",       "Kill something with your bare feet.",   2,   0 },
+    { "Boom",             "Set off a blast the floor can feel.",   1,   0 },
+    { "Level-Up, Baby",   "Gain a level.",                       255,   0 },
+    { "Loot",             "Wear something you found down here.",  255,   0 },
+    { "Boss Babe",        "Draw blood from a boss.",             255,   0 },
+    { "Two Chicks at the Same Time",
+                          "Kill two mobs with one blow.",          2,   0 },
+    { "Neighbourhood Watch",
+                          "Put a neighbourhood boss down.",        1,   0 },
+    { "Stairwell",        "Take a borough boss off a stairwell.",  1, 120 },
+    { "Cartographer",     "See two hundred tiles of one floor.",   0,  60 },
+    { "Read The Room",    "Sit through every System briefing.",    0,  70 },
+    /*  Chapter one: neither is earned in a dungeon, and neither pays out in a
+        box -- a loot box scene opening in the middle of a cutscene takes the
+        screen away from the thing the player was reading. */
+    { "No Shoes",         "Go outside for the cat anyway.",      255,  40 },
+    { "Outside At The Time", "Be in the road when it happened.",  255,   0 },
 };
 const int ach_count = (int)(sizeof ach_defs / sizeof ach_defs[0]);
 

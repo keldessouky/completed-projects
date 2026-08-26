@@ -61,7 +61,7 @@ static uint32_t checksum(const BitBuf *b) {
 void save_make_code(char *out) {
     BitBuf b;
     memset(&b, 0, sizeof b);
-    put_bits(&b, 5, 3);                              /* format version        */
+    put_bits(&b, 6, 3);                              /* format version        */
     put_bits(&b, g.season & 0xFFFF, 16);             /* the season's seed     */
     put_bits(&b, g.hero[0].crawler & 3, 2);          /* who went down         */
     put_bits(&b, g.hero[1].crawler & 3, 2);
@@ -70,7 +70,10 @@ void save_make_code(char *out) {
     put_bits(&b, g.hero[1].level, 5);
     put_bits(&b, (uint32_t)(g.gold < 0 ? 0 : g.gold > 16000 ? 16000 : g.gold) / 8, 11);
     put_bits(&b, g.flags & 0xFFF, 12);
-    put_bits(&b, g.achievements & 0xFFFF, 16);   /* fourteen of them now */
+    /*  Only the earned ones. The six the draft decides are rebuilt on load
+        from the crawler pair above, which is the only reason twenty-one of
+        them fit a payload that has no spare bits. */
+    put_bits(&b, (g.achievements >> ACH_ENTRY_COUNT) & 0xFFFF, 16);
     put_bits(&b, g.battles_won > 127 ? 127 : g.battles_won, 7);
     put_bits(&b, g.boxes_opened > 15 ? 15 : g.boxes_opened, 4);
     put_bits(&b, g.story_beat & 3, 2);
@@ -106,7 +109,7 @@ int save_apply_code(const char *code) {
 
     BitBuf r = b;
     r.pos = 0;
-    if (get_bits(&r, 3) != 5) return 0;
+    if (get_bits(&r, 3) != 6) return 0;   /* v5 laid the achievements out differently */
     uint32_t season = get_bits(&r, 16);
     int crawler_a = (int)get_bits(&r, 2);
     int crawler_b = (int)get_bits(&r, 2);
@@ -131,7 +134,11 @@ int save_apply_code(const char *code) {
     rng_seed(0x9E3779B9u ^ (g.season * 2654435761u));
     g.gold = (int16_t)gold;
     g.flags = flags;
-    g.achievements = achievements;
+    /*  Set directly rather than awarded: these are already-earned history
+        being restored, and awarding them again would re-toast them and pay
+        out their boxes a second time. */
+    g.achievements = (achievements << ACH_ENTRY_COUNT) | game_entry_achievements();
+    g.box_queue_n = 0;
     g.battles_won = (uint16_t)battles;
     g.boxes_opened = (uint16_t)boxes;
     g.story_beat = (uint8_t)beat;

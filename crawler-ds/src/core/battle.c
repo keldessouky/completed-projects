@@ -145,15 +145,30 @@ static int roll_damage(int attack, int defence, int power_pct, int luck) {
     return dmg < 1 ? 1 : dmg;
 }
 
+/*  Kills landed by the blow currently being resolved. Two in one go is worth
+ *  an achievement, so the count has to survive across the calls a single
+ *  hit-all attack makes. */
+static int s_kills_this_blow;
+
 static void hurt_foe(int index, int amount) {
     Foe *f = &g.bat.foes[index];
     if (!f->alive) return;
     f->hp = (int16_t)(f->hp - amount);
     pop_damage(FOE_SLOT(index), amount);
     g.bat.shake = 6;
+    game_award(ACH_DAMAGE);
+    if (foe_defs[f->def].rank) game_award(ACH_BOSS_BABE);
     if (f->hp <= 0) {
         f->alive = 0;
         f->hp = 0;
+        if (++s_kills_this_blow == 2) game_award(ACH_TWO_AT_ONCE);
+        /*  Carl fights barefoot and, for most of the first floor, unarmed. The
+            show has a box for each of those, and they are the two the book
+            makes a running joke of. */
+        if (g.bat.actor < PARTY && g.hero[g.bat.actor].equip[0] <= 0) {
+            game_award(ACH_BARE_HANDS);
+            if (g.hero[g.bat.actor].crawler == CR_CARL) game_award(ACH_PODOPHILIA);
+        }
         log_line(foe_defs[f->def].name, " is finished.", 0);
     }
 }
@@ -178,6 +193,7 @@ static void hurt_hero(int index, int amount) {
 }
 
 static void apply_effect(int kind, int power, int from_hero, int actor, int target) {
+    s_kills_this_blow = 0;      /* one blow, however many things it lands on */
     switch (kind) {
     case SK_HIT_ONE:
         if (from_hero)
@@ -367,6 +383,7 @@ static void finish_battle(int won, int fled) {
     /*  The neighbourhood shuts down the moment its boss does. */
     if (g.pending_zone) {
         g.zone_cleared |= (uint16_t)(1u << (g.pending_zone - 1));
+        game_award(ACH_NEIGHBOURHOOD);
         game_toast("The neighbourhood goes quiet.", 0);
         g.pending_zone = 0;
     }
@@ -388,20 +405,18 @@ static void finish_battle(int won, int fled) {
     for (int i = 0; i < PARTY; i++)
         if (g.hero[i].hp > 0 && hero_gain_xp(&g.hero[i], xp)) audio_sfx(SFX_LEVEL);
 
-    if (g.battles_won == 1) game_award(0);
-    if (g.battles_won == 10) game_award(3);
-    if (g.gold >= 500) game_award(5);
-    if (g.hero[0].level >= 5) game_award(2);
+    if (g.battles_won == 1) game_award(ACH_FIRST_KILL);
     {
         int untouched = 1;
         for (int i = 0; i < PARTY; i++) if (g.hero[i].hp < g.hero[i].hp_max) untouched = 0;
-        if (untouched) game_award(6);
+        (void)untouched;
     }
     if (g.bat.boss) {
         int floor_no = g.dun.index + 1;
-        if (floor_no == 1) { g.flags |= F_FLOOR1_BOSS; game_award(7); }
-        if (floor_no == 2) { g.flags |= F_FLOOR2_BOSS; game_award(8); }
-        if (floor_no == 3) { g.flags |= F_FLOOR3_BOSS; game_award(9); }
+        if (floor_no == 1) g.flags |= F_FLOOR1_BOSS;
+        if (floor_no == 2) g.flags |= F_FLOOR2_BOSS;
+        if (floor_no == 3) g.flags |= F_FLOOR3_BOSS;
+        game_award(ACH_STAIRWELL);
         game_open_box(floor_no >= 3 ? 3 : 2);
     } else if (rng_chance(30)) {
         game_open_box(rng_chance(20) ? 1 : 0);
@@ -436,8 +451,10 @@ static void use_item(int item) {
         log_line(g.hero[actor].name, " cracks the ", d->name);
         break;
     case IT_BOMB:
+        s_kills_this_blow = 0;
         for (int i = 0; i < g.bat.n_foes; i++)
             if (g.bat.foes[i].alive) hurt_foe(i, d->power + rng_range(0, 10));
+        game_award(ACH_BOOM);
         log_line("The room", " goes very bright.", 0);
         break;
     case IT_REVIVE:
@@ -477,7 +494,12 @@ static void choose_action(int action) {
         g.bat.timer = 24;
         break;
     case 3:   /* run */
-        if (g.bat.boss) {
+        /*  A borough boss is standing on the stairwell, so there is genuinely
+            nowhere to go. A neighbourhood boss is in a chamber you walked into
+            and can walk back out of -- which matters, because it is levels
+            above anything else on the floor and the party can meet one on
+            their first corridor. */
+        if (g.bat.boss == 1) {
             log_line("There is", " nowhere to run to.", 0);
             g.bat.phase = BAT_RESOLVE;
             g.bat.timer = 30;

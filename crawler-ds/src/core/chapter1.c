@@ -36,7 +36,7 @@ static const CutLine ch1[] = {
     "You stand in the cold and outlast her, which takes eleven minutes and "
     "costs you all feeling below the ankle." }, },
 
-{ SP_NARRATOR, BD_KEEP, CUT_AWARD, 12,
+{ SP_NARRATOR, BD_KEEP, CUT_AWARD, ACH_NO_SHOES,
   "You get a hand under her. Eight pounds of cat and about four of hair.",
   {0}, {0} },
 { SP_CARL, BD_KEEP, CUT_NONE, 0,
@@ -55,7 +55,7 @@ static const CutLine ch1[] = {
   "your knees with a cat under your shirt and you cannot hear anything at all.",
   {0}, {0} },
 { SP_CARL, BD_KEEP, CUT_NONE, 0, "Bea. BEA.", {0}, {0} },
-{ SP_NARRATOR, BD_KEEP, CUT_AWARD, 13,
+{ SP_NARRATOR, BD_KEEP, CUT_AWARD, ACH_OUTSIDE,
   "Everyone who was inside is gone. Everyone who was outside is standing in "
   "the road in whatever they had on. There are not many of you.", {0}, {0} },
 

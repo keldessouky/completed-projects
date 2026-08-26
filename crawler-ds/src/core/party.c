@@ -55,6 +55,7 @@ int hero_gain_xp(Hero *h, int xp) {
         h->mp = h->mp_max;
         gained++;
     }
+    if (gained) game_award(ACH_LEVEL_UP);
     return gained;
 }
 
@@ -121,6 +122,7 @@ int equip_item(Hero *h, int item) {
     if (h->equip[slot] > 0) inventory_add(h->equip[slot], 1);
     h->equip[slot] = (int8_t)item;
     hero_recompute(h);
+    game_award(ACH_LOOT);
     return 1;
 }
 
