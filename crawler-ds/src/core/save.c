@@ -149,7 +149,7 @@ int save_apply_code(const char *code) {
         being restored, and awarding them again would re-toast them and pay
         out their boxes a second time. */
     g.achievements = (achievements << ACH_ENTRY_COUNT) | game_entry_achievements();
-    g.box_queue_n = 0;
+    memset(g.boxes_held, 0, sizeof g.boxes_held);
     g.battles_won = (uint16_t)battles;
     g.boxes_opened = (uint16_t)boxes;
     g.story_beat = (uint8_t)beat;

@@ -35,13 +35,20 @@ hardware, melonDS or DeSmuME on a desktop.
 ### Controls
 
 The game is playable **entirely with buttons** or **entirely with the stylus**.
+
+Movement and looking are on separate controls, the way a first-person game
+splits them: the d-pad moves in all four directions and the shoulders turn. A
+DS ROM cannot read an analog stick — the hardware has twelve digital buttons
+and a touchscreen, and no axes at all — but a handheld that has sticks can bind
+one to each, so on an RG DS you can put **left stick on the d-pad** and **right
+stick left/right on L and R** and walk and look with them.
 Both are always live.
 
 | Button | In the dungeon | In a fight |
 | --- | --- | --- |
 | **D-pad up/down** | walk forward / back a tile | move the cursor |
-| **D-pad left/right** | turn ninety degrees | move the cursor |
-| **L / R** | sidestep without turning | — |
+| **D-pad left/right** | sidestep, without turning | move the cursor |
+| **L / R** | turn ninety degrees | switch tab |
 | **A** | use whatever you are standing on | confirm |
 | **B** | — | back out of a menu |
 | **START / X** | party, gear, achievements | — |

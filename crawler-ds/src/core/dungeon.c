@@ -130,9 +130,15 @@ static void enter_tile(int x, int y) {
     switch (t) {
     case T_BOX:
     case T_BOX_GOLD:
+        /*  Picked up, not opened. Standing in a corridor prising open a box
+            the System is broadcasting is how crawlers stop being crawlers --
+            they get carried to a safe room and opened there. */
         if (!dungeon_is_used(x, y)) {
             dungeon_set_used(x, y);
-            game_open_box(t == T_BOX_GOLD ? 2 : rng_chance(35) ? 1 : 0);
+            game_hold_box(t == T_BOX_GOLD ? 2 : rng_chance(35) ? 1 : 0);
+            audio_sfx(SFX_STEP);
+            game_toast(game_boxes_held() > 1 ? "Another box. Open them somewhere safe."
+                                             : "Loot box stowed. Safe rooms only.", 0);
         }
         break;
     case T_SHOP:
@@ -215,9 +221,21 @@ static void enter_tile(int x, int y) {
     }
 }
 
+#define VIEW_ANIM_FRAMES 6
+
 void dungeon_turn(int delta) {
     g.dun.facing = (uint8_t)((g.dun.facing + delta + 4) & 3);
+    g.dun.turn_anim = (int8_t)(delta > 0 ? VIEW_ANIM_FRAMES : -VIEW_ANIM_FRAMES);
     dungeon_light_of_sight();
+}
+
+/*  Run down whatever view motion is outstanding. Called once a frame from
+ *  dungeon_tick, so it decays whether or not the party is moving. */
+void dungeon_view_tick(void) {
+    if (g.dun.turn_anim > 0) g.dun.turn_anim--;
+    else if (g.dun.turn_anim < 0) g.dun.turn_anim++;
+    if (g.dun.step_anim > 0) g.dun.step_anim--;
+    else if (g.dun.step_anim < 0) g.dun.step_anim++;
 }
 
 void dungeon_step(int forward) {
@@ -235,16 +253,13 @@ void dungeon_step(int forward) {
 
     g.dun.px = (uint8_t)nx;
     g.dun.py = (uint8_t)ny;
+    g.dun.step_anim = (int8_t)(forward > 0 ? VIEW_ANIM_FRAMES : -VIEW_ANIM_FRAMES);
     g.dun.steps++;
     audio_sfx(SFX_STEP);
     dungeon_light_of_sight();
     enter_tile(nx, ny);
     if (g.scene != SCENE_DUNGEON) return;
 
-    /*  Owed boxes arrive a few steps apart. Walking in earns five of them at
-        once, and five box scenes back to back is a wall between the player and
-        the first corridor -- the show hands them over as you go instead. */
-    if (g.box_queue_n && g.dun.steps % 6 == 0) { game_drain_box_queue(); return; }
     if (g.dun.steps_to_encounter) g.dun.steps_to_encounter--;
     if (!g.dun.steps_to_encounter) {
         g.dun.steps_to_encounter = (uint16_t)rng_range(8, 16);
@@ -253,21 +268,20 @@ void dungeon_step(int forward) {
     }
 }
 
-/* Sideways, without turning: the shoulder buttons. */
+/*  Sideways, without turning. On the d-pad now: with move and look split
+ *  across separate controls, stepping left is what left should do. */
 void dungeon_strafe(int right) {
     int f = (g.dun.facing + (right ? 1 : 3)) & 3;
     int nx = g.dun.px + dx4[f], ny = g.dun.py + dy4[f];
     if (!dungeon_walkable(nx, ny)) return;
+    /*  A lateral pan is literal here, so it leans the way the party moved. */
+    g.dun.turn_anim = (int8_t)(right ? -VIEW_ANIM_FRAMES / 2 : VIEW_ANIM_FRAMES / 2);
     g.dun.px = (uint8_t)nx;
     g.dun.py = (uint8_t)ny;
     g.dun.steps++;
     dungeon_light_of_sight();
     enter_tile(nx, ny);
     if (g.scene != SCENE_DUNGEON) return;
-    /*  Owed boxes arrive a few steps apart. Walking in earns five of them at
-        once, and five box scenes back to back is a wall between the player and
-        the first corridor -- the show hands them over as you go instead. */
-    if (g.box_queue_n && g.dun.steps % 6 == 0) { game_drain_box_queue(); return; }
     if (g.dun.steps_to_encounter) g.dun.steps_to_encounter--;
     if (!g.dun.steps_to_encounter) {
         g.dun.steps_to_encounter = (uint16_t)rng_range(8, 16);
@@ -280,6 +294,7 @@ void dungeon_interact(void) { enter_tile(g.dun.px, g.dun.py); }
 
 /* The countdown. When it runs out the floor does not politely wait. */
 void dungeon_tick(void) {
+    dungeon_view_tick();
     if (g.dun.collapse > 0) {
         g.dun.collapse--;
         if (g.dun.collapse == 60 * 60)

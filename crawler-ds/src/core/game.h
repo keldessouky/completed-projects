@@ -292,6 +292,13 @@ typedef struct {
     uint8_t  used[MAP_MAX * MAP_MAX / 8]; /* boxes opened, triggers fired */
     uint16_t steps_to_encounter;
     int32_t  collapse;                    /* frames left before the floor goes */
+    /*  View motion. A 90-degree snap between two still frames reads as a
+        slideshow; these decay to zero over a few frames and the renderer pans
+        and nudges the camera by them, so a turn has a direction and a step has
+        a shove behind it. Cosmetic only -- the party is on the grid either
+        way, and nothing in the game logic reads them. */
+    int8_t   turn_anim;                   /* signed frames left in a turn  */
+    int8_t   step_anim;                   /* signed frames left in a step  */
     uint16_t steps;
     uint16_t explored;
 
@@ -359,10 +366,12 @@ typedef struct {
     uint8_t  safe_room;         /* index into safe_room_defs, while in one */
     uint16_t zone_cleared;      /* bit per zone whose boss is down */
     uint8_t  pending_zone;      /* zone+1 whose boss is being fought, 0 for none */
-    /*  Boxes owed. Achievements can pay out several at once and each one is a
-        scene, so they wait here until the party is somewhere a scene can run. */
-    uint8_t  box_queue[8];
-    int      box_queue_n;
+    /*  Boxes the party is carrying, unopened, counted by tier. Nothing opens
+        where it was found: a box is stowed and cracked later somewhere safe,
+        which is also the only place in the dungeon it is sane to stand still
+        long enough to do it. */
+    uint8_t  boxes_held[4];
+    uint8_t  box_from_safe;     /* opened from a safe room, so return to it */
     uint16_t box_timer;
     uint8_t  levelup_hero;
 
@@ -431,6 +440,7 @@ void  dungeon_mark_seen(int x, int y);
 int   dungeon_walkable(int x, int y);
 void  dungeon_step(int forward);
 void  dungeon_turn(int delta);
+void  dungeon_view_tick(void);
 void  dungeon_interact(void);
 void  dungeon_tick(void);
 void  dungeon_light_of_sight(void);
@@ -473,7 +483,9 @@ enum {
 
 void     game_award_entry(void);        /* the six the draft decides */
 uint32_t game_entry_achievements(void);
-void     game_drain_box_queue(void);
+void     game_hold_box(int tier);   /* stow one, unopened */
+int      game_boxes_held(void);     /* how many are waiting */
+int      game_open_held_box(void);  /* crack the best one; 0 if none */
 
 extern const AchDef   ach_defs[];
 extern const int      ach_count;

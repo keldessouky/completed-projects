@@ -356,9 +356,11 @@ int main(int argc, char **argv) {
             tel_read("steps", &last_steps);
             for (int k = 0; k < rounds; k++) {
                 /* Walk forward, confirm whatever the game put on screen, and
-                   turn away from anything that stops being walkable. */
+                   turn away from anything that stops being walkable. Turning is
+                   on the shoulders: the d-pad is movement in all four
+                   directions now, so "right" strafes rather than turns. */
                 const char *button = (k % 3 == 2) ? "a" : "up";
-                if (stuck >= 2) { button = "right"; stuck = 0; }
+                if (stuck >= 2) { button = "r"; stuck = 0; }
                 unsigned id = button_id(button);
                 g_joypad |= 1u << id;  run_frames(8);
                 g_joypad &= ~(1u << id); run_frames(6);

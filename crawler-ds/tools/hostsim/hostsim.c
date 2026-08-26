@@ -17,6 +17,7 @@
 
 #include "platform.h"
 #include "game.h"
+#include "ui_layout.h"
 
 static uint16_t fb[2][SCREEN_W * SCREEN_H];
 uint16_t *plat_screen(int which) { return fb[which ? 1 : 0]; }
@@ -129,7 +130,9 @@ static void face_and_step(int dx, int dy) {
     int want = dy < 0 ? DIR_N : dy > 0 ? DIR_S : dx > 0 ? DIR_E : DIR_W;
     for (int guard = 0; guard < 4 && g.dun.facing != want; guard++) {
         int diff = (want - g.dun.facing + 4) & 3;
-        tap(diff == 3 ? BTN_LEFT : BTN_RIGHT);
+        /*  Turning is on the shoulders now: the d-pad moves in all four
+            directions, the way a first-person game splits them. */
+        tap(diff == 3 ? BTN_L : BTN_R);
         if (g.scene != SCENE_DUNGEON) return;
     }
     tap(BTN_UP);
@@ -181,7 +184,7 @@ static void play_battle(void) {
  *  worth the boss's time. A player does this by exploring; the bot has to be
  *  told. */
 static void grind_to(int level, int max_steps) {
-    static const int dirs[4] = { BTN_UP, BTN_RIGHT, BTN_UP, BTN_LEFT };
+    static const int dirs[4] = { BTN_UP, BTN_R, BTN_UP, BTN_L };
     for (int i = 0; i < max_steps && g.hero[0].level < level; i++) {
         if ((int)g.scene == pause_scene) return;
         if (g.scene == SCENE_BATTLE) { play_battle(); continue; }
@@ -197,7 +200,7 @@ static void grind_to(int level, int max_steps) {
         if (g.scene == SCENE_GAMEOVER || g.scene == SCENE_TITLE ||
             g.scene == SCENE_DRAFT) break;
         tap(dirs[i & 3]);
-        if (g.scene == SCENE_DUNGEON && g.dun.steps == before) tap(BTN_RIGHT);
+        if (g.scene == SCENE_DUNGEON && g.dun.steps == before) tap(BTN_R);
         /* Patch up between fights if the bag allows it. */
         if (g.hero[0].hp * 3 < g.hero[0].hp_max) tap(BTN_Y);
         if (g.hero[1].hp * 3 < g.hero[1].hp_max) tap(BTN_Y);
@@ -436,7 +439,7 @@ int main(int argc, char **argv) {
             g.scene == SCENE_SAFEROOM) { tap(BTN_A); continue; }
             if (g.scene != SCENE_DUNGEON) { tap(BTN_B); continue; }
             tap(BTN_UP);
-            if (g.scene == SCENE_DUNGEON && g.dun.steps == (uint16_t)(guard / 4)) tap(BTN_RIGHT);
+            if (g.scene == SCENE_DUNGEON && g.dun.steps == (uint16_t)(guard / 4)) tap(BTN_R);
         }
         if (g.scene == SCENE_BATTLE) {
             idle(40);
@@ -633,7 +636,10 @@ int main(int argc, char **argv) {
         int before = g.dun.steps;
         for (int i = 0; i < 3; i++) {
             input.touching = input.touch_pressed = 1;
-            input.touch_x = 47; input.touch_y = 128;   /* the forward pad */
+            /*  Centre of whatever the layout says forward is, so moving the pad
+                does not silently break the test that proves it works. */
+            input.touch_x = (int16_t)(kDunPad[0].x + kDunPad[0].w / 2);
+            input.touch_y = (int16_t)(kDunPad[0].y + kDunPad[0].h / 2);
             step();
             idle(2);
         }

@@ -126,21 +126,34 @@ void game_award(int achievement) {
     audio_sfx(SFX_LEVEL);
     toast_join("Achievement: ", ach_defs[achievement].name);
     g.gold = (int16_t)(g.gold + ach_defs[achievement].gold);
-    /*  Queued, not opened. Six of these land at once when a run starts, and
+    /*  Stowed, not opened. Six of these land at once when a run starts, and
         game_open_box sets the scene -- so opening them directly showed the
         last one and silently swallowed the rest. */
-    if (ach_defs[achievement].box < 4 && g.box_queue_n < (int)sizeof g.box_queue)
-        g.box_queue[g.box_queue_n++] = ach_defs[achievement].box;
+    if (ach_defs[achievement].box < 4) game_hold_box(ach_defs[achievement].box);
 }
 
-/*  Hand out one owed box. Called from the dungeon, which is the one place a
- *  box scene can open without taking the screen away from something else. */
-void game_drain_box_queue(void) {
-    if (!g.box_queue_n) return;
-    int tier = g.box_queue[0];
-    for (int i = 1; i < g.box_queue_n; i++) g.box_queue[i - 1] = g.box_queue[i];
-    g.box_queue_n--;
-    game_open_box(tier);
+void game_hold_box(int tier) {
+    if (tier < 0 || tier > 3) return;
+    if (g.boxes_held[tier] < 250) g.boxes_held[tier]++;
+}
+
+int game_boxes_held(void) {
+    int n = 0;
+    for (int i = 0; i < 4; i++) n += g.boxes_held[i];
+    return n;
+}
+
+/*  Crack the best one the party is carrying. Best first, because the run of
+ *  boxes at a safe room is the payoff for the corridor behind it and opening
+ *  four bronzes before the gold is the wrong order to feel it in. */
+int game_open_held_box(void) {
+    for (int tier = 3; tier >= 0; tier--) {
+        if (!g.boxes_held[tier]) continue;
+        g.boxes_held[tier]--;
+        game_open_box(tier);
+        return 1;
+    }
+    return 0;
 }
 
 /* ---------------------------------------------------------------- scenes -- */
@@ -200,7 +213,7 @@ static void start_new_run(void) {
     inventory_add(ITEM_SPLINT, 2);
     g.flags = 0;
     g.achievements = 0;
-    g.box_queue_n = 0;
+    memset(g.boxes_held, 0, sizeof g.boxes_held);
     g.boxes_opened = 0;
     g.battles_won = 0;
     g.story_beat = 0;
@@ -278,21 +291,27 @@ static void update_dungeon(const PlatInput *in) {
 
     static uint8_t repeat;
     uint32_t moved = in->pressed;
-    if (in->held & (BTN_UP | BTN_DOWN | BTN_LEFT | BTN_RIGHT)) {
+    if (in->held & (BTN_UP | BTN_DOWN | BTN_LEFT | BTN_RIGHT | BTN_L | BTN_R)) {
         if (repeat) repeat--;
         if (!repeat) { moved |= in->held; repeat = 9; }
     } else {
         repeat = 0;
     }
 
+    /*  The first-person layout: the d-pad is movement in all four directions
+        and the shoulders are the camera. A DS ROM cannot read an analog stick
+        -- the hardware has twelve digital buttons and a touchscreen, and no
+        axes at all -- but an emulator can bind a stick to buttons, so putting
+        move and turn on separate physical controls is what makes left-stick
+        walk and right-stick look work on a handheld that has them. */
     if (moved & BTN_UP) dungeon_step(1);
     else if (moved & BTN_DOWN) dungeon_step(-1);
-    else if (moved & BTN_LEFT) dungeon_turn(-1);
-    else if (moved & BTN_RIGHT) dungeon_turn(1);
+    else if (moved & BTN_LEFT) dungeon_strafe(0);
+    else if (moved & BTN_RIGHT) dungeon_strafe(1);
     if (g.scene != SCENE_DUNGEON) return;
 
-    if (in->pressed & BTN_L) dungeon_strafe(0);
-    if (in->pressed & BTN_R) dungeon_strafe(1);
+    if (moved & BTN_L) dungeon_turn(-1);
+    else if (moved & BTN_R) dungeon_turn(1);
     if (g.scene != SCENE_DUNGEON) return;
 
     if (in->pressed & BTN_A) dungeon_interact();
@@ -309,11 +328,13 @@ static void update_dungeon(const PlatInput *in) {
             }
     }
 
-    for (int i = 0; i < 4; i++)
+    for (int i = 0; i < DUN_PAD_N; i++)
         if (touch_in(in, &kDunPad[i])) {
             if (i == 0) dungeon_step(1);
             else if (i == 1) dungeon_step(-1);
-            else if (i == 2) dungeon_turn(-1);
+            else if (i == 2) dungeon_strafe(0);
+            else if (i == 3) dungeon_strafe(1);
+            else if (i == 4) dungeon_turn(-1);
             else dungeon_turn(1);
             return;
         }
@@ -400,15 +421,33 @@ static void update_box(const PlatInput *in) {
         inventory_add(g.box_item, 1);
     }
     if (g.box_phase == 2 && (g.box_timer > 60 || (in->pressed & (BTN_A | BTN_B)) || in->touch_pressed)) {
+        if (g.box_from_safe && game_boxes_held()) { game_set_scene(SCENE_SAFEROOM); return; }
+        if (g.box_from_safe) {
+            g.box_from_safe = 0;
+            if (g.hero[0].points || g.hero[1].points) game_set_scene(SCENE_LEVELUP);
+            else game_set_scene(SCENE_SAFEROOM);
+            return;
+        }
         if (g.hero[0].points || g.hero[1].points) game_set_scene(SCENE_LEVELUP);
         else game_set_scene(SCENE_DUNGEON);
     }
 }
 
-/*  A safe room is a beat, not a puzzle: the party is already healed by the
- *  time the screen comes up, and any button leaves. */
+/*  A safe room is where the run gets cashed in. The party is healed by the
+ *  time the screen comes up; A opens whatever boxes they are carrying, one at
+ *  a time, and B leaves whenever they have had enough. */
 static void update_safe_room(const PlatInput *in) {
-    if ((in->pressed & (BTN_A | BTN_B)) || in->touch_pressed) {
+    if ((in->pressed & BTN_A) || in->touch_pressed) {
+        if (game_boxes_held()) {
+            g.box_from_safe = 1;
+            game_open_held_box();
+            return;
+        }
+        if (g.hero[0].points || g.hero[1].points) game_set_scene(SCENE_LEVELUP);
+        else game_set_scene(SCENE_DUNGEON);
+        return;
+    }
+    if (in->pressed & BTN_B) {
         if (g.hero[0].points || g.hero[1].points) game_set_scene(SCENE_LEVELUP);
         else game_set_scene(SCENE_DUNGEON);
     }

@@ -6,12 +6,20 @@
 typedef struct { int16_t x, y, w, h; const char *label; } Rect;
 
 /* Bottom screen, dungeon: a d-pad on the left, actions on the right. */
+/*  Six controls, laid out the way a first-person game splits them: the middle
+    column walks, the sides step sideways, and the two at the top corners turn.
+    A DS has no analog sticks for a ROM to read, so move and look live on
+    separate physical controls instead -- which is also what lets a handheld
+    with sticks bind one to each. */
 static const Rect kDunPad[] = {
-    {  36, 118, 28, 24, "\177" },      /* forward   */
-    {  36, 164, 28, 22, "\200" },      /* back      */
-    {   6, 142, 26, 22, "\201" },      /* turn left */
-    {  68, 142, 26, 22, "\202" },      /* turn right*/
+    {  34, 140, 28, 22, "\177" },      /* forward     */
+    {  34, 166, 28, 22, "\200" },      /* back        */
+    {   4, 140, 26, 22, "\201" },      /* strafe left */
+    {  66, 140, 26, 22, "\202" },      /* strafe right*/
+    {   4, 114, 26, 22, "\210" },      /* turn left   */
+    {  66, 114, 26, 22, "\211" },      /* turn right  */
 };
+#define DUN_PAD_N ((int)(sizeof kDunPad / sizeof kDunPad[0]))
 static const Rect kDunActions[] = {
     { 102, 118, 72, 26, "LOOK" },
     { 178, 118, 74, 26, "PARTY" },

@@ -26,8 +26,8 @@ shot 03-corridor
 # floor is generated per season now, but the party always arrives facing a
 # tile it can walk onto, so a tap on the touch d-pad has to move it.
 echo the stylus alone can play it
-touch 47 128 12
-touch 47 128 12
+touch 48 151 12
+touch 48 151 12
 frames 20
 expect steps > 0
 

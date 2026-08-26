@@ -188,9 +188,9 @@ static void draw_title(Surface *top, Surface *bot) {
         gfx_text(bot, 40 + (176 - gfx_text_width(opts[i])) / 2, y + (i ? 8 : 9),
                  on ? C_AMBER : C_DIM, opts[i]);
     }
-    gfx_text(bot, 8, 60, C_DIM, "D-PAD  walk and turn");
+    gfx_text(bot, 8, 60, C_DIM, "D-PAD  move and sidestep");
     gfx_text(bot, 8, 72, C_DIM, "A  act    B  back    START  party");
-    gfx_text(bot, 8, 84, C_DIM, "L / R  sidestep     Y  quick heal");
+    gfx_text(bot, 8, 84, C_DIM, "L / R  turn         Y  quick heal");
     gfx_text(bot, 8, 96, C_DIM, "Or play it entirely with the stylus.");
     gfx_text(bot, 8, 178, C_DIM, "(c) fan work. Story by Matt Dinniman.");
 }
@@ -374,7 +374,7 @@ static void draw_dungeon(Surface *top, Surface *bot) {
     /*  The d-pad needs somewhere to live, or four floating diamonds read as
         an unfinished screen. The housing also keeps the run's numbers off it. */
     window(bot, 2, 114, 96, 76, 0);
-    for (int i = 0; i < 4; i++) draw_button(bot, &kDunPad[i], 0);
+    for (int i = 0; i < DUN_PAD_N; i++) draw_button(bot, &kDunPad[i], 0);
     for (int i = 0; i < 4; i++) draw_button(bot, &kDunActions[i], 0);
 
     window(bot, 100, 174, 152, 16, 0);
@@ -1227,11 +1227,33 @@ static void draw_safe_room(Surface *top, Surface *bot) {
     backdrop(bot);
     gfx_text_big(bot, 12, 26, C_GOLD, r->name);
     gfx_text_wrapped(bot, 12, 58, 232, C_INK, r->blurb);
-    window(bot, 8, 104, 240, 46, 0);
-    gfx_text(bot, 16, 112, C_GREEN, "Everyone is patched up.");
-    gfx_text(bot, 16, 128, C_DIM, "Health and stamina full. The floor");
-    gfx_text(bot, 16, 138, C_DIM, "outside has not stopped for this.");
-    gfx_text(bot, 12, 168, C_AMBER, "TAP TO CONTINUE");
+    window(bot, 8, 100, 240, 34, 0);
+    gfx_text(bot, 16, 108, C_GREEN, "Everyone is patched up.");
+    gfx_text(bot, 16, 120, C_DIM, "The floor outside has not stopped.");
+
+    int held = game_boxes_held();
+    window(bot, 8, 138, 240, 40, held > 0);
+    if (held) {
+        gfx_text(bot, 16, 146, C_GOLD, "BOXES TO OPEN");
+        gfx_text(bot, 122, 146, C_INK, gfx_num(held));
+        /*  What is in the pile, so the run of them has a shape before it
+            starts rather than being a surprise each time. */
+        static const char *const kTier[4] = { "BRZ", "SLV", "GLD", "LEG" };
+        static const uint16_t kTierCol[4] = { RGB(190, 130, 80), RGB(200, 206, 218),
+                                              RGB(250, 208, 80), RGB(206, 96, 236) };
+        int x = 16;
+        for (int t = 3; t >= 0; t--) {
+            if (!g.boxes_held[t]) continue;
+            gfx_text(bot, x, 162, kTierCol[t], kTier[t]);
+            gfx_text(bot, x + 20, 162, C_INK, gfx_num(g.boxes_held[t]));
+            x += 40;
+        }
+        gfx_text(bot, 150, 146, C_AMBER, "A OPENS");
+        gfx_text(bot, 150, 162, C_DIM, "B LEAVES");
+    } else {
+        gfx_text(bot, 16, 148, C_DIM, "No boxes to open. Bring some back.");
+        gfx_text(bot, 16, 162, C_AMBER, "A OR B TO LEAVE");
+    }
 }
 
 static void draw_box(Surface *top, Surface *bot) {

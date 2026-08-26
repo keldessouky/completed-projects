@@ -115,12 +115,14 @@ EXTRA = r"""
 133 ##### #...# #.#.# #...# #.#.# #...# #####   BOX
 134 .###. #...# #.#.# #...# .#.#. ..#.. .###.   SKULL
 135 ..#.. .###. ##### .###. ..#.. ..... .....   PIP
+136 ..... ..#.# .#.#. #.#.. .#.#. ..#.# .....   TURN_LEFT
+137 ..... #.#.. .#.#. ..#.# .#.#. #.#.. .....   TURN_RIGHT
 """
 
 
 def parse():
-    """Returns a 136-entry list of 7-byte glyph rows, indexed by character code."""
-    glyphs = [[0] * 7 for _ in range(136)]
+    """Returns a 138-entry list of 7-byte glyph rows, indexed by character code."""
+    glyphs = [[0] * 7 for _ in range(138)]
     for block in (GLYPHS, EXTRA):
         for line in block.strip().splitlines():
             parts = line.split()
@@ -147,4 +149,4 @@ def parse():
 
 
 FIRST_CHAR = 32
-LAST_CHAR = 135
+LAST_CHAR = 137

@@ -8,8 +8,8 @@
 #include "gfx.h"
 
 #define FONT_FIRST 32
-#define FONT_LAST  135
-extern const uint8_t font5x7[104][7];
+#define FONT_LAST  137
+extern const uint8_t font5x7[106][7];
 
 /* Sprites. SPR_* indexes the table; the named externs are for code
    that always draws the same thing (portraits, props). */

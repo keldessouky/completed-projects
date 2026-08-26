@@ -35,6 +35,21 @@
 
 #define SHADES  8
 
+/*  Where the camera is looking this frame, in screen pixels either side of
+ *  centre, and how hard it is being shoved forward. Both decay to zero over a
+ *  few frames after a turn or a step. A 90-degree snap between two still
+ *  frames reads as a slideshow; a pan reads as a head turn, which is the whole
+ *  difference between this and a menu. */
+static int view_pan(void) {
+    return g.dun.turn_anim * 7;
+}
+
+static int view_surge(void) {
+    /*  A step forward briefly widens the lens, so the corridor lunges at you
+     *  and settles. Backwards does the opposite. */
+    return g.dun.step_anim * 2;
+}
+
 static const int dx4[4] = { 0, 1, 0, -1 };
 static const int dy4[4] = { -1, 0, 1, 0 };
 
@@ -108,6 +123,7 @@ static void theme_for(Theme *th, int floor_index) {
  *  across the row. Texture space is locked to the dungeon grid, so walking a
  *  cell forward slides the floor by exactly one tile instead of swimming. */
 static void draw_planes(Surface *s, const Theme *th) {
+    const int pan = view_pan();
     const Dungeon *d = &g.dun;
     int f = d->facing, rf = (f + 1) & 3;
     int fx = dx4[f], fy = dy4[f], rx = dx4[rf], ry = dy4[rf];
@@ -137,8 +153,8 @@ static void draw_planes(Surface *s, const Theme *th) {
          *  the whole row is one multiply-accumulate per pixel. Everything is
          *  kept in texels, .FP fixed point, anchored to the dungeon grid. */
         int step = TEXELS * zfp / PROJ;            /* texels per pixel, .FP */
-        int wx = ((d->px * TEXELS) << FP) + fx * (zfp * TEXELS) - rx * (SCREEN_W / 2) * step;
-        int wy = ((d->py * TEXELS) << FP) + fy * (zfp * TEXELS) - ry * (SCREEN_W / 2) * step;
+        int wx = ((d->px * TEXELS) << FP) + fx * (zfp * TEXELS) - rx * (SCREEN_W / 2 - pan) * step;
+        int wy = ((d->py * TEXELS) << FP) + fy * (zfp * TEXELS) - ry * (SCREEN_W / 2 - pan) * step;
         int sx = rx * step, sy = ry * step;
 
         uint16_t *dst = s->px + y * SCREEN_W;
@@ -154,9 +170,10 @@ static void draw_planes(Surface *s, const Theme *th) {
  *  plain stretch: one cell of wall across, one cell of wall down. */
 static void draw_front(Surface *s, const Theme *th, int depth) {
     int zfp = (depth << FP) + (1 << (FP - 1));
-    int hw = PROJ * (1 << FP) / zfp;
+    int hw = (PROJ + view_surge()) * (1 << FP) / zfp;
     int hh = hw * VNUM / VDEN;
-    int x0 = 128 - hw, x1 = 128 + hw;
+    int cx = 128 + view_pan();
+    int x0 = cx - hw, x1 = cx + hw;
     int yt = HORIZON - hh, yb = HORIZON + hh;
     const uint16_t *lut = th->wall.lut[shade_of(zfp)];
     const uint16_t *edge = th->wall.lut[shade_of(zfp + (1 << FP))];
@@ -189,8 +206,9 @@ static void draw_side(Surface *s, const Theme *th, int depth, int left, int dim)
     int hw_near = PROJ * (1 << FP) / znear;
     int hw_far = PROJ * (1 << FP) / zfar;
 
+    int cx = 128 + view_pan();
     for (int hw = hw_near; hw > hw_far; hw--) {
-        int x = left ? 128 - hw : 128 + hw;
+        int x = left ? cx - hw : cx + hw;
         if (x < 0 || x >= SCREEN_W || hw <= 0) continue;
         int zfp = PROJ * (1 << FP) / hw;
         int u = (zfp - znear) * TEXELS / (1 << FP);
@@ -224,8 +242,9 @@ static void draw_opening(Surface *s, const Theme *th, int depth, int left) {
     int hw_near = PROJ * (1 << FP) / znear;
     int hw_far = PROJ * (1 << FP) / zfar;
 
+    int cx = 128 + view_pan();
     for (int hw = hw_near; hw > hw_far; hw--) {
-        int x = left ? 128 - hw : 128 + hw;
+        int x = left ? cx - hw : cx + hw;
         if (x < 0 || x >= SCREEN_W) continue;
         int hh = hw * VNUM / VDEN;
         int zfp = PROJ * (1 << FP) / hw;
@@ -426,7 +445,7 @@ void view3d_draw(Surface *s) {
         if (scale > 190) scale = 190;
         int w = sp->w * scale / 100, h = sp->h * scale / 100;
         int base = HORIZON + hh - 2;
-        gfx_sprite_scaled(s, sp, 128 - w / 2, base - h, scale, 100);
+        gfx_sprite_scaled(s, sp, 128 + view_pan() - w / 2, base - h, scale, 100);
         int level = shade_of(zfp);
         if (level) gfx_dither(s, 128 - w / 2, base - h, w, h, th.fog, level * 2);
     }
