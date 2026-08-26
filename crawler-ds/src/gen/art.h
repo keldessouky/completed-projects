@@ -51,7 +51,13 @@ enum {
     SPR_TEX_WALL_C = 34,
     SPR_TEX_FLOOR_C = 35,
     SPR_TEX_CEIL_C = 36,
-    SPR_COUNT = 37
+    SPR_TEX_WALL_D = 37,
+    SPR_TEX_FLOOR_D = 38,
+    SPR_TEX_CEIL_D = 39,
+    SPR_TEX_WALL_E = 40,
+    SPR_TEX_FLOOR_E = 41,
+    SPR_TEX_CEIL_E = 42,
+    SPR_COUNT = 43
 };
 extern const Sprite spr_carl;
 extern const Sprite spr_donut;
@@ -90,6 +96,12 @@ extern const Sprite spr_tex_ceil_b;
 extern const Sprite spr_tex_wall_c;
 extern const Sprite spr_tex_floor_c;
 extern const Sprite spr_tex_ceil_c;
+extern const Sprite spr_tex_wall_d;
+extern const Sprite spr_tex_floor_d;
+extern const Sprite spr_tex_ceil_d;
+extern const Sprite spr_tex_wall_e;
+extern const Sprite spr_tex_floor_e;
+extern const Sprite spr_tex_ceil_e;
 extern const Sprite *const sprite_table[SPR_COUNT];
 
 #endif

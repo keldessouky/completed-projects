@@ -372,8 +372,185 @@ def ceil_stone():
     return t.emit()
 
 
+# ------------------------------------------------------------- the boroughs ---
+# Tenement brick, the second floor's own material: a city block that was hauled
+# down here and stacked, still carrying its own soot.
+
+def wall_brick():
+    t = Tex()
+    dark = t.ink((28, 18, 16))
+    mortar = t.ink((92, 84, 74))
+    shadow = t.ink((96, 46, 36))
+    base = t.ink((146, 74, 56))
+    lit = t.ink((186, 108, 80))
+    hot = t.ink((222, 152, 116))
+    soot = t.ink((54, 44, 44))
+    moss = t.ink((72, 92, 58))
+
+    t.fill(base)
+    t.speckle(shadow, 149, 60)
+    t.speckle(lit, 151, 60)
+    #  Stretcher bond: 16x8 bricks, every other course offset by half.
+    for row, y in enumerate(range(0, TH, 8)):
+        t.hline(y, mortar)
+        t.hline((y + 1) % TH, dark)
+        t.hline((y + 7) % TH, shadow)
+        off = 0 if row % 2 == 0 else 8
+        for x in range(off, TW + off, 16):
+            t.vline(x % TW, mortar, y + 2, y + 7)
+            t.vline((x + 1) % TW, hot, y + 2, y + 7)
+    #  Soot up one side and something growing out of the mortar on the other.
+    for y in range(0, TH):
+        t.px(2, y, soot if y % 3 else base)
+        t.px(3, y, soot if y % 4 else base)
+    for x, y in ((20, 7), (21, 7), (12, 15), (27, 23), (28, 23), (6, 31)):
+        t.px(x, y, moss)
+    return t.emit()
+
+
+def floor_brick():
+    t = Tex()
+    grout = t.ink((26, 20, 18))
+    shadow = t.ink((70, 58, 50))
+    base = t.ink((112, 96, 82))
+    lit = t.ink((148, 130, 112))
+    hot = t.ink((184, 166, 146))
+    wet = t.ink((60, 62, 58))
+
+    t.fill(base)
+    t.speckle(shadow, 157, 100)
+    t.speckle(lit, 163, 90)
+    #  Cobbles: 8x8, offset, each with a lit crown and a dark seat.
+    for row, y in enumerate(range(0, TH, 8)):
+        off = 0 if row % 2 == 0 else 4
+        for x in range(off, TW + off, 8):
+            t.box(x % TW, y, 7, 7, base)
+            t.hline(y, hot, x % TW, min(TW - 1, (x % TW) + 6))
+            t.hline(y + 6, grout, x % TW, min(TW - 1, (x % TW) + 6))
+            t.vline(x % TW, grout, y, y + 6)
+            t.vline((x + 6) % TW, shadow, y, y + 6)
+    t.speckle(wet, 167, 30)
+    return t.emit()
+
+
+def ceil_brick():
+    t = Tex()
+    dark = t.ink((12, 10, 10))
+    deep = t.ink((30, 24, 22))
+    base = t.ink((52, 42, 38))
+    lit = t.ink((80, 66, 58))
+    wood = t.ink((74, 52, 32))
+    wood_l = t.ink((116, 86, 54))
+    lamp = t.ink((236, 198, 128))
+
+    t.fill(base)
+    t.speckle(deep, 173, 90)
+    #  Joists across, and a bare bulb on a flex between two of them.
+    for y in range(0, TH, 11):
+        t.box(0, y, TW, 4, wood)
+        t.hline(y, wood_l)
+        t.hline(y + 3, dark)
+    t.vline(16, dark, 4, 9)
+    t.box(15, 9, 3, 3, lamp)
+    t.px(16, 8, lamp)
+    t.speckle(lit, 179, 40)
+    return t.emit()
+
+
+# -------------------------------------------------------------- the hatchery ---
+# Not built. Grown, over something that was built, and still warm.
+
+def wall_chitin():
+    t = Tex()
+    dark = t.ink((16, 22, 18))
+    shadow = t.ink((40, 62, 46))
+    base = t.ink((70, 104, 74))
+    lit = t.ink((104, 146, 100))
+    hot = t.ink((146, 190, 132))
+    sac_d = t.ink((94, 74, 24))
+    sac_b = t.ink((176, 146, 48))
+    sac_l = t.ink((232, 214, 118))
+
+    t.fill(base)
+    t.speckle(shadow, 181, 70)
+    t.speckle(lit, 191, 70)
+    #  Overlapping plates, laid like scales rather than courses.
+    for row, y in enumerate(range(0, TH, 8)):
+        off = 0 if row % 2 == 0 else 6
+        for x in range(off, TW + off, 12):
+            cx = x % TW
+            for i in range(12):
+                d = abs(i - 6)
+                t.px(cx + i, y, dark)
+                t.px(cx + i, y + 1, hot if d > 3 else lit)
+                for k in range(2, 7 - d // 3):
+                    t.px(cx + i, y + k, base if k < 4 else shadow)
+    #  Egg sacs, lit from inside, clustered rather than spread.
+    for cx, cy in ((8, 12), (22, 26)):
+        for dy in range(-3, 4):
+            for dx in range(-3, 4):
+                if dx * dx + dy * dy > 9:
+                    continue
+                t.px(cx + dx, cy + dy,
+                     sac_l if dx * dx + dy * dy < 2 else sac_b if dx * dx + dy * dy < 6 else sac_d)
+    return t.emit()
+
+
+def floor_chitin():
+    t = Tex()
+    dark = t.ink((12, 18, 14))
+    shadow = t.ink((36, 54, 40))
+    base = t.ink((62, 90, 64))
+    lit = t.ink((92, 128, 88))
+    hot = t.ink((130, 168, 118))
+    slick = t.ink((150, 176, 92))
+
+    t.fill(base)
+    t.speckle(shadow, 193, 110)
+    t.speckle(lit, 197, 90)
+    #  Membrane: veins running in two directions, nothing straight.
+    for i in range(TW):
+        t.px(i, (i * 3 // 2) % TH, dark)
+        t.px(i, ((i * 3 // 2) + 1) % TH, shadow)
+        t.px((i * 5) % TW, i, dark)
+    for x, y in ((6, 6), (18, 12), (26, 24), (10, 28)):
+        t.px(x, y, hot)
+        t.px(x + 1, y, slick)
+    return t.emit()
+
+
+def ceil_chitin():
+    t = Tex()
+    dark = t.ink((8, 12, 10))
+    deep = t.ink((22, 34, 26))
+    base = t.ink((38, 56, 42))
+    lit = t.ink((58, 84, 60))
+    sac_d = t.ink((86, 70, 22))
+    sac_b = t.ink((162, 138, 44))
+    sac_l = t.ink((226, 208, 112))
+
+    t.fill(base)
+    t.speckle(deep, 199, 90)
+    t.speckle(lit, 211, 40)
+    #  Everything up here is hanging.
+    for x in range(2, TW, 7):
+        n = 4 + (x % 3) * 3
+        t.vline(x, deep, 0, n)
+        t.px(x, n, dark)
+        t.px(x - 1, n - 1, deep)
+    for cx, cy in ((10, 8), (24, 14)):
+        for dy in range(-2, 3):
+            for dx in range(-2, 3):
+                if dx * dx + dy * dy > 4:
+                    continue
+                t.px(cx + dx, cy + dy, sac_l if not (dx or dy) else sac_b if dx * dx + dy * dy < 3 else sac_d)
+    return t.emit()
+
+
 ROSTER = [
     ('tex_wall_a', wall_concrete), ('tex_floor_a', floor_concrete), ('tex_ceil_a', ceil_concrete),
     ('tex_wall_b', wall_steel),    ('tex_floor_b', floor_steel),    ('tex_ceil_b', ceil_steel),
     ('tex_wall_c', wall_stone),    ('tex_floor_c', floor_stone),    ('tex_ceil_c', ceil_stone),
+    ('tex_wall_d', wall_brick),    ('tex_floor_d', floor_brick),    ('tex_ceil_d', ceil_brick),
+    ('tex_wall_e', wall_chitin),   ('tex_floor_e', floor_chitin),   ('tex_ceil_e', ceil_chitin),
 ]

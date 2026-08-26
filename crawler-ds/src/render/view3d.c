@@ -68,7 +68,13 @@ typedef struct { Shaded wall, floor, ceil; uint16_t fog, trim; } Theme;
 
 static void theme_for(Theme *th, int floor_index) {
     const Sprite *w, *f, *c;
-    switch (floor_index % 3) {
+    /*  Five looks over eighteen floors rather than three. Not a cycle: the
+        order puts the two the book actually describes -- poured concrete on
+        one, tenement brick on two -- where they belong, and lets the rest
+        arrive as the run goes down. */
+    static const uint8_t kOrder[18] = { 0, 3, 1, 3, 2, 0, 1, 4, 2, 3, 0, 4, 1, 2, 4, 0, 3, 2 };
+    int slot = floor_index >= 0 && floor_index < 18 ? kOrder[floor_index] : floor_index % 5;
+    switch (slot) {
     case 0:
         w = &spr_tex_wall_a; f = &spr_tex_floor_a; c = &spr_tex_ceil_a;
         th->fog = RGB(18, 20, 30); th->trim = RGB(210, 214, 226);
@@ -77,9 +83,17 @@ static void theme_for(Theme *th, int floor_index) {
         w = &spr_tex_wall_b; f = &spr_tex_floor_b; c = &spr_tex_ceil_b;
         th->fog = RGB(22, 14, 12); th->trim = RGB(226, 168, 92);
         break;
-    default:
+    case 2:
         w = &spr_tex_wall_c; f = &spr_tex_floor_c; c = &spr_tex_ceil_c;
         th->fog = RGB(12, 10, 24); th->trim = RGB(196, 130, 255);
+        break;
+    case 3:
+        w = &spr_tex_wall_d; f = &spr_tex_floor_d; c = &spr_tex_ceil_d;
+        th->fog = RGB(20, 14, 12); th->trim = RGB(236, 198, 128);
+        break;
+    default:
+        w = &spr_tex_wall_e; f = &spr_tex_floor_e; c = &spr_tex_ceil_e;
+        th->fog = RGB(10, 16, 12); th->trim = RGB(226, 208, 112);
         break;
     }
     shade_build(&th->wall, w, th->fog);
