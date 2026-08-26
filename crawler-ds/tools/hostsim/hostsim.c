@@ -249,10 +249,15 @@ static void check(int condition, const char *what) {
  *  test and the interesting failures are all in the first few floors, so the
  *  playthrough check drives a slice and the assertions are about depth rather
  *  than about finishing. */
+/*  The depth the run has to reach for the assertion to pass. */
 #define BOT_FLOORS 4
+/*  How many times round the floor loop before giving up. The loop used to stop
+    at four, so most runs ended alive with the bot simply out of budget, and
+    the floor a run "reached" said more about the harness than the game. */
+#define BOT_ITERS  22
 
 static void play_run(int seed, int assertions) {
-    const int bot_floors = BOT_FLOORS;
+    const int bot_floors = BOT_ITERS;
     game_boot();
     rng_seed((uint32_t)seed);
     idle(2 + seed % 41);        /* the title screen seeds from the frame you press on */
@@ -306,6 +311,15 @@ static void play_run(int seed, int assertions) {
         (void)before;
         if (g.scene != SCENE_DUNGEON) break;   /* the season ended */
     }
+
+    /*  Let the run settle. With a long budget the loop can stop part way
+        through a loot box or a shop, and ending mid-animation is not the same
+        thing as being wedged -- which is what the assertion is actually about.
+        Anything that will not clear in eighty taps genuinely is stuck. */
+    for (int i = 0; i < 80 && g.scene != SCENE_DUNGEON && !season_over(); i++)
+        tap(BTN_A);
+    for (int i = 0; i < 20 && g.scene != SCENE_DUNGEON && !season_over(); i++)
+        tap(BTN_B);
 }
 
 /*  Is this floor actually completable? Flood from the entrance and insist
@@ -632,7 +646,8 @@ int main(int argc, char **argv) {
             int seed = 1000 + r * 977;
             printf("run %d (seed %d)\n", r + 1, seed);
             play_run(seed, 1);
-            printf("  reached floor %d, %s lv%d, %s lv%d, %d fights, %d gold, %d boxes\n",
+            printf("  [%s] reached floor %d, %s lv%d, %s lv%d, %d fights, %d gold, %d boxes\n",
+                   g.scene == SCENE_VICTORY ? "WON " : g.scene == SCENE_GAMEOVER ? "died" : "----",
                    g.dun.index + 1, g.hero[0].name, g.hero[0].level,
                    g.hero[1].name, g.hero[1].level, g.battles_won, g.gold, g.boxes_opened);
             /*  A season ends when the crawler does, so the assertion is about

@@ -41,7 +41,13 @@ void hero_recompute(Hero *h) {
     if (h->mp > h->mp_max) h->mp = h->mp_max;
 }
 
-int hero_xp_needed(int level) { return 30 + level * level * 22; }
+/*  The level cost used to be quadratic while foe power scales linearly with
+ *  depth, so the party's climb flattened exactly where the dungeon's did not:
+ *  thirty runs died between floors two and nine, twenty of them on seven, and
+ *  nothing ever saw floor ten of eighteen. Mildly super-linear keeps a level
+ *  roughly five to nine fights apart at every depth instead of three early and
+ *  twenty late. */
+int hero_xp_needed(int level) { return 50 + level * 70 + level * level * 4; }
 
 int hero_gain_xp(Hero *h, int xp) {
     int gained = 0;

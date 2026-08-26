@@ -486,7 +486,8 @@ int   dungeon_zone_at(int x, int y);
 int   dungeon_zone_cleared(void);
 int   foe_boss(int floor_no);
 int   foe_nboss(int floor_no);
-int   foe_scale(int floor_no);   /* percent, by depth */
+int   foe_scale(int floor_no);   /* rewards, by absolute depth */
+int   foe_stat_scale(int floor_no, int def);  /* statlines, from the mob's own first floor */
 const Beat *beat_find(int floor, int trigger);
 
 /* save.c */

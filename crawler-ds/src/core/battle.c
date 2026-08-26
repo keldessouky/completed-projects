@@ -37,11 +37,13 @@ void battle_log(const char *text) { log_line(text, 0, 0); }
  *  Without this the bestiary runs out of threat around floor four and the
  *  back half of the descent is a walk. */
 static int foe_atk(int index) {
-    return foe_defs[g.bat.foes[index].def].atk * foe_scale(g.dun.index + 1) / 100;
+    return foe_defs[g.bat.foes[index].def].atk *
+           foe_stat_scale(g.dun.index + 1, g.bat.foes[index].def) / 100;
 }
 
 static int foe_def_at_depth(int index) {
-    return foe_defs[g.bat.foes[index].def].def * foe_scale(g.dun.index + 1) / 100;
+    return foe_defs[g.bat.foes[index].def].def *
+           foe_stat_scale(g.dun.index + 1, g.bat.foes[index].def) / 100;
 }
 
 static int foe_alive_count(void) {
@@ -101,9 +103,9 @@ void battle_start(int boss) {
             g.bat.foes[i].def = (uint8_t)(roll < 62 ? local : roll < 80 ? 0 : foe_pick(floor_no));
         }
     }
-    int scale = foe_scale(floor_no);
     for (int i = 0; i < g.bat.n_foes; i++) {
         const FoeDef *d = &foe_defs[g.bat.foes[i].def];
+        int scale = foe_stat_scale(floor_no, g.bat.foes[i].def);
         int hp = d->hp * scale / 100;
         hp += rng_range(-hp / 10, hp / 10);
         if (hp > 30000) hp = 30000;
