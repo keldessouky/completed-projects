@@ -8,6 +8,7 @@ import bestiary
 import cast
 import props
 import textures
+import overworld
 
 ROSTER = [
     # the party and the two people who talk to them (56x72)
@@ -50,3 +51,7 @@ ROSTER = [
 # The corridor surfaces. Not sprites -- src/render/view3d.c samples these
 # directly and tiles them, so index 0 is a real colour here, not transparency.
 ROSTER += textures.ROSTER
+
+# The party as the overworld sees them: 16x24, three facings, mirrored for the
+# fourth. Small enough that silhouette is the whole design.
+ROSTER += overworld.ROSTER

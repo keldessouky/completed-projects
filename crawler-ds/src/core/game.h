@@ -16,6 +16,8 @@
 #define MAP_MAX      32
 /*  The show runs eighteen floors and a season ends when the crawler does.
     Depth is the score. */
+#define WALK_FRAMES 8
+
 #define FLOORS       18
 #define MAX_FOES     3
 #define PARTY        2
@@ -292,13 +294,12 @@ typedef struct {
     uint8_t  used[MAP_MAX * MAP_MAX / 8]; /* boxes opened, triggers fired */
     uint16_t steps_to_encounter;
     int32_t  collapse;                    /* frames left before the floor goes */
-    /*  View motion. A 90-degree snap between two still frames reads as a
-        slideshow; these decay to zero over a few frames and the renderer pans
-        and nudges the camera by them, so a turn has a direction and a step has
-        a shove behind it. Cosmetic only -- the party is on the grid either
-        way, and nothing in the game logic reads them. */
-    int8_t   turn_anim;                   /* signed frames left in a turn  */
-    int8_t   step_anim;                   /* signed frames left in a step  */
+    /*  The slide between two tiles. The party is on the grid the instant the
+        step resolves; this is how far the world still has to catch up, so the
+        camera can carry them across rather than teleporting them a tile at a
+        time. Cosmetic -- no game logic reads it. */
+    int8_t   move_anim;                   /* frames left in the slide */
+    int8_t   move_dx, move_dy;            /* the direction it is sliding from */
     uint16_t steps;
     uint16_t explored;
 
@@ -441,6 +442,7 @@ int   dungeon_walkable(int x, int y);
 void  dungeon_step(int forward);
 void  dungeon_turn(int delta);
 void  dungeon_view_tick(void);
+void  dungeon_walk(int dir);   /* face `dir` and step, the overworld way */
 void  dungeon_interact(void);
 void  dungeon_tick(void);
 void  dungeon_light_of_sight(void);

@@ -355,12 +355,14 @@ int main(int argc, char **argv) {
             uint32_t last_steps = 0, stuck = 0;
             tel_read("steps", &last_steps);
             for (int k = 0; k < rounds; k++) {
-                /* Walk forward, confirm whatever the game put on screen, and
-                   turn away from anything that stops being walkable. Turning is
-                   on the shoulders: the d-pad is movement in all four
-                   directions now, so "right" strafes rather than turns. */
-                const char *button = (k % 3 == 2) ? "a" : "up";
-                if (stuck >= 2) { button = "r"; stuck = 0; }
+                /*  The d-pad is four absolute directions overhead, so there is
+                    no "forward" to lean on: walking into a wall turns to face
+                    it and goes nowhere. When the step count stops moving, try
+                    the next direction round instead. */
+                static const char *const kDirs[4] = { "up", "right", "down", "left" };
+                static int dir = 0;
+                const char *button = (k % 3 == 2) ? "a" : kDirs[dir];
+                if (stuck >= 2) { dir = (dir + 1) & 3; stuck = 0; button = kDirs[dir]; }
                 unsigned id = button_id(button);
                 g_joypad |= 1u << id;  run_frames(8);
                 g_joypad &= ~(1u << id); run_frames(6);

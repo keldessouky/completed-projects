@@ -57,7 +57,19 @@ enum {
     SPR_TEX_WALL_E = 40,
     SPR_TEX_FLOOR_E = 41,
     SPR_TEX_CEIL_E = 42,
-    SPR_COUNT = 43
+    SPR_OW_CARL_DOWN = 43,
+    SPR_OW_CARL_UP = 44,
+    SPR_OW_CARL_SIDE = 45,
+    SPR_OW_DONUT_DOWN = 46,
+    SPR_OW_DONUT_UP = 47,
+    SPR_OW_DONUT_SIDE = 48,
+    SPR_OW_MORDECAI_DOWN = 49,
+    SPR_OW_MORDECAI_UP = 50,
+    SPR_OW_MORDECAI_SIDE = 51,
+    SPR_OW_BOPCA_DOWN = 52,
+    SPR_OW_BOPCA_UP = 53,
+    SPR_OW_BOPCA_SIDE = 54,
+    SPR_COUNT = 55
 };
 extern const Sprite spr_carl;
 extern const Sprite spr_donut;
@@ -102,6 +114,18 @@ extern const Sprite spr_tex_ceil_d;
 extern const Sprite spr_tex_wall_e;
 extern const Sprite spr_tex_floor_e;
 extern const Sprite spr_tex_ceil_e;
+extern const Sprite spr_ow_carl_down;
+extern const Sprite spr_ow_carl_up;
+extern const Sprite spr_ow_carl_side;
+extern const Sprite spr_ow_donut_down;
+extern const Sprite spr_ow_donut_up;
+extern const Sprite spr_ow_donut_side;
+extern const Sprite spr_ow_mordecai_down;
+extern const Sprite spr_ow_mordecai_up;
+extern const Sprite spr_ow_mordecai_side;
+extern const Sprite spr_ow_bopca_down;
+extern const Sprite spr_ow_bopca_up;
+extern const Sprite spr_ow_bopca_side;
 extern const Sprite *const sprite_table[SPR_COUNT];
 
 #endif

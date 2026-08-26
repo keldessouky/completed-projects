@@ -166,6 +166,23 @@ void gfx_trapezoid(Surface *s, int x0, int yt0, int yb0, int x1, int yt1, int yb
     }
 }
 
+/*  The same sprite, mirrored. An overworld only needs three facings drawn if
+ *  the fourth is the third turned round, which is how every sprite sheet in
+ *  the genre saves a quarter of its art. */
+void gfx_sprite_flip(Surface *s, const Sprite *sp, int x, int y) {
+    for (int j = 0; j < sp->h; j++) {
+        int yy = y + j;
+        if ((unsigned)yy >= (unsigned)s->h) continue;
+        const uint8_t *row = sp->pix + j * sp->w;
+        uint16_t *dst = s->px + yy * s->w;
+        for (int i = 0; i < sp->w; i++) {
+            uint8_t idx = row[i];
+            int xx = x + sp->w - 1 - i;
+            if (idx && (unsigned)xx < (unsigned)s->w) dst[xx] = sp->pal[idx];
+        }
+    }
+}
+
 void gfx_sprite(Surface *s, const Sprite *sp, int x, int y) {
     for (int j = 0; j < sp->h; j++) {
         int yy = y + j;

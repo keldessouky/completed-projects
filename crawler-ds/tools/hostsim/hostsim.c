@@ -126,16 +126,17 @@ static int find_path(int sx, int sy, int tx, int ty, int *first_dx, int *first_d
     return 0;
 }
 
+/*  Overhead, a direction is a button. Pressing into a wall turns to face it
+ *  without moving, so a blocked step costs one extra tap and no more. */
+static const int kDirButton[4] = { BTN_UP, BTN_RIGHT, BTN_DOWN, BTN_LEFT };
+
 static void face_and_step(int dx, int dy) {
     int want = dy < 0 ? DIR_N : dy > 0 ? DIR_S : dx > 0 ? DIR_E : DIR_W;
-    for (int guard = 0; guard < 4 && g.dun.facing != want; guard++) {
-        int diff = (want - g.dun.facing + 4) & 3;
-        /*  Turning is on the shoulders now: the d-pad moves in all four
-            directions, the way a first-person game splits them. */
-        tap(diff == 3 ? BTN_L : BTN_R);
+    if (g.dun.facing != (uint8_t)want) {
+        tap(kDirButton[want]);          /* the first press turns to face it */
         if (g.scene != SCENE_DUNGEON) return;
     }
-    tap(BTN_UP);
+    tap(kDirButton[want]);
 }
 
 /* Fights: hit the biggest thing until it stops moving, drink when low. */
@@ -184,7 +185,7 @@ static void play_battle(void) {
  *  worth the boss's time. A player does this by exploring; the bot has to be
  *  told. */
 static void grind_to(int level, int max_steps) {
-    static const int dirs[4] = { BTN_UP, BTN_R, BTN_UP, BTN_L };
+    static const int dirs[4] = { BTN_UP, BTN_RIGHT, BTN_DOWN, BTN_LEFT };
     for (int i = 0; i < max_steps && g.hero[0].level < level; i++) {
         if ((int)g.scene == pause_scene) return;
         if (g.scene == SCENE_BATTLE) { play_battle(); continue; }
@@ -200,7 +201,7 @@ static void grind_to(int level, int max_steps) {
         if (g.scene == SCENE_GAMEOVER || g.scene == SCENE_TITLE ||
             g.scene == SCENE_DRAFT) break;
         tap(dirs[i & 3]);
-        if (g.scene == SCENE_DUNGEON && g.dun.steps == before) tap(BTN_R);
+        if (g.scene == SCENE_DUNGEON && g.dun.steps == before) tap(dirs[(i + 1) & 3]);
         /* Patch up between fights if the bag allows it. */
         if (g.hero[0].hp * 3 < g.hero[0].hp_max) tap(BTN_Y);
         if (g.hero[1].hp * 3 < g.hero[1].hp_max) tap(BTN_Y);
@@ -418,8 +419,13 @@ int main(int argc, char **argv) {
         for (int i = 0; i < 900 && g.scene == SCENE_CUTSCENE; i++) tap(BTN_A);
         if (g.scene == SCENE_DRAFT) { idle(6); shot("07-draft"); }
         for (int i = 0; i < 900 && (g.scene == SCENE_STORY || g.scene == SCENE_CUTSCENE || g.scene == SCENE_DRAFT); i++) tap(BTN_A);
-        idle(4);
-        shot("03-corridor");
+        /*  Wait for the floor itself rather than shooting on a frame count:
+            the opening now hands out achievements, and a toast or a box scene
+            landing on the shot frame meant the picture named "the floor" was
+            whatever happened to be up. */
+        for (int i = 0; i < 300 && g.scene != SCENE_DUNGEON; i++) tap(BTN_A);
+        idle(30);                       /* let the entry toasts clear */
+        shot("03-floor");
         pause_scene = SCENE_BOX;
         walk_to(T_BOX, 500);
         if (g.scene == SCENE_BOX) { idle(50); shot("04-lootbox"); }
@@ -439,7 +445,7 @@ int main(int argc, char **argv) {
             g.scene == SCENE_SAFEROOM) { tap(BTN_A); continue; }
             if (g.scene != SCENE_DUNGEON) { tap(BTN_B); continue; }
             tap(BTN_UP);
-            if (g.scene == SCENE_DUNGEON && g.dun.steps == (uint16_t)(guard / 4)) tap(BTN_R);
+            if (g.scene == SCENE_DUNGEON && g.dun.steps == (uint16_t)(guard / 4)) tap(BTN_RIGHT);
         }
         if (g.scene == SCENE_BATTLE) {
             idle(40);
@@ -636,10 +642,14 @@ int main(int argc, char **argv) {
         int before = g.dun.steps;
         for (int i = 0; i < 3; i++) {
             input.touching = input.touch_pressed = 1;
-            /*  Centre of whatever the layout says forward is, so moving the pad
-                does not silently break the test that proves it works. */
-            input.touch_x = (int16_t)(kDunPad[0].x + kDunPad[0].w / 2);
-            input.touch_y = (int16_t)(kDunPad[0].y + kDunPad[0].h / 2);
+            /*  The pad is four absolute directions now, so tapping a fixed one
+                proves nothing: it might be a wall. The party always spawns
+                facing somewhere walkable, so tap that. Read off the layout, so
+                moving a button cannot silently break the test for buttons. */
+            static const int kPadForFacing[4] = { 0, 3, 1, 2 };   /* N E S W */
+            const Rect *pad = &kDunPad[kPadForFacing[g.dun.facing & 3]];
+            input.touch_x = (int16_t)(pad->x + pad->w / 2);
+            input.touch_y = (int16_t)(pad->y + pad->h / 2);
             step();
             idle(2);
         }

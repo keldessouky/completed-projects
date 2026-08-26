@@ -26,8 +26,12 @@ shot 03-corridor
 # floor is generated per season now, but the party always arrives facing a
 # tile it can walk onto, so a tap on the touch d-pad has to move it.
 echo the stylus alone can play it
-touch 48 151 12
-touch 48 151 12
+#  Four absolute directions now, and the harness cannot know which way the
+#  party is facing, so it tries each one. Any of them that is not a wall moves.
+touch 49 130 10
+touch 80 152 10
+touch 49 176 10
+touch 18 152 10
 frames 20
 expect steps > 0
 

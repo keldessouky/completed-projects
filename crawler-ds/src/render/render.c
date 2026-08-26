@@ -10,7 +10,8 @@
 #include "art.h"
 #include "ui_layout.h"
 
-void view3d_draw(Surface *s);
+void view2d_draw(Surface *s);
+void view2d_draw_party(Surface *s, int cx, int cy);
 void view3d_arena(Surface *s, int floor_index);
 
 /*  Book One covers the first two floors. The Over City is where Book Two
@@ -113,10 +114,14 @@ static void bar_meter(Surface *s, int x, int y, int w, int h, int value, int max
 }
 
 static void toasts(Surface *s) {
-    int y = SCREEN_H - 16;
-    for (int i = 0; i < MAX_TOASTS; i++) {
+    /*  Three at a time. Walking in earns six achievements at once and a stack
+        of six panels covers the floor the player is trying to look at; the
+        rest are still queued and still arrive, just not all over the game. */
+    int y = SCREEN_H - 16, shown = 0;
+    for (int i = 0; i < MAX_TOASTS && shown < 3; i++) {
         const Toast *t = &g.toast[i];
         if (!t->life) continue;
+        shown++;
         int w = gfx_text_width(t->text) + 10;
         if (w > SCREEN_W - 8) w = SCREEN_W - 8;
         uint16_t edge = t->kind == 1 ? C_GOLD : t->kind == 2 ? C_MAGENTA : C_AMBER_DK;
@@ -188,9 +193,9 @@ static void draw_title(Surface *top, Surface *bot) {
         gfx_text(bot, 40 + (176 - gfx_text_width(opts[i])) / 2, y + (i ? 8 : 9),
                  on ? C_AMBER : C_DIM, opts[i]);
     }
-    gfx_text(bot, 8, 60, C_DIM, "D-PAD  move and sidestep");
+    gfx_text(bot, 8, 60, C_DIM, "D-PAD  walk, four ways");
     gfx_text(bot, 8, 72, C_DIM, "A  act    B  back    START  party");
-    gfx_text(bot, 8, 84, C_DIM, "L / R  turn         Y  quick heal");
+    gfx_text(bot, 8, 84, C_DIM, "L / R  menu tabs    Y  quick heal");
     gfx_text(bot, 8, 96, C_DIM, "Or play it entirely with the stylus.");
     gfx_text(bot, 8, 178, C_DIM, "(c) fan work. Story by Matt Dinniman.");
 }
@@ -326,7 +331,7 @@ static void draw_button(Surface *s, const Rect *r, int on) {
 }
 
 static void draw_dungeon(Surface *top, Surface *bot) {
-    view3d_draw(top);
+    view2d_draw(top);
     if (g.hurt_flash) gfx_shade(top, 0, 0, SCREEN_W, SCREEN_H, 16 + g.hurt_flash);
 
     int secs = g.dun.collapse > 0 ? (int)(g.dun.collapse / 60) : 0;

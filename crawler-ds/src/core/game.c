@@ -291,27 +291,20 @@ static void update_dungeon(const PlatInput *in) {
 
     static uint8_t repeat;
     uint32_t moved = in->pressed;
-    if (in->held & (BTN_UP | BTN_DOWN | BTN_LEFT | BTN_RIGHT | BTN_L | BTN_R)) {
+    if (in->held & (BTN_UP | BTN_DOWN | BTN_LEFT | BTN_RIGHT)) {
         if (repeat) repeat--;
-        if (!repeat) { moved |= in->held; repeat = 9; }
+        if (!repeat) { moved |= in->held; repeat = WALK_FRAMES; }
     } else {
         repeat = 0;
     }
 
-    /*  The first-person layout: the d-pad is movement in all four directions
-        and the shoulders are the camera. A DS ROM cannot read an analog stick
-        -- the hardware has twelve digital buttons and a touchscreen, and no
-        axes at all -- but an emulator can bind a stick to buttons, so putting
-        move and turn on separate physical controls is what makes left-stick
-        walk and right-stick look work on a handheld that has them. */
-    if (moved & BTN_UP) dungeon_step(1);
-    else if (moved & BTN_DOWN) dungeon_step(-1);
-    else if (moved & BTN_LEFT) dungeon_strafe(0);
-    else if (moved & BTN_RIGHT) dungeon_strafe(1);
-    if (g.scene != SCENE_DUNGEON) return;
-
-    if (moved & BTN_L) dungeon_turn(-1);
-    else if (moved & BTN_R) dungeon_turn(1);
+    /*  Four directions, and the way you press is the way you face. An
+        overworld does not need a separate look control, which is most of why
+        it suits a game whose fights are already drawn from the side. */
+    if (moved & BTN_UP) dungeon_walk(0);
+    else if (moved & BTN_RIGHT) dungeon_walk(1);
+    else if (moved & BTN_DOWN) dungeon_walk(2);
+    else if (moved & BTN_LEFT) dungeon_walk(3);
     if (g.scene != SCENE_DUNGEON) return;
 
     if (in->pressed & BTN_A) dungeon_interact();
@@ -330,12 +323,10 @@ static void update_dungeon(const PlatInput *in) {
 
     for (int i = 0; i < DUN_PAD_N; i++)
         if (touch_in(in, &kDunPad[i])) {
-            if (i == 0) dungeon_step(1);
-            else if (i == 1) dungeon_step(-1);
-            else if (i == 2) dungeon_strafe(0);
-            else if (i == 3) dungeon_strafe(1);
-            else if (i == 4) dungeon_turn(-1);
-            else dungeon_turn(1);
+            /*  0 north, 1 south, 2 west, 3 east -- the same four the d-pad
+                sends, so the stylus and the buttons cannot drift apart. */
+            static const uint8_t kPadDir[4] = { 0, 2, 3, 1 };
+            dungeon_walk(kPadDir[i]);
             return;
         }
     if (touch_in(in, &kDunActions[0])) dungeon_interact();

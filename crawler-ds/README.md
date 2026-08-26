@@ -36,19 +36,15 @@ hardware, melonDS or DeSmuME on a desktop.
 
 The game is playable **entirely with buttons** or **entirely with the stylus**.
 
-Movement and looking are on separate controls, the way a first-person game
-splits them: the d-pad moves in all four directions and the shoulders turn. A
-DS ROM cannot read an analog stick — the hardware has twelve digital buttons
-and a touchscreen, and no axes at all — but a handheld that has sticks can bind
-one to each, so on an RG DS you can put **left stick on the d-pad** and **right
-stick left/right on L and R** and walk and look with them.
+The floor is seen from above and the d-pad walks in four directions — the way
+you press is the way you face. There is nothing to turn, which is what suits a
+game whose fights are already drawn from the side.
 Both are always live.
 
 | Button | In the dungeon | In a fight |
 | --- | --- | --- |
-| **D-pad up/down** | walk forward / back a tile | move the cursor |
-| **D-pad left/right** | sidestep, without turning | move the cursor |
-| **L / R** | turn ninety degrees | switch tab |
+| **D-pad** | walk a tile, facing the way you press | move the cursor |
+| **L / R** | — | switch menu tab |
 | **A** | use whatever you are standing on | confirm |
 | **B** | — | back out of a menu |
 | **START / X** | party, gear, achievements | — |
@@ -180,16 +176,22 @@ licensed.
   glance.
 - **`tools/art/font5x7.py`** — the font, drawn as ASCII art, seven rows of five
   cells per glyph, 104 glyphs including the System's arrows and pips.
-- **`src/render/view3d.c`** — the corridor, and the arena a fight happens in.
-  A pinhole camera sits at the centre of its own cell, so a surface `z` cells
-  away has screen half-width `PROJ/z`, and everything else falls out of that:
-  floor and ceiling are horizontal planes solved once per scanline, side walls
-  are vertical planes solved once per column, and the wall being faced is
-  parallel to the screen so it needs no correction at all. Distance is fog
-  rather than darkness, through a palette precomputed per shade level, so a
-  texel costs one lookup however far away it is. The whole renderer is about
-  four percent of a frame on the real thing — measured at 465 game frames per
-  600 emulator frames, against 483 for the flat-filled version it replaced.
+- **`src/render/view2d.c`** — the floor, from above. A tile map with the camera
+  locked to the party, sliding between tiles rather than jumping, which is the
+  view the battles were always drawn for. The corridor textures carried over
+  unchanged: they were built as tiling 32×32 surfaces, so at sixteen screen
+  pixels to the dungeon tile each one spans a 2×2 block and the pattern never
+  lines up with the grid — which is what stops a tiled floor looking like graph
+  paper. Walls sample the plain upper half of their texture, since the details
+  that make a wall read from the side (the painted dado, the neon strip) become
+  a stripe across the tops when the camera is above them.
+- **`src/render/view3d.c`** — what is left of the perspective renderer: the
+  ground a fight happens on. A pinhole camera, a surface `z` cells away having
+  screen half-width `PROJ/z`, horizontal planes solved once per scanline.
+  Distance is fog rather than darkness, through a palette precomputed per shade
+  level, so a texel costs one lookup however far away it is. It still draws the
+  arena from the party's own dungeon tile, so the ground under a fight is the
+  ground they were walking.
 - **`src/core/mapgen.c`** — the floors, built on the DS itself when you
   descend. Rooms are placed and joined in sequence, which makes the floor
   connected by construction; then the exit room is sealed, one doorway is cut

@@ -87,22 +87,33 @@ int dungeon_walkable(int x, int y) {
     return 1;
 }
 
-/* What the party can see from where it stands: the tile it is on, its
-   neighbours, and as far down the corridor ahead as the walls allow. */
+/*  What the party can see from where they stand.
+ *
+ *  Overhead, sight is a lamp radius rather than a corridor cone: the old
+ *  version lit three tiles around the party and a line ahead, which is
+ *  everything a first-person view could show and almost nothing on a screen
+ *  that draws sixteen tiles across. The lamp lights a disc, and each of the
+ *  four corridors running off it is followed until a wall stops it, so a
+ *  junction shows you your options without showing you the floor.
+ */
+#define SIGHT_R 3
+
 void dungeon_light_of_sight(void) {
     int x = g.dun.px, y = g.dun.py;
-    for (int j = -1; j <= 1; j++)
-        for (int i = -1; i <= 1; i++)
-            dungeon_mark_seen(x + i, y + j);
-    int f = g.dun.facing;
-    for (int d = 1; d <= 6; d++) {
-        int tx = x + dx4[f] * d, ty = y + dy4[f] * d;
-        dungeon_mark_seen(tx, ty);
-        /* peek sideways down the corridor, the way a torch would */
-        dungeon_mark_seen(tx + dy4[f], ty + dx4[f]);
-        dungeon_mark_seen(tx - dy4[f], ty - dx4[f]);
-        if (dungeon_tile(tx, ty) == T_WALL) break;
-    }
+    for (int j = -SIGHT_R; j <= SIGHT_R; j++)
+        for (int i = -SIGHT_R; i <= SIGHT_R; i++)
+            if (i * i + j * j <= SIGHT_R * SIGHT_R + 1)
+                dungeon_mark_seen(x + i, y + j);
+
+    for (int f = 0; f < 4; f++)
+        for (int d = 1; d <= 8; d++) {
+            int tx = x + dx4[f] * d, ty = y + dy4[f] * d;
+            dungeon_mark_seen(tx, ty);
+            /*  The walls either side of a corridor are part of seeing it. */
+            dungeon_mark_seen(tx + dy4[f], ty + dx4[f]);
+            dungeon_mark_seen(tx - dy4[f], ty - dx4[f]);
+            if (dungeon_tile(tx, ty) == T_WALL) break;
+        }
 }
 
 void dungeon_enter(int floor_index) {
@@ -221,21 +232,29 @@ static void enter_tile(int x, int y) {
     }
 }
 
-#define VIEW_ANIM_FRAMES 6
-
 void dungeon_turn(int delta) {
     g.dun.facing = (uint8_t)((g.dun.facing + delta + 4) & 3);
-    g.dun.turn_anim = (int8_t)(delta > 0 ? VIEW_ANIM_FRAMES : -VIEW_ANIM_FRAMES);
     dungeon_light_of_sight();
 }
 
-/*  Run down whatever view motion is outstanding. Called once a frame from
- *  dungeon_tick, so it decays whether or not the party is moving. */
+/*  Run down the slide between tiles. Called once a frame from dungeon_tick. */
 void dungeon_view_tick(void) {
-    if (g.dun.turn_anim > 0) g.dun.turn_anim--;
-    else if (g.dun.turn_anim < 0) g.dun.turn_anim++;
-    if (g.dun.step_anim > 0) g.dun.step_anim--;
-    else if (g.dun.step_anim < 0) g.dun.step_anim++;
+    if (g.dun.move_anim > 0) g.dun.move_anim--;
+}
+
+/*  Walk, the way an overworld walks: the direction you press is the direction
+ *  you face, and if the way is blocked you turn to look at what blocked you
+ *  rather than refusing the input. Pressing into a wall to change which way
+ *  you are pointing is how every top-down game in the genre works. */
+void dungeon_walk(int dir) {
+    dir &= 3;
+    if (g.dun.move_anim) return;                /* mid-stride */
+    if (g.dun.facing != (uint8_t)dir) {
+        g.dun.facing = (uint8_t)dir;
+        dungeon_light_of_sight();
+        if (!dungeon_walkable(g.dun.px + dx4[dir], g.dun.py + dy4[dir])) return;
+    }
+    dungeon_step(1);
 }
 
 void dungeon_step(int forward) {
@@ -251,9 +270,11 @@ void dungeon_step(int forward) {
     }
     if (!dungeon_walkable(nx, ny)) return;
 
+    g.dun.move_dx = (int8_t)(nx - g.dun.px);
+    g.dun.move_dy = (int8_t)(ny - g.dun.py);
+    g.dun.move_anim = WALK_FRAMES;
     g.dun.px = (uint8_t)nx;
     g.dun.py = (uint8_t)ny;
-    g.dun.step_anim = (int8_t)(forward > 0 ? VIEW_ANIM_FRAMES : -VIEW_ANIM_FRAMES);
     g.dun.steps++;
     audio_sfx(SFX_STEP);
     dungeon_light_of_sight();
@@ -274,8 +295,9 @@ void dungeon_strafe(int right) {
     int f = (g.dun.facing + (right ? 1 : 3)) & 3;
     int nx = g.dun.px + dx4[f], ny = g.dun.py + dy4[f];
     if (!dungeon_walkable(nx, ny)) return;
-    /*  A lateral pan is literal here, so it leans the way the party moved. */
-    g.dun.turn_anim = (int8_t)(right ? -VIEW_ANIM_FRAMES / 2 : VIEW_ANIM_FRAMES / 2);
+    g.dun.move_dx = (int8_t)(nx - g.dun.px);
+    g.dun.move_dy = (int8_t)(ny - g.dun.py);
+    g.dun.move_anim = WALK_FRAMES;
     g.dun.px = (uint8_t)nx;
     g.dun.py = (uint8_t)ny;
     g.dun.steps++;
