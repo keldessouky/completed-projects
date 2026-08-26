@@ -172,7 +172,7 @@ static void draw_title(Surface *top, Surface *bot) {
         gfx_text(top, 188, 88, C_AMBER, gfx_num(season_best_floor()));
         gfx_text(top, 24, 100, C_DIM, "Nobody who went down has come back up.");
     } else {
-        gfx_text(top, 24, 92, C_INK, "Eighteen floors. Nobody is wearing shoes.");
+        gfx_text(top, 24, 92, C_INK, "Eighteen floors. Nobody has shoes.");
     }
 
     backdrop(bot);
@@ -424,13 +424,22 @@ static void draw_arena(Surface *s, int floor_index) {
  *  work here, so it is drawn rather than assembled out of panels: a slab with
  *  one corner cut, pointing at whoever it belongs to. */
 static void hp_box(Surface *s, int x, int y, int w, const char *name, int level,
-                   int hp, int hp_max, int mine) {
+                   int hp, int hp_max, int mine, int rank) {
     const int h = 24;
     window(s, x, y, w, h, 0);
+    /*  Several bosses wear the sprite of the mob they lead, and at 72 pixels
+        the boss and the mob scale to within a percent of each other. So the
+        box says it: a gold rule across the top, and what it is. */
+    if (rank) {
+        gfx_hline(s, x + 1, x + w - 2, y, rank == 2 ? C_GOLD : C_AMBER);
+        gfx_hline(s, x + 1, x + w - 2, y + 1, gfx_scale_colour(rank == 2 ? C_GOLD : C_AMBER, 7, 16));
+    }
     gfx_hline(s, x + 1, x + w - 2, y + 1, gfx_scale_colour(C_INK, 3, 16));
-    gfx_text(s, x + 5, y + 4, C_INK, name);
-    gfx_text(s, x + w - 26, y + 4, C_DIM, "L");
-    gfx_text(s, x + w - 20, y + 4, C_AMBER, gfx_num(level));
+    gfx_text(s, x + 5, y + 4, rank ? C_GOLD : C_INK, name);
+    if (!rank) {
+        gfx_text(s, x + w - 26, y + 4, C_DIM, "L");
+        gfx_text(s, x + w - 20, y + 4, C_AMBER, gfx_num(level));
+    }
 
     if (hp_max < 1) hp_max = 1;
     if (hp < 0) hp = 0;
@@ -438,8 +447,11 @@ static void hp_box(Surface *s, int x, int y, int w, const char *name, int level,
     /*  Your own numbers sit on the bar's line rather than under it. Two of
      *  these stack above the message box, and the row they used to take was
      *  the band the foes stand in. */
+    /*  A boss gives up bar width for its tag: there is no room on the name
+        line once a name like "The Street Preacher" is on it. */
+    const char *tag = rank == 2 ? "BOROUGH" : rank == 1 ? "BLOCK" : 0;
     char num[16];
-    int nw = 0;
+    int nw = tag ? gfx_text_width(tag) + 6 : 0;
     if (mine) {
         int o = 0;
         for (const char *p = gfx_num(hp); *p; p++) num[o++] = *p;
@@ -456,6 +468,7 @@ static void hp_box(Surface *s, int x, int y, int w, const char *name, int level,
     if (filled > 0) gfx_rect(s, bx + 1, by + 1, filled, 4, health_colour(hp, hp_max));
     if (pct <= 20 && (g.anim & 16)) gfx_rect(s, bx + 1, by + 1, filled, 4, C_INK);
     if (mine) gfx_text(s, x + w - 5 - gfx_text_width(num), by - 1, C_INK, num);
+    if (tag) gfx_text(s, x + w - 5 - gfx_text_width(tag), by - 1, C_AMBER, tag);
 }
 
 /*  The message box across the bottom of the battle, typed out a couple of
@@ -514,7 +527,23 @@ static void draw_battle(Surface *top, Surface *bot) {
     for (int i = 0; i < g.bat.n_foes; i++) {
         const Foe *f = &g.bat.foes[i];
         const Sprite *sp = sprite_table[foe_defs[f->def].sprite];
-        int scale = g.bat.boss ? 104 : g.bat.n_foes >= 3 ? 64 : g.bat.n_foes == 2 ? 80 : 104;
+        /*  Sized to a target height on screen, not to a percentage of the
+            source art. Several bosses are built from a mob's own sprite --
+            the Hoarder is a Sludge Mound, the Juicer a Troglodyte -- so a flat
+            percentage left them the same size as the thing they lead, while
+            the 96px boss art at the same percentage was too tall to fit above
+            the party's health boxes. Rank picks the height; the scale falls
+            out of whatever the sprite happens to be.
+
+            The band above the boxes is about 88 pixels, and that is the ceiling. */
+        int rank = foe_defs[f->def].rank;
+        int scale;
+        if (rank) {
+            int want = rank == 2 ? 88 : 80;
+            scale = want * 100 / (sp->h ? sp->h : 1);
+        } else {
+            scale = g.bat.n_foes >= 3 ? 64 : g.bat.n_foes == 2 ? 80 : 104;
+        }
         int fw = sp->w * scale / 100, fh = sp->h * scale / 100;
         int fx = SCREEN_W - 20 - fw - i * (g.bat.n_foes >= 3 ? 58 : 74);
         /*  High enough to clear the party's boxes, which sit in the bottom
@@ -553,12 +582,12 @@ static void draw_battle(Surface *top, Surface *bot) {
         if (!f->alive) continue;
         hp_box(top, 4, 4 + shown * 27, 116, foe_defs[f->def].name,
                foe_defs[f->def].floor ? foe_defs[f->def].floor : g.dun.index + 1,
-               f->hp, f->hp_max, 0);
+               f->hp, f->hp_max, 0, foe_defs[f->def].rank);
         shown++;
     }
     for (int i = 0; i < PARTY; i++)
         hp_box(top, SCREEN_W - 122, msg_top - 56 + i * 28, 118,
-               g.hero[i].name, g.hero[i].level, g.hero[i].hp, g.hero[i].hp_max, 1);
+               g.hero[i].name, g.hero[i].level, g.hero[i].hp, g.hero[i].hp_max, 1, 0);
 
     message_box(top);
 

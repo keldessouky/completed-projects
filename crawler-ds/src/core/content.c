@@ -91,12 +91,28 @@ const FoeDef foe_defs[] = {
     { "The Hoarder",    SPR_SLUDGE,     120, 15,  9,  4, 110,   0, 40, SK_HIT_ALL,    80, 1, 1, "It has kept everything. All of it." },
     { "The Juicer",     SPR_TROGLODYTE, 110, 18,  6,  7, 105,   0, 45, SK_BLEED,      95, 1, 1, "A troglodyte that found a use for people." },
     { "Goblin War Chief", SPR_GOBLIN,   130, 16, 11,  6, 120,   0, 35, SK_DEBUFF_DEF, 70, 1, 1, "Sponsored. Finally." },
-    { "The Street Preacher", SPR_BAILIFF, 210, 21, 12,  8, 240,   0, 40, SK_STUN,     90, 2, 2, "Promoted to borough boss between episodes." },
+    /*  Tiers two and three need their own, or foe_nboss falls back to the
+        borough boss and every chamber on floor seven downward holds a Foreman.
+        Each is still the local mob with something from the surface welded on,
+        which is what the show does with them. */
+    { "The Sapper Foreman", SPR_KOBOLD,   190, 24, 13,  9, 230,  90, 40, SK_HIT_ALL,   85, 2, 1, "It has requisitioned the whole quadrant." },
+    { "The Kennelmaster", SPR_HOUND,      170, 27,  9, 16, 220,  80, 45, SK_BLEED,    100, 2, 1, "Whistles once. Everything with teeth comes." },
+    { "The Bailiff Prime", SPR_BAILIFF,   200, 25, 15,  8, 240, 100, 35, SK_STUN,      85, 2, 1, "Serving papers on the entire floor." },
+    { "The Doorman", SPR_BOUNCER,         290, 33, 18, 11, 420, 180, 40, SK_STUN,     100, 3, 1, "The list got shorter. You were on it." },
+    { "The House Mimic", SPR_MIMIC,       260, 36, 14, 14, 400, 190, 45, SK_HIT_ONE,  160, 3, 1, "It was the room. It was always the room." },
+    { "The Carrion Anchor", SPR_VULTURE,  240, 34, 12, 19, 390, 170, 50, SK_BLEED,    130, 3, 1, "Live from the top of the pile." },
+
 
     /* Borough bosses: the ones with a stairwell in the room. */
     { "Ball of Swine",  SPR_BOSS_RATKING, 220, 17,  9,  8, 260,   0, 40, SK_HIT_ALL,  95, 1, 2, "It only does one thing. It does it downhill." },
+    /*  Promoted out of a neighbourhood in the second round of patch notes,
+        which is the only reason it is standing on a stairwell. */
+    { "The Street Preacher", SPR_BAILIFF, 240, 20, 13,  9, 270,   0, 45, SK_STUN,     90, 1, 2, "Has been expecting you. Personally." },
+    /*  One borough boss a tier meant the same gate six floors running. */
+    { "The Silk Road Toll", SPR_MIMIC,    420, 29, 17, 13, 560, 280, 45, SK_HIT_ONE,  170, 2, 2, "Everything that passes pays. You are passing." },
     { "The Foreman",    SPR_BOSS_FOREMAN, 380, 26, 16, 10, 520, 250, 45, SK_STUN,    100, 2, 2, "Management has come down to the floor." },
     { "The Producer",   SPR_BOSS_PRODUCER,560, 34, 20, 14, 900, 400, 50, SK_HIT_ALL, 120, 3, 2, "The show, wearing a person." },
+    { "The Ratings Spike", SPR_VULTURE,   520, 38, 16, 21, 860, 380, 50, SK_BLEED,    150, 3, 2, "Numbers are up. That is your fault." },
 };
 const int foe_count = (int)(sizeof foe_defs / sizeof foe_defs[0]);
 
@@ -402,15 +418,25 @@ static int tier_for(int floor_no) {
 
 int foe_pick(int floor_no) {
     int tier = tier_for(floor_no);
-    for (int spread = 0; spread < 3; spread++) {
-        int candidates[12], n = 0;
-        int lo = tier - spread < 1 ? 1 : tier - spread;
-        for (int i = 0; i < foe_count && n < 12; i++)
-            if (!foe_defs[i].rank && foe_defs[i].floor >= lo && foe_defs[i].floor <= tier)
-                candidates[n++] = i;
-        if (n) return candidates[rng_range(0, n - 1)];
+    /*  The pool used to be the current tier and nothing else, so it narrowed
+        as the run went on: six kinds of thing on the early floors, three by
+        the end. Backwards -- the deepest stretch is the longest one. Deeper
+        floors keep everything shallower alive alongside their own, scaled up
+        by foe_scale, so variety grows with depth instead of collapsing. */
+    int candidates[24], n = 0;
+    for (int i = 0; i < foe_count && n < 24; i++)
+        if (!foe_defs[i].rank && foe_defs[i].floor <= tier) candidates[n++] = i;
+    if (!n) return 0;
+
+    /*  Weighted toward this tier's own residents: a floor eighteen corridor
+        should still mostly hold floor eighteen things. */
+    if (tier > 1 && rng_chance(65)) {
+        int own[12], m = 0;
+        for (int i = 0; i < foe_count && m < 12; i++)
+            if (!foe_defs[i].rank && foe_defs[i].floor == tier) own[m++] = i;
+        if (m) return own[rng_range(0, m - 1)];
     }
-    return 0;
+    return candidates[rng_range(0, n - 1)];
 }
 
 /*  The boss on the stairwell. Borough bosses are the rare ones, and every one

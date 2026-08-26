@@ -136,6 +136,22 @@ static void enter_tile(int x, int y) {
         }
         break;
     case T_SHOP:
+        /*  Nothing on the first floor drops gold, so a stall that only sells
+            is a locked door with a shopkeeper behind it. Down here the Bopca
+            hands out a ration instead, which is what the unstaffed safe rooms
+            do in the book -- experience cookies and dexterity candies. */
+        if (g.dun.index == 0) {
+            if (!dungeon_is_used(x, y)) {
+                dungeon_set_used(x, y);
+                inventory_add(ITEM_SPLINT, 2);
+                inventory_add(ITEM_ENERGY, 2);
+                for (int i = 0; i < PARTY; i++) hero_gain_xp(&g.hero[i], 24);
+                game_toast("The Bopca hands over a ration. No charge.", 0);
+            } else {
+                game_toast("The Bopca has nothing left for you.", 0);
+            }
+            break;
+        }
         if (!(g.flags & F_SEEN_SHOP)) {
             g.flags |= F_SEEN_SHOP;
             game_story(g.dun.index + 1, TRIG_SHOP, SCENE_SHOP);

@@ -154,8 +154,8 @@ int save_apply_code(const char *code) {
     g.boxes_opened = (uint16_t)boxes;
     g.story_beat = (uint8_t)beat;
     memset(g.inventory, 0, sizeof g.inventory);
-    inventory_add(1, 3);
-    inventory_add(3, 2);
+    inventory_add(ITEM_SPLINT, 3);
+    inventory_add(ITEM_ENERGY, 2);
 
     static const uint8_t carl_line[6]  = { 0, 2, 0, 2, 0, 1 };  /* str, con, str, con... */
     static const uint8_t donut_line[6] = { 1, 4, 1, 4, 5, 3 };

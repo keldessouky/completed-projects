@@ -443,6 +443,11 @@ void  battle_log(const char *fmt_text);
 int   battle_foe_count(void);
 
 /* content.c */
+/*  Indices into item_defs. Bare 1s and 3s were scattered across three files
+ *  handing out starting kit; a reordered table would have silently changed
+ *  what the party walks in with. */
+enum { ITEM_NONE, ITEM_SPLINT, ITEM_COLD_SLICE, ITEM_ENERGY };
+
 extern const ItemDef  item_defs[];
 extern const int      item_count;
 extern const SkillDef skill_defs[];

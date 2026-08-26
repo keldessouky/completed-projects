@@ -197,7 +197,7 @@ static void start_new_run(void) {
     party_new();
     g.gold = 40;
     memset(g.inventory, 0, sizeof g.inventory);
-    inventory_add(1, 2);
+    inventory_add(ITEM_SPLINT, 2);
     g.flags = 0;
     g.achievements = 0;
     g.box_queue_n = 0;
@@ -530,8 +530,8 @@ void draft_begin(void) {
 static void draft_confirm(void) {
     party_draft(g.draft_pick[0], g.draft_pick[1]);
     memset(g.inventory, 0, sizeof g.inventory);
-    inventory_add(1, 3);
-    inventory_add(3, 2);
+    inventory_add(ITEM_SPLINT, 3);
+    inventory_add(ITEM_ENERGY, 2);
     g.gold = 0;
     g.battles_won = 0;
     g.boxes_opened = 0;
