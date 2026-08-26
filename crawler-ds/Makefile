@@ -45,15 +45,16 @@ GAME_SUB2  := unofficial fan game
 all: $(DIST)/$(TARGET).nds
 
 $(DIST)/$(TARGET).nds: $(BUILD)/arm9.elf $(BUILD)/arm7.elf assets/icon.bmp | $(DIST)
-	$(NDSTOOL) -c $@ -h 0x4000 -9 $(BUILD)/arm9.elf -7 $(BUILD)/arm7.elf \
+	$(NDSTOOL) -c $@ -h 0x200 -9 $(BUILD)/arm9.elf -7 $(BUILD)/arm7.elf \
 	           -b assets/icon.bmp "$(GAME_TITLE);$(GAME_SUB1);$(GAME_SUB2)" \
 	           -g CRWL 01 "CRAWLERDS" > /dev/null
-#  ndstool stamps unit code 02 (DS+DSi) alongside a 0x4000 header. This game
-#  uses nothing a DSi has, and a DSi-aware loader that sees 02 goes looking for
-#  the DSi extended header, does not find one, and refuses the ROM. 00 is
-#  "plain Nintendo DS", which is what this is. The CRC has to be refixed after.
+#  ndstool can stamp unit code 02 (DS+DSi). This game uses nothing a DSi has,
+#  and a DSi-aware loader that reads 02 goes looking for a DSi extended header,
+#  does not find one, and refuses the ROM. 00 is "plain Nintendo DS", which is
+#  what this is. The CRC has to be refixed after editing the header.
 	@python3 -c "import sys; p=sys.argv[1]; d=bytearray(open(p,'rb').read()); d[0x12]=0; open(p,'wb').write(d)" $@
 	@$(NDSTOOL) -f $@ > /dev/null
+	@python3 tools/romcheck.py $@
 	@ls -l $@ | awk '{printf "  built %s (%d bytes)\n", $$9, $$5}'
 
 $(BUILD)/arm9.elf: $(OBJ9)
