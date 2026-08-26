@@ -1,6 +1,9 @@
 """Overworld sprites: the party as seen from above and behind.
 
-Sixteen by twenty-four, three facings each, four crawlers. At this size a
+Sixteen by twenty, three facings each, four crawlers. Twenty rather than
+twenty-four because the leader and the follower stand one tile apart and tiles
+are sixteen pixels: any taller and the two of them overlap into a single totem
+instead of reading as two people, one behind the other. At this size a
 sprite is silhouette and two or three signature colours and nothing else, so
 they share a body template and differ by palette and a handful of marks -- a
 crown, a wide hat, ears. That is how the genre's overworld sprites have always
@@ -14,7 +17,7 @@ direction at draw time rather than stored twice.
 import png
 from forge_tools import rgb555
 
-W, H = 16, 24
+W, H = 16, 20
 DOWN, UP, SIDE = 0, 1, 2
 
 
@@ -62,60 +65,59 @@ def _body(o, spec, facing):
 
     #  Legs and feet, planted. A one pixel gap between them is what separates
     #  standing from a solid block.
-    o.box(4, 19, 3, 4, legs)
-    o.box(9, 19, 3, 4, legs)
-    o.row(23, 4, 6, out)
-    o.row(23, 9, 11, out)
+    o.box(4, 16, 3, 3, legs)
+    o.box(9, 16, 3, 3, legs)
+    o.row(19, 4, 6, out)
+    o.row(19, 9, 11, out)
 
     #  Torso, wider at the shoulders.
-    o.box(4, 13, 8, 6, body)
-    o.row(12, 5, 10, body)
-    o.box(4, 17, 8, 2, body_d)
-    for y in range(12, 19):
+    o.box(4, 11, 8, 5, body)
+    o.row(10, 5, 10, body)
+    o.box(4, 14, 8, 2, body_d)
+    for y in range(10, 16):
         o.px(3, y, out)
         o.px(12, y, out)
 
     #  Arms, hanging clear of the body so the silhouette stays readable.
-    o.box(2, 13, 2, 5, body)
-    o.box(12, 13, 2, 5, body)
-    o.px(2, 18, skin_d)
-    o.px(13, 18, skin_d)
-    for y in range(13, 19):
+    o.box(2, 11, 2, 4, body)
+    o.box(12, 11, 2, 4, body)
+    o.px(2, 15, skin_d)
+    o.px(13, 15, skin_d)
+    for y in range(11, 16):
         o.px(1, y, out)
         o.px(14, y, out)
 
     #  Head.
-    o.box(3, 4, 10, 8, skin)
-    o.row(3, 4, 11, skin)
-    o.row(12, 4, 11, skin_d)
-    for y in range(3, 12):
+    o.box(3, 3, 10, 7, skin)
+    o.row(2, 4, 11, skin)
+    o.row(10, 4, 11, skin_d)
+    for y in range(2, 10):
         o.px(2, y, out)
         o.px(13, y, out)
-    o.row(2, 4, 11, out)
+    o.row(1, 4, 11, out)
 
     #  Hair, and the face if we are looking at it.
     if facing == UP:
-        o.box(3, 3, 10, 6, hair)
-        o.row(2, 4, 11, out)
+        o.box(3, 2, 10, 6, hair)
+        o.row(1, 4, 11, out)
     else:
-        o.box(3, 3, 10, 3, hair)
-        o.px(3, 6, hair)
-        o.px(12, 6, hair)
+        o.box(3, 2, 10, 3, hair)
+        o.px(3, 5, hair)
+        o.px(12, 5, hair)
+        eye = o.ink(spec['eye'])
         if facing == DOWN:
-            eye = o.ink(spec['eye'])
-            o.px(5, 8, eye)
-            o.px(6, 8, eye)
-            o.px(9, 8, eye)
-            o.px(10, 8, eye)
-            o.px(7, 10, skin_d)
-            o.px(8, 10, skin_d)
+            o.px(5, 7, eye)
+            o.px(6, 7, eye)
+            o.px(9, 7, eye)
+            o.px(10, 7, eye)
+            o.px(7, 9, skin_d)
+            o.px(8, 9, skin_d)
         else:
-            eye = o.ink(spec['eye'])
-            o.px(9, 8, eye)
-            o.px(10, 8, eye)
+            o.px(9, 7, eye)
+            o.px(10, 7, eye)
             #  A side view is a head turned: shift the mass and lose an arm.
-            o.box(2, 13, 2, 5, 0)
-            o.box(1, 13, 1, 6, 0)
+            o.box(2, 11, 2, 4, 0)
+            o.box(1, 11, 1, 5, 0)
     return out
 
 
@@ -125,18 +127,17 @@ def _crown(o, spec):
     #  Narrow, so it sits between a pair of ears rather than flattening them.
     for x, h in ((5, 2), (7, 3), (9, 2)):
         for y in range(h):
-            o.px(x, 2 - y, c)
-            o.px(x + 1, 2 - y, d if y else c)
-    o.row(3, 5, 10, d)
+            o.px(x, 1 - y, c)
+            o.px(x + 1, 1 - y, d if y else c)
+    o.row(2, 5, 10, d)
 
 
 def _hat(o, spec):
     c = o.ink(spec['accent'])
     d = o.ink(spec['accent_dark'])
-    o.row(3, 0, 15, c)
-    o.row(4, 1, 14, d)
-    o.box(4, 0, 8, 3, c)
-    o.row(0, 5, 10, d)
+    o.row(2, 0, 15, c)
+    o.row(3, 1, 14, d)
+    o.box(4, 0, 8, 2, c)
 
 
 def _cat(o, spec, facing):
@@ -149,23 +150,23 @@ def _cat(o, spec, facing):
     #  Out at the corners of the head, so the crown can sit between them.
     for base in (1, 11):
         for i in range(3):
-            o.row(3 - i, base + i, base + 3 - i, fur)
-            o.px(base + i - 1, 3 - i, out)
-            o.px(base + 4 - i, 3 - i, out)
-        o.px(base + 2, 2, pink)
+            o.row(2 - i, base + i, base + 3 - i, fur)
+            o.px(base + i - 1, 2 - i, out)
+            o.px(base + 4 - i, 2 - i, out)
+        o.px(base + 2, 1, pink)
     if facing != UP:
         #  A muzzle in the same cream as the head is invisible, so it gets its
         #  own lighter tone and a line under it.
         muzzle = o.ink(spec['muzzle'])
-        o.box(5, 9, 6, 3, muzzle)
-        o.row(12, 6, 9, fur_d)
-        o.px(4, 10, out)
-        o.px(11, 10, out)
+        o.box(5, 7, 6, 3, muzzle)
+        o.row(10, 6, 9, fur_d)
+        o.px(4, 8, out)
+        o.px(11, 8, out)
         nose = o.ink(spec['nose'])
-        o.px(7, 9, nose)
-        o.px(8, 9, nose)
-        o.px(7, 10, fur_d)
-        o.px(8, 10, fur_d)
+        o.px(7, 7, nose)
+        o.px(8, 7, nose)
+        o.px(7, 8, fur_d)
+        o.px(8, 8, fur_d)
 
 
 def _tall_ears(o, spec):
@@ -174,10 +175,10 @@ def _tall_ears(o, spec):
     d = o.ink(spec['skin_dark'])
     out = o.ink(spec['outline'])
     for base, lean in ((3, -1), (11, 1)):
-        for i in range(6):
+        for i in range(5):
             x = base + lean * (i // 2)
-            y = 5 - i
-            o.px(x, y, c if i < 4 else d)
+            y = 4 - i
+            o.px(x, y, c if i < 3 else d)
             o.px(x + lean, y, d)
             o.px(x - lean, y, out)
 

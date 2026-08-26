@@ -161,7 +161,9 @@ int game_open_held_box(void) {
 void game_set_scene(Scene s) {
     g.scene_return = g.scene;
     g.scene = s;
-    g.fade = 12;
+    /*  A battle gets a longer one: it is a shutter closing rather than a fade,
+        and a shutter needs frames to travel. */
+    g.fade = s == SCENE_BATTLE ? 14 : 12;
 }
 
 void game_story(int floor, int trigger, Scene after) {

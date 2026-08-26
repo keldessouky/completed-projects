@@ -440,13 +440,11 @@ int   dungeon_seen(int x, int y);
 void  dungeon_mark_seen(int x, int y);
 int   dungeon_walkable(int x, int y);
 void  dungeon_step(int forward);
-void  dungeon_turn(int delta);
 void  dungeon_view_tick(void);
 void  dungeon_walk(int dir);   /* face `dir` and step, the overworld way */
 void  dungeon_interact(void);
 void  dungeon_tick(void);
 void  dungeon_light_of_sight(void);
-void  dungeon_strafe(int right);
 
 /* battle.c */
 void  battle_start(int boss);

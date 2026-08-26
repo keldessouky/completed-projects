@@ -410,7 +410,8 @@ static void draw_damage_pops(Surface *s) {
     }
 }
 
-/*  The arena is drawn by the corridor renderer, so a fight happens in the same
+/*  The arena is drawn by what is left of the perspective renderer, so a fight
+ *  happens on the same ground the party were walking on -- in the same
  *  place the party were standing. All this adds is the show's lighting rig,
  *  which is the one thing down there that is not part of the building. */
 static void draw_arena(Surface *s, int floor_index) {
@@ -1563,10 +1564,28 @@ int render_frame(void) {
     /* Paused screens are for reading; the System can wait its turn. */
     if (g.scene != SCENE_DUNGEON && g.scene != SCENE_BATTLE &&
         g.scene != SCENE_MENU && g.scene != SCENE_CODE && g.scene != SCENE_SHOP) toasts(&top);
-    if (g.fade) {                                   /* a short wipe between scenes */
+    if (g.fade) {
         int a = g.fade;
-        gfx_shade(&top, 0, 0, SCREEN_W, SCREEN_H, 16 - a);
-        gfx_shade(&bot, 0, 0, SCREEN_W, SCREEN_H, 16 - a);
+        /*  Walking into a fight gets a proper transition rather than a fade:
+         *  the screen closes in bands from both edges and opens on the arena,
+         *  which is the beat the genre has used to say "something has found
+         *  you" since the machines were too slow to do anything else. */
+        if (g.scene == SCENE_BATTLE) {
+            int shut = (14 - a) * (SCREEN_H / 2) / 14;
+            for (int y = 0; y < SCREEN_H; y++) {
+                int from_edge = y < SCREEN_H / 2 ? y : SCREEN_H - 1 - y;
+                if (from_edge < shut) continue;             /* already open */
+                /*  Alternate rows lag by a band, so the shutter has teeth and
+                 *  does not read as a plain box closing. */
+                if (((y >> 2) & 1) && from_edge < shut + 6) continue;
+                gfx_hline(&top, 0, SCREEN_W - 1, y, C_VOID);
+            }
+            gfx_shade(&bot, 0, 0, SCREEN_W, SCREEN_H, 16 - a);
+            if (a > 10) gfx_shade(&top, 0, 0, SCREEN_W, SCREEN_H, 30);
+        } else {                                    /* a short wipe otherwise */
+            gfx_shade(&top, 0, 0, SCREEN_W, SCREEN_H, 16 - a);
+            gfx_shade(&bot, 0, 0, SCREEN_W, SCREEN_H, 16 - a);
+        }
     }
     return 1;
 }

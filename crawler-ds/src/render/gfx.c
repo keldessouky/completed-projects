@@ -152,7 +152,7 @@ void gfx_shade(Surface *s, int x, int y, int w, int h, int amount) {
 }
 
 /* Fills the band between two vertical edges, shading from near to far. This is
-   how every wall in the corridor view is drawn. */
+   how the arena's walls are drawn. */
 void gfx_trapezoid(Surface *s, int x0, int yt0, int yb0, int x1, int yt1, int yb1,
                    uint16_t near_c, uint16_t far_c) {
     if (x0 == x1) return;

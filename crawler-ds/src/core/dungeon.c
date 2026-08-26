@@ -232,11 +232,6 @@ static void enter_tile(int x, int y) {
     }
 }
 
-void dungeon_turn(int delta) {
-    g.dun.facing = (uint8_t)((g.dun.facing + delta + 4) & 3);
-    dungeon_light_of_sight();
-}
-
 /*  Run down the slide between tiles. Called once a frame from dungeon_tick. */
 void dungeon_view_tick(void) {
     if (g.dun.move_anim > 0) g.dun.move_anim--;
@@ -281,29 +276,6 @@ void dungeon_step(int forward) {
     enter_tile(nx, ny);
     if (g.scene != SCENE_DUNGEON) return;
 
-    if (g.dun.steps_to_encounter) g.dun.steps_to_encounter--;
-    if (!g.dun.steps_to_encounter) {
-        g.dun.steps_to_encounter = (uint16_t)rng_range(8, 16);
-        if (dungeon_zone_cleared()) return;      /* its boss is down */
-        battle_start(0);
-    }
-}
-
-/*  Sideways, without turning. On the d-pad now: with move and look split
- *  across separate controls, stepping left is what left should do. */
-void dungeon_strafe(int right) {
-    int f = (g.dun.facing + (right ? 1 : 3)) & 3;
-    int nx = g.dun.px + dx4[f], ny = g.dun.py + dy4[f];
-    if (!dungeon_walkable(nx, ny)) return;
-    g.dun.move_dx = (int8_t)(nx - g.dun.px);
-    g.dun.move_dy = (int8_t)(ny - g.dun.py);
-    g.dun.move_anim = WALK_FRAMES;
-    g.dun.px = (uint8_t)nx;
-    g.dun.py = (uint8_t)ny;
-    g.dun.steps++;
-    dungeon_light_of_sight();
-    enter_tile(nx, ny);
-    if (g.scene != SCENE_DUNGEON) return;
     if (g.dun.steps_to_encounter) g.dun.steps_to_encounter--;
     if (!g.dun.steps_to_encounter) {
         g.dun.steps_to_encounter = (uint16_t)rng_range(8, 16);

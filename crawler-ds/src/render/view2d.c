@@ -44,8 +44,8 @@ static void tiles_for(Tiles *t, int floor_index) {
     }
     t->wall = w->pix;  t->wall_pal = w->pal;
     t->floor = f->pix; t->floor_pal = f->pal;
-    t->edge_lit = gfx_mix(t->trim, t->fog, 9);
-    t->edge_dark = gfx_mix(t->fog, C_VOID, 4);
+    t->edge_lit = gfx_mix(t->trim, t->fog, 7);
+    t->edge_dark = gfx_mix(t->fog, C_VOID, 2);
 }
 
 /*  Where the camera is, in world pixels, including the slide between two tiles
@@ -93,7 +93,12 @@ static void blit_tile(Surface *s, const Tiles *t, int sx, int sy, int wx, int wy
             if (px < 0 || px >= SCREEN_W) continue;
             int u = (wx + x) & (TEXELS - 1);
             uint16_t c = pal[pix[v * TEXELS + u]];
-            dst[px] = shade ? gfx_mix(c, t->fog, shade) : c;
+            /*  Positive shade sinks a surface into the haze; negative lifts it
+             *  toward the floor's own trim, which is how the walkable ground
+             *  ends up brighter than the walls rather than merely less dark. */
+            if (shade > 0) c = gfx_mix(c, t->fog, shade);
+            else if (shade < 0) c = gfx_mix(c, t->trim, -shade);
+            dst[px] = c;
         }
     }
 }
@@ -133,8 +138,19 @@ void view2d_draw_party(Surface *s, int cx, int cy) {
      *  finishing the step before that, so it trails by exactly one stride. */
     int fx = cx - dx4[f] * TILE + slide_x;
     int fy = cy - dy4[f] * TILE + slide_y;
-    draw_crawler(s, 1, fx - 8, fy - 18, f, walking);
-    draw_crawler(s, 0, cx - 8, cy - 18, f, walking);
+
+    /*  Painter's order by screen row: whoever is further down the screen is
+     *  nearer the camera and goes on top. Drawing the leader last regardless
+     *  hid the follower's head behind them whenever the party walked north --
+     *  which took Donut's crown and ears with it, and she is most of what
+     *  makes the pair recognisable at this size. */
+    if (fy > cy) {
+        draw_crawler(s, 0, cx - 8, cy - 14, f, walking);
+        draw_crawler(s, 1, fx - 8, fy - 14, f, walking);
+    } else {
+        draw_crawler(s, 1, fx - 8, fy - 14, f, walking);
+        draw_crawler(s, 0, cx - 8, cy - 14, f, walking);
+    }
 }
 
 void view2d_draw(Surface *s) {
@@ -155,7 +171,9 @@ void view2d_draw(Surface *s) {
         for (int i = 0; i < cols; i++) {
             int mx = tx0 + i, my = ty0 + j;
             if (!dungeon_seen(mx, my) || solid(mx, my)) continue;
-            blit_tile(s, &t, mx * TILE - cx, my * TILE - cy, mx * TILE, my * TILE, 0, 0);
+            /*  And the floor comes up a step, away from the walls rather than
+             *  only having them move away from it. */
+            blit_tile(s, &t, mx * TILE - cx, my * TILE - cy, mx * TILE, my * TILE, 0, -2);
         }
 
     for (int j = 0; j < rows; j++)
@@ -163,12 +181,13 @@ void view2d_draw(Surface *s) {
             int mx = tx0 + i, my = ty0 + j;
             if (!dungeon_seen(mx, my) || !solid(mx, my)) continue;
             int sx = mx * TILE - cx, sy = my * TILE - cy;
-            /*  Walls go markedly darker than the floor. Overhead, the two
-             *  surfaces are the same material at the same angle, so without a
-             *  deliberate split between them the map reads as one texture with
-             *  a person standing on it and there is no telling where the walls
-             *  are. */
-            blit_tile(s, &t, sx, sy, mx * TILE, my * TILE, 1, 8);
+            /*  Overhead, a wall and the floor beside it are the same material
+             *  at the same angle, so nothing separates them but what the
+             *  renderer decides to do. Half-and-half toward the haze was not
+             *  enough -- the map read as one texture with a person standing on
+             *  it. Walls go most of the way down, and every exposed edge gets
+             *  a line, which between them is what makes a block a block. */
+            blit_tile(s, &t, sx, sy, mx * TILE, my * TILE, 1, 11);
             /*  A block only reads as having height if the camera can see a
              *  sliver of the face pointing at it, so a wall with open floor
              *  below gets one, plus the shadow it throws. */

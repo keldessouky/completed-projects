@@ -17,7 +17,7 @@ static const Rect kDunPad[] = {
 };
 #define DUN_PAD_N ((int)(sizeof kDunPad / sizeof kDunPad[0]))
 static const Rect kDunActions[] = {
-    { 102, 118, 72, 26, "LOOK" },
+    { 102, 118, 72, 26, "USE" },
     { 178, 118, 74, 26, "PARTY" },
     { 102, 146, 72, 26, "MAP+" },
     { 178, 146, 74, 26, "CODE" },

@@ -57,7 +57,7 @@ button per command in a fight. Tapping an enemy's name picks it as the target.
 
 ## What it is
 
-A first-person grid crawler in the shape the DS was built for — the maze on the
+A top-down dungeon RPG in the shape the DS was built for — the floor on the
 top screen, the map and your hands on the bottom one.
 
 | | |
@@ -66,8 +66,8 @@ top screen, the map and your hands on the bottom one.
 | **The draft.** Two of four go down each season. Nothing on the roster is strictly better than anything else, and the Bopca is a genuinely bad idea that sometimes works. | **A fight.** Laid out the way the DS Pokemon games do it — their box top-left, yours bottom-right, one message at a time, four commands on the touch screen. |
 | ![The cold open](docs/shots/02b-chapter-cat.png) | ![The System](docs/shots/05-chapter-system.png) |
 | **The cold open.** A street at three in the morning, a cat up a fire escape, and questions that expect an answer. Plays once a sitting. | **The announcement.** The surface has been repossessed, entry is voluntary, and the audience is already watching. |
-| ![Corridor](docs/shots/03-corridor.png) | ![A loot box](docs/shots/04-lootbox.png) |
-| **The floor.** Nested wall projections, per-floor palettes, side corridors that read as somewhere to go. The map draws itself as you walk. | **Loot boxes.** The show's entire economy, in four rarities. |
+| ![The floor](docs/shots/03-floor.png) | ![A loot box](docs/shots/04-lootbox.png) |
+| **The floor.** Seen from above, tiles textured per neighbourhood, the camera sliding between them. The map draws itself as you walk. | **Loot boxes.** The show's entire economy, in four rarities — carried until you find somewhere safe to open them. |
 | ![The party](docs/shots/08-party.png) | ![Recall code](docs/shots/10-recall-code.png) |
 | **The party.** Six attributes each, spent by hand on level-up, feeding every number in a fight. | **Recall codes.** A suspend, not a life: the show only prints one while the crawler is alive. |
 
@@ -121,7 +121,7 @@ where Book Two goes, and floors four to eighteen are this game's invention —
 the show runs eighteen floors whatever the books have got to so far.
 The way out is always the room farthest from the way in, sealed, with the boss
 standing in its only doorway, so a floor is a journey that ends in a fight
-rather than a corridor you might walk straight down. The run's season number
+rather than a passage you might walk straight down. The run's season number
 shows on the party screen and on the screen that tells you how it ended.
 
 **Recall codes instead of a save chip.** A System kiosk on each floor prints
@@ -172,7 +172,7 @@ licensed.
   ceiling each for poured concrete, riveted steel and cut stone. The detail
   that earns its place in every one of them is the band running round at a
   constant height — hazard chevrons, a plate seam, a neon tube. It converges
-  with the corridor, and that is what makes the perspective legible at a
+  with the walls, and that is what gives a neighbourhood its own look at a
   glance.
 - **`tools/art/font5x7.py`** — the font, drawn as ASCII art, seven rows of five
   cells per glyph, 104 glyphs including the System's arrows and pips.
@@ -303,7 +303,7 @@ passed: 22 checks, 0 failures
 
 ```
 src/core/      the game: dungeon, battle, party, items, story, codes, audio
-src/render/    the software renderer: corridor view, map, every screen
+src/render/    the software renderer: the floor, the arena, every screen
 src/ds/        the DS: framebuffers, input, sound, and the ARM7 core
 src/gen/       generated art and floor data (committed)
 tools/art/     the sprite and font sources
