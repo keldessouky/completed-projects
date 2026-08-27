@@ -15,8 +15,8 @@ PARTY_W, PARTY_H = 64, 64
 def carl():
     """Carl.
 
-    Hand-placed from `carl_grid`, same as Donut: fifteen colours, four steps to
-    a material, no shading pass afterwards. He stands beside her on nearly
+    Hand-placed from `carl_grid`, same as Donut: materials named out of the
+    shared palette, no shading pass afterwards. He stands beside her on nearly
     every screen, so while he was built out of shaded primitives the two of
     them read as coming from different games.
     """

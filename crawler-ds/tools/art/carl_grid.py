@@ -1,13 +1,16 @@
 """Carl, drawn rather than computed.
 
-Same method as donut_grid: fifteen colours and a transparent index, four steps
-to a material, every pixel placed by hand, and no shading pass afterwards. He
-stands next to Donut on nearly every screen, so as long as he was built out of
-shaded primitives the two of them read as being from different games.
+Same method as donut_grid: a handful of materials taken from the shared
+palette, every pixel placed by hand, and no shading pass afterwards. He stands
+next to Donut on nearly every screen, so as long as he was built out of shaded
+primitives the two of them read as being from different games.
 
-He is a big man in boxer shorts with no shoes on, which is the whole joke and
-so has to be the whole silhouette: wide at the shoulders, bare feet planted,
-nothing on him that anyone would have chosen to be wearing.
+He went outside after the cat in January, in what he had on: a shirt, the
+jacket that was by the door, and white boxers with red hearts on them. He
+never got as far as shoes. That is the whole joke and so it has to be the
+whole silhouette -- dressed from the waist up and caught out from the waist
+down, bare feet planted, nothing below the hem that anyone would have chosen
+to be televised in.
 """
 
 W, H = 56, 72
@@ -27,15 +30,22 @@ PALETTE = [
     RAMPS['hair_brown'][0],           # 6  hair, dark
     RAMPS['hair_brown'][1],           # 7  hair, base
     RAMPS['hair_brown'][3],           # 8  hair, light
-    RAMPS['cloth_blue'][0],           # 9  shorts, dark
-    RAMPS['cloth_blue'][2],           # 0  shorts, base
-    RAMPS['cloth_blue'][4],           # b  shorts, light
+    RAMPS['cloth_cream'][1],          # 9  boxers, shadow
+    RAMPS['cloth_cream'][3],          # 0  boxers, base
+    RAMPS['cloth_cream'][4],          # b  boxers, lit
     RAMPS['cloth_cream'][4],          # w  white of the eye
     RAMPS['blood'][3],                # r  the scrapes he already has
     INK['warm'],                      # d  stubble, and the dirt on him
+    RAMPS['cloth_green'][0],          # k  jacket, shadow side
+    RAMPS['cloth_green'][1],          # j  jacket, base
+    RAMPS['cloth_green'][2],          # J  jacket, lit side
+    RAMPS['stone'][1],                # t  shirt, in the jacket's shadow
+    RAMPS['stone'][3],                # s  shirt, base
+    RAMPS['stone'][4],                # S  shirt, lit
+    RAMPS['blood'][3],                # h  the hearts on the boxers
 ]
 
-KEY = "X1234567890bwrd"
+KEY = "X1234567890bwrdkjJtsSh"
 
 
 def _row(*segs):
@@ -56,6 +66,43 @@ def grid():
     # bolted to the shoulders. Torso x18..37, arms outside that, legs under it.
     def body(torso, arm_l="X3332X", arm_r="X2333X"):
         return r((11, arm_l), (18, torso), (39, arm_r))
+
+    def coat(shirt):
+        """One row of the open jacket: a lapel each side, shirt between.
+
+        The key light is up and to the left, so the near lapel takes the lit
+        step and the far one the shadow step, and the shirt darkens where the
+        lapel hangs over it. Without that last part the shirt reads as a
+        white rectangle painted on the coat rather than as cloth under it.
+        """
+        run = "S" + "s" * (shirt - 2) + "t" if shirt > 2 else "S" * shirt
+        side = (18 - shirt) // 2
+        return "X" + "J" + "j" * (side - 1) + run + "j" * (side - 1) + "k" + "X"
+
+    def boxers():
+        """White, with red hearts on them.
+
+        Two of them, five across and four down. Three pixels wide was the
+        first try and it reads as a V: at that size the two lobes are single
+        pixels with a gap between, which the eye takes for horns. Five is the
+        smallest a heart can be and still be a heart -- two lobes with a
+        shoulder each, a body, and a point.
+        """
+        wide = 19
+        rows = ["b" * wide] + ["0" * wide] * 6
+        heart = (".h.h.", "hhhhh", ".hhh.", "..h..")
+        for hx, hy in ((2, 2), (11, 2)):
+            for j, hrow in enumerate(heart):
+                row = list(rows[hy + j])
+                for i, ch in enumerate(hrow):
+                    if ch != ".":
+                        row[hx + i] = ch
+                rows[hy + j] = "".join(row)
+        #  The shaded side, laid on after the hearts so it darkens those too.
+        #  Two columns, not four: cream's shadow step is a mid grey, and four
+        #  of them down the edge stopped reading as the far side of a white
+        #  garment and started reading as a hole in it.
+        return [row if k == 0 else row[:17] + "99" for k, row in enumerate(rows)]
 
     g = [
         r(), r(), r(), r(), r(), r(),
@@ -83,33 +130,38 @@ def grid():
         # ---- neck, then the shoulders of a man who used to move things ----
         r((24, "X2222222X")),
         r((24, "X3333333X")),
-        r((14, "X22" + "3" * 8 + "4" * 6 + "3" * 8 + "22X")),
-        r((12, "X222" + "3" * 9 + "4" * 6 + "3" * 9 + "222X")),
-        r((11, "X2222" + "3" * 9 + "4" * 6 + "3" * 9 + "2222X")),
-        r((11, "X2333" + "3" * 9 + "4" * 6 + "3" * 9 + "3332X")),
-        # ---- chest and belly ----------------------------------------------
-        body("X33334444444443332X"[:18] + "X"),
-        body("X3333444444444333 X".replace(" ", "2")),
-        body("X333X4444444X333 2X".replace(" ", "3")),
-        body("X3333444444443332 X".replace(" ", "2")),
-        body("X3333344444433322 X".replace(" ", "2")),
-        body("X33333344443332222 X"[:18] + "X"),
-        body("X3333333333333222 X".replace(" ", "2")),
-        body("X333333332X3332222 X"[:18] + "X", "X333 X".replace(" ", "2"), "X 333X".replace(" ", "2")),
-        body("X3333333333333222 X".replace(" ", "2"), "X3332X", "X2333X"),
-        body("X33333333333332 2 X".replace(" ", "2"), "X4332X", "X2334X"),
-        body("X3333333333332222 X".replace(" ", "2"), "X4432X", "X2344X"),
-        body("X332222222222222 2X".replace(" ", "2"), "XX44XX", "XX44XX"),
-        # ---- shorts, and the legs of somebody who is going to run a lot ---
-        r((17, "X0000000000000000000X")),
-        r((17, "Xbbbbbbbbbbbbbbbbbbb0X"[:20] + "X")),
-        r((17, "Xbb000000000000000990X"[:20] + "X")),
-        r((17, "X0b00000000000000990 X"[:20] + "X")),
-        r((17, "X0000000000000009990 X"[:20] + "X")),
-        r((17, "X000000000XX00099990X")),
-        r((17, "X00000000X"), (28, "X0009990X")),
-        r((18, "X999000X"), (29, "X0099 0X".replace(" ", "9"))),
-        r((19, "X9990X"), (30, "X0990X")),
+        # ---- the jacket. Whatever was hanging by the door, over the shirt
+        # ---- he had slept in, because it was snowing and he expected to be
+        # ---- outside for about forty seconds.
+        r((14, "X" + "kj" + "j" * 8 + "J" * 6 + "j" * 8 + "jk" + "X")),
+        r((12, "X" + "kjj" + "j" * 9 + "J" * 6 + "j" * 9 + "jjk" + "X")),
+        r((11, "X" + "kjjj" + "j" * 9 + "J" * 6 + "j" * 9 + "jjjk" + "X")),
+        r((11, "X" + "kjjj" + "j" * 9 + "J" * 6 + "j" * 9 + "jjjk" + "X")),
+        # ---- the coat, open, with the shirt showing down the middle of it -
+        #  The opening widens on the way down, because that is what an
+        #  unzipped jacket does. Narrowing it instead -- which was the first
+        #  attempt -- draws a tapering wedge of shirt that reads as a necktie.
+        body(coat(6), "XJjjkX", "XjjkkX"),
+        body(coat(6), "XJjjkX", "XjjkkX"),
+        body(coat(6), "XJjjkX", "XjjkkX"),
+        body(coat(8), "XJjjkX", "XjjkkX"),
+        body(coat(8), "XJjjkX", "XjjkkX"),
+        body(coat(8), "XJjjkX", "XjjkkX"),
+        body(coat(10), "XJjjkX", "XjjkkX"),
+        body(coat(10), "XJjjkX", "XjjkkX"),
+        body(coat(10), "XJjjkX", "XjjkkX"),
+        body(coat(12), "XJjjkX", "XjjkkX"),
+        #  The hem, then the shirt hanging out under it, then his hands.
+        body("X" + "k" * 18 + "X", "XJjkkX", "XjkkkX"),
+        body("X" + "t" + "s" * 16 + "t" + "X", "XX44XX", "XX44XX"),
+        # ---- white boxers with red hearts, which is what he had on when he
+        # ---- went out after the cat and is what the show made him famous in
+        *[r((17, "X" + row + "X")) for row in boxers()],
+        #  The hem splits into two legs; the gap is what stops the whole
+        #  thing reading as a skirt.
+        r((17, "X000000000XX0000999X")),
+        r((17, "X00000000X"), (28, "X0099990X")),
+        r((18, "X99000X"), (29, "X009990X")),
         r((19, "X333X"), (30, "X332X")),
         r((19, "X3443X"), (29, "X3322X")),
         r((19, "X3443X"), (29, "X3322X")),

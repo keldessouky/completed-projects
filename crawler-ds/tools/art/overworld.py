@@ -110,12 +110,18 @@ def _body(o, spec, facing, pose=None):
     #  them is what separates standing from a solid block; the gap is also
     #  where a stride is visible at all. A lifted foot leaves the ground line
     #  and the leg above it shortens to match.
+    mark = spec.get('legs_mark')
     for dx, lift, x0 in ((ldx, llift, 4), (rdx, rlift, 9)):
         top = 16 + bob
         foot = GROUND - lift
         if foot > top:
             o.box(x0 + dx, top, 3, foot - top, legs)
         o.row(foot, x0 + dx, x0 + dx + 2, out)
+        #  One pixel of pattern on the garment. At this size that is all a
+        #  print can be, and one red pixel on white is enough to say which
+        #  boxer shorts these are to anyone who has read the book.
+        if mark and foot > top:
+            o.px(x0 + dx + 1, min(top, foot - 1), o.ink(mark))
 
     #  Torso, wider at the shoulders. Everything from the waist up rides the
     #  bob together, so the figure compresses rather than floating.
@@ -237,9 +243,10 @@ def _tall_ears(o, spec, b=0):
 CAST = {
     'carl': dict(
         outline=INK['brown'], skin=R['skin'][3], skin_dark=R['skin'][1],
-        body=R['skin'][3], body_dark=R['skin'][1], legs=R['cloth_blue'][2],
-        hair=R['hair_brown'][0], eye=INK['ink'], accent=R['cloth_blue'][2],
-        accent_dark=R['cloth_blue'][0], marks=()),
+        body=R['cloth_green'][1], body_dark=R['cloth_green'][0],
+        legs=R['cloth_cream'][4], legs_mark=R['blood'][3],
+        hair=R['hair_brown'][0], eye=INK['ink'], accent=R['cloth_green'][2],
+        accent_dark=R['cloth_green'][0], marks=()),
     'donut': dict(
         outline=INK['brown'], skin=R['sand'][5], skin_dark=R['tan'][2],
         body=R['copper'][3], body_dark=R['copper'][1], legs=R['tan'][2],
