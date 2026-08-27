@@ -84,6 +84,18 @@ static void step(void) { game_frame(&input); memset(&input, 0, sizeof input); }
 static void idle(int n) { for (int i = 0; i < n; i++) step(); }
 static void tap(uint32_t button) { input.pressed = button; input.held = button; step(); idle(1); }
 
+/*  Toasts stack three deep and sit for a few seconds, which is a third of the
+ *  top screen. A picture meant to show what the floor looks like should not be
+ *  mostly a picture of achievement banners. */
+static void wait_toasts(void) {
+    for (int i = 0; i < 600; i++) {
+        int alive = 0;
+        for (int k = 0; k < MAX_TOASTS; k++) if (g.toast[k].life) alive = 1;
+        if (!alive) return;
+        idle(1);
+    }
+}
+
 static void shot(const char *name) {
     if (!shots_dir) return;
     char path[512];
@@ -424,13 +436,18 @@ int main(int argc, char **argv) {
             landing on the shot frame meant the picture named "the floor" was
             whatever happened to be up. */
         for (int i = 0; i < 300 && g.scene != SCENE_DUNGEON; i++) tap(BTN_A);
-        idle(30);                       /* let the entry toasts clear */
-        shot("03-floor");
         pause_scene = SCENE_BOX;
         walk_to(T_BOX, 500);
         if (g.scene == SCENE_BOX) { idle(50); shot("04-lootbox"); }
         pause_scene = SCENE_SAFEROOM;
         for (int i = 0; i < 20 && g.scene != SCENE_DUNGEON; i++) tap(BTN_A);
+        /*  The floor, taken once there is a floor to look at. On the frame the
+            party arrive there is one lit stub of corridor on screen and the
+            entry achievements stacked over it, which is the least this
+            renderer ever has to show. A box later there is a room, a map with
+            something on it, and no banners. */
+        wait_toasts();
+        shot("03-floor");
         walk_to(T_SHRINE, 700);
         if (g.scene == SCENE_SAFEROOM) { idle(8); shot("04b-safe-room"); }
         pause_scene = -1;
