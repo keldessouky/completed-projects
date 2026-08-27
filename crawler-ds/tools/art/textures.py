@@ -4,10 +4,17 @@ The corridor used to be flat fills with a few lines scratched over them, which
 read as coloured rectangles no matter how the shading was tuned. These are
 proper 32x32 tiling textures, sampled with perspective by src/render/view3d.c.
 
-Same colour discipline as the sprites: every texture is at most 16 colours, and
-each material gets four or five steps spread across the whole luma range rather
-than a cluster of near-identical greys. A texture that lives at four different
-depths needs contrast to survive being darkened.
+Same colour discipline as the sprites: each material gets four or five named
+steps spread across the whole luma range rather than a cluster of near-identical
+greys, because a texture that lives at four different depths needs contrast to
+survive being darkened.
+
+The named steps are the drawing. Between them each surface carries a grain of
+in-between tones, which is what the colour budget is for: sixteen colours was a
+4bpp hardware limit this game does not have, and two speckle tones over a flat
+fill reads as dirt flicked at a rectangle rather than as aggregate in concrete
+or tooth in stone. The grain is generated from the material's own steps, so it
+costs authoring nothing and cannot drift away from the palette it belongs to.
 """
 
 import png
@@ -49,6 +56,24 @@ class Tex:
             for x in range(x0, x0 + w):
                 self.px(x, y, i)
 
+    def mix_ink(self, i, j, t):
+        """An index for a tone between two of this texture's own colours."""
+        a, b = self.pal[i], self.pal[j]
+        return self.ink(tuple(int(round(a[k] + (b[k] - a[k]) * t)) for k in range(3)))
+
+    def grain(self, base, dark, lit, seed, n):
+        """Fine tonal grain across a fill, in place of two speckle tones.
+
+        Eight densities between the material's own shadow and its own
+        highlight, the extremes rarest. A real surface has a distribution, not
+        two outliers; at this scale that distribution is the difference between
+        stone and a rectangle someone sprinkled on.
+        """
+        for k, (t, share) in enumerate(((1.00, 9), (0.72, 5), (0.46, 3), (0.24, 2),
+                                        (-0.24, 2), (-0.46, 3), (-0.72, 5), (-1.00, 9))):
+            idx = self.mix_ink(base, lit if t > 0 else dark, abs(t))
+            self.speckle(idx, seed + k * 37 + 1, max(1, n // share))
+
     def speckle(self, i, seed, n):
         """Deterministic grain. Randomness that changes between builds would
         make every regenerated ROM a different diff."""
@@ -61,9 +86,13 @@ class Tex:
             self.px(x, y, i)
 
     def emit(self):
-        assert len(self.pal) <= 16, "a texture must fit a 4bpp palette"
-        pal = self.pal + [(0, 0, 0)] * (16 - len(self.pal))
-        return self.c, [rgb555(c) for c in pal[:16]]
+        #  Thirty-two, not sixteen: the renderers read these through an
+        #  indexed byte per texel and a per-shade lookup table, neither of
+        #  which cares, and the old cap was borrowed from 4bpp sprite hardware
+        #  this game never used. Still a cap, because the tables are walked
+        #  per pixel and want to stay in the ARM9's four kilobytes of cache.
+        assert len(self.pal) <= 32, "texture palette is too big: %d" % len(self.pal)
+        return self.c, [rgb555(c) for c in self.pal]
 
 
 def _course(t, y, mortar, lip, block_h):
@@ -93,8 +122,7 @@ def wall_concrete():
     paint_l = t.ink((238, 208, 96))
 
     t.fill(base)
-    t.speckle(shadow, 11, 46)
-    t.speckle(lit, 23, 46)
+    t.grain(base, shadow, lit, 11, 46)
 
     # Panel joints: one vertical every 16px, one horizontal at the tile seam.
     for x in (0, 16):
@@ -146,8 +174,7 @@ def floor_concrete():
     grime = t.ink((54, 54, 58))
 
     t.fill(base)
-    t.speckle(shadow, 31, 110)
-    t.speckle(lit, 47, 110)
+    t.grain(base, shadow, lit, 31, 110)
     # 16px screed squares, scored while wet.
     for n in (0, 16):
         t.hline(n, grout)
@@ -171,8 +198,7 @@ def ceil_concrete():
     pipe_l = t.ink((124, 104, 78))
 
     t.fill(base)
-    t.speckle(deep, 61, 80)
-    t.speckle(lit, 67, 60)
+    t.grain(base, deep, lit, 61, 80)
     # A conduit run, lit along its top where the corridor light reaches it.
     t.box(0, 6, TW, 4, pipe_b)
     t.hline(6, pipe_l)
@@ -201,8 +227,7 @@ def wall_steel():
     rust_l = t.ink((190, 104, 52))
 
     t.fill(base)
-    t.speckle(shadow, 71, 70)
-    t.speckle(lit, 73, 70)
+    t.grain(base, shadow, lit, 71, 70)
 
     # Plate seams: 32 wide, 16 tall, each plate proud of the one below it.
     for y in (0, 16):
@@ -243,7 +268,7 @@ def floor_steel():
     rust = t.ink((128, 62, 32))
 
     t.fill(base)
-    t.speckle(shadow, 83, 100)
+    t.grain(base, shadow, lit, 83, 100)
     # Checker plate: raised teardrops, alternating direction.
     for gy in range(0, TH, 8):
         for gx in range(0, TW, 8):
@@ -255,7 +280,7 @@ def floor_steel():
                 t.px(x, y + 1, lit)
                 t.px(x, y + 2, dark)
     t.speckle(rust, 89, 22)
-    t.speckle(shadow, 97, 30)
+    t.grain(base, shadow, lit, 97, 30)
     return t.emit()
 
 
@@ -270,7 +295,7 @@ def ceil_steel():
     glow_l = t.ink((248, 206, 110))
 
     t.fill(base)
-    t.speckle(deep, 101, 90)
+    t.grain(base, deep, lit, 101, 90)
     t.box(0, 20, TW, 6, deep)
     t.hline(20, lit)
     t.hline(25, dark)
@@ -301,8 +326,7 @@ def wall_stone():
     neon_l = t.ink((236, 158, 255))
 
     t.fill(base)
-    t.speckle(shadow, 103, 80)
-    t.speckle(lit, 107, 80)
+    t.grain(base, shadow, lit, 103, 80)
 
     # Ashlar: 8px courses, every other one offset by half a block.
     for row, y in enumerate(range(0, TH, 8)):
@@ -333,8 +357,7 @@ def floor_stone():
     neon = t.ink((150, 60, 190))
 
     t.fill(base)
-    t.speckle(shadow, 109, 100)
-    t.speckle(lit, 113, 90)
+    t.grain(base, shadow, lit, 109, 100)
     # Diamond-set flags: the grout runs on the diagonal.
     for i in range(TW * 2):
         t.px(i, i, grout)
@@ -358,8 +381,7 @@ def ceil_stone():
     sign_l = t.ink((252, 146, 196))
 
     t.fill(base)
-    t.speckle(deep, 131, 90)
-    t.speckle(lit, 137, 50)
+    t.grain(base, deep, lit, 131, 90)
     # Ribbed vault, and a hanging sign nobody reads any more.
     for x in range(0, TW, 8):
         t.vline(x, deep)
@@ -388,8 +410,7 @@ def wall_brick():
     moss = t.ink((72, 92, 58))
 
     t.fill(base)
-    t.speckle(shadow, 149, 60)
-    t.speckle(lit, 151, 60)
+    t.grain(base, shadow, lit, 149, 60)
     #  Stretcher bond: 16x8 bricks, every other course offset by half.
     for row, y in enumerate(range(0, TH, 8)):
         t.hline(y, mortar)
@@ -418,8 +439,7 @@ def floor_brick():
     wet = t.ink((60, 62, 58))
 
     t.fill(base)
-    t.speckle(shadow, 157, 100)
-    t.speckle(lit, 163, 90)
+    t.grain(base, shadow, lit, 157, 100)
     #  Cobbles: 8x8, offset, each with a lit crown and a dark seat.
     for row, y in enumerate(range(0, TH, 8)):
         off = 0 if row % 2 == 0 else 4
@@ -444,7 +464,7 @@ def ceil_brick():
     lamp = t.ink((236, 198, 128))
 
     t.fill(base)
-    t.speckle(deep, 173, 90)
+    t.grain(base, deep, lit, 173, 90)
     #  Joists across, and a bare bulb on a flex between two of them.
     for y in range(0, TH, 11):
         t.box(0, y, TW, 4, wood)
@@ -453,7 +473,6 @@ def ceil_brick():
     t.vline(16, dark, 4, 9)
     t.box(15, 9, 3, 3, lamp)
     t.px(16, 8, lamp)
-    t.speckle(lit, 179, 40)
     return t.emit()
 
 
@@ -472,8 +491,7 @@ def wall_chitin():
     sac_l = t.ink((232, 214, 118))
 
     t.fill(base)
-    t.speckle(shadow, 181, 70)
-    t.speckle(lit, 191, 70)
+    t.grain(base, shadow, lit, 181, 70)
     #  Overlapping plates, laid like scales rather than courses.
     for row, y in enumerate(range(0, TH, 8)):
         off = 0 if row % 2 == 0 else 6
@@ -506,8 +524,7 @@ def floor_chitin():
     slick = t.ink((150, 176, 92))
 
     t.fill(base)
-    t.speckle(shadow, 193, 110)
-    t.speckle(lit, 197, 90)
+    t.grain(base, shadow, lit, 193, 110)
     #  Membrane: veins running in two directions, nothing straight.
     for i in range(TW):
         t.px(i, (i * 3 // 2) % TH, dark)
@@ -530,8 +547,7 @@ def ceil_chitin():
     sac_l = t.ink((226, 208, 112))
 
     t.fill(base)
-    t.speckle(deep, 199, 90)
-    t.speckle(lit, 211, 40)
+    t.grain(base, deep, lit, 199, 90)
     #  Everything up here is hanging.
     for x in range(2, TW, 7):
         n = 4 + (x % 3) * 3

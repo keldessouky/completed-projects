@@ -35,7 +35,7 @@ static const int dy4[4] = { -1, 0, 1, 0 };
 /*  A texture plus the palette it is drawn through at each distance. */
 typedef struct {
     const uint8_t *pix;
-    uint16_t lut[SHADES][16];
+    uint16_t lut[SHADES][32];   /* textures carry a tonal grain now, not 4bpp */
 } Shaded;
 
 static void shade_build(Shaded *out, const Sprite *sp, uint16_t fog) {
@@ -43,7 +43,7 @@ static void shade_build(Shaded *out, const Sprite *sp, uint16_t fog) {
     for (int level = 0; level < SHADES; level++) {
         /* 0 is the near end and stays true; the far end is almost all haze. */
         int t = level * 15 / (SHADES - 1);
-        for (int i = 0; i < 16; i++)
+        for (int i = 0; i < 32; i++)
             out->lut[level][i] = gfx_mix(i < sp->npal ? sp->pal[i] : fog, fog, t);
     }
 }
