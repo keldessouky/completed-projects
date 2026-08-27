@@ -41,10 +41,16 @@ GAME_VER   := v2
 GAME_SUB1  := Book One  -  $(GAME_VER)
 GAME_SUB2  := unofficial fan game
 
-#  What the release is called on a memory card. Real words with spaces, not a
-#  slug: a front end that cannot read the ROM's banner falls back to the
-#  filename, and "crawler-ds.nds" is not a label anybody wants under a cover.
-RELEASE    := Dungeon Crawler Carl ($(GAME_VER))
+#  What the release is called on a memory card.
+#
+#  Readable, but with no spaces and no brackets in it. The first version of
+#  this was "Dungeon Crawler Carl (v2).nds" on the reasoning that a front end
+#  which cannot read the ROM's banner falls back to the filename -- true, but
+#  it buys a prettier fallback at the cost of a path that a launcher shelling
+#  out without quotes will split into three arguments, and handheld front ends
+#  do that. The banner inside the ROM is what supplies the real label to
+#  anything that can read one, so the filename does not have to.
+RELEASE    := Dungeon-Crawler-Carl-$(GAME_VER)
 RELDIR     := $(DIST)/release
 
 .PHONY: all sdk gen clean bot test shots host hosttest run release cover
