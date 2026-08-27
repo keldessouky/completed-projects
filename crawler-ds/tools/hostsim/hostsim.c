@@ -483,10 +483,8 @@ int main(int argc, char **argv) {
         walk_to(T_BOSS, 600);
         pause_scene = -1;
         if (g.scene == SCENE_BATTLE) { idle(30); shot("12-boss"); play_battle(); }
-        for (int i = 0; i < 900 && (g.scene == SCENE_STORY || g.scene == SCENE_CUTSCENE || g.scene == SCENE_DRAFT); i++) {
-            if (i == 2) shot("13-story-cast");
+        for (int i = 0; i < 900 && (g.scene == SCENE_STORY || g.scene == SCENE_CUTSCENE || g.scene == SCENE_DRAFT); i++)
             tap(BTN_A);
-        }
         /* Run the rest of the game out for the closing screen. */
         for (int floor_no = g.dun.index + 1; floor_no <= FLOORS; floor_no++) {
             grind_to(floor_no * 3 + 1, 700);
@@ -497,7 +495,72 @@ int main(int argc, char **argv) {
             for (int i = 0; i < 60 && g.scene != SCENE_DUNGEON && !season_over(); i++) tap(BTN_A);
             if (g.scene == SCENE_VICTORY) break;
         }
-        if (g.scene == SCENE_VICTORY) shot("14-book-one-done");
+        /*  The endings, shot deliberately rather than hoped for. Both used to
+            depend on the bot reaching them inside the tour -- which it stopped
+            doing -- so the files sat in docs for days showing a build with an
+            achievement in it that no longer exists. A screenshot tour is
+            documenting a screen, not asserting a playthrough, so it is allowed
+            to put the game in the state it wants to photograph. */
+        {
+            /*  A fight, held at the point where it is asking for orders. */
+            if (g.scene != SCENE_DUNGEON) { g.scene = SCENE_DUNGEON; }
+            battle_start(0);
+            idle(40);
+            shot("05-battle");                 /* the opening, message still up */
+            for (int i = 0; i < 400 && g.bat.phase != BAT_CHOOSE; i++) tap(BTN_A);
+            if (g.bat.phase == BAT_CHOOSE) { idle(4); shot("06-battle-orders"); }
+
+            /*  The shop, which only exists from the second floor down now that
+                the first one pays in rations rather than gold. */
+            g.scene = SCENE_DUNGEON;
+            if (g.dun.index == 0) dungeon_enter(1);
+            g.gold = 320;
+            game_set_scene(SCENE_SHOP);
+            idle(8);
+            shot("09-shop");
+
+            /*  Spending a level, with points actually owed. */
+            g.hero[0].points = 2;
+            game_set_scene(SCENE_LEVELUP);
+            idle(8);
+            shot("11-levelup");
+
+            /*  Clear anything the staged screens left on the toast queue: an
+                ending screen photographed with "not enough gold" across it is
+                a picture of the tour, not of the game. */
+            memset(g.toast, 0, sizeof g.toast);
+            g.scene = SCENE_VICTORY;
+            idle(6);
+            shot("14-victory");
+            memset(g.toast, 0, sizeof g.toast);
+            g.scene = SCENE_GAMEOVER;
+            idle(6);
+            shot("15-season-over");
+        }
+
+        /*  Every shot the README shows has to have been written by this run.
+            Anything missing is a picture of a game that no longer exists. */
+        {
+            static const char *const kWanted[] = {
+                "01-title", "02-chapter-street", "03-floor", "04-lootbox",
+                "04b-safe-room", "05-battle", "06-battle-orders", "07-draft",
+                "08-party", "08b-achievements", "09-shop", "10-recall-code",
+                "11-levelup", "12-boss", "14-victory", "15-season-over",
+            };
+            int missing = 0;
+            for (size_t i = 0; i < sizeof kWanted / sizeof kWanted[0]; i++) {
+                char path[256];
+                snprintf(path, sizeof path, "%s/%s.png", shots_dir, kWanted[i]);
+                FILE *f = fopen(path, "rb");
+                if (f) { fclose(f); continue; }
+                printf("  MISSING %s\n", kWanted[i]);
+                missing++;
+            }
+            if (missing) {
+                printf("%d screenshot(s) the docs reference were not written\n", missing);
+                return 1;
+            }
+        }
         printf("screenshots written to %s\n", shots_dir);
         return 0;
     }

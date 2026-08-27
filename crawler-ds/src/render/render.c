@@ -1462,16 +1462,22 @@ static void draw_victory(Surface *top, Surface *bot) {
         int y = (i * 29 + g.anim) % SCREEN_H;
         gfx_pixel(top, x, y, i & 1 ? C_GOLD : C_MAGENTA);
     }
-    gfx_text_big(top, 30, 40, C_GOLD, "END OF BOOK ONE");
+    /*  Eighteen floors, not three, and not a book: this is the screen for
+     *  having walked out the other end of a whole season. */
+    gfx_text_big(top, 44, 40, C_GOLD, "YOU GOT OUT");
     season_tag(top, 30, 62, C_MAGENTA);
-    gfx_sprite(top, hero_sprite(0), 34, 108);
-    gfx_sprite(top, hero_sprite(1), 150, 112);
-    gfx_text(top, 24, 168, C_INK, "Three floors down. Fifteen to go.");
+    gfx_sprite(top, hero_sprite(0), 34, 86);
+    gfx_sprite(top, hero_sprite(1), 150, 90);
+    gfx_text(top, 12, 166, C_INK, "Eighteen floors. The show has run out");
+    gfx_text(top, 12, 177, C_INK, "of floor before it ran out of you.");
 
     backdrop(bot);
     gfx_text(bot, 8, 10, C_AMBER, "FINAL STANDINGS");
-    gfx_text(bot, 8, 30, C_DIM, "Carl");        gfx_text(bot, 120, 30, C_INK, gfx_num(g.hero[0].level));
-    gfx_text(bot, 8, 42, C_DIM, "Princess Donut"); gfx_text(bot, 120, 42, C_INK, gfx_num(g.hero[1].level));
+    /*  Whoever actually went down, not the default pair: any two of the four
+        can be drafted and naming the wrong ones on the ending screen is a poor
+        way to finish. */
+    gfx_text(bot, 8, 30, C_DIM, g.hero[0].name); gfx_text(bot, 120, 30, C_INK, gfx_num(g.hero[0].level));
+    gfx_text(bot, 8, 42, C_DIM, g.hero[1].name); gfx_text(bot, 120, 42, C_INK, gfx_num(g.hero[1].level));
     gfx_text(bot, 8, 54, C_DIM, "Fights won");  gfx_text(bot, 120, 54, C_INK, gfx_num(g.battles_won));
     gfx_text(bot, 8, 66, C_DIM, "Boxes opened");gfx_text(bot, 120, 66, C_INK, gfx_num(g.boxes_opened));
     gfx_text(bot, 8, 78, C_DIM, "Gold");        gfx_text(bot, 120, 78, C_GOLD, gfx_num(g.gold));
