@@ -38,7 +38,14 @@ typedef struct {
 } PlatInput;
 
 uint16_t *plat_screen(int which);
+/*  What the renderer reports as needing to reach the panels: which of the two
+ *  framebuffers it touched this frame. Zero means nothing changed and neither
+ *  screen has to be sent. */
+#define RENDER_TOP     1
+#define RENDER_BOTTOM  2
+
 void      plat_wait(void);
+void      plat_present(int what);
 void      plat_sound(int voice, int freq, int volume, int duty);
 void      plat_sound_stop(int voice);
 

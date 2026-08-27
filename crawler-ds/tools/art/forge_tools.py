@@ -8,6 +8,12 @@ black key line.
 """
 import math
 
+#  A sprite's colour budget. Not a hardware number: the DS stores colour in a
+#  16-bit halfword of which 15 bits are colour, and this game draws into a
+#  direct framebuffer, so any of the 32,768 are available per pixel. This is a
+#  budget for keeping palettes tidy and the ROM small.
+PALETTE_LIMIT = 64
+
 from palettes import outline_for, ramp as make_ramp, rgb555, rim_for
 
 # The key light: up and to the left, slightly in front of the sprite. Shading is
@@ -494,20 +500,29 @@ class Sprite:
         self.outline()
         return self
 
-    def quantise(self, limit=16):
+    def quantise(self, limit=PALETTE_LIMIT):
         """Fit the palette into `limit` entries, transparency included.
 
-        Every sprite in pret's Emerald and HeartGold sets is exactly sixteen
-        colours, and that constraint is most of the reason they read the way
-        they do: with four or five steps to spend on a material, each step has
-        to be far enough from its neighbour to be a decision rather than a
-        gradient. A procedural ramp will happily emit thirty, which comes out
-        looking airbrushed.
+        This used to cap at sixteen, on the reasoning that pret's Emerald and
+        HeartGold sprites are all sixteen colours and the discipline is most of
+        why they read as drawn. Half of that is right and half of it was cargo
+        cult: sixteen is a *hardware* limit on a GBA-era 4bpp sprite, and this
+        game does not have it. Both screens are direct framebuffers, so every
+        pixel is an independent fifteen-bit value.
 
-        So the near-duplicates get collapsed, cheapest pair first. Cost is
-        perceptual distance weighted by how much of the sprite is at stake, so
-        a two-pixel highlight loses to a body tone rather than the reverse, and
-        the survivor keeps its exact colour -- averaging the pair back together
+        What the discipline is actually worth is that a step has to be a
+        decision rather than a gradient -- and that is a property of how far
+        apart the steps are, not of how many there are. A bigger budget spent
+        on more *materials*, each with its own outline and its own rim, reads
+        richer. The same budget spent on more steps of the same plastic reads
+        airbrushed, which is the thing this project got told off for once
+        already and is not going back to.
+
+        So the cap is generous now and this only collapses genuine
+        near-duplicates, cheapest pair first. Cost is perceptual distance
+        weighted by how much of the sprite is at stake, so a two-pixel
+        highlight loses to a body tone rather than the reverse, and the
+        survivor keeps its exact colour -- averaging the pair back together
         would put the soft edge straight back.
         """
         counts = {}

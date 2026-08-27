@@ -11,9 +11,13 @@ Everything the cast is drawn with comes out of `ramp()` below, so the whole game
 is lit by the same two lights.
 """
 
-# The two lights every ramp is built between.
-AMBIENT = (46, 58, 116)      # cool bounce, the colour shadows fall toward
-KEY = (255, 240, 198)        # warm key light, the colour highlights climb to
+#  The two lights every ramp is built between. Pushed further apart than they
+#  used to be: with a real colour budget the interesting axis is hue, not value.
+#  Seven steps that only get lighter read as airbrushed; seven that swing from a
+#  cold bounce to a warm key read as lit, and that difference is the whole
+#  reason to spend the colours at all.
+AMBIENT = (38, 52, 124)      # cool bounce, the colour shadows fall toward
+KEY = (255, 236, 176)        # warm key light, the colour highlights climb to
 
 
 def clamp(v):
@@ -31,7 +35,7 @@ def saturate(c, amount):
     return tuple(clamp(grey + (c[i] - grey) * amount) for i in range(3))
 
 
-def ramp(base, steps=5, dark=0.62, light=0.42, cool=0.30, warm=0.26):
+def ramp(base, steps=7, dark=0.66, light=0.44, cool=0.46, warm=0.38):
     """A lit ramp for one material, darkest first.
 
     `dark`/`light` are how far the ends travel in value; `cool`/`warm` are how
@@ -43,12 +47,12 @@ def ramp(base, steps=5, dark=0.62, light=0.42, cool=0.30, warm=0.26):
         if t < 0.5:
             k = (0.5 - t) * 2.0                      # 1.0 at the darkest step
             c = tuple(base[j] * (1.0 - dark * k) for j in range(3))
-            c = mix(c, AMBIENT, cool * k * 0.55)
+            c = mix(c, AMBIENT, cool * k * 0.70)
             c = saturate(c, 1.0 + 0.30 * k)
         else:
             k = (t - 0.5) * 2.0                      # 1.0 at the brightest step
             c = tuple(base[j] + (255 - base[j]) * light * k for j in range(3))
-            c = mix(c, KEY, warm * k * 0.5)
+            c = mix(c, KEY, warm * k * 0.62)
             c = saturate(c, 1.0 - 0.18 * k)
         out.append(tuple(clamp(v) for v in c))
     return out

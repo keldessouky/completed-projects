@@ -304,20 +304,66 @@ static void draw_map(Surface *s, int x0, int y0, int w, int h, int cell) {
             if (mark) gfx_rect(s, px + 1, py + 1, cell - 2, cell - 2, mark);
         }
     }
-    /* The party: a wedge pointing where they face. */
+    /*  The party, as an arrowhead. It used to be a three-pixel block with a
+     *  few loose pixels around it meant to suggest a wedge, and at map scale
+     *  that reads as a dot: you could see where you were and not which way you
+     *  were pointing.
+     *
+     *  A solid triangle, and nothing else -- the first version of this had a
+     *  stem too, which at seven pixels turned the whole thing into a plus. */
     int px = x0 + 2 + (g.dun.px - cx) * cell + cell / 2;
     int py = y0 + 2 + (g.dun.py - cy) * cell + cell / 2;
-    static const int8_t arrow[4][6] = {
-        {  0, -3, -2, 2, 2, 2 }, {  3, 0, -2, -2, -2, 2 },
-        {  0,  3,  2, -2, -2, -2 }, { -3, 0, 2, 2, 2, -2 },
-    };
-    const int8_t *a = arrow[g.dun.facing];
-    gfx_pixel(s, px + a[0], py + a[1], C_MAGENTA);
-    for (int i = 0; i < 3; i++) {
-        gfx_pixel(s, px + a[0] / 2, py + a[1] / 2, C_MAGENTA);
-        gfx_pixel(s, px + a[2] + i * (a[4] - a[2]) / 2, py + a[3] + i * (a[5] - a[3]) / 2, C_MAGENTA);
+    {
+        static const int8_t kArrow[][2] = {
+            {  0, -3 },
+            { -1, -2 }, {  0, -2 }, {  1, -2 },
+            { -2, -1 }, { -1, -1 }, {  0, -1 }, {  1, -1 }, {  2, -1 },
+            { -3,  0 }, { -2,  0 }, { -1,  0 }, {  0,  0 }, {  1,  0 },
+            {  2,  0 }, {  3,  0 },
+        };
+        const int n = (int)(sizeof kArrow / sizeof kArrow[0]);
+        int f = g.dun.facing & 3;
+
+        /*  Rotate a north-pointing offset into the facing. One shape, four
+         *  directions: it cannot be right one way round and wrong another. */
+        #define ROT(dx, dy, rx, ry) do {                                       \
+            switch (f) {                                                       \
+            case 1:  (rx) = -(dy); (ry) =  (dx); break;   /* east  */          \
+            case 2:  (rx) = -(dx); (ry) = -(dy); break;   /* south */          \
+            case 3:  (rx) =  (dy); (ry) = -(dx); break;   /* west  */          \
+            default: (rx) =  (dx); (ry) =  (dy); break;   /* north */          \
+            }                                                                  \
+        } while (0)
+
+        /*  A tight outline: the four orthogonal neighbours of every filled
+         *  pixel that are not themselves filled. Smearing each pixel three by
+         *  three, as the first attempt did, fills the triangle's own notches
+         *  and hands back the blob this was meant to replace. */
+        for (int i = 0; i < n; i++) {
+            static const int8_t kSide[4][2] = { { 0, -1 }, { 1, 0 }, { 0, 1 }, { -1, 0 } };
+            for (int k = 0; k < 4; k++) {
+                int nx = kArrow[i][0] + kSide[k][0], ny = kArrow[i][1] + kSide[k][1];
+                int filled = 0;
+                for (int j = 0; j < n && !filled; j++)
+                    filled = kArrow[j][0] == nx && kArrow[j][1] == ny;
+                if (filled) continue;
+                int rx, ry;
+                ROT(nx, ny, rx, ry);
+                gfx_pixel(s, px + rx, py + ry, C_VOID);
+            }
+        }
+        for (int i = 0; i < n; i++) {
+            int rx, ry;
+            ROT(kArrow[i][0], kArrow[i][1], rx, ry);
+            gfx_pixel(s, px + rx, py + ry, C_MAGENTA);
+        }
+        {   /* the tip, lit, so the point is findable at a glance */
+            int rx, ry;
+            ROT(kArrow[0][0], kArrow[0][1], rx, ry);
+            gfx_pixel(s, px + rx, py + ry, C_INK);
+        }
+        #undef ROT
     }
-    gfx_rect(s, px - 1, py - 1, 3, 3, C_MAGENTA);
 }
 
 static void draw_button(Surface *s, const Rect *r, int on) {
@@ -329,6 +375,10 @@ static void draw_button(Surface *s, const Rect *r, int on) {
         gfx_text(s, tx, ty, on ? C_SEL_HI : C_INK, r->label);
     }
 }
+
+/*  Set by render_frame before it dispatches: whether the bottom screen's
+ *  contents have changed since it was last drawn. */
+static int s_draw_bottom = 1;
 
 static void draw_dungeon(Surface *top, Surface *bot) {
     view2d_draw(top);
@@ -363,6 +413,13 @@ static void draw_dungeon(Surface *top, Surface *bot) {
     if (!secs && (g.anim & 16)) gfx_rect(top, 0, 0, SCREEN_W, 13, C_BLOOD);
     if (!secs) gfx_text(top, SCREEN_W - 4 - gfx_text_width("COLLAPSING"), 3, C_RED, "COLLAPSING");
     toasts(top);
+
+    /*  The console below is a fixed object with four live readouts on it, and
+     *  redrawing the whole of it -- housing, buttons, map lattice, weave --
+     *  was measured at half of every frame. It is drawn when one of those
+     *  readouts changes and left alone otherwise; see
+     *  render_bottom_signature. */
+    if (!s_draw_bottom) return;
 
     backdrop(bot);
     gfx_rect(bot, 0, 0, SCREEN_W, 22, C_PANEL);
@@ -1528,6 +1585,12 @@ static uint32_t render_signature(void) {
         MIX(g.cut_backdrop); MIX(g.cut_choice); MIX(g.cut_answer);
         MIX(g.cut_shake); MIX(g.anim >> 1);        /* rain and dust keep moving */
     }
+    /*  The step between two tiles, the walk bob and the boss chamber's pulse
+     *  all live in these two, and without them the dungeon redrew only when
+     *  the party changed square -- so the slide this renderer was built to do
+     *  never reached the screen at all. */
+    if (g.scene == SCENE_DUNGEON) { MIX(g.dun.move_anim); MIX(g.anim >> 2); }
+
     /* Scenes that are alive even when the player is not. */
     if (g.scene == SCENE_TITLE) MIX(season_count());
     if (g.scene == SCENE_TITLE || g.scene == SCENE_STORY || g.scene == SCENE_BOX ||
@@ -1538,12 +1601,36 @@ static uint32_t render_signature(void) {
     return h;
 }
 
+/*  What the bottom screen is made of, for the scenes where it is mostly
+ *  furniture. Everywhere else it shares the top screen's signature and is
+ *  redrawn whenever the top is, which is what it did before. */
+static uint32_t render_bottom_signature(void) {
+    if (g.scene != SCENE_DUNGEON) return render_signature();
+    uint32_t h = 2166136261u;
+    #define MIX(v) do { h = (h ^ (uint32_t)(v)) * 16777619u; } while (0)
+    MIX(g.scene);
+    MIX(g.dun.index); MIX(g.dun.px); MIX(g.dun.py); MIX(g.dun.facing);
+    MIX(g.dun.explored); MIX(g.menu_cursor);
+    MIX(g.gold); MIX(g.boxes_opened);
+    for (int i = 0; i < PARTY; i++) {
+        MIX(g.hero[i].hp); MIX(g.hero[i].hp_max);
+        MIX(g.hero[i].mp); MIX(g.hero[i].mp_max);
+    }
+    MIX(g.anim >> 4);              /* a bar under a quarter full blinks */
+    #undef MIX
+    return h;
+}
+
 int render_frame(void) {
-    static uint32_t last_signature;
+    static uint32_t last_signature, last_bottom;
     static int primed;
     uint32_t sig = render_signature();
     if (primed && sig == last_signature) return 0;
+    uint32_t bsig = render_bottom_signature();
+    s_draw_bottom = !primed || bsig != last_bottom;
+
     last_signature = sig;
+    last_bottom = bsig;
     primed = 1;
 
     Surface top = gfx_surface(SCREEN_TOP);
@@ -1593,5 +1680,5 @@ int render_frame(void) {
             gfx_shade(&bot, 0, 0, SCREEN_W, SCREEN_H, 16 - a);
         }
     }
-    return 1;
+    return s_draw_bottom ? RENDER_TOP | RENDER_BOTTOM : RENDER_TOP;
 }

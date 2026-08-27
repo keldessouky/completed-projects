@@ -67,12 +67,20 @@ void plat_init(void) {
 
 void plat_wait(void) { swiWaitForVBlank(); }
 
-void plat_present(void) {
-    DC_FlushRange(fb_top, sizeof fb_top);
-    DC_FlushRange(fb_bottom, sizeof fb_bottom);
+/*  `what` is RENDER_TOP | RENDER_BOTTOM: which of the two framebuffers the
+ *  renderer actually touched. Sending a screen the renderer left alone costs a
+ *  ninety-six kilobyte copy for nothing, which on this machine is most of a
+ *  frame.
+ *
+ *  The flush is the whole cache in one instruction rather than a walk over the
+ *  ranges: the data cache is four kilobytes and the two buffers are a hundred
+ *  and ninety-two, so walking them is thousands of line operations to clean a
+ *  cache that could only have held the last one percent of them anyway. */
+void plat_present(int what) {
+    DC_FlushAll();
     swiWaitForVBlank();
-    dmaCopyWords(0, fb_top, VRAM_A, sizeof fb_top);
-    dmaCopyWords(1, fb_bottom, sub_gfx, sizeof fb_bottom);
+    if (what & RENDER_TOP)    dmaCopyWords(0, fb_top, VRAM_A, sizeof fb_top);
+    if (what & RENDER_BOTTOM) dmaCopyWords(1, fb_bottom, sub_gfx, sizeof fb_bottom);
 }
 
 void plat_poll(PlatInput *in) {
@@ -113,7 +121,8 @@ int main(void) {
     for (;;) {
         PlatInput in;
         plat_poll(&in);
-        if (game_frame(&in)) plat_present();
+        int what = game_frame(&in);
+        if (what) plat_present(what);
         else plat_wait();
     }
 }
