@@ -31,9 +31,9 @@ PALETTE = [
     RAMPS['copper'][1],               # 2  coat, shadow
     RAMPS['copper'][2],               # 3  coat, base
     RAMPS['copper'][3],               # 4  coat, light
-    RAMPS['cloth_cream'][1],          # 5  cream, shadow
-    RAMPS['cloth_cream'][3],          # 6  cream, base
-    RAMPS['cloth_cream'][4],          # 7  white: cream highlight, catchlight, whiskers
+    RAMPS['wood_dark'][2],            # 5  ruff and chest, in shadow
+    RAMPS['sand'][3],                 # 6  ruff and chest, where the light gets in
+    RAMPS['cloth_cream'][4],          # 7  the muzzle, the catchlight, the whiskers
     RAMPS['gold'][1],                 # 8  gold, shadow
     RAMPS['gold'][3],                 # 9  gold, base
     RAMPS['gold'][4],                 # 0  gold, light

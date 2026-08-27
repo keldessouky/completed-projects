@@ -43,9 +43,11 @@ PALETTE = [
     RAMPS['stone'][3],                # s  shirt, base
     RAMPS['stone'][4],                # S  shirt, lit
     RAMPS['blood'][3],                # h  the hearts on the boxers
+    RAMPS['cloth_green'][3],          # L  the trim down the jacket's opening
+    RAMPS['hair_brown'][0],           # e  brows, and the stubble under them
 ]
 
-KEY = "X1234567890bwrdkjJtsSh"
+KEY = "X1234567890bwrdkjJtsShLe"
 
 
 def _row(*segs):
@@ -75,9 +77,14 @@ def grid():
         lapel hangs over it. Without that last part the shirt reads as a
         white rectangle painted on the coat rather than as cloth under it.
         """
+        #  A lit trim down each side of the opening, which is the zip tape.
+        #  Without it the coat and the shirt meet on a colour change alone and
+        #  the jacket reads as a painted panel rather than a garment with an
+        #  edge that was sewn.
         run = "S" + "s" * (shirt - 2) + "t" if shirt > 2 else "S" * shirt
         side = (18 - shirt) // 2
-        return "X" + "J" + "j" * (side - 1) + run + "j" * (side - 1) + "k" + "X"
+        return ("X" + "J" + "j" * (side - 2) + "L" + run + "L"
+                + "j" * (side - 2) + "k" + "X")
 
     def boxers():
         """White, with red hearts on them.
@@ -89,9 +96,9 @@ def grid():
         shoulder each, a body, and a point.
         """
         wide = 19
-        rows = ["b" * wide] + ["0" * wide] * 6
+        rows = ["b" * wide] + ["0" * wide] * 8
         heart = (".h.h.", "hhhhh", ".hhh.", "..h..")
-        for hx, hy in ((2, 2), (11, 2)):
+        for hx, hy in ((0, 1), (7, 1), (14, 1), (3, 5), (10, 5)):
             for j, hrow in enumerate(heart):
                 row = list(rows[hy + j])
                 for i, ch in enumerate(hrow):
@@ -105,28 +112,32 @@ def grid():
         return [row if k == 0 else row[:17] + "99" for k, row in enumerate(rows)]
 
     g = [
-        r(), r(), r(), r(), r(), r(),
-        # ---- hair: slept on, then the world ended -------------------------
-        r((23, "XXXXXXXXXX")),
-        r((21, "XX76666667XX")),
-        r((20, "X7766666666 7X".replace(" ", "7"))),
-        r((19, "X8766666666677X")),
-        r((19, "X87666666666677X")),
-        r((19, "X876666666666667X")),
-        r((19, "X87666666666666 7X".replace(" ", "6"))),
-        r((19, "X8766666666666667X")),
-        # ---- face. Eyes are a pupil with a catch beside it on the lit
-        # ---- side; stubble is a shade along the jaw, not a black band.
+        r(), r(), r(),
+        # ---- hair: slept on, then the world ended. Tufts standing up rather
+        # ---- than a fringe cut straight across -- a flat cap of hair reads
+        # ---- as a helmet, and nobody has combed this since the ceiling fell.
+        r((24, "X6X..X66X..X6X")),
+        r((22, "X6666666666666X")),
+        r((20, "X76666666666666667X")),
+        r((19, "X8766666666666666 7X".replace(" ", "6"))),
+        r((19, "X87666666666666667X")),
+        r((19, "X87666666666666667X")),
+        # ---- the face. Brows first: they carry the whole expression, and at
+        # ---- this size they do more of it than the eyes under them.
         r((19, "X4444444444444444X")),
-        r((19, "X4443333333333334X"), (22, "2222"), (30, "2222")),
-        r((19, "X4433333333333334X"), (23, "wX"), (31, "wX")),
-        r((19, "X4433333333333334X"), (23, "22"), (31, "22")),
+        r((19, "X4433333333333334X"), (22, "eee"), (30, "eee")),
+        r((19, "X4433333333333334X")),
+        r((19, "X4433333333333334X"), (22, "wXw"), (30, "wXw")),
+        r((19, "X4433333333333334X")),
         r((19, "X4433333333333334X"), (27, "2")),
-        r((19, "X4433333333333334X"), (26, "212")),
-        r((19, "X4433333333333334X"), (25, "dddddd")),
-        r((19, "X44d3333333333d34X")),
-        r((20, "X4d33333333333dX")),
-        r((21, "Xdd333333333ddX")),
+        # ---- stubble is a shadow on skin, not a beard: the darkest step of
+        # ---- his own skin ramp, over the lip and the jaw. Drawn in the
+        # ---- outline colour instead -- which is what this was first -- it
+        # ---- covers the mouth and he reads as a man in a balaclava.
+        r((19, "X4412222222222114X"), (25, "111111")),
+        r((19, "X4412222222222214X"), (26, "1X1")),
+        r((20, "X41222222222114X")),
+        r((21, "Xd1122222211dX")),
         # ---- neck, then the shoulders of a man who used to move things ----
         r((24, "X2222222X")),
         r((24, "X3333333X")),
@@ -150,10 +161,12 @@ def grid():
         body(coat(10), "XJjjkX", "XjjkkX"),
         body(coat(10), "XJjjkX", "XjjkkX"),
         body(coat(10), "XJjjkX", "XjjkkX"),
-        body(coat(12), "XJjjkX", "XjjkkX"),
-        #  The hem, then the shirt hanging out under it, then his hands.
+        #  The hem, then the shirt hanging out under it, then his hands. The
+        #  shirt has to show below the coat or the two garments read as one.
         body("X" + "k" * 18 + "X", "XJjkkX", "XjkkkX"),
+        body("X" + "t" + "s" * 16 + "t" + "X", "XJjkkX", "XjkkkX"),
         body("X" + "t" + "s" * 16 + "t" + "X", "XX44XX", "XX44XX"),
+        body("X" + "t" + "s" * 16 + "t" + "X"),
         # ---- white boxers with red hearts, which is what he had on when he
         # ---- went out after the cat and is what the show made him famous in
         *[r((17, "X" + row + "X")) for row in boxers()],
@@ -173,8 +186,11 @@ def grid():
         # ---- and no shoes, which is the entire joke -----------------------
         r((16, "XX44443XX"), (27, "XX33222XX")),
         r((15, "X4444443X"), (26, "X3332222X")),
-        r((15, "X5444443X"), (26, "X3222221X")),
-        r((15, "XXXXXXXX"), (26, "XXXXXXXX")),
+        #  Toes. Three of them a foot, cut apart by the outline colour, which
+        #  is the whole difference between a bare foot and a rounded stump --
+        #  and bare feet are the premise, so they are worth four pixels.
+        r((15, "X5X4X4X3X"), (26, "X3X2X2X1X")),
+        r((15, "XXXXXXXXX"), (26, "XXXXXXXXX")),
     ]
     while len(g) < H:
         g.append(r())

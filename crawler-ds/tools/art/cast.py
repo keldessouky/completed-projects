@@ -9,7 +9,14 @@ from forge_tools import Sprite
 
 #  The standard character frame: everyone stands on the same row, in the same
 #  box, with the same shadow. See Sprite.stage in forge_tools.
-PARTY_W, PARTY_H = 64, 64
+#
+#  Seventy-two tall, not the square the reference art uses. Carl fits a square
+#  and Donut does not, because she is a cat wearing a crown and a crown is
+#  exactly the sort of thing that makes a character taller than whoever sized
+#  the frame expected. The frame exists to stand everybody on one floor under
+#  one shadow; it is not a reason to cut the top off one of them.
+PARTY_W, PARTY_H = 64, 74
+GROUND = 69
 
 
 def carl():
@@ -28,7 +35,7 @@ def carl():
         for x, ch in enumerate(row):
             if ch != '.':
                 s.px[y * cg.W + x] = idx[ch]
-    return s.stage(PARTY_W, PARTY_H).emit()
+    return s.stage(PARTY_W, PARTY_H, GROUND).emit()
 
 
 def _cat_eye(s, cx, cy, key, flip=1):
@@ -87,7 +94,7 @@ def donut():
         for x, ch in enumerate(row):
             if ch != '.':
                 s.px[y * dg.W + x] = idx[ch]
-    return s.stage(PARTY_W, PARTY_H).emit()
+    return s.stage(PARTY_W, PARTY_H, GROUND).emit()
 
 
 def mordecai():
@@ -104,7 +111,7 @@ def mordecai():
         for x, ch in enumerate(row):
             if ch != '.':
                 s.px[y * mg.W + x] = idx[ch]
-    return s.stage(PARTY_W, PARTY_H).emit()
+    return s.stage(PARTY_W, PARTY_H, GROUND).emit()
 
 def bopca():
     """The Bopca: issued a uniform, has strong feelings about it.
@@ -119,5 +126,5 @@ def bopca():
         for x, ch in enumerate(row):
             if ch != '.':
                 s.px[y * bg.W + x] = idx[ch]
-    return s.stage(PARTY_W, PARTY_H).emit()
+    return s.stage(PARTY_W, PARTY_H, GROUND).emit()
 

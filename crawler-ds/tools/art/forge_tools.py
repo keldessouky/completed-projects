@@ -594,6 +594,20 @@ class Sprite:
         else:
             dx = (w - (x1 - x0 + 1)) // 2 - x0
             dy = ground - y1
+            #  Refuse to crop. Standing a drawing on the ground line moves it
+            #  up, and a drawing taller than the frame then loses rows off the
+            #  top -- silently, because once they are gone there is nothing
+            #  left to compare against. That is how Princess Donut shipped
+            #  with the points cut off her crown: seventy pixels of cat on a
+            #  sixty-four pixel frame, ten rows over the edge, and the flat
+            #  gold band left behind looked deliberate enough to survive
+            #  several passes of me looking straight at it.
+            if y0 + dy < 0 or y1 + dy >= h:
+                raise ValueError(
+                    "a %dx%d drawing does not fit a %dx%d frame with its feet "
+                    "on row %d: %d row(s) would be lost off the top. Give the "
+                    "frame more height, or make the drawing shorter."
+                    % (x1 - x0 + 1, y1 - y0 + 1, w, h, ground, max(1, -(y0 + dy))))
 
         out = Sprite(w, h)
         out.pal = list(self.pal)
