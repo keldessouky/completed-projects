@@ -332,8 +332,11 @@ static void blit_tile_lit(Surface *s, const Tiles *t, int sx, int sy, int wx, in
         uint16_t *dst = s->px + py * SCREEN_W + x0;
         uint16_t *end = s->px + py * SCREEN_W + x1;
 
-        int lvl = (left << 8) + ((right - left) << 8) * (x0 - sx) / TILE;
-        int step = ((right - left) << 8) / TILE;
+        /*  Multiplied, not shifted: the difference between two corners is
+         *  routinely negative and shifting a negative left is undefined. */
+        int slope = (right - left) * 256;
+        int lvl = left * 256 + slope * (x0 - sx) / TILE;
+        int step = slope / TILE;
 
         /*  The light is bilinear across the tile but the palette it selects is
          *  one of sixteen, so over sixteen pixels it changes hands two or
@@ -445,15 +448,19 @@ void view2d_draw(Surface *s) {
      *  swapped underneath us; px/py cover both the party's own lamp and the
      *  ground they have just remembered. */
     {
-        int sig = s_lamps * 2654435761u + g.season;
+        /*  Unsigned throughout: a hash is meant to wrap, and signed overflow
+         *  is undefined rather than wrapping. */
+        uint32_t sig = (uint32_t)s_lamps * 2654435761u + g.season;
         for (int n = 0; n < s_lamps; n++)
-            sig = sig * 31 + s_lamp[n].x * 71 + s_lamp[n].y * 13 + s_lamp[n].strength;
+            sig = sig * 31u + (uint32_t)s_lamp[n].x * 71u
+                            + (uint32_t)s_lamp[n].y * 13u + s_lamp[n].strength;
 
-        static int key[6] = { 1, 1, 1, 1, 1, 1 };
-        if (key[0] != tx0 || key[1] != ty0 || key[2] != d->index ||
-            key[3] != g.dun.px || key[4] != g.dun.py || key[5] != sig) {
-            key[0] = tx0; key[1] = ty0; key[2] = d->index;
-            key[3] = g.dun.px; key[4] = g.dun.py; key[5] = sig;
+        static uint32_t key[6] = { 1, 1, 1, 1, 1, 1 };
+        if (key[0] != (uint32_t)tx0 || key[1] != (uint32_t)ty0 ||
+            key[2] != (uint32_t)d->index || key[3] != (uint32_t)g.dun.px ||
+            key[4] != (uint32_t)g.dun.py || key[5] != sig) {
+            key[0] = (uint32_t)tx0; key[1] = (uint32_t)ty0; key[2] = (uint32_t)d->index;
+            key[3] = (uint32_t)g.dun.px; key[4] = (uint32_t)g.dun.py; key[5] = sig;
             for (int j = 0; j <= rows; j++)
                 for (int i = 0; i <= cols; i++)
                     grid[j][i] = light_at(tx0 + i, ty0 + j);

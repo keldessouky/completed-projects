@@ -33,7 +33,9 @@ static void png_chunk(FILE *f, const char *type, const unsigned char *data, size
     put32(hdr, (uint32_t)len);
     memcpy(hdr + 4, type, 4);
     fwrite(hdr, 1, 8, f);
-    fwrite(data, 1, len, f);
+    /*  IEND carries no data, and fwrite is declared never to take a null
+     *  pointer even for a zero-length write. */
+    if (len) fwrite(data, 1, len, f);
     uLong crc = crc32(0, (const Bytef *)type, 4);
     if (len) crc = crc32(crc, data, (uInt)len);
     unsigned char c[4];

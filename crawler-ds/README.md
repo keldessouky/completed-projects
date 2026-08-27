@@ -185,6 +185,18 @@ licensed.
   paper. Walls sample the plain upper half of their texture, since the details
   that make a wall read from the side (the painted dado, the neon strip) become
   a stripe across the tops when the camera is above them.
+
+  Light is per pixel, not per tile. Everything down there that makes its own —
+  a safe room's windows, the kiosk's screen, the glow off a boss chamber, an
+  unopened box, and the lamp the party carry — is a radius, a strength and a
+  colour. Brightness is sampled at tile corners and interpolated across the
+  tile, so two tiles agree about the corner they share and a lamp falls off
+  smoothly instead of in sixteen-pixel squares; colour goes on afterwards, and
+  only over the pixels near enough to a source to show it. Ground the party
+  have walked keeps a floor of light rather than going black, because a map
+  that forgets the moment you step away is one you cannot read your way back
+  across. The compass marker on the touch map is an arrowhead, so the screen
+  that tells you where you are also tells you which way you are pointed.
 - **`src/render/view3d.c`** — what is left of the perspective renderer: the
   ground a fight happens on. A pinhole camera, a surface `z` cells away having
   screen half-width `PROJ/z`, horizontal planes solved once per scanline.
@@ -255,6 +267,59 @@ does.
    that only sends a FIFO word when a value actually changes.
 
 ---
+
+## What a frame costs
+
+The DS gives a software renderer about 560,000 cycles between vblanks, and a
+lit dungeon frame was taking four and a half of them — thirteen frames a
+second. It now takes 1.9, and none of that came from reading the code and
+deciding where the time must be going. Three separate confident guesses were
+made about the per-pixel blend, each one rewritten and measured, and the three
+of them together bought about three frames a second. Two of the four things
+that actually mattered were nowhere near the code being rewritten.
+
+What worked was taking one stage out at a time and re-measuring, with two
+traps worth knowing about. The first is that the loop waits for vblank, so
+iteration time quantises to whole frames and a stage worth twenty percent can
+measure as worth nothing — the measurements only became readable once the
+vblank wait was compiled out for the duration. The second is that an ablation
+can disable more than it says: skipping the light grid also left the lamp list
+empty, which silently disabled the colour pass too, and for an afternoon the
+grid was blamed for a cost that belonged somewhere else entirely.
+
+Where it actually went, in order:
+
+- **The bottom screen, half the frame.** It was redrawn in full every frame —
+  housing, buttons, map lattice, weave — when it is a fixed console with four
+  live readouts on it. It has its own signature now and is drawn when one of
+  them changes. Which screens were touched is reported back to `plat_present`,
+  so a screen nothing happened on is not copied to VRAM either.
+- **A shade chosen per pixel.** The light is bilinear across a tile but selects
+  one of sixteen palettes, so over sixteen pixels it changes hands two or three
+  times. Choosing per run takes the inner loop down to a load, a load and a
+  store.
+- **A colour blend with a divide in it**, over a disc three and a half tiles
+  wide, per lamp. It is a byte table per channel per strength now — the tint is
+  constant over the disc, which is what makes that possible — each row's span
+  is solved rather than tested pixel by pixel, and colour carries half as far
+  as brightness, which costs area.
+- **`__aeabi_idiv`, three and a half thousand times a frame.** The ARM9 has no
+  divide instruction and the quadratic falloff was calling into the software
+  one from every corner for every lamp. A lamp reaches five tiles, so its
+  falloff is a twenty-six byte table. The corner grid is cached too: none of it
+  changes between two frames in which the party have not crossed a tile.
+
+Two changes measured worse and were reverted rather than kept because they
+sounded right: laying the haze down tile by tile instead of clearing the
+screen (two hundred clipped rectangles cost more than one pass of word
+stores), and double buffering the top screen so its transfer could overlap the
+next frame's drawing (the second buffer cost more than the overlap saved).
+Both are noted in the source where someone would otherwise try them again.
+
+The bug all of this uncovered was not a performance bug: `move_anim` was
+missing from the render signature, so the dungeon redrew only when the party
+changed square, and the slide between tiles this renderer was built around had
+never once reached the screen.
 
 ## How it is tested
 
