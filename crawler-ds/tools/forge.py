@@ -172,6 +172,15 @@ def preview_sheets(sprite_list, font_glyph_count, icon_canvas, icon_pal):
     out_dir = os.path.join(ROOT, 'docs', 'art')
     os.makedirs(out_dir, exist_ok=True)
 
+    #  The walk cycles get their own sheet. A hundred and twenty sixteen-pixel
+    #  frames dropped into hundred-pixel cells is two and a half thousand
+    #  pixels of empty checkerboard, and the one thing worth looking at in
+    #  them -- whether the frames actually differ -- is the thing that layout
+    #  hides. On their own sheet they sit in rows, one row per facing, which
+    #  is how a flipbook is read.
+    walk = [e for e in sprite_list if e[0].startswith('ow_')]
+    sprite_list = [e for e in sprite_list if not e[0].startswith('ow_')]
+
     cols, cell = 6, 100
     rows = (len(sprite_list) + cols - 1) // cols
     W, H = cols * cell, rows * cell
@@ -198,6 +207,36 @@ def preview_sheets(sprite_list, font_glyph_count, icon_canvas, icon_pal):
         blit(canvas, pal, (i % cols) * cell + (cell - canvas.w) // 2,
              (i // cols) * cell + (cell - canvas.h) // 2)
     png.write_rgb(os.path.join(out_dir, 'cast.png'), W, H, buf)
+
+    if walk:
+        per_row = 10                      # six of a stride, then four of a breath
+        zoom, pad = 3, 4
+        cw = walk[0][1].w * zoom + pad
+        chh = walk[0][1].h * zoom + pad
+        rows = (len(walk) + per_row - 1) // per_row
+        W2, H2 = per_row * cw + pad, rows * chh + pad
+        buf2 = bytearray()
+        for i in range(W2 * H2):
+            x, y = i % W2, i // W2
+            v = 34 if ((x // 8 + y // 8) % 2) else 26
+            buf2 += bytes((v, v, v + 6))
+        for i, (name, canvas, pal) in enumerate(walk):
+            ox = pad + (i % per_row) * cw
+            oy = pad + (i // per_row) * chh
+            for y in range(canvas.h):
+                for x in range(canvas.w):
+                    idx = canvas.get(x, y)
+                    if not idx:
+                        continue
+                    v = pal[idx]
+                    r, g, b = (v & 31) << 3, ((v >> 5) & 31) << 3, ((v >> 10) & 31) << 3
+                    for dy in range(zoom):
+                        for dx in range(zoom):
+                            px, py = ox + x * zoom + dx, oy + y * zoom + dy
+                            if 0 <= px < W2 and 0 <= py < H2:
+                                o = (py * W2 + px) * 3
+                                buf2[o:o + 3] = bytes((r, g, b))
+        png.write_rgb(os.path.join(out_dir, 'walk.png'), W2, H2, buf2)
 
     glyphs = font5x7.parse()
     scale, pad, cols = 3, 2, 16

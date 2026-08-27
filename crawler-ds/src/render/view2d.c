@@ -57,15 +57,15 @@ static void tiles_for(Tiles *t, int floor_index) {
     const Sprite *w, *f;
     switch (slot) {
     case 0: w = &spr_tex_wall_a; f = &spr_tex_floor_a;
-            t->fog = RGB(18, 20, 30); t->trim = RGB(210, 214, 226); break;
+            t->fog = RGB(38, 55, 66) /* ink blue */; t->trim = RGB(217, 226, 231) /* lightning 3 */; break;
     case 1: w = &spr_tex_wall_b; f = &spr_tex_floor_b;
-            t->fog = RGB(22, 14, 12); t->trim = RGB(226, 168, 92); break;
+            t->fog = RGB(53, 37, 31) /* wood_dark 0 */; t->trim = RGB(229, 200, 106) /* gold 4 */; break;
     case 2: w = &spr_tex_wall_c; f = &spr_tex_floor_c;
-            t->fog = RGB(12, 10, 24); t->trim = RGB(196, 130, 255); break;
+            t->fog = RGB(51, 37, 74) /* arcane 0 */; t->trim = RGB(192, 155, 215) /* arcane 4 */; break;
     case 3: w = &spr_tex_wall_d; f = &spr_tex_floor_d;
-            t->fog = RGB(20, 14, 12); t->trim = RGB(236, 198, 128); break;
+            t->fog = RGB(53, 37, 31) /* wood_dark 0 */; t->trim = RGB(232, 203, 112) /* hair_blonde 3 */; break;
     default: w = &spr_tex_wall_e; f = &spr_tex_floor_e;
-            t->fog = RGB(10, 16, 12); t->trim = RGB(226, 208, 112); break;
+            t->fog = RGB(38, 56, 45) /* cloth_green 0 */; t->trim = RGB(224, 198, 106) /* ui amber */; break;
     }
     t->wall = w->pix;  t->wall_pal = w->pal;  t->wall_n = w->npal;
     t->floor = f->pix; t->floor_pal = f->pal; t->floor_n = f->npal;
@@ -106,14 +106,14 @@ static int solid(int x, int y) { return dungeon_tile(x, y) == T_WALL; }
 /*  What each tile gives off: radius in tiles, strength, and colour. */
 static int emitter(char tile, int *radius, uint16_t *tint) {
     switch (tile) {
-    case T_SHRINE: *radius = 5; *tint = RGB(255, 228, 170); return 13;  /* safe room  */
-    case T_SHOP:   *radius = 4; *tint = RGB(255, 206, 110); return 11;  /* the stall  */
-    case T_KIOSK:  *radius = 4; *tint = RGB(120, 226, 236); return 12;  /* its screen */
-    case T_DOWN:   *radius = 4; *tint = RGB(150, 240, 170); return 11;  /* the way on */
+    case T_SHRINE: *radius = 5; *tint = RGB(255, 247, 194) /* lightning 4 */; return 13;  /* safe room  */
+    case T_SHOP:   *radius = 4; *tint = RGB(248, 223, 121) /* fire 6 */; return 11;  /* the stall  */
+    case T_KIOSK:  *radius = 4; *tint = RGB(121, 194, 199) /* water 4 */; return 12;  /* its screen */
+    case T_DOWN:   *radius = 4; *tint = RGB(179, 215, 101) /* poison 4 */; return 11;  /* the way on */
     case T_BOSS:
-    case T_NBOSS:  *radius = 4; *tint = RGB(255, 110, 96);  return 12;  /* the chamber */
+    case T_NBOSS:  *radius = 4; *tint = RGB(241, 140, 53) /* fire 4 */;  return 12;  /* the chamber */
     case T_BOX:
-    case T_BOX_GOLD: *radius = 2; *tint = RGB(255, 216, 120); return 7;
+    case T_BOX_GOLD: *radius = 2; *tint = RGB(248, 223, 121) /* fire 6 */; return 7;
     default: return 0;
     }
 }
@@ -365,12 +365,33 @@ static void blit_tile_lit(Surface *s, const Tiles *t, int sx, int sy, int wx, in
 /*  One crawler, at a screen position, facing a direction. Three sprites and a
  *  mirror cover the four facings; the bob is a single pixel on alternate
  *  half-strides, which at this size is the whole walk cycle. */
-static void draw_crawler(Surface *s, int slot, int sx, int sy, int facing, int walking) {
+/*  Ten frames per facing, in the order tools/art/overworld.py emits them:
+ *  six of a walk cycle, then four of a breath. */
+#define OW_FRAMES 10
+#define OW_WALK    6
+#define OW_IDLE    4
+
+static void draw_crawler(Surface *s, int slot, int sx, int sy, int facing,
+                         int walking, int stride) {
     int who = g.hero[slot].crawler & 3;
     static const uint8_t kFace[4] = { 1, 2, 0, 2 };   /* N->up E->side S->down W->side */
-    const Sprite *sp = sprite_table[SPR_OW_CARL_DOWN + who * 3 + kFace[facing & 3]];
-    int bob = walking && ((g.dun.move_anim >> 1) & 1);
-    sy -= bob;
+
+    /*  A stride is half the cycle and takes a whole tile, so the six frames
+     *  span two tiles and the same foot does not lead twice in a row --
+     *  which is exactly what a single bobbing sprite looked like it was
+     *  doing before there were frames to play. Standing still runs the
+     *  breath instead, slowly, off the global clock. */
+    int frame;
+    if (walking) {
+        int elapsed = WALK_FRAMES - g.dun.move_anim;
+        int half = elapsed * (OW_WALK / 2) / WALK_FRAMES;
+        if (half > OW_WALK / 2 - 1) half = OW_WALK / 2 - 1;
+        frame = (stride & 1) * (OW_WALK / 2) + half;
+    } else {
+        frame = OW_WALK + ((g.anim >> 4) & (OW_IDLE - 1));
+    }
+    const Sprite *sp = sprite_table[SPR_OW_CARL_DOWN_0
+                                    + (who * 3 + kFace[facing & 3]) * OW_FRAMES + frame];
     /*  A shadow, so the party sits on the floor rather than hovering over it. */
     gfx_dither(s, sx + 3, sy + sp->h - 2, sp->w - 6, 3, C_VOID, 8);
     if ((facing & 3) == 3) gfx_sprite_flip(s, sp, sx, sy);
@@ -403,12 +424,15 @@ void view2d_draw_party(Surface *s, int cx, int cy) {
      *  hid the follower's head behind them whenever the party walked north --
      *  which took Donut's crown and ears with it, and she is most of what
      *  makes the pair recognisable at this size. */
+    /*  The follower is half a cycle behind the leader, because two people
+        walking in perfect lockstep read as one person and a copy of them. */
+    int stride = (int)g.dun.steps;
     if (fy > cy) {
-        draw_crawler(s, 0, cx - 8, cy - 14, f, walking);
-        draw_crawler(s, 1, fx - 8, fy - 14, f, walking);
+        draw_crawler(s, 0, cx - 8, cy - 14, f, walking, stride);
+        draw_crawler(s, 1, fx - 8, fy - 14, f, walking, stride + 1);
     } else {
-        draw_crawler(s, 1, fx - 8, fy - 14, f, walking);
-        draw_crawler(s, 0, cx - 8, cy - 14, f, walking);
+        draw_crawler(s, 1, fx - 8, fy - 14, f, walking, stride + 1);
+        draw_crawler(s, 0, cx - 8, cy - 14, f, walking, stride);
     }
 }
 

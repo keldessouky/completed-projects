@@ -12,23 +12,29 @@ nothing on him that anyone would have chosen to be wearing.
 
 W, H = 56, 72
 
+#  Every colour here is a step out of the shared palette rather than a triple
+#  chosen for this sprite alone, so Carl and the wall behind him and the panel
+#  under him are all made of the same material set. See tools/art/palettes.py.
+from palettes import INK, RAMPS
+
 PALETTE = [
-    (26, 18, 22),        # X  outline
-    (116, 72, 54),       # 1  skin, deepest
-    (166, 110, 82),      # 2  skin, shadow
-    (212, 154, 118),     # 3  skin, base
-    (240, 194, 154),     # 4  skin, light
-    (255, 226, 196),     # 5  skin, highlight
-    (48, 32, 24),        # 6  hair, dark
-    (88, 58, 38),        # 7  hair, base
-    (132, 92, 58),       # 8  hair, light
-    (26, 40, 82),        # 9  shorts, dark
-    (52, 78, 142),       # 0  shorts, base
-    (94, 128, 198),      # b  shorts, light
-    (242, 240, 232),     # w  white of the eye
-    (168, 58, 54),       # r  the scrapes he already has
-    (92, 74, 78),        # d  stubble, and the dirt on him
+    INK['brown'],                     # X  outline: his own hue, not black
+    RAMPS['skin'][0],                 # 1  skin, deepest
+    RAMPS['skin'][1],                 # 2  skin, shadow
+    RAMPS['skin'][2],                 # 3  skin, base
+    RAMPS['skin'][4],                 # 4  skin, light
+    RAMPS['skin'][5],                 # 5  skin, highlight
+    RAMPS['hair_brown'][0],           # 6  hair, dark
+    RAMPS['hair_brown'][1],           # 7  hair, base
+    RAMPS['hair_brown'][3],           # 8  hair, light
+    RAMPS['cloth_blue'][0],           # 9  shorts, dark
+    RAMPS['cloth_blue'][2],           # 0  shorts, base
+    RAMPS['cloth_blue'][4],           # b  shorts, light
+    RAMPS['cloth_cream'][4],          # w  white of the eye
+    RAMPS['blood'][3],                # r  the scrapes he already has
+    INK['warm'],                      # d  stubble, and the dirt on him
 ]
+
 KEY = "X1234567890bwrd"
 
 

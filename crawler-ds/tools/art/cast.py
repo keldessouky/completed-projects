@@ -7,7 +7,9 @@ convincingly a cat before it is a princess.
 """
 from forge_tools import Sprite
 
-PARTY_W, PARTY_H = 56, 72
+#  The standard character frame: everyone stands on the same row, in the same
+#  box, with the same shadow. See Sprite.stage in forge_tools.
+PARTY_W, PARTY_H = 64, 64
 
 
 def carl():
@@ -26,7 +28,7 @@ def carl():
         for x, ch in enumerate(row):
             if ch != '.':
                 s.px[y * cg.W + x] = idx[ch]
-    return s.emit()
+    return s.stage(PARTY_W, PARTY_H).emit()
 
 
 def _cat_eye(s, cx, cy, key, flip=1):
@@ -85,7 +87,7 @@ def donut():
         for x, ch in enumerate(row):
             if ch != '.':
                 s.px[y * dg.W + x] = idx[ch]
-    return s.emit()
+    return s.stage(PARTY_W, PARTY_H).emit()
 
 
 def mordecai():
@@ -102,7 +104,7 @@ def mordecai():
         for x, ch in enumerate(row):
             if ch != '.':
                 s.px[y * mg.W + x] = idx[ch]
-    return s.emit()
+    return s.stage(PARTY_W, PARTY_H).emit()
 
 def bopca():
     """The Bopca: issued a uniform, has strong feelings about it.
@@ -117,5 +119,5 @@ def bopca():
         for x, ch in enumerate(row):
             if ch != '.':
                 s.px[y * bg.W + x] = idx[ch]
-    return s.emit()
+    return s.stage(PARTY_W, PARTY_H).emit()
 

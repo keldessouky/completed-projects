@@ -53,7 +53,7 @@ def sewer_rat():
     s.line(8, 46, 4, 52, s.ink((230, 226, 214)))
     for i, (x, y) in enumerate(((30, 34), (40, 32), (50, 36), (44, 44), (28, 44))):
         s.put(x, y, fur[1] if i % 2 else fur[4])     # matted fur
-    return s.finish().emit()
+    return s.finish().stage(s.w, s.h, ground=None).emit()
 
 
 def goblin_trapper():
@@ -68,7 +68,7 @@ def goblin_trapper():
         for x, ch in enumerate(row):
             if ch != '.':
                 s.px[y * gg.W + x] = idx[ch]
-    return s.emit()
+    return s.stage(s.w, s.h, ground=None).emit()
 
 def screaming_sofa():
     """Floor one keeps sending furniture. Nobody has explained why."""
@@ -113,7 +113,7 @@ def screaming_sofa():
     for x, y in ((22, 46), (48, 47), (30, 34), (44, 33)):        # stains
         s.put(x, y, cloth[0])
         s.put(x + 1, y + 1, cloth[1])
-    return s.finish().emit()
+    return s.finish().stage(s.w, s.h, ground=None).emit()
 
 
 def sludge_mound():
@@ -148,7 +148,7 @@ def sludge_mound():
         s.put(x + 1, y, goo[4])
     s.line(14, 48, 20, 46, goo[5])
     s.line(50, 60, 58, 58, goo[5])
-    return s.finish().emit()
+    return s.finish().stage(s.w, s.h, ground=None).emit()
 
 
 def rot_sticker():
@@ -162,7 +162,7 @@ def rot_sticker():
         for x, ch in enumerate(row):
             if ch != '.':
                 s.px[y * rg.W + x] = idx[ch]
-    return s.emit()
+    return s.stage(s.w, s.h, ground=None).emit()
 
 
 def troglodyte():
@@ -222,7 +222,7 @@ def troglodyte():
         "............",
         "wtwtwtwtwtwt",
     ], {'t': tooth, 'w': gum})
-    return s.finish().emit()
+    return s.finish().stage(s.w, s.h, ground=None).emit()
 
 
 def kobold_sapper():
@@ -271,7 +271,7 @@ def kobold_sapper():
     s.form(60, 18, 6, 6, s.register_family(s.ramp((196, 74, 46), 5)))
     s.line(62, 12, 66, 4, s.ink((150, 130, 100)))
     s.put(66, 3, spark); s.put(67, 2, spark); s.put(65, 1, s.ink((255, 190, 90)))
-    return s.finish().emit()
+    return s.finish().stage(s.w, s.h, ground=None).emit()
 
 
 def bramble_hound():
@@ -318,7 +318,7 @@ def bramble_hound():
     s.put(5, 48, s.ink((238, 234, 220)))
     for x, y in ((32, 44), (48, 42), (40, 50)):      # bark grain
         s.line(x, y, x + 5, y + 1, bark[1])
-    return s.finish().emit()
+    return s.finish().stage(s.w, s.h, ground=None).emit()
 
 
 def doom_beetle():
@@ -354,7 +354,7 @@ def doom_beetle():
         ".aa....aa.",
     ], {'a': amber, 'p': dark})
     s.rect(33, 26, 39, 27, dark)                     # jaw line
-    return s.finish().emit()
+    return s.finish().stage(s.w, s.h, ground=None).emit()
 
 
 def bone_bailiff():
@@ -399,7 +399,7 @@ def bone_bailiff():
     s.rect(35, 20, 37, 24, dark)                                 # nasal cavity
     s.put(36, 19, bone[1])
     s.line(30, 12, 42, 12, bone[4])                              # cranial highlight
-    return s.finish().emit()
+    return s.finish().stage(s.w, s.h, ground=None).emit()
 
 
 def neon_mimic():
@@ -441,7 +441,7 @@ def neon_mimic():
         "pmmmmp......pmmmmp",
         ".pppp........pppp.",
     ], {'p': dark, 'm': s.ink((250, 92, 172)), 'w': s.ink((255, 220, 245))})
-    return s.finish().emit()
+    return s.finish().stage(s.w, s.h, ground=None).emit()
 
 
 def club_bouncer():
@@ -482,7 +482,7 @@ def club_bouncer():
     ], {'d': dark, 'p': s.ink((26, 26, 34)), 'w': s.ink((150, 220, 240))})
     s.rect(30, 26, 42, 27, s.ink((104, 76, 56)))                 # a mouth, closed
     s.put(29, 24, hide[1]); s.put(43, 24, hide[1])
-    return s.finish().emit()
+    return s.finish().stage(s.w, s.h, ground=None).emit()
 
 
 def vulture_fan():
@@ -525,7 +525,7 @@ def vulture_fan():
     s.put(30, 12, s.ink((230, 90, 70)))
     for i in range(4):                               # a wattle
         s.put(33 + i % 2, 21 + i, skinny[1])
-    return s.finish().emit()
+    return s.finish().stage(s.w, s.h, ground=None).emit()
 
 
 def boss_ratking():
@@ -583,7 +583,7 @@ def boss_ratking():
     s.put(57, 7, s.ink((238, 96, 150)))
     for x in (36, 48, 60):
         s.put(x, 23, gold[4])
-    return s.finish().emit()
+    return s.finish().stage(s.w, s.h, ground=None).emit()
 
 
 def boss_foreman():
@@ -641,7 +641,7 @@ def boss_foreman():
     s.rect(28, 22, 70, 23, hat[0])
     s.line(49, 6, 49, 18, hat[4])                    # the ridge
     s.rect(56, 10, 64, 14, s.ink((40, 40, 48)))      # a sticker
-    return s.finish().emit()
+    return s.finish().stage(s.w, s.h, ground=None).emit()
 
 
 def boss_producer():
@@ -702,4 +702,4 @@ def boss_producer():
         s.rect(x - 5, 5, x + 5, 13, dark)
         s.rect(x - 3, 7, x + 3, 11, s.ink((255, 246, 210)))
         s.put(x, 9, s.ink((255, 255, 255)))
-    return s.finish().emit()
+    return s.finish().stage(s.w, s.h, ground=None).emit()

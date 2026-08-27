@@ -69,23 +69,23 @@ static void theme_for(Theme *th, int floor_index) {
     switch (slot) {
     case 0:
         w = &spr_tex_wall_a; f = &spr_tex_floor_a; c = &spr_tex_ceil_a;
-        th->fog = RGB(18, 20, 30); th->trim = RGB(210, 214, 226);
+        th->fog = RGB(38, 55, 66) /* ink blue */; th->trim = RGB(217, 226, 231) /* lightning 3 */;
         break;
     case 1:
         w = &spr_tex_wall_b; f = &spr_tex_floor_b; c = &spr_tex_ceil_b;
-        th->fog = RGB(22, 14, 12); th->trim = RGB(226, 168, 92);
+        th->fog = RGB(53, 37, 31) /* wood_dark 0 */; th->trim = RGB(229, 200, 106) /* gold 4 */;
         break;
     case 2:
         w = &spr_tex_wall_c; f = &spr_tex_floor_c; c = &spr_tex_ceil_c;
-        th->fog = RGB(12, 10, 24); th->trim = RGB(196, 130, 255);
+        th->fog = RGB(51, 37, 74) /* arcane 0 */; th->trim = RGB(192, 155, 215) /* arcane 4 */;
         break;
     case 3:
         w = &spr_tex_wall_d; f = &spr_tex_floor_d; c = &spr_tex_ceil_d;
-        th->fog = RGB(20, 14, 12); th->trim = RGB(236, 198, 128);
+        th->fog = RGB(53, 37, 31) /* wood_dark 0 */; th->trim = RGB(232, 203, 112) /* hair_blonde 3 */;
         break;
     default:
         w = &spr_tex_wall_e; f = &spr_tex_floor_e; c = &spr_tex_ceil_e;
-        th->fog = RGB(10, 16, 12); th->trim = RGB(226, 208, 112);
+        th->fog = RGB(38, 56, 45) /* cloth_green 0 */; th->trim = RGB(224, 198, 106) /* ui amber */;
         break;
     }
     shade_build(&th->wall, w, th->fog);

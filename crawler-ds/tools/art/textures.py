@@ -18,7 +18,18 @@ costs authoring nothing and cannot drift away from the palette it belongs to.
 """
 
 import png
+from palettes import INK, RAMPS as W
 from forge_tools import rgb555
+
+#  Short names for the ramps this file leans on. Every surface in the dungeon
+#  is one of these, which is why a wall, the floor it meets and the crate
+#  against it read as the same building rather than three unrelated textures.
+S = W['stone']          # poured and cast: the tunnels
+A = W['stone_ancient']  # older masonry, further down
+D = W['wood_dark']      # timber, and the dark side of rusted plate
+C = W['copper']         # rust and corroded metal
+G = W['gold']           # painted hazard yellow, and lamplight on metal
+T = W['steel']          # plate, rail, conduit
 
 TW = TH = 32
 
@@ -110,16 +121,16 @@ def _course(t, y, mortar, lip, block_h):
 
 def wall_concrete():
     t = Tex()
-    dark = t.ink((38, 40, 50))
-    shadow = t.ink((66, 70, 84))
-    base = t.ink((108, 112, 128))
-    lit = t.ink((146, 150, 166))
-    hot = t.ink((182, 186, 200))
-    stain = t.ink((52, 56, 62))
-    damp = t.ink((80, 82, 88))
-    paint_d = t.ink((104, 76, 12))
-    paint_b = t.ink((186, 146, 32))
-    paint_l = t.ink((238, 208, 96))
+    dark = t.ink(INK["cool"])
+    shadow = t.ink(S[1])
+    base = t.ink(S[3])
+    lit = t.ink(S[4])
+    hot = t.ink(W["snow"][2])
+    stain = t.ink(S[0])
+    damp = t.ink(S[2])
+    paint_d = t.ink(G[0])
+    paint_b = t.ink(G[2])
+    paint_l = t.ink(G[4])
 
     t.fill(base)
     t.grain(base, shadow, lit, 11, 46)
@@ -166,12 +177,12 @@ def wall_concrete():
 
 def floor_concrete():
     t = Tex()
-    grout = t.ink((30, 32, 40))
-    shadow = t.ink((62, 64, 76))
-    base = t.ink((100, 100, 110))
-    lit = t.ink((134, 134, 146))
-    hot = t.ink((168, 168, 180))
-    grime = t.ink((54, 54, 58))
+    grout = t.ink(INK["cool"])
+    shadow = t.ink(S[1])
+    base = t.ink(S[2])
+    lit = t.ink(S[3])
+    hot = t.ink(S[4])
+    grime = t.ink(S[0])
 
     t.fill(base)
     t.grain(base, shadow, lit, 31, 110)
@@ -189,13 +200,13 @@ def floor_concrete():
 
 def ceil_concrete():
     t = Tex()
-    dark = t.ink((16, 18, 26))
-    deep = t.ink((30, 32, 44))
-    base = t.ink((48, 50, 62))
-    lit = t.ink((72, 74, 90))
-    pipe_d = t.ink((40, 34, 30))
-    pipe_b = t.ink((84, 70, 56))
-    pipe_l = t.ink((124, 104, 78))
+    dark = t.ink(INK["ink"])
+    deep = t.ink(INK["cool"])
+    base = t.ink(S[1])
+    lit = t.ink(S[2])
+    pipe_d = t.ink(D[0])
+    pipe_b = t.ink(D[2])
+    pipe_l = t.ink(D[3])
 
     t.fill(base)
     t.grain(base, deep, lit, 61, 80)
@@ -217,14 +228,14 @@ def ceil_concrete():
 
 def wall_steel():
     t = Tex()
-    dark = t.ink((32, 22, 16))
-    shadow = t.ink((74, 52, 36))
-    base = t.ink((122, 88, 58))
-    lit = t.ink((166, 124, 82))
-    hot = t.ink((212, 168, 112))
-    rust_d = t.ink((92, 40, 24))
-    rust_b = t.ink((146, 68, 34))
-    rust_l = t.ink((190, 104, 52))
+    dark = t.ink(INK["brown"])
+    shadow = t.ink(D[1])
+    base = t.ink(C[1])
+    lit = t.ink(C[2])
+    hot = t.ink(W["sand"][4])
+    rust_d = t.ink(W["blood"][1])
+    rust_b = t.ink(W["blood"][2])
+    rust_l = t.ink(C[2])
 
     t.fill(base)
     t.grain(base, shadow, lit, 71, 70)
@@ -260,12 +271,12 @@ def wall_steel():
 
 def floor_steel():
     t = Tex()
-    dark = t.ink((26, 20, 16))
-    shadow = t.ink((62, 48, 36))
-    base = t.ink((104, 82, 60))
-    lit = t.ink((142, 116, 84))
-    hot = t.ink((184, 154, 110))
-    rust = t.ink((128, 62, 32))
+    dark = t.ink(INK["brown"])
+    shadow = t.ink(D[1])
+    base = t.ink(A[2])
+    lit = t.ink(A[3])
+    hot = t.ink(W["sand"][4])
+    rust = t.ink(C[1])
 
     t.fill(base)
     t.grain(base, shadow, lit, 83, 100)
@@ -286,13 +297,13 @@ def floor_steel():
 
 def ceil_steel():
     t = Tex()
-    dark = t.ink((14, 12, 12))
-    deep = t.ink((34, 26, 22))
-    base = t.ink((58, 44, 34))
-    lit = t.ink((88, 68, 50))
-    glow_d = t.ink((120, 74, 18))
-    glow_b = t.ink((196, 132, 34))
-    glow_l = t.ink((248, 206, 110))
+    dark = t.ink(INK["brown"])
+    deep = t.ink(D[0])
+    base = t.ink(D[1])
+    lit = t.ink(D[3])
+    glow_d = t.ink(G[0])
+    glow_b = t.ink(G[2])
+    glow_l = t.ink(G[4])
 
     t.fill(base)
     t.grain(base, deep, lit, 101, 90)
@@ -316,14 +327,14 @@ def ceil_steel():
 
 def wall_stone():
     t = Tex()
-    dark = t.ink((18, 16, 30))
-    shadow = t.ink((44, 40, 70))
-    base = t.ink((74, 68, 112))
-    lit = t.ink((108, 100, 152))
-    hot = t.ink((146, 138, 194))
-    neon_d = t.ink((96, 24, 132))
-    neon_b = t.ink((174, 62, 214))
-    neon_l = t.ink((236, 158, 255))
+    dark = t.ink(INK["ink"])
+    shadow = t.ink(W["arcane"][0])
+    base = t.ink(W["arcane"][1])
+    lit = t.ink(W["arcane"][2])
+    hot = t.ink(W["arcane"][3])
+    neon_d = t.ink(W["arcane"][1])
+    neon_b = t.ink(W["arcane"][3])
+    neon_l = t.ink(W["arcane"][4])
 
     t.fill(base)
     t.grain(base, shadow, lit, 103, 80)
@@ -349,12 +360,12 @@ def wall_stone():
 
 def floor_stone():
     t = Tex()
-    grout = t.ink((14, 12, 24))
-    shadow = t.ink((40, 36, 62))
-    base = t.ink((66, 60, 98))
-    lit = t.ink((96, 90, 134))
-    hot = t.ink((132, 126, 176))
-    neon = t.ink((150, 60, 190))
+    grout = t.ink(INK["ink"])
+    shadow = t.ink(W["arcane"][0])
+    base = t.ink(W["arcane"][1])
+    lit = t.ink(W["arcane"][2])
+    hot = t.ink(W["arcane"][3])
+    neon = t.ink(W["arcane"][2])
 
     t.fill(base)
     t.grain(base, shadow, lit, 109, 100)
@@ -372,13 +383,13 @@ def floor_stone():
 
 def ceil_stone():
     t = Tex()
-    dark = t.ink((10, 8, 18))
-    deep = t.ink((24, 20, 40))
-    base = t.ink((38, 34, 60))
-    lit = t.ink((58, 52, 86))
-    sign_d = t.ink((110, 26, 70))
-    sign_b = t.ink((196, 54, 118))
-    sign_l = t.ink((252, 146, 196))
+    dark = t.ink(INK["ink"])
+    deep = t.ink(W["arcane"][0])
+    base = t.ink(W["arcane"][0])
+    lit = t.ink(W["arcane"][1])
+    sign_d = t.ink(W["cloth_purple"][1])
+    sign_b = t.ink(W["cloth_purple"][3])
+    sign_l = t.ink(W["arcane"][4])
 
     t.fill(base)
     t.grain(base, deep, lit, 131, 90)
@@ -400,14 +411,14 @@ def ceil_stone():
 
 def wall_brick():
     t = Tex()
-    dark = t.ink((28, 18, 16))
-    mortar = t.ink((92, 84, 74))
-    shadow = t.ink((96, 46, 36))
-    base = t.ink((146, 74, 56))
-    lit = t.ink((186, 108, 80))
-    hot = t.ink((222, 152, 116))
-    soot = t.ink((54, 44, 44))
-    moss = t.ink((72, 92, 58))
+    dark = t.ink(INK["brown"])
+    mortar = t.ink(A[2])
+    shadow = t.ink(W["blood"][1])
+    base = t.ink(W["blood"][2])
+    lit = t.ink(C[2])
+    hot = t.ink(C[3])
+    soot = t.ink(INK["warm"])
+    moss = t.ink(W["grass"][1])
 
     t.fill(base)
     t.grain(base, shadow, lit, 149, 60)
@@ -431,12 +442,12 @@ def wall_brick():
 
 def floor_brick():
     t = Tex()
-    grout = t.ink((26, 20, 18))
-    shadow = t.ink((70, 58, 50))
-    base = t.ink((112, 96, 82))
-    lit = t.ink((148, 130, 112))
-    hot = t.ink((184, 166, 146))
-    wet = t.ink((60, 62, 58))
+    grout = t.ink(INK["brown"])
+    shadow = t.ink(A[1])
+    base = t.ink(A[2])
+    lit = t.ink(A[3])
+    hot = t.ink(A[4])
+    wet = t.ink(W["stone"][1])
 
     t.fill(base)
     t.grain(base, shadow, lit, 157, 100)
@@ -455,13 +466,13 @@ def floor_brick():
 
 def ceil_brick():
     t = Tex()
-    dark = t.ink((12, 10, 10))
-    deep = t.ink((30, 24, 22))
-    base = t.ink((52, 42, 38))
-    lit = t.ink((80, 66, 58))
-    wood = t.ink((74, 52, 32))
-    wood_l = t.ink((116, 86, 54))
-    lamp = t.ink((236, 198, 128))
+    dark = t.ink(INK["brown"])
+    deep = t.ink(D[0])
+    base = t.ink(D[1])
+    lit = t.ink(A[1])
+    wood = t.ink(D[1])
+    wood_l = t.ink(D[3])
+    lamp = t.ink(G[4])
 
     t.fill(base)
     t.grain(base, deep, lit, 173, 90)
@@ -481,14 +492,14 @@ def ceil_brick():
 
 def wall_chitin():
     t = Tex()
-    dark = t.ink((16, 22, 18))
-    shadow = t.ink((40, 62, 46))
-    base = t.ink((70, 104, 74))
-    lit = t.ink((104, 146, 100))
-    hot = t.ink((146, 190, 132))
-    sac_d = t.ink((94, 74, 24))
-    sac_b = t.ink((176, 146, 48))
-    sac_l = t.ink((232, 214, 118))
+    dark = t.ink(INK["green"])
+    shadow = t.ink(W["leaves"][0])
+    base = t.ink(W["leaves"][2])
+    lit = t.ink(W["leaves"][3])
+    hot = t.ink(W["leaves"][4])
+    sac_d = t.ink(W["holy"][0])
+    sac_b = t.ink(W["holy"][1])
+    sac_l = t.ink(W["holy"][3])
 
     t.fill(base)
     t.grain(base, shadow, lit, 181, 70)
@@ -516,12 +527,12 @@ def wall_chitin():
 
 def floor_chitin():
     t = Tex()
-    dark = t.ink((12, 18, 14))
-    shadow = t.ink((36, 54, 40))
-    base = t.ink((62, 90, 64))
-    lit = t.ink((92, 128, 88))
-    hot = t.ink((130, 168, 118))
-    slick = t.ink((150, 176, 92))
+    dark = t.ink(INK["green"])
+    shadow = t.ink(W["grass"][0])
+    base = t.ink(W["grass"][1])
+    lit = t.ink(W["grass"][2])
+    hot = t.ink(W["grass"][3])
+    slick = t.ink(W["poison"][3])
 
     t.fill(base)
     t.grain(base, shadow, lit, 193, 110)
@@ -538,13 +549,13 @@ def floor_chitin():
 
 def ceil_chitin():
     t = Tex()
-    dark = t.ink((8, 12, 10))
-    deep = t.ink((22, 34, 26))
-    base = t.ink((38, 56, 42))
-    lit = t.ink((58, 84, 60))
-    sac_d = t.ink((86, 70, 22))
-    sac_b = t.ink((162, 138, 44))
-    sac_l = t.ink((226, 208, 112))
+    dark = t.ink(INK["green"])
+    deep = t.ink(W["leaves"][0])
+    base = t.ink(W["grass"][0])
+    lit = t.ink(W["grass"][1])
+    sac_d = t.ink(W["holy"][0])
+    sac_b = t.ink(G[2])
+    sac_l = t.ink(W["holy"][3])
 
     t.fill(base)
     t.grain(base, deep, lit, 199, 90)

@@ -7,23 +7,28 @@ as the others: fifteen colours, hand-placed, no shading pass afterwards.
 
 W, H = 56, 72
 
+#  Mordecai out of the shared palette: a green man in a purple coat, both taken
+#  from the shared ramps rather than mixed for him. See tools/art/palettes.py.
+from palettes import INK, RAMPS
+
 PALETTE = [
-    (24, 22, 30),        # X  outline
-    (74, 100, 68),       # 1  skin, deepest
-    (108, 140, 96),      # 2  skin, shadow
-    (146, 180, 132),     # 3  skin, base
-    (182, 214, 168),     # 4  skin, light
-    (44, 26, 62),        # 5  coat, dark
-    (86, 52, 118),       # 6  coat, base
-    (128, 88, 168),      # 7  coat, light
-    (96, 100, 116),      # 8  beard, shadow
-    (176, 182, 198),     # 9  beard, light
-    (26, 24, 40),        # 0  cap
-    (232, 186, 68),      # b  sash and buckle
-    (240, 240, 232),     # w  eyes
-    (150, 108, 40),      # r  the sash where it folds
-    (58, 60, 74),        # d  cap highlight, boot leather
+    INK['green'],                     # X  outline
+    RAMPS['grass'][0],                # 1  skin, deepest
+    RAMPS['grass'][1],                # 2  skin, shadow
+    RAMPS['grass'][3],                # 3  skin, base
+    RAMPS['grass'][4],                # 4  skin, light
+    RAMPS['cloth_purple'][0],         # 5  coat, dark
+    RAMPS['cloth_purple'][1],         # 6  coat, base
+    RAMPS['cloth_purple'][3],         # 7  coat, light
+    RAMPS['hair_silver'][0],          # 8  beard, shadow
+    RAMPS['hair_silver'][2],          # 9  beard, light
+    INK['dark'],                      # 0  cap
+    RAMPS['gold'][4],                 # b  sash and buckle
+    RAMPS['cloth_cream'][4],          # w  eyes
+    RAMPS['gold'][1],                 # r  the sash where it folds
+    INK['cool'],                      # d  cap highlight, boot leather
 ]
+
 KEY = "X1234567890bwrd"
 
 

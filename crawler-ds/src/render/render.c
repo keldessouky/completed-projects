@@ -149,14 +149,14 @@ static void party_strip(Surface *s, int y) {
 /* ---------------------------------------------------------------- title --- */
 
 static void draw_title(Surface *top, Surface *bot) {
-    gfx_vgradient(top, 0, 0, SCREEN_W, SCREEN_H, RGB(10, 8, 18), RGB(44, 20, 40));
+    gfx_vgradient(top, 0, 0, SCREEN_W, SCREEN_H, RGB(51, 37, 74) /* arcane 0 */, RGB(58, 32, 37) /* blood 0 */);
     for (int i = 0; i < 60; i++) {          /* falling rubble, forever */
         int x = (int)((i * 8641 + g.anim / 2 + i * i) % SCREEN_W);
         int y = (int)((i * 4211 + g.anim * (1 + (i & 3))) % SCREEN_H);
         gfx_pixel(top, x, y, gfx_scale_colour(C_AMBER, 6 + (i & 7), 16));
     }
     /* The title block, then a floor for the two of them to stand on. */
-    gfx_rect(top, 0, 26, SCREEN_W, 44, RGB(14, 10, 20));
+    gfx_rect(top, 0, 26, SCREEN_W, 44, RGB(51, 37, 74) /* arcane 0 */);
     gfx_hline(top, 0, SCREEN_W - 1, 26, C_AMBER_DK);
     gfx_hline(top, 0, SCREEN_W - 1, 69, C_AMBER_DK);
     gfx_text_big(top, 20, 32, C_AMBER, "DUNGEON CRAWLER");
@@ -164,7 +164,7 @@ static void draw_title(Surface *top, Surface *bot) {
     gfx_text(top, 26, 76, C_DIM, "EIGHTEEN FLOORS   one season at a time");
 
     int floor_y = SCREEN_H - 4;
-    gfx_vgradient(top, 0, floor_y - 14, SCREEN_W, 18, RGB(16, 13, 22), RGB(34, 27, 38));
+    gfx_vgradient(top, 0, floor_y - 14, SCREEN_W, 18, RGB(53, 44, 69) /* cloth_purple 0 */, RGB(32, 34, 41) /* cloth_black 0 */);
     gfx_hline(top, 0, SCREEN_W - 1, floor_y - 14, gfx_scale_colour(C_AMBER_DK, 10, 16));
     for (int i = 0; i < 3; i++)                       /* light pooling on the floor */
         gfx_dither(top, 0, floor_y - 12 + i * 5, SCREEN_W, 5, C_AMBER_DK, 6 - i * 2);
@@ -216,9 +216,9 @@ static void draw_story(Surface *top, Surface *bot) {
     const Beat *b = g.beat;
     int speaker = b ? b->lines[g.beat_line].speaker : SP_SYSTEM;
 
-    gfx_vgradient(top, 0, 0, SCREEN_W, SCREEN_H, RGB(12, 10, 20), RGB(28, 22, 44));
+    gfx_vgradient(top, 0, 0, SCREEN_W, SCREEN_H, RGB(51, 37, 74) /* arcane 0 */, RGB(51, 37, 74) /* arcane 0 */);
     for (int y = 0; y < SCREEN_H; y += 4)
-        gfx_hline(top, 0, SCREEN_W - 1, y, gfx_scale_colour(RGB(40, 30, 60), 12, 16));
+        gfx_hline(top, 0, SCREEN_W - 1, y, gfx_scale_colour(RGB(51, 37, 74) /* arcane 0 */, 12, 16));
 
     const Sprite *portrait = speaker_sprite(speaker);
     if (portrait) {
@@ -265,7 +265,7 @@ static void draw_map(Surface *s, int x0, int y0, int w, int h, int cell) {
      *  screen. It also says how big the floor is before they have seen it. */
     for (int j = 0; j <= rows; j++)
         for (int i = 0; i <= cols; i++)
-            gfx_pixel(s, x0 + 2 + i * cell, y0 + 2 + j * cell, RGB(38, 42, 60));
+            gfx_pixel(s, x0 + 2 + i * cell, y0 + 2 + j * cell, RGB(53, 44, 69) /* cloth_purple 0 */);
 
     int cx = g.dun.px - cols / 2, cy = g.dun.py - rows / 2;
     if (cx < 0) cx = 0;
@@ -282,10 +282,10 @@ static void draw_map(Surface *s, int x0, int y0, int w, int h, int cell) {
             char t = dungeon_tile(mx, my);
             int px = x0 + 2 + i * cell, py = y0 + 2 + j * cell;
             if (t == T_WALL) {
-                gfx_rect(s, px, py, cell, cell, RGB(62, 66, 88));
+                gfx_rect(s, px, py, cell, cell, RGB(58, 65, 72) /* ink cool */);
                 continue;
             }
-            gfx_rect(s, px, py, cell, cell, RGB(26, 32, 46));
+            gfx_rect(s, px, py, cell, cell, RGB(38, 55, 66) /* ink blue */);
             uint16_t mark = 0;
             switch (t) {
             case T_DOWN: mark = C_GREEN; break;
@@ -295,9 +295,9 @@ static void draw_map(Surface *s, int x0, int y0, int w, int h, int cell) {
             case T_KIOSK: mark = C_AMBER; break;
             case T_BOSS: mark = C_RED; break;
             case T_NBOSS: mark = C_MAGENTA; break;
-            case T_DOOR: mark = RGB(150, 110, 60); break;
+            case T_DOOR: mark = RGB(141, 93, 61) /* wood_dark 3 */; break;
             case T_BOX: case T_BOX_GOLD:
-                mark = dungeon_is_used(mx, my) ? 0 : (t == T_BOX_GOLD ? C_GOLD : RGB(190, 130, 80));
+                mark = dungeon_is_used(mx, my) ? 0 : (t == T_BOX_GOLD ? C_GOLD : RGB(195, 138, 85) /* wood 3 */);
                 break;
             default: break;
             }
@@ -371,8 +371,10 @@ static void draw_button(Surface *s, const Rect *r, int on) {
     if (r->label) {
         int tx = r->x + (r->w - gfx_text_width(r->label)) / 2;
         int ty = r->y + (r->h - 7) / 2;
-        gfx_text(s, tx + 1, ty + 1, C_WIN_EDGE, r->label);      /* text shadow */
-        gfx_text(s, tx, ty, on ? C_SEL_HI : C_INK, r->label);
+        /*  A selected button is paper, so what is written on it is ink; an
+            unselected one is back-lit glass, so it is light on dark. */
+        gfx_text(s, tx + 1, ty + 1, on ? C_SEL_DIM : C_WIN_EDGE, r->label);
+        gfx_text(s, tx, ty, on ? C_SEL_INK : C_INK, r->label);
     }
 }
 
@@ -759,7 +761,7 @@ static void draw_battle(Surface *top, Surface *bot) {
 
 static void draw_draft(Surface *top, Surface *bot)
 {
-    gfx_vgradient(top, 0, 0, SCREEN_W, SCREEN_H, RGB(10, 8, 18), RGB(34, 16, 34));
+    gfx_vgradient(top, 0, 0, SCREEN_W, SCREEN_H, RGB(51, 37, 74) /* arcane 0 */, RGB(51, 37, 74) /* arcane 0 */);
     for (int i = 0; i < 50; i++) {                 /* the studio, always on */
         int x = (int)((i * 8641 + g.anim / 2) % SCREEN_W);
         int y = (int)((i * 4211 + g.anim) % SCREEN_H);
@@ -849,32 +851,32 @@ static void draw_draft(Surface *top, Surface *bot)
  *  the work. */
 static void backdrop_street(Surface *s, int lit)
 {
-    gfx_vgradient(s, 0, 0, SCREEN_W, SCREEN_H, RGB(6, 7, 16), RGB(20, 22, 40));
+    gfx_vgradient(s, 0, 0, SCREEN_W, SCREEN_H, RGB(32, 63, 80) /* water 0 */, RGB(37, 53, 74) /* cloth_blue 0 */);
     for (int i = 0; i < 7; i++) {                       /* blocks against the sky */
         int bx = i * 40 - 8, bw = 34;
         int bh = 70 + ((i * 37) % 5) * 12;
-        gfx_rect(s, bx, SCREEN_H - bh - 26, bw, bh, RGB(10, 11, 20));
+        gfx_rect(s, bx, SCREEN_H - bh - 26, bw, bh, RGB(37, 53, 74) /* cloth_blue 0 */);
         for (int wy = 0; wy < bh - 12; wy += 12)        /* a few lights still on */
             for (int wx = 0; wx < bw - 8; wx += 10)
                 if (((i * 7 + wx + wy) % 11) < 3)
                     gfx_rect(s, bx + 4 + wx, SCREEN_H - bh - 20 + wy, 4, 5,
-                             RGB(90, 80, 40));
+                             RGB(111, 84, 44) /* hair_blonde 0 */);
     }
-    gfx_rect(s, 0, SCREEN_H - 26, SCREEN_W, 26, RGB(14, 14, 20));
-    gfx_hline(s, 0, SCREEN_W - 1, SCREEN_H - 26, RGB(30, 30, 42));
+    gfx_rect(s, 0, SCREEN_H - 26, SCREEN_W, 26, RGB(32, 34, 41) /* cloth_black 0 */);
+    gfx_hline(s, 0, SCREEN_W - 1, SCREEN_H - 26, RGB(32, 34, 41) /* cloth_black 0 */);
     for (int i = 0; i < 70; i++) {                      /* rain, going sideways */
         int x = (i * 53 + g.anim * 3) % (SCREEN_W + 40) - 20;
         int y = (i * 31 + g.anim * 6) % SCREEN_H;
-        gfx_pixel(s, x, y, RGB(60, 70, 100));
-        gfx_pixel(s, x + 1, y + 2, RGB(40, 48, 70));
+        gfx_pixel(s, x, y, RGB(81, 64, 100) /* cloth_purple 1 */);
+        gfx_pixel(s, x + 1, y + 2, RGB(38, 55, 66) /* ink blue */);
     }
     if (lit) {                                          /* the cat, up the ironwork */
         for (int y = 96; y < SCREEN_H - 26; y += 8)     /* the ladder she went up */
-            gfx_rect(s, 172, y, 22, 2, RGB(58, 58, 74));
-        gfx_rect(s, 170, 96, 3, SCREEN_H - 122, RGB(72, 72, 88));
-        gfx_rect(s, 192, 96, 3, SCREEN_H - 122, RGB(48, 48, 62));
-        gfx_rect(s, 148, 92, 60, 4, RGB(76, 76, 92));  /* the landing she is on */
-        gfx_hline(s, 148, 207, 92, RGB(104, 104, 120));
+            gfx_rect(s, 172, y, 22, 2, RGB(58, 65, 72) /* ink cool */);
+        gfx_rect(s, 170, 96, 3, SCREEN_H - 122, RGB(70, 72, 80) /* cloth_black 2 */);
+        gfx_rect(s, 192, 96, 3, SCREEN_H - 122, RGB(52, 56, 64) /* ui panel */);
+        gfx_rect(s, 148, 92, 60, 4, RGB(80, 85, 91) /* ui panel_lit */);  /* the landing she is on */
+        gfx_hline(s, 148, 207, 92, RGB(98, 106, 112) /* snow 0 */);
         gfx_sprite_scaled(s, &spr_donut, 162, 92 - spr_donut.h * 52 / 100, 52, 100);
     }
     gfx_sprite_scaled(s, &spr_carl, 40, SCREEN_H - 26 - spr_carl.h * 78 / 100, 78, 100);
@@ -882,27 +884,27 @@ static void backdrop_street(Surface *s, int lit)
 
 static void backdrop_collapse(Surface *s)
 {
-    gfx_vgradient(s, 0, 0, SCREEN_W, SCREEN_H, RGB(36, 14, 10), RGB(12, 8, 10));
+    gfx_vgradient(s, 0, 0, SCREEN_W, SCREEN_H, RGB(99, 37, 43) /* blood 1 */, RGB(57, 42, 39) /* hair_brown 0 */);
     for (int i = 0; i < 7; i++) {                       /* what is left of them */
         int bx = i * 40 - 8, bw = 34;
         int bh = 10 + ((i * 29) % 4) * 8;
-        gfx_rect(s, bx, SCREEN_H - bh - 26, bw, bh, RGB(16, 12, 14));
+        gfx_rect(s, bx, SCREEN_H - bh - 26, bw, bh, RGB(36, 35, 42) /* ink ink */);
     }
-    gfx_rect(s, 0, SCREEN_H - 26, SCREEN_W, 26, RGB(20, 16, 16));
+    gfx_rect(s, 0, SCREEN_H - 26, SCREEN_W, 26, RGB(36, 35, 42) /* ink ink */);
     for (int i = 0; i < 120; i++) {                     /* dust, going up */
         int x = (i * 71 + g.anim) % SCREEN_W;
         int y = SCREEN_H - ((i * 37 + g.anim * 2) % SCREEN_H);
-        gfx_pixel(s, x, y, i & 1 ? RGB(80, 66, 58) : RGB(52, 42, 40));
+        gfx_pixel(s, x, y, i & 1 ? RGB(73, 59, 58) /* ink warm */ : RGB(61, 48, 48) /* ink brown */);
     }
     gfx_sprite_scaled(s, &spr_carl, 40, SCREEN_H - 26 - spr_carl.h * 78 / 100, 78, 100);
 }
 
 static void backdrop_announce(Surface *s)
 {
-    gfx_vgradient(s, 0, 0, SCREEN_W, SCREEN_H, RGB(4, 4, 8), RGB(14, 6, 20));
+    gfx_vgradient(s, 0, 0, SCREEN_W, SCREEN_H, RGB(51, 37, 74) /* arcane 0 */, RGB(51, 37, 74) /* arcane 0 */);
     for (int i = 0; i < 40; i++) {                      /* the broadcast carrier */
         int y = (i * 9 + g.anim / 2) % SCREEN_H;
-        gfx_hline(s, 0, SCREEN_W - 1, y, RGB(18, 10, 26));
+        gfx_hline(s, 0, SCREEN_W - 1, y, RGB(51, 37, 74) /* arcane 0 */);
     }
     int w = 200, x = (SCREEN_W - w) / 2;
     window(s, x, 62, w, 60, 0);
@@ -914,14 +916,14 @@ static void backdrop_announce(Surface *s)
 
 static void backdrop_stairs(Surface *s)
 {
-    gfx_vgradient(s, 0, 0, SCREEN_W, SCREEN_H, RGB(10, 10, 16), RGB(4, 4, 6));
+    gfx_vgradient(s, 0, 0, SCREEN_W, SCREEN_H, RGB(32, 34, 41) /* cloth_black 0 */, RGB(32, 34, 41) /* cloth_black 0 */);
     for (int i = 0; i < 9; i++) {                       /* steps going down */
         int inset = i * 12;
         gfx_rect(s, 40 + inset, 30 + i * 16, SCREEN_W - 80 - inset * 2, 12,
-                 gfx_scale_colour(RGB(70, 66, 76), 14 - i, 16));
-        gfx_hline(s, 40 + inset, SCREEN_W - 41 - inset, 30 + i * 16, RGB(26, 24, 30));
+                 gfx_scale_colour(RGB(70, 72, 80) /* cloth_black 2 */, 14 - i, 16));
+        gfx_hline(s, 40 + inset, SCREEN_W - 41 - inset, 30 + i * 16, RGB(36, 35, 42) /* ink ink */);
     }
-    gfx_rect(s, 112, 158, 32, 34, RGB(2, 2, 4));
+    gfx_rect(s, 112, 158, 32, 34, RGB(51, 37, 74) /* arcane 0 */);
     gfx_sprite_scaled(s, hero_sprite(0), 22, 120, 70, 100);
     gfx_sprite_scaled(s, hero_sprite(1), 186, 128, 58, 100);
 }
@@ -940,7 +942,7 @@ static void draw_cutscene(Surface *top, Surface *bot)
     }
     if (shake) {                    /* a cheap jolt: bands of the frame slid sideways */
         for (int y = 0; y < SCREEN_H; y += 4)
-            gfx_rect(top, 0, y, (shake < 0 ? -shake : shake), 4, RGB(0, 0, 0));
+            gfx_rect(top, 0, y, (shake < 0 ? -shake : shake), 4, RGB(36, 35, 42) /* ink ink */);
     }
     if (g.fade) gfx_shade(top, 0, 0, SCREEN_W, SCREEN_H, 16 + g.fade);
 
@@ -1001,7 +1003,7 @@ static void draw_cutscene(Surface *top, Surface *bot)
 /* ----------------------------------------------------------------- menu --- */
 
 static void draw_menu(Surface *top, Surface *bot) {
-    gfx_vgradient(top, 0, 0, SCREEN_W, SCREEN_H, RGB(14, 14, 22), RGB(26, 26, 40));
+    gfx_vgradient(top, 0, 0, SCREEN_W, SCREEN_H, RGB(32, 34, 41) /* cloth_black 0 */, RGB(53, 44, 69) /* cloth_purple 0 */);
     system_bar(top, "PARTY STATUS", kFloorNames[g.dun.index]);
 
     for (int i = 0; i < PARTY; i++) {
@@ -1113,7 +1115,7 @@ static void draw_menu(Surface *top, Surface *bot) {
 /* ----------------------------------------------------------------- shop --- */
 
 static void draw_shop(Surface *top, Surface *bot) {
-    gfx_vgradient(top, 0, 0, SCREEN_W, SCREEN_H, RGB(18, 14, 12), RGB(38, 26, 18));
+    gfx_vgradient(top, 0, 0, SCREEN_W, SCREEN_H, RGB(57, 42, 39) /* hair_brown 0 */, RGB(53, 37, 31) /* wood_dark 0 */);
     system_bar(top, "BOPCA PROVISIONS", "STOCK IS WHAT IT IS");
     gfx_sprite_scaled(top, &spr_bopca, 4, 58, 150, 100);
     gfx_sprite_scaled(top, &spr_shop, 196, 22, 120, 100);
@@ -1170,9 +1172,9 @@ static void draw_shop(Surface *top, Surface *bot) {
  *  floor, because that is what the floor of one of these actually looks like. */
 static void draw_safe_room(Surface *top, Surface *bot) {
     const SafeRoomDef *r = &safe_room_defs[g.safe_room % safe_room_count];
-    const uint16_t warm_hi = RGB(252, 244, 214), warm = RGB(214, 196, 158);
-    const uint16_t wall = RGB(178, 158, 126), wall_lo = RGB(120, 104, 84);
-    const uint16_t tile_a = RGB(226, 220, 204), tile_b = RGB(92, 88, 84);
+    const uint16_t warm_hi = RGB(255, 247, 194) /* lightning 4 */, warm = RGB(194, 163, 101) /* sand 3 */;
+    const uint16_t wall = RGB(179, 167, 143) /* stone_ancient 4 */, wall_lo = RGB(121, 114, 99) /* stone_ancient 2 */;
+    const uint16_t tile_a = RGB(229, 224, 211) /* hair_silver 3 */, tile_b = RGB(80, 82, 82) /* stone 1 */;
 
     gfx_vgradient(top, 0, 0, SCREEN_W, 120, warm_hi, wall);
     gfx_vgradient(top, 0, 120, SCREEN_W, 8, wall_lo, wall_lo);
@@ -1188,8 +1190,8 @@ static void draw_safe_room(Surface *top, Surface *bot) {
            and the crawlers with it, one is waiting for a leaderboard that
            does not exist yet, and one is about this particular building.
            The middle one is the joke: it is the same message everywhere. */
-        const uint16_t bez = RGB(38, 34, 40), bez_hi = RGB(86, 80, 88);
-        const uint16_t scr = RGB(16, 26, 30), lit = RGB(120, 226, 236);
+        const uint16_t bez = RGB(36, 35, 42) /* ink ink */, bez_hi = RGB(80, 85, 91) /* ui panel_lit */;
+        const uint16_t scr = RGB(38, 55, 66) /* ink blue */, lit = RGB(121, 194, 199) /* water 4 */;
         /*  Twelve characters is what fits inside a bezel three-to-a-screen,
             so the wording is cut to that rather than being clipped by it. */
         static const char *const kScreenTwo[] = { "LEADERBOARD", "POPULATES ON",
@@ -1238,20 +1240,20 @@ static void draw_safe_room(Surface *top, Surface *bot) {
                 gfx_text(top, x + 5, y + 28, C_INK, "NO FILMING");
                 gfx_text(top, x + 5, y + 38, C_GREEN, "FREE REFILLS");
             }
-            gfx_frame(top, x, y, w, h, RGB(14, 12, 16));
+            gfx_frame(top, x, y, w, h, RGB(32, 34, 41) /* cloth_black 0 */);
         }
     }
 
     {   /* The back counter, and the hatch behind it. Without them the upper
            half is a gradient, and a gradient is not a room. */
-        const uint16_t lam = RGB(148, 74, 62), lam_hi = RGB(196, 118, 96);
-        const uint16_t lam_lo = RGB(84, 40, 34), glass = RGB(198, 214, 208);
+        const uint16_t lam = RGB(137, 80, 57) /* copper 1 */, lam_hi = RGB(195, 138, 85) /* wood 3 */;
+        const uint16_t lam_lo = RGB(91, 56, 38) /* wood 0 */, glass = RGB(217, 222, 214) /* snow 3 */;
         (void)glass;
         gfx_rect(top, 0, 100, 118, 28, lam);
         gfx_rect(top, 0, 100, 118, 3, lam_hi);
         gfx_rect(top, 0, 125, 118, 3, lam_lo);
         for (int x = 8; x < 118; x += 26)            /* stools, bolted down */
-            gfx_rect(top, x, 96, 14, 4, RGB(160, 156, 150));
+            gfx_rect(top, x, 96, 14, 4, RGB(165, 163, 151) /* stone 4 */);
     }
 
     /*  The floor, in perspective by rows: squares get shorter and wider as they
@@ -1273,8 +1275,8 @@ static void draw_safe_room(Surface *top, Surface *bot) {
         for (int x = 0; x < SCREEN_W; x++)
             top->px[y * SCREEN_W + x] = ((((x + off) / size) + band) & 1) ? tile_a : tile_b;
     }
-    gfx_hline(top, 0, SCREEN_W - 1, 128, RGB(60, 56, 52));
-    gfx_hline(top, 0, SCREEN_W - 1, 129, RGB(112, 104, 96));
+    gfx_hline(top, 0, SCREEN_W - 1, 128, RGB(64, 62, 57) /* stone_ancient 0 */);
+    gfx_hline(top, 0, SCREEN_W - 1, 129, RGB(121, 114, 99) /* stone_ancient 2 */);
 
     {   /* The party, standing in it, not fighting anything for once. */
         const Sprite *a = hero_sprite(0), *b = hero_sprite(1);
@@ -1302,8 +1304,8 @@ static void draw_safe_room(Surface *top, Surface *bot) {
         /*  What is in the pile, so the run of them has a shape before it
             starts rather than being a surprise each time. */
         static const char *const kTier[4] = { "BRZ", "SLV", "GLD", "LEG" };
-        static const uint16_t kTierCol[4] = { RGB(190, 130, 80), RGB(200, 206, 218),
-                                              RGB(250, 208, 80), RGB(206, 96, 236) };
+        static const uint16_t kTierCol[4] = { RGB(195, 138, 85) /* wood 3 */, RGB(217, 226, 231) /* lightning 3 */,
+                                              RGB(244, 188, 76) /* fire 5 */, RGB(192, 155, 215) /* arcane 4 */ };
         int x = 16;
         for (int t = 3; t >= 0; t--) {
             if (!g.boxes_held[t]) continue;
@@ -1321,9 +1323,9 @@ static void draw_safe_room(Surface *top, Surface *bot) {
 
 static void draw_box(Surface *top, Surface *bot) {
     static const char *const tiers[4] = { "BRONZE", "SILVER", "GOLD", "LEGENDARY" };
-    static const uint16_t tier_colour[4] = { RGB(190, 130, 80), RGB(200, 206, 218), RGB(250, 208, 80), RGB(206, 96, 236) };
+    static const uint16_t tier_colour[4] = { RGB(195, 138, 85) /* wood 3 */, RGB(217, 226, 231) /* lightning 3 */, RGB(244, 188, 76) /* fire 5 */, RGB(192, 155, 215) /* arcane 4 */ };
     uint16_t c = tier_colour[g.box_tier];
-    gfx_vgradient(top, 0, 0, SCREEN_W, SCREEN_H, RGB(10, 10, 16), gfx_scale_colour(c, 5, 16));
+    gfx_vgradient(top, 0, 0, SCREEN_W, SCREEN_H, RGB(32, 34, 41) /* cloth_black 0 */, gfx_scale_colour(c, 5, 16));
     system_bar(top, "LOOT BOX", tiers[g.box_tier]);
 
     int cx = 128, cy = 100;
@@ -1358,7 +1360,7 @@ static void draw_box(Surface *top, Surface *bot) {
 static void draw_levelup(Surface *top, Surface *bot) {
     int hero = g.levelup_hero;
     const Hero *h = &g.hero[hero];
-    gfx_vgradient(top, 0, 0, SCREEN_W, SCREEN_H, RGB(12, 16, 14), RGB(24, 40, 30));
+    gfx_vgradient(top, 0, 0, SCREEN_W, SCREEN_H, RGB(32, 35, 41) /* ui void */, RGB(38, 59, 41) /* grass 0 */);
     system_bar(top, "LEVEL UP", h->name);
     gfx_sprite_scaled(top, hero_sprite(hero), 16, 40, 150, 100);
     gfx_text_big(top, 150, 50, C_GREEN, "LEVEL");
@@ -1389,7 +1391,7 @@ static void draw_levelup(Surface *top, Surface *bot) {
 static const char kKeyRowsView[4][10] = { "ABCDEFGH", "JKLMNPQR", "STUVWXYZ", "23456789" };
 
 static void draw_code(Surface *top, Surface *bot) {
-    gfx_vgradient(top, 0, 0, SCREEN_W, SCREEN_H, RGB(10, 12, 18), RGB(22, 26, 40));
+    gfx_vgradient(top, 0, 0, SCREEN_W, SCREEN_H, RGB(38, 55, 66) /* ink blue */, RGB(38, 55, 66) /* ink blue */);
     system_bar(top, g.code_mode ? "RECALL CODE ENTRY" : "SYSTEM KIOSK", "THE SHOW REMEMBERS");
     gfx_sprite_scaled(top, &spr_shrine, 12, 60, 200, 100);
 
@@ -1462,7 +1464,7 @@ static void draw_code(Surface *top, Surface *bot) {
 /* ------------------------------------------------------------- endgames --- */
 
 static void draw_gameover(Surface *top, Surface *bot) {
-    gfx_vgradient(top, 0, 0, SCREEN_W, SCREEN_H, RGB(24, 6, 10), RGB(6, 4, 6));
+    gfx_vgradient(top, 0, 0, SCREEN_W, SCREEN_H, RGB(99, 37, 43) /* blood 1 */, RGB(32, 34, 41) /* cloth_black 0 */);
     gfx_text_big(top, 30, 24, C_RED, "SEASON OVER");
     season_tag(top, 30, 46, C_MAGENTA);
     gfx_text(top, 60, 46, C_DIM, "ends here. There is no continue.");
@@ -1513,7 +1515,7 @@ static void draw_gameover(Surface *top, Surface *bot) {
 }
 
 static void draw_victory(Surface *top, Surface *bot) {
-    gfx_vgradient(top, 0, 0, SCREEN_W, SCREEN_H, RGB(14, 10, 26), RGB(46, 18, 44));
+    gfx_vgradient(top, 0, 0, SCREEN_W, SCREEN_H, RGB(51, 37, 74) /* arcane 0 */, RGB(51, 37, 74) /* arcane 0 */);
     for (int i = 0; i < 80; i++) {
         int x = (i * 61 + g.anim / 2) % SCREEN_W;
         int y = (i * 29 + g.anim) % SCREEN_H;

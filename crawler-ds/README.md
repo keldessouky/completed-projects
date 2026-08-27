@@ -140,12 +140,37 @@ is the one thing the code does not carry.
 No sprite was drawn in an image editor, no sample was recorded, no font was
 licensed.
 
+- **`tools/art/palettes.py`** — the palette, and the reason the game looks like
+  one object. Every ramp in it is chosen, darkest first, with the hue turning
+  as it climbs the way a painter turns it. Nothing is computed any more: the
+  ramps used to be generated from a base colour pushed toward a cool ambient
+  at one end and a warm key at the other, which is a reasonable way to get a
+  lit ramp out of nothing and is exactly why the cast never quite matched. A
+  computed ramp is correct in isolation and arbitrary next to the ramp beside
+  it, so two materials that should have been kin were related only by
+  accident and nothing in the game shared a colour with anything else.
+
+  Now a sprite picks a material by name, and two sprites that pick the same
+  name are the same material in the literal sense that they are the same
+  bytes. Skin, four hairs, six cloths, three metals, two woods, eight
+  environment surfaces and seven effect ramps, plus seven inks — because
+  nothing is outlined in black. Black is a hole in the screen; a shape drawn
+  against its own darkened hue reads as an object with an edge instead of a
+  sticker. `src/render/theme.h` is the same set, so the panel around the game
+  is made of the material the game is made of, and `tools/snap_palette.py`
+  pulls any colour written by eye in the C renderer onto it — run it after
+  adding one, it is idempotent.
 - **`tools/art/forge_tools.py`** — the drawing toolkit. Forms are shaded by a
   real lambert term against one key light, so the highlight lands off-centre
-  instead of filling the middle of every shape. Ramps move in hue as well as
-  value (`tools/art/palettes.py`): shadows drift toward a cool ambient, highlights
-  toward a warm key, which is the difference between a lit material and five
-  shades of the same plastic. Two passes finish every sprite — a cool rim light
+  instead of filling the middle of every shape. `stage()` puts a finished
+  figure on the standard character frame: a 64×64 box, centred, feet on row
+  59, and a dithered ellipse of shadow under them. That last part is the one
+  that matters — without it a sprite is a cut-out pasted on a background, and
+  the whole cast used to hover. There is no alpha in this format, so the
+  shadow is made out of holes: solid through the middle, a chequer at the rim,
+  which lets the floor show through the way every handheld before this one did
+  it. Nothing is scaled to fit the frame; the drawings were already the right
+  size. Two passes finish every sprite — a cool rim light
   on the edges facing away from the key, and an outline that takes its colour
   from the material it wraps rather than being a flat black key line. Faces are
   placed pixel by pixel with `stamp()`, because nothing procedural reads as a
@@ -176,6 +201,23 @@ licensed.
   glance.
 - **`tools/art/font5x7.py`** — the font, drawn as ASCII art, seven rows of five
   cells per glyph, 104 glyphs including the System's arrows and pips.
+- **`tools/art/overworld.py`** — the party as the dungeon sees them, and the
+  only animation in the game that is animation rather than a flicker. Ten
+  frames per facing: six of a walk cycle, four of a breath. Sixteen pixels
+  sounds like less than a six-frame walk can live in — the legs are three
+  pixels tall — and it holds them anyway, because a frame is not only where
+  the legs are. Each pose moves a leg sideways, lifts a foot off the floor,
+  drops the whole upper body by a pixel on the beats where the weight lands,
+  and swings the arms against the legs. The ground line never moves: the
+  shoulders come down toward feet that stay where they are and the legs take
+  up the difference, which is what a step does. Getting that backwards, and
+  moving the whole figure, was the first attempt, and it looked like someone
+  being bounced rather than walking.
+
+  A stride is half the cycle and takes a whole tile, so the six frames span
+  two tiles and the same foot never leads twice. The follower runs half a
+  cycle behind the leader, because two people in perfect lockstep read as one
+  person and a copy of them.
 - **`src/render/view2d.c`** — the floor, from above. A tile map with the camera
   locked to the party, sliding between tiles rather than jumping, which is the
   view the battles were always drawn for. The corridor textures carried over

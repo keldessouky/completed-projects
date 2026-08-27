@@ -7,23 +7,27 @@ shading pass afterwards.
 
 W, H = 56, 72
 
+#  The Bopca out of the shared palette. See tools/art/palettes.py.
+from palettes import INK, RAMPS
+
 PALETTE = [
-    (26, 20, 24),        # X  outline
-    (96, 70, 52),        # 1  fur, deepest
-    (140, 106, 76),      # 2  fur, shadow
-    (186, 150, 114),     # 3  fur, base
-    (222, 192, 158),     # 4  fur, light
-    (150, 84, 92),       # 5  ear, deep
-    (214, 138, 146),     # 6  ear, lit
-    (104, 26, 34),       # 7  robe, dark
-    (162, 42, 52),       # 8  robe, base
-    (206, 74, 84),       # 9  robe, light
-    (236, 230, 216),     # 0  robe, the white panel
-    (250, 250, 244),     # w  the shine on the eye
-    (22, 18, 26),        # d  the eye itself
-    (230, 186, 74),      # b  the trim they were issued
-    (226, 150, 156),     # r  nose
+    INK['brown'],                     # X  outline
+    RAMPS['tan'][0],                  # 1  fur, deepest
+    RAMPS['tan'][1],                  # 2  fur, shadow
+    RAMPS['tan'][2],                  # 3  fur, base
+    RAMPS['sand'][4],                 # 4  fur, light
+    RAMPS['cloth_red'][1],            # 5  ear, deep
+    RAMPS['cloth_red'][4],            # 6  ear, lit
+    RAMPS['blood'][1],                # 7  robe, dark
+    RAMPS['blood'][2],                # 8  robe, base
+    RAMPS['blood'][4],                # 9  robe, light
+    RAMPS['cloth_cream'][3],          # 0  robe, the white panel
+    RAMPS['cloth_cream'][4],          # w  the shine on the eye
+    INK['ink'],                       # d  the eye itself
+    RAMPS['gold'][4],                 # b  the trim they were issued
+    RAMPS['skin'][4],                 # r  nose
 ]
+
 KEY = "X1234567890wdbr"
 
 

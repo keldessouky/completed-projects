@@ -565,6 +565,70 @@ class Sprite:
         self.pal = pal
         return self
 
+    def stage(self, w=64, h=64, ground=59, shadow=True):
+        """Re-canvas onto the standard character frame and put the figure on
+        the floor.
+
+        The reference this game's art is drawn to puts a character on a 64x64
+        canvas, centred, with its feet on row 59 and a shadow under them. That
+        last part is the one that matters: without it a sprite is a cut-out
+        pasted on a background, and the whole cast used to hover. Every
+        battler standing on the same row is also what stops a party looking
+        like four people photographed separately.
+
+        Nothing is scaled. The drawings are already the right size -- Carl is
+        thirty-four by fifty-seven -- so this moves them, it does not resample
+        them, and no pixel an artist placed is touched.
+        """
+        xs = [i % self.w for i, v in enumerate(self.px) if v]
+        ys = [i // self.w for i, v in enumerate(self.px) if v]
+        if not xs:
+            return self
+        x0, x1, y0, y1 = min(xs), max(xs), min(ys), max(ys)
+        #  `ground=None` means "stay where you are and just take a shadow",
+        #  which is what the bestiary wants: those are drawn to fill their own
+        #  canvas and moving them would crop something.
+        if ground is None:
+            ground = y1
+            dx = dy = 0
+        else:
+            dx = (w - (x1 - x0 + 1)) // 2 - x0
+            dy = ground - y1
+
+        out = Sprite(w, h)
+        out.pal = list(self.pal)
+        out.outline_of = dict(self.outline_of)
+        out.rim_of = dict(self.rim_of)
+
+        if shadow:
+            #  A dithered ellipse on the floor under the figure.
+            #
+            #  There is no alpha in this format, so the shadow is made out of
+            #  holes: solid through the middle and a chequer at the rim, which
+            #  lets the floor show through and is how every handheld before
+            #  this one drew one. A solid ellipse reads as a sticker of a
+            #  shadow; this reads as the floor being darker.
+            from palettes import INK
+            dark = out.ink(INK['ink'])
+            rx = max(4, min(9, (x1 - x0 + 1) // 3))
+            ry = 2
+            cx, cy = (x0 + x1) // 2 + dx, ground + 2
+            for j in range(-ry, ry + 1):
+                span = 1.0 - (j / float(ry + 0.8)) ** 2
+                half = int(rx * (span ** 0.5))
+                for i in range(-half, half + 1):
+                    soft = abs(i) > half - 2 or abs(j) == ry
+                    if soft and ((i + j) & 1):
+                        continue
+                    out.put(cx + i, cy + j, dark)
+
+        for y in range(self.h):
+            for x in range(self.w):
+                v = self.px[y * self.w + x]
+                if v:
+                    out.put(x + dx, y + dy, v)
+        return out
+
     def emit(self):
         self.quantise()
         return self, [rgb555(c) for c in self.pal]

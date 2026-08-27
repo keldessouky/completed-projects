@@ -20,23 +20,29 @@ forty luma apart, and every pixel placed by hand.
 W, H = 56, 72
 
 # index 0 is transparent. Fifteen colours, which is what the hardware gives you.
+#  Donut out of the shared palette: her coat is the copper ramp, her tiara the
+#  gold one, and both are the same bytes as every other copper and gold thing
+#  in the game. See tools/art/palettes.py.
+from palettes import INK, RAMPS
+
 PALETTE = [
-    (26, 18, 22),        # X  outline, and the pupil
-    (96, 58, 38),        # 1  coat, deepest
-    (146, 92, 54),       # 2  coat, shadow
-    (194, 134, 84),      # 3  coat, base
-    (230, 180, 128),     # 4  coat, light
-    (168, 144, 118),     # 5  cream, shadow
-    (222, 204, 176),     # 6  cream, base
-    (252, 248, 240),     # 7  white: cream highlight, catchlight, whiskers
-    (148, 98, 30),       # 8  gold, shadow
-    (230, 178, 54),      # 9  gold, base
-    (255, 234, 156),     # 0  gold, light
-    (172, 80, 112),      # p  pink, shadow
-    (232, 132, 166),     # P  pink, base
-    (38, 124, 88),       # g  eye, shadowed iris
-    (96, 206, 132),      # G  eye, lit iris
+    INK['brown'],                     # X  outline, and the pupil
+    RAMPS['copper'][0],               # 1  coat, deepest
+    RAMPS['copper'][1],               # 2  coat, shadow
+    RAMPS['copper'][2],               # 3  coat, base
+    RAMPS['copper'][3],               # 4  coat, light
+    RAMPS['cloth_cream'][1],          # 5  cream, shadow
+    RAMPS['cloth_cream'][3],          # 6  cream, base
+    RAMPS['cloth_cream'][4],          # 7  white: cream highlight, catchlight, whiskers
+    RAMPS['gold'][1],                 # 8  gold, shadow
+    RAMPS['gold'][3],                 # 9  gold, base
+    RAMPS['gold'][4],                 # 0  gold, light
+    RAMPS['cloth_purple'][2],         # p  pink, shadow
+    RAMPS['cloth_purple'][3],         # P  pink, base
+    RAMPS['grass'][2],                # g  eye, shadowed iris
+    RAMPS['grass'][4],                # G  eye, lit iris
 ]
+
 KEY = "X1234567890pPgG"
 
 
