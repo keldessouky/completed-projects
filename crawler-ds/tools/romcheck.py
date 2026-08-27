@@ -47,6 +47,35 @@ def check(path):
         if start + size > len(d):
             bad.append("%s binary runs past the end of the file" % name)
 
+    #  The banner is the label: a front end reads the icon and the three lines
+    #  of title straight out of it, and it is the only thing most people see
+    #  before deciding whether to open the ROM. A zero offset, a truncated
+    #  block or an empty title all produce a listing with a blank square and
+    #  the filename next to it, which is exactly what shipping a homebrew ROM
+    #  looks like when nobody checked.
+    banner = u32(d, 0x68)
+    if banner == 0:
+        bad.append("no banner: the ROM will list with no icon and no title")
+    elif banner + 0x840 > len(d):
+        bad.append("banner at %#x runs past the end of the file" % banner)
+    else:
+        icon = d[banner + 0x20:banner + 0x220]
+        if not any(icon):
+            bad.append("the banner icon is blank")
+        title = d[banner + 0x340:banner + 0x440].decode('utf-16-le', 'replace')
+        title = title.split('\0')[0].strip()
+        if not title:
+            bad.append("the banner carries no English title")
+        #  ndstool computes this over the icon and every language's title.
+        crc = 0xFFFF
+        for byte in d[banner + 0x20:banner + 0x840]:
+            crc ^= byte
+            for _ in range(8):
+                crc = (crc >> 1) ^ (0xA001 if crc & 1 else 0)
+        if crc != int.from_bytes(d[banner + 2:banner + 4], 'little'):
+            bad.append("banner CRC is stale: the icon or title was edited "
+                       "without refixing")
+
     #  ndstool writes this; if it is wrong the ROM was edited and not refixed.
     crc = 0xFFFF
     for byte in d[0:0x15E]:
@@ -65,4 +94,4 @@ if __name__ == '__main__':
         print("  romcheck: %s" % p, file=sys.stderr)
     if problems:
         sys.exit(1)
-    print("  romcheck: header is one a real loader will take")
+    print("  romcheck: header and banner are ones a real loader will take")

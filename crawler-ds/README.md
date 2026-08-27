@@ -11,8 +11,15 @@ Now he and Princess Donut are on floor one of eighteen, and four billion people
 are watching.
 
 ```
-dist/crawler-ds.nds     197 KB, no BIOS files, no DLDI patch, no save chip needed
+dist/release/Dungeon Crawler Carl (v2).nds
+    296 KB, no BIOS files, no DLDI patch, no save chip needed
 ```
+
+The ROM carries its own banner — a 32×32 icon and three lines of title — so it
+lists with a label and a picture rather than a blank square and a filename.
+Beside it is cover art for the front ends that show box art instead, written
+twice because they disagree about whether it belongs next to the ROM or in
+`Imgs/`; delete whichever yours ignores.
 
 ![The title screen](docs/shots/01-title.png)
 
@@ -22,7 +29,8 @@ dist/crawler-ds.nds     197 KB, no BIOS files, no DLDI patch, no save chip neede
 
 ## Play it on an Anbernic RG DS
 
-1. Copy `dist/crawler-ds.nds` anywhere on the SD card.
+1. Copy `dist/release/Dungeon Crawler Carl (v2).nds` anywhere on the SD card —
+   and the `.png` beside it if your front end shows box art.
 2. Open it in the DS emulator the device came with (DraStic or melonDS — either
    is fine; the ROM is plain NTR homebrew with a standard 0x4000 header).
 3. That is the whole setup. It needs no BIOS dump, no firmware image, no DLDI
@@ -278,6 +286,7 @@ sudo apt install gcc-arm-none-eabi binutils-arm-none-eabi libnewlib-arm-none-eab
 cd crawler-ds
 make sdk        # fetches libnds, the crt0/linker scripts and ndstool; ~12 seconds
 make            # -> dist/crawler-ds.nds
+make release    # -> dist/release/ and a zip of it, named and with cover art
 ```
 
 **With devkitPro instead**, if you have it: the sources are ordinary libnds. Point

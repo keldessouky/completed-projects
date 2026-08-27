@@ -5,10 +5,15 @@ tools/hostsim/hostsim
 *.o
 *.d
 
-# The built ROM is committed on purpose — see README.md — so only the rest of
-# dist/ is ignored.
+# The playable build is committed on purpose — see README.md — but only once.
+# dist/crawler-ds.nds is the raw build output and dist/release/ holds the same
+# bytes under the name and beside the cover art a front end wants, so it is the
+# release folder that is carried and the loose copy that is ignored. The zip is
+# reproducible with `make release` and would be a third copy of the ROM in
+# every commit that touches it.
 dist/*
-!dist/crawler-ds.nds
+!dist/release/
+dist/release/*.zip
 
 # DeSmuME writes a save file next to the ROM while `make test` runs.
 *.dsv

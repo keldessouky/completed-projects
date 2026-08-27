@@ -95,46 +95,90 @@ def emit_sprites(hdr, src):
 # ------------------------------------------------------------------ icon ----
 
 def emit_icon():
-    """A 32x32 banner icon: Carl's silhouette under the System's amber."""
+    """The banner icon: 32x32, fifteen colours and a transparent index.
+
+    This is the label. A DS front end reads it out of the ROM header and shows
+    it beside the title, so it is the only piece of art most people see before
+    they decide whether to open the thing, and it is seen at the size of a
+    thumbnail. That rules out anything the game's own sprites do: at
+    twenty-two pixels tall a figure gets a head, a coat, a waistband and two
+    feet, and every one of them has to be a block of flat colour with a hard
+    edge against the block beside it.
+
+    So it is Carl in the doorway, lit from behind by the last of the sky, in
+    the jacket and the boxer shorts -- because the shorts are the joke, the
+    joke is the premise, and at this size two red pixels on white is the
+    entire premise delivered.
+    """
+    from palettes import INK, RAMPS, UI
+
     c = png.Canvas(32, 32)
-    pal = [(0, 0, 0)]
+    pal = [(0, 0, 0)]                 # index 0 is the banner's transparency
 
     def ink(rgb):
-        if tuple(rgb) not in pal:
-            pal.append(tuple(rgb))
-        return pal.index(tuple(rgb))
+        rgb = tuple(int(v) for v in rgb)
+        if rgb not in pal:
+            pal.append(rgb)
+        return pal.index(rgb)
 
-    bg = ink((16, 14, 24))
-    glow = ink((58, 40, 20))
+    void = ink(INK['blue'])
+    sky_lo = ink(RAMPS['sand'][0])
+    sky = ink(RAMPS['sand'][2])
+    sky_hi = ink(RAMPS['sand'][4])
     amber = ink(UI['amber'])
-    skin = ink((206, 158, 120))
-    skin_d = ink((150, 110, 84))
-    short = ink((66, 96, 176))
-    hair = ink((62, 46, 38))
-    dark = ink((10, 10, 14))
+    skin = ink(RAMPS['skin'][2])
+    skin_d = ink(RAMPS['skin'][0])
+    hair = ink(RAMPS['hair_brown'][0])
+    coat = ink(RAMPS['cloth_green'][1])
+    coat_hi = ink(RAMPS['cloth_green'][2])
+    coat_lo = ink(RAMPS['cloth_green'][0])
+    shirt = ink(RAMPS['stone'][3])
+    linen = ink(RAMPS['cloth_cream'][4])
+    heart = ink(RAMPS['blood'][3])
+    line = ink(INK['ink'])
 
-    c.rect(0, 0, 31, 31, bg)
-    c.ellipse(16, 20, 15, 13, glow)
-    # doorway of light behind him
-    c.rect(11, 4, 21, 26, glow)
-    c.rect(13, 6, 19, 26, ink((92, 62, 26)))
-    # the crawler himself
-    c.ellipse(16, 13, 4, 4, skin)
-    c.ellipse(16, 10, 5, 3, hair)
-    c.rect(12, 17, 20, 24, skin)
-    c.rect(12, 17, 13, 24, skin_d)
-    c.rect(11, 17, 12, 23, skin)
-    c.rect(20, 17, 21, 23, skin)
-    c.rect(12, 24, 20, 27, short)
-    c.rect(13, 28, 15, 30, skin)
-    c.rect(17, 28, 19, 30, skin)
-    c.put(14, 12, dark)
-    c.put(18, 12, dark)
-    # amber system chrome
+    #  The doorway: three bands of sky, brightest at the middle, so the
+    #  figure has something to be a silhouette against.
+    c.rect(0, 0, 31, 31, void)
+    c.rect(8, 3, 23, 29, sky_lo)
+    c.rect(9, 5, 22, 29, sky)
+    c.rect(11, 9, 20, 29, sky_hi)
+
+    #  Carl, twenty-two pixels of him, standing in it.
+    c.rect(12, 6, 19, 9, hair)                    # slept-on hair
+    c.rect(12, 9, 19, 13, skin)                   # face
+    c.put(13, 11, line)                           # eyes
+    c.put(18, 11, line)
+    c.rect(13, 13, 18, 14, skin_d)                # jaw and the neck under it
+
+    c.rect(10, 15, 21, 21, coat)                  # the jacket, arms included
+    c.rect(10, 15, 11, 21, coat_hi)               # lit side
+    c.rect(20, 15, 21, 21, coat_lo)               # shadow side
+    c.rect(14, 15, 17, 21, shirt)                 # the shirt in the opening
+    c.put(10, 22, skin)                           # hands out of the cuffs
+    c.put(21, 22, skin)
+
+    #  The boxers, and single pixels for what is printed on them. Two-by-two
+    #  blocks were the first try and they read as red bars: at four pixels of
+    #  garment a heart cannot be drawn, so what is drawn is the fact that
+    #  there is a print, which at a thumbnail is the whole of what registers.
+    c.rect(12, 22, 19, 25, linen)
+    for hx, hy in ((13, 23), (17, 23), (15, 24)):
+        c.put(hx, hy, heart)
+
+    c.rect(13, 26, 14, 28, skin)                  # legs
+    c.rect(17, 26, 18, 28, skin)
+    c.rect(12, 29, 15, 29, skin_d)                # and no shoes
+    c.rect(16, 29, 19, 29, skin_d)
+
+    #  The System's own frame, top and bottom, which is the one thing on the
+    #  icon that is not the fiction and is how the show signs everything.
     c.rect(0, 0, 31, 1, amber)
     c.rect(0, 30, 31, 31, amber)
-    c.put(2, 3, amber); c.put(29, 3, amber)
-    c.put(2, 28, amber); c.put(29, 28, amber)
+    c.put(1, 3, amber)
+    c.put(30, 3, amber)
+    c.put(1, 28, amber)
+    c.put(30, 28, amber)
 
     while len(pal) < 16:
         pal.append((0, 0, 0))
