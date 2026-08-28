@@ -43,14 +43,19 @@ GAME_SUB2  := unofficial fan game
 
 #  What the release is called on a memory card.
 #
-#  Readable, but with no spaces and no brackets in it. The first version of
-#  this was "Dungeon Crawler Carl (v2).nds" on the reasoning that a front end
-#  which cannot read the ROM's banner falls back to the filename -- true, but
-#  it buys a prettier fallback at the cost of a path that a launcher shelling
-#  out without quotes will split into three arguments, and handheld front ends
-#  do that. The banner inside the ROM is what supplies the real label to
-#  anything that can read one, so the filename does not have to.
-RELEASE    := Dungeon-Crawler-Carl-$(GAME_VER)
+#  Short, lower case, no spaces, no brackets, no capitals. This has been got
+#  wrong twice. "Dungeon Crawler Carl (v2).nds" splits into three arguments in
+#  any front end that shells out without quoting, and the brackets are glob
+#  metacharacters besides. Renaming it to "Dungeon-Crawler-Carl-v2.nds" fixed
+#  the quoting but kept the length and the capitals, and it still would not
+#  open, while byte-identical ROMs named "crawler-ds.nds" opened fine -- so the
+#  name, not the image, was the whole fault both times.
+#
+#  The temptation is to put a pretty title in the filename so a front end that
+#  cannot read the ROM can still show one. That trade is not worth it: the
+#  banner inside the ROM already carries the title, the icon and the subtitle,
+#  and every loader that matters reads it. Keep this boring.
+RELEASE    := crawlerds
 RELDIR     := $(DIST)/release
 
 .PHONY: all sdk gen clean bot test shots host hosttest run release cover

@@ -11,7 +11,7 @@ Now he and Princess Donut are on floor one of eighteen, and four billion people
 are watching.
 
 ```
-dist/release/Dungeon-Crawler-Carl-v2.nds
+dist/release/crawlerds.nds
     296 KB, no BIOS files, no DLDI patch, no save chip needed
 ```
 
@@ -29,11 +29,16 @@ twice because they disagree about whether it belongs next to the ROM or in
 
 ## Play it on an Anbernic RG DS
 
-1. Copy `dist/release/Dungeon-Crawler-Carl-v2.nds` anywhere on the SD card —
-   and the `.png` beside it if your front end shows box art. The filename has
-   no spaces or brackets in it on purpose: the pretty label comes from the
-   banner inside the ROM, and a path with spaces is one a launcher that shells
-   out without quoting will split into three arguments.
+1. Copy `dist/release/crawlerds.nds` anywhere on the SD card —
+   and the `.png` beside it if your front end shows box art. The filename is
+   short and lower case on purpose, with no spaces and no brackets: the pretty
+   label comes from the banner inside the ROM, so the path does not have to
+   carry one, and a path with spaces is one a launcher that shells out without
+   quoting will split into three arguments. Two releases were named
+   `Dungeon Crawler Carl (v2).nds` and `Dungeon-Crawler-Carl-v2.nds`; neither
+   would open on the device, while byte-identical ROMs named `crawler-ds.nds`
+   opened fine. If a build of this will not load, rename it before you go
+   looking at the header.
 2. Open it in the DS emulator the device came with (DraStic or melonDS — either
    is fine; the ROM is plain NTR homebrew with a standard 0x4000 header).
 3. That is the whole setup. It needs no BIOS dump, no firmware image, no DLDI
