@@ -31,9 +31,16 @@ GROUND = 116
 #  torso over thirty pixel legs and he came out built like a fire hydrant.
 HEAD_CY, HEAD_RX, HEAD_RY = 17, 11, 13
 NECK_Y = 28
-SHOULDER_Y, SHOULDER_HW = 33, 17
+#  Three widths, not one. SHOULDER_HW is how wide he is across the outside of
+#  both sleeves; the torso under them is narrower and narrows further into the
+#  waist. Driving the coat body off the shoulder span puts the sleeves outside
+#  a torso that is already that wide and he grows shoulder pads.
+SHOULDER_Y = 33
+SHOULDER_HW = 21                            # outer edge of the sleeves
+TORSO_HW = 15                               # the coat body at the chest
+WAIST_HW = 9                                # and at the hem
 HEM_Y = 62
-HIP_Y, HIP_HW = 59, 14
+HIP_Y, HIP_HW = 59, 12
 KNEE_Y = 82
 
 
@@ -54,10 +61,10 @@ def carl_big():
 
     # ---- legs -------------------------------------------------------------
     for side in (-1, 1):
-        s.limb(cx + side * 7, HIP_Y + 4, cx + side * 8, KNEE_Y, 15, 12, skin)
-        s.limb(cx + side * 8, KNEE_Y, cx + side * 8, FEET - 6, 12, 10, skin)
-        s.form(cx + side * 8, KNEE_Y - 1, 6, 5, skin, wrap=1.4)     # the knee
-        s.form(cx + side * 9, KNEE_Y + 9, 5, 8, skin, wrap=1.4)    # calf
+        s.limb(cx + side * 7, HIP_Y + 4, cx + side * 8, KNEE_Y, 13, 9, skin)
+        s.limb(cx + side * 8, KNEE_Y, cx + side * 8, FEET - 6, 9, 6, skin)
+        s.form(cx + side * 8, KNEE_Y, 5, 4, skin, wrap=1.5)     # the knee
+        s.form(cx + side * (8 + side), KNEE_Y + 7, 4, 7, skin, wrap=1.45)    # calf
         #  Foot: the arch is what stops it reading as a peg, and the toes are
         #  cut apart by the line rather than merely lit differently.
         fx = cx + side * 8
@@ -95,8 +102,8 @@ def carl_big():
 
     # ---- the shirt, hanging below the coat ---------------------------------
     s.form(cx, HEM_Y - 6, 16, 9, tee, wrap=1.4, squash=0.6)
-    s.rect(cx - 16, HEM_Y - 12, cx + 16, HIP_Y + 2, tee[3])
-    s.rect(cx + 10, HEM_Y - 12, cx + 16, HIP_Y + 2, tee[1])
+    s.rect(cx - 16, HEM_Y - 12, cx + 16, HIP_Y + 2, tee[4])
+    s.rect(cx + 10, HEM_Y - 12, cx + 16, HIP_Y + 2, tee[2])
     s.line(cx - 16, HIP_Y + 2, cx + 16, HIP_Y + 2, tee[1])
     for fx in (-9, 3, 11):
         s.stroke_shade(cx + fx, HEM_Y - 11, cx + fx - 1, HIP_Y + 1, -1)
@@ -111,31 +118,51 @@ def carl_big():
     #  coat's opening shows it leaves a bare chest above the V, which is a
     #  man wearing a jacket over nothing.
     s.form(cx, SHOULDER_Y + 9, 14, 13, tee, wrap=1.3, squash=0.4)
-    s.rect(cx - 8, SHOULDER_Y - 3, cx + 8, SHOULDER_Y + 4, tee[3])
+    s.rect(cx - 8, SHOULDER_Y - 3, cx + 8, SHOULDER_Y + 4, tee[4])
     s.line(cx - 8, SHOULDER_Y - 3, cx + 8, SHOULDER_Y - 3, tee[1])   # the crew neck
     s.shade_band(cx - 8, SHOULDER_Y - 3, cx + 8, SHOULDER_Y - 1, -1)
 
     # ---- the coat ----------------------------------------------------------
-    s.form(cx, (SHOULDER_Y + HEM_Y) // 2, SHOULDER_HW + 1,
+    #  Drawn row by row down a taper rather than as one column of rectangles.
+    #  Constant width from shoulder to hem is what made the first pass read as
+    #  a box with a head on it: the line from the deltoid in to the waist is
+    #  most of what says this is a man and not a wardrobe.
+    def coat_hw(y):
+        t = (y - SHOULDER_Y) / float(HEM_Y - SHOULDER_Y)
+        #  Eased, so the shoulder keeps its width for a moment before the
+        #  torso starts drawing in. A straight line from one to the other is
+        #  a funnel.
+        return int(round(TORSO_HW + (WAIST_HW - TORSO_HW) * (t ** 1.6)))
+
+    s.form(cx, (SHOULDER_Y + HEM_Y) // 2, TORSO_HW,
            (HEM_Y - SHOULDER_Y) // 2 + 5, coat, wrap=1.2, squash=0.3)
-    #  Front panels, the near one lit and the far one in its own shadow.
-    s.rect(cx - SHOULDER_HW, SHOULDER_Y, cx - 2, HEM_Y, coat[4])
-    s.rect(cx + 2, SHOULDER_Y, cx + SHOULDER_HW, HEM_Y, coat[2])
-    s.rect(cx + SHOULDER_HW - 4, SHOULDER_Y, cx + SHOULDER_HW, HEM_Y, coat[1])
-    s.rect(cx - SHOULDER_HW, SHOULDER_Y, cx - SHOULDER_HW + 3, HEM_Y, coat[5])
+    for y in range(SHOULDER_Y, HEM_Y + 1):
+        hw = coat_hw(y)
+        s.rect(cx - hw, y, cx + hw, y, coat[3])
+        s.rect(cx - hw, y, cx - hw + 3, y, coat[5])          # the lit side
+        s.rect(cx + hw - 4, y, cx + hw, y, coat[1])          # and the far one
+        s.rect(cx + hw - 1, y, cx + hw, y, coat[0])
     #  The opening: it widens on the way down the way an unzipped coat does,
     #  with a tape of lit cloth down each edge and the shirt behind it.
     for y in range(SHOULDER_Y + 3, HEM_Y):
-        half = 3 + (y - SHOULDER_Y) * 8 // (HEM_Y - SHOULDER_Y)
-        s.rect(cx - half, y, cx + half, y, tee[3])
-        s.rect(cx + half - 3, y, cx + half, y, tee[1])
+        #  Clamped inside the coat: unclamped it widens past the torso it is
+        #  cut into, eats the whole front of the garment, and leaves two green
+        #  sleeves either side of a shirt with no jacket between them.
+        #  Clamped to leave three pixels of coat either side and no more.
+        #  Widening the hem instead so the shirt had room traded the whole
+        #  V-taper away for it: an unfastened jacket is two narrow panels at
+        #  the bottom, which is where the taper comes from.
+        half = min(3 + (y - SHOULDER_Y) * 8 // (HEM_Y - SHOULDER_Y),
+                   coat_hw(y) - 3)
+        s.rect(cx - half, y, cx + half, y, tee[4])
+        s.rect(cx + half - 3, y, cx + half, y, tee[2])
         s.put(cx - half - 1, y, coat[5])
         s.put(cx - half - 2, y, coat[4])
         s.put(cx + half + 1, y, coat[1])
     #  Folds down the body, and the shadow the coat throws on itself at the hem.
-    for fx, bend in ((-13, 0.5), (-8, 0.3), (10, -0.3), (14, -0.5)):
-        s.stroke_shade(cx + fx, SHOULDER_Y + 5, cx + fx - 2, HEM_Y - 2, -1, bend=bend)
-    s.shade_band(cx - SHOULDER_HW, HEM_Y - 3, cx + SHOULDER_HW, HEM_Y, -1)
+    for fx, bend in ((-11, 0.4), (-6, 0.2), (7, -0.2), (11, -0.4)):
+        s.stroke_shade(cx + fx, SHOULDER_Y + 5, cx + fx - 3, HEM_Y - 2, -1, bend=bend)
+    s.shade_band(cx - TORSO_HW, HEM_Y - 3, cx + TORSO_HW, HEM_Y, -1)
 
     #  The collar, folded back off the neck on both sides.
     s.poly([(cx - 11, SHOULDER_Y - 1), (cx - 4, SHOULDER_Y - 5),
@@ -147,12 +174,12 @@ def carl_big():
     # ---- sleeves, cuffs, hands ---------------------------------------------
     for side in (-1, 1):
         ax = cx + side * (SHOULDER_HW - 5)
-        s.form(ax, SHOULDER_Y + 4, 7, 7, coat, wrap=1.15)           # deltoid
-        s.limb(ax, SHOULDER_Y + 4, ax + side * 4, HEM_Y - 4, 11, 9, coat)
-        s.stroke_shade(ax + side, SHOULDER_Y + 9, ax + side * 3, HEM_Y - 6, -1)
-        s.rect(ax + side * 2, HEM_Y - 6, ax + side * 6, HEM_Y - 4, coat[1])  # cuff
-        s.form(ax + side * 4, HEM_Y + 1, 5, 6, skin, wrap=1.4)      # the hand
-        s.put(ax + side * 4, HEM_Y + 5, skin[1])
+        s.form(ax, SHOULDER_Y + 4, 6, 7, coat, wrap=1.15)           # deltoid
+        s.limb(ax, SHOULDER_Y + 4, cx + side * (WAIST_HW + 5), HEM_Y - 4, 9, 6, coat)
+        s.stroke_shade(ax + side, SHOULDER_Y + 10, cx + side * (WAIST_HW + 3), HEM_Y - 6, -1)
+        s.rect(cx + side * (WAIST_HW + 1), HEM_Y - 6, cx + side * (WAIST_HW + 7), HEM_Y - 4, coat[1])  # cuff
+        s.form(cx + side * (WAIST_HW + 5), HEM_Y + 1, 4, 6, skin, wrap=1.4)      # the hand
+        s.put(cx + side * (WAIST_HW + 5), HEM_Y + 5, skin[1])
 
     # ---- head ---------------------------------------------------------------
     #  Hair, then the face over it, then the clumps that stand off the top.
