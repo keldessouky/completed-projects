@@ -212,6 +212,39 @@ def resize(px, x0, x1, y0, y1, tw, th):
     return out
 
 
+def dither_to_palette(px, cat):
+    """Floyd-Steinberg the image onto the game's palette, via Pillow.
+
+    Optional: Pillow is not a dependency of this repo and the importer works
+    without it, matching each pixel to its nearest palette entry instead.
+    What dithering buys is the gradients -- a generator's soft shading banded
+    into a hundred and sixty fixed colours shows its steps, and trading some
+    of that for noise is the trade every indexed-colour machine ever made.
+    """
+    try:
+        from PIL import Image
+    except ImportError:
+        return None
+
+    h, w = len(px), len(px[0])
+    src = Image.new('RGB', (w, h))
+    src.putdata([(p[0], p[1], p[2]) if p[3] >= 128 else (0, 0, 0)
+                 for row in px for p in row])
+    pal = Image.new('P', (1, 1))
+    flat = [v for c in cat for v in c]
+    #  Pad by repeating the last entry rather than with zeros. Unused slots
+    #  left black are real entries as far as the quantiser is concerned, and
+    #  it will pick them for anything dark -- putting a colour on screen that
+    #  is not in the palette at all.
+    flat += list(cat[-1]) * (256 - len(cat))
+    pal.putpalette(flat[:768])
+    out = src.quantize(palette=pal, dither=Image.Dither.FLOYDSTEINBERG).convert('RGB')
+    data = list(out.get_flattened_data() if hasattr(out, 'get_flattened_data')
+                else out.getdata())
+    return [[None if px[j][i][3] < 128 else data[j * w + i]
+             for i in range(w)] for j in range(h)]
+
+
 def snap(rgb):
     bh, bs, bl = _hsl(rgb)
     best, bd = None, None
@@ -227,10 +260,15 @@ def snap(rgb):
     return best
 
 
-def quantise(px, limit, keep_colours):
+def quantise(px, limit, keep_colours, dither=False):
     """Median-cut on the image's own colours when keeping them, otherwise
     every pixel is matched into the shared palette first and the result is
     already small."""
+    if not keep_colours and dither:
+        got = dither_to_palette(px, sorted(set(CATALOGUE)))
+        if got is not None:
+            return got
+
     if not keep_colours:
         cache, out = {}, []
         for row in px:
@@ -290,7 +328,7 @@ def quantise(px, limit, keep_colours):
     return out
 
 
-def build(path, height, limit, keep_colours, frame_w, frame_h, ground):
+def build(path, height, limit, keep_colours, frame_w, frame_h, ground, dither=False):
     w, h, nch, rows = read_png(path)
     px = to_rgba(w, h, nch, rows)
     x0, x1, y0, y1 = trim(px)
@@ -300,7 +338,7 @@ def build(path, height, limit, keep_colours, frame_w, frame_h, ground):
         height = (y1 - y0 + 1) // f
     tw = max(1, int(round((x1 - x0 + 1) * height / float(y1 - y0 + 1))))
     small = resize(px, x0, x1, y0, y1, tw, height)
-    mapped = quantise(small, limit, keep_colours)
+    mapped = quantise(small, limit, keep_colours, dither)
 
     from forge_tools import Sprite
     fw = frame_w or tw
@@ -329,11 +367,15 @@ if __name__ == '__main__':
     ap.add_argument('--frame', default='64x74', help="the sprite frame, WxH")
     ap.add_argument('--ground', type=int, default=None,
                     help="the row the feet stand on; adds the shared shadow")
+    ap.add_argument('--dither', action='store_true',
+                    help="Floyd-Steinberg onto the game palette instead of "
+                         "matching each pixel to its nearest entry. Needs "
+                         "Pillow; without it this falls back quietly.")
     ap.add_argument('--out', default=None, help="write a preview PNG here")
     a = ap.parse_args()
     fw, fh = (int(v) for v in a.frame.lower().split('x'))
     sp, sw, sh, tw, th, n = build(a.image, a.height, a.colours, a.keep_colours,
-                                  fw, fh, a.ground)
+                                  fw, fh, a.ground, a.dither)
     print("  %s: %dx%d -> %dx%d in a %dx%d frame, %d colours"
           % (os.path.basename(a.image), sw, sh, tw, th, fw, fh, n))
     if a.out:
