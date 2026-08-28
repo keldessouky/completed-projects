@@ -47,6 +47,24 @@ def check(path):
         if start + size > len(d):
             bad.append("%s binary runs past the end of the file" % name)
 
+    #  Sizes a strict loader trusts. A direct-booting emulator copies both
+    #  binaries into RAM from offsets and lengths in this header and then
+    #  jumps; every one of these being right is the difference between a game
+    #  and a black screen, and none of them are checked by anything else.
+    if u32(d, 0x80) != len(d):
+        bad.append("header says the ROM is %d bytes, the file is %d"
+                   % (u32(d, 0x80), len(d)))
+    if u32(d, 0x84) != 0x200:
+        bad.append("header size is %#x, should be 0x200" % u32(d, 0x84))
+    capacity_kb = 128 << d[0x14]
+    if capacity_kb < len(d) // 1024:
+        bad.append("device capacity is %d KB, too small for a %d KB image"
+                   % (capacity_kb, len(d) // 1024))
+    arm9_off, arm9_ram, arm9_entry = u32(d, 0x20), u32(d, 0x28), u32(d, 0x24)
+    if not arm9_ram <= arm9_entry < arm9_ram + u32(d, 0x2C):
+        bad.append("the ARM9 entry point %#010x is outside the ARM9 binary"
+                   % arm9_entry)
+
     #  The banner is the label: a front end reads the icon and the three lines
     #  of title straight out of it, and it is the only thing most people see
     #  before deciding whether to open the ROM. A zero offset, a truncated
