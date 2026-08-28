@@ -119,10 +119,76 @@ def trim(px):
     return min(xs), max(xs), min(ys), max(ys)
 
 
+def native_scale(px, x0, x1, y0, y1, limit=16):
+    """How many screen pixels one art pixel occupies, or 1 if this is not
+    upscaled pixel art.
+
+    A generator asked for a sprite hands back the sprite blown up: each art
+    pixel is an N by N block of identical ones. Guessing N wrong by one turns
+    the whole import into a box filter, which is how a thirty-one colour
+    sprite came back with seventy-two. So it is measured rather than asked
+    for: the longest run of identical pixels in a row is a multiple of N, and
+    the greatest common divisor over many rows and columns is N itself.
+    """
+    def gcd(a, b):
+        while b:
+            a, b = b, a % b
+        return a
+
+    runs = 0
+    for y in range(y0, y1 + 1, max(1, (y1 - y0) // 24 or 1)):
+        run, prev = 0, None
+        for x in range(x0, x1 + 2):
+            p = px[y][x] if x <= x1 else None
+            if p == prev:
+                run += 1
+            else:
+                if prev is not None and run:
+                    runs = gcd(runs, run)
+                run, prev = 1, p
+    for x in range(x0, x1 + 1, max(1, (x1 - x0) // 24 or 1)):
+        run, prev = 0, None
+        for y in range(y0, y1 + 2):
+            p = px[y][x] if y <= y1 else None
+            if p == prev:
+                run += 1
+            else:
+                if prev is not None and run:
+                    runs = gcd(runs, run)
+                run, prev = 1, p
+    if runs > limit or runs < 1:
+        return 1
+    #  Only believe it if the trimmed area divides evenly by it.
+    if (x1 - x0 + 1) % runs or (y1 - y0 + 1) % runs:
+        return 1
+    return runs
+
+
 def resize(px, x0, x1, y0, y1, tw, th):
-    """Box filter down, nearest up. Averaging on the way up invents pixels
-    that were never drawn, which is the one thing pixel art cannot survive."""
+    """Box filter down, nearest up -- except on art that is already pixels.
+
+    A generator asked for a sprite usually hands back the sprite upscaled:
+    every art pixel is an 8x8 or 16x16 block of identical ones. Averaging
+    those blocks back down is the worst thing that can be done to them,
+    because every block boundary contributes a colour that was never in the
+    art. Round-tripping a thirty-one colour sprite through an eight times
+    upscale came back with seventy-two. So when the source divides evenly by
+    the target, the middle of each block is taken and the original pixels come
+    back exactly.
+    """
     sw, sh = x1 - x0 + 1, y1 - y0 + 1
+    if tw and th and sw % tw == 0 and sh % th == 0 and (sw // tw) > 1:
+        fx, fy = sw // tw, sh // th
+        out = []
+        for j in range(th):
+            sy = y0 + j * fy + fy // 2
+            row = []
+            for i in range(tw):
+                sx = x0 + i * fx + fx // 2
+                p = px[sy][sx]
+                row.append(p if p[3] > 128 else (0, 0, 0, 0))
+            out.append(row)
+        return out
     out = []
     for j in range(th):
         row = []
@@ -180,6 +246,17 @@ def quantise(px, limit, keep_colours):
             out.append(o)
         return out
 
+    #  Pixel art usually has fewer colours than the budget already. Running
+    #  median cut over it anyway merges the rare ones -- catchlights, the one
+    #  pixel of rim on an edge -- into whichever bucket is biggest, and those
+    #  are exactly the pixels doing the most work per pixel in the image.
+    distinct = sorted({p[:3] for row in px for p in row if p[3] >= 128})
+    if len(distinct) <= limit:
+        out = []
+        for row in px:
+            out.append([None if p[3] < 128 else p[:3] for p in row])
+        return out
+
     buckets = [[p[:3] for row in px for p in row if p[3] >= 128]]
     while len(buckets) < limit:
         widest, axis, span = None, 0, -1
@@ -217,6 +294,10 @@ def build(path, height, limit, keep_colours, frame_w, frame_h, ground):
     w, h, nch, rows = read_png(path)
     px = to_rgba(w, h, nch, rows)
     x0, x1, y0, y1 = trim(px)
+    if height is None:
+        #  No height asked for: keep the art at its own resolution.
+        f = native_scale(px, x0, x1, y0, y1)
+        height = (y1 - y0 + 1) // f
     tw = max(1, int(round((x1 - x0 + 1) * height / float(y1 - y0 + 1))))
     small = resize(px, x0, x1, y0, y1, tw, height)
     mapped = quantise(small, limit, keep_colours)
@@ -233,14 +314,14 @@ def build(path, height, limit, keep_colours, frame_w, frame_h, ground):
                 s.put(ox + i, oy + j, s.ink(c))
     if ground is not None:
         s = s.stage(fw, fh, ground)
-    return s, w, h, tw, len(s.pal) - 1
+    return s, w, h, tw, height, len(s.pal) - 1
 
 
 if __name__ == '__main__':
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument('image')
-    ap.add_argument('--height', type=int, default=74,
-                    help="how tall the character should end up, in pixels")
+    ap.add_argument('--height', type=int, default=None,
+                    help="how tall the character should end up. Left off, the art's own pixel size is measured and kept.")
     ap.add_argument('--colours', type=int, default=32)
     ap.add_argument('--keep-colours', action='store_true',
                     help="quantise the source's own palette instead of "
@@ -251,10 +332,10 @@ if __name__ == '__main__':
     ap.add_argument('--out', default=None, help="write a preview PNG here")
     a = ap.parse_args()
     fw, fh = (int(v) for v in a.frame.lower().split('x'))
-    sp, sw, sh, tw, n = build(a.image, a.height, a.colours, a.keep_colours,
-                              fw, fh, a.ground)
+    sp, sw, sh, tw, th, n = build(a.image, a.height, a.colours, a.keep_colours,
+                                  fw, fh, a.ground)
     print("  %s: %dx%d -> %dx%d in a %dx%d frame, %d colours"
-          % (os.path.basename(a.image), sw, sh, tw, a.height, fw, fh, n))
+          % (os.path.basename(a.image), sw, sh, tw, th, fw, fh, n))
     if a.out:
         buf = bytearray()
         for y in range(sp.h):
