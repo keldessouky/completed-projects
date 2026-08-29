@@ -256,12 +256,56 @@ static void draw_story(Surface *top, Surface *bot) {
     backdrop(bot);
     window(bot, 4, 4, SCREEN_W - 8, SCREEN_H - 30, 0);
     if (b) {
+        /*  The beat so far, not just the line being spoken.
+         *
+         *  This box is a hundred and sixty pixels tall and one line of
+         *  dialogue is forty of them, so showing only the current line left
+         *  two thirds of the biggest panel in the game empty -- on the screen
+         *  a player spends the most time reading. What belongs in that space
+         *  is what was already said: it costs nothing to keep, it is the one
+         *  thing somebody who looked away actually wants, and a beat is a
+         *  conversation, which is a shape a transcript already has.
+         *
+         *  Laid out backwards from the current line until the box is full,
+         *  then drawn forwards, so the line being revealed is always the
+         *  bottom one and the older ones scroll off the top. */
+        const int kX = 12, kW = SCREEN_W - 24, kTop = 12, kRow = 9;
+        int rows_free = (SCREEN_H - 30 - 16) / kRow;
+
         char shown[220];
         const char *src = b->lines[g.beat_line].text;
         int n = 0;
         while (src[n] && n < (int)sizeof shown - 1 && n < g.beat_reveal) { shown[n] = src[n]; n++; }
         shown[n] = 0;
-        gfx_text_wrapped(bot, 12, 16, SCREEN_W - 24, C_INK, shown);
+
+        int first = g.beat_line;
+        int used = gfx_text_wrapped_count(kW, shown) + 1;
+        while (first > 0) {
+            int need = gfx_text_wrapped_count(kW, b->lines[first - 1].text) + 1;
+            /*  A speaker change costs a name line. */
+            if (b->lines[first - 1].speaker != b->lines[first].speaker) need++;
+            if (used + need > rows_free) break;
+            used += need;
+            first--;
+        }
+
+        int y = kTop;
+        int last_speaker = -1;
+        for (int i = first; i <= g.beat_line; i++) {
+            int who = b->lines[i].speaker;
+            if (who != last_speaker) {
+                gfx_text(bot, kX, y, i == g.beat_line
+                         ? (who == SP_SYSTEM ? C_AMBER : C_MAGENTA) : C_WIN_EDGE,
+                         speaker_names[who]);
+                y += kRow;
+                last_speaker = who;
+            }
+            /*  Said already, so it steps back; being said, so it is ink. */
+            y += gfx_text_wrapped(bot, kX, y, kW,
+                                  i == g.beat_line ? C_INK : C_DIM,
+                                  i == g.beat_line ? shown : b->lines[i].text) * kRow;
+            y += kRow / 2;
+        }
     }
     if (!b || g.beat_reveal > 200 || (g.anim & 32))
         gfx_text(bot, SCREEN_W - 116, SCREEN_H - 20, C_AMBER, "TAP OR PRESS A");
@@ -1136,8 +1180,51 @@ static void draw_cutscene(Surface *top, Surface *bot)
     for (const char *p = text; *p && n < (int)sizeof shown - 1 && n < reveal; p++)
         shown[n++] = *p;
     shown[n] = 0;
-    window(bot, 4, 24, SCREEN_W - 8, chapter_asking() ? 64 : 120, 0);
-    gfx_text_wrapped(bot, 10, 30, SCREEN_W - 20, C_INK, shown);
+
+    int asking = chapter_asking();
+    int box_h = asking ? 64 : 120;
+    window(bot, 4, 24, SCREEN_W - 8, box_h, 0);
+
+    /*  What has been said so far, with the line being typed at the bottom.
+     *
+     *  The box is a hundred and twenty pixels tall and a line of dialogue is
+     *  about forty of them, so showing only the current line left two thirds
+     *  of the largest panel in the game empty -- on the screen the player is
+     *  looking at while they read. The lines already spoken are the obvious
+     *  thing to put there: they cost nothing to keep, they are what somebody
+     *  who glanced away wants back, and a chapter is a conversation, which is
+     *  a shape a transcript already fits. Laid out backwards from the current
+     *  line until the box is full, then drawn forwards, so the line being
+     *  revealed is always the last one.
+     *
+     *  Not while a question is up: there the box is short and the answers
+     *  below it are what the screen is for. */
+    const int kX = 10, kW = SCREEN_W - 20, kRow = 9;
+    int y = 30;
+    if (!asking) {
+        const Chapter *ch = 0;
+        for (int i = 0; i < chapter_count; i++)
+            if (chapters[i].chapter == g.chapter) ch = &chapters[i];
+        int here = g.cut_line;
+        int first = here;
+        if (ch && here < ch->count) {
+            int rows_free = (box_h - 12) / kRow;
+            int used = gfx_text_wrapped_count(kW, shown) + 1;
+            while (first > 0) {
+                const CutLine *prev = &ch->lines[first - 1];
+                /*  A question's own text is on screen with its answers; it
+                    does not belong in the transcript twice. */
+                int need = gfx_text_wrapped_count(kW, prev->text) + 1;
+                if (used + need > rows_free) break;
+                used += need;
+                first--;
+            }
+            for (int i = first; i < here; i++)
+                y += gfx_text_wrapped(bot, kX, y, kW, C_DIM, ch->lines[i].text) * kRow
+                   + kRow / 2;
+        }
+    }
+    gfx_text_wrapped(bot, kX, y, kW, C_INK, shown);
 
     if (chapter_asking()) {
         int count = 0;
@@ -1519,11 +1606,32 @@ static void draw_box(Surface *top, Surface *bot) {
     }
 
     backdrop(bot);
-    gfx_text_big(bot, 24, 60, c, tiers[g.box_tier]);
-    gfx_text(bot, 24, 88, C_DIM, g.box_phase >= 2 ? "Added to the bag." : "The box is deciding.");
-    gfx_text(bot, 24, 108, C_DIM, "Boxes opened this run");
-    gfx_text(bot, 210, 108, C_INK, gfx_num(g.boxes_opened));
-    if (g.box_phase >= 1) gfx_text(bot, 24, 160, C_AMBER, "TAP TO CONTINUE");
+    gfx_text_big(bot, 12, 14, c, tiers[g.box_tier]);
+    gfx_text(bot, 12, 40, C_DIM, g.box_phase >= 2 ? "Added to the bag." : "The box is deciding.");
+    gfx_text(bot, 12, 54, C_DIM, "Boxes opened this run");
+    gfx_text(bot, 212, 54, C_INK, gfx_num(g.boxes_opened));
+
+    /*  What is already in the bag, because that is the question a box being
+     *  opened actually raises -- do I need this, do I have three of it
+     *  already -- and because the four lines this screen had before left the
+     *  bottom two thirds of it blank while the top screen did all the work.
+     *  It is not on the top screen and it is not a second copy of anything. */
+    gfx_hline(bot, 12, SCREEN_W - 13, 68, C_WIN_EDGE);
+    gfx_text(bot, 12, 76, C_AMBER, "IN THE BAG");
+    int shown = 0;
+    for (int i = 1; i < item_count && shown < 7; i++) {
+        if (!g.inventory[i]) continue;
+        int row = 92 + shown * 12;
+        /*  The one that just landed is called out, so the change is visible
+            rather than something you have to go and count. */
+        int fresh = g.box_phase >= 2 && i == g.box_item;
+        gfx_text(bot, 16, row, fresh ? c : C_INK, item_defs[i].name);
+        gfx_text(bot, 214, row, C_DIM, "x");
+        gfx_text(bot, 222, row, fresh ? c : C_DIM, gfx_num(g.inventory[i]));
+        shown++;
+    }
+    if (!shown) gfx_text(bot, 16, 92, C_DIM, "Nothing yet. This is the first thing.");
+    if (g.box_phase >= 1) gfx_text(bot, 12, 178, C_AMBER, "TAP TO CONTINUE");
 }
 
 /* -------------------------------------------------------------- levelup --- */
