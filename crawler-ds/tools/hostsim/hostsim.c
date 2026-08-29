@@ -440,7 +440,20 @@ int main(int argc, char **argv) {
         for (int i = 0; i < 300 && g.scene != SCENE_DUNGEON; i++) tap(BTN_A);
         pause_scene = SCENE_BOX;
         walk_to(T_BOX, 500);
-        if (g.scene == SCENE_BOX) { idle(50); shot("04-lootbox"); }
+        /*  One shot per beat of the opening, so the animation is something
+            that can be looked at rather than taken on trust: it rattles, the
+            lid goes, the thing rises, and then the card waits. The last one
+            has no timer on it, so idling past it does not close it. */
+        if (g.scene == SCENE_BOX) {
+            /*  shot() idles twenty frames of its own before it writes, so
+                these are the gaps on top of that. The beats are 52, 22 and 32
+                frames long, so the captures land at 45 (rattling hard), 65
+                (mid burst), 90 (mid rise) and 120 (the card, which waits). */
+            idle(25); shot("04-lootbox-shake");
+            idle(0);  shot("04b-lootbox-burst");
+            idle(5);  shot("04c-lootbox-rise");
+            idle(10); shot("04d-lootbox-card");
+        }
         pause_scene = SCENE_SAFEROOM;
         for (int i = 0; i < 20 && g.scene != SCENE_DUNGEON; i++) tap(BTN_A);
         /*  The floor, taken once there is a floor to look at. On the frame the
@@ -561,7 +574,7 @@ int main(int argc, char **argv) {
             Anything missing is a picture of a game that no longer exists. */
         {
             static const char *const kWanted[] = {
-                "01-title", "02-chapter-street", "03-floor", "04-lootbox",
+                "01-title", "02-chapter-street", "03-floor", "04-lootbox-shake",
                 "04b-safe-room", "05-battle", "06-battle-orders", "07-draft",
                 "08-party", "08b-achievements", "09-shop", "10-recall-code",
                 "11-levelup", "12-boss", "14-victory", "15-season-over",
@@ -741,7 +754,37 @@ int main(int argc, char **argv) {
             idle(2);
         }
         printf("  pad taps -> steps %d (was %d), scene %d\n", g.dun.steps, before, g.scene);
-        return (g.dun.steps > before) ? 0 : 1;
+        int fail = (g.dun.steps > before) ? 0 : 1;
+
+        /*  A loot box has to wait to be dismissed.
+         *
+         *  It used to close itself after sixty frames -- one second to read a
+         *  name, an effect line and a description -- so the screen took itself
+         *  away mid-sentence. That is the sort of thing that comes back the
+         *  moment somebody adds a timer for the animation and reaches for the
+         *  same variable, so it is asserted rather than eyeballed: run the
+         *  opening well past every beat, and the card must still be up. */
+        game_open_box(0);
+        idle(400);
+        if (g.scene != SCENE_BOX || g.box_phase != BOX_CARD) {
+            printf("  box card -> scene %d phase %d (wanted the card, still up)\n",
+                   g.scene, g.box_phase);
+            fail = 1;
+        } else {
+            printf("  box card -> still up after 400 frames\n");
+        }
+        /*  ...and a tap has to be what closes it. */
+        input.touching = input.touch_pressed = 1;
+        input.touch_x = 128; input.touch_y = 176;
+        step();
+        idle(2);
+        if (g.scene == SCENE_BOX) {
+            printf("  box card -> tap did not close it\n");
+            fail = 1;
+        } else {
+            printf("  box card -> a tap closed it\n");
+        }
+        return fail;
     }
 
     if (bot) {

@@ -171,6 +171,11 @@ typedef struct { uint8_t str, dex, con, wit, cha, luck; } Stats;
 
 enum { ST_BLEED, ST_STUN, ST_ATKUP, ST_DEFDOWN, ST_COUNT };
 
+/*  A loot box opens in four beats. The first three run themselves and can be
+ *  skipped with a tap; the last one waits for one, because how long it takes
+ *  to read what you just won is the player's business and not a timer's. */
+enum { BOX_SHAKE, BOX_BURST, BOX_RISE, BOX_CARD };
+
 typedef struct {
     const char *name;
     Stats    st;

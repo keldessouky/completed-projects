@@ -6,6 +6,7 @@ same key light. `tools/forge.py` turns this list into src/gen/art.c.
 """
 import bestiary
 import cast
+import items
 import props
 import textures
 import overworld
@@ -42,6 +43,16 @@ ROSTER = [
     ('box_silver', lambda: props.loot_box(1)),
     ('box_gold', lambda: props.loot_box(2)),
     ('box_legendary', lambda: props.loot_box(3)),
+    #  The same four with the lid off, and the four lids, so the opening has a
+    #  second state to cut to instead of shaking a shut box at the player.
+    ('box_open_bronze', lambda: props.loot_box_open(0)),
+    ('box_open_silver', lambda: props.loot_box_open(1)),
+    ('box_open_gold', lambda: props.loot_box_open(2)),
+    ('box_open_legendary', lambda: props.loot_box_open(3)),
+    ('lid_bronze', lambda: props.loot_lid(0)),
+    ('lid_silver', lambda: props.loot_lid(1)),
+    ('lid_gold', lambda: props.loot_lid(2)),
+    ('lid_legendary', lambda: props.loot_lid(3)),
     ('stairs', props.stairs_down),
     ('shop', props.shop_stall),
     ('shrine', props.shrine),
@@ -50,6 +61,11 @@ ROSTER = [
 
 # The corridor surfaces. Not sprites -- src/render/view3d.c samples these
 # directly and tiles them, so index 0 is a real colour here, not transparency.
+#  What the boxes pay out, one per entry in item_defs and in that order, so
+#  the renderer can go from an item id straight to a sprite. An RPG that names
+#  a reward and shows nothing is asking you to take its word for it.
+ROSTER += items.ROSTER
+
 ROSTER += textures.ROSTER
 
 # The party as the overworld sees them: 16x24, three facings, mirrored for the

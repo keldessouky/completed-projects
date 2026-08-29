@@ -401,24 +401,56 @@ static void update_shop(const PlatInput *in) {
     if ((in->pressed & (BTN_B | BTN_START)) || touch_in(in, &leave)) game_set_scene(SCENE_DUNGEON);
 }
 
+/*  Move the opening on, handing over the item exactly once on the way.
+ *  Skipping jumps straight to the card rather than one beat at a time: a
+ *  player who taps through an animation wants the thing, not the next frame
+ *  of it, and routing every path through here is what keeps the item from
+ *  being awarded twice or not at all. */
+static void box_advance(int to) {
+    if (to >= BOX_RISE && g.box_phase < BOX_RISE) inventory_add(g.box_item, 1);
+    g.box_phase = (uint8_t)to;
+    g.box_timer = 0;
+}
+
+static void box_close(void) {
+    if (g.box_from_safe && game_boxes_held()) { game_set_scene(SCENE_SAFEROOM); return; }
+    if (g.box_from_safe) {
+        g.box_from_safe = 0;
+        if (g.hero[0].points || g.hero[1].points) game_set_scene(SCENE_LEVELUP);
+        else game_set_scene(SCENE_SAFEROOM);
+        return;
+    }
+    if (g.hero[0].points || g.hero[1].points) game_set_scene(SCENE_LEVELUP);
+    else game_set_scene(SCENE_DUNGEON);
+}
+
 static void update_box(const PlatInput *in) {
     g.box_timer++;
-    if (g.box_phase == 0 && g.box_timer > 40) { g.box_phase = 1; g.box_timer = 0; }
-    if (g.box_phase == 1 && (g.box_timer > 30 || (in->pressed & BTN_A) || in->touch_pressed)) {
-        g.box_phase = 2;
-        g.box_timer = 0;
-        inventory_add(g.box_item, 1);
-    }
-    if (g.box_phase == 2 && (g.box_timer > 60 || (in->pressed & (BTN_A | BTN_B)) || in->touch_pressed)) {
-        if (g.box_from_safe && game_boxes_held()) { game_set_scene(SCENE_SAFEROOM); return; }
-        if (g.box_from_safe) {
-            g.box_from_safe = 0;
-            if (g.hero[0].points || g.hero[1].points) game_set_scene(SCENE_LEVELUP);
-            else game_set_scene(SCENE_SAFEROOM);
-            return;
-        }
-        if (g.hero[0].points || g.hero[1].points) game_set_scene(SCENE_LEVELUP);
-        else game_set_scene(SCENE_DUNGEON);
+    int go = (in->pressed & (BTN_A | BTN_B | BTN_START)) || in->touch_pressed;
+
+    switch (g.box_phase) {
+    case BOX_SHAKE:                          /* it rattles, and decides */
+        if (go) { box_advance(BOX_CARD); return; }
+        if (g.box_timer > 52) { box_advance(BOX_BURST); audio_sfx(SFX_LOOT); }
+        return;
+    case BOX_BURST:                          /* the lid goes */
+        if (go) { box_advance(BOX_CARD); return; }
+        if (g.box_timer > 22) box_advance(BOX_RISE);
+        return;
+    case BOX_RISE:                           /* and the thing comes up out of it */
+        if (go) { box_advance(BOX_CARD); return; }
+        if (g.box_timer > 32) box_advance(BOX_CARD);
+        return;
+    default:
+        /*  No timer. This used to close itself after sixty frames, which is
+            one second to read a name, a description and what the thing does --
+            so the screen took itself away mid-sentence. It waits now.
+
+            The few frames of grace stop the second half of a double tap, or a
+            fast tap that skipped the animation, from dismissing the card
+            before it has been on screen long enough to see. */
+        if (g.box_timer > 8 && go) box_close();
+        return;
     }
 }
 

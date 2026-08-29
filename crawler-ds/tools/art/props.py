@@ -38,6 +38,64 @@ def loot_box(tier=0):
     return s.finish(rim=tier >= 2).emit()
 
 
+def loot_box_open(tier=0):
+    """The same chest with the lid off it.
+
+    An opening animation in which the box stays shut is a box sitting still
+    while something happens next to it, so the reveal needs a second state to
+    cut to. The body is the closed sprite's body; what changes is that the
+    domed lid is gone, there is a dark inside to see, and the rim it was
+    sitting on catches the light coming out.
+    """
+    body_tint = [(178, 116, 60), (192, 200, 214), (248, 202, 70), (198, 92, 232)][tier]
+    seam_tint = [(252, 214, 150), (246, 252, 255), (255, 246, 176), (250, 176, 255)][tier]
+    s = Sprite(PROP, PROP)
+    body = s.register_family(s.ramp(body_tint, 6))
+    band = s.register_family(s.ramp(tuple(int(c * 0.55) for c in body_tint), 5))
+    glow = s.ink(seam_tint)
+    hot = s.ink(tuple(min(255, c + 40) for c in seam_tint))
+    dark = s.ink(tuple(int(c * 0.18) for c in body_tint))
+
+    s.rect(5, 17, 35, 34, body[2])                   # the chest, as before
+    s.rect(5, 17, 35, 19, body[3])
+    s.rect(5, 32, 35, 34, body[0])
+    s.form(20, 15, 15, 4, band, squash=0.6)          # the rim the lid sat on
+    s.form(20, 16, 13, 3, ids=[dark, dark, dark], squash=0.9)     # and the inside
+    for x in range(8, 33):                           # light climbing out of it
+        s.put(x, 13, glow if (x + tier) % 3 else hot)
+    s.put(14, 12, hot)
+    s.put(26, 12, hot)
+    for x in (5, 35):                                # corner fittings
+        s.rect(x - 2, 17, x + 2, 22, band[2])
+        s.rect(x - 2, 29, x + 2, 34, band[2])
+        s.put(x, 19, band[4])
+    s.rect(16, 20, 24, 26, band[2])                  # what is left of the clasp
+    s.rect(18, 21, 22, 24, glow)
+    s.line(7, 23, 7, 30, body[4])
+    return s.finish(rim=tier >= 2).emit()
+
+
+def loot_lid(tier=0):
+    """The lid, in the air, on its way somewhere else."""
+    body_tint = [(178, 116, 60), (192, 200, 214), (248, 202, 70), (198, 92, 232)][tier]
+    seam_tint = [(252, 214, 150), (246, 252, 255), (255, 246, 176), (250, 176, 255)][tier]
+    s = Sprite(PROP, 20)
+    body = s.register_family(s.ramp(body_tint, 6))
+    band = s.register_family(s.ramp(tuple(int(c * 0.55) for c in body_tint), 5))
+    glow = s.ink(seam_tint)
+
+    s.form(20, 12, 15, 7, body, squash=0.35)         # the dome
+    s.rect(5, 12, 35, 15, body[3])
+    s.rect(5, 12, 35, 12, body[5])
+    s.rect(5, 15, 35, 16, band[1])                   # the seam it broke along
+    s.rect(6, 15, 34, 15, glow)
+    for x in (5, 35):
+        s.rect(x - 2, 8, x + 2, 16, band[2])
+    s.rect(16, 6, 24, 16, band[2])                   # the strap over the top
+    s.rect(17, 6, 23, 7, band[4])
+    return s.finish(rim=tier >= 2).emit()
+
+
 def stairs_down():
     """Down. Always down, and the floor behind you is on a timer."""
     s = Sprite(PROP, PROP)

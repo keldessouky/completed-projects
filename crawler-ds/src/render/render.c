@@ -150,6 +150,38 @@ static void party_strip(Surface *s, int y) {
 
 static void draw_button(Surface *s, const Rect *r, int on);
 
+/*  An item id to the icon drawn for it. The icons are emitted contiguously in
+ *  item_defs' order starting at slot 1, so this is arithmetic rather than a
+ *  table that could fall out of step with the item list. */
+static const Sprite *item_sprite(int id) {
+    if (id < 1 || id >= item_count) return 0;
+    return sprite_table[SPR_ITEM_SPLINT_POTION + (id - 1)];
+}
+
+/*  What the thing actually does, in a line, from the numbers rather than the
+ *  prose -- the blurb is flavour and does not always say. */
+static void item_effect(char *out, int id) {
+    const ItemDef *d = &item_defs[id];
+    const char *lead = 0, *tail = 0;
+    switch (d->kind) {
+    case IT_HEAL:    lead = "Restores ";  tail = " health"; break;
+    case IT_STAMINA: lead = "Restores ";  tail = " stamina"; break;
+    case IT_BOMB:    lead = "Hits every foe for ";  tail = ""; break;
+    case IT_REVIVE:  lead = "Revives at "; tail = " health"; break;
+    case IT_BUFF:    lead = "Attack up for "; tail = " turns"; break;
+    case IT_WEAPON:  lead = "Weapon. Attack +"; tail = ""; break;
+    case IT_ARMOUR:  lead = "Armour. Defence +"; tail = ""; break;
+    case IT_TRINKET: lead = "Trinket. Luck +"; tail = ""; break;
+    default:         out[0] = 0; return;
+    }
+    int o = 0;
+    for (const char *p = lead; *p; p++) out[o++] = *p;
+    for (const char *p = gfx_num(d->power); *p; p++) out[o++] = *p;
+    for (const char *p = tail; *p; p++) out[o++] = *p;
+    out[o] = 0;
+}
+
+
 static void draw_title(Surface *top, Surface *bot) {
     gfx_vgradient(top, 0, 0, SCREEN_W, SCREEN_H, RGB(51, 37, 74) /* arcane 0 */, RGB(58, 32, 37) /* blood 0 */);
     for (int i = 0; i < 60; i++) {          /* falling rubble, forever */
@@ -894,10 +926,19 @@ static void draw_battle(Surface *top, Surface *bot) {
             int k = item_defs[i].kind;
             if (k != IT_HEAL && k != IT_STAMINA && k != IT_BOMB && k != IT_REVIVE && k != IT_BUFF) continue;
             int on = g.bat.cursor == shown;
-            window(bot, 6, 30 + shown * 18, 244, 17, on);
-            gfx_text(bot, 12, 35 + shown * 18, on ? C_AMBER : C_INK, item_defs[i].name);
-            gfx_text(bot, 208, 35 + shown * 18, C_INK, "x");
-            gfx_text(bot, 216, 35 + shown * 18, C_INK, gfx_num(g.inventory[i]));
+            int y = 30 + shown * 20;
+            window(bot, 6, y, 244, 19, on);
+            const Sprite *ic = item_sprite(i);
+            if (ic) gfx_sprite_scaled(bot, ic, 9, y + 1, 53, 100);
+            gfx_text(bot, 32, y + 6, on ? C_AMBER : C_INK, item_defs[i].name);
+            gfx_text(bot, 208, y + 6, C_INK, "x");
+            gfx_text(bot, 216, y + 6, C_INK, gfx_num(g.inventory[i]));
+            if (on) {
+                char eff[64];
+                item_effect(eff, i);
+                gfx_text(bot, 12, 158, C_GREEN, eff);
+                gfx_text_wrapped(bot, 12, 170, 236, C_DIM, item_defs[i].blurb);
+            }
             shown++;
         }
         if (!shown) gfx_text(bot, 12, 40, C_DIM, "The bag is empty. Bold strategy.");
@@ -1287,13 +1328,15 @@ static void draw_menu(Surface *top, Surface *bot) {
         gfx_text(bot, 6, 72, C_DIM, "Boxes opened");gfx_text(bot, 110, 72, C_INK, gfx_num(g.boxes_opened));
         gfx_text(bot, 6, 84, C_DIM, "Steps taken"); gfx_text(bot, 110, 84, C_INK, gfx_num(g.dun.steps));
         gfx_text(bot, 6, 96, C_DIM, "Tiles seen");  gfx_text(bot, 110, 96, C_INK, gfx_num(g.dun.explored));
-        gfx_text(bot, 6, 112, C_AMBER, "BAG");
-        int y = 124, shown = 0;
-        for (int i = 1; i < item_count && shown < 5; i++) {
+        gfx_text(bot, 6, 108, C_AMBER, "BAG");
+        int y = 120, shown = 0;
+        for (int i = 1; i < item_count && shown < 4; i++) {
             if (!g.inventory[i]) continue;
-            gfx_text(bot, 12, y, C_INK, item_defs[i].name);
-            gfx_text(bot, 214, y, C_DIM, gfx_num(g.inventory[i]));
-            y += 11;
+            const Sprite *ic = item_sprite(i);
+            if (ic) gfx_sprite_scaled(bot, ic, 10, y - 2, 53, 100);
+            gfx_text(bot, 34, y + 3, C_INK, item_defs[i].name);
+            gfx_text(bot, 214, y + 3, C_DIM, gfx_num(g.inventory[i]));
+            y += 18;
             shown++;
         }
         if (!shown) gfx_text(bot, 12, y, C_DIM, "Nothing. Bopca sells things.");
@@ -1383,8 +1426,20 @@ static void draw_shop(Surface *top, Surface *bot) {
         if (item_defs[i].price > 0 && item_defs[i].price <= 500) stock[n++] = i;
     int sel = g.shop_cursor < n ? g.shop_cursor : 0;
     window(top, 120, 60, 130, 118, 0);
-    gfx_text(top, 126, 66, C_AMBER, item_defs[stock[sel]].name);
-    gfx_text_wrapped(top, 126, 80, 120, C_INK, item_defs[stock[sel]].blurb);
+    /*  What it looks like, next to what it is called. A shop that lists names
+        and prices and shows nothing is a spreadsheet. */
+    {
+        const Sprite *ic = item_sprite(stock[sel]);
+        if (ic) {
+            gfx_panel(top, 126, 66, 38, 38, C_VOID, C_AMBER_DK);
+            gfx_sprite_scaled(top, ic, 129, 69, 100, 100);
+        }
+        gfx_text(top, 170, 70, C_AMBER, item_defs[stock[sel]].name);
+        char eff[64];
+        item_effect(eff, stock[sel]);
+        gfx_text_wrapped(top, 170, 84, 76, C_GREEN, eff);
+    }
+    gfx_text_wrapped(top, 126, 110, 120, C_INK, item_defs[stock[sel]].blurb);
     gfx_text(top, 126, 150, C_DIM, "PRICE");
     gfx_text(top, 170, 150, C_GOLD, gfx_num(item_defs[stock[sel]].price));
     gfx_text(top, 126, 162, C_DIM, "PURSE");
@@ -1401,18 +1456,23 @@ static void draw_shop(Surface *top, Surface *bot) {
     for (int i = 0; i < rows && top_row + i < n; i++) {
         int item = stock[top_row + i];
         int on = sel == top_row + i;
-        int y = 28 + i * 18;
-        window(bot, 6, y, 244, 17, on);
-        gfx_text(bot, 12, y + 5, on ? C_AMBER : C_INK, item_defs[item].name);
-        gfx_text(bot, 186, y + 5, g.gold >= item_defs[item].price ? C_GOLD : C_RED,
+        int y = 26 + i * 19;
+        window(bot, 6, y, 244, 18, on);
+        const Sprite *ic = item_sprite(item);
+        if (ic) gfx_sprite_scaled(bot, ic, 9, y + 1, 50, 100);
+        gfx_text(bot, 30, y + 6, on ? C_AMBER : C_INK, item_defs[item].name);
+        gfx_text(bot, 186, y + 6, g.gold >= item_defs[item].price ? C_GOLD : C_RED,
                  gfx_num(item_defs[item].price));
-        gfx_text(bot, 228, y + 5, C_DIM, "x");
-        gfx_text(bot, 236, y + 5, C_DIM, gfx_num(g.inventory[item]));
+        gfx_text(bot, 228, y + 6, C_DIM, "x");
+        gfx_text(bot, 236, y + 6, C_DIM, gfx_num(g.inventory[item]));
     }
+    /*  The pager goes in the header. Rows carry icons now and are a pixel
+        taller each, which walked the seventh one down onto where this used to
+        sit, just above the button bar. */
     if (n > rows) {
-        gfx_text(bot, 120, 158, C_DIM, gfx_num(sel + 1));
-        gfx_text(bot, 134, 158, C_DIM, "/");
-        gfx_text(bot, 142, 158, C_DIM, gfx_num(n));
+        gfx_text(bot, 60, 7, C_DIM, gfx_num(sel + 1));
+        gfx_text(bot, 74, 7, C_DIM, "/");
+        gfx_text(bot, 82, 7, C_DIM, gfx_num(n));
     }
     gfx_rect(bot, 0, 162, SCREEN_W, SCREEN_H - 162, C_VOID);
     Rect leave = { 6, 166, 100, 22, "LEAVE" };
@@ -1583,55 +1643,161 @@ static void draw_box(Surface *top, Surface *bot) {
     static const char *const tiers[4] = { "BRONZE", "SILVER", "GOLD", "LEGENDARY" };
     static const uint16_t tier_colour[4] = { RGB(195, 138, 85) /* wood 3 */, RGB(217, 226, 231) /* lightning 3 */, RGB(244, 188, 76) /* fire 5 */, RGB(192, 155, 215) /* arcane 4 */ };
     uint16_t c = tier_colour[g.box_tier];
+    int phase = g.box_phase, t = (int)g.box_timer;
     gfx_vgradient(top, 0, 0, SCREEN_W, SCREEN_H, RGB(32, 34, 41) /* cloth_black 0 */, gfx_scale_colour(c, 5, 16));
     system_bar(top, "LOOT BOX", tiers[g.box_tier]);
 
-    int cx = 128, cy = 100;
-    int rays = g.box_phase >= 1 ? 16 : 6;
-    for (int i = 0; i < rays; i++) {
-        int a = (i * 360 / rays + (int)(g.anim * 2)) % 360;
-        int dx = (a < 90 || a > 270) ? 1 : -1;
-        int len = 40 + (i * 13) % 60;
-
-        int x2 = cx + dx * len, y2 = cy + ((i & 1) ? len / 2 : -len / 3);
-        gfx_vline(top, x2 > cx ? x2 : cx, y2, y2 + 1, gfx_scale_colour(c, 8, 16));
-    }
     const Sprite *box = sprite_table[SPR_BOX_BRONZE + g.box_tier];
-    int bob = g.box_phase == 0 ? ((g.anim / 4) & 3) : 0;
-    gfx_sprite_scaled(top, box, cx - box->w, cy - box->h + bob, 200, 100);
-    if (g.box_phase >= 2) {
-        gfx_panel(top, 28, 138, 200, 40, C_PANEL, c);
-        gfx_text(top, 36, 146, c, item_defs[g.box_item].name);
-        gfx_text_wrapped(top, 36, 158, 186, C_INK, item_defs[g.box_item].blurb);
+    const Sprite *open_box = sprite_table[SPR_BOX_OPEN_BRONZE + g.box_tier];
+    const Sprite *lid = sprite_table[SPR_LID_BRONZE + g.box_tier];
+    const Sprite *icon = item_sprite(g.box_item);
+    int cx = 128, cy = 108;
+
+    /*  Beat one: it rattles, and the rattle builds. The box used to bob
+     *  gently on a four-frame counter for forty frames and then cut straight
+     *  to the answer, which is a wait rather than an opening. */
+    if (phase == BOX_SHAKE) {
+        int build = t * 16 / 52;                       /* 0..16 over the beat */
+        int amp = 1 + build / 4;
+        int jx = ((t * 7919) % 3) - 1, jy = ((t * 104729) % 3) - 1;
+        for (int i = 0; i < 5 + build; i++) {          /* seams leaking light */
+            int a = (i * 71 + t * 6) % 360;
+            int dx = ((a % 61) - 30) * (10 + build) / 24;
+            int dy = ((a % 47) - 23) * (10 + build) / 24;
+            gfx_pixel(top, cx + dx, cy - 22 + dy, gfx_scale_colour(c, 8 + (i & 7), 16));
+        }
+        gfx_sprite_scaled(top, box, cx - box->w + jx * amp,
+                          cy - box->h + jy * amp, 200, 100);
+        /*  The line that used to be here said "The box is deciding.", which
+            the bottom screen also says, and it sat exactly where the
+            achievement toasts stack. */
     }
 
+    /*  Beat two: the lid goes, and the light it was holding gets out. */
+    if (phase == BOX_BURST) {
+        /*  A real ring, rasterised, rather than pixels scattered by modulo
+            arithmetic -- the first cut of this walked an angle through a
+            handful of primes and produced specks in the corners that read as
+            dust, not as a shockwave. */
+        int r = 6 + t * 8;
+        for (int k = 0; k < 3; k++) {
+            int rr = r - k * 6;
+            if (rr < 3) continue;
+            int fade = 14 - k * 3 - t / 3;
+            if (fade < 3) continue;
+            /*  x = rr cos, y = rr sin, stepped as an integer circle. */
+            int px = rr, py = 0, err = 1 - rr;
+            while (px >= py) {
+                static const int8_t oct[8][2] = { {1,1},{1,-1},{-1,1},{-1,-1},
+                                                  {1,1},{1,-1},{-1,1},{-1,-1} };
+                for (int o = 0; o < 8; o++) {
+                    int ax = (o < 4 ? px : py) * oct[o][0];
+                    int ay = (o < 4 ? py : px) * oct[o][1];
+                    gfx_pixel(top, cx + ax, cy - 20 + ay / 2,
+                              gfx_scale_colour(c, fade, 16));
+                }
+                py++;
+                if (err < 0) err += 2 * py + 1;
+                else { px--; err += 2 * (py - px) + 1; }
+            }
+        }
+        gfx_sprite_scaled(top, open_box, cx - open_box->w, cy - open_box->h, 200, 100);
+        int fly = t * 3;                              /* the lid, leaving */
+        gfx_sprite_scaled(top, lid, cx - lid->w, cy - open_box->h * 2 - fly + 8,
+                          200, 100);
+        /*  A white blink on the first few frames. gfx_shade scales by
+            amount/16, so sixteen is unchanged and above it brightens -- and
+            zero multiplies the screen by nothing and paints it black. Writing
+            this as `t < 6 ? 16 + (6 - t) * 2 : 0` therefore blacked out the
+            whole top screen for the rest of the beat. The call has to be
+            skipped, not passed a zero. */
+        if (t < 6) gfx_shade(top, 0, 0, SCREEN_W, SCREEN_H, 16 + (6 - t) * 2);
+    }
+
+    /*  Beat three: it comes up out of the box, growing as it rises. */
+    if (phase == BOX_RISE && icon) {
+        int p = t * 100 / 33;                          /* 0..100 through the rise */
+        if (p > 100) p = 100;
+        int zoom = 120 + p * 80 / 100;                 /* 120% -> 200% */
+        int rise = 40 * p / 100;
+        gfx_sprite_scaled(top, open_box, cx - open_box->w, cy - open_box->h, 200, 100);
+        for (int k = 0; k < 4; k++)                    /* light under it */
+            gfx_dither(top, cx - 30 + k * 6, cy - 26 - rise + k * 3, 60 - k * 12, 2,
+                       c, 12 - k * 3);
+        int iw = icon->w * zoom / 100, ih = icon->h * zoom / 100;
+        gfx_sprite_scaled(top, icon, cx - iw / 2, cy - 24 - rise - ih / 2, zoom, 100);
+    }
+
+    /*  And then it stops, and waits, and lets you look at it. */
+    if (phase == BOX_CARD) {
+        if (icon) {
+            int iw = icon->w * 250 / 100, ih = icon->h * 250 / 100;
+            for (int k = 0; k < 5; k++)                /* a plinth of light */
+                gfx_dither(top, cx - 40 + k * 8, 132 + k * 2, 80 - k * 16, 2, c, 12 - k * 2);
+            gfx_sprite_scaled(top, icon, cx - iw / 2, 128 - ih, 250, 100);
+        }
+        /*  No chest on this beat. It was drawn behind the prize and the two
+            overlapped into one shape; the card is about the thing you won. */
+        gfx_panel(top, 20, 140, 216, 20, C_PANEL, c);
+        gfx_text(top, 20 + (216 - gfx_text_width(item_defs[g.box_item].name)) / 2, 146,
+                 c, item_defs[g.box_item].name);
+        gfx_text(top, 8, 168, C_DIM, "You got it. Read it, then close it.");
+    }
+
+    /* ---- bottom: the record while it opens, the card once it is open ------ */
     backdrop(bot);
-    gfx_text_big(bot, 12, 14, c, tiers[g.box_tier]);
-    gfx_text(bot, 12, 40, C_DIM, g.box_phase >= 2 ? "Added to the bag." : "The box is deciding.");
-    gfx_text(bot, 12, 54, C_DIM, "Boxes opened this run");
-    gfx_text(bot, 212, 54, C_INK, gfx_num(g.boxes_opened));
-
-    /*  What is already in the bag, because that is the question a box being
-     *  opened actually raises -- do I need this, do I have three of it
-     *  already -- and because the four lines this screen had before left the
-     *  bottom two thirds of it blank while the top screen did all the work.
-     *  It is not on the top screen and it is not a second copy of anything. */
-    gfx_hline(bot, 12, SCREEN_W - 13, 68, C_WIN_EDGE);
-    gfx_text(bot, 12, 76, C_AMBER, "IN THE BAG");
-    int shown = 0;
-    for (int i = 1; i < item_count && shown < 7; i++) {
-        if (!g.inventory[i]) continue;
-        int row = 92 + shown * 12;
-        /*  The one that just landed is called out, so the change is visible
-            rather than something you have to go and count. */
-        int fresh = g.box_phase >= 2 && i == g.box_item;
-        gfx_text(bot, 16, row, fresh ? c : C_INK, item_defs[i].name);
-        gfx_text(bot, 214, row, C_DIM, "x");
-        gfx_text(bot, 222, row, fresh ? c : C_DIM, gfx_num(g.inventory[i]));
-        shown++;
+    if (phase != BOX_CARD) {
+        gfx_text_big(bot, 12, 14, c, tiers[g.box_tier]);
+        gfx_text(bot, 12, 40, C_DIM, "The box is deciding.");
+        gfx_text(bot, 12, 54, C_DIM, "Boxes opened this run");
+        gfx_text(bot, 212, 54, C_INK, gfx_num(g.boxes_opened));
+        gfx_hline(bot, 12, SCREEN_W - 13, 68, C_WIN_EDGE);
+        gfx_text(bot, 12, 76, C_AMBER, "IN THE BAG");
+        int shown = 0;
+        for (int i = 1; i < item_count && shown < 7; i++) {
+            if (!g.inventory[i]) continue;
+            gfx_text(bot, 16, 92 + shown * 12, C_INK, item_defs[i].name);
+            gfx_text(bot, 214, 92 + shown * 12, C_DIM, "x");
+            gfx_text(bot, 222, 92 + shown * 12, C_DIM, gfx_num(g.inventory[i]));
+            shown++;
+        }
+        if (!shown) gfx_text(bot, 16, 92, C_DIM, "Nothing yet. This is the first thing.");
+        gfx_text(bot, 12, 178, C_DIM, "Tap to skip.");
+        return;
     }
-    if (!shown) gfx_text(bot, 16, 92, C_DIM, "Nothing yet. This is the first thing.");
-    if (g.box_phase >= 1) gfx_text(bot, 12, 178, C_AMBER, "TAP TO CONTINUE");
+
+    /*  The card. An RPG that names a reward and shows nothing is asking you to
+     *  take its word for what you won, so: the icon, the name, what it does in
+     *  numbers, what the show says about it, and how many you are now carrying. */
+    const ItemDef *d = &item_defs[g.box_item];
+    window(bot, 6, 6, SCREEN_W - 12, 150, 0);
+    if (icon) {
+        gfx_panel(bot, 14, 14, 44, 44, C_VOID, c);
+        gfx_sprite_scaled(bot, icon, 16, 16, 125, 100);
+    }
+    gfx_text(bot, 66, 16, c, d->name);
+    static const char *const kSlot[3] = { "WEAPON", "ARMOUR", "TRINKET" };
+    const char *kind = d->kind == IT_WEAPON || d->kind == IT_ARMOUR || d->kind == IT_TRINKET
+                     ? kSlot[d->slot < 3 ? d->slot : 0] : "CONSUMABLE";
+    gfx_text(bot, 66, 28, C_DIM, kind);
+
+    char effect[64];
+    item_effect(effect, g.box_item);
+    gfx_text(bot, 66, 44, C_GREEN, effect);
+
+    gfx_hline(bot, 14, SCREEN_W - 20, 64, C_WIN_EDGE);
+    gfx_text_wrapped(bot, 14, 72, SCREEN_W - 32, C_INK, d->blurb);
+
+    gfx_text(bot, 14, 118, C_DIM, "In the bag");
+    gfx_text(bot, 90, 118, C_INK, gfx_num(g.inventory[g.box_item]));
+    gfx_text(bot, 14, 132, C_DIM, "Boxes opened this run");
+    gfx_text(bot, 168, 132, C_INK, gfx_num(g.boxes_opened));
+
+    /*  A button, because "it will go away on its own" is what it used to do. */
+    {
+        Rect close = { 78, 164, 100, 24, "CLOSE" };
+        draw_button(bot, &close, 1);
+    }
 }
 
 /* -------------------------------------------------------------- levelup --- */
