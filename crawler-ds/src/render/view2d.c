@@ -16,9 +16,21 @@
 #include "game.h"
 #include "art.h"
 
-#define TILE     16
+/*  Thirty-two, not sixteen. At sixteen the screen held a sixteen-by-twelve
+ *  grid, which sounds generous and looked like a map: the crawlers were a
+ *  sixteen-pixel sprite on a two-hundred-and-fifty-six-pixel screen -- a
+ *  tenth of its height -- and most of what surrounded them was unexplored
+ *  black, because a viewport that wide reaches past whatever a lamp has lit.
+ *  Doubling the tile halves the reach in both directions, which fills the
+ *  screen with room instead of void, and lets the party be drawn at twice the
+ *  size so there is a person down there rather than a token.
+ *
+ *  It also lands the textures on their natural scale. They are authored
+ *  thirty-two square; a sixteen-pixel tile read half of one, so every wall was
+ *  the top sixteen rows of its texture and the bottom sixteen were never seen. */
+#define TILE     32
 #define TEXELS   32
-#define WALL_LIP 4       /* how much of a wall's south face the camera sees */
+#define WALL_LIP 8       /* how much of a wall's south face the camera sees */
 
 /*  Light levels the tiles are drawn through. The DS keeps colour in a 16-bit
  *  halfword of which fifteen bits are colour, and this game draws into a direct
@@ -164,12 +176,24 @@ static void gather_lamps(int tx0, int ty0, int cols, int rows) {
             l->radius = (uint8_t)radius; l->strength = (uint8_t)strength;
             l->tint = tint;
             l->r2 = (uint8_t)(radius * radius);
-            /*  Colour carries half as far as brightness. A shrine throws light
-             *  five tiles but is only *coloured* for two and a half of them,
-             *  which is both what a warm lamp in a cold room looks like and
-             *  what makes the pass affordable: the tint costs area, and area
-             *  is the square of this number. */
-            l->glow = (uint8_t)(radius * TILE / 2);
+            /*  Colour carries a quarter as far as brightness. A shrine throws
+             *  light five tiles but is only *coloured* for one and a bit of
+             *  them, which is both what a warm lamp in a cold room looks like
+             *  and what makes the pass affordable: the tint costs area, and
+             *  area is the square of this number.
+             *
+             *  It was TILE/2 when a tile was sixteen pixels. Doubling the tile
+             *  kept the radius the same in tiles and so quadrupled it in
+             *  pixels, and measuring the ROM over a fixed six hundred emulator
+             *  frames -- tools/ndsbot/perf.txt, which exists because the
+             *  playthrough script's `until` loops make its frame counter
+             *  incomparable between runs -- put the dungeon at 298 game frames
+             *  against the old build's 379. Building with -DABL_NOGLOW gave
+             *  396, so this pass was the whole of the difference and none of
+             *  it was the bigger tiles. Back at TILE/4 the pixel radius is
+             *  what it always was and the measurement is 379 again, exactly
+             *  the old number, for a view at twice the size. */
+            l->glow = (uint8_t)(radius * TILE / 4);
             for (int e2 = 0; e2 < l->r2; e2++)
                 l->fall[e2] = (uint8_t)((l->r2 - e2) * strength / l->r2);
         }
@@ -315,7 +339,11 @@ static void blit_tile_lit(Surface *s, const Tiles *t, int sx, int sy, int wx, in
 
     const uint8_t *pix = is_wall ? t->wall : t->floor;
     const uint16_t (*lut)[64] = is_wall ? t->wall_lut : t->floor_lut;
-    int vmask = is_wall ? (TEXELS / 2 - 1) : (TEXELS - 1);
+    /*  Both read the full thirty-two rows now. The wall used to mask to
+     *  sixteen so its pattern came out at the right scale on a sixteen-pixel
+     *  tile; on a thirty-two-pixel tile that would repeat the top half twice
+     *  and band every wall across the middle. */
+    int vmask = TEXELS - 1;
 
     for (int py = y0; py < y1; py++) {
         int y = py - sy;
@@ -392,11 +420,19 @@ static void draw_crawler(Surface *s, int slot, int sx, int sy, int facing,
     }
     const Sprite *sp = sprite_table[SPR_OW_CARL_DOWN_0
                                     + (who * 3 + kFace[facing & 3]) * OW_FRAMES + frame];
+    /*  Drawn at twice the art's size, because the tile is. The overworld
+        sprites are authored sixteen by twenty for a sixteen-pixel grid; on a
+        thirty-two-pixel grid at native size they would be half a tile wide,
+        which is the token they used to look like. Doubling is the right
+        enlargement for pixel art -- every source pixel becomes an exact two
+        by two block, so the outlines stay hard and nothing is resampled. */
+    const int z = 200;
+    int w = sp->w * z / 100, h = sp->h * z / 100;
     /*  A shadow, so the party sits on the floor rather than hovering over it. */
-    gfx_dither(s, sx + 3, sy + sp->h - 2, sp->w - 6, 3, C_VOID, 8);
-    if ((facing & 3) == 3) gfx_sprite_flip(s, sp, sx, sy);
-    else gfx_sprite(s, sp, sx, sy);
-    if (g.hero[slot].hp <= 0) gfx_shade(s, sx, sy, sp->w, sp->h, 9);
+    gfx_dither(s, sx + 6, sy + h - 4, w - 12, 5, C_VOID, 8);
+    if ((facing & 3) == 3) gfx_sprite_scaled_flip(s, sp, sx, sy, z, 100);
+    else gfx_sprite_scaled(s, sp, sx, sy, z, 100);
+    if (g.hero[slot].hp <= 0) gfx_shade(s, sx, sy, w, h, 9);
 }
 
 /*  The party: whoever is leading, and the other one walking in their tracks.
@@ -426,13 +462,16 @@ void view2d_draw_party(Surface *s, int cx, int cy) {
      *  makes the pair recognisable at this size. */
     /*  The follower is half a cycle behind the leader, because two people
         walking in perfect lockstep read as one person and a copy of them. */
+    /*  Half the doubled sprite across, and enough of it above the tile centre
+        that the feet land on the floor rather than the sprite straddling it. */
+    const int kOffX = 16, kOffY = 28;
     int stride = (int)g.dun.steps;
     if (fy > cy) {
-        draw_crawler(s, 0, cx - 8, cy - 14, f, walking, stride);
-        draw_crawler(s, 1, fx - 8, fy - 14, f, walking, stride + 1);
+        draw_crawler(s, 0, cx - kOffX, cy - kOffY, f, walking, stride);
+        draw_crawler(s, 1, fx - kOffX, fy - kOffY, f, walking, stride + 1);
     } else {
-        draw_crawler(s, 1, fx - 8, fy - 14, f, walking, stride + 1);
-        draw_crawler(s, 0, cx - 8, cy - 14, f, walking, stride);
+        draw_crawler(s, 1, fx - kOffX, fy - kOffY, f, walking, stride + 1);
+        draw_crawler(s, 0, cx - kOffX, cy - kOffY, f, walking, stride);
     }
 }
 
@@ -552,7 +591,7 @@ void view2d_draw(Surface *s) {
             char tile = dungeon_tile(mx, my);
             if ((tile == T_BOX || tile == T_BOX_GOLD) && dungeon_is_used(mx, my)) sp = 0;
             if (!sp) continue;
-            int scale = 40;
+            int scale = 80;   /* against a tile twice the size */
             int w = sp->w * scale / 100, h = sp->h * scale / 100;
             gfx_sprite_scaled(s, sp, mx * TILE - cx + (TILE - w) / 2,
                               my * TILE - cy + TILE - h, scale, 100);
@@ -574,7 +613,9 @@ void view2d_draw(Surface *s) {
         }
 
     /*  Colour from the lamps, over the tiles and under the party. */
+#ifndef ABL_NOGLOW
     glow_pass(s, cx, cy);
+#endif
 
     view2d_draw_party(s, SCREEN_W / 2, SCREEN_H / 2);
 

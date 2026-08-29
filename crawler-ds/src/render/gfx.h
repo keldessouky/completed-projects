@@ -49,6 +49,7 @@ void gfx_trapezoid(Surface *s, int x0, int yt0, int yb0, int x1, int yt1, int yb
 void gfx_sprite(Surface *s, const Sprite *sp, int x, int y);
 void gfx_sprite_flip(Surface *s, const Sprite *sp, int x, int y);
 void gfx_sprite_scaled(Surface *s, const Sprite *sp, int x, int y, int num, int den);
+void gfx_sprite_scaled_flip(Surface *s, const Sprite *sp, int x, int y, int num, int den);
 void gfx_sprite_tinted(Surface *s, const Sprite *sp, int x, int y, uint16_t tint, int mix);
 
 /* --- text -------------------------------------------------------------- */

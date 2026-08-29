@@ -148,6 +148,8 @@ static void party_strip(Surface *s, int y) {
 
 /* ---------------------------------------------------------------- title --- */
 
+static void draw_button(Surface *s, const Rect *r, int on);
+
 static void draw_title(Surface *top, Surface *bot) {
     gfx_vgradient(top, 0, 0, SCREEN_W, SCREEN_H, RGB(51, 37, 74) /* arcane 0 */, RGB(58, 32, 37) /* blood 0 */);
     for (int i = 0; i < 60; i++) {          /* falling rubble, forever */
@@ -161,23 +163,38 @@ static void draw_title(Surface *top, Surface *bot) {
     gfx_hline(top, 0, SCREEN_W - 1, 69, C_AMBER_DK);
     gfx_text_big(top, 20, 32, C_AMBER, "DUNGEON CRAWLER");
     gfx_text_big(top, 96, 50, C_MAGENTA, "CARL");
-    gfx_text(top, 26, 76, C_DIM, "EIGHTEEN FLOORS   one season at a time");
+    gfx_text(top, 34, 76, C_DIM, "EIGHTEEN FLOORS.  NOBODY HAS SHOES.");
 
     int floor_y = SCREEN_H - 4;
     gfx_vgradient(top, 0, floor_y - 14, SCREEN_W, 18, RGB(53, 44, 69) /* cloth_purple 0 */, RGB(32, 34, 41) /* cloth_black 0 */);
     gfx_hline(top, 0, SCREEN_W - 1, floor_y - 14, gfx_scale_colour(C_AMBER_DK, 10, 16));
     for (int i = 0; i < 3; i++)                       /* light pooling on the floor */
         gfx_dither(top, 0, floor_y - 12 + i * 5, SCREEN_W, 5, C_AMBER_DK, 6 - i * 2);
-    gfx_sprite(top, hero_sprite(0), 22, floor_y - hero_sprite(0)->h);
-    gfx_sprite(top, hero_sprite(1), SCREEN_W - 80, floor_y - hero_sprite(1)->h + 2);
-    if (season_count()) {
-        gfx_text(top, 24, 88, C_DIM, "Seasons run");
-        gfx_text(top, 104, 88, C_INK, gfx_num(season_count()));
-        gfx_text(top, 132, 88, C_DIM, "Deepest");
-        gfx_text(top, 188, 88, C_AMBER, gfx_num(season_best_floor()));
-        gfx_text(top, 24, 100, C_DIM, "Nobody who went down has come back up.");
-    } else {
-        gfx_text(top, 24, 92, C_INK, "Eighteen floors. Nobody has shoes.");
+    /*  Big. These are the two people the game is about and they were standing
+        at sixty-four pixels in the middle of a two-hundred-and-fifty-six-pixel
+        field, which read as a screen with a gap in it rather than a poster.
+        At 150% they fill the lower half and the empty space becomes framing. */
+    {
+        const Sprite *c = hero_sprite(0), *d = hero_sprite(1);
+        const int z = 150;
+        int ch = c->h * z / 100, dh = d->h * z / 100;
+        int cw = c->w * z / 100, dw = d->w * z / 100;
+        for (int k = 0; k < 5; k++) {   /* they cast something onto the floor */
+            gfx_dither(top, 14 + k * 2, floor_y - 6 + k, cw - k * 4, 1, C_VOID, 11 - k * 2);
+            gfx_dither(top, SCREEN_W - 20 - dw + k * 2, floor_y - 5 + k, dw - k * 4, 1, C_VOID, 11 - k * 2);
+        }
+        gfx_sprite_scaled(top, c, 12, floor_y - ch, z, 100);
+        gfx_sprite_scaled(top, d, SCREEN_W - 18 - dw, floor_y - dh + 2, z, 100);
+        /*  The record goes in the gap between them: at this size they own the
+            whole lower screen, and a line of text across it was being worn
+            like a banner across Donut's crown. */
+        if (season_count()) {
+            int mid = cw + 18;
+            gfx_text(top, mid, 108, C_DIM, "SEASONS");
+            gfx_text(top, mid + 6, 120, C_INK, gfx_num(season_count()));
+            gfx_text(top, mid, 136, C_DIM, "DEEPEST");
+            gfx_text(top, mid + 6, 148, C_AMBER, gfx_num(season_best_floor()));
+        }
     }
 
     backdrop(bot);
@@ -185,19 +202,15 @@ static void draw_title(Surface *top, Surface *bot) {
     gfx_text(bot, 8, 10, C_AMBER, "THE SYSTEM AWAITS YOUR DECISION");
     gfx_text(bot, 8, 24, C_DIM, "A season ends when the crawler does.");
 
-    static const char *const opts[2] = { "NEW SEASON", "RESUME FROM CODE" };
-    for (int i = 0; i < 2; i++) {
-        int y = 118 + i * 32;
-        int on = g.title_cursor == i;
-        window(bot, 40, y, 176, i ? 24 : 26, on);
-        gfx_text(bot, 40 + (176 - gfx_text_width(opts[i])) / 2, y + (i ? 8 : 9),
-                 on ? C_AMBER : C_DIM, opts[i]);
-    }
-    gfx_text(bot, 8, 60, C_DIM, "D-PAD  walk, four ways");
-    gfx_text(bot, 8, 72, C_DIM, "A  act    B  back    START  party");
-    gfx_text(bot, 8, 84, C_DIM, "L / R  menu tabs    Y  quick heal");
-    gfx_text(bot, 8, 96, C_DIM, "Or play it entirely with the stylus.");
-    gfx_text(bot, 8, 178, C_DIM, "(c) fan work. Story by Matt Dinniman.");
+    for (int i = 0; i < 2; i++)
+        draw_button(bot, &kTitleOpts[i], g.title_cursor == i);
+    /*  One line, not four. A title screen that opens with a control manual is
+        a title screen that does not trust its first minute; the pad does what
+        a pad does, and the full list lives on the party screen where somebody
+        looking for it will go. */
+    gfx_text(bot, 8, 52, C_DIM, "D-pad walks.  A acts.  Or use the stylus.");
+    gfx_text(bot, 8, 66, C_DIM, "Progress comes back through a recall code.");
+    gfx_text(bot, 8, 180, C_DIM, "(c) fan work. Story by Matt Dinniman.");
 }
 
 /* ---------------------------------------------------------------- story --- */
@@ -564,22 +577,125 @@ static void message_box(Surface *s) {
  *  Pokemon idiom holds -- a bar and no numbers for the other side -- but the
  *  touch screen is where the fight actually gets planned, so it gets the
  *  detail, and it fills the band above the command buttons that was bare. */
-static void foe_roster(Surface *bot, int y) {
-    for (int i = 0; i < g.bat.n_foes; i++) {
-        const Foe *f = &g.bat.foes[i];
-        const FoeDef *def = &foe_defs[f->def];
-        int row = y + i * 17;
-        int targeted = g.bat.phase == BAT_TARGET && g.bat.target == i;
-        window(bot, 6, row, 244, 16, targeted);
-        gfx_text(bot, 12, row + 5, f->alive ? (targeted ? C_AMBER : C_INK) : C_DIM, def->name);
-        if (!f->alive) {
-            gfx_text(bot, 208, row + 5, C_DIM, "DOWN");
-            continue;
+/*  A full card per crawler: level, health and stamina with the actual numbers
+ *  on them, whatever is running on them this turn, and what they are holding.
+ *  This is what the bottom screen shows while a message is being read.
+ *
+ *  The first version put the battle log here alone, which on turn one is a
+ *  single sentence and a hundred and forty empty pixels -- the same fault the
+ *  duplicated roster had, committed by its replacement. The party's own state
+ *  is the one panel that is always full, is never on the top screen in this
+ *  much detail, and is what you actually want while deciding a turn. */
+static void party_cards(Surface *bot, int y) {
+    static const char *kStatus[ST_COUNT] = { "BLEED", "STUN", "ATK+", "DEF-" };
+    static const uint16_t kStatusCol[ST_COUNT] = { C_RED, C_MAGENTA, C_GREEN, C_AMBER };
+    for (int i = 0; i < PARTY; i++) {
+        const Hero *h = &g.hero[i];
+        int x = 6 + i * 124, w = 120;
+        int down = h->hp <= 0;
+        window(bot, x, y, w, 74, 0);
+
+        gfx_text(bot, x + 6, y + 6, down ? C_RED : C_INK, h->name);
+        gfx_text(bot, x + w - 26, y + 6, C_DIM, "L");
+        gfx_text(bot, x + w - 20, y + 6, C_AMBER, gfx_num(h->level));
+
+        gfx_text(bot, x + 6, y + 20, C_GOLD, "HP");
+        bar_meter(bot, x + 24, y + 19, w - 30, 8, h->hp, h->hp_max,
+                  health_colour(h->hp, h->hp_max), 0);
+        gfx_text(bot, x + 6, y + 32, C_DIM, gfx_num(h->hp));
+        gfx_text(bot, x + 6 + gfx_text_width(gfx_num(h->hp)), y + 32, C_DIM, "/");
+        gfx_text(bot, x + 12 + gfx_text_width(gfx_num(h->hp)), y + 32, C_DIM,
+                 gfx_num(h->hp_max));
+
+        gfx_text(bot, x + 6, y + 44, C_CYAN, "SP");
+        bar_meter(bot, x + 24, y + 43, w - 30, 8, h->mp, h->mp_max, C_CYAN, 0);
+
+        /*  Statuses where they can be seen before choosing, not after. A stun
+            you find out about by losing the turn is a bug report. */
+        int sx = x + 6;
+        for (int k = 0; k < ST_COUNT; k++) {
+            if (!h->status[k]) continue;
+            int tw = gfx_text_width(kStatus[k]);
+            if (sx + tw > x + w - 6) break;
+            gfx_text(bot, sx, y + 58, kStatusCol[k], kStatus[k]);
+            sx += tw + 6;
         }
-        gfx_text(bot, 140, row + 5, C_DIM, "HP");
-        bar_meter(bot, 156, row + 5, 88, 6, f->hp, f->hp_max,
-                  health_colour(f->hp, f->hp_max), 0);
+        if (down) gfx_text(bot, x + 6, y + 58, C_RED, "DOWN");
+        else if (h->guard) gfx_text(bot, x + 6, y + 58, C_GREEN, "GUARDING");
+        else if (sx == x + 6) {
+            int wep = h->equip[0];
+            gfx_text(bot, x + 6, y + 58, C_DIM,
+                     wep > 0 ? item_defs[wep].name : "bare hands");
+        }
     }
+}
+
+/*  What just happened, oldest at the top. This replaced a second copy of the
+ *  enemy roster: the top screen already carries every foe's name and health
+ *  under its feet, so listing them again down here was two screens spending
+ *  their space on one fact. The log is the thing a turn-based fight actually
+ *  hides -- by the time you have read "Donut is down" the message box has
+ *  moved on -- so the half of the screen that is not taking orders shows the
+ *  last few lines instead. */
+static void battle_log_panel(Surface *bot, int y, int rows) {
+    gfx_text(bot, 6, y, C_AMBER, "WHAT HAPPENED");
+    int first = g.bat.n_log - rows;
+    if (first < 0) first = 0;
+    int shown = 0;
+    for (int i = first; i < g.bat.n_log; i++, shown++) {
+        int ry = y + 14 + shown * 11;
+        /*  The newest line is the one being read out; the older ones fade back
+            so the eye lands on the bottom of the list without a cursor. */
+        int newest = (i == g.bat.n_log - 1);
+        gfx_text(bot, 10, ry, newest ? C_INK : C_DIM, g.bat.log[i]);
+    }
+    if (!shown) gfx_text(bot, 10, y + 14, C_DIM, "Nothing yet. Give it a second.");
+}
+
+/*  A foe's health, worn by the foe. The three of these used to be stacked in
+ *  the top-left corner as full-width boxes, which put the roster as far from
+ *  the thing it described as the screen allows, buried the arena art behind
+ *  it, and still left the bottom screen showing the same three names again.
+ *  Hung under the sprite it belongs to, the same information costs a sixth of
+ *  the pixels and needs no reading order at all: the bar that is dropping is
+ *  under the one you hit.
+ *
+ *  The plate is as wide as its name needs, clamped to the slot the foe stands
+ *  in, so three of them side by side cannot collide however long the names. */
+static void foe_plate(Surface *s, int cx, int y, int room,
+                      const FoeDef *def, int hp, int hp_max) {
+    const char *tag = def->rank == 2 ? "BOROUGH" : def->rank == 1 ? "BLOCK" : 0;
+    int nw = gfx_text_width(def->name);
+    /*  As wide as the name wants, but never wider than the slot: overrunning
+        is what put three foes' names on top of each other. */
+    int w = nw + 8;
+    if (w > room) w = room;
+    if (w < 34) w = 34;
+    int x = cx - w / 2;
+    if (x < 2) x = 2;
+    if (x + w > SCREEN_W - 2) x = SCREEN_W - 2 - w;
+
+    /*  A boss announces itself: the plate is gold-ruled and carries its tier,
+        because several of them wear the sprite of the mob they lead. */
+    if (def->rank) {
+        uint16_t gold = def->rank == 2 ? C_GOLD : C_AMBER;
+        gfx_hline(s, x, x + w - 1, y - 2, gold);
+        /*  Under the bar, not over the name: a boss banner sits at the very
+            top of the screen and there is no room above it for a tag. */
+        if (tag) {
+            int tw = gfx_text_width(tag);
+            gfx_text(s, x + (w - tw) / 2, y + 16, gold, tag);
+        }
+    }
+    /*  Drawn on the arena rather than in a window: a bordered box per foe was
+        three more frames competing with the sprites. A shadowed name and a
+        thin bar sit on the background without boxing it in. */
+    int tx = x + (w - nw) / 2;
+    gfx_text(s, tx + 1, y + 1, C_VOID, def->name);
+    gfx_text(s, tx, y, def->rank ? C_GOLD : C_INK, def->name);
+    bar_meter(s, x, y + 9, w, 5, hp, hp_max, health_colour(hp, hp_max), 0);
+    if (hp * 100 / (hp_max < 1 ? 1 : hp_max) <= 20 && (g.anim & 16))
+        gfx_rect(s, x + 1, y + 10, (w - 2) * hp / (hp_max < 1 ? 1 : hp_max), 3, C_INK);
 }
 
 static void draw_battle(Surface *top, Surface *bot) {
@@ -587,8 +703,24 @@ static void draw_battle(Surface *top, Surface *bot) {
     draw_arena(top, floor_index);
 
     /*  Foes on the far side, party in the near corner, the way the camera sits
-     *  in every turn-based fight since 1996. */
+     *  in every turn-based fight since 1996.
+     *
+     *  They stand in a line-up: the screen is divided into one slot per foe
+     *  and each is centred in its own, feet on a shared baseline. The old
+     *  placement packed them rightwards from a fixed margin and staggered
+     *  every other one twelve pixels down, which was a way of stopping big
+     *  sprites from touching -- but once each foe carries its own name and
+     *  health plate, a stagger drops one foe's plate straight through its
+     *  neighbour's knees, and 58 pixels of spacing cannot hold a plate wide
+     *  enough to write "Club Bouncer" on. Slots fix both: nothing overlaps by
+     *  construction, and the plate simply gets told how much room it has. */
     int msg_top = SCREEN_H - 38;
+    /*  The party's own boxes start at y=98, so a plate hung under a foe has to
+     *  be finished by then -- the first cut of this put the names at 92 and
+     *  the bars underneath them disappeared behind Carl's box. */
+    const int kBase = 78;             /* the floor a mob stands on */
+    const int kCeil = 12;             /* and the ceiling it cannot grow past */
+    int slot_w = SCREEN_W / (g.bat.n_foes < 1 ? 1 : g.bat.n_foes);
     for (int i = 0; i < g.bat.n_foes; i++) {
         const Foe *f = &g.bat.foes[i];
         const Sprite *sp = sprite_table[foe_defs[f->def].sprite];
@@ -598,29 +730,48 @@ static void draw_battle(Surface *top, Surface *bot) {
             percentage left them the same size as the thing they lead, while
             the 96px boss art at the same percentage was too tall to fit above
             the party's health boxes. Rank picks the height; the scale falls
-            out of whatever the sprite happens to be.
-
-            The band above the boxes is about 88 pixels, and that is the ceiling. */
+            out of whatever the sprite happens to be. */
+        /*  A boss wears its name as a banner across the top instead of a
+            plate at its feet. Hanging one under a boss costs it the sixteen
+            pixels of height that are most of what makes it read as a boss,
+            and a single foe has the whole width to write on anyway. */
         int rank = foe_defs[f->def].rank;
-        int scale;
+        int plate_y = kBase + 4, base = kBase, ceil_ = kCeil;
+        if (rank) { plate_y = 6; base = 96; ceil_ = 24; }
+        int want;
         if (rank) {
-            int want = rank == 2 ? 88 : 80;
-            scale = want * 100 / (sp->h ? sp->h : 1);
+            want = base - ceil_;
         } else {
-            scale = g.bat.n_foes >= 3 ? 64 : g.bat.n_foes == 2 ? 80 : 104;
+            /*  Bigger than they were. The corner used to hold three stacked
+                health boxes and the foes had to stay small enough to miss
+                them; with the health moved onto the foes there is a whole
+                top-left to grow into, and a mob you can read the face of is
+                worth more than a mob you can fit four of. */
+            want = g.bat.n_foes >= 3 ? 58 : g.bat.n_foes == 2 ? 66 : 74;
         }
+        int scale = want * 100 / (sp->h ? sp->h : 1);
+        /*  Never enlarge past the slot: three wide sprites at a height that
+            fits would still run into each other sideways. */
+        int max_w = slot_w - 8;
+        if (sp->w * scale / 100 > max_w) scale = max_w * 100 / (sp->w ? sp->w : 1);
         int fw = sp->w * scale / 100, fh = sp->h * scale / 100;
-        int fx = SCREEN_W - 20 - fw - i * (g.bat.n_foes >= 3 ? 58 : 74);
-        /*  High enough to clear the party's boxes, which sit in the bottom
-            right: a foe drawn under them reads as clipped. */
-        int fy = 16 + (i & 1) * 12 - (int)((g.anim / 14 + i) & 1);
-        if (fx < 4) fx = 4;
+
+        int cx = slot_w * i + slot_w / 2;
+        int fx = cx - fw / 2;
+        int fy = base - fh - (int)((g.anim / 14 + i) & 1);    /* a slow idle bob */
+        if (fy < ceil_) fy = ceil_;
+        if (fx < 2) fx = 2;
+        if (fx + fw > SCREEN_W - 2) fx = SCREEN_W - 2 - fw;
+
         for (int k = 0; k < 4; k++)                 /* the platform it stands on */
             gfx_dither(top, fx + k, fy + fh + k - 2, fw - k * 2, 1, C_SHADOW, 12 - k * 3);
         if (!f->alive) { gfx_shade(top, fx, fy, fw, fh, 11); continue; }
         gfx_sprite_scaled(top, sp, fx, fy, scale, 100);
         if (g.bat.shake && g.bat.target == i)
             gfx_shade(top, fx, fy, fw, fh, 10);
+        foe_plate(top, rank ? SCREEN_W / 2 : cx, plate_y,
+                  rank ? SCREEN_W - 16 : slot_w - 6, &foe_defs[f->def],
+                  f->hp, f->hp_max);
     }
 
     {
@@ -640,16 +791,9 @@ static void draw_battle(Surface *top, Surface *bot) {
     draw_damage_pops(top);
     if (g.hurt_flash) gfx_shade(top, 0, 0, SCREEN_W, SCREEN_H, 16 + g.hurt_flash);
 
-    /*  Their boxes on the left, yours on the right: opposite corners, so a
-     *  glance tells you which side is losing. */
-    for (int i = 0, shown = 0; i < g.bat.n_foes; i++) {
-        const Foe *f = &g.bat.foes[i];
-        if (!f->alive) continue;
-        hp_box(top, 4, 4 + shown * 27, 116, foe_defs[f->def].name,
-               foe_defs[f->def].floor ? foe_defs[f->def].floor : g.dun.index + 1,
-               f->hp, f->hp_max, 0, foe_defs[f->def].rank);
-        shown++;
-    }
+    /*  Only yours are boxed now. Theirs are plates under their feet, drawn
+     *  with the sprites above; a box each in the corner was the same three
+     *  names the bottom screen was also listing. */
     for (int i = 0; i < PARTY; i++)
         hp_box(top, SCREEN_W - 122, msg_top - 56 + i * 28, 118,
                g.hero[i].name, g.hero[i].level, g.hero[i].hp, g.hero[i].hp_max, 1, 0);
@@ -676,9 +820,9 @@ static void draw_battle(Surface *top, Surface *bot) {
     gfx_hline(bot, 0, SCREEN_W - 1, 20, C_AMBER_DK);
 
     if (battle_message(0) >= 0) {                   /* reading: no menu yet */
-        gfx_text(bot, 6, 26, C_AMBER, "AGAINST YOU");
-        foe_roster(bot, 36);
-        gfx_text(bot, 8, 176, C_DIM, "A or tap to continue");
+        party_cards(bot, 26);
+        battle_log_panel(bot, 108, 5);
+        gfx_text(bot, 8, 178, C_DIM, "A or tap to continue");
         return;
     }
 
@@ -737,13 +881,13 @@ static void draw_battle(Surface *top, Surface *bot) {
         /*  Somebody else's turn. The screen still carries the roster, because a
          *  touch screen that empties out mid-fight reads as the game hanging. */
         int foe = g.bat.actor - PARTY;
-        gfx_text(bot, 6, 26, C_AMBER, "AGAINST YOU");
+        party_cards(bot, 26);
+        battle_log_panel(bot, 108, 5);
         if (foe >= 0 && foe < g.bat.n_foes) {
             const char *name = foe_defs[g.bat.foes[foe].def].name;
-            gfx_text(bot, 6, 176, C_MAGENTA, name);
-            gfx_text(bot, 6 + gfx_text_width(name) + 4, 176, C_DIM, "is taking its turn.");
+            gfx_text(bot, 6, 178, C_MAGENTA, name);
+            gfx_text(bot, 6 + gfx_text_width(name) + 4, 178, C_DIM, "is taking its turn.");
         }
-        foe_roster(bot, 36);
         return;
     }
     {
@@ -752,9 +896,21 @@ static void draw_battle(Surface *top, Surface *bot) {
         gfx_text(bot, 62, 26, C_MAGENTA, who);
         gfx_text(bot, 62 + gfx_text_width(who) + 4, 26, C_DIM, "do?");
     }
-    foe_roster(bot, 38);
     for (int i = 0; i < 4; i++)
         draw_button(bot, &kBatCommands[i], g.bat.cursor == i);
+    /*  A line under the block saying what the highlighted one does. Four bare
+        verbs on a first playthrough leave GUARD ambiguous -- guard whom? --
+        and the strip is free now that the roster has gone. */
+    {
+        static const char *kWhat[4] = {
+            "Swing at one of them. Or pick a move.",
+            "Open the bag. Potions, bombs, whatever survived.",
+            "Brace. Halves the next hit, and Carl covers Donut.",
+            "Try to leave. Bosses do not allow it.",
+        };
+        int c = g.bat.cursor < 4 ? g.bat.cursor : 0;
+        gfx_text(bot, 8, 162, C_DIM, kWhat[c]);
+    }
 }
 
 /* ----------------------------------------------------------------- draft -- */
@@ -1097,16 +1253,31 @@ static void draw_menu(Surface *top, Surface *bot) {
         }
     } else {
         gfx_text(bot, 6, 34, C_AMBER, "THE SHOW");
-        gfx_text_wrapped(bot, 6, 48, 244, C_INK,
+        gfx_text_wrapped(bot, 6, 46, 244, C_INK,
                          "Everything down here is broadcast. Fights you win loudly pay better than "
                          "fights you win quietly, and the audience decides what loud means.");
-        gfx_text(bot, 6, 96, C_DIM, "Story beats seen");
-        gfx_text(bot, 180, 96, C_INK, gfx_num(g.story_beat + 1));
-        gfx_text(bot, 6, 108, C_DIM, "Floor");
-        gfx_text(bot, 180, 108, C_INK, gfx_num(g.dun.index + 1));
-        gfx_text_wrapped(bot, 6, 128, 244, C_DIM,
-                         "A System kiosk on each floor prints a recall code. Twenty characters, "
-                         "and the run comes back.");
+        gfx_text(bot, 6, 82, C_DIM, "Story beats seen");
+        gfx_text(bot, 180, 82, C_INK, gfx_num(g.story_beat + 1));
+        gfx_text(bot, 6, 94, C_DIM, "Floor");
+        gfx_text(bot, 180, 94, C_INK, gfx_num(g.dun.index + 1));
+
+        /*  The controls live here. They used to be four lines on the title
+            screen, which is the one screen that should be selling the game
+            rather than explaining it; this is the tab somebody actually opens
+            when they want to look something up. */
+        gfx_hline(bot, 6, 249, 108, C_WIN_EDGE);
+        gfx_text(bot, 6, 114, C_AMBER, "CONTROLS");
+        static const char *const kRow[5][2] = {
+            { "D-pad",  "walk, four ways" },
+            { "A / B",  "act, back" },
+            { "X",      "this screen" },
+            { "Y",      "quick heal" },
+            { "Stylus", "everything, if you prefer" },
+        };
+        for (int i = 0; i < 5; i++) {
+            gfx_text(bot, 10, 128 + i * 11, C_INK, kRow[i][0]);
+            gfx_text(bot, 74, 128 + i * 11, C_DIM, kRow[i][1]);
+        }
     }
     Rect back = { 194, 172, 56, 18, "BACK" };
     draw_button(bot, &back, 0);

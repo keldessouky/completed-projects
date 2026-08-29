@@ -1,0 +1,19 @@
+# Frame rate, measured rather than guessed.
+#
+# The playthrough script cannot answer this: its `until` loops run for as long
+# as they need, so two runs that diverge spend different numbers of emulator
+# frames and the telemetry frame counter is not comparable between them. This
+# one settles the party in a lit corridor and then advances an exact number of
+# emulator frames, so game-frames-per-emulator-frame falls straight out of the
+# two printed counters. One means the renderer is making every vblank.
+
+echo boot
+frames 150
+until a scene = 11 12
+until a scene = 2 400
+echo standing in the dungeon
+frames 60
+print
+echo == measuring 600 frames of a lit corridor
+frames 600
+print

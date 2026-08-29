@@ -233,10 +233,14 @@ static void start_new_run(void) {
 }
 
 static void update_title(const PlatInput *in) {
-    Rect play = { 40, 118, 176, 26, "DESCEND" };
-    Rect code = { 40, 150, 176, 24, "ENTER RECALL CODE" };
     if (in->pressed & (BTN_UP | BTN_DOWN)) g.title_cursor ^= 1;
-    if ((in->pressed & (BTN_A | BTN_START)) || touch_in(in, &play)) {
+    /*  A tap picks the thing it landed on. It used to fire whichever option
+        the cursor happened to be sitting on, so tapping NEW SEASON with the
+        cursor still on the second row opened the code entry instead. */
+    if (touch_in(in, &kTitleOpts[0])) g.title_cursor = 0;
+    else if (touch_in(in, &kTitleOpts[1])) g.title_cursor = 1;
+    if ((in->pressed & (BTN_A | BTN_START))
+        || touch_in(in, &kTitleOpts[0]) || touch_in(in, &kTitleOpts[1])) {
         if (g.title_cursor == 0) {
             /* The season is what the recall code carries, so it has to fit
                the sixteen bits the code has room for. Loot is seeded off a
@@ -253,14 +257,6 @@ static void update_title(const PlatInput *in) {
             g.code_status = 0;
             game_set_scene(SCENE_CODE);
         }
-    }
-    if (touch_in(in, &code)) {
-        g.title_cursor = 1;
-        g.code_mode = 1;
-        g.code_len = 0;
-        g.code[0] = 0;
-        g.code_status = 0;
-        game_set_scene(SCENE_CODE);
     }
 }
 

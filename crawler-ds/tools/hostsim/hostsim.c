@@ -717,7 +717,12 @@ int main(int argc, char **argv) {
         game_boot();
         idle(2);
         input.touching = input.touch_pressed = 1;
-        input.touch_x = 128; input.touch_y = 130;      /* DESCEND */
+        /*  Read off the layout, for the same reason the pad below does: this
+            was a hard-coded 128,130 and when the title buttons moved up it
+            landed in the gap between them, so the test failed on a tap that
+            a player would never have made. */
+        input.touch_x = (int16_t)(kTitleOpts[0].x + kTitleOpts[0].w / 2);
+        input.touch_y = (int16_t)(kTitleOpts[0].y + kTitleOpts[0].h / 2);
         step();
         printf("  title tap -> scene %d\n", g.scene);
         for (int i = 0; i < 900 && (g.scene == SCENE_STORY || g.scene == SCENE_CUTSCENE || g.scene == SCENE_DRAFT); i++) tap(BTN_A);

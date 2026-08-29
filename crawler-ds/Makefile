@@ -22,7 +22,7 @@ NDSTOOL    := $(SDK)/bin/ndstool
 ARCH9      := -mthumb -mthumb-interwork -march=armv5te -mtune=arm946e-s
 ARCH7      := -mthumb -mthumb-interwork -mcpu=arm7tdmi -mtune=arm7tdmi
 WARN       := -Wall -Wextra -Wno-unused-parameter
-CFLAGS9    := -g -O2 $(WARN) $(ARCH9) -DARM9 -D__NDS__ -DDS_BUILD \
+CFLAGS9    := -g -O2 $(WARN) $(ARCH9) -DARM9 -D__NDS__ -DDS_BUILD $(EXTRA_CFLAGS) \
               -ffunction-sections -fdata-sections -fomit-frame-pointer \
               -I$(SDK)/include -Isrc -Isrc/core -Isrc/render -Isrc/gen
 CFLAGS7    := -g -Os $(WARN) $(ARCH7) -DARM7 -D__NDS__ \
