@@ -380,6 +380,63 @@ missing from the render signature, so the dungeon redrew only when the party
 changed square, and the slide between tiles this renderer was built around had
 never once reached the screen.
 
+### Measuring it honestly, and what is left
+
+Everything above was measured with a harness that had a hole in it, found
+later. The season is seeded from `g.frame` at the moment NEW SEASON is
+pressed, and `g.frame` depends on how fast frames are rendering — so every
+ablation build generated **a different dungeon**, with different walls and
+lamps on screen, and the thing being measured moved with the thing being
+tested. That is how a build with strictly less work in it once measured slower
+than its own baseline. Three switches close the hole, all compile-time and
+none of them in a shipped ROM:
+
+- `PERF_FIXED_SEASON` pins the season, so every build walks into the same room.
+- `ABL_NOVSYNC` compiles out the vblank waits. With them in, iteration time
+  quantises to whole frames and stages measure as free or as a whole 16.7ms.
+- `ABL_NOSIGCACHE` forces a draw every frame. Without it the renderer skips
+  frames whose signature has not changed, and the cheap skipped iterations
+  dilute the average until a 31ms draw reads as 11ms.
+
+Run them with `tools/ndsbot/perf.txt`, which advances an exact 600 emulator
+frames and reads the game's own counter either side. `tools/hostsim --profile`
+does the same thing on the desktop with a pinned seed — useful because it is
+fast and precise, and misleading on its own, since the host has a divide
+instruction and the ARM9 does not.
+
+With all three on, a frame that actually draws costs **31.8ms against a
+16.7ms budget**, and the dungeon view is 25.8ms of it: floor tiles 8.5,
+walls 5.9, the colour pass 3.8, the light gradient inside the blits 3.2. The
+DMA to VRAM is 3.3 and the bottom screen 1.6. So walking is a solid 30fps —
+two vblanks — and standing still redraws about ten times a second because
+nothing on screen is changing faster than that.
+
+Getting to 60 needs the draw to halve, and it will not come from the inner
+loop. Three attempts, each measured rather than assumed:
+
+| tried | measured |
+| --- | --- |
+| pack two pixels into one 32-bit store | 31.74ms vs 31.84 — nothing |
+| pre-mix every texture at every light level (64KB), so the blit is a straight copy | 32.25ms — worse |
+| drop the full-screen clear; build the light tables once per floor instead of once per frame | 38.5fps either way — nothing |
+
+The cost tracks pixels and nothing else: the floor is about 60% of the screen
+and costs 8.5ms, the walls about 40% and cost 5.9ms. Neither the width of the
+write nor the indirection of the read moves it. The last two changes were kept
+anyway, because they delete a 96KB write and several thousand `__aeabi_idiv`
+calls per frame whatever this emulator's timing model thinks, and they are
+visually identical to the frame they replaced. The first two were reverted.
+
+What would actually halve it is drawing fewer pixels: the DS has a hardware
+tiled background engine sitting idle while this renderer fills a bitmap by
+hand. Moving the dungeon onto it would make the floor and walls close to free
+and cost the per-pixel lighting, which would have to become per-tile palette
+selection. That is a renderer rewrite, not a tuning pass, and it is not done.
+
+One caveat on all of the numbers: they come from DeSmuME's interpreter, whose
+timing model is an approximation. They are consistent and they rank the stages,
+but they are not a promise about silicon.
+
 ## How it is tested
 
 Two harnesses, both of which run without a DS.

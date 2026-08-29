@@ -246,8 +246,19 @@ static void update_title(const PlatInput *in) {
                the sixteen bits the code has room for. Loot is seeded off a
                mix of it rather than from it, so two seasons that happen to
                share a layout still roll differently. */
+#ifdef PERF_FIXED_SEASON
+            /*  Measurement builds only, never the shipped ROM. The season is
+                normally mixed from g.frame at the moment this is pressed, and
+                g.frame depends on how fast frames are rendering -- so two
+                builds that differ in speed get different dungeons, and the
+                thing being measured changes with the thing being tested. That
+                is how a build with strictly less work in it once measured
+                slower than its baseline. */
+            g.season = 0x1BAD;
+#else
             g.season = ((0x1BADCA7Du ^ (g.frame * 2654435761u)) & 0xFFFF);
             if (!g.season) g.season = 0x1BAD;
+#endif
             rng_seed(0x9E3779B9u ^ (g.season * 2654435761u));
             start_new_run();
         } else {

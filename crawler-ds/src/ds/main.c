@@ -65,7 +65,17 @@ void plat_init(void) {
     touch_calibration_init();
 }
 
-void plat_wait(void) { swiWaitForVBlank(); }
+/*  ABL_NOVSYNC is for measurement only. With the vblank wait in, a frame
+ *  costs one vblank or two and nothing in between, so every stage that fits
+ *  inside the slack measures as free and every stage that tips over the edge
+ *  measures as a whole 16.7ms -- which compresses real differences to nothing
+ *  and inflates trivial ones. Unsynced, the frame counter is proportional to
+ *  actual work and the stages can be compared. */
+void plat_wait(void) {
+#ifndef ABL_NOVSYNC
+    swiWaitForVBlank();
+#endif
+}
 
 /*  `what` is RENDER_TOP | RENDER_BOTTOM: which of the two framebuffers the
  *  renderer actually touched. Sending a screen the renderer left alone costs a
@@ -77,10 +87,16 @@ void plat_wait(void) { swiWaitForVBlank(); }
  *  and ninety-two, so walking them is thousands of line operations to clean a
  *  cache that could only have held the last one percent of them anyway. */
 void plat_present(int what) {
+#ifndef ABL_NOFLUSH
     DC_FlushAll();
+#endif
+#ifndef ABL_NOVSYNC
     swiWaitForVBlank();
+#endif
+#ifndef ABL_NODMA
     if (what & RENDER_TOP)    dmaCopyWords(0, fb_top, VRAM_A, sizeof fb_top);
     if (what & RENDER_BOTTOM) dmaCopyWords(1, fb_bottom, sub_gfx, sizeof fb_bottom);
+#endif
 }
 
 void plat_poll(PlatInput *in) {

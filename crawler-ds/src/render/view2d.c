@@ -87,6 +87,27 @@ static void tiles_for(Tiles *t, int floor_index) {
     t->edge_dark = gfx_mix(t->fog, C_VOID, 2);
 }
 
+/*  The same tables, built once per floor rather than once per frame.
+ *
+ *  tiles_for() calls build_lut() twice, and each of those mixes every palette
+ *  entry at all sixteen light levels: up to two thousand gfx_mix() calls, each
+ *  with three integer divides, every single frame. The ARM9 has no divide
+ *  instruction, so that is several thousand calls into __aeabi_idiv for a
+ *  result that only changes when the party takes a staircase. It also put a
+ *  four-kilobyte Tiles on the stack each frame, most of it the two lookup
+ *  tables, and then copied it.
+ *
+ *  Keyed on the floor index, which is the only thing tiles_for() reads. */
+static const Tiles *tiles_cached(int floor_index) {
+    static Tiles cache;
+    static int built_for = -1;
+    if (built_for != floor_index) {
+        tiles_for(&cache, floor_index);
+        built_for = floor_index;
+    }
+    return &cache;
+}
+
 /*  Where the camera is, in world pixels, including the slide between two tiles
  *  that a step is part way through. */
 static void camera_of(int *cx, int *cy) {
@@ -379,6 +400,16 @@ static void blit_tile_lit(Surface *s, const Tiles *t, int sx, int sy, int wx, in
             else if (level > LIGHT_MAX) level = LIGHT_MAX;
             const uint16_t *lrow = lut[level];
             if (!step) {                              /* flat: the common case */
+                /*  Two things were tried here and both came back out,
+                    because both measured nothing. Storing two pixels at a
+                    time as one word: 31.74ms against 31.84ms. Pre-mixing
+                    every texture at every light level so this is a straight
+                    copy with no table lookup, at a cost of 64KB: 32.25ms,
+                    slightly worse. The blit is bound by neither the width of
+                    the write nor the indirection of the read -- its cost
+                    tracks the number of pixels and nothing else, which is why
+                    the floor (about 60% of the screen) costs 8.5ms and the
+                    walls (about 40%) cost 5.9ms. */
                 while (dst < end) *dst++ = lrow[*src++];
                 break;
             }
@@ -477,8 +508,7 @@ void view2d_draw_party(Surface *s, int cx, int cy) {
 
 void view2d_draw(Surface *s) {
     const Dungeon *d = &g.dun;
-    Tiles t;
-    tiles_for(&t, d->index);
+    const Tiles *t = tiles_cached(d->index);
 
     int cx, cy;
     camera_of(&cx, &cy);
@@ -493,11 +523,19 @@ void view2d_draw(Surface *s) {
      *  and its neighbour agree about the corner they share and the falloff is
      *  continuous across the screen. */
     static uint8_t grid[(SCREEN_H / TILE + 4)][(SCREEN_W / TILE + 4)];
-    /*  One pass of thirty-two-bit stores over the screen, which is cheaper
-     *  than the two hundred clipped rectangles it would take to lay the same
-     *  haze down tile by tile -- that was tried, and cost a fifth of the frame
-     *  to save a tenth. */
-    gfx_clear(s, t.fog);
+    /*  No full-screen clear. It used to lay the haze down over all 49,152
+     *  pixels and then the floor and wall passes immediately repainted nearly
+     *  every one of them, which profiling put at a fifth of the whole draw
+     *  (12.1us of 63.1, tools/hostsim --profile).
+     *
+     *  Clearing tile by tile was tried before and lost -- but that was with a
+     *  sixteen-pixel tile, where covering the screen took three hundred
+     *  clipped rectangles. A thirty-two-pixel tile needs ninety-nine, and the
+     *  ones that need filling are only the unexplored ones, so the fill now
+     *  rides along inside the floor pass that is already walking the grid.
+     *  The grid is deliberately a tile wider and taller than the screen on
+     *  every side, so it covers it; dungeon_seen() is false off the map, which
+     *  is what fills the border beyond the floor's edge. */
 
     gather_lamps(tx0, ty0, cols, rows);
 
@@ -524,9 +562,11 @@ void view2d_draw(Surface *s) {
             key[4] != (uint32_t)g.dun.py || key[5] != sig) {
             key[0] = (uint32_t)tx0; key[1] = (uint32_t)ty0; key[2] = (uint32_t)d->index;
             key[3] = (uint32_t)g.dun.px; key[4] = (uint32_t)g.dun.py; key[5] = sig;
+#ifndef ABL_NOGRID
             for (int j = 0; j <= rows; j++)
                 for (int i = 0; i <= cols; i++)
                     grid[j][i] = light_at(tx0 + i, ty0 + j);
+#endif
         }
     }
 
@@ -535,11 +575,21 @@ void view2d_draw(Surface *s) {
     for (int j = 0; j < rows; j++)
         for (int i = 0; i < cols; i++) {
             int mx = tx0 + i, my = ty0 + j;
-            if (!dungeon_seen(mx, my) || solid(mx, my)) continue;
+            int sx = mx * TILE - cx, sy = my * TILE - cy;
+            if (!dungeon_seen(mx, my)) {
+                /*  Not been here. This is the haze the screen clear used to
+                    lay down everywhere, put down only where it survives. */
+#ifndef ABL_NOCLEAR
+                gfx_rect(s, sx, sy, TILE, TILE, t->fog);
+#endif
+                continue;
+            }
+            if (solid(mx, my)) continue;
             const uint8_t corner[4] = { grid[j][i], grid[j][i + 1],
                                         grid[j + 1][i], grid[j + 1][i + 1] };
-            blit_tile_lit(s, &t, mx * TILE - cx, my * TILE - cy,
-                          mx * TILE, my * TILE, 0, 0, corner);
+#ifndef ABL_NOFLOOR
+            blit_tile_lit(s, t, sx, sy, mx * TILE, my * TILE, 0, 0, corner);
+#endif
         }
 
     for (int j = 0; j < rows; j++)
@@ -555,21 +605,23 @@ void view2d_draw(Surface *s) {
              *  a line, which between them is what makes a block a block. */
             const uint8_t corner[4] = { grid[j][i], grid[j][i + 1],
                                         grid[j + 1][i], grid[j + 1][i + 1] };
-            blit_tile_lit(s, &t, sx, sy, mx * TILE, my * TILE, 1, 4, corner);
+#ifndef ABL_NOWALL
+            blit_tile_lit(s, t, sx, sy, mx * TILE, my * TILE, 1, 4, corner);
+#endif
             /*  A block only reads as having height if the camera can see a
              *  sliver of the face pointing at it, so a wall with open floor
              *  below gets one, plus the shadow it throws. */
             if (!solid(mx, my + 1) && dungeon_seen(mx, my + 1)) {
                 gfx_rect(s, sx, sy + TILE, TILE, WALL_LIP,
-                         gfx_mix(t.wall_pal[0], t.fog, 9));
-                gfx_hline(s, sx, sx + TILE - 1, sy + TILE, t.edge_lit);
+                         gfx_mix(t->wall_pal[0], t->fog, 9));
+                gfx_hline(s, sx, sx + TILE - 1, sy + TILE, t->edge_lit);
                 gfx_dither(s, sx, sy + TILE + WALL_LIP, TILE, 2, C_VOID, 6);
             }
             /*  Every exposed edge gets a line, so a block of wall has a shape
              *  rather than melting into the block beside it. */
-            if (!solid(mx, my - 1)) gfx_hline(s, sx, sx + TILE - 1, sy, t.edge_dark);
-            if (!solid(mx - 1, my)) gfx_vline(s, sx, sy, sy + TILE - 1, t.edge_dark);
-            if (!solid(mx + 1, my)) gfx_vline(s, sx + TILE - 1, sy, sy + TILE - 1, t.edge_dark);
+            if (!solid(mx, my - 1)) gfx_hline(s, sx, sx + TILE - 1, sy, t->edge_dark);
+            if (!solid(mx - 1, my)) gfx_vline(s, sx, sy, sy + TILE - 1, t->edge_dark);
+            if (!solid(mx + 1, my)) gfx_vline(s, sx + TILE - 1, sy, sy + TILE - 1, t->edge_dark);
         }
 
     /*  Anything standing on the floor. Drawn small: these are props seen from
@@ -593,8 +645,10 @@ void view2d_draw(Surface *s) {
             if (!sp) continue;
             int scale = 80;   /* against a tile twice the size */
             int w = sp->w * scale / 100, h = sp->h * scale / 100;
+#ifndef ABL_NOPROPS
             gfx_sprite_scaled(s, sp, mx * TILE - cx + (TILE - w) / 2,
                               my * TILE - cy + TILE - h, scale, 100);
+#endif
         }
 
     /*  The bosses get a marker rather than a sprite: their art is battle-sized
@@ -608,7 +662,7 @@ void view2d_draw(Surface *s) {
             int sx = mx * TILE - cx, sy = my * TILE - cy;
             uint16_t c = tile == T_BOSS ? C_RED : C_MAGENTA;
             gfx_frame(s, sx + 1, sy + 1, TILE - 2, TILE - 2, c);
-            gfx_frame(s, sx + 3, sy + 3, TILE - 6, TILE - 6, gfx_mix(c, t.fog, 8));
+            gfx_frame(s, sx + 3, sy + 3, TILE - 6, TILE - 6, gfx_mix(c, t->fog, 8));
             if ((g.anim >> 3) & 1) gfx_rect(s, sx + 6, sy + 6, 4, 4, c);
         }
 
@@ -617,7 +671,9 @@ void view2d_draw(Surface *s) {
     glow_pass(s, cx, cy);
 #endif
 
+#ifndef ABL_NOPARTY
     view2d_draw_party(s, SCREEN_W / 2, SCREEN_H / 2);
+#endif
 
     /*  Everything the party has not walked past yet stays under the haze.
      *
@@ -626,6 +682,7 @@ void view2d_draw(Surface *s) {
      *  repainting all of them was costing as much as drawing the entire floor.
      *  The only ones that need it are the ones a lamp has just thrown colour
      *  across -- a thin border where explored ground meets the dark. */
+#ifndef ABL_NOFOG
     for (int n = 0; n < s_lamps; n++) {
         const Lamp *l = &s_lamp[n];
         int reach = l->glow / TILE + 1;
@@ -638,9 +695,10 @@ void view2d_draw(Surface *s) {
         for (int my = j0; my <= j1; my++)
             for (int mx = i0; mx <= i1; mx++) {
                 if (dungeon_seen(mx, my)) continue;
-                gfx_rect(s, mx * TILE - cx, my * TILE - cy, TILE, TILE, t.fog);
+                gfx_rect(s, mx * TILE - cx, my * TILE - cy, TILE, TILE, t->fog);
             }
     }
+#endif
     for (int i = 0; i < 10; i++) {
         int a = (10 - i) / 3;
         if (!a) continue;

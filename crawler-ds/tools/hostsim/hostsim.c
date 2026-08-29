@@ -13,10 +13,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <zlib.h>
 
 #include "platform.h"
 #include "game.h"
+#include "gfx.h"
+
+/*  Declared in render.c rather than a header of its own. */
+void view2d_draw(Surface *s);
 #include "ui_layout.h"
 
 static uint16_t fb[2][SCREEN_W * SCREEN_H];
@@ -389,7 +394,7 @@ static int floor_is_sound(int show) {
 int main(int argc, char **argv) {
     int bot = 0, runs = 1, want_shots = 0, touch_check = 0, code_check = 0;
     uint32_t map_seed = 0;
-    int sweep = 0;
+    int sweep = 0, profile = 0;
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "--bot")) bot = 1;
         else if (!strcmp(argv[i], "--shots") && i + 1 < argc) { shots_dir = argv[++i]; want_shots = 1; }
@@ -398,6 +403,7 @@ int main(int argc, char **argv) {
         else if (!strcmp(argv[i], "--codes")) code_check = 1;
         else if (!strcmp(argv[i], "--map") && i + 1 < argc) map_seed = (uint32_t)atoi(argv[++i]);
         else if (!strcmp(argv[i], "--mapsweep") && i + 1 < argc) sweep = atoi(argv[++i]);
+        else if (!strcmp(argv[i], "--profile")) profile = 1;
         else if (!strcmp(argv[i], "-v")) verbose = 1;
         else { fprintf(stderr, "unknown argument %s\n", argv[i]); return 2; }
     }
@@ -706,6 +712,44 @@ int main(int argc, char **argv) {
         printf("  %s %d season seeds generate completable floors\n",
                bad ? "FAIL" : "ok  ", sweep);
         return bad ? 1 : 0;
+    }
+
+    if (profile) {
+        /*  How long the dungeon view takes, per stage, on a fixed floor at a
+         *  fixed spot.
+         *
+         *  The ROM harness cannot answer this. The season seed is mixed from
+         *  g.frame at the moment NEW SEASON is pressed, and g.frame depends on
+         *  how fast frames are rendering -- so every ablation build gets a
+         *  *different dungeon*, with different walls and lamps on screen, and
+         *  the thing being measured changes with the thing being tested. That
+         *  is how a build with less work in it measured slower than the
+         *  baseline. Here the season is pinned, the party is put on a known
+         *  tile, and the same frame is drawn ten thousand times.
+         *
+         *  Stages are removed at compile time (ABL_NO*) and the whole draw is
+         *  timed each way, rather than timing from inside: a timer around a
+         *  stage measures the timer as much as the stage when the stage is a
+         *  few thousand cycles.
+         */
+        game_boot();
+        g.season = 0x1BAD;
+        dungeon_enter(0);
+        /*  Somewhere with walls, floor and a lamp in view rather than the
+            entrance stub, so the measurement is of a representative frame. */
+        walk_to(T_KIOSK, 400);        /* stands it next to a lamp */
+        Surface top = gfx_surface(SCREEN_TOP);
+        const int N = 10000;
+        /*  Warm the caches and the corner grid so the first iteration is not
+            paying for everyone. */
+        for (int i = 0; i < 50; i++) view2d_draw(&top);
+        clock_t t0 = clock();
+        for (int i = 0; i < N; i++) view2d_draw(&top);
+        clock_t t1 = clock();
+        double us = (double)(t1 - t0) * 1e6 / CLOCKS_PER_SEC / N;
+        printf("view2d_draw  %8.2f us/frame   (season %d floor 1 at %d,%d, %d steps in)\n",
+               us, game_season_number(), g.dun.px, g.dun.py, g.dun.steps);
+        return 0;
     }
 
     if (map_seed) {

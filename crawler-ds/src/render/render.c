@@ -472,7 +472,9 @@ static void draw_button(Surface *s, const Rect *r, int on) {
 static int s_draw_bottom = 1;
 
 static void draw_dungeon(Surface *top, Surface *bot) {
+#ifndef ABL_NOVIEW
     view2d_draw(top);
+#endif
     if (g.hurt_flash) gfx_shade(top, 0, 0, SCREEN_W, SCREEN_H, 16 + g.hurt_flash);
 
     int secs = g.dun.collapse > 0 ? (int)(g.dun.collapse / 60) : 0;
@@ -511,6 +513,9 @@ static void draw_dungeon(Surface *top, Surface *bot) {
      *  readouts changes and left alone otherwise; see
      *  render_bottom_signature. */
     if (!s_draw_bottom) return;
+#ifdef ABL_NOBOTTOM
+    return;
+#endif
 
     backdrop(bot);
     gfx_rect(bot, 0, 0, SCREEN_W, 22, C_PANEL);
@@ -2072,7 +2077,9 @@ int render_frame(void) {
     static uint32_t last_signature, last_bottom;
     static int primed;
     uint32_t sig = render_signature();
+#ifndef ABL_NOSIGCACHE
     if (primed && sig == last_signature) return 0;
+#endif
     uint32_t bsig = render_bottom_signature();
     s_draw_bottom = !primed || bsig != last_bottom;
 
