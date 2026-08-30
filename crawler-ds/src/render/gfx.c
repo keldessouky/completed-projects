@@ -8,8 +8,11 @@
 Surface gfx_surface(int screen) {
     Surface s;
     s.px = plat_screen(screen);
-    s.w = SCREEN_W;
-    s.h = SCREEN_H;
+    /*  Every drawing routine here works off s->w and s->h rather than the
+        screen constants, which is what lets the dungeon's half-size layer go
+        through the same code unchanged. */
+    s.w = screen == SCREEN_WORLD ? WORLD_W : SCREEN_W;
+    s.h = screen == SCREEN_WORLD ? WORLD_H : SCREEN_H;
     return s;
 }
 
@@ -146,6 +149,13 @@ void gfx_shade(Surface *s, int x, int y, int w, int h, int amount) {
             int xx = x + i;
             if ((unsigned)xx >= (unsigned)s->w) continue;
             uint16_t *p = &s->px[yy * s->w + xx];
+            /*  Leave transparent pixels alone. gfx_scale_colour always sets
+                the alpha bit, so shading a see-through pixel turns it into
+                opaque black -- which on the dungeon's overlay meant the
+                fade-in painted the whole layer solid over the floor and
+                nothing ever cleared it again, because that layer is only
+                wiped in bands. */
+            if (!(*p & 0x8000)) continue;
             *p = gfx_scale_colour(*p, amount, 16);
         }
     }

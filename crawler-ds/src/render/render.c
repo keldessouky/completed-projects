@@ -470,12 +470,51 @@ static void draw_button(Surface *s, const Rect *r, int on) {
 /*  Set by render_frame before it dispatches: whether the bottom screen's
  *  contents have changed since it was last drawn. */
 static int s_draw_bottom = 1;
+/*  Set on the first frame drawn after the scene changes. The dungeon's overlay
+ *  is only wiped in bands, so on the way in it is still carrying whatever the
+ *  previous scene painted edge to edge and needs one full clear. Tracking that
+ *  from inside draw_dungeon does not work -- the scene is always the dungeon
+ *  by the time it runs, so the flag latches on the first visit and every later
+ *  entry keeps the last screen underneath the floor. It has to be observed
+ *  where the scenes actually change. */
+static int s_scene_changed = 1;
 
 static void draw_dungeon(Surface *top, Surface *bot) {
+    /*  The dungeon goes on the half-size layer the hardware magnifies; the
+     *  text goes on the full-size layer above it, because a 5x7 font does not
+     *  survive being halved.
+     *
+     *  The overlay is transparent where nothing is written, so it costs only
+     *  the rows that carry something. Clearing all of it would put back most
+     *  of the cost this split exists to remove, so only two bands are wiped:
+     *  the system bar, always, and the strip the toasts stack up -- while any
+     *  is alive, and once more on the frame after the last one dies, or its
+     *  panel would be left painted on a layer nothing else touches. */
+    Surface world = gfx_surface(SCREEN_WORLD);
 #ifndef ABL_NOVIEW
-    view2d_draw(top);
+    view2d_draw(&world);
 #endif
-    if (g.hurt_flash) gfx_shade(top, 0, 0, SCREEN_W, SCREEN_H, 16 + g.hurt_flash);
+    if (g.hurt_flash) gfx_shade(&world, 0, 0, WORLD_W, WORLD_H, 16 + g.hurt_flash);
+
+    /*  Wipe only what the overlay carries. Arriving from another scene it is
+        still holding that scene's full-screen artwork, so the whole layer goes
+        once on the way in; after that it is the bar every frame and the toast
+        strip while toasts exist, plus one more frame after the last one dies
+        or its panel would stay painted on a layer nothing else touches. */
+    {
+        static int toast_band_dirty;
+        if (s_scene_changed) gfx_rect(top, 0, 0, SCREEN_W, SCREEN_H, 0);
+        gfx_rect(top, 0, 0, SCREEN_W, 16, 0);
+        int alive = 0;
+        for (int i = 0; i < MAX_TOASTS; i++) if (g.toast[i].life) alive = 1;
+        if (alive || toast_band_dirty) gfx_rect(top, 0, 36, SCREEN_W, SCREEN_H - 36, 0);
+        /*  ...and only send what was touched. Sixteen rows of system bar is
+            8KB; the whole layer is 96KB, and shipping it every frame cost
+            more than drawing the dungeon's floor. */
+        if (s_scene_changed || alive || toast_band_dirty) plat_top_rows(0, SCREEN_H);
+        else plat_top_rows(0, 16);
+        toast_band_dirty = alive;
+    }
 
     int secs = g.dun.collapse > 0 ? (int)(g.dun.collapse / 60) : 0;
     char timer[10];
@@ -2090,6 +2129,14 @@ int render_frame(void) {
     Surface top = gfx_surface(SCREEN_TOP);
     Surface bot = gfx_surface(SCREEN_BOTTOM);
 
+    {
+        /*  Unsigned, because Scene is: comparing it against a signed -1
+            sentinel warns, and 255 is not a scene either. */
+        static unsigned last_scene = 255u;
+        s_scene_changed = ((unsigned)g.scene != last_scene);
+        last_scene = (unsigned)g.scene;
+    }
+
     switch (g.scene) {
     case SCENE_TITLE:    draw_title(&top, &bot);    break;
     case SCENE_STORY:    draw_story(&top, &bot);    break;
@@ -2133,6 +2180,18 @@ int render_frame(void) {
             gfx_shade(&top, 0, 0, SCREEN_W, SCREEN_H, 16 - a);
             gfx_shade(&bot, 0, 0, SCREEN_W, SCREEN_H, 16 - a);
         }
+        /*  The dungeon is not on `top` any more, so a fade that only touched
+            that layer would dim the text and leave the floor at full
+            brightness underneath it. */
+        if (g.scene == SCENE_DUNGEON) {
+            Surface w = gfx_surface(SCREEN_WORLD);
+            gfx_shade(&w, 0, 0, WORLD_W, WORLD_H, 16 - a);
+        }
     }
-    return s_draw_bottom ? RENDER_TOP | RENDER_BOTTOM : RENDER_TOP;
+    /*  The world layer is only ever touched by the dungeon, so it only needs
+        sending when the dungeon drew. Every other scene paints the full-size
+        layer opaque from edge to edge and hides it. */
+    int what = s_draw_bottom ? RENDER_TOP | RENDER_BOTTOM : RENDER_TOP;
+    if (g.scene == SCENE_DUNGEON) what |= RENDER_WORLD;
+    return what;
 }

@@ -16,21 +16,29 @@
 #include "game.h"
 #include "art.h"
 
-/*  Thirty-two, not sixteen. At sixteen the screen held a sixteen-by-twelve
- *  grid, which sounds generous and looked like a map: the crawlers were a
- *  sixteen-pixel sprite on a two-hundred-and-fifty-six-pixel screen -- a
- *  tenth of its height -- and most of what surrounded them was unexplored
- *  black, because a viewport that wide reaches past whatever a lamp has lit.
- *  Doubling the tile halves the reach in both directions, which fills the
- *  screen with room instead of void, and lets the party be drawn at twice the
- *  size so there is a person down there rather than a token.
+/*  The dungeon draws into WORLD_W x WORLD_H -- half the screen each way -- and
+ *  the 2D engine's affine hardware magnifies it back up. So a sixteen-pixel
+ *  tile here is a thirty-two-pixel tile on the panel, and the screen still
+ *  shows the eight-by-six grid it showed before: same framing, a quarter of
+ *  the pixels for the CPU to write.
  *
- *  It also lands the textures on their natural scale. They are authored
- *  thirty-two square; a sixteen-pixel tile read half of one, so every wall was
- *  the top sixteen rows of its texture and the bottom sixteen were never seen. */
-#define TILE     32
+ *  That quartering is the point. The cost of this function tracks pixel count
+ *  and nothing else -- packing two pixels per store, pre-mixing every texture
+ *  at every light level, and dropping the full-screen clear were each tried
+ *  and each measured nothing -- and at full resolution it was 25.8ms of a
+ *  31.8ms frame against a 16.7ms budget.
+ *
+ *  What is lost is texture detail, which halves. What is not lost is the
+ *  lighting: it is still per-pixel and bilinear across every tile, and the
+ *  lamp colour is still a real blended disc, because this is still a software
+ *  renderer -- just a smaller one. The party are 16x20 sprites that were being
+ *  drawn pixel-doubled anyway, so they come through the magnifier unchanged.
+ */
+#define VIEW_W   WORLD_W
+#define VIEW_H   WORLD_H
+#define TILE     16
 #define TEXELS   32
-#define WALL_LIP 8       /* how much of a wall's south face the camera sees */
+#define WALL_LIP 4       /* how much of a wall's south face the camera sees */
 
 /*  Light levels the tiles are drawn through. The DS keeps colour in a 16-bit
  *  halfword of which fifteen bits are colour, and this game draws into a direct
@@ -120,8 +128,8 @@ static void camera_of(int *cx, int *cy) {
         px -= g.dun.move_dx * TILE * t / WALK_FRAMES;
         py -= g.dun.move_dy * TILE * t / WALK_FRAMES;
     }
-    *cx = px - SCREEN_W / 2;
-    *cy = py - SCREEN_H / 2;
+    *cx = px - VIEW_W / 2;
+    *cy = py - VIEW_H / 2;
 }
 
 static int solid(int x, int y) { return dungeon_tile(x, y) == T_WALL; }
@@ -297,7 +305,7 @@ static void glow_pass(Surface *s, int cx, int cy) {
         int r2 = r * r;
         int ox = l->x * TILE + TILE / 2 - cx;
         int oy = l->y * TILE + TILE / 2 - cy;
-        if (ox + r < 0 || ox - r >= SCREEN_W || oy + r < 0 || oy - r >= SCREEN_H) continue;
+        if (ox + r < 0 || ox - r >= VIEW_W || oy + r < 0 || oy - r >= VIEW_H) continue;
 
         if (l->tint != built) {
             built = l->tint;
@@ -314,10 +322,10 @@ static void glow_pass(Surface *s, int cx, int cy) {
         int vmin = r2 / GLOW_A;                 /* below this the tint rounds away */
 
         int y0 = oy - r < 0 ? -oy : -r;
-        int y1 = oy + r >= SCREEN_H ? SCREEN_H - 1 - oy : r;
+        int y1 = oy + r >= VIEW_H ? VIEW_H - 1 - oy : r;
 
         for (int y = y0; y <= y1; y++) {
-            uint16_t *dst = s->px + (oy + y) * SCREEN_W + ox;
+            uint16_t *dst = s->px + (oy + y) * VIEW_W + ox;
             int q = r2 - y * y;
             if (q < vmin) continue;             /* nothing on this row shows */
             /*  Where the tint stops on this row, solved rather than searched
@@ -325,7 +333,7 @@ static void glow_pass(Surface *s, int cx, int cy) {
              *  faint to show, and walking it was a third of the pass. */
             int xr = isqrt_(q - vmin);
             int x0 = ox - xr < 0 ? -ox : -xr;
-            int x1 = ox + xr >= SCREEN_W ? SCREEN_W - 1 - ox : xr;
+            int x1 = ox + xr >= VIEW_W ? VIEW_W - 1 - ox : xr;
             /*  x squared, stepped: (x+1)^2 - x^2 is 2x + 1, so the distance
              *  across a row costs an add rather than a multiply. */
             int xx = x0 * x0, dxx = 2 * x0 + 1;
@@ -354,16 +362,18 @@ static void blit_tile_lit(Surface *s, const Tiles *t, int sx, int sy, int wx, in
                           int is_wall, int shade, const uint8_t l[4]) {
     /*  Clip the tile to the screen once instead of testing every pixel, and
      *  hoist the texture row out of the inner loop. */
-    int x0 = sx < 0 ? 0 : sx, x1 = sx + TILE > SCREEN_W ? SCREEN_W : sx + TILE;
-    int y0 = sy < 0 ? 0 : sy, y1 = sy + TILE > SCREEN_H ? SCREEN_H : sy + TILE;
+    int x0 = sx < 0 ? 0 : sx, x1 = sx + TILE > VIEW_W ? VIEW_W : sx + TILE;
+    int y0 = sy < 0 ? 0 : sy, y1 = sy + TILE > VIEW_H ? VIEW_H : sy + TILE;
     if (x0 >= x1 || y0 >= y1) return;
 
     const uint8_t *pix = is_wall ? t->wall : t->floor;
     const uint16_t (*lut)[64] = is_wall ? t->wall_lut : t->floor_lut;
-    /*  Both read the full thirty-two rows now. The wall used to mask to
-     *  sixteen so its pattern came out at the right scale on a sixteen-pixel
-     *  tile; on a thirty-two-pixel tile that would repeat the top half twice
-     *  and band every wall across the middle. */
+    /*  A texture is thirty-two square and a tile is sixteen, so both read a
+     *  different half of it per tile and repeat on a two-by-two block. The
+     *  wall used to be masked to its top sixteen rows so its courses lined up
+     *  across neighbours -- but the hazard banding lives in the bottom half,
+     *  and masking it away took every yellow stripe off the walls. The
+     *  alternation is what the banding is for. */
     int vmask = TEXELS - 1;
 
     for (int py = y0; py < y1; py++) {
@@ -378,8 +388,8 @@ static void blit_tile_lit(Surface *s, const Tiles *t, int sx, int sy, int wx, in
          *  what lets the source be a plain walking pointer with no wrap test. */
         const uint8_t *src = pix + ((wy + y) & vmask) * TEXELS
                                  + ((wx + x0 - sx) & (TEXELS - 1));
-        uint16_t *dst = s->px + py * SCREEN_W + x0;
-        uint16_t *end = s->px + py * SCREEN_W + x1;
+        uint16_t *dst = s->px + py * VIEW_W + x0;
+        uint16_t *end = s->px + py * VIEW_W + x1;
 
         /*  Multiplied, not shifted: the difference between two corners is
          *  routinely negative and shifting a negative left is undefined. */
@@ -451,19 +461,15 @@ static void draw_crawler(Surface *s, int slot, int sx, int sy, int facing,
     }
     const Sprite *sp = sprite_table[SPR_OW_CARL_DOWN_0
                                     + (who * 3 + kFace[facing & 3]) * OW_FRAMES + frame];
-    /*  Drawn at twice the art's size, because the tile is. The overworld
-        sprites are authored sixteen by twenty for a sixteen-pixel grid; on a
-        thirty-two-pixel grid at native size they would be half a tile wide,
-        which is the token they used to look like. Doubling is the right
-        enlargement for pixel art -- every source pixel becomes an exact two
-        by two block, so the outlines stay hard and nothing is resampled. */
-    const int z = 200;
-    int w = sp->w * z / 100, h = sp->h * z / 100;
+    /*  At the size they were drawn. This used to scale them 200% because the
+        tile was thirty-two pixels; the magnifier does that now, and does it
+        the same way -- every source pixel becomes an exact two-by-two block --
+        so what reaches the panel is the image this used to compute. */
     /*  A shadow, so the party sits on the floor rather than hovering over it. */
-    gfx_dither(s, sx + 6, sy + h - 4, w - 12, 5, C_VOID, 8);
-    if ((facing & 3) == 3) gfx_sprite_scaled_flip(s, sp, sx, sy, z, 100);
-    else gfx_sprite_scaled(s, sp, sx, sy, z, 100);
-    if (g.hero[slot].hp <= 0) gfx_shade(s, sx, sy, w, h, 9);
+    gfx_dither(s, sx + 3, sy + sp->h - 2, sp->w - 6, 3, C_VOID, 8);
+    if ((facing & 3) == 3) gfx_sprite_flip(s, sp, sx, sy);
+    else gfx_sprite(s, sp, sx, sy);
+    if (g.hero[slot].hp <= 0) gfx_shade(s, sx, sy, sp->w, sp->h, 9);
 }
 
 /*  The party: whoever is leading, and the other one walking in their tracks.
@@ -493,9 +499,9 @@ void view2d_draw_party(Surface *s, int cx, int cy) {
      *  makes the pair recognisable at this size. */
     /*  The follower is half a cycle behind the leader, because two people
         walking in perfect lockstep read as one person and a copy of them. */
-    /*  Half the doubled sprite across, and enough of it above the tile centre
-        that the feet land on the floor rather than the sprite straddling it. */
-    const int kOffX = 16, kOffY = 28;
+    /*  Half the sprite across, and enough of it above the tile centre that the
+        feet land on the floor rather than the sprite straddling it. */
+    const int kOffX = 8, kOffY = 14;
     int stride = (int)g.dun.steps;
     if (fy > cy) {
         draw_crawler(s, 0, cx - kOffX, cy - kOffY, f, walking, stride);
@@ -517,12 +523,12 @@ void view2d_draw(Surface *s) {
      *  the grid one tile out and leaves a column of the screen uncovered. */
     int tx0 = (cx >= 0 ? cx / TILE : -((TILE - 1 - cx) / TILE)) - 1;
     int ty0 = (cy >= 0 ? cy / TILE : -((TILE - 1 - cy) / TILE)) - 1;
-    int cols = SCREEN_W / TILE + 3, rows = SCREEN_H / TILE + 3;
+    int cols = VIEW_W / TILE + 3, rows = VIEW_H / TILE + 3;
 
     /*  Light sampled once per tile corner for the whole visible grid, so a tile
      *  and its neighbour agree about the corner they share and the falloff is
      *  continuous across the screen. */
-    static uint8_t grid[(SCREEN_H / TILE + 4)][(SCREEN_W / TILE + 4)];
+    static uint8_t grid[(VIEW_H / TILE + 4)][(VIEW_W / TILE + 4)];
     /*  No full-screen clear. It used to lay the haze down over all 49,152
      *  pixels and then the floor and wall passes immediately repainted nearly
      *  every one of them, which profiling put at a fifth of the whole draw
@@ -643,7 +649,7 @@ void view2d_draw(Surface *s) {
             char tile = dungeon_tile(mx, my);
             if ((tile == T_BOX || tile == T_BOX_GOLD) && dungeon_is_used(mx, my)) sp = 0;
             if (!sp) continue;
-            int scale = 80;   /* against a tile twice the size */
+            int scale = 40;
             int w = sp->w * scale / 100, h = sp->h * scale / 100;
 #ifndef ABL_NOPROPS
             gfx_sprite_scaled(s, sp, mx * TILE - cx + (TILE - w) / 2,
@@ -672,7 +678,7 @@ void view2d_draw(Surface *s) {
 #endif
 
 #ifndef ABL_NOPARTY
-    view2d_draw_party(s, SCREEN_W / 2, SCREEN_H / 2);
+    view2d_draw_party(s, VIEW_W / 2, VIEW_H / 2);
 #endif
 
     /*  Everything the party has not walked past yet stays under the haze.
@@ -699,11 +705,11 @@ void view2d_draw(Surface *s) {
             }
     }
 #endif
-    for (int i = 0; i < 10; i++) {
-        int a = (10 - i) / 3;
+    for (int i = 0; i < 5; i++) {
+        int a = (5 - i) / 2;
         if (!a) continue;
-        gfx_vline(s, i, 0, SCREEN_H - 1, gfx_mix(s->px[i], C_VOID, a));
-        gfx_vline(s, SCREEN_W - 1 - i, 0, SCREEN_H - 1,
-                  gfx_mix(s->px[SCREEN_W - 1 - i], C_VOID, a));
+        gfx_vline(s, i, 0, VIEW_H - 1, gfx_mix(s->px[i], C_VOID, a));
+        gfx_vline(s, VIEW_W - 1 - i, 0, VIEW_H - 1,
+                  gfx_mix(s->px[VIEW_W - 1 - i], C_VOID, a));
     }
 }

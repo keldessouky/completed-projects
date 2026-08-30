@@ -25,9 +25,18 @@ void view2d_draw(Surface *s);
 #include "ui_layout.h"
 
 static uint16_t fb[2][SCREEN_W * SCREEN_H];
-uint16_t *plat_screen(int which) { return fb[which ? 1 : 0]; }
+/*  The dungeon's half-size layer. On the DS this is a background the 2D engine
+ *  magnifies; here it is composed in software at capture time, so a screenshot
+ *  and an assertion see what the panel would show. */
+static uint16_t fb_world[WORLD_W * WORLD_H];
+uint16_t *plat_screen(int which) {
+    return which == SCREEN_WORLD ? fb_world : fb[which ? 1 : 0];
+}
 void plat_sound(int voice, int freq, int volume, int duty) { (void)voice; (void)freq; (void)volume; (void)duty; }
 void plat_sound_stop(int voice) { (void)voice; }
+/*  No VRAM here, so nothing to limit; the composition at capture time reads
+    the whole buffer either way. */
+void plat_top_rows(int y0, int rows) { (void)y0; (void)rows; }
 
 /* ------------------------------------------------------------------ png ---- */
 
@@ -56,8 +65,14 @@ static void write_shot(const char *path) {
     for (unsigned y = 0; y < h; y++) {
         *o++ = 0;
         const uint16_t *src = fb[y < SCREEN_H ? 0 : 1] + (y % SCREEN_H) * SCREEN_W;
+        /*  The top screen is two layers: the magnified world underneath and
+            the full-resolution overlay above it, which is see-through
+            wherever its alpha bit is clear. */
+        const uint16_t *wsrc = (y < SCREEN_H && g.scene == SCENE_DUNGEON)
+                             ? fb_world + (y / 2) * WORLD_W : 0;
         for (unsigned x = 0; x < w; x++) {
             uint16_t c = src[x];
+            if (wsrc && !(c & 0x8000)) c = wsrc[x / 2];
             *o++ = (unsigned char)(((c) & 31) * 255 / 31);
             *o++ = (unsigned char)(((c >> 5) & 31) * 255 / 31);
             *o++ = (unsigned char)(((c >> 10) & 31) * 255 / 31);

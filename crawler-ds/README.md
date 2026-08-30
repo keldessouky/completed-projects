@@ -404,15 +404,9 @@ does the same thing on the desktop with a pinned seed — useful because it is
 fast and precise, and misleading on its own, since the host has a divide
 instruction and the ARM9 does not.
 
-With all three on, a frame that actually draws costs **31.8ms against a
-16.7ms budget**, and the dungeon view is 25.8ms of it: floor tiles 8.5,
-walls 5.9, the colour pass 3.8, the light gradient inside the blits 3.2. The
-DMA to VRAM is 3.3 and the bottom screen 1.6. So walking is a solid 30fps —
-two vblanks — and standing still redraws about ten times a second because
-nothing on screen is changing faster than that.
-
-Getting to 60 needs the draw to halve, and it will not come from the inner
-loop. Three attempts, each measured rather than assumed:
+With all three on, a frame that actually draws cost **31.8ms against a 16.7ms
+budget**, and the dungeon view was 25.8ms of it. Getting to 60 was never going
+to come from the inner loop. Three attempts, each measured rather than assumed:
 
 | tried | measured |
 | --- | --- |
@@ -420,18 +414,57 @@ loop. Three attempts, each measured rather than assumed:
 | pre-mix every texture at every light level (64KB), so the blit is a straight copy | 32.25ms — worse |
 | drop the full-screen clear; build the light tables once per floor instead of once per frame | 38.5fps either way — nothing |
 
-The cost tracks pixels and nothing else: the floor is about 60% of the screen
-and costs 8.5ms, the walls about 40% and cost 5.9ms. Neither the width of the
-write nor the indirection of the read moves it. The last two changes were kept
-anyway, because they delete a 96KB write and several thousand `__aeabi_idiv`
-calls per frame whatever this emulator's timing model thinks, and they are
-visually identical to the frame they replaced. The first two were reverted.
+The cost tracked pixels and nothing else: the floor was about 60% of the screen
+and cost 8.5ms, the walls about 40% and cost 5.9ms. Neither the width of the
+write nor the indirection of the read moved it. So the fix had to be fewer
+pixels.
 
-What would actually halve it is drawing fewer pixels: the DS has a hardware
-tiled background engine sitting idle while this renderer fills a bitmap by
-hand. Moving the dungeon onto it would make the floor and walls close to free
-and cost the per-pixel lighting, which would have to become per-tile palette
-selection. That is a renderer rewrite, not a tuning pass, and it is not done.
+### The dungeon is half the size, and the hardware magnifies it
+
+The top screen is two layers now instead of one raw framebuffer. `MODE_FB0`
+pointed the LCD straight at VRAM A, which is the simplest thing that works and
+gives the 2D engine nothing to do; every pixel on screen had to be written by
+the CPU. Now BG2 carries the dungeon at 128x96 and the affine hardware scales
+it back up — PA and PD are the source step per screen pixel, so 0.5 in 8.8
+fixed point is a doubling — and BG3 sits above it at full resolution for text,
+which cannot survive being halved. BG3's pixels are transparent wherever bit 15
+is clear, so that layer costs only the rows something is written on: the system
+bar every frame, the toast strip while toasts exist.
+
+The quality trade is smaller than it sounds. The party are 16x20 sprites that
+this renderer was already drawing pixel-doubled, so the magnifier produces
+exactly the image the CPU used to compute. The lighting is untouched — still
+per-pixel, still bilinear across every tile, and the lamp glow is still a real
+blended disc, because this is still a software renderer, just a smaller one.
+What actually softens is the wall and floor texture, and the result is a screen
+where everything is chunky at the same rate rather than 2x characters standing
+on 1x ground.
+
+| | before | after |
+| --- | --- | --- |
+| a frame that draws | 31.8ms | **15.0ms** |
+| the dungeon view in it | 25.8ms | 9.9ms |
+| walking, vblank-locked | 38.5fps | **53.1fps** |
+
+Two bugs came out of it, both of the same shape — state that looked like it
+tracked something and did not:
+
+- `gfx_shade` scales a colour by amount/16 and `gfx_scale_colour` always sets
+  the alpha bit, so shading a *transparent* pixel produced opaque black. The
+  fade on entering the dungeon ran that over the whole overlay, which painted
+  the layer solid over the floor, and nothing cleared it again because that
+  layer is only wiped in bands. Shading now leaves transparent pixels alone.
+- The full clear that the overlay needs on the way in was gated on a flag set
+  inside `draw_dungeon`, where the scene is always the dungeon — so it latched
+  on the first visit and every later entry kept the previous screen underneath
+  the floor. The scene change is observed in `render_frame` now, where scenes
+  actually change.
+
+What is left is the DMA. A drawn frame fits the budget, but the frames that
+also redraw the bottom console, or ship the whole overlay because a toast is
+up, still tip over into a second vblank -- which is the gap between 53fps and
+60. The bottom screen could take the same dirty-row treatment the top one now
+has.
 
 One caveat on all of the numbers: they come from DeSmuME's interpreter, whose
 timing model is an approximation. They are consistent and they rank the stages,

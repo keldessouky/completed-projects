@@ -13,6 +13,27 @@
 #define SCREEN_H 192
 #define SCREEN_TOP    0
 #define SCREEN_BOTTOM 1
+/*  The dungeon's own layer, at half resolution, magnified back to full size by
+ *  the 2D engine's affine hardware.
+ *
+ *  The CPU was writing all 49,152 pixels of the top screen every frame and
+ *  that cost 25.8ms of a 31.8ms frame against a 16.7ms budget -- the cost
+ *  tracks pixel count and nothing else, which three separate inner-loop
+ *  rewrites failed to move. Quartering the pixels is the only thing that
+ *  helps, and the hardware will magnify for free.
+ *
+ *  It is not the quality loss it sounds like. The party are 16x20 sprites that
+ *  this renderer was already drawing pixel-doubled, so they come out of the
+ *  magnifier identical; what actually softens is the wall and floor texture,
+ *  and the result is a screen where everything is chunky at the same rate
+ *  rather than 2x characters standing on 1x ground.
+ *
+ *  Text is the exception -- a 5x7 font cannot survive being halved -- so it
+ *  stays on SCREEN_TOP, which is a full-resolution transparent layer sitting
+ *  above this one. */
+#define SCREEN_WORLD  2
+#define WORLD_W 128
+#define WORLD_H  96
 
 enum {
     BTN_UP     = 1u << 0,
@@ -43,7 +64,14 @@ uint16_t *plat_screen(int which);
  *  screen has to be sent. */
 #define RENDER_TOP     1
 #define RENDER_BOTTOM  2
+#define RENDER_WORLD   4
 
+/*  How much of the full-size top layer actually changed this frame, in rows.
+ *  The dungeon writes only its system bar there most frames, and sending the
+ *  whole 96KB buffer to VRAM for sixteen rows of text was measured costing
+ *  more than the dungeon's floor tiles. Reset to the whole screen after every
+ *  present, so a caller that says nothing gets the safe answer. */
+void      plat_top_rows(int y0, int rows);
 void      plat_wait(void);
 void      plat_present(int what);
 void      plat_sound(int voice, int freq, int volume, int duty);
