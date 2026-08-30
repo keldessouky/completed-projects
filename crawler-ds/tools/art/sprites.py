@@ -33,6 +33,16 @@ ROSTER = [
     ('bouncer', bestiary.club_bouncer),
     ('vulture', bestiary.vulture_fan),
 
+    #  The block: what the dungeon made out of somebody's building and
+    #  somebody's high street. Each one is a silhouette nothing else in the
+    #  roster has -- a tall cabinet, a squat tub with its lid flung back, a
+    #  cylinder, a bare pole, a box with something swinging off it.
+    ('snackmachine', bestiary.snack_machine),
+    ('wheeliebin', bestiary.wheelie_bin),
+    ('boiler', bestiary.rusted_boiler),
+    ('meter', bestiary.parking_meter),
+    ('payphone', bestiary.payphone),
+
     # the bosses (96x96)
     ('boss_ratking', bestiary.boss_ratking),
     ('boss_foreman', bestiary.boss_foreman),

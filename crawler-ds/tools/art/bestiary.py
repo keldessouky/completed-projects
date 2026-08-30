@@ -403,7 +403,15 @@ def bone_bailiff():
 
 
 def neon_mimic():
-    """A loot box with opinions."""
+    """A loot box with opinions.
+
+    Redrawn because it and the Screaming Sofa were the same silhouette -- a
+    wide rectangle with a row of triangles across the middle -- in two
+    palettes, which at 72 pixels is one creature shown twice. The concept was
+    never the problem; the pose was. This one has got up on its legs and is
+    coming at you, and the lid is hinged right back so the outline is a gaping
+    wedge rather than a box. A sofa sits. A mimic chases.
+    """
     s = Sprite(FOE, FOE)
     box = s.register_family(s.ramp((62, 148, 200), 6))
     trim = s.register_family(s.ramp((250, 206, 78), 5))
@@ -411,30 +419,49 @@ def neon_mimic():
     tooth = s.register_family(s.ramp((240, 240, 232), 4))
     dark = s.ink((18, 10, 22))
     glow = s.ink((156, 244, 255))
+    leg = s.register_family(s.ramp((40, 44, 70), 4))
 
-    s.rect(10, 40, 62, 66, box[2])                   # the body of the box
-    s.rect(10, 40, 62, 43, box[3])
-    s.rect(10, 63, 62, 66, box[0])
-    s.rect(30, 40, 42, 66, trim[2])                  # the strap
-    s.rect(30, 40, 42, 41, trim[3])
-    s.poly([(10, 40), (62, 40), (56, 16), (16, 16)], box[1])     # lid, thrown back
-    s.rect(16, 16, 56, 19, box[3])
-    s.rect(30, 16, 42, 40, trim[1])
-    for x in (10, 62):                               # corner fittings
-        s.rect(x - 2, 40, x + 2, 46, trim[1])
-        s.rect(x - 2, 60, x + 2, 66, trim[1])
+    #  Two stubby legs under it, mid-stride, so it reads as moving.
+    s.limb(24, 52, 20, 68, 9, 7, leg)
+    s.limb(48, 52, 55, 66, 9, 7, leg)
+    s.form(19, 68, 6, 4, leg, squash=0.5)
+    s.form(56, 66, 6, 4, leg, squash=0.5)
 
-    s.poly([(14, 40), (58, 40), (50, 60), (22, 60)], dark)       # the mouth
-    for i, x in enumerate(range(16, 56, 6)):                     # teeth
-        s.poly([(x, 41), (x + 5, 41), (x + 2, 50)], tooth[3 if i % 2 else 2])
-        s.poly([(x + 3, 59), (x + 8, 59), (x + 5, 51)], tooth[1])
-    s.form(36, 56, 10, 5, tongue, wrap=0.7)                      # tongue
-    s.line(36, 52, 36, 59, tongue[0])
-    s.line(10, 44, 62, 44, glow)                                 # the seam glows
-    for i in range(6):
-        s.put(12 + i * 9, 43, s.ink((255, 255, 255)))
+    #  The lower half: the chest itself, tipped forward onto its front edge.
+    s.poly([(12, 40), (60, 36), (56, 60), (16, 62)], box[2])
+    s.poly([(12, 40), (20, 39), (18, 62), (16, 62)], box[4])
+    s.poly([(54, 37), (60, 36), (56, 60), (52, 60)], box[0])
+    s.rect(30, 38, 42, 61, trim[2])                  # the strap, over the front
+    s.poly([(12, 40), (60, 36), (60, 33), (12, 37)], trim[1])    # the rim it bites with
+    for x in (14, 57):                               # corner fittings
+        s.rect(x - 2, 40, x + 2, 47, trim[1])
+        s.rect(x - 2, 54, x + 2, 60, trim[1])
 
-    s.stamp(16, 22, [
+    #  The lid, hinged all the way back and up. This is the whole silhouette:
+    #  the gape between it and the body is a wedge, not a slot.
+    s.poly([(14, 34), (58, 30), (66, 8), (24, 10)], box[1])
+    s.poly([(14, 34), (22, 33), (30, 10), (24, 10)], box[3])
+    s.poly([(24, 10), (66, 8), (64, 4), (26, 6)], trim[3])       # its far edge
+    s.rect(38, 12, 50, 32, trim[1])                              # strap continues
+    s.line(14, 34, 58, 30, glow)                                 # the seam glows
+    for i in range(5):
+        s.put(18 + i * 10, 33 - i // 2, s.ink((255, 255, 255)))
+
+    #  Teeth on both rims, meeting at the hinge. Uneven, and longer at the
+    #  front where the bite lands.
+    s.poly([(14, 34), (58, 30), (56, 40), (16, 42)], dark)
+    for i, x in enumerate(range(17, 56, 7)):
+        drop = 10 - i
+        s.poly([(x, 34 - i // 2), (x + 5, 34 - i // 2), (x + 2, 34 + drop)], tooth[3 if i % 2 else 2])
+    for i, x in enumerate(range(20, 54, 7)):
+        rise = 9 - i
+        s.poly([(x, 41), (x + 5, 41), (x + 2, 41 - rise)], tooth[1])
+    s.form(34, 42, 9, 4, tongue, wrap=0.7)                       # tongue, out the front
+    s.form(31, 47, 5, 4, tongue, wrap=0.7)
+    s.line(34, 40, 33, 49, tongue[0])
+
+    #  Eyes up on the lid, looking down the length of itself at you.
+    s.stamp(28, 16, [
         "ppppp........ppppp",
         "pmmmpp......pmmmpp",
         "pmwwmp......pmwwmp",
@@ -702,4 +729,204 @@ def boss_producer():
         s.rect(x - 5, 5, x + 5, 13, dark)
         s.rect(x - 3, 7, x + 3, 11, s.ink((255, 246, 210)))
         s.put(x, 9, s.ink((255, 255, 255)))
+    return s.finish().stage(s.w, s.h, ground=None).emit()
+
+
+#  ---------------------------------------------------------------- the block --
+#
+#  The dungeon did not invent these. It took a floor of somebody's building and
+#  a strip of somebody's high street, and it gave them teeth -- which is what
+#  makes it frightening in a way a goblin is not, and what the roster was short
+#  of. They are also drawn to be told apart by outline alone at seventy-two
+#  pixels, which the six upright bipeds already here cannot manage: a tall
+#  narrow box, a squat wide one, a fat cylinder, a bare pole, and a box with
+#  something swinging off it.
+
+def snack_machine():
+    """It ate your change. Now it is hungry."""
+    s = Sprite(FOE, FOE)
+    shell = s.register_family(s.ramp((188, 62, 58), 6))
+    glass = s.register_family(s.ramp((70, 122, 148), 5))
+    steel = s.register_family(s.ramp((150, 156, 166), 5))
+    lit = s.ink((252, 236, 158))
+    dark = s.ink((22, 14, 18))
+    tooth = s.register_family(s.ramp((240, 236, 224), 4))
+
+    #  Leaning, because a vending machine that has come off its wall is not
+    #  standing straight any more.
+    s.poly([(20, 6), (54, 9), (56, 62), (18, 62)], shell[2])     # the cabinet
+    s.poly([(20, 6), (26, 7), (24, 62), (18, 62)], shell[4])     # lit edge
+    s.poly([(50, 8), (54, 9), (56, 62), (50, 62)], shell[0])
+    s.poly([(26, 12), (49, 14), (50, 44), (26, 43)], glass[1])   # the window
+    for r in range(3):                                           # rows of stock
+        y = 17 + r * 9
+        for c in range(4):
+            x = 29 + c * 5
+            s.rect(x, y, x + 3, y + 5, [lit, shell[3], glass[3], steel[3]][(r + c) % 4])
+    s.rect(26, 12, 49, 13, glass[4])
+    s.rect(51, 16, 54, 20, steel[3])                             # coin slot
+    s.rect(52, 17, 53, 19, dark)
+
+    #  The dispensing tray is the mouth, and it has been widened from inside.
+    s.poly([(24, 48), (52, 50), (50, 60), (26, 59)], dark)
+    for i, x in enumerate(range(27, 50, 5)):
+        s.poly([(x, 49), (x + 4, 49), (x + 2, 55)], tooth[2])
+        s.poly([(x + 2, 59), (x + 6, 59), (x + 4, 54)], tooth[1])
+    s.rect(20, 62, 56, 65, steel[1])                             # it stands on its own base
+    for x, y in ((30, 30), (44, 24), (36, 40)):                  # scuffs
+        s.put(x, y, glass[0])
+    return s.finish().stage(s.w, s.h, ground=None).emit()
+
+
+def wheelie_bin():
+    """Bins on this floor have opinions about you."""
+    s = Sprite(FOE, FOE)
+    body = s.register_family(s.ramp((60, 108, 72), 6))
+    lid = s.register_family(s.ramp((48, 88, 60), 5))
+    rubber = s.register_family(s.ramp((44, 42, 50), 4))
+    dark = s.ink((16, 22, 18))
+    tooth = s.register_family(s.ramp((226, 224, 210), 4))
+    slime = s.register_family(s.ramp((156, 176, 92), 4))
+
+    s.poly([(14, 26), (58, 26), (54, 60), (18, 60)], body[2])    # the tub, tapering
+    s.poly([(14, 26), (22, 26), (24, 60), (18, 60)], body[4])
+    s.poly([(50, 26), (58, 26), (54, 60), (48, 60)], body[0])
+    for x in range(20, 54, 6):                                   # moulded ribs
+        s.line(x, 30, x + 1, 58, body[1])
+    s.form(22, 62, 6, 6, rubber, wrap=0.7)                       # castors
+    s.form(50, 62, 6, 6, rubber, wrap=0.7)
+
+    #  The lid is the jaw. No row of triangles: the sofa already owns that
+    #  mouth and so does the snack machine, and three creatures grinning the
+    #  same grin is the repetition this whole pass is meant to remove. A bin
+    #  bites by hinging, so it is drawn hinged -- thrown back on its pivot,
+    #  with the rim of the tub as the lower teeth and the dark of the liner
+    #  between them.
+    s.poly([(10, 10), (56, 4), (58, 14), (12, 21)], lid[3])      # lid, flung open
+    s.poly([(10, 10), (56, 4), (54, 2), (12, 8)], lid[4])
+    s.rect(54, 4, 58, 16, lid[1])                                # the hinge side
+    s.poly([(16, 24), (56, 24), (50, 44), (22, 44)], dark)       # the liner
+    s.poly([(14, 22), (58, 22), (56, 27), (16, 27)], body[4])    # rim, catching light
+    for x in (26, 38, 46):                                       # what is in it
+        s.form(x, 40, 5, 3, slime, squash=0.5)
+    for x in (30, 42):                                           # and what is looking up
+        s.form(x, 33, 3, 3, tooth, wrap=0.9)
+        s.put(x, 33, dark)
+    return s.finish().stage(s.w, s.h, ground=None).emit()
+
+
+def rusted_boiler():
+    """The pressure gauge is in the red. It has been for years."""
+    s = Sprite(FOE, FOE)
+    iron = s.register_family(s.ramp((132, 108, 86), 6))
+    rust = s.register_family(s.ramp((146, 74, 40), 5))
+    brass = s.register_family(s.ramp((198, 156, 66), 5))
+    steam = s.register_family(s.ramp((198, 206, 214), 4))
+    dark = s.ink((24, 16, 14))
+    hot = s.ink((252, 170, 70))
+
+    s.form(36, 40, 22, 20, iron, wrap=0.8)                       # the drum
+    s.rect(14, 24, 58, 56, iron[2])
+    s.form(36, 24, 22, 6, iron, squash=0.5)                      # domed top
+    s.form(36, 56, 22, 6, iron, squash=0.5)
+    for y in (28, 52):                                           # riveted bands
+        s.rect(14, y, 58, y + 3, iron[1])
+        for x in range(17, 58, 6): s.put(x, y + 1, iron[4])
+    for x, y, r in ((22, 36, 4), (48, 44, 5), (30, 50, 3)):      # rust blooms
+        s.form(x, y, r, r, rust, wrap=1.2)
+
+    s.form(36, 38, 8, 8, brass, wrap=0.9)                        # the gauge, its face
+    s.form(36, 38, 6, 6, [dark, dark, dark], squash=0.9)
+    s.line(36, 38, 41, 34, hot)                                  # needle, in the red
+    s.put(36, 38, brass[4])
+    #  Pipes low and short. Run up and out from the shoulders they read as
+    #  arms, and the whole point of this one is that it is a cylinder among a
+    #  roster of boxes and blobs.
+    s.line(14, 46, 4, 50, iron[3], thick=4)
+    s.line(58, 46, 68, 50, iron[3], thick=4)
+    s.form(4, 50, 5, 5, iron, wrap=0.8)
+    s.form(68, 50, 5, 5, iron, wrap=0.8)
+    s.form(36, 20, 7, 4, iron, squash=0.5)                       # a stack, on top
+    s.rect(33, 12, 39, 22, iron[2])
+    s.rect(33, 12, 35, 22, iron[4])
+    for i, (x, y) in enumerate(((36, 8), (33, 3), (40, 4))):     # steam, going up
+        s.form(x, y, 5 - i, 3, steam, squash=0.6)
+    s.rect(24, 58, 30, 66, iron[1])                              # stubby legs
+    s.rect(42, 58, 48, 66, iron[1])
+    return s.finish().stage(s.w, s.h, ground=None).emit()
+
+
+def parking_meter():
+    """Your time expired before you arrived."""
+    s = Sprite(FOE, FOE)
+    post = s.register_family(s.ramp((104, 110, 118), 5))
+    head = s.register_family(s.ramp((72, 96, 132), 5))
+    glass = s.register_family(s.ramp((214, 226, 236), 4))
+    dark = s.ink((18, 20, 26))
+    red = s.ink((222, 66, 58))
+
+    #  Almost nothing wide about it. Among a roster of blocks and blobs, a bare
+    #  vertical line is the one silhouette nothing else can be confused with.
+    s.limb(36, 66, 34, 30, 9, 7, post)                           # the pole
+    s.rect(28, 62, 44, 66, post[1])                              # base plate
+    for y in range(38, 62, 6):                                   # collar rings
+        s.rect(30, y, 39, y + 1, post[0])
+
+    s.poly([(24, 10), (46, 10), (48, 30), (22, 30)], head[2])    # the head
+    s.poly([(24, 10), (30, 10), (28, 30), (22, 30)], head[4])
+    s.poly([(42, 10), (46, 10), (48, 30), (44, 30)], head[0])
+    s.form(35, 9, 12, 4, head, squash=0.4)                       # its little cap
+    s.poly([(27, 14), (43, 14), (44, 25), (26, 25)], glass[2])   # the window
+    s.poly([(29, 16), (41, 16), (42, 23), (28, 23)], dark)
+    s.stamp(30, 17, [
+        "rr..rr..rr",
+        "r.r.r.r.r.",
+        "rr..rr..rr",
+    ], {'r': red})                                               # EXPIRED, forever
+    s.rect(45, 15, 48, 19, post[3])                              # coin slot
+    s.rect(46, 16, 47, 18, dark)
+    s.put(30, 12, glass[3])
+    return s.finish().stage(s.w, s.h, ground=None).emit()
+
+
+def payphone():
+    """It is ringing. It is for you."""
+    s = Sprite(FOE, FOE)
+    shell = s.register_family(s.ramp((44, 68, 60), 6))
+    steel = s.register_family(s.ramp((158, 164, 174), 5))
+    dark = s.ink((14, 18, 18))
+    tooth = s.register_family(s.ramp((232, 230, 218), 4))
+    cord = s.register_family(s.ramp((32, 34, 40), 4))
+
+    s.poly([(16, 8), (48, 8), (50, 56), (14, 56)], shell[2])     # the box
+    s.poly([(16, 8), (24, 8), (22, 56), (14, 56)], shell[4])
+    s.poly([(44, 8), (48, 8), (50, 56), (44, 56)], shell[0])
+    s.form(32, 8, 17, 5, shell, squash=0.45)                     # hooded top
+    s.rect(20, 14, 44, 22, steel[1])                             # the keypad
+    for r in range(3):
+        for c in range(3):
+            s.put(23 + c * 7, 16 + r * 2, steel[4])
+    s.rect(20, 26, 44, 30, dark)                                 # coin return
+    s.rect(21, 27, 43, 29, steel[0])
+
+    #  No teeth. The coin return is the mouth and it is a slot, which is more
+    #  unpleasant than a grin and keeps this one from wearing the sofa's face.
+    s.poly([(20, 36), (44, 36), (42, 46), (22, 46)], dark)
+    s.rect(22, 38, 42, 40, steel[0])
+    s.poly([(24, 44), (30, 44), (27, 40)], tooth[2])             # two, not a row
+    s.poly([(34, 44), (40, 44), (37, 40)], tooth[1])
+
+    #  The receiver swinging off the hook is the whole silhouette -- a box with
+    #  something hanging -- so it is drawn at a size that survives the battle
+    #  screen rather than as a grey speck in the corner. The cord coils.
+    for k in range(7):                                           # coiled cord
+        x = 50 + (k % 2) * 2
+        s.rect(x, 30 + k * 4, x + 5, 32 + k * 4, cord[2])
+        s.rect(x, 30 + k * 4, x + 5, 30 + k * 4, cord[1])
+    s.limb(50, 58, 64, 66, 10, 10, steel)                        # the handset
+    s.form(50, 58, 6, 6, steel, wrap=0.8)                        # earpiece
+    s.form(64, 66, 6, 6, steel, wrap=0.8)                        # mouthpiece
+    s.form(50, 58, 3, 3, [dark, dark, dark], squash=0.9)
+    s.form(64, 66, 3, 3, [dark, dark, dark], squash=0.9)
+    s.put(48, 55, steel[4])
     return s.finish().stage(s.w, s.h, ground=None).emit()

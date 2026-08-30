@@ -67,52 +67,61 @@ const int skill_count = (int)(sizeof skill_defs / sizeof skill_defs[0]);
 /* ------------------------------------------------------------- bestiary --- */
 
 const FoeDef foe_defs[] = {
-    /* name             sprite         hp atk def spd   xp gold trick kind         pow fl rk quip */
-    { "Sewer Rat",      SPR_RAT,       22,  6,  2,  7,  12,   8, 10, SK_BLEED,      60, 1, 0, "It has been eating better than you." },
-    { "Goblin Trapper", SPR_GOBLIN,    30,  8,  4,  6,  18,  14, 20, SK_DEBUFF_DEF, 30, 1, 0, "Sponsored by nobody. Trying very hard." },
+    /* name             sprite         hp atk def spd   xp gold trick kind         pow fl rk blk quip */
+    { "Sewer Rat",      SPR_RAT,       22,  6,  2,  7,  12,   8, 10, SK_BLEED,      60, 1, 0, 55, "It has been eating better than you." },
+    { "Goblin Trapper", SPR_GOBLIN,    30,  8,  4,  6,  18,  14, 20, SK_DEBUFF_DEF, 30, 1, 0, 85, "Sponsored by nobody. Trying very hard." },
     /*  A Rot Sticker is a delivery mechanism, not a fighter: almost no health,
         almost no defence, and it hits the whole party when it goes. Killing it
         fast is the entire counterplay, which is why it is also slow. */
-    { "Rot Sticker",    SPR_ROTSTICKER, 14, 11,  1,  2,  16,   6, 55, SK_HIT_ALL,   130, 1, 0, "Do not let it get comfortable." },
-    { "Troglodyte",     SPR_TROGLODYTE, 34,  9,  5,  5,  20,  10, 20, SK_STUN,       60, 1, 0, "No eyes. Did not need them to find you." },
-    { "Screaming Sofa", SPR_SOFA,      44,  7,  8,  3,  22,  20, 15, SK_STUN,       70, 1, 0, "Floor one keeps sending furniture." },
-    { "Sludge Mound",   SPR_SLUDGE,    36,  7,  5,  4,  20,  12, 25, SK_HIT_ALL,    70, 1, 0, "Wet. Patient. Faintly sweet." },
-    { "Kobold Sapper",  SPR_KOBOLD,    46, 12,  6,  9,  34,  26, 30, SK_HIT_ALL,    85, 2, 0, "Carrying something with a fuse." },
-    { "Bramble Hound",  SPR_HOUND,     54, 14,  7, 12,  40,  22, 25, SK_BLEED,      90, 2, 0, "It was a dog. The floor improved it." },
-    { "Doom Beetle",    SPR_BEETLE,    62, 13, 12,  6,  44,  30, 20, SK_DEBUFF_DEF, 45, 2, 0, "Armoured, unbothered, extremely purple." },
-    { "Bone Bailiff",   SPR_BAILIFF,   58, 16,  9,  8,  48,  38, 35, SK_STUN,       80, 2, 0, "It has a warrant. It will not show you." },
-    { "Neon Mimic",     SPR_MIMIC,     72, 19, 10, 11,  62,  55, 35, SK_HIT_ONE,   150, 3, 0, "A loot box with opinions." },
-    { "Club Bouncer",   SPR_BOUNCER,   88, 22, 14,  9,  72,  60, 30, SK_STUN,       90, 3, 0, "You are not on the list." },
-    { "Vulture Fan",    SPR_VULTURE,   66, 20,  8, 15,  64,  44, 40, SK_BLEED,     110, 3, 0, "Here for the highlights. Yours." },
+    { "Rot Sticker",    SPR_ROTSTICKER, 14, 11,  1,  2,  16,   6, 55, SK_HIT_ALL,   130, 1, 0, 45, "Do not let it get comfortable." },
+    { "Troglodyte",     SPR_TROGLODYTE, 34,  9,  5,  5,  20,  10, 20, SK_STUN,       60, 1, 0, 105, "No eyes. Did not need them to find you." },
+    { "Screaming Sofa", SPR_SOFA,      44,  7,  8,  3,  22,  20, 15, SK_STUN,       70, 1, 0, 125, "Floor one keeps sending furniture." },
+    { "Sludge Mound",   SPR_SLUDGE,    36,  7,  5,  4,  20,  12, 25, SK_HIT_ALL,    70, 1, 0, 100, "Wet. Patient. Faintly sweet." },
+    { "Kobold Sapper",  SPR_KOBOLD,    46, 12,  6,  9,  34,  26, 30, SK_HIT_ALL,    85, 2, 0, 80, "Carrying something with a fuse." },
+    { "Bramble Hound",  SPR_HOUND,     54, 14,  7, 12,  40,  22, 25, SK_BLEED,      90, 2, 0, 90, "It was a dog. The floor improved it." },
+    { "Doom Beetle",    SPR_BEETLE,    62, 13, 12,  6,  44,  30, 20, SK_DEBUFF_DEF, 45, 2, 0, 85, "Armoured, unbothered, extremely purple." },
+    { "Bone Bailiff",   SPR_BAILIFF,   58, 16,  9,  8,  48,  38, 35, SK_STUN,       80, 2, 0, 110, "It has a warrant. It will not show you." },
+    { "Neon Mimic",     SPR_MIMIC,     72, 19, 10, 11,  62,  55, 35, SK_HIT_ONE,   150, 3, 0, 115, "A loot box with opinions." },
+    { "Club Bouncer",   SPR_BOUNCER,   88, 22, 14,  9,  72,  60, 30, SK_STUN,       90, 3, 0, 140, "You are not on the list." },
+    { "Vulture Fan",    SPR_VULTURE,   66, 20,  8, 15,  64,  44, 40, SK_BLEED,     110, 3, 0, 100, "Here for the highlights. Yours." },
+    /*  The block. The dungeon did not invent these -- it took a floor of
+        somebody's building and a strip of somebody's high street and gave
+        them teeth, which is the thing the roster was short of and the thing
+        that is frightening in a way a goblin is not. */
+    { "Snack Machine",  SPR_SNACKMACHINE, 40,  9,  7,  4,  21,  18, 20, SK_DEBUFF_DEF, 40, 1, 0, 130, "It ate your change. Now it is hungry." },
+    { "Wheelie Bin",    SPR_WHEELIEBIN,   38,  8,  6,  5,  19,  15, 25, SK_HIT_ALL,    60, 1, 0, 110, "Bins on this floor have opinions about you." },
+    { "Rusted Boiler",  SPR_BOILER,       58, 13, 10,  4,  42,  28, 30, SK_HIT_ALL,    80, 2, 0, 120, "The gauge is in the red. It has been for years." },
+    { "Parking Meter",  SPR_METER,        44, 15,  5, 13,  38,  24, 35, SK_STUN,       70, 2, 0,  95, "Your time expired before you arrived." },
+    { "Payphone",       SPR_PAYPHONE,     70, 18,  9, 10,  60,  46, 40, SK_STUN,       85, 3, 0, 115, "It is ringing. It is for you." },
     /*  Neighbourhood bosses. The floor is four to a square, they sit between
         levels seven and nine, and each is a caricature of the local mob
         crossed with something from the surface. Killing one shuts its
         neighbourhood down: nothing spawns there afterwards. */
-    { "The Hoarder",    SPR_SLUDGE,     120, 15,  9,  4, 110,   0, 40, SK_HIT_ALL,    80, 1, 1, "It has kept everything. All of it." },
-    { "The Juicer",     SPR_TROGLODYTE, 110, 18,  6,  7, 105,   0, 45, SK_BLEED,      95, 1, 1, "A troglodyte that found a use for people." },
-    { "Goblin War Chief", SPR_GOBLIN,   130, 16, 11,  6, 120,   0, 35, SK_DEBUFF_DEF, 70, 1, 1, "Sponsored. Finally." },
+    { "The Hoarder",    SPR_SLUDGE,     120, 15,  9,  4, 110,   0, 40, SK_HIT_ALL,    80, 1, 1, 165, "It has kept everything. All of it." },
+    { "The Juicer",     SPR_TROGLODYTE, 110, 18,  6,  7, 105,   0, 45, SK_BLEED,      95, 1, 1, 145, "A troglodyte that found a use for people." },
+    { "Goblin War Chief", SPR_GOBLIN,   130, 16, 11,  6, 120,   0, 35, SK_DEBUFF_DEF, 70, 1, 1, 140, "Sponsored. Finally." },
     /*  Tiers two and three need their own, or foe_nboss falls back to the
         borough boss and every chamber on floor seven downward holds a Foreman.
         Each is still the local mob with something from the surface welded on,
         which is what the show does with them. */
-    { "The Sapper Foreman", SPR_KOBOLD,   190, 24, 13,  9, 230,  90, 40, SK_HIT_ALL,   85, 2, 1, "It has requisitioned the whole quadrant." },
-    { "The Kennelmaster", SPR_HOUND,      170, 27,  9, 16, 220,  80, 45, SK_BLEED,    100, 2, 1, "Whistles once. Everything with teeth comes." },
-    { "The Bailiff Prime", SPR_BAILIFF,   200, 25, 15,  8, 240, 100, 35, SK_STUN,      85, 2, 1, "Serving papers on the entire floor." },
-    { "The Doorman", SPR_BOUNCER,         290, 33, 18, 11, 420, 180, 40, SK_STUN,     100, 3, 1, "The list got shorter. You were on it." },
-    { "The House Mimic", SPR_MIMIC,       260, 36, 14, 14, 400, 190, 45, SK_HIT_ONE,  160, 3, 1, "It was the room. It was always the room." },
-    { "The Carrion Anchor", SPR_VULTURE,  240, 34, 12, 19, 390, 170, 50, SK_BLEED,    130, 3, 1, "Live from the top of the pile." },
+    { "The Sapper Foreman", SPR_KOBOLD,   190, 24, 13,  9, 230,  90, 40, SK_HIT_ALL,   85, 2, 1, 150, "It has requisitioned the whole quadrant." },
+    { "The Kennelmaster", SPR_HOUND,      170, 27,  9, 16, 220,  80, 45, SK_BLEED,    100, 2, 1, 145, "Whistles once. Everything with teeth comes." },
+    { "The Bailiff Prime", SPR_BAILIFF,   200, 25, 15,  8, 240, 100, 35, SK_STUN,      85, 2, 1, 160, "Serving papers on the entire floor." },
+    { "The Doorman", SPR_BOUNCER,         290, 33, 18, 11, 420, 180, 40, SK_STUN,     100, 3, 1, 178, "The list got shorter. You were on it." },
+    { "The House Mimic", SPR_MIMIC,       260, 36, 14, 14, 400, 190, 45, SK_HIT_ONE,  160, 3, 1, 170, "It was the room. It was always the room." },
+    { "The Carrion Anchor", SPR_VULTURE,  240, 34, 12, 19, 390, 170, 50, SK_BLEED,    130, 3, 1, 155, "Live from the top of the pile." },
 
 
     /* Borough bosses: the ones with a stairwell in the room. */
-    { "Ball of Swine",  SPR_BOSS_RATKING, 220, 17,  9,  8, 260,   0, 40, SK_HIT_ALL,  95, 1, 2, "It only does one thing. It does it downhill." },
+    { "Ball of Swine",  SPR_BOSS_RATKING, 220, 17,  9,  8, 260,   0, 40, SK_HIT_ALL,  95, 1, 2, 210, "It only does one thing. It does it downhill." },
     /*  Promoted out of a neighbourhood in the second round of patch notes,
         which is the only reason it is standing on a stairwell. */
-    { "The Street Preacher", SPR_BAILIFF, 240, 20, 13,  9, 270,   0, 45, SK_STUN,     90, 1, 2, "Has been expecting you. Personally." },
+    { "The Street Preacher", SPR_BAILIFF, 240, 20, 13,  9, 270,   0, 45, SK_STUN,     90, 1, 2, 185, "Has been expecting you. Personally." },
     /*  One borough boss a tier meant the same gate six floors running. */
-    { "The Silk Road Toll", SPR_MIMIC,    420, 29, 17, 13, 560, 280, 45, SK_HIT_ONE,  170, 2, 2, "Everything that passes pays. You are passing." },
-    { "The Foreman",    SPR_BOSS_FOREMAN, 380, 26, 16, 10, 520, 250, 45, SK_STUN,    100, 2, 2, "Management has come down to the floor." },
-    { "The Producer",   SPR_BOSS_PRODUCER,560, 34, 20, 14, 900, 400, 50, SK_HIT_ALL, 120, 3, 2, "The show, wearing a person." },
-    { "The Ratings Spike", SPR_VULTURE,   520, 38, 16, 21, 860, 380, 50, SK_BLEED,    150, 3, 2, "Numbers are up. That is your fault." },
+    { "The Silk Road Toll", SPR_MIMIC,    420, 29, 17, 13, 560, 280, 45, SK_HIT_ONE,  170, 2, 2, 205, "Everything that passes pays. You are passing." },
+    { "The Foreman",    SPR_BOSS_FOREMAN, 380, 26, 16, 10, 520, 250, 45, SK_STUN,    100, 2, 2, 200, "Management has come down to the floor." },
+    { "The Producer",   SPR_BOSS_PRODUCER,560, 34, 20, 14, 900, 400, 50, SK_HIT_ALL, 120, 3, 2, 215, "The show, wearing a person." },
+    { "The Ratings Spike", SPR_VULTURE,   520, 38, 16, 21, 860, 380, 50, SK_BLEED,    150, 3, 2, 195, "Numbers are up. That is your fault." },
 };
 const int foe_count = (int)(sizeof foe_defs / sizeof foe_defs[0]);
 

@@ -839,7 +839,12 @@ static void draw_battle(Surface *top, Surface *bot) {
      *  be finished by then -- the first cut of this put the names at 92 and
      *  the bars underneath them disappeared behind Carl's box. */
     const int kBase = 78;             /* the floor a mob stands on */
-    const int kCeil = 12;             /* and the ceiling it cannot grow past */
+    /*  Four, not twelve. The band has to be tall enough that the biggest
+        thing in the roster fits inside it without being clipped to the same
+        height as the second biggest -- at a 66px ceiling a Screaming Sofa and
+        a Club Bouncer came out identical no matter what their bulk said, and
+        the column was decorative. */
+    const int kCeil = 4;              /* and the ceiling it cannot grow past */
     int slot_w = SCREEN_W / (g.bat.n_foes < 1 ? 1 : g.bat.n_foes);
     for (int i = 0; i < g.bat.n_foes; i++) {
         const Foe *f = &g.bat.foes[i];
@@ -858,17 +863,19 @@ static void draw_battle(Surface *top, Surface *bot) {
         int rank = foe_defs[f->def].rank;
         int plate_y = kBase + 4, base = kBase, ceil_ = kCeil;
         if (rank) { plate_y = 6; base = 96; ceil_ = 24; }
-        int want;
-        if (rank) {
-            want = base - ceil_;
-        } else {
-            /*  Bigger than they were. The corner used to hold three stacked
-                health boxes and the foes had to stay small enough to miss
-                them; with the health moved onto the foes there is a whole
-                top-left to grow into, and a mob you can read the face of is
-                worth more than a mob you can fit four of. */
-            want = g.bat.n_foes >= 3 ? 58 : g.bat.n_foes == 2 ? 66 : 74;
-        }
+        /*  Height comes from what the thing is, not just from how many are
+            in the room. Everything used to be normalised to one target, so a
+            sewer rat and a club bouncer arrived the same size and a boss was
+            a mob at the same scale with a gold rule over it; the roster's
+            bulk column is what makes a fight have a big one in it.
+
+            The room still gets a say -- three foes have to fit side by side
+            -- but it scales the whole line-up rather than flattening it. */
+        int room = rank ? 84 : g.bat.n_foes >= 3 ? 46 : g.bat.n_foes == 2 ? 50 : 56;
+        int bulk = foe_defs[f->def].bulk ? foe_defs[f->def].bulk : 100;
+        int want = room * bulk / 100;
+        int headroom = base - ceil_;
+        if (want > headroom) want = headroom;
         int scale = want * 100 / (sp->h ? sp->h : 1);
         /*  Never enlarge past the slot: three wide sprites at a height that
             fits would still run into each other sideways. */

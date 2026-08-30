@@ -87,6 +87,12 @@ typedef struct {
         neighbourhoods to a square, each with its own boss, and borough bosses
         are the rarer ones that sit on a stairwell. */
     uint8_t     rank;
+    /*  How big it is, as a percentage of a middling thing. Every foe used to
+     *  be normalised to one target height on screen, which meant a sewer rat
+     *  and a club bouncer arrived the same size and the fight had no sense of
+     *  scale in it at all -- the art was doing work the renderer threw away.
+     *  A rat is knee-high; a mattress that has learned to fold is not. */
+    uint8_t     bulk;
     const char *quip;       /* the announcers love a caption */
 } FoeDef;
 
