@@ -84,21 +84,25 @@ const FoeDef foe_defs[] = {
     { "Neon Mimic",     SPR_MIMIC,     72, 19, 10, 11,  62,  55, 35, SK_HIT_ONE,   150, 3, 0, 115, "A loot box with opinions." },
     { "Club Bouncer",   SPR_BOUNCER,   88, 22, 14,  9,  72,  60, 30, SK_STUN,       90, 3, 0, 140, "You are not on the list." },
     { "Vulture Fan",    SPR_VULTURE,   66, 20,  8, 15,  64,  44, 40, SK_BLEED,     110, 3, 0, 100, "Here for the highlights. Yours." },
-    /*  The block. The dungeon did not invent these -- it took a floor of
-        somebody's building and a strip of somebody's high street and gave
-        them teeth, which is the thing the roster was short of and the thing
-        that is frightening in a way a goblin is not. */
-    { "Snack Machine",  SPR_SNACKMACHINE, 40,  9,  7,  4,  21,  18, 20, SK_DEBUFF_DEF, 40, 1, 0, 130, "It ate your change. Now it is hungry." },
-    { "Wheelie Bin",    SPR_WHEELIEBIN,   38,  8,  6,  5,  19,  15, 25, SK_HIT_ALL,    60, 1, 0, 110, "Bins on this floor have opinions about you." },
+    { "Bad Llama",      SPR_LLAMA,        36, 10,  4,  8,  20,  16, 30, SK_HIT_ONE,    75, 1, 0, 115, "Do not let the wool fool you." },
+    { "Mind Horror",    SPR_MINDHORROR,   30,  9,  3,  6,  26,  20, 45, SK_STUN,       80, 1, 0,  45, "All brain, no spine. Literally." },
+    /*  The block: street furniture that the dungeon gave teeth to.
+        Deliberately NOT on the first tier. Book one's floors are tunnels,
+        mazes and mob neighbourhoods -- lichen and corridors. The reskinned
+        city with its shopfronts and street fittings is the Over City, which
+        is deeper, so a parking meter on floor one would be a whole setting
+        arriving two books early. They start where the streets do. */
+    { "Snack Machine",  SPR_SNACKMACHINE, 40,  9,  7,  4,  21,  18, 20, SK_DEBUFF_DEF, 40, 2, 0, 130, "It ate your change. Now it is hungry." },
+    { "Wheelie Bin",    SPR_WHEELIEBIN,   38,  8,  6,  5,  19,  15, 25, SK_HIT_ALL,    60, 2, 0, 110, "Bins on this floor have opinions about you." },
     { "Rusted Boiler",  SPR_BOILER,       58, 13, 10,  4,  42,  28, 30, SK_HIT_ALL,    80, 2, 0, 120, "The gauge is in the red. It has been for years." },
-    { "Parking Meter",  SPR_METER,        44, 15,  5, 13,  38,  24, 35, SK_STUN,       70, 2, 0,  95, "Your time expired before you arrived." },
+    { "Parking Meter",  SPR_METER,        44, 15,  5, 13,  38,  24, 35, SK_STUN,       70, 3, 0,  95, "Your time expired before you arrived." },
     { "Payphone",       SPR_PAYPHONE,     70, 18,  9, 10,  60,  46, 40, SK_STUN,       85, 3, 0, 115, "It is ringing. It is for you." },
     /*  Neighbourhood bosses. The floor is four to a square, they sit between
         levels seven and nine, and each is a caricature of the local mob
         crossed with something from the surface. Killing one shuts its
         neighbourhood down: nothing spawns there afterwards. */
-    { "The Hoarder",    SPR_SLUDGE,     120, 15,  9,  4, 110,   0, 40, SK_HIT_ALL,    80, 1, 1, 165, "It has kept everything. All of it." },
-    { "The Juicer",     SPR_TROGLODYTE, 110, 18,  6,  7, 105,   0, 45, SK_BLEED,      95, 1, 1, 145, "A troglodyte that found a use for people." },
+    { "The Hoarder",    SPR_BOSS_HOARDER,     120, 15,  9,  4, 110,   0, 40, SK_HIT_ALL,    80, 1, 1, 250, "It has kept everything. All of it." },
+    { "The Juicer",     SPR_TROGLODYTE, 110, 18,  6,  7, 105,   0, 45, SK_BLEED,      95, 1, 1, 115, "A troglodyte that found a use for people." },
     { "Goblin War Chief", SPR_GOBLIN,   130, 16, 11,  6, 120,   0, 35, SK_DEBUFF_DEF, 70, 1, 1, 140, "Sponsored. Finally." },
     /*  Tiers two and three need their own, or foe_nboss falls back to the
         borough boss and every chamber on floor seven downward holds a Foreman.
@@ -113,7 +117,7 @@ const FoeDef foe_defs[] = {
 
 
     /* Borough bosses: the ones with a stairwell in the room. */
-    { "Ball of Swine",  SPR_BOSS_RATKING, 220, 17,  9,  8, 260,   0, 40, SK_HIT_ALL,  95, 1, 2, 210, "It only does one thing. It does it downhill." },
+    { "Ball of Swine",  SPR_BOSS_RATKING, 220, 17,  9,  8, 260,   0, 40, SK_HIT_ALL,  95, 1, 2, 255, "It only does one thing. It does it downhill." },
     /*  Promoted out of a neighbourhood in the second round of patch notes,
         which is the only reason it is standing on a stairwell. */
     { "The Street Preacher", SPR_BAILIFF, 240, 20, 13,  9, 270,   0, 45, SK_STUN,     90, 1, 2, 185, "Has been expecting you. Personally." },

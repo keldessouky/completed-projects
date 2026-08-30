@@ -166,62 +166,68 @@ def rot_sticker():
 
 
 def troglodyte():
-    """What a person shaped thing becomes after long enough with nothing to
-    look at. No eyes — not shut, not squinting, gone — so everything else on
-    the face has to carry the read: a heavy brow with a hollow under it, and a
-    nose and a mouth doing all the work."""
+    """Head and torso of a Komodo dragon on long bent kangaroo legs.
+
+    Redrawn. It was an upright grey humanoid, which made it the fourth
+    interchangeable biped on a roster that already had too many -- and it was
+    wrong besides: the book is specific that the scaly legs are long and
+    deeply bent and that the thing is emphatically not a person. Drawn with the
+    hock high and the shin raked forward, with a tail out behind as a
+    counterweight, it is the one creature here shaped like that.
+    """
     s = Sprite(FOE, FOE)
-    skin = s.register_family(s.ramp((176, 152, 148), 6, cool=0.12))
-    deep = s.register_family(s.ramp((104, 82, 86), 5))
-    rag = s.register_family(s.ramp((78, 88, 72), 5))
-    claw = s.register_family(s.ramp((236, 228, 208), 4))
-    dark = s.ink((22, 18, 24))
-    hollow = s.ink((30, 22, 28))
-    gum = s.ink((92, 34, 42))
-    tooth = s.ink((244, 238, 220))
-    wet = s.ink((250, 246, 236))
+    hide = s.register_family(s.ramp((104, 122, 86), 6))
+    belly = s.register_family(s.ramp((168, 172, 132), 5))
+    cloth = s.register_family(s.ramp((150, 130, 96), 4))
+    claw = s.register_family(s.ramp((214, 206, 180), 4))
+    dark = s.ink((22, 26, 20))
+    tongue = s.ink((198, 96, 116))
 
-    s.limb(30, 50, 27, 66, 12, 9, skin)              # legs, short and bowed
-    s.limb(43, 50, 47, 66, 12, 9, skin)
-    s.poly([(19, 66), (33, 66), (31, 71), (17, 71)], skin[1])
-    s.poly([(41, 66), (55, 66), (57, 71), (43, 71)], skin[1])
+    #  Tail first: long, thick at the root, out behind and low. It is what
+    #  stops the forward lean reading as a fall.
+    s.limb(40, 46, 68, 60, 13, 4, hide)
+    s.limb(60, 56, 70, 66, 6, 3, hide)
 
-    s.form(36, 40, 15, 16, skin, wrap=0.85)          # barrel chest
-    s.poly([(21, 30), (51, 30), (48, 40), (24, 40)], skin[3])     # shoulders
+    #  The legs. Thigh down and forward, shin raked back up, foot long and flat
+    #  on the ground -- the hock sits high, which is the whole read.
+    for hx, foot in ((26, 12), (38, 22)):
+        s.limb(hx + 4, 44, hx - 4, 56, 14, 10, hide)     # thigh, forward
+        s.limb(hx - 4, 56, hx + 6, 64, 10, 7, hide)      # shin, raked back
+        s.poly([(hx + 2, 64), (hx + foot, 64), (hx + foot + 2, 69),
+                (hx, 69)], hide[2])                      # the long foot
+        for t in range(3):
+            s.put(hx + foot + 1, 66 + t, claw[3])
 
-    #  Arms long enough to reach the floor, because it gets around on them.
-    s.limb(23, 33, 15, 56, 8, 6, skin)
-    s.limb(49, 33, 57, 56, 8, 6, skin)
-    for hx in (14, 57):                              # hands, and the claws
-        s.form(hx, 59, 6, 5, skin)
-        for k in range(3):
-            s.line(hx - 4 + k * 4, 63, hx - 5 + k * 5, 69, claw[2])
+    #  Torso, pitched forward over the hips rather than stacked above them.
+    s.form(38, 38, 15, 14, hide, wrap=0.95)
+    s.form(38, 42, 10, 9, belly, wrap=0.8)
+    for y in range(34, 48, 3):
+        s.line(31, y, 45, y, belly[1])
+    s.poly([(28, 44), (50, 44), (48, 54), (30, 54)], cloth[2])   # loincloth
+    s.line(28, 46, 50, 46, cloth[0])
 
-    #  The rag: a hide with a torn hem, tied at one shoulder.
-    s.poly([(22, 38), (50, 38), (47, 55), (25, 57)], rag[2])
-    s.poly([(22, 38), (36, 36), (50, 38), (36, 44)], rag[3])
-    for i, x in enumerate(range(24, 48, 4)):
-        s.poly([(x, 54), (x + 4, 54), (x + 2, 58 + (i % 3) * 2)], rag[1])
-    s.line(24, 34, 34, 40, rag[4])
+    #  Arms, short and hanging forward off the chest.
+    s.limb(30, 34, 22, 48, 8, 6, hide)
+    s.limb(46, 33, 54, 46, 8, 6, hide)
+    for x, y in ((21, 49), (55, 47)):
+        s.form(x, y, 4, 4, hide, wrap=0.9)
+        for t in range(3):
+            s.put(x - 2 + t * 2, y + 4, claw[2])
 
-    s.form(36, 19, 12, 12, skin, wrap=0.85)          # skull
-    s.poly([(25, 17), (47, 17), (45, 22), (27, 22)], deep[3])     # the brow
-    s.poly([(27, 21), (45, 21), (44, 26), (28, 26)], hollow)      # nothing under it
-    s.line(28, 22, 43, 22, dark)
-
-    s.poly([(33, 23), (39, 23), (41, 30), (31, 30)], skin[4])     # the nose
-    s.put(35, 27, wet)
-    for x in (32, 33, 39, 40):
-        s.put(x, 29, hollow)
-        s.put(x, 30, hollow)
-
-    s.poly([(29, 31), (43, 31), (41, 36), (31, 36)], gum)         # lipless mouth
-    s.stamp(30, 31, [
-        "twtwtwtwtwtw",
-        "............",
-        "............",
-        "wtwtwtwtwtwt",
-    ], {'t': tooth, 'w': gum})
+    #  The head: long and low on a thick neck, carried out in front, not up.
+    s.limb(38, 30, 22, 22, 11, 9, hide)
+    s.poly([(6, 20), (24, 16), (26, 26), (8, 28)], hide[3])      # the snout
+    s.poly([(6, 20), (24, 16), (24, 19), (7, 23)], hide[4])
+    s.rect(6, 24, 24, 26, dark)                                  # the mouth line
+    for i, x in enumerate(range(8, 24, 4)):
+        s.poly([(x, 24), (x + 3, 24), (x + 1, 21)], claw[3])
+    s.line(4, 26, 12, 27, tongue)                                # tongue, out
+    s.put(16, 20, dark)                                          # the eye, small
+    s.put(15, 20, s.ink((236, 232, 212)))
+    for x, y in ((20, 14), (28, 13), (34, 15)):                  # dorsal ridge
+        s.poly([(x, y), (x + 4, y - 1), (x + 3, y + 4)], hide[1])
+    for x, y in ((44, 36), (34, 50), (52, 40)):                  # mottling
+        s.form(x, y, 4, 3, hide[0:1] * 3, squash=0.6)
     return s.finish().stage(s.w, s.h, ground=None).emit()
 
 
@@ -930,3 +936,202 @@ def payphone():
     s.form(64, 66, 3, 3, [dark, dark, dark], squash=0.9)
     s.put(48, 55, steel[4])
     return s.finish().stage(s.w, s.h, ground=None).emit()
+
+
+def the_hoarder():
+    """The first boss of the whole thing, and she was a person.
+
+    Fifteen feet of her, roughly thirty-five, enormously obese, matted black
+    hair, sores and scabs, one tooth left. Filthy torn t-shirt, no bra, tight
+    blue sweatpants with PINK down the leg. She speaks Spanish, she is plainly
+    in agony, and she has no idea what is happening to her -- the dungeon took
+    a mentally ill woman and stretched her into a boss for television, and Carl
+    is sick about it afterwards.
+
+    So she is drawn as a person that something was done to, not as a designed
+    creature: human proportions, wrong scale, sitting collapsed in her own
+    rubbish, small head on a vast body. Nothing here is spiky or clawed. She
+    was a green blob sharing the Sludge Mound's sprite before this, which threw
+    away the one thing that makes the scene land.
+    """
+    s = Sprite(BOSS, BOSS)
+    skin = s.register_family(s.ramp((214, 176, 156), 6))
+    sore = s.register_family(s.ramp((178, 88, 82), 4))
+    shirt = s.register_family(s.ramp((198, 196, 186), 5))
+    pants = s.register_family(s.ramp((72, 96, 158), 5))
+    #  Named, not matched. ramp() snaps a loose RGB to the nearest curated
+    #  family, and anything near black lands on stone_ancient -- which is why
+    #  her matted black hair kept coming out khaki grey however dark the base
+    #  colour was. cloth_black is the one that is actually dark.
+    hair = s.register_family(s.ramp((30, 24, 28), 4, name='cloth_black'))
+    bag = s.register_family(s.ramp((44, 44, 50), 4))
+    trash = s.register_family(s.ramp((176, 158, 118), 4))
+    dark = s.ink((22, 14, 18))
+    pink = s.ink((246, 108, 178))          # the lettering down the leg. Canon.
+    tooth = s.ink((236, 230, 206))
+
+    #  The rubbish she sits in, first, so she sits *in* it and not on it.
+    for x, y, r in ((10, 84, 12), (30, 88, 14), (60, 86, 13), (84, 82, 11)):
+        s.form(x, y, r, r // 2 + 3, bag, wrap=0.9, squash=0.4)
+    for x, y in ((16, 78), (40, 84), (68, 80), (88, 76), (26, 90)):
+        s.form(x, y, 4, 3, trash, squash=0.5)
+
+    #  The body: a vast lopsided mass, wider at the base, slumped to one side.
+    s.form(48, 64, 38, 26, skin, wrap=1.3)
+    s.form(44, 50, 30, 20, skin, wrap=1.3)
+    s.poly([(18, 62), (78, 58), (84, 84), (12, 86)], skin[2])
+    s.poly([(18, 62), (34, 60), (30, 86), (12, 86)], skin[3])   # lit side
+    s.poly([(70, 58), (78, 58), (84, 84), (72, 86)], skin[1])
+
+    #  Sweatpants, and the word down the leg that the book bothers to mention.
+    s.poly([(14, 74), (82, 72), (86, 92), (10, 94)], pants[2])
+    s.poly([(14, 74), (32, 73), (28, 94), (10, 94)], pants[3])
+    for i, x in enumerate((18, 23, 28, 33)):                    # P I N K
+        s.rect(x, 80, x + 3, 87, pink)
+    s.rect(19, 80, 20, 87, pants[0])
+    s.rect(29, 83, 31, 84, pants[0])
+
+    #  The shirt: torn, too small, riding up over the belly.
+    s.poly([(22, 40), (70, 37), (76, 68), (18, 71)], shirt[2])
+    s.poly([(22, 40), (36, 39), (32, 70), (18, 71)], shirt[3])
+    s.poly([(40, 62), (58, 61), (56, 72), (42, 72)], skin[2])   # where it rides up
+    for x, y in ((30, 52), (62, 48), (48, 66)):                 # stains
+        s.form(x, y, 4, 3, shirt[0:1] * 3, squash=0.6)
+    s.line(66, 40, 70, 58, shirt[0])                            # the tear
+
+    #  Arms, hanging. Not raised, not clawed. She is not posturing at you.
+    s.limb(24, 46, 8, 74, 15, 11, skin)
+    s.limb(68, 44, 88, 70, 15, 11, skin)
+    s.form(8, 76, 7, 6, skin, wrap=1.2)
+    s.form(89, 72, 7, 6, skin, wrap=1.2)
+
+    #  A small head on all of that, which is most of why the scale reads.
+    s.form(46, 26, 15, 15, skin, wrap=1.4)
+    s.poly([(31, 22), (61, 20), (64, 8), (28, 10)], hair[1])    # matted, unwashed
+    s.poly([(31, 22), (38, 21), (34, 6), (28, 10)], hair[2])
+    for x, y in ((30, 26), (62, 24), (34, 14), (58, 12)):
+        s.line(x, y, x - 2, y + 8, hair[0])
+    for x, y in ((36, 40), (58, 38), (28, 34), (66, 32), (44, 18)):   # sores
+        s.form(x, y, 3, 2, sore, wrap=1.1)
+
+    #  The face. Small eyes, not saucers -- the brows do the work, drawn up in
+    #  the middle the way a face does when it is frightened rather than angry.
+    s.rect(39, 25, 41, 27, dark)
+    s.rect(52, 24, 54, 26, dark)
+    s.put(39, 25, s.ink((228, 224, 226)))
+    s.put(52, 24, s.ink((228, 224, 226)))
+    s.line(36, 22, 42, 19, hair[0])
+    s.line(51, 19, 57, 22, hair[0])
+    s.line(37, 23, 42, 20, hair[1])
+    s.line(51, 20, 56, 23, hair[1])
+    s.form(46, 36, 8, 6, [dark, dark, dark], wrap=0.9)          # the mouth, open
+    s.rect(44, 33, 46, 37, tooth)                               # the tooth
+
+    #  The rubbish again, in front this time. Drawn only behind her she sat on
+    #  a pile nobody could see; the room is described as mountains of it and it
+    #  is half of what the scene is about.
+    for x, y, r in ((6, 90, 10), (28, 93, 12), (58, 92, 11), (86, 89, 9)):
+        s.form(x, y, r, r // 3 + 3, bag, wrap=0.9, squash=0.4)
+    for x, y in ((12, 88), (36, 91), (64, 89), (82, 86)):
+        s.form(x, y, 4, 3, trash, squash=0.5)
+        s.put(x - 2, y - 2, trash[3])
+
+    #  And what comes out of her, constantly.
+    roach = s.register_family(s.ramp((92, 62, 40), 4))
+    for i, (x, y) in enumerate(((44, 41), (50, 44), (40, 46))):
+        s.form(x, y, 3, 2, roach, squash=0.5)
+        s.put(x - 3, y, roach[0])
+        s.put(x + 3, y, roach[0])
+    return s.finish(rim=False).stage(s.w, s.h, ground=None).emit()
+
+
+def bad_llama():
+    """It is a llama. The book's joke is that it is simply a bad one.
+
+    Spits something molten, drops llama steaks and baggies of low-grade meth,
+    and will trade with you if you have anything it wants. A long neck over a
+    compact barrel is a silhouette nothing else in the roster owns.
+    """
+    s = Sprite(FOE, FOE)
+    wool = s.register_family(s.ramp((198, 176, 142), 6))
+    face = s.register_family(s.ramp((172, 148, 116), 5))
+    hoof = s.register_family(s.ramp((70, 58, 50), 4))
+    dark = s.ink((26, 20, 18))
+    tooth = s.ink((226, 214, 168))
+    spit = s.register_family(s.ramp((236, 128, 48), 4))
+
+    s.limb(24, 44, 20, 66, 9, 6, wool)               # legs
+    s.limb(34, 46, 32, 66, 9, 6, wool)
+    s.limb(46, 44, 50, 66, 9, 6, wool)
+    s.limb(54, 46, 58, 66, 9, 6, wool)
+    for x in (20, 32, 50, 58):
+        s.form(x, 67, 4, 3, hoof, squash=0.5)
+    s.form(38, 42, 20, 13, wool, wrap=1.1)           # the barrel
+    s.limb(56, 46, 62, 40, 7, 5, wool)               # stumpy tail
+
+    #  The neck: long, near-vertical, and the whole point of the outline.
+    s.limb(30, 40, 24, 14, 11, 8, wool)
+    s.form(23, 12, 8, 7, wool, wrap=1.1)             # the head
+    s.poly([(16, 10), (26, 9), (27, 16), (15, 17)], face[3])     # muzzle
+    s.poly([(20, 4), (23, 3), (24, 9), (20, 9)], wool[4])        # ears, upright
+    s.poly([(26, 3), (29, 4), (29, 9), (26, 9)], wool[2])
+    s.put(21, 11, dark)                              # eye
+    s.put(20, 11, s.ink((240, 238, 230)))
+    s.rect(15, 14, 20, 15, dark)                     # the mouth
+    s.rect(16, 15, 17, 16, tooth)
+
+    #  Molten spit, mid-arc, going where you are.
+    for i, (x, y, r) in enumerate(((10, 17, 3), (5, 21, 2), (1, 26, 2))):
+        s.form(x, y, r, r, spit, wrap=0.8)
+    for x, y in ((44, 40), (36, 48), (52, 44)):      # matted patches
+        s.form(x, y, 4, 3, wool[0:1] * 3, squash=0.6)
+    return s.finish().stage(s.w, s.h, ground=None).emit()
+
+
+def mind_horror():
+    """A floating brain trailing jellyfish tentacles. Attacks with headaches.
+
+    The only thing in book one with no ground contact, which is worth a great
+    deal on a roster where everything else stands on something: a sprite with
+    no feet reads as wrong immediately.
+    """
+    s = Sprite(FOE, FOE)
+    brain = s.register_family(s.ramp((214, 150, 158), 6))
+    fold = s.register_family(s.ramp((166, 104, 120), 5))
+    veil = s.register_family(s.ramp((186, 176, 214), 5))
+    dark = s.ink((44, 22, 40))
+    glow = s.ink((214, 196, 255))
+
+    #  Tentacles first, hanging and drifting, so the mass sits over them.
+    for i, x in enumerate((22, 30, 38, 46, 54)):
+        sway = (i % 3) - 1
+        s.limb(x, 40, x + sway * 6, 62 + (i % 2) * 6, 6, 2, veil)
+        s.put(x + sway * 6, 63 + (i % 2) * 6, veil[4])
+    for i, x in enumerate((26, 42, 50)):             # a couple of longer ones
+        s.limb(x, 42, x - 4 + i * 4, 70, 4, 2, veil)
+
+    #  The mass: two lobes with a hard central split, which is what makes a
+    #  blob read as a brain rather than as another sludge.
+    s.form(28, 28, 14, 13, brain, wrap=1.3)
+    s.form(46, 28, 14, 13, brain, wrap=1.3)
+    s.form(37, 22, 10, 8, brain, wrap=1.3)
+    s.rect(36, 14, 38, 40, fold[1])                  # the split
+    for i, (x, y, w) in enumerate(((22, 20, 9), (48, 19, 9), (20, 30, 8),
+                                   (50, 31, 8), (28, 16, 7), (44, 15, 7),
+                                   (24, 36, 7), (48, 37, 7))):
+        s.line(x, y, x + w, y + 2, fold[2])          # the folds
+        s.line(x, y + 1, x + w, y + 3, fold[0])
+    s.form(30, 20, 4, 3, brain[4:5] * 3, squash=0.7)  # a highlight off the top
+
+    #  No face. Two cold points where one ought to be.
+    s.put(31, 30, dark); s.put(32, 30, dark)
+    s.put(43, 30, dark); s.put(44, 30, dark)
+    s.put(31, 29, glow); s.put(43, 29, glow)
+    for i, r in enumerate((18, 22)):                 # a psionic halo
+        for a in range(0, 360, 30):
+            import math
+            x = int(37 + r * math.cos(math.radians(a)))
+            y = int(28 + (r * 0.7) * math.sin(math.radians(a)))
+            if 0 <= x < s.w and 0 <= y < s.h and not s.get(x, y):
+                s.put(x, y, glow if i else veil[3])
+    return s.finish(rim=False).stage(s.w, s.h, ground=None).emit()

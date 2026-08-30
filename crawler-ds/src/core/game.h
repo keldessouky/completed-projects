@@ -91,7 +91,12 @@ typedef struct {
      *  be normalised to one target height on screen, which meant a sewer rat
      *  and a club bouncer arrived the same size and the fight had no sense of
      *  scale in it at all -- the art was doing work the renderer threw away.
-     *  A rat is knee-high; a mattress that has learned to fold is not. */
+     *  A rat is knee-high; a mattress that has learned to fold is not.
+     *
+     *  A byte, so 255 is the ceiling -- the Ball of Swine is described as
+     *  filling the corridor and went in at 260, which wrapped to 4 and would
+     *  have rendered the largest thing in book one smaller than a cockroach.
+     *  The compiler caught it; nothing else would have. */
     uint8_t     bulk;
     const char *quip;       /* the announcers love a caption */
 } FoeDef;
