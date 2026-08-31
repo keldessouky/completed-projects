@@ -1135,3 +1135,96 @@ def mind_horror():
             if 0 <= x < s.w and 0 <= y < s.h and not s.get(x, y):
                 s.put(x, y, glow if i else veil[3])
     return s.finish(rim=False).stage(s.w, s.h, ground=None).emit()
+
+
+def brindle_grub():
+    """The floor's janitor. Spawns on corpses and levels up by eating them.
+
+    Individually a joke -- the danger is the count. A legless curl is a shape
+    nothing else here has, and it stays readable when several are on screen at
+    once, which is the whole point of the creature.
+
+    Built as overlapping segments along a curve rather than a body with bands
+    drawn on afterwards: the first version put the banding on as separate
+    strokes and they came out as a row of bars sticking through the outline,
+    which read as a comb glued to a blob. A maggot is segments.
+    """
+    import math
+    s = Sprite(FOE, FOE)
+    flesh = s.register_family(s.ramp((226, 214, 168), 6))
+    band = s.register_family(s.ramp((188, 168, 120), 6))
+    dark = s.ink((44, 34, 26))
+    mouth = s.ink((122, 62, 54))
+
+    #  A comma laid on its side: fat at the head, curling down and back.
+    N = 11
+    pts = []
+    for i in range(N):
+        t = i / float(N - 1)
+        ang = math.radians(-40 + 150 * t)
+        x = 30 + 20 * math.cos(ang) + 6 * t
+        y = 30 + 22 * math.sin(ang) - 4 * t
+        pts.append((x, y, 13 - 8 * t))          # radius tapers to the tail
+    for i, (x, y, r) in enumerate(reversed(pts)):
+        s.form(x, y, r, r * 0.92, band if i % 2 else flesh, wrap=1.35)
+
+    #  The head end, once, over the top so the face is not cut by a segment.
+    hx, hy, hr = pts[0]
+    s.form(hx, hy, hr + 1, hr, flesh, wrap=1.4)
+    s.form(hx - 4, hy - 5, 4, 3, flesh[5:6] * 3, squash=0.6)     # wet highlight
+    s.form(hx - 3, hy + 5, 5, 3, [mouth, mouth, mouth], wrap=0.9)
+    for dx in (-5, 2):
+        s.put(int(hx + dx), int(hy - 1), dark)
+    for dx, dy in ((-9, 3), (-7, -6)):                            # bristles
+        s.line(int(hx + dx), int(hy + dy), int(hx + dx - 3), int(hy + dy + 2), band[0])
+    return s.finish().stage(s.w, s.h, ground=None).emit()
+
+
+def rage_elemental():
+    """Level ninety-three, on a floor where you are eleven.
+
+    Not something that lives here. It is released as a *penalty* -- somebody
+    breaks one of the floor's posted rules and the System sends this after
+    them, which is the dungeon at its most honestly cruel: a video game being
+    unfair on purpose and broadcasting it.
+
+    The book does not describe it, so this is invention and marked as such.
+    What it is drawn to be is a punishment rather than an animal: no face, no
+    limbs to speak of, roughly upright because that is more frightening than
+    not, and burning from the inside out. Nothing to reason with.
+    """
+    s = Sprite(BOSS, BOSS)
+    core = s.register_family(s.ramp((248, 196, 72), 6))
+    body = s.register_family(s.ramp((214, 92, 44), 6))
+    outer = s.register_family(s.ramp((146, 44, 40), 5))
+    ash = s.register_family(s.ramp((62, 46, 48), 4))
+    white = s.ink((255, 246, 214))
+
+    #  A column, wider at the shoulders, boiling at the top.
+    s.poly([(30, 12), (66, 12), (76, 60), (60, 92), (36, 92), (20, 60)], outer[2])
+    s.poly([(30, 12), (46, 12), (44, 92), (36, 92), (20, 60)], outer[3])
+    s.poly([(34, 18), (62, 18), (70, 58), (56, 86), (40, 86), (26, 58)], body[2])
+    s.poly([(38, 24), (58, 24), (64, 56), (52, 80), (44, 80), (32, 56)], body[4])
+    s.poly([(42, 30), (54, 30), (58, 54), (50, 74), (46, 74), (38, 54)], core[3])
+    s.poly([(45, 36), (51, 36), (53, 52), (48, 66), (46, 66), (43, 52)], core[5])
+
+    #  Cracks, as if it is splitting under its own heat.
+    for x0, y0, x1, y1 in ((36, 30, 30, 52), (60, 34, 66, 56),
+                           (44, 60, 38, 80), (54, 62, 60, 82)):
+        s.line(x0, y0, x1, y1, core[4])
+        s.line(x0 + 1, y0, x1 + 1, y1, body[0])
+
+    #  It boils off the top instead of having a head. Deliberately: a face
+    #  would make it a creature with intentions, and it has exactly one.
+    for i, (x, y, r) in enumerate(((40, 10, 7), (54, 8, 6), (47, 4, 5),
+                                   (33, 6, 4), (61, 12, 4))):
+        s.form(x, y, r, r - 1, body if i % 2 else core, wrap=1.2)
+    for x, y in ((44, 2), (52, 1), (48, 8)):
+        s.put(x, y, white)
+
+    #  And it leaves the floor scorched where it has been standing.
+    for x, y, w in ((28, 92, 9), (48, 94, 12), (66, 92, 8)):
+        s.form(x, y, w, 3, ash, squash=0.5)
+    for x in range(24, 72, 7):
+        s.put(x, 90, ash[0])
+    return s.finish(rim=False).stage(s.w, s.h, ground=None).emit()

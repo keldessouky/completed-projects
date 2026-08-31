@@ -135,6 +135,36 @@ void game_award(int achievement) {
 void game_hold_box(int tier) {
     if (tier < 0 || tier > 3) return;
     if (g.boxes_held[tier] < 250) g.boxes_held[tier]++;
+    /*  Rule 12.
+     *
+     *  The floor tells you what these are for the moment you pick one up --
+     *  safe rooms only -- and then says it again, more pointedly, every time
+     *  you stow another. Ignore it long enough and the System stops asking.
+     *  What it sends is ninety-three levels above anything on this floor and
+     *  is not a resident: it is a penalty, and it is good television.
+     *
+     *  The counter-play is the one the toast has been giving you all along.
+     *  Walk into a safe room and open them.
+     *
+     *  This used to hang off game_open_box() instead, on the reasoning that
+     *  opening one in a corridor was the transgression -- but corridor boxes
+     *  are stowed, never opened, so the only unsafe opens in the game are the
+     *  ones the game hands you for winning a fight. It was punishing combat.
+     *  Five seeded runs went from finishing around floor sixteen to dying on
+     *  floors one to four, which is how it was caught. */
+    /*  Not on the first floor. The floor one maze is where the party is
+        level two and still being told what buttons do; the posted rules and
+        the penalties for breaking them start on the floor below it, which is
+        also where the book puts this. */
+    if (g.dun.index >= 1 && !g.rage_done && !g.rage_hunt &&
+        game_boxes_held() >= RAGE_TRIGGER) {
+        g.rage_hunt = RAGE_LEAD;
+        g.rage_done = 1;
+        game_toast("RULE 12. You were told what those are for.", 2);
+        audio_sfx(SFX_CRIT);
+    } else if (g.dun.index >= 1 && !g.rage_done && game_boxes_held() == RAGE_TRIGGER - 2) {
+        game_toast("The System has noticed how many you are carrying.", 2);
+    }
 }
 
 int game_boxes_held(void) {

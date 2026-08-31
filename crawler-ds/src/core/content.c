@@ -67,65 +67,86 @@ const int skill_count = (int)(sizeof skill_defs / sizeof skill_defs[0]);
 /* ------------------------------------------------------------- bestiary --- */
 
 const FoeDef foe_defs[] = {
-    /* name             sprite         hp atk def spd   xp gold trick kind         pow fl rk blk quip */
-    { "Sewer Rat",      SPR_RAT,       22,  6,  2,  7,  12,   8, 10, SK_BLEED,      60, 1, 0, 55, "It has been eating better than you." },
-    { "Goblin Trapper", SPR_GOBLIN,    30,  8,  4,  6,  18,  14, 20, SK_DEBUFF_DEF, 30, 1, 0, 85, "Sponsored by nobody. Trying very hard." },
+    /*  name  sprite  hp atk def spd  xp gold trick kind pow floor rank bulk quip
+        ...and, for anything with a way to be broken, the answer its opening
+        wants and what that opening looks like. Mobs stop at the quip. */
+    { "Sewer Rat",      SPR_RAT,       22,  6,  2,  7,  12,   8, 10, SK_BLEED,      60, 1, 0, 55, "It has been eating better than you.", WEAK_NONE, 0 },
+    { "Goblin Trapper", SPR_GOBLIN,    30,  8,  4,  6,  18,  14, 20, SK_DEBUFF_DEF, 30, 1, 0, 85, "Sponsored by nobody. Trying very hard.", WEAK_NONE, 0 },
     /*  A Rot Sticker is a delivery mechanism, not a fighter: almost no health,
         almost no defence, and it hits the whole party when it goes. Killing it
         fast is the entire counterplay, which is why it is also slow. */
-    { "Rot Sticker",    SPR_ROTSTICKER, 14, 11,  1,  2,  16,   6, 55, SK_HIT_ALL,   130, 1, 0, 45, "Do not let it get comfortable." },
-    { "Troglodyte",     SPR_TROGLODYTE, 34,  9,  5,  5,  20,  10, 20, SK_STUN,       60, 1, 0, 105, "No eyes. Did not need them to find you." },
-    { "Screaming Sofa", SPR_SOFA,      44,  7,  8,  3,  22,  20, 15, SK_STUN,       70, 1, 0, 125, "Floor one keeps sending furniture." },
-    { "Sludge Mound",   SPR_SLUDGE,    36,  7,  5,  4,  20,  12, 25, SK_HIT_ALL,    70, 1, 0, 100, "Wet. Patient. Faintly sweet." },
-    { "Kobold Sapper",  SPR_KOBOLD,    46, 12,  6,  9,  34,  26, 30, SK_HIT_ALL,    85, 2, 0, 80, "Carrying something with a fuse." },
-    { "Bramble Hound",  SPR_HOUND,     54, 14,  7, 12,  40,  22, 25, SK_BLEED,      90, 2, 0, 90, "It was a dog. The floor improved it." },
-    { "Doom Beetle",    SPR_BEETLE,    62, 13, 12,  6,  44,  30, 20, SK_DEBUFF_DEF, 45, 2, 0, 85, "Armoured, unbothered, extremely purple." },
-    { "Bone Bailiff",   SPR_BAILIFF,   58, 16,  9,  8,  48,  38, 35, SK_STUN,       80, 2, 0, 110, "It has a warrant. It will not show you." },
-    { "Neon Mimic",     SPR_MIMIC,     72, 19, 10, 11,  62,  55, 35, SK_HIT_ONE,   150, 3, 0, 115, "A loot box with opinions." },
-    { "Club Bouncer",   SPR_BOUNCER,   88, 22, 14,  9,  72,  60, 30, SK_STUN,       90, 3, 0, 140, "You are not on the list." },
-    { "Vulture Fan",    SPR_VULTURE,   66, 20,  8, 15,  64,  44, 40, SK_BLEED,     110, 3, 0, 100, "Here for the highlights. Yours." },
-    { "Bad Llama",      SPR_LLAMA,        36, 10,  4,  8,  20,  16, 30, SK_HIT_ONE,    75, 1, 0, 115, "Do not let the wool fool you." },
-    { "Mind Horror",    SPR_MINDHORROR,   30,  9,  3,  6,  26,  20, 45, SK_STUN,       80, 1, 0,  45, "All brain, no spine. Literally." },
+    { "Rot Sticker",    SPR_ROTSTICKER, 14, 11,  1,  2,  16,   6, 55, SK_HIT_ALL,   130, 1, 0, 45, "Do not let it get comfortable.", WEAK_NONE, 0 },
+    { "Troglodyte",     SPR_TROGLODYTE, 34,  9,  5,  5,  20,  10, 20, SK_STUN,       60, 1, 0, 105, "No eyes. Did not need them to find you.", WEAK_NONE, 0 },
+    { "Screaming Sofa", SPR_SOFA,      44,  7,  8,  3,  22,  20, 15, SK_STUN,       70, 1, 0, 125, "Floor one keeps sending furniture.", WEAK_NONE, 0 },
+    { "Sludge Mound",   SPR_SLUDGE,    36,  7,  5,  4,  20,  12, 25, SK_HIT_ALL,    70, 1, 0, 100, "Wet. Patient. Faintly sweet.", WEAK_NONE, 0 },
+    { "Kobold Sapper",  SPR_KOBOLD,    46, 12,  6,  9,  34,  26, 30, SK_HIT_ALL,    85, 2, 0, 80, "Carrying something with a fuse.", WEAK_NONE, 0 },
+    { "Bramble Hound",  SPR_HOUND,     54, 14,  7, 12,  40,  22, 25, SK_BLEED,      90, 2, 0, 90, "It was a dog. The floor improved it.", WEAK_NONE, 0 },
+    { "Doom Beetle",    SPR_BEETLE,    62, 13, 12,  6,  44,  30, 20, SK_DEBUFF_DEF, 45, 2, 0, 85, "Armoured, unbothered, extremely purple.", WEAK_NONE, 0 },
+    { "Bone Bailiff",   SPR_BAILIFF,   58, 16,  9,  8,  48,  38, 35, SK_STUN,       80, 2, 0, 110, "It has a warrant. It will not show you.", WEAK_NONE, 0 },
+    { "Neon Mimic",     SPR_MIMIC,     72, 19, 10, 11,  62,  55, 35, SK_HIT_ONE,   150, 3, 0, 115, "A loot box with opinions.", WEAK_NONE, 0 },
+    { "Club Bouncer",   SPR_BOUNCER,   88, 22, 14,  9,  72,  60, 30, SK_STUN,       90, 3, 0, 140, "You are not on the list.", WEAK_NONE, 0 },
+    { "Vulture Fan",    SPR_VULTURE,   66, 20,  8, 15,  64,  44, 40, SK_BLEED,     110, 3, 0, 100, "Here for the highlights. Yours.", WEAK_NONE, 0 },
+    { "Bad Llama",      SPR_LLAMA,        36, 10,  4,  8,  20,  16, 30, SK_HIT_ONE,    75, 1, 0, 115, "Do not let the wool fool you.", WEAK_NONE, 0 },
+    /*  Not a resident. Ninety-three levels of consequence, released by the
+        floor when its own posted rules get ignored often enough. It is not
+        meant to be killed. */
+    { "Rage Elemental", SPR_BOSS_RAGE,  9000, 90, 40, 18,   0,   0, 60, SK_HIT_ALL,   200, 1, 0, 230, "You were told where to open those.", WEAK_NONE, 0 },
+    { "Brindle Grub",   SPR_GRUB,         16,  5,  2,  3,   8,   4,  0, SK_HIT_ONE,    50, 1, 0,  15, "Nature's cleanup crew, and there are thousands.", WEAK_NONE, 0 },
+    { "Mind Horror",    SPR_MINDHORROR,   30,  9,  3,  6,  26,  20, 45, SK_STUN,       80, 1, 0,  45, "All brain, no spine. Literally.", WEAK_NONE, 0 },
     /*  The block: street furniture that the dungeon gave teeth to.
         Deliberately NOT on the first tier. Book one's floors are tunnels,
         mazes and mob neighbourhoods -- lichen and corridors. The reskinned
         city with its shopfronts and street fittings is the Over City, which
         is deeper, so a parking meter on floor one would be a whole setting
         arriving two books early. They start where the streets do. */
-    { "Snack Machine",  SPR_SNACKMACHINE, 40,  9,  7,  4,  21,  18, 20, SK_DEBUFF_DEF, 40, 2, 0, 130, "It ate your change. Now it is hungry." },
-    { "Wheelie Bin",    SPR_WHEELIEBIN,   38,  8,  6,  5,  19,  15, 25, SK_HIT_ALL,    60, 2, 0, 110, "Bins on this floor have opinions about you." },
-    { "Rusted Boiler",  SPR_BOILER,       58, 13, 10,  4,  42,  28, 30, SK_HIT_ALL,    80, 2, 0, 120, "The gauge is in the red. It has been for years." },
-    { "Parking Meter",  SPR_METER,        44, 15,  5, 13,  38,  24, 35, SK_STUN,       70, 3, 0,  95, "Your time expired before you arrived." },
-    { "Payphone",       SPR_PAYPHONE,     70, 18,  9, 10,  60,  46, 40, SK_STUN,       85, 3, 0, 115, "It is ringing. It is for you." },
+    { "Snack Machine",  SPR_SNACKMACHINE, 40,  9,  7,  4,  21,  18, 20, SK_DEBUFF_DEF, 40, 2, 0, 130, "It ate your change. Now it is hungry.", WEAK_NONE, 0 },
+    { "Wheelie Bin",    SPR_WHEELIEBIN,   38,  8,  6,  5,  19,  15, 25, SK_HIT_ALL,    60, 2, 0, 110, "Bins on this floor have opinions about you.", WEAK_NONE, 0 },
+    { "Rusted Boiler",  SPR_BOILER,       58, 13, 10,  4,  42,  28, 30, SK_HIT_ALL,    80, 2, 0, 120, "The gauge is in the red. It has been for years.", WEAK_NONE, 0 },
+    { "Parking Meter",  SPR_METER,        44, 15,  5, 13,  38,  24, 35, SK_STUN,       70, 3, 0,  95, "Your time expired before you arrived.", WEAK_NONE, 0 },
+    { "Payphone",       SPR_PAYPHONE,     70, 18,  9, 10,  60,  46, 40, SK_STUN,       85, 3, 0, 115, "It is ringing. It is for you.", WEAK_NONE, 0 },
     /*  Neighbourhood bosses. The floor is four to a square, they sit between
         levels seven and nine, and each is a caricature of the local mob
         crossed with something from the surface. Killing one shuts its
         neighbourhood down: nothing spawns there afterwards. */
-    { "The Hoarder",    SPR_BOSS_HOARDER,     120, 15,  9,  4, 110,   0, 40, SK_HIT_ALL,    80, 1, 1, 250, "It has kept everything. All of it." },
-    { "The Juicer",     SPR_TROGLODYTE, 110, 18,  6,  7, 105,   0, 45, SK_BLEED,      95, 1, 1, 115, "A troglodyte that found a use for people." },
-    { "Goblin War Chief", SPR_GOBLIN,   130, 16, 11,  6, 120,   0, 35, SK_DEBUFF_DEF, 70, 1, 1, 140, "Sponsored. Finally." },
+    { "The Hoarder",    SPR_BOSS_HOARDER,     120, 15,  9,  4, 110,   0, 40, SK_HIT_ALL,    80, 1, 1, 250, "It has kept everything. All of it.",
+      WEAK_HIT, "A grub is halfway out of her mouth." },
+    { "The Juicer",     SPR_TROGLODYTE, 110, 18,  6,  7, 105,   0, 45, SK_BLEED,      95, 1, 1, 115, "A troglodyte that found a use for people.",
+      WEAK_MOVE, "The veins in his arms stand right out." },
+    { "Goblin War Chief", SPR_GOBLIN,   130, 16, 11,  6, 120,   0, 35, SK_DEBUFF_DEF, 70, 1, 1, 140, "Sponsored. Finally.", WEAK_NONE, 0 },
     /*  Tiers two and three need their own, or foe_nboss falls back to the
         borough boss and every chamber on floor seven downward holds a Foreman.
         Each is still the local mob with something from the surface welded on,
         which is what the show does with them. */
-    { "The Sapper Foreman", SPR_KOBOLD,   190, 24, 13,  9, 230,  90, 40, SK_HIT_ALL,   85, 2, 1, 150, "It has requisitioned the whole quadrant." },
-    { "The Kennelmaster", SPR_HOUND,      170, 27,  9, 16, 220,  80, 45, SK_BLEED,    100, 2, 1, 145, "Whistles once. Everything with teeth comes." },
-    { "The Bailiff Prime", SPR_BAILIFF,   200, 25, 15,  8, 240, 100, 35, SK_STUN,      85, 2, 1, 160, "Serving papers on the entire floor." },
-    { "The Doorman", SPR_BOUNCER,         290, 33, 18, 11, 420, 180, 40, SK_STUN,     100, 3, 1, 178, "The list got shorter. You were on it." },
-    { "The House Mimic", SPR_MIMIC,       260, 36, 14, 14, 400, 190, 45, SK_HIT_ONE,  160, 3, 1, 170, "It was the room. It was always the room." },
-    { "The Carrion Anchor", SPR_VULTURE,  240, 34, 12, 19, 390, 170, 50, SK_BLEED,    130, 3, 1, 155, "Live from the top of the pile." },
+    { "The Sapper Foreman", SPR_KOBOLD,   190, 24, 13,  9, 230,  90, 40, SK_HIT_ALL,   85, 2, 1, 150, "It has requisitioned the whole quadrant.",
+      WEAK_ITEM, "A fuse is burning at his belt." },
+    { "The Kennelmaster", SPR_HOUND,      170, 27,  9, 16, 220,  80, 45, SK_BLEED,    100, 2, 1, 145, "Whistles once. Everything with teeth comes.",
+      WEAK_GUARD, "He whistles. Everything with teeth turns." },
+    { "The Bailiff Prime", SPR_BAILIFF,   200, 25, 15,  8, 240, 100, 35, SK_STUN,      85, 2, 1, 160, "Serving papers on the entire floor.",
+      WEAK_MOVE, "He stops to read the warrant aloud." },
+    { "The Doorman", SPR_BOUNCER,         290, 33, 18, 11, 420, 180, 40, SK_STUN,     100, 3, 1, 178, "The list got shorter. You were on it.",
+      WEAK_GUARD, "He sets his weight to put you through a wall." },
+    { "The House Mimic", SPR_MIMIC,       260, 36, 14, 14, 400, 190, 45, SK_HIT_ONE,  160, 3, 1, 170, "It was the room. It was always the room.",
+      WEAK_HIT, "The lid gapes wider than the room allows." },
+    { "The Carrion Anchor", SPR_VULTURE,  240, 34, 12, 19, 390, 170, 50, SK_BLEED,    130, 3, 1, 155, "Live from the top of the pile.",
+      WEAK_MOVE, "It folds its wings to stoop on you." },
 
 
     /* Borough bosses: the ones with a stairwell in the room. */
-    { "Ball of Swine",  SPR_BOSS_RATKING, 220, 17,  9,  8, 260,   0, 40, SK_HIT_ALL,  95, 1, 2, 255, "It only does one thing. It does it downhill." },
+    { "Ball of Swine",  SPR_BOSS_RATKING, 220, 17,  9,  8, 260,   0, 40, SK_HIT_ALL,  95, 1, 2, 255, "It only does one thing. It does it downhill.",
+      WEAK_GUARD, "It is picking up speed down the slope." },
     /*  Promoted out of a neighbourhood in the second round of patch notes,
         which is the only reason it is standing on a stairwell. */
-    { "The Street Preacher", SPR_BAILIFF, 240, 20, 13,  9, 270,   0, 45, SK_STUN,     90, 1, 2, 185, "Has been expecting you. Personally." },
+    { "The Street Preacher", SPR_BAILIFF, 240, 20, 13,  9, 270,   0, 45, SK_STUN,     90, 1, 2, 185, "Has been expecting you. Personally.",
+      WEAK_MOVE, "He turns to address the balcony." },
     /*  One borough boss a tier meant the same gate six floors running. */
-    { "The Silk Road Toll", SPR_MIMIC,    420, 29, 17, 13, 560, 280, 45, SK_HIT_ONE,  170, 2, 2, 205, "Everything that passes pays. You are passing." },
-    { "The Foreman",    SPR_BOSS_FOREMAN, 380, 26, 16, 10, 520, 250, 45, SK_STUN,    100, 2, 2, 200, "Management has come down to the floor." },
-    { "The Producer",   SPR_BOSS_PRODUCER,560, 34, 20, 14, 900, 400, 50, SK_HIT_ALL, 120, 3, 2, 215, "The show, wearing a person." },
-    { "The Ratings Spike", SPR_VULTURE,   520, 38, 16, 21, 860, 380, 50, SK_BLEED,    150, 3, 2, 195, "Numbers are up. That is your fault." },
+    { "The Silk Road Toll", SPR_MIMIC,    420, 29, 17, 13, 560, 280, 45, SK_HIT_ONE,  170, 2, 2, 205, "Everything that passes pays. You are passing.",
+      WEAK_ITEM, "It opens its ledger to price you." },
+    { "The Foreman",    SPR_BOSS_FOREMAN, 380, 26, 16, 10, 520, 250, 45, SK_STUN,    100, 2, 2, 200, "Management has come down to the floor.",
+      WEAK_HIT, "He leans in to check your paperwork." },
+    { "The Producer",   SPR_BOSS_PRODUCER,560, 34, 20, 14, 900, 400, 50, SK_HIT_ALL, 120, 3, 2, 215, "The show, wearing a person.",
+      WEAK_MOVE, "He turns to find his own best angle." },
+    { "The Ratings Spike", SPR_VULTURE,   520, 38, 16, 21, 860, 380, 50, SK_BLEED,    150, 3, 2, 195, "Numbers are up. That is your fault.",
+      WEAK_GUARD, "The numbers spike. So does it." },
 };
 const int foe_count = (int)(sizeof foe_defs / sizeof foe_defs[0]);
 
@@ -272,6 +293,8 @@ const AchDef ach_defs[] = {
         screen away from the thing the player was reading. */
     { "No Shoes",         "Go outside for the cat anyway.",      255,  40 },
     { "Outside At The Time", "Be in the road when it happened.",  255,   0 },
+    { "Working As Intended",
+                          "Lose a chase to the stairwell. Once.",  2,   0 },
 };
 const int ach_count = (int)(sizeof ach_defs / sizeof ach_defs[0]);
 
@@ -429,6 +452,28 @@ static int tier_for(int floor_no) {
     return tier;
 }
 
+/*  Looked up by name once rather than hard-coded, so inserting a row above it
+ *  cannot silently turn the grub swarm into a swarm of something else. */
+int foe_grub(void) {
+    static int cached = -1;
+    if (cached < 0) {
+        cached = 0;
+        for (int i = 0; i < foe_count; i++)
+            if (foe_defs[i].sprite == SPR_GRUB) { cached = i; break; }
+    }
+    return cached;
+}
+
+int foe_rage(void) {
+    static int cached = -1;
+    if (cached < 0) {
+        cached = 0;
+        for (int i = 0; i < foe_count; i++)
+            if (foe_defs[i].sprite == SPR_BOSS_RAGE) { cached = i; break; }
+    }
+    return cached;
+}
+
 int foe_pick(int floor_no) {
     int tier = tier_for(floor_no);
     /*  The pool used to be the current tier and nothing else, so it narrowed
@@ -436,9 +481,14 @@ int foe_pick(int floor_no) {
         the end. Backwards -- the deepest stretch is the longest one. Deeper
         floors keep everything shallower alive alongside their own, scaled up
         by foe_scale, so variety grows with depth instead of collapsing. */
+    /*  The Rage Elemental is rank 0 and lives on tier 1, which made it a
+        perfectly ordinary candidate here -- ninety-three levels of it, in a
+        random corridor, on floor one. It is released by the floor's own rules
+        and by nothing else, so it is excluded by name. */
     int candidates[24], n = 0;
     for (int i = 0; i < foe_count && n < 24; i++)
-        if (!foe_defs[i].rank && foe_defs[i].floor <= tier) candidates[n++] = i;
+        if (!foe_defs[i].rank && foe_defs[i].floor <= tier && i != foe_rage())
+            candidates[n++] = i;
     if (!n) return 0;
 
     /*  Weighted toward this tier's own residents: a floor eighteen corridor
@@ -446,7 +496,8 @@ int foe_pick(int floor_no) {
     if (tier > 1 && rng_chance(65)) {
         int own[12], m = 0;
         for (int i = 0; i < foe_count && m < 12; i++)
-            if (!foe_defs[i].rank && foe_defs[i].floor == tier) own[m++] = i;
+            if (!foe_defs[i].rank && foe_defs[i].floor == tier && i != foe_rage())
+                own[m++] = i;
         if (m) return own[rng_range(0, m - 1)];
     }
     return candidates[rng_range(0, n - 1)];

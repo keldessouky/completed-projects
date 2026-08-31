@@ -899,6 +899,23 @@ static void draw_battle(Surface *top, Surface *bot) {
         foe_plate(top, rank ? SCREEN_W / 2 : cx, plate_y,
                   rank ? SCREEN_W - 16 : slot_w - 6, &foe_defs[f->def],
                   f->hp, f->hp_max);
+        /*  The opening has to be seen or the mechanic is a dice roll. It gets
+            the loudest thing the screen has: a ring round the foe that is
+            showing it, and the tell itself under the banner. */
+        if (g.bat.tell && g.bat.tell_foe == i) {
+            uint16_t ring = (g.anim & 8) ? C_GOLD : C_AMBER;
+            gfx_frame(top, fx - 3, fy - 3, fw + 6, fh + 6, ring);
+            gfx_frame(top, fx - 4, fy - 4, fw + 8, fh + 8, gfx_mix(ring, C_VOID, 8));
+            const char *t = foe_defs[f->def].tell;
+            if (t) {
+                int tw = gfx_text_width(t);
+                int tx = (SCREEN_W - tw) / 2;
+                gfx_panel(top, tx - 5, plate_y + 18, tw + 10, 12, C_VOID, ring);
+                gfx_text(top, tx, plate_y + 21, ring, t);
+            }
+        }
+        if (g.bat.broken && g.bat.tell_foe == i)
+            gfx_shade(top, fx, fy, fw, fh, 22);
     }
 
     {

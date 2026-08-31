@@ -117,6 +117,11 @@ void dungeon_light_of_sight(void) {
 }
 
 void dungeon_enter(int floor_index) {
+    /*  A new floor is a new quadrant, and its grubs are somebody else's
+        problem. This is the release valve on the pressure the party builds by
+        clearing rooms: the floor tells you to move on and moving on works. */
+    g.grubs = 0;
+
     if (floor_index >= FLOORS) floor_index = FLOORS - 1;
     memset(&g.dun, 0, sizeof g.dun);
     g.zone_cleared = 0;          /* a new floor is a new set of neighbourhoods */
@@ -216,6 +221,21 @@ static void enter_tile(int x, int y) {
     case T_DOWN:
         if (g.dun.index + 1 < FLOORS) {
             audio_sfx(SFX_DOWN);
+            /*  Mobs are destroyed crossing a stairwell threshold, and the
+                thing chasing you is a mob. It works. It works once: the
+                developers watch the recap, congratulate you on camera, and
+                close it. */
+            if (g.rage_hunt) {
+                if (!g.rage_patched) {
+                    g.rage_patched = 1;
+                    g.rage_hunt = 0;
+                    game_award(ACH_LOOPHOLE);
+                    game_toast("It did not survive the threshold.", 1);
+                    game_toast("PATCH NOTE: that will not work again.", 2);
+                } else {
+                    game_toast("It came down the stairs after you.", 2);
+                }
+            }
             game_toast("Stairs down. The floor above stops existing.", 0);
             dungeon_enter(g.dun.index + 1);
             game_story(g.dun.index + 1, TRIG_FLOOR_ENTER, SCENE_DUNGEON);
@@ -272,6 +292,25 @@ void dungeon_step(int forward) {
     g.dun.py = (uint8_t)ny;
     g.dun.steps++;
     audio_sfx(SFX_STEP);
+    /*  It is closing. Nothing to fight it with -- the only move is the stairs,
+        and only while that still works. */
+    if (g.rage_hunt) {
+        if (--g.rage_hunt == 0) {
+            game_toast("It caught up.", 2);
+            battle_start(0);
+            g.bat.foes[0].def = (uint8_t)foe_rage();
+            g.bat.n_foes = 1;
+            g.bat.foes[0].hp = g.bat.foes[0].hp_max =
+                (int16_t)foe_defs[foe_rage()].hp;
+            g.bat.foes[0].alive = 1;
+            g.bat.target = 0;
+            return;
+        }
+        if (g.rage_hunt == 20 || g.rage_hunt == 10)
+            game_toast("It is still coming.", 2);
+        else if (g.rage_hunt == 4)
+            game_toast("It is right behind you.", 2);
+    }
     dungeon_light_of_sight();
     enter_tile(nx, ny);
     if (g.scene != SCENE_DUNGEON) return;

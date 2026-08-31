@@ -99,7 +99,23 @@ typedef struct {
      *  The compiler caught it; nothing else would have. */
     uint8_t     bulk;
     const char *quip;       /* the announcers love a caption */
+    /*  Every boss has a way to be broken, and the guide says so out loud:
+     *  choke the Hoarder on the grub coming out of her, burst the Juicer's
+     *  veins, stop the Ball of Swine rolling. It was three special cases in
+     *  the prose and nothing in the code, so a boss was a mob with more
+     *  health. Now it is a rule: bosses open up, and the opening wants one
+     *  particular answer.
+     *
+     *  These sit after `quip` so the mobs' rows can leave them off and get
+     *  zero and NULL, which is what "no weakness" means. */
+    uint8_t     weak;       /* a WeakAnswer; 0 for anything without one */
+    const char *tell;       /* what the opening looks like when it is up */
 } FoeDef;
+
+/*  What breaks a boss. Deliberately mapped onto the four things the command
+ *  menu can already do, so the answer is always something the player has in
+ *  front of them rather than a hidden verb. */
+typedef enum { WEAK_NONE, WEAK_HIT, WEAK_MOVE, WEAK_GUARD, WEAK_ITEM } WeakAnswer;
 
 typedef struct {
     const char *name;
@@ -297,6 +313,9 @@ typedef struct {
     uint8_t  log_shown;         /* lines the player has actually been shown */
     uint16_t reveal;            /* characters of the current line typed out */
     uint16_t hold;              /* frames to wait once a line is fully typed */
+    /*  The opening. `tell` counts down the turns it stays up for; `broken` is
+     *  how many turns the boss spends reeling once somebody takes it. */
+    uint8_t  tell, tell_foe, broken, tell_wait;
 } Battle;
 
 /* --------------------------------------------------------------- dungeon -- */
@@ -390,6 +409,37 @@ typedef struct {
     uint8_t  boxes_held[4];
     uint8_t  box_from_safe;     /* opened from a safe room, so return to it */
     uint16_t box_timer;
+    /*  How many grubs the quadrant is carrying.
+     *
+     *  The floor's waste disposal: every corpse the party makes spawns
+     *  between one and fifteen of them to eat it, they level by eating, and
+     *  the cap is five thousand to a quadrant. Which means the dungeon
+     *  punishes exactly the behaviour a dungeon crawler encourages -- kill
+     *  everything and you are eventually standing in it. Taking the stairs
+     *  leaves the quadrant, and its grubs, behind. */
+    uint16_t grubs;
+#define GRUB_CAP   5000   /* the quadrant's ceiling, as the floor states it */
+#define GRUB_JOIN    90   /* enough of them that one turns up to a fight */
+#define GRUB_SWARM  200   /* enough that two do */
+#define GRUB_PUPA   320   /* and enough that some have started to cocoon */
+
+    /*  The floor posts rules, and breaking one does not get you a fine.
+     *
+     *  Boxes are meant to be opened somewhere safe -- the floor says so the
+     *  first time you pick one up. Open enough of them standing in a corridor
+     *  and the System stops asking and releases something ninety-three levels
+     *  above you, which is the dungeon at its most honest: not a monster that
+     *  lives here, a punishment that airs well.
+     *
+     *  It can be beaten exactly once, and not by fighting: mobs are destroyed
+     *  crossing a stairwell threshold, so the stairs will take it off you.
+     *  Then that gets patched, on camera, and the second one has to be
+     *  outrun. */
+    uint8_t  rage_done;       /* it only comes for you once a run */
+    uint8_t  rage_hunt;       /* steps before it catches up; 0 is not hunting */
+    uint8_t  rage_patched;    /* the stairwell trick has been closed */
+#define RAGE_TRIGGER  6       /* stowed boxes the floor will tolerate */
+#define RAGE_LEAD    45       /* steps of head start it gives you */
     uint8_t  levelup_hero;
 
     /* recall codes */
@@ -494,7 +544,7 @@ enum {
     ACH_DAMAGE = ACH_ENTRY_COUNT, ACH_FIRST_KILL, ACH_BARE_HANDS,
     ACH_PODOPHILIA, ACH_BOOM, ACH_LEVEL_UP, ACH_LOOT, ACH_BOSS_BABE,
     ACH_TWO_AT_ONCE, ACH_NEIGHBOURHOOD, ACH_STAIRWELL, ACH_CARTOGRAPHER,
-    ACH_READ_THE_ROOM, ACH_NO_SHOES, ACH_OUTSIDE
+    ACH_READ_THE_ROOM, ACH_NO_SHOES, ACH_OUTSIDE, ACH_LOOPHOLE
 };
 
 void     game_award_entry(void);        /* the six the draft decides */
@@ -510,6 +560,8 @@ extern const int      beat_count;
 extern const char    *const speaker_names[];
 int   dungeon_zone(void);            /* which neighbourhood the party is in */
 int   foe_pick(int floor_no);
+int   foe_grub(void);        /* the index of the Brindle Grub */
+int   foe_rage(void);        /* ...and of the thing the rules send */
 int   dungeon_zone_at(int x, int y);
 int   dungeon_zone_cleared(void);
 int   foe_boss(int floor_no);

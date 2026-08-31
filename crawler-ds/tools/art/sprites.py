@@ -47,12 +47,14 @@ ROSTER = [
     #  than streets. A long-necked quadruped and a thing with no feet at all.
     ('llama', bestiary.bad_llama),
     ('mindhorror', bestiary.mind_horror),
+    ('grub', bestiary.brindle_grub),
 
     # the bosses (96x96)
     ('boss_ratking', bestiary.boss_ratking),
     ('boss_foreman', bestiary.boss_foreman),
     ('boss_producer', bestiary.boss_producer),
     ('boss_hoarder', bestiary.the_hoarder),
+    ('boss_rage', bestiary.rage_elemental),
 
     # the furniture (40x40)
     ('box_bronze', lambda: props.loot_box(0)),

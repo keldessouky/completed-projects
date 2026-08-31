@@ -254,6 +254,12 @@ static int season_over(void) {
 static int walk_to(char want, int max_steps) {
     for (int steps = 0; steps < max_steps; steps++) {
         if ((int)g.scene == pause_scene) return 1;
+        /*  Rule 12. Nothing else on the floor matters while that is behind
+            you, and the answer is the stairwell -- so abandon whatever this
+            walk was for and let the caller route to the stairs. A bot that
+            keeps shopping while it is being hunted is not testing the
+            mechanic, it is just dying to it. */
+        if (g.rage_hunt && want != T_DOWN) return 0;
         if (g.scene == SCENE_BATTLE) { play_battle(); continue; }
         if (g.scene == SCENE_GAMEOVER || g.scene == SCENE_VICTORY ||
             g.scene == SCENE_TITLE || g.scene == SCENE_DRAFT) return 0;
@@ -329,6 +335,7 @@ static void play_run(int seed, int assertions) {
         grind_to(floor_no * 3 + 1, 700);
         walk_to(T_SHOP, 400);
         if (g.scene == SCENE_SHOP) { for (int i = 0; i < 8; i++) tap(BTN_A); tap(BTN_B); }
+        if (g.rage_hunt) walk_to(T_DOWN, 800);
         walk_to(T_SHRINE, 400);
         walk_to(T_BOSS, 600);
         if (g.scene == SCENE_BATTLE) play_battle();
@@ -532,15 +539,29 @@ int main(int argc, char **argv) {
         if (g.scene == SCENE_LEVELUP) shot("11-levelup");
         pause_scene = -1;
         for (int i = 0; i < 30 && g.scene != SCENE_DUNGEON; i++) tap(BTN_A);
+        /*  Only photograph it if it is actually a boss. walk_to stops at the
+            first battle, and a wandering encounter on the way to the stairs
+            is a battle -- so the picture called "12-boss" was a Sewer Rat the
+            moment the RNG sequence shifted under it. Fight the interruption
+            off and walk again, with the pause still armed: clearing it here
+            is what made the first version of this guard do nothing, because
+            walk_to then fought the boss instead of stopping in front of it. */
         pause_scene = SCENE_BATTLE;
         walk_to(T_BOSS, 600);
+        for (int tries = 0; tries < 8 && g.scene == SCENE_BATTLE && !g.bat.boss; tries++) {
+            play_battle();
+            for (int i = 0; i < 40 && g.scene != SCENE_DUNGEON; i++) tap(BTN_A);
+            walk_to(T_BOSS, 600);
+        }
         pause_scene = -1;
-        if (g.scene == SCENE_BATTLE) { idle(30); shot("12-boss"); play_battle(); }
+        if (g.scene == SCENE_BATTLE && g.bat.boss) { idle(30); shot("12-boss"); }
+        if (g.scene == SCENE_BATTLE) play_battle();
         for (int i = 0; i < 900 && (g.scene == SCENE_STORY || g.scene == SCENE_CUTSCENE || g.scene == SCENE_DRAFT); i++)
             tap(BTN_A);
         /* Run the rest of the game out for the closing screen. */
         for (int floor_no = g.dun.index + 1; floor_no <= FLOORS; floor_no++) {
             grind_to(floor_no * 3 + 1, 700);
+            if (g.rage_hunt) walk_to(T_DOWN, 800);
             walk_to(T_BOSS, 600);
             if (g.scene == SCENE_BATTLE) play_battle();
             for (int i = 0; i < 40 && g.scene != SCENE_DUNGEON; i++) tap(BTN_A);
@@ -842,6 +863,186 @@ int main(int argc, char **argv) {
             fail = 1;
         } else {
             printf("  box card -> a tap closed it\n");
+        }
+        /*  Bosses open up, and the opening can be taken.
+         *
+         *  This mechanic is invisible from outside: a boss that never raises
+         *  its tell, or one whose opening cannot be answered, reads exactly
+         *  like a boss with a lot of health, and nothing else in the suite
+         *  would notice. So drive a real boss fight and answer the opening
+         *  with the command it actually wants.
+         *
+         *  White-box on purpose -- the cursor is set directly rather than
+         *  simulating menu navigation, because what is under test is whether
+         *  the answer breaks the boss, not whether a d-pad can reach it. */
+        {
+            g.season = 0x1BAD;
+            dungeon_enter(0);
+            battle_start(2);
+            int weak = foe_defs[g.bat.foes[0].def].weak;
+            const char *bname = foe_defs[g.bat.foes[0].def].name;
+            int saw_tell = 0, saw_break = 0;
+            for (int t = 0; t < 6000 && g.scene == SCENE_BATTLE; t++) {
+                if (g.bat.tell) saw_tell = 1;
+                if (g.bat.broken) saw_break = 1;
+                for (int h = 0; h < PARTY; h++) g.hero[h].mp = g.hero[h].mp_max;
+
+                if (g.bat.phase == BAT_CHOOSE && g.bat.actor < PARTY) {
+                    int want = weak == WEAK_ITEM ? 1 : weak == WEAK_GUARD ? 2 : 0;
+                    /*  Only answer while the opening is up; otherwise swing,
+                        so the fight actually progresses. */
+                    if (!g.bat.tell) want = 0;
+                    input.touching = input.touch_pressed = 1;
+                    input.touch_x = (int16_t)(kBatCommands[want].x + 8);
+                    input.touch_y = (int16_t)(kBatCommands[want].y + 8);
+                    step();
+                    continue;
+                }
+                if (g.bat.phase == BAT_SKILL) {
+                    const SkillDef *sk[8];
+                    int n = game_hero_skills(g.bat.actor, sk, 8);
+                    int pick = 0;
+                    if (g.bat.tell && weak == WEAK_MOVE) {
+                        for (int i = 0; i < n; i++)
+                            if (sk[i]->cost > 0 && g.hero[g.bat.actor].mp >= sk[i]->cost) {
+                                pick = i; break;
+                            }
+                    }
+                    g.bat.cursor = (uint8_t)pick;
+                    tap(BTN_A);
+                    continue;
+                }
+                tap(BTN_A);
+            }
+            printf("  boss tell -> %s wants %d: raised %s, broken %s\n",
+                   bname, weak, saw_tell ? "yes" : "NO", saw_break ? "yes" : "NO");
+            if (!saw_tell)  { printf("  boss tell -> never opened up\n"); fail = 1; }
+            if (!saw_break) { printf("  boss tell -> the answer did not break it\n"); fail = 1; }
+        }
+        /*  Killing things fills the quadrant with grubs, and the grubs turn
+         *  up. Another mechanic with no visible surface: if the counter never
+         *  rises, or rises but never reaches a fight, the game plays exactly
+         *  as it did before and no other check notices. */
+        {
+            g.season = 0x1BAD;
+            dungeon_enter(0);
+            if (g.grubs != 0) { printf("  grubs -> a new floor started dirty\n"); fail = 1; }
+            g.grubs = GRUB_SWARM;                 /* as if the party had cleared out */
+            int with_grubs = 0;
+            for (int t = 0; t < 40 && !with_grubs; t++) {
+                battle_start(0);
+                for (int i = 0; i < g.bat.n_foes; i++)
+                    if (g.bat.foes[i].def == foe_grub()) with_grubs = 1;
+            }
+            printf("  grubs -> at pressure %d they %s\n", GRUB_SWARM,
+                   with_grubs ? "turn up" : "NEVER turn up");
+            if (!with_grubs) fail = 1;
+
+            /*  ...and a clean quadrant should not be sending them at all. */
+            g.grubs = 0;
+            int clean = 0;
+            for (int t = 0; t < 40; t++) {
+                battle_start(0);
+                for (int i = 0; i < g.bat.n_foes; i++)
+                    if (g.bat.foes[i].def == foe_grub()) clean++;
+            }
+            /*  Not zero-tolerance: foe_pick can legitimately roll a grub as a
+                wandering mob. But at pressure zero they must be rare. */
+            printf("  grubs -> clean quadrant sent %d in 40 fights\n", clean);
+            if (clean > 12) { printf("  grubs -> too many with no pressure\n"); fail = 1; }
+
+            /*  Taking the stairs leaves them behind. */
+            g.grubs = GRUB_PUPA;
+            dungeon_enter(1);
+            if (g.grubs != 0) { printf("  grubs -> stairs did not clear them\n"); fail = 1; }
+            else printf("  grubs -> the stairs leave them behind\n");
+        }
+        /*  The thing the rules release must never be rolled as scenery. It
+         *  is rank 0 on tier 1, which is exactly the shape of an ordinary
+         *  wandering mob, so nothing about its data keeps it out of a
+         *  corridor -- only foe_pick's exclusion does. */
+        {
+            int leaked = 0;
+            for (int f = 1; f <= FLOORS; f++)
+                for (int t = 0; t < 300; t++)
+                    if (foe_pick(f) == foe_rage()) leaked++;
+            printf("  rage -> rolled as a wandering mob %d times in %d picks\n",
+                   leaked, FLOORS * 300);
+            if (leaked) fail = 1;
+        }
+        /*  The achievement table and its enum have to stay the same length,
+         *  or every name after the mismatch is attached to the wrong feat and
+         *  nothing complains. */
+        if (ach_count != ACH_LOOPHOLE + 1) {
+            printf("  achievements -> %d rows for %d enum entries\n",
+                   ach_count, ACH_LOOPHOLE + 1);
+            fail = 1;
+        } else printf("  achievements -> %d rows, enum agrees\n", ach_count);
+
+        /*  Rule 12: open boxes where you were told not to and the floor sends
+         *  something you cannot fight. The stairs take it off you exactly
+         *  once, and then that gets patched. */
+        {
+            g.season = 0x1BAD;
+
+            /*  Not on floor one, where the party is level two and the game is
+                still explaining itself. */
+            dungeon_enter(0);
+            g.rage_hunt = 0; g.rage_patched = 0; g.rage_done = 0;
+            memset(g.boxes_held, 0, sizeof g.boxes_held);
+            for (int i = 0; i < RAGE_TRIGGER * 2; i++) game_hold_box(0);
+            printf("  rule 12 -> armed on floor one: %s\n",
+                   g.rage_hunt ? "YES (wrong)" : "no");
+            if (g.rage_hunt) fail = 1;
+
+            dungeon_enter(1);
+            g.rage_hunt = 0; g.rage_patched = 0; g.rage_done = 0;
+            memset(g.boxes_held, 0, sizeof g.boxes_held);
+            for (int i = 0; i < RAGE_TRIGGER; i++) game_hold_box(0);
+            printf("  rule 12 -> carrying %d stowed boxes started a hunt: %s\n",
+                   RAGE_TRIGGER, g.rage_hunt ? "yes" : "NO");
+            if (!g.rage_hunt) fail = 1;
+
+            /*  ...and it only ever comes once a run. */
+            g.rage_hunt = 0;
+            memset(g.boxes_held, 0, sizeof g.boxes_held);
+            for (int i = 0; i < RAGE_TRIGGER * 2; i++) game_hold_box(0);
+            printf("  rule 12 -> it came a second time: %s\n",
+                   g.rage_hunt ? "YES (wrong)" : "no");
+            if (g.rage_hunt) fail = 1;
+
+            /*  Winning fights must not trigger it -- the boxes a battle hands
+                you are opened on the spot by the game, not by the player. */
+            g.rage_done = 0; g.rage_hunt = 0;
+            memset(g.boxes_held, 0, sizeof g.boxes_held);
+            for (int i = 0; i < 20; i++) game_open_box(0);
+            printf("  rule 12 -> battle rewards started a hunt: %s\n",
+                   g.rage_hunt ? "YES (wrong)" : "no");
+            if (g.rage_hunt) fail = 1;
+
+            /*  The stairwell, once. Stand on the stairs and use them. */
+            g.rage_patched = 0;
+            for (int round = 0; round < 2; round++) {
+                dungeon_enter(1);
+                int sx = -1, sy = -1;
+                for (int y = 0; y < g.dun.h && sx < 0; y++)
+                    for (int x = 0; x < g.dun.w; x++)
+                        if (dungeon_tile(x, y) == T_DOWN) { sx = x; sy = y; break; }
+                if (sx < 0) { printf("  rule 12 -> no stairs on the floor\n"); fail = 1; break; }
+                g.dun.px = (uint8_t)sx; g.dun.py = (uint8_t)sy;
+                g.rage_hunt = 5;
+                dungeon_interact();
+                if (round == 0) {
+                    printf("  rule 12 -> stairwell cleared it: %s, patched: %s\n",
+                           g.rage_hunt ? "NO" : "yes", g.rage_patched ? "yes" : "NO");
+                    if (g.rage_hunt || !g.rage_patched) fail = 1;
+                } else {
+                    /*  Patched. It follows you down. */
+                    printf("  rule 12 -> after the patch the stairs %s\n",
+                           g.rage_hunt ? "no longer save you" : "STILL SAVE YOU (wrong)");
+                    if (!g.rage_hunt) fail = 1;
+                }
+            }
         }
         return fail;
     }

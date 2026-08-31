@@ -102,10 +102,21 @@ void battle_start(int boss) {
             int roll = rng_range(0, 99);
             g.bat.foes[i].def = (uint8_t)(roll < 62 ? local : roll < 80 ? 0 : foe_pick(floor_no));
         }
+        /*  And whatever the quadrant's grubs have decided to do about all the
+            corpses. They take slots off the encounter rather than adding to
+            it -- three things is still three things -- so a floor the party
+            has cleared out sends them fights made mostly of consequences. */
+        int joining = g.grubs >= GRUB_SWARM ? 2 : g.grubs >= GRUB_JOIN ? 1 : 0;
+        for (int i = 0; i < joining && i < count; i++)
+            g.bat.foes[count - 1 - i].def = (uint8_t)foe_grub();
     }
     for (int i = 0; i < g.bat.n_foes; i++) {
         const FoeDef *d = &foe_defs[g.bat.foes[i].def];
         int scale = foe_stat_scale(floor_no, g.bat.foes[i].def);
+        /*  Grubs level up by eating, so the pile the party has made is what
+            makes them worth anything. */
+        if (g.bat.foes[i].def == foe_grub())
+            scale = scale * (100 + g.grubs / 4) / 100;
         int hp = d->hp * scale / 100;
         hp += rng_range(-hp / 10, hp / 10);
         if (hp > 30000) hp = 30000;
@@ -123,6 +134,86 @@ void battle_start(int boss) {
              boss == 2 ? " runs this neighbourhood." :
              boss ? " blocks the way." : " noticed you.", 0);
     game_set_scene(SCENE_BATTLE);
+}
+
+
+/* ------------------------------------------------------------- the tell -- */
+
+static void hurt_foe(int index, int amount);   /* defined with the resolving */
+
+/*  Mordecai's one piece of real advice: everything with a boss card has a way
+ *  to be broken, and it is never its health bar. So a boss spends most of the
+ *  fight closed, and every few turns it does the thing its entry describes --
+ *  the Hoarder's next grub crowning, the Juicer's veins standing out, the Ball
+ *  of Swine getting up to speed. That opening lasts one round and wants one
+ *  specific answer off the command menu. Take it and the boss reels; miss it
+ *  and it shuts again and you have spent a turn.
+ *
+ *  This is what stops a boss being a mob with four times the health.
+ */
+static int boss_index(void) {
+    for (int i = 0; i < g.bat.n_foes; i++)
+        if (g.bat.foes[i].alive && foe_defs[g.bat.foes[i].def].weak) return i;
+    return -1;
+}
+
+static void tell_tick(void) {
+    int b = boss_index();
+    if (b < 0) return;
+    if (g.bat.broken) { g.bat.broken--; return; }
+    if (g.bat.tell) {
+        if (--g.bat.tell == 0) log_line("The opening", " closes.", 0);
+        return;
+    }
+    if (g.bat.tell_wait) { g.bat.tell_wait--; return; }
+
+    g.bat.tell = 2;                    /* up for this round and the next */
+    g.bat.tell_foe = (uint8_t)b;
+    g.bat.tell_wait = (uint8_t)rng_range(2, 4);
+    const FoeDef *d = &foe_defs[g.bat.foes[b].def];
+    log_line(d->tell ? d->tell : "It leaves itself open.", 0, 0);
+    /*  Said once a run, not once a fight and not once a turn: it lives
+        outside g.bat, which is wiped at every battle_start. The player is
+        meant to work out which button the opening wants, not be told. */
+    static int explained;
+    if (!explained) {
+        explained = 1;
+        log_line("Mordecai:", " that is the opening. Hit it right.", 0);
+    }
+    audio_sfx(SFX_CRIT);
+}
+
+/*  Did that command answer the opening? Called with the menu index the player
+ *  picked: 0 fight, 1 bag, 2 guard, 3 run. A move chosen off the FIGHT menu
+ *  answers WEAK_MOVE; a plain swing answers WEAK_HIT. */
+static int tell_answered(int weak, int menu, int used_move) {
+    switch (weak) {
+    case WEAK_HIT:   return menu == 0 && !used_move;
+    case WEAK_MOVE:  return menu == 0 && used_move;
+    case WEAK_ITEM:  return menu == 1;
+    case WEAK_GUARD: return menu == 2;
+    default:         return 0;
+    }
+}
+
+static void tell_answer(int menu, int used_move) {
+    if (!g.bat.tell) return;
+    int b = g.bat.tell_foe;
+    if (b >= g.bat.n_foes || !g.bat.foes[b].alive) return;
+    const FoeDef *d = &foe_defs[g.bat.foes[b].def];
+    if (!tell_answered(d->weak, menu, used_move)) return;
+
+    /*  A quarter of what it started with, which is enough to make finding the
+        answer the fight rather than a bonus on top of it. */
+    Foe *f = &g.bat.foes[b];
+    int hit = f->hp_max / 4 + 1;
+    g.bat.tell = 0;
+    g.bat.broken = 2;
+    f->status[ST_DEFDOWN] = 3;
+    hurt_foe(b, hit);
+    log_line(d->name, " is wide open.", 0);
+    game_award(ACH_DAMAGE);
+    audio_sfx(SFX_CRIT);
 }
 
 /* ------------------------------------------------------------- resolving -- */
@@ -164,6 +255,15 @@ static void hurt_foe(int index, int amount) {
         f->alive = 0;
         f->hp = 0;
         if (++s_kills_this_blow == 2) game_award(ACH_TWO_AT_ONCE);
+        /*  A corpse with no grubs near it gets between one and fifteen sent
+            to eat it. They are harmless one at a time; the count is the
+            threat, and the count is entirely the party's own doing. */
+        if (g.grubs < GRUB_CAP) {
+            int add = rng_range(1, 15);
+            g.grubs = (uint16_t)(g.grubs + add > GRUB_CAP ? GRUB_CAP : g.grubs + add);
+            if (g.grubs >= GRUB_PUPA && g.grubs - add < GRUB_PUPA)
+                game_toast("Pupae in the corners. Take the stairs.", 2);
+        }
         /*  Carl fights barefoot and, for most of the first floor, unarmed. The
             show has a box for each of those, and they are the two the book
             makes a running joke of. */
@@ -322,6 +422,7 @@ static void begin_next_turn(void) {
         for (int i = 0; i < g.bat.n_foes; i++) tick_statuses_for_foe(i);
         if (!foe_alive_count()) { finish_battle(1, 0); return; }
         if (!party_alive())     { finish_battle(0, 0); return; }
+        tell_tick();
         order_turns();
     }
 
@@ -437,6 +538,7 @@ static int touch_in(const PlatInput *in, const Rect *r) {
 static void use_item(int item) {
     const ItemDef *d = &item_defs[item];
     int actor = g.bat.actor;
+    tell_answer(1, 0);          /* the cart, the fuse, the ledger */
     switch (d->kind) {
     case IT_HEAL: {
         int who = actor;
@@ -492,6 +594,7 @@ static void choose_action(int action) {
         g.hero[actor].guard = 1;
         hero_heal(&g.hero[actor], 4 + g.hero[actor].level);
         log_line(g.hero[actor].name, " braces.", 0);
+        tell_answer(2, 0);
         g.bat.phase = BAT_RESOLVE;
         g.bat.timer = 24;
         break;
@@ -558,6 +661,9 @@ static void update_target(const PlatInput *in) {
     int actor = g.bat.actor;
     if (g.bat.menu == 0) {
         log_line(g.hero[actor].name, " strikes.", 0);
+        /*  A free swing. That is what WEAK_HIT wants -- the Hoarder is choked
+            by something jammed down her throat, not by a special move. */
+        tell_answer(0, 0);
         apply_effect(SK_HIT_ONE, 100, 1, actor, g.bat.target);
     } else {
         const SkillDef *skills[8];
@@ -566,6 +672,9 @@ static void update_target(const PlatInput *in) {
         const SkillDef *sk = skills[idx];
         g.hero[actor].mp = (int16_t)(g.hero[actor].mp - sk->cost);
         log_line(g.hero[actor].name, ": ", sk->name);
+        /*  Anything that costs stamina is a real move; the free one at the top
+            of the list is still a swing however it is labelled. */
+        tell_answer(0, sk->cost > 0);
         apply_effect(sk->kind, sk->power, 1, actor, g.bat.target);
     }
     g.bat.phase = BAT_RESOLVE;
@@ -604,6 +713,7 @@ static void update_skill(const PlatInput *in) {
     }
     g.hero[g.bat.actor].mp = (int16_t)(g.hero[g.bat.actor].mp - sk->cost);
     log_line(g.hero[g.bat.actor].name, ": ", sk->name);
+    tell_answer(0, sk->cost > 0);
     apply_effect(sk->kind, sk->power, 1, g.bat.actor, g.bat.target);
     g.bat.phase = BAT_RESOLVE;
     g.bat.timer = 34;
