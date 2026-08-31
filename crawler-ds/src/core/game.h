@@ -103,8 +103,8 @@ typedef struct {
      *  choke the Hoarder on the grub coming out of her, burst the Juicer's
      *  veins, stop the Ball of Swine rolling. It was three special cases in
      *  the prose and nothing in the code, so a boss was a mob with more
-     *  health. Now it is a rule: bosses open up, and the opening wants one
-     *  particular answer.
+     *  health. Now it is a rule: bosses open up, the opening wants one
+     *  particular answer, and the answer kills them where they stand.
      *
      *  These sit after `quip` so the mobs' rows can leave them off and get
      *  zero and NULL, which is what "no weakness" means. */
@@ -313,8 +313,10 @@ typedef struct {
     uint8_t  log_shown;         /* lines the player has actually been shown */
     uint16_t reveal;            /* characters of the current line typed out */
     uint16_t hold;              /* frames to wait once a line is fully typed */
-    /*  The opening. `tell` counts down the turns it stays up for; `broken` is
-     *  how many turns the boss spends reeling once somebody takes it. */
+    /*  The opening. `tell` counts down the turns it stays up for; `tell_wait`
+     *  is the gap until the next one. `broken` outlived the reeling it was
+     *  named for -- an answered boss is dead now, not stunned -- and is kept
+     *  because the renderer flashes the sprite pale while it counts down. */
     uint8_t  tell, tell_foe, broken, tell_wait;
 } Battle;
 

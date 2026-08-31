@@ -890,60 +890,127 @@ int main(int argc, char **argv) {
         } else {
             printf("  box card -> a tap closed it\n");
         }
-        /*  Bosses open up, and the opening can be taken.
+        /*  Bosses open up, the opening can be taken, and taking it kills
+         *  them outright.
          *
          *  This mechanic is invisible from outside: a boss that never raises
          *  its tell, or one whose opening cannot be answered, reads exactly
          *  like a boss with a lot of health, and nothing else in the suite
-         *  would notice. So drive a real boss fight and answer the opening
-         *  with the command it actually wants.
+         *  would notice.
+         *
+         *  Every boss, not one. The old version of this drove whatever
+         *  battle_start(2) happened to pick for one season seed -- it printed
+         *  "The Juicer wants 2" and proved nothing whatever about the other
+         *  thirteen rows or about three of the four answers. battle_start_foe
+         *  puts any of them on the screen directly, so the table is checked
+         *  against the code rather than sampled.
+         *
+         *  The party guards while the opening is down, and is topped up every
+         *  turn. Both matter: guarding does the boss no damage, so its health
+         *  bar is still full when the answer lands, and a kill at full health
+         *  is the only thing that distinguishes an instant kill from chip
+         *  damage that happened to finish. Against the quarter-health version
+         *  this fought before, every row here fails.
          *
          *  White-box on purpose -- the cursor is set directly rather than
          *  simulating menu navigation, because what is under test is whether
-         *  the answer breaks the boss, not whether a d-pad can reach it. */
+         *  the answer kills the boss, not whether a d-pad can reach it. */
         {
+            printf("== every boss opens up, and the opening kills it\n");
             g.season = 0x1BAD;
             dungeon_enter(0);
-            battle_start(2);
-            int weak = foe_defs[g.bat.foes[0].def].weak;
-            const char *bname = foe_defs[g.bat.foes[0].def].name;
-            int saw_tell = 0, saw_break = 0;
-            for (int t = 0; t < 6000 && g.scene == SCENE_BATTLE; t++) {
-                if (g.bat.tell) saw_tell = 1;
-                if (g.bat.broken) saw_break = 1;
-                for (int h = 0; h < PARTY; h++) g.hero[h].mp = g.hero[h].mp_max;
+            int checked = 0, kinds[5] = { 0, 0, 0, 0, 0 };
+            for (int d = 0; d < foe_count; d++) {
+                int weak = foe_defs[d].weak;
+                if (!weak) continue;
+                battle_start_foe(d, " blocks the way.");
+                const char *bname = foe_defs[d].name;
+                int full = g.bat.foes[0].hp_max;
+                int saw_tell = 0, hp_at_answer = -1, answer_t = -1;
 
-                if (g.bat.phase == BAT_CHOOSE && g.bat.actor < PARTY) {
-                    int want = weak == WEAK_ITEM ? 1 : weak == WEAK_GUARD ? 2 : 0;
-                    /*  Only answer while the opening is up; otherwise swing,
-                        so the fight actually progresses. */
-                    if (!g.bat.tell) want = 0;
-                    input.touching = input.touch_pressed = 1;
-                    input.touch_x = (int16_t)(kBatCommands[want].x + 8);
-                    input.touch_y = (int16_t)(kBatCommands[want].y + 8);
-                    step();
-                    continue;
-                }
-                if (g.bat.phase == BAT_SKILL) {
-                    const SkillDef *sk[8];
-                    int n = game_hero_skills(g.bat.actor, sk, 8);
-                    int pick = 0;
-                    if (g.bat.tell && weak == WEAK_MOVE) {
-                        for (int i = 0; i < n; i++)
-                            if (sk[i]->cost > 0 && g.hero[g.bat.actor].mp >= sk[i]->cost) {
-                                pick = i; break;
-                            }
+                for (int t = 0; t < 8000 && g.scene == SCENE_BATTLE; t++) {
+                    /*  Stop shortly after the first answer, not at the end of
+                        the fight. Letting the loop run on is how the first
+                        cut of this passed thirteen bosses against the old
+                        quarter-health hit: they died eventually, off the
+                        fourth opening, and "dead by the end" cannot tell that
+                        apart from dead on the answer. */
+                    if (answer_t >= 0 && t - answer_t > 300) break;
+                    if (g.bat.tell) saw_tell = 1;
+                    for (int h = 0; h < PARTY; h++) {
+                        g.hero[h].mp = g.hero[h].mp_max;
+                        g.hero[h].hp = g.hero[h].hp_max;
                     }
-                    g.bat.cursor = (uint8_t)pick;
+                    if (g.bat.phase == BAT_CHOOSE && g.bat.actor < PARTY) {
+                        /*  GUARD while it is closed: anything else chips the
+                            health bar and ruins the measurement. */
+                        int want = 2;
+                        if (g.bat.tell) {
+                            want = weak == WEAK_ITEM ? 1 : weak == WEAK_GUARD ? 2 : 0;
+                            if (hp_at_answer < 0) {
+                                hp_at_answer = g.bat.foes[0].hp;
+                                answer_t = t;
+                            }
+                        }
+                        input.touching = input.touch_pressed = 1;
+                        input.touch_x = (int16_t)(kBatCommands[want].x + 8);
+                        input.touch_y = (int16_t)(kBatCommands[want].y + 8);
+                        step();
+                        continue;
+                    }
+                    if (g.bat.phase == BAT_SKILL) {
+                        const SkillDef *sk[8];
+                        int n = game_hero_skills(g.bat.actor, sk, 8);
+                        int pick = -1;
+                        if (g.bat.tell && weak == WEAK_MOVE) {
+                            for (int i = 0; i < n; i++)
+                                if (sk[i]->cost > 0 && g.hero[g.bat.actor].mp >= sk[i]->cost) {
+                                    pick = i; break;
+                                }
+                            if (pick < 0) {
+                                printf("  FAIL %-20s no stamina move to answer with\n", bname);
+                                fail = 1;
+                            }
+                        }
+                        g.bat.cursor = (uint8_t)(pick < 0 ? 0 : pick);
+                        tap(BTN_A);
+                        continue;
+                    }
                     tap(BTN_A);
-                    continue;
                 }
-                tap(BTN_A);
+
+                int dead = !g.bat.foes[0].alive || g.bat.foes[0].hp <= 0;
+                int at_full = hp_at_answer >= full;
+                if (!saw_tell) {
+                    printf("  FAIL %-20s never opened up\n", bname);
+                    fail = 1;
+                } else if (!dead) {
+                    printf("  FAIL %-20s answered at %d/%d, still standing on %d\n",
+                           bname, hp_at_answer, full, g.bat.foes[0].hp);
+                    fail = 1;
+                } else if (!at_full) {
+                    /*  Died, but had already been worn down -- so this row
+                        does not show an instant kill and must not pass as
+                        one. */
+                    printf("  FAIL %-20s died from %d/%d, not from full\n",
+                           bname, hp_at_answer, full);
+                    fail = 1;
+                } else {
+                    kinds[weak]++;
+                    checked++;
+                }
             }
-            printf("  boss tell -> %s wants %d: raised %s, broken %s\n",
-                   bname, weak, saw_tell ? "yes" : "NO", saw_break ? "yes" : "NO");
-            if (!saw_tell)  { printf("  boss tell -> never opened up\n"); fail = 1; }
-            if (!saw_break) { printf("  boss tell -> the answer did not break it\n"); fail = 1; }
+            printf("  boss tells -> %d bosses killed outright from full health"
+                   " (hit %d, move %d, guard %d, item %d)\n",
+                   checked, kinds[WEAK_HIT], kinds[WEAK_MOVE],
+                   kinds[WEAK_GUARD], kinds[WEAK_ITEM]);
+            /*  All four answers have to be represented, or a whole branch of
+                tell_answered is going untested behind a green line. */
+            if (!kinds[WEAK_HIT] || !kinds[WEAK_MOVE] ||
+                !kinds[WEAK_GUARD] || !kinds[WEAK_ITEM]) {
+                printf("  boss tells -> an answer kind was never exercised\n");
+                fail = 1;
+            }
         }
         /*  Killing things fills the quadrant with grubs, and the grubs turn
          *  up. Another mechanic with no visible surface: if the counter never

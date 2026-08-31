@@ -175,11 +175,21 @@ static void hurt_foe(int index, int amount);   /* defined with the resolving */
  *  to be broken, and it is never its health bar. So a boss spends most of the
  *  fight closed, and every few turns it does the thing its entry describes --
  *  the Hoarder's next grub crowning, the Juicer's veins standing out, the Ball
- *  of Swine getting up to speed. That opening lasts one round and wants one
- *  specific answer off the command menu. Take it and the boss reels; miss it
- *  and it shuts again and you have spent a turn.
+ *  of Swine getting up to speed. That opening stays up for two rounds and
+ *  wants one specific answer off the command menu.
  *
- *  This is what stops a boss being a mob with four times the health.
+ *  Take it and the boss dies on the spot, whatever its health bar says. This
+ *  used to be a quarter of its maximum health -- four right answers to kill
+ *  one -- and outright is the stronger reading of the same idea: the health
+ *  bar is not what a boss is, so it should not be what decides one. Miss the
+ *  opening and it shuts again and you have spent a turn.
+ *
+ *  The cost of it: eight of the fourteen bosses can now be killed by a player
+ *  who is not playing the mechanic at all. Five want a stamina move, which is
+ *  what anyone spending their best attack does anyway, and three want a plain
+ *  swing, which is what anyone out of stamina does. Those wins land without
+ *  the player knowing there was a puzzle. The four GUARD bosses and the two
+ *  BAG ones are the only ones that have to be read.
  */
 static int boss_index(void) {
     for (int i = 0; i < g.bat.n_foes; i++)
@@ -233,17 +243,22 @@ static void tell_answer(int menu, int used_move) {
     const FoeDef *d = &foe_defs[g.bat.foes[b].def];
     if (!tell_answered(d->weak, menu, used_move)) return;
 
-    /*  A quarter of what it started with, which is enough to make finding the
-        answer the fight rather than a bonus on top of it. */
+    /*  Everything it has left, so the whole of the death path runs the way it
+        would for any other killing blow: the damage number pops with the
+        boss's remaining health in it, the corpse seeds its grubs, and the
+        kill achievements fire. Handing hurt_foe the current hp rather than
+        clearing the struct is what keeps all of that in one place.
+
+        ST_DEFDOWN is gone from here with the chip damage it went with: three
+        turns of softened defence is worth nothing to something that is not
+        going to have a fourth turn. `broken` is kept only so the render's
+        pale-flash on a struck boss still has its two frames to play. */
     Foe *f = &g.bat.foes[b];
-    int hit = f->hp_max / 4 + 1;
     g.bat.tell = 0;
     g.bat.broken = 2;
-    f->status[ST_DEFDOWN] = 3;
-    hurt_foe(b, hit);
     log_line(d->name, " is wide open.", 0);
-    game_award(ACH_DAMAGE);
     audio_sfx(SFX_CRIT);
+    hurt_foe(b, f->hp);
 }
 
 /* ------------------------------------------------------------- resolving -- */
