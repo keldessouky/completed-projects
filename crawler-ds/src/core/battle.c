@@ -137,6 +137,36 @@ void battle_start(int boss) {
 }
 
 
+/*  A fight the floor's rules called for, rather than one the party walked
+ *  into.
+ *
+ *  Rule 12's elemental was being set up by filling in g.bat from outside,
+ *  after battle_start had already rolled an ordinary encounter -- which
+ *  replaced the foe but not the announcement, so the fight opened with
+ *  "Troglodyte noticed you." over a picture of something else entirely. It
+ *  also skipped the stat scaling and the target reset, both of which were
+ *  then re-done by hand at the call site and would have had to be re-done
+ *  again at the next one. Anything that forces a specific foe comes through
+ *  here now.
+ *
+ *  No scaling: a punishment is the level it is, whatever floor it catches
+ *  you on. That is the whole point of it.
+ */
+void battle_start_foe(int def, const char *how) {
+    battle_start(0);
+    g.bat.n_foes = 1;
+    for (int i = 0; i < MAX_FOES; i++)
+        memset(&g.bat.foes[i], 0, sizeof g.bat.foes[i]);
+    g.bat.foes[0].def = (uint8_t)def;
+    g.bat.foes[0].hp = g.bat.foes[0].hp_max = (int16_t)foe_defs[def].hp;
+    g.bat.foes[0].alive = 1;
+    g.bat.target = 0;
+    g.bat.n_log = 0;
+    g.bat.log_shown = 0;
+    log_line(foe_defs[def].name, how, 0);
+}
+
+
 /* ------------------------------------------------------------- the tell -- */
 
 static void hurt_foe(int index, int amount);   /* defined with the resolving */

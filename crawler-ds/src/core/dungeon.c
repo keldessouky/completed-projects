@@ -297,13 +297,7 @@ void dungeon_step(int forward) {
     if (g.rage_hunt) {
         if (--g.rage_hunt == 0) {
             game_toast("It caught up.", 2);
-            battle_start(0);
-            g.bat.foes[0].def = (uint8_t)foe_rage();
-            g.bat.n_foes = 1;
-            g.bat.foes[0].hp = g.bat.foes[0].hp_max =
-                (int16_t)foe_defs[foe_rage()].hp;
-            g.bat.foes[0].alive = 1;
-            g.bat.target = 0;
+            battle_start_foe(foe_rage(), " is here for you.");
             return;
         }
         if (g.rage_hunt == 20 || g.rage_hunt == 10)

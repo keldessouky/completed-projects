@@ -782,12 +782,37 @@ static void battle_log_panel(Surface *bot, int y, int rows) {
  *
  *  The plate is as wide as its name needs, clamped to the slot the foe stands
  *  in, so three of them side by side cannot collide however long the names. */
+/*  Fit a foe's name into the room its slot has.
+ *
+ *  Separate from the plate, and not static, because it is the part with a
+ *  rule in it that a test can hold: every name in the roster has to come out
+ *  of here no wider than the room it was given. The plate that used to do
+ *  this inline only sized its own box -- the text stayed full width and was
+ *  centred from a negative offset, so it hung out over both neighbours and
+ *  two Goblin Trappers printed as "Goblin TrapperGoblin Trapper".
+ *
+ *  The leading word goes first: these are "<modifier> <noun>" names and the
+ *  noun is the half that says what the thing is. Only then is it cut
+ *  mid-word. One- and two-foe fights have room for anything in the roster
+ *  and never come through the shortening at all.
+ */
+const char *render_fit_name(const char *name, int room, char *buf, int cap) {
+    if (gfx_text_width(name) <= room) return name;
+    for (const char *p = name; *p; p++)
+        if (*p == ' ' && gfx_text_width(p + 1) <= room) return p + 1;
+    int len = 0;
+    while (name[len] && len < cap - 1) { buf[len] = name[len]; len++; }
+    buf[len] = 0;
+    while (len > 1 && gfx_text_width(buf) > room) buf[--len] = 0;
+    return buf;
+}
+
 static void foe_plate(Surface *s, int cx, int y, int room,
                       const FoeDef *def, int hp, int hp_max) {
     const char *tag = def->rank == 2 ? "BOROUGH" : def->rank == 1 ? "BLOCK" : 0;
-    int nw = gfx_text_width(def->name);
-    /*  As wide as the name wants, but never wider than the slot: overrunning
-        is what put three foes' names on top of each other. */
+    char cut[32];
+    const char *name = render_fit_name(def->name, room, cut, (int)sizeof cut);
+    int nw = gfx_text_width(name);
     int w = nw + 8;
     if (w > room) w = room;
     if (w < 34) w = 34;
@@ -811,8 +836,8 @@ static void foe_plate(Surface *s, int cx, int y, int room,
         three more frames competing with the sprites. A shadowed name and a
         thin bar sit on the background without boxing it in. */
     int tx = x + (w - nw) / 2;
-    gfx_text(s, tx + 1, y + 1, C_VOID, def->name);
-    gfx_text(s, tx, y, def->rank ? C_GOLD : C_INK, def->name);
+    gfx_text(s, tx + 1, y + 1, C_VOID, name);
+    gfx_text(s, tx, y, def->rank ? C_GOLD : C_INK, name);
     bar_meter(s, x, y + 9, w, 5, hp, hp_max, health_colour(hp, hp_max), 0);
     if (hp * 100 / (hp_max < 1 ? 1 : hp_max) <= 20 && (g.anim & 16))
         gfx_rect(s, x + 1, y + 10, (w - 2) * hp / (hp_max < 1 ? 1 : hp_max), 3, C_INK);

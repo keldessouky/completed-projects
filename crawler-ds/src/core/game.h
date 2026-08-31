@@ -514,6 +514,7 @@ void  dungeon_light_of_sight(void);
 
 /* battle.c */
 void  battle_start(int boss);
+void  battle_start_foe(int def, const char *how);
 void  battle_update(const PlatInput *in);
 void  battle_log(const char *fmt_text);
 int   battle_foe_count(void);
@@ -586,6 +587,7 @@ int   game_hero_skills(int hero, const SkillDef **out, int max);
 
 /* render */
 int   render_frame(void);
+const char *render_fit_name(const char *name, int room, char *buf, int cap);
 void  ui_touch_reset(void);
 int   ui_button(int screen, int x, int y, int w, int h, const char *label, int enabled);
 int   ui_button_pressed(int id);

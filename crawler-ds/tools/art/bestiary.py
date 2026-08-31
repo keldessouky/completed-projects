@@ -1188,43 +1188,147 @@ def rage_elemental():
     them, which is the dungeon at its most honestly cruel: a video game being
     unfair on purpose and broadcasting it.
 
-    The book does not describe it, so this is invention and marked as such.
-    What it is drawn to be is a punishment rather than an animal: no face, no
-    limbs to speak of, roughly upright because that is more frightening than
-    not, and burning from the inside out. Nothing to reason with.
+    On the reference: this was first drawn as an invention, under a comment
+    claiming the source does not describe it. That comment was wrong -- it is
+    depicted, and the depiction is nothing like the flame that was drawn here.
+    Reliably reported: it coalesces above a boiling stain, it is smoke rather
+    than fire, and the smoke is purple-black. Reported but not confirmed at
+    source, because the two wikis carrying the detail are blocked from this
+    machine: a horned skull head, eyes venting red, and six obsidian
+    rake-claws with the front pair reaching. Those are drawn as described and
+    are the parts to correct first if any of them is wrong.
+
+    No face beyond the sockets, deliberately. It is a punishment, not an
+    animal, and there is nothing in it to appeal to.
     """
     s = Sprite(BOSS, BOSS)
-    core = s.register_family(s.ramp((248, 196, 72), 6))
-    body = s.register_family(s.ramp((214, 92, 44), 6))
-    outer = s.register_family(s.ramp((146, 44, 40), 5))
-    ash = s.register_family(s.ramp((62, 46, 48), 4))
-    white = s.ink((255, 246, 214))
+    smoke = s.register_family(s.ramp((58, 44, 74), 6, name='smoke_violet'))
+    bone = s.register_family(s.ramp((150, 144, 128), 5, name='cloth_cream'))
+    claw = s.register_family(s.ramp((40, 42, 50), 4, name='cloth_black'))
+    ember = s.ink((214, 64, 48))
+    flare = s.ink((248, 150, 62))
 
-    #  A column, wider at the shoulders, boiling at the top.
-    s.poly([(30, 12), (66, 12), (76, 60), (60, 92), (36, 92), (20, 60)], outer[2])
-    s.poly([(30, 12), (46, 12), (44, 92), (36, 92), (20, 60)], outer[3])
-    s.poly([(34, 18), (62, 18), (70, 58), (56, 86), (40, 86), (26, 58)], body[2])
-    s.poly([(38, 24), (58, 24), (64, 56), (52, 80), (44, 80), (32, 56)], body[4])
-    s.poly([(42, 30), (54, 30), (58, 54), (50, 74), (46, 74), (38, 54)], core[3])
-    s.poly([(45, 36), (51, 36), (53, 52), (48, 66), (46, 66), (43, 52)], core[5])
+    #  The mass. Not a stack of ellipses -- two attempts at this were, and
+    #  both read as fruit, because overlapping solid shapes are solid. A plume
+    #  instead: a radius profile that narrows as it climbs, with the centre
+    #  wandering side to side so the column turns on the way up.
+    plume = ((88, 28, 0), (80, 27, -2), (72, 26, 3), (64, 24, -3), (56, 21, 4),
+             (48, 18, -4), (40, 16, 3), (32, 13, -2), (24, 10, 2), (17, 7, -1),
+             (11, 5, 1))
+    for cy, rx, off in plume:
+        s.form(48 + off, cy, rx, rx * 3 // 4, smoke, wrap=1.8)
+    for cx, cy, rx, ry in ((36, 74, 12, 10), (60, 66, 13, 11), (40, 56, 10, 9),
+                           (58, 46, 9, 8), (42, 38, 8, 7)):
+        s.form(cx, cy, rx, ry, smoke[:4], wrap=1.9)
+    #  Lit crests: smoke is only legible where something catches its edge.
+    for cx, cy, rx, ry in ((34, 70, 7, 5), (62, 60, 7, 5), (38, 50, 6, 4),
+                           (56, 40, 5, 4), (44, 30, 5, 3)):
+        s.form(cx, cy, rx, ry, smoke[3:], wrap=2.0)
+    #  and streaks running up it, because a plume moves in one direction.
+    for x0, y0, x1, y1 in ((34, 82, 30, 62), (62, 78, 66, 58), (44, 68, 41, 48),
+                           (56, 62, 59, 42), (48, 52, 45, 32)):
+        s.taper_line(x0, y0, x1, y1, smoke[4], smoke[2], bend=0.3)
 
-    #  Cracks, as if it is splitting under its own heat.
-    for x0, y0, x1, y1 in ((36, 30, 30, 52), (60, 34, 66, 56),
-                           (44, 60, 38, 80), (54, 62, 60, 82)):
-        s.line(x0, y0, x1, y1, core[4])
-        s.line(x0 + 1, y0, x1 + 1, y1, body[0])
+    #  What actually makes it smoke rather than a bag.
+    #
+    #  Smoke is not a silhouette with a soft edge, it is a density. So the
+    #  fill is thinned against a noise threshold that falls off from the
+    #  plume's own spine and thins further with height: the core stays closed
+    #  enough to carry a shape, the outside opens up until it is gone.
+    #  Deterministic, because art that changes between builds cannot be
+    #  reviewed. This runs before the claws and the skull go down so it only
+    #  ever eats smoke -- an earlier ordering ran it after the legs and
+    #  dissolved them.
+    h = 0x9E3779B9
 
-    #  It boils off the top instead of having a head. Deliberately: a face
-    #  would make it a creature with intentions, and it has exactly one.
-    for i, (x, y, r) in enumerate(((40, 10, 7), (54, 8, 6), (47, 4, 5),
-                                   (33, 6, 4), (61, 12, 4))):
-        s.form(x, y, r, r - 1, body if i % 2 else core, wrap=1.2)
-    for x, y in ((44, 2), (52, 1), (48, 8)):
-        s.put(x, y, white)
+    def chance(x, y):
+        nonlocal h
+        h = (h ^ (x * 374761393 + y * 668265263)) & 0xFFFFFFFF
+        h = (h * 1274126177) & 0xFFFFFFFF
+        return (h >> 13) & 0xFF
 
-    #  And it leaves the floor scorched where it has been standing.
-    for x, y, w in ((28, 92, 9), (48, 94, 12), (66, 92, 8)):
-        s.form(x, y, w, 3, ash, squash=0.5)
-    for x in range(24, 72, 7):
-        s.put(x, 90, ash[0])
+    def spine(y):
+        last = plume[-1]
+        for cy, rx, off in plume:
+            if y >= cy:
+                return 48 + off, rx
+        return 48 + last[2], last[1]
+
+    for y in range(0, 92):
+        cx, rx = spine(y)
+        thin = 0.70 + 0.30 * min(1.0, max(0.0, (y - 12) / 74.0))
+        for x in range(s.w):
+            if not s.get(x, y):
+                continue
+            d = abs(x - cx) / float(max(1, rx))
+            dens = 1.0 if d < 0.58 else max(0.0, 1.0 - (d - 0.58) / 0.55)
+            if chance(x, y) > dens * thin * 255:
+                s.put(x, y, 0)
+
+    #  Detached puffs, in the lit steps so they read against a dark corridor
+    #  instead of being black on black.
+    for px, py in ((21, 46), (74, 42), (17, 60), (79, 57), (29, 24), (67, 20),
+                   (25, 34), (71, 31), (33, 14), (63, 12)):
+        s.put(px, py, smoke[4])
+        s.put(px + 1, py, smoke[3])
+        s.put(px, py + 1, smoke[2])
+
+    #  Four legs splayed wide, with a spider's raised knee. They stay outside
+    #  the plume's silhouette, which is the only reason they read at all --
+    #  drawn inside it they were grey sticks on grey.
+    for sx in (-1, 1):
+        s.limb(48 + sx * 15, 54, 48 + sx * 33, 36, 9, 6, claw)
+        s.limb(48 + sx * 33, 36, 48 + sx * 43, 84, 6, 3, claw)
+        s.limb(48 + sx * 13, 64, 48 + sx * 28, 58, 8, 5, claw)
+        s.limb(48 + sx * 28, 58, 48 + sx * 36, 90, 5, 3, claw)
+        #  A rake is the splitting, not the leg.
+        for spread in (-3, 0, 3):
+            s.line(48 + sx * 43, 84, 48 + sx * 43 + spread, 93, claw[1])
+            s.line(48 + sx * 36, 90, 48 + sx * 36 + spread, 95, claw[1])
+
+    #  The front pair, reaching. Over the mass, because they are in front of
+    #  it, and given the length because they are what reads at battle size.
+    for sx in (-1, 1):
+        s.limb(48 + sx * 10, 60, 48 + sx * 21, 86, 9, 4, claw)
+        for spread in (-4, 0, 4):
+            s.line(48 + sx * 21, 86, 48 + sx * 21 + spread, 95, claw[1])
+
+    #  The skull. Bone only where the light catches it -- cranium and the
+    #  bridge of the snout -- with the jaw left to the smoke, so the head
+    #  belongs to the body instead of floating on it.
+    s.form(48, 26, 14, 12, bone, wrap=0.85)
+    s.poly([(38, 32), (58, 32), (54, 47), (42, 47)], bone[2])
+    s.poly([(42, 34), (54, 34), (51, 45), (45, 45)], bone[3])
+    s.form(48, 33, 9, 5, bone[2:], wrap=0.7)
+
+    #  Sockets, and what is behind them. Two reds and a hot centre: an eye
+    #  that is one flat colour is a dot, and a dot is a cartoon.
+    for ex in (41, 55):
+        s.form(ex, 27, 5, 4, claw[:2], wrap=0.6)
+        s.form(ex, 27, 3, 3, [claw[0], ember], wrap=1.4)
+        s.put(ex, 26, flare)
+        s.put(ex + 1, 27, ember)
+
+    #  Two canines and nothing else. A first pass had five and they read as a
+    #  picket fence -- the row-of-identical-triangles mistake this bestiary
+    #  keeps having to be talked out of.
+    for tx in (43, 53):
+        s.line(tx, 45, tx, 51, bone[4])
+        s.put(tx, 51, bone[1])
+        s.put(tx, 52, bone[0])
+
+    #  Horns, out and up and back. Two segments each so the curve turns.
+    for sx in (-1, 1):
+        s.limb(48 + sx * 12, 19, 48 + sx * 24, 11, 8, 6, bone)
+        s.limb(48 + sx * 24, 11, 48 + sx * 29, 2, 6, 3, bone)
+        s.put(48 + sx * 30, 1, bone[4])
+
+    #  The stain it came out of, still boiling. It is standing in the reason
+    #  it exists, which is the only part of the sprite that says summoned
+    #  rather than met.
+    for sx, sy, w in ((30, 92, 12), (48, 94, 16), (66, 92, 11)):
+        s.form(sx, sy, w, 3, smoke[:3], squash=0.6)
+    for sx in range(20, 78, 5):
+        s.put(sx, 90, smoke[1])
+
     return s.finish(rim=False).stage(s.w, s.h, ground=None).emit()

@@ -556,6 +556,31 @@ int main(int argc, char **argv) {
         pause_scene = -1;
         if (g.scene == SCENE_BATTLE && g.bat.boss) { idle(30); shot("12-boss"); }
         if (g.scene == SCENE_BATTLE) play_battle();
+
+        /*  The Rage Elemental, photographed on purpose.
+         *
+         *  Rule 12 releases it and nothing else does, so a screenshot tour
+         *  will never wander into one -- which meant the one sprite in the
+         *  game that had never been looked at in place was the one drawn
+         *  from a reference nobody here can open. Arm the hunt with one step
+         *  left, take the step, take the picture, and put the whole game
+         *  state back: the tour has a season to finish and a level-93
+         *  monster is not survivable at this point, which is the entire
+         *  point of it. */
+        for (int i = 0; i < 40 && g.scene != SCENE_DUNGEON && !season_over(); i++)
+            tap(BTN_A);
+        if (g.scene == SCENE_DUNGEON) {
+            Game keep = g;
+            static const int dirs[4] = { BTN_UP, BTN_RIGHT, BTN_DOWN, BTN_LEFT };
+            g.rage_hunt = 1;
+            /*  A step into a wall is not a step, and the hunt only counts
+                down on ones that happen -- so cycle the facings rather than
+                pressing UP four times into the same corner. */
+            for (int i = 0; i < 12 && g.scene == SCENE_DUNGEON; i++)
+                tap(dirs[i & 3]);
+            if (g.scene == SCENE_BATTLE) { idle(30); shot("13-rage"); }
+            g = keep;
+        }
         for (int i = 0; i < 900 && (g.scene == SCENE_STORY || g.scene == SCENE_CUTSCENE || g.scene == SCENE_DRAFT); i++)
             tap(BTN_A);
         /* Run the rest of the game out for the closing screen. */
@@ -619,7 +644,8 @@ int main(int argc, char **argv) {
                 "01-title", "02-chapter-street", "03-floor", "04-lootbox-shake",
                 "04b-safe-room", "05-battle", "06-battle-orders", "07-draft",
                 "08-party", "08b-achievements", "09-shop", "10-recall-code",
-                "11-levelup", "12-boss", "14-victory", "15-season-over",
+                "11-levelup", "12-boss", "13-rage", "14-victory",
+                "15-season-over",
             };
             int missing = 0;
             for (size_t i = 0; i < sizeof kWanted / sizeof kWanted[0]; i++) {
@@ -956,6 +982,41 @@ int main(int argc, char **argv) {
             dungeon_enter(1);
             if (g.grubs != 0) { printf("  grubs -> stairs did not clear them\n"); fail = 1; }
             else printf("  grubs -> the stairs leave them behind\n");
+        }
+
+        /*  Every foe's name has to fit the slot it is written in.
+         *
+         *  A three-foe line-up gives each plate SCREEN_W/3 - 6 pixels. The
+         *  plate box was clamped to that but the name was not, and a name
+         *  wider than its box is centred from a negative offset -- straight
+         *  over both neighbours. "Goblin TrapperGoblin Trapper" shipped in
+         *  docs/shots/05-battle.png looking like a rendering fault, which is
+         *  what it was. Checked against the whole roster rather than the one
+         *  name that happened to be photographed. */
+        {
+            printf("== a crowded line-up still reads\n");
+            int room = 256 / 3 - 6, over = 0, shortened = 0;
+            char buf[32];
+            for (int i = 0; i < foe_count; i++) {
+                const char *fitted = render_fit_name(foe_defs[i].name, room,
+                                                     buf, (int)sizeof buf);
+                int w = gfx_text_width(fitted);
+                if (w > room) {
+                    printf("  FAIL %-18s %dpx in %dpx\n", foe_defs[i].name, w, room);
+                    over++;
+                }
+                if (fitted != foe_defs[i].name) shortened++;
+            }
+            printf("  names -> %d of %d shortened to fit %dpx, %d still over\n",
+                   shortened, foe_count, room, over);
+            if (over) fail = 1;
+            /*  And the shortening has to actually be reached: if nothing in
+                the roster is long enough to trigger it, this test is green
+                for the wrong reason and will stay green when it breaks. */
+            if (!shortened) {
+                printf("  names -> nothing was long enough to exercise this\n");
+                fail = 1;
+            }
         }
         /*  The thing the rules release must never be rolled as scenery. It
          *  is rank 0 on tier 1, which is exactly the shape of an ordinary

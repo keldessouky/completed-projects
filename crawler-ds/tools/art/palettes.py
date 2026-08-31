@@ -86,6 +86,14 @@ RAMPS = {
     'poison':    _ramp('#293B28', '#3F6635', '#629344', '#88B94E', '#B3D765'),
     'lightning': _ramp('#59607C', '#7E8BB0', '#AAB8D0', '#D9E2E7', '#FFF7C2'),
     'blood':     _ramp('#3A2025', '#63252B', '#8D3035', '#B8403D', '#D55A48'),
+
+    #  Smoke that is a thing rather than an effect. 'arcane' is a lit violet
+    #  -- a spell, something a caster is proud of. This is the other kind:
+    #  soot with a colour in it, dark enough that its top step is still
+    #  darker than most ramps' bottom, so a body built from it reads as an
+    #  absence with edges. Nothing else in the set covers that; 'cloth_black'
+    #  is neutral and 'cloth_purple' is a garment.
+    'smoke_violet': _ramp('#17131D', '#241C2E', '#342843', '#473658', '#5D4A6E', '#7A6588'),
 }
 
 #  Which line each ramp is drawn against. A green thing outlined in the blue
@@ -98,6 +106,7 @@ _INK_FOR = {
     'skin': 'brown', 'tan': 'brown', 'wood': 'brown', 'wood_dark': 'brown',
     'sand': 'brown', 'copper': 'brown', 'hair_brown': 'brown', 'blood': 'brown',
     'stone': 'dark', 'stone_ancient': 'dark', 'cloth_black': 'dark',
+    'smoke_violet': 'ink',
 }
 
 
