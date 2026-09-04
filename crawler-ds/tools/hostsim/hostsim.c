@@ -23,6 +23,7 @@
 /*  Declared in render.c rather than a header of its own. */
 void view2d_draw(Surface *s);
 #include "ui_layout.h"
+#include "art.h"
 
 static uint16_t fb[2][SCREEN_W * SCREEN_H];
 /*  The dungeon's half-size layer. On the DS this is a background the 2D engine
@@ -1049,6 +1050,153 @@ int main(int argc, char **argv) {
             dungeon_enter(1);
             if (g.grubs != 0) { printf("  grubs -> stairs did not clear them\n"); fail = 1; }
             else printf("  grubs -> the stairs leave them behind\n");
+        }
+
+        /*  The content tables have to be internally consistent.
+         *
+         *  Nothing here is clever; it is the class of bug that takes the
+         *  whole game down rather than making it play badly, and none of it
+         *  was checked. A sprite index off the end of sprite_table is an
+         *  out-of-bounds read on every frame the foe is on screen, and
+         *  foe_boss returning a junk index for one floor out of eighteen is a
+         *  crash nobody meets until they get that far. */
+        {
+            printf("== the content tables agree with themselves\n");
+            int bad = 0;
+            for (int i = 0; i < foe_count; i++) {
+                const FoeDef *d = &foe_defs[i];
+                /*  Unsigned, so only the upper bound can be wrong -- the
+                    compiler said so when this was written with a < 0 in it. */
+                if (d->sprite >= SPR_COUNT) {
+                    printf("  FAIL %s: sprite %d outside the table\n", d->name, d->sprite);
+                    bad++;
+                } else if (!sprite_table[d->sprite]) {
+                    printf("  FAIL %s: sprite %d is null\n", d->name, d->sprite);
+                    bad++;
+                }
+                if (!d->name || !d->name[0]) { printf("  FAIL foe %d has no name\n", i); bad++; }
+                if (d->hp < 1) { printf("  FAIL %s has %d hp\n", d->name, d->hp); bad++; }
+                /*  A tell with no weakness never gets read out, and a
+                    weakness with no tell is an opening the player cannot
+                    see -- either way the pair is half-wired. */
+                if (!!d->weak != !!d->tell) {
+                    printf("  FAIL %s: weak=%d tell=%s -- half a mechanic\n",
+                           d->name, d->weak, d->tell ? d->tell : "(none)");
+                    bad++;
+                }
+            }
+            for (int i = 0; i < item_count; i++)
+                if (!item_defs[i].name || !item_defs[i].name[0]) {
+                    printf("  FAIL item %d has no name\n", i); bad++;
+                }
+            /*  Every floor has to be able to name both its bosses. */
+            for (int f = 1; f <= FLOORS; f++) {
+                int b = foe_boss(f), nb = foe_nboss(f);
+                if (b < 0 || b >= foe_count || !foe_defs[b].rank) {
+                    printf("  FAIL floor %d: foe_boss -> %d\n", f, b); bad++;
+                }
+                if (nb < 0 || nb >= foe_count || !foe_defs[nb].rank) {
+                    printf("  FAIL floor %d: foe_nboss -> %d\n", f, nb); bad++;
+                }
+            }
+            printf("  tables -> %d foes, %d items, %d floors of bosses, %d problems\n",
+                   foe_count, item_count, FLOORS, bad);
+            if (bad) fail = 1;
+        }
+
+        /*  Depth has to keep costing something.
+         *
+         *  foe_stat_scale is the whole difficulty curve: it is what stops
+         *  floor eighteen playing like floor one with a different palette.
+         *  If it ever came back flat, or inverted, every other test here
+         *  would still pass and the game would simply stop being a game. */
+        {
+            printf("== the descent keeps getting harder\n");
+            int mob = 0;                       /* the sewer rat: on every floor */
+            int prev = foe_stat_scale(1, mob), bad = 0, first = prev;
+            for (int f = 2; f <= FLOORS; f++) {
+                int now = foe_stat_scale(f, mob);
+                if (now < prev) {
+                    printf("  FAIL floor %d scales to %d, below floor %d's %d\n",
+                           f, now, f - 1, prev);
+                    bad++;
+                }
+                prev = now;
+            }
+            printf("  scaling -> %s goes %d%% on floor 1 to %d%% on floor %d\n",
+                   foe_defs[mob].name, first, prev, FLOORS);
+            /*  Monotonic is not enough on its own -- a curve that rises by
+                one percent over eighteen floors is monotonic and useless. */
+            if (prev < first * 2) {
+                printf("  scaling -> the curve is too flat to be a difficulty curve\n");
+                bad++;
+            }
+            if (bad) fail = 1;
+        }
+
+        /*  Defence has to be worth having, and breaking a boss's guard has to
+         *  be worth doing. Both are one number deep inside roll_damage that
+         *  nothing else in this suite would notice going missing.
+         *
+         *  Driven through the real command path rather than a test hook into
+         *  battle.c: a `battle_hit_for_test` exported from shipped code to
+         *  make a test easier is the kind of thing this repo should not grow.
+         *  Averaged over many swings because roll_damage has an 88-114%
+         *  spread and a crit roll in it -- one sample proves nothing. */
+        {
+            printf("== armour does something\n");
+            long dealt[2] = { 0, 0 };
+            for (int mode = 0; mode < 2; mode++) {
+                g.season = 0x51DE;
+                dungeon_enter(0);
+                rng_seed(0xD0D0);            /* same swings on both passes */
+                battle_start(0);
+                Foe *f = &g.bat.foes[0];
+                f->hp = f->hp_max = 30000;
+                for (int i = 1; i < g.bat.n_foes; i++) g.bat.foes[i].alive = 0;
+                g.bat.n_foes = 1;
+                int swings = 0;
+                for (int t = 0; t < 20000 && g.scene == SCENE_BATTLE && swings < 240; t++) {
+                    for (int h = 0; h < PARTY; h++) {
+                        g.hero[h].hp = g.hero[h].hp_max;
+                        g.hero[h].mp = g.hero[h].mp_max;
+                    }
+                    /*  Re-armed every pass: the status ticks itself down. */
+                    f->status[ST_DEFDOWN] = mode ? 3 : 0;
+                    if (f->hp < 20000) {                  /* keep it standing */
+                        dealt[mode] += 30000 - f->hp;
+                        f->hp = 30000;
+                    }
+                    if (g.bat.phase == BAT_CHOOSE && g.bat.actor < PARTY) {
+                        input.touching = input.touch_pressed = 1;
+                        input.touch_x = (int16_t)(kBatCommands[0].x + 8);   /* FIGHT */
+                        input.touch_y = (int16_t)(kBatCommands[0].y + 8);
+                        step();
+                        swings++;
+                        continue;
+                    }
+                    if (g.bat.phase == BAT_SKILL) {
+                        g.bat.cursor = 0;                 /* the free swing */
+                        tap(BTN_A);
+                        continue;
+                    }
+                    tap(BTN_A);
+                }
+                dealt[mode] += 30000 - f->hp;
+                printf("  damage -> %s: %ld over %d swings\n",
+                       mode ? "guard broken" : "guard up", dealt[mode], swings);
+            }
+            if (dealt[0] < 1 || dealt[1] < 1) {
+                printf("  FAIL no damage was dealt in one of the passes\n");
+                fail = 1;
+            } else if (dealt[1] <= dealt[0]) {
+                printf("  FAIL breaking the guard did not make it easier to hurt"
+                       " (%ld vs %ld)\n", dealt[1], dealt[0]);
+                fail = 1;
+            } else {
+                printf("  damage -> breaking the guard is worth %ld%% more\n",
+                       (dealt[1] - dealt[0]) * 100 / dealt[0]);
+            }
         }
 
         /*  Every foe's name has to fit the slot it is written in.

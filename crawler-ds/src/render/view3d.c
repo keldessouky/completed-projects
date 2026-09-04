@@ -14,9 +14,8 @@
 #include "theme.h"
 #include "game.h"
 #include "art.h"
+#include "views.h"
 
-#define HORIZON 92
-#define MAX_DEPTH 5
 
 /*  Screen half-width of a surface exactly one cell from the camera. Wider than
  *  a true 35mm-ish lens on purpose: a one-cell-wide corridor on a 256px screen

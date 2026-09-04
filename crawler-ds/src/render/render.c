@@ -9,10 +9,8 @@
 #include "game.h"
 #include "art.h"
 #include "ui_layout.h"
+#include "views.h"
 
-void view2d_draw(Surface *s);
-void view2d_draw_party(Surface *s, int cx, int cy);
-void view3d_arena(Surface *s, int floor_index);
 
 /*  Book One covers the first two floors. The Over City is where Book Two
     goes, and everything below that is this game's own invention — the show
@@ -1460,11 +1458,14 @@ static void draw_menu(Surface *top, Surface *bot) {
 
         const int rows = 5;      /* six ran under the BACK button */
         int sel = g.menu_cursor < ach_count ? g.menu_cursor : ach_count - 1;
-        int top = sel - rows / 2;
-        if (top > ach_count - rows) top = ach_count - rows;
-        if (top < 0) top = 0;
-        for (int r = 0; r < rows && top + r < ach_count; r++) {
-            int i = top + r, y = 48 + r * 23;
+        /*  `first` and not `top`: this function's first parameter is the top
+            Surface, and an int called top shadowing it inside a drawing
+            routine is a compile away from being passed to gfx_text. */
+        int first = sel - rows / 2;
+        if (first > ach_count - rows) first = ach_count - rows;
+        if (first < 0) first = 0;
+        for (int r = 0; r < rows && first + r < ach_count; r++) {
+            int i = first + r, y = 48 + r * 23;
             int got = (g.achievements >> i) & 1;
             window(bot, 6, y, 244, 21, i == sel);
             gfx_text(bot, 12, y + 3, got ? C_GOLD : C_DIM, ach_defs[i].name);
@@ -1634,13 +1635,13 @@ static void draw_safe_room(Surface *top, Surface *bot) {
                 const char *raw = gfx_num((int)crawlers_left());
                 int len = 0;
                 while (raw[len]) len++;
-                int w = 0;
-                for (int k = 0; k < len && w < 14; k++) {
-                    who[w++] = raw[k];
+                int n = 0;                  /* `w` is the panel width above */
+                for (int k = 0; k < len && n < 14; k++) {
+                    who[n++] = raw[k];
                     int left = len - 1 - k;
-                    if (left && left % 3 == 0) who[w++] = ',';
+                    if (left && left % 3 == 0) who[n++] = ',';
                 }
-                who[w] = 0;
+                who[n] = 0;
                 gfx_text(top, x + 5, y + 39, lit, who);
             } else if (i == 1) {
                 for (int k = 0; k < 4; k++)

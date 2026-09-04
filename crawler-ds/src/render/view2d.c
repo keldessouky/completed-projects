@@ -15,6 +15,7 @@
 #include "theme.h"
 #include "game.h"
 #include "art.h"
+#include "views.h"
 
 /*  The dungeon draws into WORLD_W x WORLD_H -- half the screen each way -- and
  *  the 2D engine's affine hardware magnifies it back up. So a sixteen-pixel
