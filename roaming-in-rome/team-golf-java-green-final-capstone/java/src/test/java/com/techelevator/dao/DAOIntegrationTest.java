@@ -22,7 +22,11 @@ public abstract class DAOIntegrationTest {
         dataSource = new SingleConnectionDataSource();
         dataSource.setUrl("jdbc:postgresql://localhost:5432/final_capstone");
         dataSource.setUsername("final_capstone_appuser");
-        dataSource.setPassword("finalcapstone");
+        /* From the environment, not from source. A test is still a program
+         * that connects to a database with a credential, and a credential
+         * written into a file in a public repository is public. Export
+         * DB_PASSWORD before running the integration tests. */
+        dataSource.setPassword(System.getenv("DB_PASSWORD"));
         /* The following line disables autocommit for connections
          * returned by this DataSource. This allows us to rollback
          * any changes after each test */

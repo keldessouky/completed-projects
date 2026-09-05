@@ -42,7 +42,9 @@ public class JDBCVenueDAOIntegrationTest {
 		dataSource = new SingleConnectionDataSource();
 		dataSource.setUrl("jdbc:postgresql://localhost:5432/excelsior-venues");
 		dataSource.setUsername("postgres");
-		dataSource.setPassword("postgres1");
+		/* From the environment: a credential written into a file in a public
+		 * repository is public. Export DB_PASSWORD before running this. */
+		dataSource.setPassword(System.getenv("DB_PASSWORD"));
 		/*
 		 * The following line disables autocommit for connections returned by this
 		 * DataSource. This allows us to rollback any changes after each test
