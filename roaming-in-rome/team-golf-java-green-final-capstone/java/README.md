@@ -43,7 +43,16 @@ A Datasource has been configured for you in `/src/resources/application.properti
 spring.datasource.url=jdbc:postgresql://localhost:5432/final_capstone
 spring.datasource.name=final_capstone
 spring.datasource.username=final_capstone_appuser
-spring.datasource.password=finalcapstone
+spring.datasource.password=${DB_PASSWORD}
+```
+
+Both the database password and the JWT signing key are read from the
+environment rather than written down here. Set them before starting the
+server:
+
+```
+export DB_PASSWORD="whatever you gave the appuser"
+export JWT_SECRET="$(openssl rand -base64 48)"
 ```
 
 ### JdbcTemplate

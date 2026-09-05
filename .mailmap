@@ -1,0 +1,21 @@
+# Canonical author identity.
+#
+# Seven early commits were authored with a personal Gmail address before the
+# GitHub noreply alias was configured. Rewriting history to remove it would
+# change every commit SHA in the repository -- breaking every clone, every
+# open pull request and every existing link to a commit -- to hide an address
+# that is already public on those same commits upstream.
+#
+# A mailmap is the non-destructive half of that fix: git log, git shortlog,
+# git blame and GitHub's own contributor views all read it, so the personal
+# address stops being what anyone sees, while the commits themselves are left
+# alone. It does not remove the address from the raw commit objects. If the
+# raw objects have to be scrubbed too, that is `git filter-repo --mailmap`
+# with this same file, on a fresh clone, followed by a force push.
+#
+# Going forward the alias is set per-clone:
+#   git config user.email 64616761+keldessouky@users.noreply.github.com
+
+Karim Eldessouky <64616761+keldessouky@users.noreply.github.com> <keldessouky@gmail.com>
+Karim Eldessouky <64616761+keldessouky@users.noreply.github.com> Kicks <keldessouky@gmail.com>
+Karim Eldessouky <64616761+keldessouky@users.noreply.github.com> Claude <keldessouky@gmail.com>
