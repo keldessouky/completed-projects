@@ -125,7 +125,7 @@ void game_award(int achievement) {
     g.achievements |= 1u << achievement;
     audio_sfx(SFX_LEVEL);
     toast_join("Achievement: ", ach_defs[achievement].name);
-    g.gold = (int16_t)(g.gold + ach_defs[achievement].gold);
+    gold_add(ach_defs[achievement].gold);
     /*  Stowed, not opened. Six of these land at once when a run starts, and
         game_open_box sets the scene -- so opening them directly showed the
         last one and silently swallowed the rest. */
@@ -208,6 +208,19 @@ void game_story(int floor, int trigger, Scene after) {
     game_set_scene(SCENE_STORY);
 }
 
+/*  Gold, without wrapping.
+ *
+ *  g.gold is an int16_t, so the ceiling is 32,767 -- and seeded runs were
+ *  already finishing on twenty thousand with nothing left to buy. Now that
+ *  there is gear worth saving for, a hoarding player gets closer still, and a
+ *  wrap would turn a fortune into a debt in one kill. */
+void gold_add(int amount) {
+    int total = g.gold + amount;
+    if (total > 32000) total = 32000;
+    if (total < 0) total = 0;
+    g.gold = (int16_t)total;
+}
+
 /* Loot boxes: the show's whole economy, and the reason anyone keeps going. */
 void game_open_box(int tier) {
     if (tier < 0) tier = 0;
@@ -218,13 +231,33 @@ void game_open_box(int tier) {
     g.boxes_opened++;
     audio_sfx(SFX_LOOT);
 
-    static const uint8_t common[]  = { 1, 1, 3, 4, 6 };
-    static const uint8_t better[]  = { 2, 2, 3, 5, 6, 7, 9 };
-    static const uint8_t best[]    = { 2, 5, 8, 10, 11, 7, 9 };
-    int item;
-    if (tier == 0) item = common[rng_range(0, (int)sizeof common - 1)];
-    else if (tier == 1) item = better[rng_range(0, (int)sizeof better - 1)];
-    else item = best[rng_range(0, (int)sizeof best - 1)];
+    /*  What is in it depends on how deep the box was found, not just on its
+     *  tier. These were three fixed lists, and the top one paid out the same
+     *  Fire Axe Handle that the floor-one shop sold -- so eighteen floors of
+     *  boxes had nothing in them the party could not already buy.
+     *
+     *  A tier now names a band of the table that this floor has unlocked:
+     *  consumables at the bottom, gear at the top, and the good box only ever
+     *  pays out gear the floor is deep enough to have. It falls back to the
+     *  consumables when a floor has not unlocked any gear yet, which is what
+     *  makes floor one's silver boxes still worth opening. */
+    int floor_no = g.dun.index + 1;
+    int pool[INVENTORY], n = 0;
+    for (int i = 1; i < item_count && n < INVENTORY; i++) {
+        const ItemDef *d = &item_defs[i];
+        if (d->floor > floor_no) continue;
+        int gear = d->kind >= IT_WEAPON;
+        if (tier >= 2 && !gear) continue;          /* gold boxes pay in gear */
+        if (tier < 2 && gear) continue;            /* the cheap ones do not  */
+        pool[n++] = i;
+    }
+    if (!n)                                        /* no gear this shallow */
+        for (int i = 1; i < item_count && n < INVENTORY; i++)
+            if (item_defs[i].price > 0 && item_defs[i].kind < IT_WEAPON) pool[n++] = i;
+    /*  Within the band, deeper boxes bias to the back of it -- the strongest
+        thing the floor allows -- while a tier-0 box stays near the front. */
+    int lo = tier == 0 ? 0 : (n - 1) * (tier - 1) / 3;
+    int item = pool[rng_range(lo, n - 1)];
     g.box_item = (uint8_t)item;
 
     game_set_scene(SCENE_BOX);
@@ -396,16 +429,21 @@ static void update_menu(const PlatInput *in) {
                 Rect r = { 6, (int16_t)(52 + i * 18), 244, 17, 0 };
                 if (touch_in(in, &r)) g.menu_cursor = (uint8_t)i;
             }
+            /*  Who it goes on is the player's choice.
+             *
+             *  It used to be decided by the item: trinkets to the second
+             *  crawler, everything else to the first. Which meant the second
+             *  crawler could never hold a weapon or wear armour -- half the
+             *  party fought all eighteen floors bare-handed, and nothing on
+             *  screen said so. Left and right pick the crawler; they were the
+             *  only directions this menu was not already using. */
+            if (in->pressed & BTN_LEFT) g.gear_hero = 0;
+            if (in->pressed & BTN_RIGHT) g.gear_hero = 1;
+            if (g.gear_hero >= PARTY) g.gear_hero = 0;
             if (in->pressed & BTN_A) {
                 int item = list[g.menu_cursor];
-                int hero = item_defs[item].kind == IT_TRINKET ? 1 : 0;
-                if (equip_item(&g.hero[hero], item)) {
+                if (equip_item(&g.hero[g.gear_hero], item))
                     toast_join("Equipped ", item_defs[item].name);
-                    int kinds = 0;
-                    for (int h = 0; h < PARTY; h++)
-                        for (int s = 0; s < 3; s++) if (g.hero[h].equip[s] > 0) kinds++;
-
-                }
             }
         }
     }
@@ -416,9 +454,10 @@ static void update_menu(const PlatInput *in) {
 }
 
 static void update_shop(const PlatInput *in) {
-    int stock[INVENTORY], n = 0;
-    for (int i = 1; i < item_count; i++)
-        if (item_defs[i].price > 0 && item_defs[i].price <= 500) stock[n++] = i;
+    int stock[MAX_STOCK];
+    int n = shop_stock(g.dun.index + 1, stock, MAX_STOCK);
+    if (!n) return;
+    if (g.shop_cursor >= n) g.shop_cursor = (uint8_t)(n - 1);
     if (in->pressed & BTN_DOWN) g.shop_cursor = (uint8_t)((g.shop_cursor + 1) % n);
     if (in->pressed & BTN_UP) g.shop_cursor = (uint8_t)((g.shop_cursor + n - 1) % n);
     for (int i = 0; i < n; i++) {

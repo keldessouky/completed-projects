@@ -10,21 +10,61 @@
 
 /* -------------------------------------------------------------- the shop -- */
 
+/*  Order is load-bearing. item_sprite() maps an item id straight onto the
+ *  sprite table as SPR_ITEM_SPLINT_POTION + (id - 1), so the icons in
+ *  tools/art/items.py have to be declared in exactly this sequence. A test
+ *  holds the two lengths together; nothing else would notice them drifting.
+ *
+ *  The `floor` column is the descent's gear curve. Three tiers sit on top of
+ *  the two the game shipped with, at floors 5, 9 and 13, priced against what
+ *  a run of that depth has actually banked.
+ */
 const ItemDef item_defs[] = {
-    { "-",               IT_NONE,     0,   0, 0, "" },
-    { "Splint Potion",   IT_HEAL,    40,  30, 0, "Tastes like pennies. Closes a wound anyway." },
-    { "Cold Slice",      IT_HEAL,    95,  75, 0, "Pizza the dungeon swears is fresh. Restores a lot." },
-    { "Energy Drink",    IT_STAMINA, 30,  45, 0, "Legally distinct from the one you know. +30 stamina." },
-    { "Pipe Bomb",       IT_BOMB,    48,  60, 0, "Thrown, not placed. Hurts everything in the room." },
-    { "Second Wind",     IT_REVIVE,  50, 140, 0, "Puts a downed crawler back on their feet." },
-    { "Adrenaline Shot", IT_BUFF,     4,  50, 0, "Three turns of hitting much harder." },
-    { "Length of Rebar", IT_WEAPON,   5, 140, 0, "Concrete still attached. That is the point." },
-    { "Fire Axe Handle", IT_WEAPON,   9, 400, 0, "No head. The handle was always the good part." },
-    { "Duct-Tape Wrap",  IT_ARMOUR,   4, 130, 1, "Wrapped over everything that bleeds." },
-    { "Riot Vest",       IT_ARMOUR,   8, 430, 1, "Looted off something that failed to riot." },
-    { "Lucky Molar",     IT_TRINKET,  4, 260, 2, "Not yours. Luckier than yours." },
+    { "-",               IT_NONE,     0,    0, 0,  0, "" },
+    { "Splint Potion",   IT_HEAL,    40,   30, 0,  1, "Tastes like pennies. Closes a wound anyway." },
+    { "Cold Slice",      IT_HEAL,    95,   75, 0,  1, "Pizza the dungeon swears is fresh. Restores a lot." },
+    { "Energy Drink",    IT_STAMINA, 30,   45, 0,  1, "Legally distinct from the one you know. +30 stamina." },
+    { "Pipe Bomb",       IT_BOMB,    48,   60, 0,  1, "Thrown, not placed. Hurts everything in the room." },
+    { "Second Wind",     IT_REVIVE,  50,  140, 0,  1, "Puts a downed crawler back on their feet." },
+    { "Adrenaline Shot", IT_BUFF,     4,   50, 0,  1, "Three turns of hitting much harder." },
+    { "Length of Rebar", IT_WEAPON,   5,  140, 0,  1, "Concrete still attached. That is the point." },
+    { "Fire Axe Handle", IT_WEAPON,   9,  400, 0,  2, "No head. The handle was always the good part." },
+    { "Duct-Tape Wrap",  IT_ARMOUR,   4,  130, 1,  1, "Wrapped over everything that bleeds." },
+    { "Riot Vest",       IT_ARMOUR,   8,  430, 1,  2, "Looted off something that failed to riot." },
+    { "Lucky Molar",     IT_TRINKET,  4,  260, 2,  2, "Not yours. Luckier than yours." },
+    /*  Deeper floors were a city too, so the debris gets heavier rather than
+        more magical. Nothing here is enchanted; it is all something large
+        that used to be bolted down. */
+    { "Bus Stop Halberd", IT_WEAPON, 15, 1100, 0,  5, "The pole, the sign, and most of the concrete." },
+    { "Escalator Tooth", IT_WEAPON,  22, 2600, 0,  9, "One step's worth of comb plate. Still moving." },
+    { "Girder Maul",     IT_WEAPON,  31, 5200, 0, 13, "Two crawlers to lift. One to swing. Same one." },
+    { "Manhole Pauldron", IT_ARMOUR, 14, 1000, 1,  5, "Cast iron, city seal, worn on the strong side." },
+    { "Turnstile Cuirass", IT_ARMOUR,20, 2400, 1,  9, "Still counts everything that hits you." },
+    { "Bank Door Plate", IT_ARMOUR,  28, 4800, 1, 13, "Rated for a siege. Repurposed for a stairwell." },
+    { "Payphone Slug",   IT_TRINKET,  8, 1200, 2,  6, "Bought one call. Buys better odds now." },
+    { "Ratings Chip",    IT_TRINKET, 13, 3400, 2, 12, "The show tracks you closer. That helps, mostly." },
 };
 const int item_count = (int)(sizeof item_defs / sizeof item_defs[0]);
+
+/*  What Bopca has out on the counter, for a party this far down.
+ *
+ *  One function, because this rule used to be written twice -- once in
+ *  update_shop to decide what buying does and once in draw_shop to decide
+ *  what to draw. Two copies of a filter that a cursor indexes into is a bug
+ *  waiting for the day they stop agreeing, and the day would have been this
+ *  one.
+ *
+ *  The old rule was "everything priced under 500", which is why the shop
+ *  looked the same on floor eighteen as on floor one. Stock is what the floor
+ *  has unlocked; the price cap is gone, because affording it is the player's
+ *  problem and having something to save for is the point.
+ */
+int shop_stock(int floor_no, int *out, int max) {
+    int n = 0;
+    for (int i = 1; i < item_count && n < max; i++)
+        if (item_defs[i].price > 0 && item_defs[i].floor <= floor_no) out[n++] = i;
+    return n;
+}
 
 /* ---------------------------------------------------------------- skills -- */
 

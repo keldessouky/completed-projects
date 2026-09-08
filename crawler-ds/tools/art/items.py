@@ -277,6 +277,199 @@ def lucky_molar():
     return s.finish().emit()
 
 
+def bus_stop_halberd():
+    """The pole, the sign, and most of the concrete."""
+    s = Sprite(ICON, ICON)
+    pole = s.register_family(s.ramp((150, 152, 158), 6))
+    sign = s.register_family(s.ramp((58, 96, 148), 5))
+    grey = s.register_family(s.ramp((146, 146, 152), 5))
+    face = s.ink((228, 234, 240))
+    _base(s)
+    #  Read from the sign, not the pole: at this size a bare diagonal bar is
+    #  the rebar icon again. The plate goes high and square so the silhouette
+    #  has a flag on it, and the concrete anchors the bottom the way it does
+    #  on the rebar -- these two are the same idea eleven floors apart.
+    s.limb(9, 28, 22, 5, 5, 4, pole)
+    s.poly([(17, 3), (28, 3), (28, 12), (17, 12)], sign[2])
+    s.poly([(17, 3), (28, 3), (28, 5), (17, 5)], sign[4])
+    for y in (6, 8, 10):
+        s.line(19, y, 26, y, face)
+    s.poly([(4, 24), (12, 21), (14, 28), (7, 31), (3, 29)], grey[2])
+    s.poly([(4, 24), (12, 21), (11, 25), (5, 27)], grey[4])
+    for x, y in ((6, 26), (10, 28)):
+        s.put(x, y, grey[1])
+    return s.finish().emit()
+
+
+def escalator_tooth():
+    """One step's worth of comb plate. Still moving."""
+    s = Sprite(ICON, ICON)
+    steel = s.register_family(s.ramp((176, 182, 194), 6))
+    dark = s.register_family(s.ramp((62, 66, 74), 5))
+    grip = s.register_family(s.ramp((58, 54, 62), 5))
+    oil = s.ink((44, 40, 52))
+    _base(s)
+    #  Two failed passes on this one, both from drawing the comb rather than
+    #  the tooth. Even teeth on a flat plate is a hairbrush; a thin raked
+    #  wedge is a shard of glass. It is one heavy fang now -- the name is
+    #  singular -- wide at the root, notched down the back, on a stub of
+    #  handrail. Mass first, serration second.
+    s.poly([(6, 27), (16, 28), (27, 12), (21, 4), (11, 9)], steel[2])
+    s.poly([(6, 27), (16, 28), (22, 18), (11, 9)], steel[4])
+    s.poly([(21, 4), (27, 12), (22, 14), (18, 7)], steel[5])
+    s.poly([(16, 28), (27, 12), (25, 11), (14, 27)], dark[1])
+    for x, y in ((24, 15), (21, 19), (18, 23)):
+        s.poly([(x, y), (x + 3, y - 1), (x + 1, y + 3)], dark[0])
+    s.line(12, 11, 20, 22, steel[5])
+    s.rect(4, 24, 11, 29, grip[2])
+    s.rect(4, 24, 11, 25, grip[4])
+    s.put(7, 27, oil)
+    return s.finish().emit()
+
+
+def girder_maul():
+    """Two crawlers to lift. One to swing. Same one."""
+    s = Sprite(ICON, ICON)
+    iron = s.register_family(s.ramp((122, 124, 132), 6))
+    rust = s.register_family(s.ramp((132, 78, 48), 5))
+    grip = s.register_family(s.ramp((58, 54, 62), 5))
+    _base(s)
+    #  An I-beam end-on at the head, because the cross section is the one
+    #  shape that says girder at eleven pixels. Drawn side-on it was a brick.
+    s.limb(11, 29, 17, 14, 6, 5, grip)
+    for i in range(3):
+        s.line(11 + i, 27 - i * 3, 14 + i, 26 - i * 3, grip[0])
+    s.rect(7, 4, 27, 7, iron[3])
+    s.rect(7, 4, 27, 4, iron[5])
+    s.rect(7, 15, 27, 18, iron[2])
+    s.rect(14, 7, 20, 15, iron[4])
+    s.rect(14, 7, 15, 15, iron[1])
+    for x, y in ((9, 6), (24, 17), (11, 16), (25, 5)):
+        s.put(x, y, rust[2])
+        s.put(x + 1, y, rust[0])
+    return s.finish().emit()
+
+
+def manhole_pauldron():
+    """Cast iron, city seal, worn on the strong side."""
+    s = Sprite(ICON, ICON)
+    iron = s.register_family(s.ramp((108, 104, 100), 6))
+    strap = s.register_family(s.ramp((92, 62, 40), 5))
+    seal = s.ink((156, 150, 138))
+    _base(s)
+    #  The strap was a full-width diagonal in the first pass and took the icon
+    #  over -- it read as a plank lying on a stone. It is buckle and stub now,
+    #  tucked under the near edge, and the cover does the work: domed, rimmed,
+    #  with the cast rings that are the only reason anyone knows what it was.
+    s.form(16, 16, 12, 12, iron, wrap=1.15)
+    s.form(16, 16, 10, 10, iron[1:], wrap=1.0)
+    for r in (9, 7, 5):
+        s.form(16, 16, r, r, [iron[0], iron[2]], wrap=1.9)
+    s.line(11, 16, 21, 16, seal)
+    s.line(16, 11, 16, 21, seal)
+    for x, y in ((12, 12), (20, 20), (20, 12), (12, 20)):
+        s.put(x, y, iron[5])
+    s.rect(5, 22, 12, 25, strap[2])
+    s.rect(5, 22, 12, 22, strap[4])
+    s.rect(9, 21, 11, 26, strap[1])
+    s.put(10, 23, seal)
+    return s.finish().emit()
+
+
+def turnstile_cuirass():
+    """Still counts everything that hits you."""
+    s = Sprite(ICON, ICON)
+    steel = s.register_family(s.ramp((162, 168, 178), 6))
+    dark = s.register_family(s.ramp((66, 70, 80), 5))
+    lamp = s.ink((214, 74, 58))
+    _base(s)
+    #  Third try. Three arms off a hub was an aeroplane; a near-black torso
+    #  with a white bar across it was a smudge. The torso carries the
+    #  silhouette in mid steel so it reads as a chest at a glance, and the
+    #  turnstile is one bar in a darker metal with the counter's lamp at the
+    #  centre -- a quotation, not a diagram.
+    s.poly([(8, 5), (24, 5), (25, 14), (20, 27), (12, 27), (7, 14)], steel[3])
+    s.poly([(8, 5), (16, 5), (16, 27), (12, 27), (7, 14)], steel[1])
+    s.rect(8, 5, 24, 7, steel[5])
+    s.poly([(11, 10), (21, 10), (22, 15), (18, 24), (14, 24), (10, 15)], steel[4])
+    s.line(16, 11, 16, 23, steel[2])
+    s.limb(4, 18, 28, 15, 4, 4, dark)
+    s.put(4, 18, dark[4])
+    s.put(28, 15, dark[4])
+    s.form(16, 16, 4, 4, dark[:3], wrap=0.9)
+    s.form(16, 16, 2, 2, [dark[0], lamp], wrap=1.2)
+    s.put(16, 15, lamp)
+    return s.finish().emit()
+
+
+def bank_door_plate():
+    """Rated for a siege. Repurposed for a stairwell."""
+    s = Sprite(ICON, ICON)
+    steel = s.register_family(s.ramp((150, 156, 166), 6))
+    brass = s.register_family(s.ramp((178, 138, 74), 5))
+    dark = s.register_family(s.ramp((58, 60, 68), 4))
+    _base(s)
+    #  Thickness is the point of a vault door, so the slab gets a visible edge
+    #  down one side and the bolt circle sits proud of the face.
+    s.rect(6, 5, 25, 27, steel[2])
+    s.rect(6, 5, 25, 7, steel[4])
+    s.rect(23, 5, 25, 27, dark[1])
+    s.rect(8, 9, 21, 25, steel[3])
+    for i, (x, y) in enumerate(((10, 11), (19, 11), (10, 23), (19, 23),
+                                (10, 17), (19, 17))):
+        s.form(x, y, 2, 2, steel[1:], wrap=0.8)
+        s.put(x, y, dark[0] if i % 2 else dark[1])
+    s.form(15, 17, 5, 5, brass, wrap=1.0)
+    s.form(15, 17, 2, 2, dark, wrap=1.2)
+    for x0, y0, x1, y1 in ((15, 12, 15, 22), (10, 17, 20, 17)):
+        s.line(x0, y0, x1, y1, brass[4])
+    return s.finish().emit()
+
+
+def payphone_slug():
+    """Bought one call. Buys better odds now."""
+    s = Sprite(ICON, ICON)
+    zinc = s.register_family(s.ramp((168, 170, 164), 6))
+    dark = s.register_family(s.ramp((70, 72, 70), 4))
+    _base(s)
+    #  Off-round and a bit chewed: a perfect circle reads as a coin from a
+    #  currency, and this is the opposite of that -- it is a washer somebody
+    #  passed off as money.
+    s.form(16, 17, 10, 10, zinc, wrap=1.2)
+    s.form(16, 17, 7, 7, zinc[1:4], wrap=1.4)
+    s.form(16, 17, 3, 4, dark, wrap=1.1)
+    for a in ((7, 13), (24, 20), (13, 27), (19, 7)):
+        s.put(a[0], a[1], dark[1])
+    s.line(9, 12, 12, 9, zinc[5])
+    s.put(22, 23, dark[0])
+    return s.finish().emit()
+
+
+def ratings_chip():
+    """The show tracks you closer. That helps, mostly."""
+    s = Sprite(ICON, ICON)
+    case = s.register_family(s.ramp((46, 44, 58), 5))
+    gold = s.register_family(s.ramp((198, 158, 70), 5))
+    glow = s.ink((104, 224, 190))
+    hot = s.ink((236, 252, 244))
+    _base(s)
+    #  System hardware, so it is the only item in the set allowed a lit
+    #  colour: a dark case with a graph climbing across it. Everything else
+    #  down here is scrap, and this reads as issued.
+    s.rect(6, 8, 25, 24, case[1])
+    s.rect(6, 8, 25, 9, case[3])
+    s.rect(8, 10, 23, 22, case[0])
+    for i in range(4):
+        s.rect(5, 12 + i * 3, 6, 13 + i * 3, gold[3])
+        s.rect(25, 12 + i * 3, 26, 13 + i * 3, gold[2])
+    for x0, y0, x1, y1 in ((9, 20, 13, 17), (13, 17, 17, 19), (17, 19, 22, 12)):
+        s.line(x0, y0, x1, y1, glow)
+    s.put(22, 12, hot)
+    s.put(21, 13, hot)
+    s.put(9, 20, glow)
+    return s.finish().emit()
+
+
 #  Index order is item_defs' order. Slot 0 is the table's "-" placeholder and
 #  has no icon, so the roster starts at 1 and the renderer offsets by one.
 ROSTER = [
@@ -291,4 +484,12 @@ ROSTER = [
     ('item_duct_tape',       duct_tape),
     ('item_riot_vest',       riot_vest),
     ('item_lucky_molar',     lucky_molar),
+    ('item_bus_stop_halberd', bus_stop_halberd),
+    ('item_escalator_tooth', escalator_tooth),
+    ('item_girder_maul',     girder_maul),
+    ('item_manhole_pauldron', manhole_pauldron),
+    ('item_turnstile_cuirass', turnstile_cuirass),
+    ('item_bank_door_plate', bank_door_plate),
+    ('item_payphone_slug',   payphone_slug),
+    ('item_ratings_chip',    ratings_chip),
 ]

@@ -296,6 +296,69 @@ static void check(int condition, const char *what) {
  *  than about finishing. */
 /*  The depth the run has to reach for the assertion to pass. */
 #define BOT_FLOORS 4
+/*  Buy the best gear the floor sells and put it on.
+ *
+ *  The bot had no idea equipment existed: at a shop it tapped A six times
+ *  with the cursor at the top of the list, which bought potions. So the whole
+ *  gear economy could be added, or removed, without moving a single number
+ *  this harness prints -- five seeded runs came back byte-identical to the
+ *  ones before it. A bot that never equips cannot report whether equipping
+ *  matters.
+ *
+ *  Buying goes through the real cursor and the real BUY press. Wearing calls
+ *  equip_item directly rather than driving the gear tab, because what the
+ *  menu does with a d-pad is covered by its own test and what this wants to
+ *  measure is the fight afterwards.
+ */
+static void kit_out(void) {
+    if (g.scene != SCENE_SHOP) return;
+    int stock[MAX_STOCK];
+    int n = shop_stock(g.dun.index + 1, stock, MAX_STOCK);
+    for (int slot = 0; slot < 3; slot++) {
+        int want = -1;
+        for (int i = 0; i < n; i++) {
+            const ItemDef *d = &item_defs[stock[i]];
+            if (d->kind < IT_WEAPON || d->slot != slot) continue;
+            if (d->price > g.gold) continue;
+            if (want < 0 || d->power > item_defs[want].power) want = stock[i];
+        }
+        if (want < 0) continue;
+        for (int i = 0; i < n; i++)
+            if (stock[i] == want) g.shop_cursor = (uint8_t)i;
+        tap(BTN_A);
+    }
+    /*  Consumables only with what is left over, and only when there is
+        nothing left to save for -- the first version of this bought four
+        potions at every shop and arrived at the next one with twenty gold,
+        so it could never afford a weapon and reported the gear economy as
+        having no effect. */
+    int cheapest = 0;
+    for (int i = 1; i < item_count; i++) {
+        const ItemDef *d = &item_defs[i];
+        if (d->kind < IT_WEAPON || d->floor > g.dun.index + 1) continue;
+        int worn = 0;
+        for (int h = 0; h < PARTY; h++)
+            if (g.hero[h].equip[d->slot] == i) worn = 1;
+        if (worn) continue;
+        if (!cheapest || d->price < cheapest) cheapest = d->price;
+    }
+    g.shop_cursor = 0;
+    for (int i = 0; i < 4 && g.gold > cheapest; i++) tap(BTN_A);
+}
+
+static void wear_best(void) {
+    for (int h = 0; h < PARTY; h++)
+        for (int slot = 0; slot < 3; slot++) {
+            int want = -1;
+            for (int i = 1; i < item_count; i++) {
+                const ItemDef *d = &item_defs[i];
+                if (d->kind < IT_WEAPON || d->slot != slot || !g.inventory[i]) continue;
+                if (want < 0 || d->power > item_defs[want].power) want = i;
+            }
+            if (want > 0) equip_item(&g.hero[h], want);
+        }
+}
+
 /*  How many times round the floor loop before giving up. The loop used to stop
     at four, so most runs ended alive with the bot simply out of budget, and
     the floor a run "reached" said more about the harness than the game. */
@@ -326,16 +389,13 @@ static void play_run(int seed, int assertions) {
         /* Shop first if we can afford anything, then the boss, then the stairs. */
         walk_to(T_BOX_GOLD, 400);
         walk_to(T_SHOP, 400);
-        if (g.scene == SCENE_SHOP) {
-            for (int i = 0; i < 6; i++) tap(BTN_A);
-            tap(BTN_B);
-        }
+        if (g.scene == SCENE_SHOP) { kit_out(); tap(BTN_B); wear_best(); }
         if (season_over()) break;
         walk_to(T_SHRINE, 400);
         walk_to(T_KIOSK, 400);
         grind_to(floor_no * 3 + 1, 700);
         walk_to(T_SHOP, 400);
-        if (g.scene == SCENE_SHOP) { for (int i = 0; i < 8; i++) tap(BTN_A); tap(BTN_B); }
+        if (g.scene == SCENE_SHOP) { kit_out(); tap(BTN_B); wear_best(); }
         if (g.rage_hunt) walk_to(T_DOWN, 800);
         walk_to(T_SHRINE, 400);
         walk_to(T_BOSS, 600);
@@ -1102,6 +1162,179 @@ int main(int argc, char **argv) {
             printf("  tables -> %d foes, %d items, %d floors of bosses, %d problems\n",
                    foe_count, item_count, FLOORS, bad);
             if (bad) fail = 1;
+        }
+
+        /*  The descent has to sell you something.
+         *
+         *  Gear used to be five pieces, every one of them buyable on floor
+         *  one: the shop stocked anything under 500 gold regardless of depth,
+         *  and the best loot box paid out the same Fire Axe Handle. Runs were
+         *  finishing on twenty thousand gold with nothing to spend it on, so
+         *  fifteen of the eighteen floors had no economy at all. */
+        {
+            printf("== the shop keeps up with the descent\n");
+            /*  MAX_STOCK, not a roomier local array. The first version of
+                this declared stock[64] while both real call sites passed
+                INVENTORY -- twelve -- so the test measured a shop the game
+                never draws and reported nineteen lines on floor eighteen
+                while the ROM was truncating to twelve. A harness that gives
+                itself a bigger buffer than the program is testing a program
+                that does not exist. */
+            int stock[MAX_STOCK];
+            if (item_count - 1 > MAX_STOCK) {
+                printf("  FAIL %d purchasable items will not fit %d stock slots\n",
+                       item_count - 1, MAX_STOCK);
+                fail = 1;
+            }
+            int first = shop_stock(1, stock, MAX_STOCK);
+            int last = shop_stock(FLOORS, stock, MAX_STOCK);
+            int prev = first, monotonic = 1;
+            for (int f = 2; f <= FLOORS; f++) {
+                int n = shop_stock(f, stock, MAX_STOCK);
+                if (n < prev) monotonic = 0;
+                prev = n;
+            }
+            printf("  shop -> %d lines on floor 1, %d on floor %d\n", first, last, FLOORS);
+            if (!monotonic) {
+                printf("  FAIL stock shrank on the way down\n"); fail = 1;
+            }
+            if (last <= first) {
+                printf("  FAIL floor %d sells nothing floor 1 did not\n", FLOORS); fail = 1;
+            }
+            /*  Every piece of gear has to become reachable somewhere, or it is
+                a row in a table that no player can ever hold. */
+            int unreachable = 0;
+            for (int i = 1; i < item_count; i++) {
+                if (item_defs[i].kind < IT_WEAPON) continue;
+                int seen = 0, n = shop_stock(FLOORS, stock, MAX_STOCK);
+                for (int k = 0; k < n; k++) if (stock[k] == i) seen = 1;
+                if (!seen) {
+                    printf("  FAIL %s is never in stock\n", item_defs[i].name);
+                    unreachable++;
+                }
+            }
+            if (unreachable) fail = 1;
+            /*  And the deep gear must actually be strong enough to be worth
+                the walk -- a tier that adds nothing is decoration. */
+            int best_early = 0, best_late = 0;
+            for (int i = 1; i < item_count; i++) {
+                const ItemDef *d = &item_defs[i];
+                if (d->kind != IT_WEAPON) continue;
+                if (d->floor <= 2 && d->power > best_early) best_early = d->power;
+                if (d->power > best_late) best_late = d->power;
+            }
+            printf("  gear -> best weapon on floor 1-2 is +%d, deepest is +%d\n",
+                   best_early, best_late);
+            if (best_late < best_early * 2) {
+                printf("  FAIL the gear curve is too flat to matter\n"); fail = 1;
+            }
+            /*  Priced against what a run of that depth is actually carrying,
+                which is not the same as what it finishes with. Seeded runs
+                hold about 2,400 gold by their second floor and 6,000 by their
+                third -- the end-of-run figure of twenty thousand is a late
+                spike and was the wrong number to price a mid-run shop
+                against. Each tier has to be affordable near where it unlocks,
+                or it is a row nobody buys. */
+            static const struct { int floor; int purse; } kSeen[] = {
+                { 2, 2400 }, { 3, 6000 }, { 5, 6000 }, { 9, 6000 }, { 13, 6000 },
+            };
+            for (size_t k = 0; k < sizeof kSeen / sizeof kSeen[0]; k++) {
+                int n2 = shop_stock(kSeen[k].floor, stock, MAX_STOCK), afford = 0;
+                for (int i = 0; i < n2; i++)
+                    if (item_defs[stock[i]].kind >= IT_WEAPON &&
+                        item_defs[stock[i]].price <= kSeen[k].purse) afford++;
+                printf("  purse -> floor %2d with %d gold can afford %d of the gear on sale\n",
+                       kSeen[k].floor, kSeen[k].purse, afford);
+                if (!afford) {
+                    printf("  FAIL nothing on floor %d is affordable at that depth\n",
+                           kSeen[k].floor);
+                    fail = 1;
+                }
+            }
+        }
+
+        /*  The item table and the icon strip are one list in two files.
+         *
+         *  item_sprite() maps an id straight onto the sprite table by
+         *  position, so adding a row to content.c without adding an icon to
+         *  items.py silently shifts every icon after it -- the potion starts
+         *  drawing as pizza and nothing crashes. This pins the two ends
+         *  together. */
+        {
+            printf("== every item has its own icon\n");
+            int bad = 0;
+            if (SPR_ITEM_RATINGS_CHIP != SPR_ITEM_SPLINT_POTION + item_count - 2) {
+                printf("  FAIL %d items but the icon strip spans %d\n",
+                       item_count - 1, SPR_ITEM_RATINGS_CHIP - SPR_ITEM_SPLINT_POTION + 1);
+                bad = 1;
+            }
+            for (int i = 1; i < item_count; i++) {
+                int sp = SPR_ITEM_SPLINT_POTION + (i - 1);
+                if (sp >= SPR_COUNT || !sprite_table[sp]) {
+                    printf("  FAIL %s has no icon\n", item_defs[i].name);
+                    bad = 1;
+                }
+            }
+            if (!bad) printf("  icons -> %d items, %d icons, aligned\n",
+                             item_count - 1, SPR_ITEM_RATINGS_CHIP - SPR_ITEM_SPLINT_POTION + 1);
+            if (bad) fail = 1;
+        }
+
+        /*  Gear the player can hold has to do something once held. All three
+         *  of these were broken in different ways and none of them would have
+         *  shown up as anything but the game feeling flat. */
+        {
+            printf("== equipment changes the numbers\n");
+            g.season = 0x6EA2;
+            dungeon_enter(0);
+            int weapon = 0, armour = 0, trinket = 0;
+            for (int i = 1; i < item_count; i++) {
+                if (item_defs[i].kind == IT_WEAPON && !weapon) weapon = i;
+                if (item_defs[i].kind == IT_ARMOUR && !armour) armour = i;
+                if (item_defs[i].kind == IT_TRINKET && !trinket) trinket = i;
+            }
+            /*  The trinket. gear_bonus was only ever consulted for weapons and
+                armour, and every damage roll read st.luck straight off the
+                stat block -- so a trinket's power column was decoration, and
+                the Lucky Molar had been on sale for 260 gold doing nothing. */
+            Hero *h = &g.hero[1];
+            int luck_before = hero_luck(h);
+            inventory_add(trinket, 1);
+            if (!equip_item(h, trinket)) { printf("  FAIL could not equip a trinket\n"); fail = 1; }
+            printf("  trinket -> luck %d then %d\n", luck_before, hero_luck(h));
+            if (hero_luck(h) <= luck_before) {
+                printf("  FAIL the trinket's luck is never counted\n"); fail = 1;
+            }
+            /*  The second crawler. The gear menu picked the hero from the item
+                kind -- trinkets to hero 1, everything else to hero 0 -- so
+                hero 1 could never hold a weapon or wear armour, and fought all
+                eighteen floors bare-handed. */
+            int atk_before = hero_attack(h), def_before = hero_defence(h);
+            inventory_add(weapon, 1);
+            inventory_add(armour, 1);
+            int got_w = equip_item(h, weapon), got_a = equip_item(h, armour);
+            printf("  crawler 2 -> attack %d then %d, defence %d then %d\n",
+                   atk_before, hero_attack(h), def_before, hero_defence(h));
+            if (!got_w || !got_a) {
+                printf("  FAIL the second crawler was refused a weapon or armour\n"); fail = 1;
+            }
+            if (hero_attack(h) <= atk_before || hero_defence(h) <= def_before) {
+                printf("  FAIL equipping the second crawler changed nothing\n"); fail = 1;
+            }
+        }
+
+        /*  Gold is an int16_t and the new gear gives a hoarding player a
+         *  reason to sit near the ceiling. A wrap turns a fortune into a debt
+         *  in one kill. */
+        {
+            printf("== gold does not wrap\n");
+            g.gold = 0;
+            for (int i = 0; i < 200; i++) gold_add(1000);
+            printf("  gold -> 200,000 paid in, holding %d\n", g.gold);
+            if (g.gold < 0) { printf("  FAIL gold went negative\n"); fail = 1; }
+            gold_add(-999999);
+            if (g.gold < 0) { printf("  FAIL an overspend went negative\n"); fail = 1; }
+            g.gold = 40;
         }
 
         /*  Depth has to keep costing something.

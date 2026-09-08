@@ -22,6 +22,13 @@
 #define MAX_FOES     3
 #define PARTY        2
 #define INVENTORY    12
+/*  How many lines the shop can lay out. Sized to the item table, not to the
+ *  bag: the two call sites passed INVENTORY, which is twelve, and the moment
+ *  the table grew past that the shop began truncating -- silently, and at the
+ *  end of the list, which is exactly where the deepest gear sits. The test
+ *  did not catch it because the test passed a bigger array than the game did,
+ *  so the assertion below pins the bound the game actually uses. */
+#define MAX_STOCK    32
 #define MAX_TOASTS   4
 #define MAX_LOG      6
 #define MAX_ROOMS    9
@@ -55,6 +62,15 @@ typedef struct {
     int8_t      power;      /* healing, damage, or the stat it adds */
     int16_t     price;
     uint8_t     slot;       /* equipment slot for gear: 0 weapon 1 armour 2 trinket */
+    /*  The shallowest floor this can turn up on, in the shop or in a box.
+     *
+     *  Everything used to be available immediately: the shop stocked every
+     *  item priced under 500 on every floor, and the best loot box drew from
+     *  a fixed list. Both of the strongest pieces in the game were buyable on
+     *  floor one, so a run's gear was finished before its third floor and the
+     *  remaining fifteen had nothing to spend on -- seeded runs were ending
+     *  with twenty thousand gold and an empty shop. */
+    uint8_t     floor;
     const char *blurb;
 } ItemDef;
 
@@ -399,6 +415,7 @@ typedef struct {
 
     /* menus, shop, boxes */
     uint8_t  menu_tab, menu_cursor;
+    uint8_t  gear_hero;      /* which crawler the gear tab is fitting out */
     uint8_t  shop_cursor;
     uint8_t  box_tier, box_phase, box_item;
     uint8_t  safe_room;         /* index into safe_room_defs, while in one */
@@ -487,6 +504,7 @@ void  draft_update(const PlatInput *in);
 void  party_draft(int a, int b);   /* fill both slots from the roster */
 int   hero_attack(const Hero *h);
 int   hero_defence(const Hero *h);
+int   hero_luck(const Hero *h);
 int   hero_speed(const Hero *h);
 int   hero_max_hp(const Hero *h);
 int   hero_max_mp(const Hero *h);
@@ -529,6 +547,11 @@ enum { ITEM_NONE, ITEM_SPLINT, ITEM_COLD_SLICE, ITEM_ENERGY };
 
 extern const ItemDef  item_defs[];
 extern const int      item_count;
+int   shop_stock(int floor_no, int *out, int max);
+
+/*  Gold is an int16_t and a deep run already banks twenty thousand of it, so
+ *  the ceiling is close enough to reach. Every payment goes through here. */
+void  gold_add(int amount);
 extern const SkillDef skill_defs[];
 extern const int      skill_count;
 extern const FoeDef   foe_defs[];

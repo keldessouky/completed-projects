@@ -28,6 +28,16 @@ int hero_defence(const Hero *h) {
     return h->st.con + h->st.dex / 2 + h->level / 2 + gear_bonus(h, IT_ARMOUR);
 }
 
+/*  Luck, with the trinket counted.
+ *
+ *  gear_bonus was only ever called for weapons and armour, and every damage
+ *  roll read h->st.luck straight off the stat block -- so a trinket's power
+ *  column was never added to anything. The Lucky Molar has been on sale since
+ *  the first build at 260 gold, described in the shop as "Trinket. Luck +4",
+ *  and did nothing at all. Anything reading luck for a roll goes through
+ *  here. */
+int hero_luck(const Hero *h) { return h->st.luck + gear_bonus(h, IT_TRINKET); }
+
 int hero_speed(const Hero *h) { return h->st.dex * 2 + h->level; }
 
 int hero_max_hp(const Hero *h) { return 34 + h->st.con * 7 + h->level * 5; }

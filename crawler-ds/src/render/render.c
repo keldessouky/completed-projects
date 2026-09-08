@@ -1515,9 +1515,11 @@ static void draw_shop(Surface *top, Surface *bot) {
     gfx_sprite_scaled(top, &spr_bopca, 4, 58, 150, 100);
     gfx_sprite_scaled(top, &spr_shop, 196, 22, 120, 100);
 
-    int stock[INVENTORY], n = 0;
-    for (int i = 1; i < item_count; i++)
-        if (item_defs[i].price > 0 && item_defs[i].price <= 500) stock[n++] = i;
+    /*  Same call the input side makes, so the list drawn and the list the
+        cursor indexes cannot drift apart. They were two copies of the filter
+        before this. */
+    int stock[MAX_STOCK];
+    int n = shop_stock(g.dun.index + 1, stock, MAX_STOCK);
     int sel = g.shop_cursor < n ? g.shop_cursor : 0;
     window(top, 120, 60, 130, 118, 0);
     /*  What it looks like, next to what it is called. A shop that lists names
