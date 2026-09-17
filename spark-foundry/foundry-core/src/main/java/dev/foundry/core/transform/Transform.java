@@ -37,6 +37,20 @@ public interface Transform {
     /** One line for the generated reference documentation. */
     String summary();
 
+    /**
+     * Something distinguishing about one particular step, for plans and the
+     * catalogue.
+     *
+     * <p>Most transforms have nothing to add - a {@code filter} is a filter. It
+     * matters for the ones whose real behaviour lives somewhere the metadata only
+     * points at: a {@code java} step is not usefully described as "java", it is
+     * described by the class it names, and a reader of the catalogue should not
+     * have to open the pipeline file to find out which.
+     */
+    default java.util.Optional<String> describeStep(StepSpec step) {
+        return java.util.Optional.empty();
+    }
+
     /** The configuration keys this transform understands, beyond the reserved ones. */
     Set<String> configKeys();
 

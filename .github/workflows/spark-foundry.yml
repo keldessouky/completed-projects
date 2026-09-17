@@ -37,25 +37,46 @@ jobs:
       # The three commands that never start Spark. Validating the shipped
       # example on every push is what keeps the example honest.
       - name: Validate the example metadata
-        run: FOUNDRY_SKIP_BUILD=1 ./foundry validate --metadata examples/retail/metadata
+        run: |
+          FOUNDRY_SKIP_BUILD=1 ./foundry validate \
+            --metadata examples/retail/metadata \
+            --plugins examples/retail/plugin/target/retail-transforms-0.1.0.jar
 
-      - name: Plan both pipelines
-        run: FOUNDRY_SKIP_BUILD=1 ./foundry plan --metadata examples/retail/metadata
+      # The example's custom transform is named from metadata, so validation
+      # must fail without its jar. If it ever stops failing, the class has
+      # leaked onto the framework's own classpath and the plugin path is no
+      # longer being tested by anything.
+      - name: Check the custom transform really needs its plugin
+        run: |
+          if FOUNDRY_SKIP_BUILD=1 ./foundry validate --metadata examples/retail/metadata; then
+            echo "expected validation to fail without --plugins" >&2
+            exit 1
+          fi
+
+      - name: Plan every pipeline
+        run: |
+          FOUNDRY_SKIP_BUILD=1 ./foundry plan \
+            --metadata examples/retail/metadata \
+            --plugins examples/retail/plugin/target/retail-transforms-0.1.0.jar
 
       # The catalogue is generated, not maintained, so a committed copy that has
       # drifted from the metadata is a build failure rather than a stale page.
       - name: Check the generated catalogue is up to date
         run: |
           FOUNDRY_SKIP_BUILD=1 ./foundry docs \
-            --metadata examples/retail/metadata --out /tmp/catalog.md
+            --metadata examples/retail/metadata \
+            --plugins examples/retail/plugin/target/retail-transforms-0.1.0.jar \
+            --out /tmp/catalog.md
           if ! diff -u docs/catalog.md /tmp/catalog.md; then
             echo
             echo "docs/catalog.md is out of date. Regenerate it with:"
-            echo "  ./foundry docs --metadata examples/retail/metadata --out docs/catalog.md"
+            echo "  ./foundry docs --metadata examples/retail/metadata \\"
+            echo "    --plugins examples/retail/plugin/target/retail-transforms-0.1.0.jar \\"
+            echo "    --out docs/catalog.md"
             exit 1
           fi
 
-      - name: Run both example pipelines end to end
+      - name: Run all three example pipelines end to end
         run: ./examples/retail/run-demo.sh "$RUNNER_TEMP/warehouse"
 
       - name: Upload run manifests

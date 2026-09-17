@@ -40,15 +40,7 @@ final class SparkFixture {
 
     /** The example metadata, wherever the test happens to have been started from. */
     static Path examples() {
-        Path fromModule = Path.of("..", "examples", "retail");
-        if (Files.isDirectory(fromModule)) {
-            return fromModule;
-        }
-        Path fromRoot = Path.of("examples", "retail");
-        if (Files.isDirectory(fromRoot)) {
-            return fromRoot;
-        }
-        throw new IllegalStateException("cannot find examples/retail from " + Path.of(".").toAbsolutePath());
+        return dev.foundry.core.Examples.root();
     }
 
     /** Lays the example's seed CSVs into a throwaway warehouse's landing zone. */

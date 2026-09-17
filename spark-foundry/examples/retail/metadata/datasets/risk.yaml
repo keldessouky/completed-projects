@@ -1,0 +1,17 @@
+kind: dataset
+name: order_risk
+schema: retail.orders.risk
+format: parquet
+location: "${data}/marts/order_risk"
+description: Scored order lines, one row per line.
+enforcement: strict
+writeMode: overwrite
+---
+kind: dataset
+name: risk_by_region
+schema: retail.risk.by_region
+format: parquet
+location: "${data}/marts/risk_by_region"
+description: Value at risk by region and band.
+enforcement: strict
+writeMode: overwrite

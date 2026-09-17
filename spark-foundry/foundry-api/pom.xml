@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>dev.foundry</groupId>
+    <artifactId>spark-foundry</artifactId>
+    <version>0.1.0</version>
+  </parent>
+
+  <artifactId>foundry-api</artifactId>
+  <name>Spark Foundry :: API</name>
+  <description>
+    The extension point, and nothing else. A project writing a custom transform
+    depends on this and on Spark - not on the planner, the loader or the runner.
+    Keeping it separate is what makes that promise checkable rather than a
+    convention: this module has no dependency it could leak.
+  </description>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.apache.spark</groupId>
+      <artifactId>spark-sql_${scala.binary.version}</artifactId>
+      <!--
+        Provided: the engine brings Spark. A plugin jar that bundled its own copy
+        would be both enormous and a version conflict waiting to happen.
+      -->
+      <scope>provided</scope>
+    </dependency>
+  </dependencies>
+</project>

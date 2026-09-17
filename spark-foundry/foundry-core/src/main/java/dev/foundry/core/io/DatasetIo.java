@@ -55,7 +55,12 @@ public final class DatasetIo {
         }
 
         StructType physical = peek(spark, spec, location);
-        List<String> problems = Contracts.check(physical, expected, spec.enforcement());
+        // A text format's "types" are all string, which says nothing about the
+        // data - so for those, the contract is checked on column names and then
+        // enforced by the reader, which fails rather than nulling what will not
+        // parse. A self-describing format's types are real and are compared.
+        List<String> problems = Contracts.check(physical, expected, spec.enforcement(),
+                carriesTypes(spec));
         if (!problems.isEmpty()) {
             throw new ContractViolation(spec, "reading", location, problems);
         }
@@ -121,6 +126,13 @@ public final class DatasetIo {
 
     private static boolean isCsv(DatasetSpec spec) {
         return spec.format().toLowerCase(Locale.ROOT).equals("csv");
+    }
+
+    /** Formats whose files record the type of each column, rather than only its text. */
+    private static final Set<String> TYPED_FORMATS = Set.of("parquet", "orc", "avro", "json", "delta");
+
+    private static boolean carriesTypes(DatasetSpec spec) {
+        return TYPED_FORMATS.contains(spec.format().toLowerCase(Locale.ROOT));
     }
 
     // ---------------------------------------------------------------- writing

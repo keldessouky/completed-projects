@@ -37,8 +37,16 @@ class FoundryCliTest {
     }
 
     private static Path examples() {
-        Path fromModule = Path.of("..", "examples", "retail", "metadata");
-        return Files.isDirectory(fromModule) ? fromModule : Path.of("examples", "retail", "metadata");
+        return ExamplePaths.metadata();
+    }
+
+    /**
+     * The example's own plugin path. The example includes a pipeline that names a
+     * custom transform, so any command that loads all of it needs to be able to
+     * resolve that class - which is what PluginLoadingIT tests directly.
+     */
+    private static String plugin() {
+        return ExamplePaths.plugin().toString();
     }
 
     private static Path broken(Path root) throws Exception {
@@ -75,10 +83,10 @@ class FoundryCliTest {
     @Test
     @DisplayName("validate returns zero and a one-line summary for sound metadata")
     void validateAccepts() {
-        Result result = run("validate", "--metadata", examples().toString());
+        Result result = run("validate", "--metadata", examples().toString(), "--plugins", plugin());
         assertTrue(result.ok(), result.err());
         assertTrue(result.out().contains("all valid"), result.out());
-        assertTrue(result.out().contains("2 pipeline(s)"), result.out());
+        assertTrue(result.out().contains("3 pipeline(s)"), result.out());
     }
 
     @Test
@@ -108,7 +116,7 @@ class FoundryCliTest {
     @DisplayName("docs writes a catalogue where it is told to")
     void docsWritesAFile(@TempDir Path root) throws Exception {
         Path out = root.resolve("nested").resolve("catalogue.md");
-        Result result = run("docs", "--metadata", examples().toString(), "--out", out.toString());
+        Result result = run("docs", "--metadata", examples().toString(), "--plugins", plugin(), "--out", out.toString());
 
         assertTrue(result.ok(), result.err());
         assertTrue(Files.exists(out));
@@ -119,7 +127,7 @@ class FoundryCliTest {
     @Test
     @DisplayName("docs with no --out prints to standard output")
     void docsPrints() {
-        Result result = run("docs", "--metadata", examples().toString());
+        Result result = run("docs", "--metadata", examples().toString(), "--plugins", plugin());
         assertTrue(result.ok(), result.err());
         assertTrue(result.out().startsWith("# Data catalogue"));
     }

@@ -13,6 +13,13 @@
   <description>A metadata-as-code framework for building Apache Spark ETL pipelines.</description>
 
   <modules>
+    <module>foundry-api</module>
+    <!--
+      Built here, before the CLI, because the CLI's tests load its jar from disk
+      the way a real deployment would. It is deliberately not on their classpath:
+      that is the whole point of the plugin loading path.
+    -->
+    <module>examples/retail/plugin</module>
     <module>foundry-metadata</module>
     <module>foundry-core</module>
     <module>foundry-cli</module>
@@ -51,6 +58,11 @@
 
   <dependencyManagement>
     <dependencies>
+      <dependency>
+        <groupId>dev.foundry</groupId>
+        <artifactId>foundry-api</artifactId>
+        <version>${project.version}</version>
+      </dependency>
       <dependency>
         <groupId>dev.foundry</groupId>
         <artifactId>foundry-metadata</artifactId>

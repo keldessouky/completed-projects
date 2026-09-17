@@ -67,6 +67,14 @@ public final class Planner {
         return new Planner(TransformRegistry.builtIn(), ExpectationRegistry.builtIn());
     }
 
+    /**
+     * The standard planner, resolving {@code java} steps against a class loader
+     * that can also see a project's own jars.
+     */
+    public static Planner standard(ClassLoader plugins) {
+        return new Planner(TransformRegistry.builtIn(plugins), ExpectationRegistry.builtIn());
+    }
+
     public TransformRegistry transforms() {
         return transforms;
     }
@@ -94,7 +102,8 @@ public final class Planner {
         List<StepSpec> usable = resolveSteps(pipeline, byName.keySet(), dependencies, stepTransforms, diagnostics);
         List<StepSpec> ordered = order(pipeline, usable, dependencies, byName.keySet(), diagnostics);
 
-        List<StepPlan> steps = planSteps(pipeline, ordered, dependencies, stepTransforms, params, byName, diagnostics);
+        List<StepPlan> steps = planSteps(repository, pipeline, ordered, dependencies, stepTransforms,
+                params, byName, diagnostics);
 
         // A step that failed to resolve or plan has already been reported once.
         // Everything downstream of it would now also look broken, so those names
@@ -263,7 +272,8 @@ public final class Planner {
 
     // ------------------------------------------------------------------ steps
 
-    private List<StepPlan> planSteps(PipelineSpec pipeline,
+    private List<StepPlan> planSteps(MetadataRepository repository,
+                                     PipelineSpec pipeline,
                                      List<StepSpec> ordered,
                                      Map<String, List<InputRef>> dependencies,
                                      Map<String, Transform> stepTransforms,
@@ -290,7 +300,7 @@ public final class Planner {
             }
 
             Transform transform = stepTransforms.get(step.id());
-            PlanContext context = new PlanContext(pipeline, step, resolved, params, diagnostics);
+            PlanContext context = new PlanContext(pipeline, step, resolved, params, repository, diagnostics);
             FieldSet output;
             try {
                 output = transform.plan(context);

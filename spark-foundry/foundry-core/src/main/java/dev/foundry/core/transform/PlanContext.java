@@ -3,8 +3,10 @@ package dev.foundry.core.transform;
 import dev.foundry.core.param.ParamResolver;
 import dev.foundry.core.schema.FieldSet;
 import dev.foundry.metadata.Diagnostics;
+import dev.foundry.metadata.MetadataRepository;
 import dev.foundry.metadata.SourceRef;
 import dev.foundry.metadata.model.PipelineSpec;
+import dev.foundry.metadata.model.SchemaSpec;
 import dev.foundry.metadata.model.StepSpec;
 import dev.foundry.metadata.yaml.YamlNode;
 
@@ -20,16 +22,19 @@ public final class PlanContext {
     private final Map<String, FieldSet> inputs;
     private final ParamResolver params;
     private final Diagnostics diagnostics;
+    private final MetadataRepository repository;
 
     public PlanContext(PipelineSpec pipeline,
                        StepSpec step,
                        Map<String, FieldSet> inputs,
                        ParamResolver params,
+                       MetadataRepository repository,
                        Diagnostics diagnostics) {
         this.pipeline = pipeline;
         this.step = step;
         this.inputs = new LinkedHashMap<>(inputs);
         this.params = params;
+        this.repository = repository;
         this.diagnostics = diagnostics;
     }
 
@@ -61,9 +66,24 @@ public final class PlanContext {
         return params;
     }
 
-    /** The resolved inputs, keyed by the name the step used. */
+    /**
+     * A declared schema by name, for the transforms that let a step state its
+     * output contract by referring to one instead of restating its columns.
+     */
+    public java.util.Optional<SchemaSpec> schema(String name) {
+        return repository.schema(name);
+    }
+
+    /** The schema names a step could legally refer to, for a did-you-mean. */
+    public Set<String> schemaNames() {
+        Set<String> names = new java.util.LinkedHashSet<>();
+        repository.schemas().forEach(schema -> names.add(schema.name()));
+        return names;
+    }
+
+    /** The resolved inputs, keyed by the name the step used, in declaration order. */
     public Map<String, FieldSet> inputs() {
-        return Map.copyOf(inputs);
+        return java.util.Collections.unmodifiableMap(inputs);
     }
 
     public Set<String> inputNames() {

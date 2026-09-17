@@ -55,8 +55,9 @@ public final class ExecContext {
         return planned;
     }
 
+    /** The step's inputs, keyed by name, in declaration order. */
     public Map<String, Dataset<Row>> inputs() {
-        return Map.copyOf(inputs);
+        return java.util.Collections.unmodifiableMap(inputs);
     }
 
     public Dataset<Row> input(String name) {

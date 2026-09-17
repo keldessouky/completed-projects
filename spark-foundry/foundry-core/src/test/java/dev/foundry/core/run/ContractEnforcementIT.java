@@ -184,11 +184,104 @@ class ContractEnforcementIT {
     @Test
     @DisplayName("a value that will not parse is a breach, not a silent null")
     void refusesToNullUnparseableValues(@TempDir Path warehouse) {
-        // Under Spark's default PERMISSIVE mode this row would load with a null
-        // amount and the run would report success.
-        assertThrows(Exception.class, () -> run(warehouse, "strict", """
+        // Under Spark's default PERMISSIVE read mode this row would load with a
+        // null amount and the run would report success.
+        Exception e = assertThrows(Exception.class, () -> run(warehouse, "strict", """
                 order_id,region,amount
                 O-1,emea,not a number
                 """));
+        assertTrue(describe(e).contains("not a number"),
+                "the failure should name the value that would not parse: " + describe(e));
+    }
+
+    @Test
+    @DisplayName("a CSV dataset may declare real types; the file's own are all string and say nothing")
+    void allowsTypedColumnsOnTextFormats(@TempDir Path warehouse) throws IOException {
+        // A CSV is a grid of text, so comparing the contract's decimal against
+        // the string the file "has" would reject every typed CSV dataset for a
+        // disagreement that is not real. Names are checked; the reader enforces
+        // the types by refusing to parse what does not fit.
+        Path metadata = warehouse.resolve("metadata");
+        Files.createDirectories(metadata);
+        Files.writeString(metadata.resolve("m.yaml"), TYPED_CSV, StandardCharsets.UTF_8);
+        SparkFixture.csv(warehouse.resolve("landing"), "data.csv", """
+                order_id,amount
+                O-1,10.50
+                """);
+
+        MetadataRepository repository = MetadataRepository.load(metadata);
+        PipelinePlan plan = Planner.standard().plan(repository, repository.requirePipeline("p"));
+        RunManifest manifest = new PipelineRunner(spark).run(plan, RunOptions.of(warehouse));
+
+        assertTrue(manifest.succeeded(), manifest.failure());
+        Dataset<Row> written = spark.read().parquet(warehouse.resolve("out").toString());
+        assertEquals("decimal(10,2)", written.schema().apply("amount").dataType().simpleString());
+        assertEquals(0, new java.math.BigDecimal("10.50")
+                .compareTo(written.collectAsList().get(0).getDecimal(1)));
+    }
+
+    @Test
+    @DisplayName("a column missing from a typed CSV dataset is still caught by name")
+    void stillChecksNamesOnTextFormats(@TempDir Path warehouse) throws IOException {
+        Path metadata = warehouse.resolve("metadata");
+        Files.createDirectories(metadata);
+        Files.writeString(metadata.resolve("m.yaml"), TYPED_CSV, StandardCharsets.UTF_8);
+        SparkFixture.csv(warehouse.resolve("landing"), "data.csv", "order_id\nO-1\n");
+
+        MetadataRepository repository = MetadataRepository.load(metadata);
+        PipelinePlan plan = Planner.standard().plan(repository, repository.requirePipeline("p"));
+
+        ContractViolation e = assertThrows(ContractViolation.class,
+                () -> new PipelineRunner(spark).run(plan, RunOptions.of(warehouse)));
+        assertTrue(e.problems().get(0).contains("'amount' is declared but the data does not have it"),
+                e.getMessage());
+    }
+
+    private static final String TYPED_CSV = """
+            kind: schema
+            name: t.typed
+            fields:
+              - name: order_id
+                type: string
+              - name: amount
+                type: "decimal(10,2)"
+            ---
+            kind: dataset
+            name: landing
+            schema: t.typed
+            format: csv
+            location: "${data}/landing"
+            enforcement: strict
+            options:
+              header: "true"
+            ---
+            kind: dataset
+            name: out
+            schema: t.typed
+            format: parquet
+            location: "${data}/out"
+            ---
+            kind: pipeline
+            name: p
+            sources:
+              - alias: orders
+                dataset: landing
+            steps:
+              - id: output
+                type: select
+                from: orders
+                columns: [order_id, amount]
+            sinks:
+              - from: output
+                dataset: out
+            """;
+
+    /** An exception's message plus its causes, since Spark nests the useful part. */
+    private static String describe(Throwable error) {
+        StringBuilder sb = new StringBuilder();
+        for (Throwable current = error; current != null; current = current.getCause()) {
+            sb.append(current).append(' ');
+        }
+        return sb.toString();
     }
 }

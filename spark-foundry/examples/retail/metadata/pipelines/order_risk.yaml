@@ -1,0 +1,94 @@
+kind: pipeline
+name: order_risk
+description: >-
+  Scores order lines with a transform written in Java, then rolls the result up
+  declaratively. The point of this pipeline is the division of labour: the
+  scoring rules live in a class where they can be argued about and unit tested,
+  and everything about the shape of the data - what the step reads, what it
+  produces, what types, and what each column derives from - stays here, where it
+  is reviewable and where the framework can check it.
+
+params:
+  - name: high_value_threshold
+    type: decimal
+    default: "100.00"
+    description: >-
+      What counts as a large line for scoring. Passed into the transform's
+      options, so the same class can score strictly in one environment and
+      leniently in another without a recompile.
+
+sources:
+  - alias: lines
+    dataset: curated_order_lines
+
+steps:
+  - id: scored
+    type: java
+    class: com.example.retail.OrderRiskScore
+    from: lines
+    description: >-
+      The escape hatch, under contract. The class is resolved when this pipeline
+      is validated, so a rename catches in a pre-commit hook; what it returns is
+      checked against the schema below on every run.
+    options:
+      highValueThreshold: "${high_value_threshold}"
+      discountRatioThreshold: "0.25"
+      watchedChannels: "store,mobile"
+    schema: retail.orders.risk
+    lineage:
+      # The framework cannot read Java, so what these columns derive from is
+      # stated here. Both sides are checked: the names on the left must be
+      # columns this step produces, and the names on the right must be columns
+      # it reads, so the claim cannot rot into a lie.
+      risk_score: [line_total, discount, quantity, unit_price, category, channel, status]
+      risk_band: [line_total, discount, quantity, unit_price, category, channel, status]
+      risk_reasons: [line_total, discount, quantity, unit_price, category, channel, status]
+
+  - id: by_region
+    type: aggregate
+    from: scored
+    description: >-
+      Ordinary declarative work, downstream of the custom step. It is only
+      checkable because 'scored' declared its shape: the planner knows
+      'risk_band' and 'line_total' will be there, and of what type.
+    groupBy: [region, risk_band]
+    measures:
+      - { name: lines, expr: "count(1)", type: bigint }
+      - { name: value_at_risk, expr: "sum(line_total)", type: "decimal(18,2)" }
+
+expectations:
+  - name: every_line_is_scored
+    on: scored
+    rule: not_null
+    columns: [risk_score, risk_band]
+    action: fail
+
+  - name: scores_are_in_range
+    on: scored
+    rule: range
+    column: risk_score
+    min: "0"
+    max: "110"
+    action: fail
+    description: >-
+      The weights add up to 110. A score outside that means a rule was added to
+      the class without anyone revisiting this bound.
+
+  - name: bands_are_known
+    on: scored
+    rule: accepted_values
+    column: risk_band
+    values: [low, elevated, high]
+    action: fail
+
+  - name: lines_are_accounted_for
+    on: scored
+    rule: unique
+    columns: [order_id, line_sku]
+    action: fail
+
+sinks:
+  - from: scored
+    dataset: order_risk
+  - from: by_region
+    dataset: risk_by_region

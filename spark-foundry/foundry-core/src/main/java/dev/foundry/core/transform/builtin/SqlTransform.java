@@ -1,14 +1,12 @@
 package dev.foundry.core.transform.builtin;
 
 import dev.foundry.core.schema.FieldSet;
-import dev.foundry.core.schema.PlanField;
-import dev.foundry.core.schema.Types;
+import dev.foundry.core.transform.DeclaredOutputs;
 import dev.foundry.core.transform.ExecContext;
 import dev.foundry.core.transform.InputRef;
 import dev.foundry.core.transform.PlanContext;
 import dev.foundry.core.transform.Transform;
 import dev.foundry.core.transform.Transforms;
-import dev.foundry.metadata.Diagnostic;
 import dev.foundry.metadata.MetadataException;
 import dev.foundry.metadata.SourceRef;
 import dev.foundry.metadata.Suggest;
@@ -23,7 +21,6 @@ import org.apache.spark.sql.catalyst.parser.CatalystSqlParser$;
 import org.apache.spark.sql.catalyst.plans.logical.LogicalPlan;
 import org.apache.spark.sql.catalyst.plans.logical.UnresolvedWith;
 import org.apache.spark.sql.functions;
-import org.apache.spark.sql.types.DataType;
 
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -43,10 +40,17 @@ import java.util.Set;
  * own parser, and every table it reads must be a declared input or a CTE the
  * query itself defines. A join against a table nobody wired up is caught at
  * validation time rather than as a "table or view not found" at 3am.
+ *
+ * <p>The one thing it cannot do is report exact column lineage. Working out that
+ * {@code sum(l.line_total) as spend} reads {@code lines.line_total} means
+ * resolving the query against a catalog - that is, re-implementing Spark's
+ * analyser, which would be a second model of the engine's behaviour and would
+ * drift from it. So an output column is attributed to the same-named column of
+ * every input that has one, and to nothing when no name matches. An author who
+ * knows better says so with {@code derivedFrom:} on the column, which
+ * {@link DeclaredOutputs} then checks against the inputs.
  */
 public final class SqlTransform implements Transform {
-
-    private static final Set<String> OUTPUT_KEYS = Set.of("name", "type", "description");
 
     @Override
     public String type() {
@@ -60,7 +64,9 @@ public final class SqlTransform implements Transform {
 
     @Override
     public Set<String> configKeys() {
-        return Set.of("inputs", "query", "outputs");
+        Set<String> keys = new LinkedHashSet<>(Set.of("inputs", "query"));
+        keys.addAll(DeclaredOutputs.CONFIG_KEYS);
+        return keys;
     }
 
     @Override
@@ -81,73 +87,7 @@ public final class SqlTransform implements Transform {
             context.diagnostics().addAll(e.diagnostics().all());
         }
 
-        List<PlanField> fields = new ArrayList<>();
-        Set<String> seen = new LinkedHashSet<>();
-        for (YamlNode node : context.config().list("outputs")) {
-            try {
-                PlanField field = outputField(node, seen, context);
-                fields.add(field.from(attribute(context, field.name())));
-            } catch (MetadataException e) {
-                context.diagnostics().addAll(e.diagnostics().all());
-            }
-        }
-        if (fields.isEmpty()) {
-            context.error("no-columns", context.where(),
-                    "a sql step must declare the columns it produces",
-                    "add 'outputs:' listing each column, with an optional type");
-        }
-        return FieldSet.of(fields);
-    }
-
-    private PlanField outputField(YamlNode node, Set<String> seen, PlanContext context) {
-        String name;
-        String typeText = null;
-        if (node.isScalar()) {
-            name = node.asString();
-        } else {
-            node.requireMapping();
-            List<Diagnostic> unknown = node.unknownKeys(OUTPUT_KEYS);
-            if (!unknown.isEmpty()) {
-                throw new MetadataException(unknown.get(0));
-            }
-            name = node.identifier("name");
-            typeText = node.str("type", null);
-        }
-        if (!seen.add(name)) {
-            throw new MetadataException(Diagnostic.error("duplicate-column", node.where(),
-                    "column '" + name + "' is declared twice"));
-        }
-        if (typeText == null) {
-            return PlanField.inferred(name, "sql");
-        }
-        DataType type = Types.parse(typeText, node.where());
-        return PlanField.known(name, type, true, "sql, cast to " + type.simpleString());
-    }
-
-    /**
-     * Best-effort lineage for a declared output column: the same-named column of
-     * every input that has one.
-     *
-     * <p>This is the one transform that cannot report lineage exactly. Working out
-     * that {@code sum(l.line_total) as spend} reads {@code lines.line_total} means
-     * resolving the query against a catalog - that is, re-implementing Spark's
-     * analyser, which would be a second model of the engine's behaviour and would
-     * drift from it.
-     *
-     * <p>So it attributes by name, which is right for the ordinary case of a query
-     * whose output columns keep their source names, and reports nothing rather
-     * than guessing when a name matches no input. A column with no lineage in the
-     * catalogue is therefore a signal: it came out of a {@code sql} step under a
-     * new name, and only the query says where from.
-     */
-    private Set<String> attribute(PlanContext context, String column) {
-        Set<String> sources = new LinkedHashSet<>();
-        context.inputs().forEach((name, fields) -> {
-            if (fields.has(column)) {
-                sources.add(name + "." + column);
-            }
-        });
-        return sources;
+        return DeclaredOutputs.parse(context, "a sql step");
     }
 
     /** Every table the query reads must be a declared input or one of its own CTEs. */

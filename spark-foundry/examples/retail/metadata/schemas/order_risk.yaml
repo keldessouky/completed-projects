@@ -1,0 +1,66 @@
+kind: schema
+name: retail.orders.risk
+version: 1
+description: >-
+  Each order line with a risk score, the band it falls into, and the reasons it
+  scored what it did. Produced by a transform written in Java - the shape is
+  declared here so that everything downstream of it can still be checked
+  statically, and so that a reader knows what the table holds without opening the
+  implementation.
+fields:
+  - name: order_id
+    type: string
+    nullable: false
+    description: Storefront order identifier.
+    tags: [key]
+  - name: line_sku
+    type: string
+    nullable: false
+    description: Product code.
+    tags: [key]
+  - name: customer_id
+    type: string
+    description: Customer who placed the order.
+  - name: order_date
+    type: date
+    description: Calendar date the order was placed.
+  - name: region
+    type: string
+    description: Sales region.
+  - name: channel
+    type: string
+    description: Where the order came from.
+  - name: line_total
+    type: "decimal(14,2)"
+    description: Net value of the line.
+  - name: risk_score
+    type: int
+    description: Sum of the weights of every rule that matched, 0 to 110.
+  - name: risk_band
+    type: string
+    description: low, elevated or high, from the score.
+  - name: risk_reasons
+    type: "array<string>"
+    description: >-
+      The code of every rule that matched, so a score can be explained rather
+      than only reported.
+---
+kind: schema
+name: retail.risk.by_region
+version: 1
+description: How much value sits in each risk band, by region.
+fields:
+  - name: region
+    type: string
+    description: Sales region.
+    tags: [key]
+  - name: risk_band
+    type: string
+    description: low, elevated or high.
+    tags: [key]
+  - name: lines
+    type: bigint
+    description: Order lines in this band.
+  - name: value_at_risk
+    type: "decimal(18,2)"
+    description: Total net value of those lines.

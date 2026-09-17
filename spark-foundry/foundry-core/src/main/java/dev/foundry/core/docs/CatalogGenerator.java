@@ -117,13 +117,16 @@ public final class CatalogGenerator {
 
     private void steps(StringBuilder sb, PipelinePlan plan) {
         sb.append("#### Steps").append(nl()).append(nl());
-        sb.append("| Step | Type | Reads | Produces |").append(nl());
-        sb.append("| --- | --- | --- | --- |").append(nl());
+        sb.append("| Step | Type | Reads | Produces | Detail |").append(nl());
+        sb.append("| --- | --- | --- | --- | --- |").append(nl());
         for (StepPlan step : plan.steps()) {
             sb.append("| `").append(step.id()).append("` | `").append(step.type()).append("` | ")
               .append(step.inputs().isEmpty() ? "-" : "`" + String.join("`, `", step.inputs()) + "`")
               .append(" | ").append(step.output().size())
-              .append(step.output().size() == 1 ? " column" : " columns").append(" |").append(nl());
+              .append(step.output().size() == 1 ? " column" : " columns").append(" | ")
+              .append(step.transform().describeStep(step.spec()).map(detail -> "`" + detail + "`")
+                      .orElse("-"))
+              .append(" |").append(nl());
         }
         sb.append(nl());
 

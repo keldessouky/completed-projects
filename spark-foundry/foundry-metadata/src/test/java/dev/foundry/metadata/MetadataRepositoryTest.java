@@ -101,6 +101,77 @@ class MetadataRepositoryTest {
     }
 
     @Test
+    @DisplayName("JSON documents are read too, and keep their positions")
+    void loadsJsonDocuments(@TempDir Path root) throws IOException {
+        // YAML 1.2 is a superset of JSON and the parser reads it natively, so a
+        // team that generates its metadata, or simply prefers braces, loses
+        // nothing - including the line numbers in its diagnostics.
+        write(root, "schemas/orders.json", """
+                {
+                  "kind": "schema",
+                  "name": "retail.orders",
+                  "description": "Written as JSON.",
+                  "fields": [
+                    { "name": "order_id", "type": "string", "nullable": false },
+                    { "name": "total", "type": "decimal(12,2)" }
+                  ]
+                }
+                """);
+        write(root, "datasets/orders.yaml", DATASET);
+
+        MetadataRepository repository = MetadataRepository.load(root);
+        SchemaSpec schema = repository.schema("retail.orders").orElseThrow();
+        assertEquals(2, schema.fields().size());
+        assertEquals("Written as JSON.", schema.description());
+        assertFalse(schema.fields().get(0).nullable());
+        assertEquals("decimal(12,2)", schema.fields().get(1).type());
+        assertEquals("schemas/orders.json", schema.fields().get(1).where().file());
+        assertEquals(7, schema.fields().get(1).where().line(),
+                "a JSON document's diagnostics point at real lines");
+    }
+
+    @Test
+    @DisplayName("a mistake in JSON is reported the same way as one in YAML")
+    void reportsJsonMistakes(@TempDir Path root) throws IOException {
+        write(root, "schemas/orders.json", """
+                {
+                  "kind": "schema",
+                  "name": "retail.orders",
+                  "fields": [
+                    { "name": "order_id", "type": "string" }
+                  ],
+                  "feilds": []
+                }
+                """);
+
+        Diagnostics diagnostics = new Diagnostics();
+        MetadataRepository.load(root, diagnostics);
+        assertTrue(diagnostics.hasCode("unknown-key"), diagnostics.render());
+        assertEquals("did you mean 'fields'?", diagnostics.errors().get(0).hint());
+        assertEquals(7, diagnostics.errors().get(0).where().line());
+    }
+
+    @Test
+    @DisplayName("JSON and YAML may sit side by side in one tree")
+    void mixesFormats(@TempDir Path root) throws IOException {
+        write(root, "schemas/orders.yaml", SCHEMA);
+        write(root, "datasets/orders.json", """
+                {
+                  "kind": "dataset",
+                  "name": "orders",
+                  "schema": "retail.orders",
+                  "format": "parquet",
+                  "location": "${data}/orders",
+                  "enforcement": "additive"
+                }
+                """);
+
+        MetadataRepository repository = MetadataRepository.load(root);
+        assertTrue(repository.schema("retail.orders").isPresent());
+        assertEquals(Enforcement.ADDITIVE, repository.dataset("orders").orElseThrow().enforcement());
+    }
+
+    @Test
     @DisplayName("a dataset pointing at a schema nobody declared is rejected, with a suggestion")
     void rejectsUnknownSchema(@TempDir Path root) throws IOException {
         write(root, "schemas/orders.yaml", SCHEMA);

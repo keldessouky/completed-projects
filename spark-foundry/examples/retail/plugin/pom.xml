@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+    <groupId>dev.foundry</groupId>
+    <artifactId>spark-foundry</artifactId>
+    <version>0.1.0</version>
+    <relativePath>../../../pom.xml</relativePath>
+  </parent>
+
+  <groupId>com.example.retail</groupId>
+  <artifactId>retail-transforms</artifactId>
+  <name>Spark Foundry :: Example plugin</name>
+  <description>
+    What a team's own transform project looks like. It is deliberately not part
+    of the framework: a different group id, its own tests, and exactly two
+    dependencies - foundry-api for the interface and Spark for the DataFrame.
+    Nothing here can reach the planner, the loader or the runner, which is the
+    point of keeping the API in a module of its own.
+  </description>
+
+  <dependencies>
+    <dependency>
+      <groupId>dev.foundry</groupId>
+      <artifactId>foundry-api</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.spark</groupId>
+      <artifactId>spark-sql_${scala.binary.version}</artifactId>
+      <!-- Brought by the engine at run time, so not bundled here. -->
+      <scope>provided</scope>
+    </dependency>
+  </dependencies>
+</project>

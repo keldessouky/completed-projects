@@ -53,9 +53,13 @@ public final class MetadataRepository {
                                List<String> files,
                                String fingerprint) {
         this.root = root;
-        this.schemas = Map.copyOf(schemas);
-        this.datasets = Map.copyOf(datasets);
-        this.pipelines = Map.copyOf(pipelines);
+        // Insertion order, not Map.copyOf: the files are walked in path order, so
+        // keeping it makes every listing - and therefore the generated catalogue -
+        // byte-identical between runs. Map.copyOf randomises iteration per JVM,
+        // which would make a derived document differ from itself for no reason.
+        this.schemas = Collections.unmodifiableMap(new LinkedHashMap<>(schemas));
+        this.datasets = Collections.unmodifiableMap(new LinkedHashMap<>(datasets));
+        this.pipelines = Collections.unmodifiableMap(new LinkedHashMap<>(pipelines));
         this.files = List.copyOf(files);
         this.fingerprint = fingerprint;
     }
@@ -144,12 +148,23 @@ public final class MetadataRepository {
         }
     }
 
+    /** Extensions a metadata document may have. */
+    private static final List<String> EXTENSIONS = List.of(".yaml", ".yml", ".json");
+
+    /**
+     * Every metadata document under the root, in path order.
+     *
+     * <p>JSON counts because YAML 1.2 is a superset of it and the parser reads it
+     * natively, positions and all. A team that generates its metadata from
+     * somewhere else, or prefers JSON's lack of significant whitespace, loses
+     * nothing by it - the two can even sit side by side in one tree.
+     */
     private static List<Path> metadataFiles(Path root) {
         try (Stream<Path> walk = Files.walk(root)) {
             return walk.filter(Files::isRegularFile)
-                    .filter(p -> {
-                        String n = p.getFileName().toString();
-                        return n.endsWith(".yaml") || n.endsWith(".yml");
+                    .filter(path -> {
+                        String name = path.getFileName().toString();
+                        return EXTENSIONS.stream().anyMatch(name::endsWith);
                     })
                     .sorted()
                     .toList();

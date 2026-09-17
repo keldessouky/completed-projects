@@ -1,8 +1,11 @@
 # Metadata reference
 
-Everything Spark Foundry reads is YAML. A metadata root is a directory tree; the
-framework walks it, reads every `.yaml` and `.yml` file, and indexes what it
-finds by name. Layout inside the tree is yours to choose — the example uses
+Everything Spark Foundry reads is YAML or JSON. A metadata root is a directory
+tree; the framework walks it, reads every `.yaml`, `.yml` and `.json` file, and
+indexes what it finds by name. JSON counts because YAML 1.2 is a superset of it
+and the parser reads it natively, positions and all - so a team that generates
+its metadata, or simply prefers braces, loses nothing, and the two formats can
+sit side by side in one tree. Layout inside the tree is yours to choose — the example uses
 `schemas/`, `datasets/` and `pipelines/`, but nothing depends on it.
 
 Every document begins with a `kind:`. A file may hold several documents,
@@ -32,6 +35,7 @@ and column it was written on.
   - [Expectations](#expectations)
   - [Sinks and quarantine](#sinks-and-quarantine)
 - [Transform reference](#transform-reference)
+- [Writing a transform in Java](#writing-a-transform-in-java)
 - [Quality rule reference](#quality-rule-reference)
 - [Expressions and types](#expressions-and-types)
 - [Diagnostic codes](#diagnostic-codes)
@@ -422,23 +426,202 @@ outputs:
   - { name: lifetime_spend, type: "decimal(20,2)" }
 ```
 
-The escape hatch, and it still has to declare itself. The inputs are registered as
-temporary views under exactly the names given, and the declared `outputs` are
-selected from the result — so a `sql` step is under the same contract as any other
-and cannot quietly change the shape of everything downstream.
+One of the two escape hatches, and it still has to declare itself. The inputs are
+registered as temporary views under exactly the names given, and the declared
+output is selected from the result — so a `sql` step is under the same contract
+as any other and cannot quietly change the shape of everything downstream. See
+[declaring an output](#declaring-an-output) for the two ways to state it.
 
 The query text is checked without a session too: it is parsed with Spark's own
 parser, and every table it reads must be a declared input or a CTE the query
 itself defines.
 
-**One limitation, stated plainly.** This is the only transform that cannot report
-exact column lineage. Working out that `sum(l.line_total) as spend` reads
-`lines.line_total` means resolving the query against a catalog — that is,
+### `java`
+
+```yaml
+type: java
+class: com.example.retail.OrderRiskScore
+from: lines                      # or inputs: [a, b] for several
+options:
+  highValueThreshold: "${high_value_threshold}"
+  discountRatioThreshold: "0.25"
+schema: retail.orders.risk
+lineage:
+  risk_score: [line_total, discount, category]
+```
+
+Runs a transformation written in Java. See
+[writing a transform in Java](#writing-a-transform-in-java) for the interface and
+how to put a class on the path.
+
+| Key | Required | Notes |
+| --- | --- | --- |
+| `class` | yes | fully qualified; resolved while planning, not while running |
+| `from` / `inputs` | yes, one of | one input, or several addressed by name |
+| `options` | no | string key/values passed to the class; may contain `${parameters}` |
+| `schema` / `outputs` | yes, one of | what the step promises to produce |
+| `lineage` | no | what each column derives from |
+
+---
+
+## Declaring an output
+
+`sql` and `java` both do work that is opaque to static analysis - one would need
+its query resolved against a catalog, the other is compiled code - so both are
+required to state what they produce. There are two ways to say it.
+
+Naming a declared schema is the better one, and makes the result reusable:
+
+```yaml
+schema: retail.orders.risk
+```
+
+Or the columns can be listed inline, which suits a step whose result is not a
+table anyone else uses:
+
+```yaml
+outputs:
+  - { name: order_id, type: string }
+  - { name: risk_score, type: int }
+  - untyped                        # a bare name leaves the type to the run
+```
+
+A declared type is not a hint: the step casts to it, so the planner then *knows*
+the type and the runner verifies it. A column with no type is reported as
+`inferred` and Spark settles it.
+
+### `lineage`
+
+Either form may be followed by a `lineage:` block:
+
+```yaml
+lineage:
+  risk_score: [line_total, discount, category]
+  risk_band: [line_total, discount, category]
+```
+
+This exists because column lineage is the one thing that genuinely cannot be
+recovered from an opaque step. Working out that `sum(l.line_total) as spend`
+reads `lines.line_total` means resolving the query against a catalog — that is,
 re-implementing Spark's analyser, which would be a second model of the engine's
-behaviour and would drift from it. So a `sql` step attributes each output column
-to the same-named column of every input that has one, and reports nothing rather
-than guessing when a name matches none. A column with no lineage in the catalogue
-is therefore a signal: it came out of a `sql` step under a new name.
+behaviour and would drift from it. Reading it out of compiled Java is not
+possible at all.
+
+So without a `lineage:` block, a column is attributed to the same-named column of
+every input that has one, and to nothing when no name matches. A column with no
+lineage in the catalogue is therefore a signal: it came out of one of these steps
+under a new name, and only the query or the class says where from.
+
+Declaring it is how an author states what the framework cannot work out. Both
+sides are checked — a key must be a column the step produces, a value must be a
+column of one of its inputs — so the claim cannot rot into a lie. A bare name
+means that column of whichever inputs have it; `input.column` says exactly which,
+for when two inputs share a name.
+
+---
+
+## Writing a transform in Java
+
+Shaping data - projecting, joining, aggregating, deduplicating - is better
+declared, because the shape is what everything downstream depends on. Business
+rules with names and histories are better in code, where they can be read,
+argued with and tested. A `java` step is for the second kind.
+
+### The interface
+
+A project depends on `foundry-api` and on Spark, and on nothing else:
+
+```xml
+<dependency>
+  <groupId>dev.foundry</groupId>
+  <artifactId>foundry-api</artifactId>
+  <version>0.1.0</version>
+</dependency>
+```
+
+```java
+public final class OrderRiskScore implements DataTransform {
+
+    /** Checked by `foundry validate`, so a step that forgets one fails early. */
+    @Override
+    public Set<String> requiredOptions() {
+        return Set.of("highValueThreshold");
+    }
+
+    /** A short phrase for plans and the catalogue. */
+    @Override
+    public String describe() {
+        return "order risk scoring";
+    }
+
+    @Override
+    public Dataset<Row> apply(TransformInput input) {
+        BigDecimal threshold = new BigDecimal(input.option("highValueThreshold"));
+        return input.data().withColumn("risk_score", score(threshold));
+    }
+}
+```
+
+Implementations need a public no-argument constructor, and a fresh instance is
+created for each step that names one, so they need not be thread-safe or
+reusable. `apply` runs once, on the driver, and should stay cheap: build the
+`Dataset` and return it rather than collecting anything.
+
+### What the class is given
+
+`TransformInput` carries everything:
+
+| | |
+| --- | --- |
+| `data()` | the input, when there is one - the usual case |
+| `get(name)`, `inputs()`, `inputNames()` | the named inputs, for a multi-input step |
+| `option(key)`, `option(key, fallback)`, `longOption`, `doubleOption`, `booleanOption` | the step's `options:`, with `${parameters}` already substituted |
+| `param(name)`, `intParam`, `longParam`, `decimalParam`, `booleanParam`, `dateParam`, `timestampParam` | the pipeline's parameters, already checked against their declared types |
+| `spark()` | the session, for a transform that reads something of its own |
+| `stepId()` | the id of the step this is running as |
+
+It can be built directly, which is the point - the tests need a DataFrame and a
+few options, not a running framework:
+
+```java
+Dataset<Row> result = new OrderRiskScore().apply(
+        TransformInput.of(orders).withOption("highValueThreshold", "100.00"));
+```
+
+### The contract stays in the metadata
+
+A custom transform does **not** declare its own output schema in code. The step
+declares it (see [declaring an output](#declaring-an-output)) and the runner
+checks what the class actually returned against that declaration, exactly as it
+does for every built-in transform. A column the class returns that nobody
+declared is projected away rather than written; a declared column the class did
+not produce fails the run, naming the step and the class.
+
+That split is deliberate. The framework cannot read Java to work out what a class
+will produce, so if the class were the only statement of its own output then at
+that step the sink's contract check, the static column checking of everything
+downstream, and the column lineage would all stop working. Declaring the shape
+keeps them working, keeps the data reviewable without opening the
+implementation, and turns "this class quietly started returning a different
+column" from a silent corruption into a failed run.
+
+### Putting the class on the path
+
+```bash
+foundry validate --metadata metadata --plugins build/libs/my-transforms.jar
+foundry run      --metadata metadata --pipeline order_risk \
+                 --data ./warehouse --plugins build/libs/my-transforms.jar
+```
+
+`--plugins` takes a jar, a directory of jars, or a directory of compiled classes,
+and is repeatable. Every command accepts it, not only `run`: a `java` step's
+class is resolved while planning, which is what lets `foundry validate` catch a
+renamed class instead of a nightly load doing it.
+
+On a cluster the jars are also passed to Spark as `spark.jars`, because the
+executors are in a different JVM from the driver and a transform that exists only
+on the driver is no use. Directories of loose classes cannot be shipped that way,
+so they are for local development.
 
 ---
 
@@ -550,6 +733,12 @@ asserted on in tests.
 | `contract-type-mismatch` | a sink's type disagrees with the contract |
 | `contract-extra-column` | a strict sink fed an undeclared column |
 | `quarantine-schema` | the quarantine dataset's schema cannot hold rejected rows |
+| `unknown-transform-class` | a `java` step names a class that is not on the path |
+| `not-a-transform` | the class does not implement `DataTransform` |
+| `transform-not-instantiable` | the class is abstract, needs constructor arguments, or its constructor threw |
+| `missing-option` | the class needs an option the step does not set |
+| `conflicting-inputs` | a `java` step uses both `from:` and `inputs:` |
+| `conflicting-outputs` | a step uses both `schema:` and `outputs:` |
 
 ### Transform and rule configuration
 

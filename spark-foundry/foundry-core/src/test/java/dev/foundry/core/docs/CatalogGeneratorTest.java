@@ -1,5 +1,6 @@
 package dev.foundry.core.docs;
 
+import dev.foundry.core.Examples;
 import dev.foundry.core.plan.PipelinePlan;
 import dev.foundry.core.plan.Planner;
 import dev.foundry.metadata.MetadataRepository;
@@ -10,11 +11,10 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -30,9 +30,10 @@ class CatalogGeneratorTest {
 
     @BeforeAll
     void generate() {
-        Path metadata = examples().resolve("metadata");
-        MetadataRepository repository = MetadataRepository.load(metadata);
-        Planner planner = Planner.standard();
+        MetadataRepository repository = MetadataRepository.load(Examples.metadata());
+        // The example includes a pipeline that names a custom transform, so the
+        // planner needs to be able to see the plugin's classes.
+        Planner planner = Planner.standard(Examples.pluginLoader());
 
         List<PipelinePlan> plans = new ArrayList<>();
         for (PipelineSpec pipeline : repository.pipelines()) {
@@ -40,11 +41,6 @@ class CatalogGeneratorTest {
         }
         catalogue = new CatalogGenerator(repository, plans, planner.transforms(), planner.rules())
                 .generate();
-    }
-
-    private static Path examples() {
-        Path fromModule = Path.of("..", "examples", "retail");
-        return Files.isDirectory(fromModule) ? fromModule : Path.of("examples", "retail");
     }
 
     @Test
@@ -105,6 +101,19 @@ class CatalogGeneratorTest {
     }
 
     @Test
+    @DisplayName("a custom Java step is documented like any other")
+    void documentsCustomSteps() {
+        assertTrue(catalogue.contains("### Pipeline: order_risk"));
+        assertTrue(catalogue.contains("| `scored` | `java` |"));
+        assertTrue(catalogue.contains("`com.example.retail.OrderRiskScore`"),
+                "the catalogue names the class, so a reader need not open the pipeline file");
+        assertTrue(catalogue.contains("`array<string>`"),
+                "a complex declared type reaches the page");
+        assertTrue(catalogue.contains("`lines.line_total`"),
+                "the lineage the step declared reaches the page, since nothing could infer it");
+    }
+
+    @Test
     @DisplayName("the reference sections list every transform and rule that exists")
     void documentsTheReference() {
         for (String type : Planner.standard().transforms().types()) {
@@ -113,6 +122,45 @@ class CatalogGeneratorTest {
         for (String rule : Planner.standard().rules().names()) {
             assertTrue(catalogue.contains("| `" + rule + "` |"), "missing rule: " + rule);
         }
+    }
+
+    @Test
+    @DisplayName("generating twice gives byte-identical output")
+    void isReproducible() {
+        // A derived document that differs from itself between runs cannot be
+        // committed and diffed, which is most of the reason for generating it.
+        // Listings therefore keep the metadata's file order rather than a hash
+        // map's, which the JVM randomises per process.
+        MetadataRepository repository = MetadataRepository.load(Examples.metadata());
+        Planner planner = Planner.standard(Examples.pluginLoader());
+
+        String first = generate(repository, planner);
+        String second = generate(repository, planner);
+        assertEquals(first, second);
+
+        // And again from a freshly loaded repository, which is what a build does.
+        MetadataRepository reloaded = MetadataRepository.load(Examples.metadata());
+        assertEquals(first, generate(reloaded, Planner.standard(Examples.pluginLoader())));
+    }
+
+    private static String generate(MetadataRepository repository, Planner planner) {
+        List<PipelinePlan> plans = new ArrayList<>();
+        for (PipelineSpec pipeline : repository.pipelines()) {
+            plans.add(planner.plan(repository, pipeline));
+        }
+        return new CatalogGenerator(repository, plans, planner.transforms(), planner.rules())
+                .generate();
+    }
+
+    @Test
+    @DisplayName("the pipelines are listed in the order their files were read")
+    void listsPipelinesInFileOrder() {
+        // examples/retail/metadata/pipelines: customer_profile, order_risk, orders_daily
+        int profile = catalogue.indexOf("### Pipeline: customer_profile");
+        int risk = catalogue.indexOf("### Pipeline: order_risk");
+        int daily = catalogue.indexOf("### Pipeline: orders_daily");
+        assertTrue(profile < risk && risk < daily,
+                "sections should follow path order, which is what makes the page stable");
     }
 
     @Test

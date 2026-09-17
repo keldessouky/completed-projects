@@ -7,6 +7,7 @@ import dev.foundry.core.transform.builtin.DeriveTransform;
 import dev.foundry.core.transform.builtin.DistinctTransform;
 import dev.foundry.core.transform.builtin.DropTransform;
 import dev.foundry.core.transform.builtin.FilterTransform;
+import dev.foundry.core.transform.builtin.JavaTransform;
 import dev.foundry.core.transform.builtin.JoinTransform;
 import dev.foundry.core.transform.builtin.RenameTransform;
 import dev.foundry.core.transform.builtin.SelectTransform;
@@ -42,6 +43,14 @@ public final class TransformRegistry {
 
     /** The transforms that ship with the framework. */
     public static TransformRegistry builtIn() {
+        return builtIn(TransformRegistry.class.getClassLoader());
+    }
+
+    /**
+     * The built-in transforms, with {@code java} steps resolved against
+     * {@code loader} so a project's own classes can be named from metadata.
+     */
+    public static TransformRegistry builtIn(ClassLoader loader) {
         TransformRegistry registry = new TransformRegistry();
         List<Transform> builtIn = List.of(
                 new SelectTransform(),
@@ -56,7 +65,8 @@ public final class TransformRegistry {
                 new DistinctTransform(),
                 new DeduplicateTransform(),
                 new WindowTransform(),
-                new SqlTransform());
+                new SqlTransform(),
+                new JavaTransform(loader));
         builtIn.forEach(registry::register);
         return registry;
     }

@@ -16,6 +16,10 @@
   <dependencies>
     <dependency>
       <groupId>dev.foundry</groupId>
+      <artifactId>foundry-api</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>dev.foundry</groupId>
       <artifactId>foundry-metadata</artifactId>
     </dependency>
     <dependency>

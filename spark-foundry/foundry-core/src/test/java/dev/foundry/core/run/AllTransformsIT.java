@@ -214,10 +214,24 @@ class AllTransformsIT {
                   - { name: total, expr: "sum(amount)", type: "decimal(20,4)" }
                   - { name: events, expr: "count(1)", type: bigint }
 
+              - id: labelled
+                type: java
+                class: dev.foundry.core.fixtures.AddLabel
+                from: agg
+                options:
+                  label: "checked"
+                outputs:
+                  - { name: region, type: string }
+                  - { name: total, type: "decimal(20,4)" }
+                  - { name: events, type: bigint }
+                  - { name: label, type: string }
+                lineage:
+                  label: [region]
+
               - id: output
                 type: sql
-                inputs: [agg]
-                query: "select region, total, events from agg where events > 0"
+                inputs: [labelled]
+                query: "select region, total, events from labelled where events > 0"
                 outputs:
                   - { name: region, type: string }
                   - { name: total, type: "decimal(20,4)" }
@@ -345,6 +359,23 @@ class AllTransformsIT {
         assertEquals(3L, rows.get("unioned"), "two clicks... one click and two buys");
         assertEquals(3L, rows.get("everyone"), "a full join keeps carol, who never bought anything");
         assertEquals(2L, rows.get("agg"), "emea and apac");
+        assertEquals(2L, rows.get("labelled"), "the custom transform changes columns, not rows");
+    }
+
+    @Test
+    @DisplayName("a custom Java transform sits in the graph like any other step")
+    void customTransformParticipates() {
+        StepPlan labelled = plan.steps().stream()
+                .filter(step -> step.id().equals("labelled")).findFirst().orElseThrow();
+        assertEquals("java", labelled.type());
+        assertEquals(List.of("agg"), labelled.inputs());
+        assertEquals(List.of("region", "total", "events", "label"), labelled.output().nameList());
+
+        // The declared contract is what lets the sql step downstream be checked
+        // at all: without it, nothing could know 'region' would be there.
+        assertEquals(java.util.Set.of("events.actor"),
+                plan.lineage().sourcesOf("labelled", "label"),
+                "the declared lineage was followed back through the graph");
     }
 
     @Test

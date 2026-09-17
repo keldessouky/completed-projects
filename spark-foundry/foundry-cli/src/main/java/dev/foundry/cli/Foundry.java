@@ -5,6 +5,7 @@ import dev.foundry.core.expect.ExpectationFailure;
 import dev.foundry.core.io.ContractViolation;
 import dev.foundry.core.plan.PipelinePlan;
 import dev.foundry.core.plan.Planner;
+import dev.foundry.core.plugin.PluginLoader;
 import dev.foundry.core.run.PipelineRunner;
 import dev.foundry.core.run.PlanViolation;
 import dev.foundry.core.run.RunManifest;
@@ -44,8 +45,10 @@ public final class Foundry {
               foundry docs     --metadata <dir> [--out <file>]
 
             Options:
-              --metadata <dir>     directory of schema, dataset and pipeline YAML
+              --metadata <dir>     directory of schema, dataset and pipeline YAML (or JSON)
               --pipeline <name>    which pipeline to act on (default: all, where that makes sense)
+              --plugins <path>     a jar, or a directory of jars or classes, holding your own
+                                   DataTransform implementations; repeat for more than one
               --data <dir>         the warehouse root, substituted for ${data} in locations
               --param name=value   a pipeline parameter; repeat for more than one
               --manifests <dir>    where to write run manifests (default: <data>/_foundry/runs)
@@ -113,12 +116,12 @@ public final class Foundry {
     // --------------------------------------------------------------- validate
 
     private int validate(Args args) {
-        args.rejectUnknown(Set.of("metadata", "pipeline"));
+        args.rejectUnknown(Set.of("metadata", "pipeline", "plugins"));
         Path root = args.requirePath("metadata", "the directory holding your YAML");
 
         Diagnostics diagnostics = new Diagnostics();
         MetadataRepository repository = MetadataRepository.load(root, diagnostics);
-        Planner planner = Planner.standard();
+        Planner planner = planner(args);
         for (PipelineSpec pipeline : selected(repository, args)) {
             planner.plan(repository, pipeline, diagnostics);
         }
@@ -152,10 +155,10 @@ public final class Foundry {
     // ------------------------------------------------------------------- plan
 
     private int plan(Args args) {
-        args.rejectUnknown(Set.of("metadata", "pipeline"));
+        args.rejectUnknown(Set.of("metadata", "pipeline", "plugins"));
         Path root = args.requirePath("metadata", "the directory holding your YAML");
         MetadataRepository repository = MetadataRepository.load(root);
-        Planner planner = Planner.standard();
+        Planner planner = planner(args);
 
         Diagnostics diagnostics = new Diagnostics();
         for (PipelineSpec pipeline : selected(repository, args)) {
@@ -174,14 +177,14 @@ public final class Foundry {
 
     private int execute(Args args) {
         args.rejectUnknown(Set.of("metadata", "pipeline", "data", "param", "manifests",
-                "no-row-counts", "master", "quiet"));
+                "no-row-counts", "master", "quiet", "plugins"));
         Path root = args.requirePath("metadata", "the directory holding your YAML");
         Path data = args.requirePath("data", "the warehouse root");
         String name = args.require("pipeline", "which pipeline to run");
 
         MetadataRepository repository = MetadataRepository.load(root);
         PipelineSpec spec = repository.requirePipeline(name);
-        PipelinePlan plan = Planner.standard().plan(repository, spec);
+        PipelinePlan plan = planner(args).plan(repository, spec);
 
         RunOptions options = RunOptions.of(data)
                 .withParams(args.params("param"))
@@ -203,25 +206,49 @@ public final class Foundry {
         }
     }
 
+    /**
+     * A planner that can see the project's own transform classes.
+     *
+     * <p>Built for every command, not only {@code run}: a {@code java} step's
+     * class is resolved while planning, which is what lets {@code foundry
+     * validate} catch a renamed class instead of a nightly load doing it.
+     */
+    private Planner planner(Args args) {
+        return Planner.standard(PluginLoader.forPaths(pluginPaths(args), getClass().getClassLoader()));
+    }
+
+    private List<Path> pluginPaths(Args args) {
+        return args.all("plugins").stream().map(Path::of).toList();
+    }
+
     private SparkSession session(Args args, String appName) {
-        return SparkSession.builder()
+        SparkSession.Builder builder = SparkSession.builder()
                 .appName(appName)
                 .master(args.get("master").orElse("local[*]"))
                 .config("spark.ui.enabled", "false")
                 .config("spark.sql.shuffle.partitions", "8")
                 // Predictable output: one file per partition rather than a
                 // directory whose shape depends on the cluster it ran on.
-                .config("spark.sql.sources.partitionOverwriteMode", "dynamic")
-                .getOrCreate();
+                .config("spark.sql.sources.partitionOverwriteMode", "dynamic");
+
+        // In local mode the driver's class loader is enough, because the
+        // executors share its JVM. On a cluster they do not, so the plugin jars
+        // have to be shipped as well or the transform exists only on the driver.
+        List<Path> jars = PluginLoader.shippableJars(pluginPaths(args));
+        if (!jars.isEmpty()) {
+            builder = builder.config("spark.jars",
+                    String.join(",", jars.stream().map(path -> path.toAbsolutePath().toString()).toList()));
+        }
+        return builder.getOrCreate();
     }
 
     // ------------------------------------------------------------------- docs
 
     private int docs(Args args) {
-        args.rejectUnknown(Set.of("metadata", "out"));
+        args.rejectUnknown(Set.of("metadata", "out", "plugins"));
         Path root = args.requirePath("metadata", "the directory holding your YAML");
         MetadataRepository repository = MetadataRepository.load(root);
-        Planner planner = Planner.standard();
+        Planner planner = planner(args);
 
         List<PipelinePlan> plans = new ArrayList<>();
         for (PipelineSpec pipeline : repository.pipelines()) {

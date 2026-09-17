@@ -84,6 +84,23 @@ public final class Contracts {
      * @return one message per breach, empty when the data honours the contract
      */
     public static List<String> check(StructType actual, StructType expected, Enforcement enforcement) {
+        return check(actual, expected, enforcement, true);
+    }
+
+    /**
+     * As {@link #check}, but able to compare column names only.
+     *
+     * <p>Some formats do not carry types. A CSV file is a grid of text: every
+     * column in it is a string, and the types come from the contract, which the
+     * reader supplies and which a failed parse then enforces. Comparing a
+     * contract's {@code decimal(12,2)} against the string the file "has" would
+     * reject every typed CSV dataset for a disagreement that is not real.
+     *
+     * @param compareTypes false when the source's types are an artefact of the
+     *                     format rather than a fact about the data
+     */
+    public static List<String> check(StructType actual, StructType expected,
+                                     Enforcement enforcement, boolean compareTypes) {
         List<String> problems = new ArrayList<>();
         if (enforcement == Enforcement.NONE) {
             return problems;
@@ -94,6 +111,9 @@ public final class Contracts {
             if (!actualNames.contains(field.name())) {
                 problems.add("column '" + field.name() + "' is declared but the data does not have it"
                         + nearestInData(field.name(), actualNames));
+                continue;
+            }
+            if (!compareTypes) {
                 continue;
             }
             DataType actualType = actual.apply(field.name()).dataType();

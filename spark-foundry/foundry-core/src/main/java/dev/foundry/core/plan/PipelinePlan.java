@@ -100,7 +100,7 @@ public final class PipelinePlan {
 
     /** Every named result - sources and steps alike - and the columns it carries. */
     public Map<String, FieldSet> byName() {
-        return Map.copyOf(byName);
+        return java.util.Collections.unmodifiableMap(byName);
     }
 
     public Optional<FieldSet> fieldsOf(String node) {
@@ -142,6 +142,8 @@ public final class PipelinePlan {
         sb.append(System.lineSeparator()).append("  steps").append(System.lineSeparator());
         for (StepPlan step : steps) {
             sb.append("    ").append(step.id()).append(": ").append(step.type());
+            step.transform().describeStep(step.spec())
+                    .ifPresent(detail -> sb.append(" (").append(detail).append(')'));
             if (!step.inputs().isEmpty()) {
                 sb.append(" <- ").append(String.join(", ", step.inputs()));
             }

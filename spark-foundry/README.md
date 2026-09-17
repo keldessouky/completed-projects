@@ -97,6 +97,85 @@ location and a format; a pipeline reads datasets, transforms them and writes the
 back. Nothing describes a column type inline, so there is exactly one place to
 change when an upstream system changes.
 
+## Writing a transform in Java
+
+Shaping data — projecting, joining, aggregating, deduplicating — is better
+declared, because the shape is what everything downstream depends on. Business
+rules with names and histories are better in code, where they can be read,
+argued with and tested. So a step can name a class instead:
+
+```java
+public final class OrderRiskScore implements DataTransform {
+
+    @Override
+    public Set<String> requiredOptions() {
+        return Set.of("highValueThreshold");     // checked by `foundry validate`
+    }
+
+    @Override
+    public Dataset<Row> apply(TransformInput input) {
+        BigDecimal threshold = new BigDecimal(input.option("highValueThreshold"));
+        return input.data().withColumn("risk_score", score(threshold));
+    }
+}
+```
+
+```yaml
+- id: scored
+  type: java
+  class: com.example.retail.OrderRiskScore
+  from: lines
+  options:
+    highValueThreshold: "${high_value_threshold}"
+  schema: retail.orders.risk        # what this step promises to produce
+  lineage:
+    risk_score: [line_total, discount, category]
+```
+
+```bash
+./foundry run --metadata metadata --pipeline order_risk \
+  --data ./warehouse --plugins build/libs/my-transforms.jar
+```
+
+The project implements one interface and depends on
+[`foundry-api`](foundry-api) and Spark — not on the planner, the loader or the
+runner. Its tests need a DataFrame and a few options, not a running framework:
+
+```java
+Dataset<Row> result = new OrderRiskScore().apply(
+        TransformInput.of(orders).withOption("highValueThreshold", "100.00"));
+```
+
+### The contract stays in the metadata
+
+A custom transform does **not** declare its own output schema in code. The step
+declares it — by naming a schema, or listing the columns inline — and the runner
+checks what the class actually returned against that declaration, exactly as it
+does for every built-in transform.
+
+That split is the whole design. The framework cannot read Java to work out what
+a class will produce, so if the class were the only statement of its own output,
+then at that step the sink's contract check, the static column checking of
+everything downstream, and the column lineage would all stop working. Declaring
+the shape keeps them working, keeps the data reviewable without opening the
+implementation, and turns "this class quietly started returning a different
+column" from a silent corruption into a failed run that names the step.
+
+What the class gets told stays in the metadata too: `options:` configure it per
+step (and may carry `${parameters}`, so one class can score strictly in one
+environment and leniently in another without a recompile), and pipeline
+parameters arrive typed. `requiredOptions()` is checked while validating, so a
+step that forgot one fails in a pre-commit hook.
+
+`lineage:` is there because column lineage is the one thing that genuinely cannot
+be recovered from an opaque step. It is optional — without it a column is
+attributed to the same-named column of every input that has one, and to nothing
+when no name matches, which is the honest answer. Both sides of a declared entry
+are checked against the pipeline, so the claim cannot rot into a lie.
+
+The class is resolved *while planning*, so a rename or a missing jar is caught by
+`foundry validate` rather than by a nightly load.
+
 ## Try it
 
 Requires Java 21 and Maven. Everything else is fetched by the build.
@@ -105,9 +184,10 @@ Requires Java 21 and Maven. Everything else is fetched by the build.
 cd spark-foundry
 mvn -q -DskipTests package
 
-./foundry validate --metadata examples/retail/metadata
+./foundry validate --metadata examples/retail/metadata \
+  --plugins examples/retail/plugin/target/retail-transforms-0.1.0.jar
 ./foundry plan     --metadata examples/retail/metadata --pipeline orders_daily
-./examples/retail/run-demo.sh          # runs both example pipelines into a temp warehouse
+./examples/retail/run-demo.sh          # runs all three example pipelines into a temp warehouse
 ```
 
 `run-demo.sh` loads the committed seed data and prints:
@@ -141,7 +221,13 @@ worked out by hand from the CSVs before the pipeline was written.
 | `foundry run` | Executes a pipeline and writes a run manifest | yes |
 
 Three of the four never start Spark, which is the point: `foundry validate` is
-meant to live in a pre-commit hook.
+meant to live in a pre-commit hook. All four take `--plugins <jar-or-directory>`
+to put a project's own transform classes on the path, because a `java` step's
+class is resolved while planning, not while running.
+
+Metadata may be written as YAML or as JSON — YAML 1.2 is a superset of JSON and
+the parser reads it natively, positions and diagnostics intact, so the two can
+sit side by side in one tree.
 
 ## What it gives you
 
@@ -151,10 +237,11 @@ of inferring them, and matches CSV columns *by header rather than by position*,
 because Spark's default is to match positionally and silently rename, which turns
 a producer reordering two string columns into swapped data.
 
-**Thirteen transforms**, each of which plans and executes in one class:
+**Fourteen transforms**, each of which plans and executes in one class:
 `select`, `derive`, `filter`, `rename`, `drop`, `cast`, `join`, `union`,
-`aggregate`, `distinct`, `deduplicate`, `window`, `sql`. Adding one is a single
-class and a single registry line — the loader never knew what a transform was.
+`aggregate`, `distinct`, `deduplicate`, `window`, `sql`, and `java` for a
+transformation of your own. Adding one to the framework is a single class and a
+single registry line — the loader never knew what a transform was.
 
 **Eight quality rules** — `not_null`, `unique`, `accepted_values`, `range`,
 `regex`, `expression`, `row_count`, `referential` — each of which can `warn`,
@@ -186,6 +273,9 @@ sensible one — a suggestion. A sample of what is caught before Spark starts:
 | `ambiguous-column` | a name on both sides of a join, caught at the join |
 | `cycle` | steps depending on each other, with the loop printed in order |
 | `unknown-relation` | a `sql` step reading a table nobody wired up |
+| `unknown-transform-class` | a `java` step naming a class that is not on the path |
+| `not-a-transform` | a class that does not implement `DataTransform` |
+| `missing-option` | a class needs an option the step does not set |
 | `cannot-quarantine` | a whole-dataset rule asked to set rows aside |
 | `invalid-parameter` | `--param run_date=2026-02-31`, rejected at the command line |
 
@@ -195,14 +285,21 @@ report has one entry per mistake rather than one per consequence.
 ## Layout
 
 ```
-foundry-metadata/   the model, the YAML loader and the diagnostics. No Spark
-                    dependency at all: metadata parses and cross-checks with no
-                    engine on the classpath
+foundry-api/        the extension point, and nothing else: DataTransform and
+                    TransformInput. A project writing a custom transform depends
+                    on this and on Spark. Keeping it in its own module is what
+                    makes that promise checkable rather than a convention
+foundry-metadata/   the model, the YAML and JSON loader, and the diagnostics. No
+                    Spark dependency at all: metadata parses and cross-checks with
+                    no engine on the classpath
 foundry-core/       schema compilation, static expression analysis, the transform
-                    and rule libraries, the planner, the runner, the catalogue
+                    and rule libraries, plugin loading, the planner, the runner,
+                    the catalogue
 foundry-cli/        the foundry command
-examples/retail/    a two-pipeline warehouse with committed, deliberately
+examples/retail/    a three-pipeline warehouse with committed, deliberately
                     imperfect seed data
+  plugin/           what a team's own transform project looks like: a different
+                    group id, its own tests, two dependencies
 docs/               the metadata reference, and the generated catalogue
 ```
 
@@ -211,15 +308,22 @@ docs/               the metadata reference, and the generated catalogue
 Java 21, Apache Spark 4.0 (Scala 2.13), Maven. SnakeYAML is the only third-party
 dependency outside Spark and JUnit.
 
-159 tests, run by `mvn test` in about 40 seconds:
+217 tests, run by `mvn test` in about 75 seconds:
 
 - the loader, the diagnostics and the suggestion engine
 - one test per class of authoring mistake, asserting the code *and* the hint
 - every transform's planned output shape, worked out without Spark
 - [`AllTransformsIT`](foundry-core/src/test/java/dev/foundry/core/run/AllTransformsIT.java) —
-  all thirteen transforms and all eight rules in one pipeline, run for real, with
+  all fourteen transforms and all eight rules in one pipeline, run for real, with
   the planned schema checked against the produced schema for every step. It fails
   if a transform or a rule is ever added without being covered here.
+- [`CustomTransformIT`](foundry-core/src/test/java/dev/foundry/core/run/CustomTransformIT.java) —
+  custom transforms running, including classes that drop a declared column, return
+  an undeclared one, or return null.
+- [`PluginLoadingIT`](foundry-cli/src/test/java/dev/foundry/cli/PluginLoadingIT.java) —
+  the example plugin loaded from disk through `--plugins`. It is deliberately not
+  on that module's classpath, and CI asserts that validation *fails* without it,
+  so the plugin path cannot quietly stop being tested.
 - [`PlanViolationIT`](foundry-core/src/test/java/dev/foundry/core/run/PlanViolationIT.java) —
   transforms whose `plan()` deliberately lies about what `execute()` does, proving
   the runner catches each kind of disagreement and writes nothing. Without it the
@@ -227,7 +331,9 @@ dependency outside Spark and JUnit.
   agree with their plans.
 - [`ContractEnforcementIT`](foundry-core/src/test/java/dev/foundry/core/run/ContractEnforcementIT.java) —
   including the reordered-CSV case that plain Spark reads wrong.
-- the two example pipelines end to end, asserted row by row and figure by figure.
+- the example plugin's own unit tests, which need a DataFrame and some options
+  and nothing else — the point of keeping the API small.
+- the three example pipelines end to end, asserted row by row and figure by figure.
 
 ## Further reading
 
