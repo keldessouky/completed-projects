@@ -1,0 +1,33 @@
+kind: dataset
+name: landing_orders
+schema: retail.orders.landing
+format: csv
+location: "${data}/landing/orders"
+description: >-
+  The storefront's nightly order export. Enforcement is additive because the
+  storefront team adds columns without telling anyone - the ones this warehouse
+  depends on must be there and be right, and anything else is allowed through
+  and ignored.
+enforcement: additive
+options:
+  header: "true"
+---
+kind: dataset
+name: landing_customers
+schema: retail.customers.landing
+format: csv
+location: "${data}/landing/customers"
+description: The customer master export.
+enforcement: additive
+options:
+  header: "true"
+---
+kind: dataset
+name: landing_products
+schema: retail.products.landing
+format: csv
+location: "${data}/landing/products"
+description: The product catalogue export.
+enforcement: additive
+options:
+  header: "true"

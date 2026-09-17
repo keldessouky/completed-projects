@@ -1,0 +1,42 @@
+kind: dataset
+name: curated_order_lines
+schema: retail.orders.curated
+format: parquet
+location: "${data}/curated/order_lines"
+description: >-
+  The warehouse's order line table. Strict enforcement: this table is owned by
+  this warehouse, so a column appearing in it that nobody declared is a mistake,
+  not a feature.
+enforcement: strict
+writeMode: overwrite
+---
+kind: dataset
+name: daily_revenue
+schema: retail.revenue.daily
+format: parquet
+location: "${data}/marts/daily_revenue"
+description: Revenue by day, region and category, partitioned for the reporting layer.
+enforcement: strict
+writeMode: overwrite
+partitionBy: [order_date]
+---
+kind: dataset
+name: customer_summary
+schema: retail.customers.summary
+format: parquet
+location: "${data}/marts/customer_summary"
+description: One row per trading customer.
+enforcement: strict
+writeMode: overwrite
+---
+kind: dataset
+name: rejected_rows
+schema: retail.quarantine
+format: parquet
+location: "${data}/quarantine/rows"
+description: >-
+  Every row any pipeline turned away, with the rule that turned it away. Appended
+  to rather than overwritten, because the history of what was rejected is as much
+  a part of the record as the data that got through.
+enforcement: strict
+writeMode: append

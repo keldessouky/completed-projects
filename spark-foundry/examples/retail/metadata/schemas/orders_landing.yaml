@@ -1,0 +1,42 @@
+kind: schema
+name: retail.orders.landing
+version: 1
+description: >-
+  Order lines exactly as the storefront exports them. Every column is a string,
+  because that is what a CSV actually contains - typing happens in the pipeline,
+  where it is reviewable, rather than by inference at read time.
+fields:
+  - name: order_id
+    type: string
+    description: Storefront order identifier. Repeated across the lines of one order.
+    tags: [key]
+  - name: customer_id
+    type: string
+    description: Identifier of the customer who placed the order.
+    tags: [foreign-key]
+  - name: sku
+    type: string
+    description: Product code, as typed by the storefront and not always upper case.
+  - name: quantity
+    type: string
+    description: Units ordered on this line.
+  - name: unit_price
+    type: string
+    description: Price per unit at the time of ordering, in the order's currency.
+  - name: discount
+    type: string
+    description: Absolute discount applied to this line. Blank means none.
+  - name: ordered_at
+    type: string
+    description: When the order was placed, ISO-8601.
+  - name: status
+    type: string
+    description: Order status, in whatever case the storefront felt like.
+  - name: channel
+    type: string
+    description: Where the order came from - web, mobile or store.
+  - name: received_at
+    type: string
+    description: >-
+      When this version of the line reached the landing zone. The storefront
+      re-delivers corrected lines, so this is what decides which one wins.

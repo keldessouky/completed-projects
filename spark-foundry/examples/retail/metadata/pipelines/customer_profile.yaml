@@ -1,0 +1,131 @@
+kind: pipeline
+name: customer_profile
+description: >-
+  Builds the customer summary mart from the order line table that orders_daily
+  produces. A second pipeline reading the first one's output is the ordinary
+  case, and the only thing binding them together is the name of a dataset - each
+  can be planned, checked and reasoned about on its own.
+
+params:
+  - name: min_orders
+    type: int
+    default: "1"
+    description: Customers with fewer orders than this are left out of the mart.
+
+sources:
+  - alias: lines
+    dataset: curated_order_lines
+  - alias: customers
+    dataset: landing_customers
+
+steps:
+  - id: typed_customers
+    type: select
+    from: customers
+    description: The customer attributes the mart shows, typed.
+    columns:
+      - customer_id
+      - full_name
+      - region
+      - segment
+
+  - id: ranked_lines
+    type: window
+    from: lines
+    description: >-
+      Rank each customer's lines by recency so the most recent one can be picked
+      out below. The window is declared once, at the step, and applies to every
+      column it produces.
+    partitionBy: [customer_id]
+    orderBy:
+      - ordered_at desc
+      - order_id desc
+      - line_sku desc
+    columns:
+      - name: recency_rank
+        expr: "row_number()"
+        type: int
+        description: 1 for the customer's most recent line.
+
+  - id: most_recent_line
+    type: filter
+    from: ranked_lines
+    condition: "recency_rank = 1"
+
+  - id: last_touch
+    type: select
+    from: most_recent_line
+    description: Just the part of the most recent line the mart shows.
+    columns:
+      - customer_id
+      - { name: last_category, expr: "category" }
+
+  - id: totals
+    type: aggregate
+    from: lines
+    description: Each customer's trading history, in one pass.
+    groupBy: [customer_id]
+    measures:
+      - { name: order_count, expr: "count(distinct order_id)", type: bigint }
+      - { name: lifetime_spend, expr: "sum(line_total)", type: "decimal(20,2)" }
+      - { name: first_order_at, expr: "min(ordered_at)", type: timestamp }
+      - { name: last_order_at, expr: "max(ordered_at)", type: timestamp }
+
+  - id: profile
+    type: sql
+    description: >-
+      The escape hatch, and still under contract. The query names its inputs,
+      which are registered as views under exactly those names, and it declares
+      the columns it produces - so the runner checks its result like any other
+      step's, and nothing downstream can be surprised by it.
+    inputs: [totals, typed_customers, last_touch]
+    query: >-
+      select
+        t.customer_id,
+        c.full_name,
+        c.region,
+        c.segment,
+        t.order_count,
+        t.lifetime_spend,
+        t.first_order_at,
+        t.last_order_at,
+        l.last_category
+      from totals t
+      join typed_customers c on c.customer_id = t.customer_id
+      left join last_touch l on l.customer_id = t.customer_id
+      where t.order_count >= ${min_orders}
+    outputs:
+      - { name: customer_id, type: string }
+      - { name: full_name, type: string }
+      - { name: region, type: string }
+      - { name: segment, type: string }
+      - { name: order_count, type: bigint }
+      - { name: lifetime_spend, type: "decimal(20,2)" }
+      - { name: first_order_at, type: timestamp }
+      - { name: last_order_at, type: timestamp }
+      - { name: last_category, type: string }
+
+expectations:
+  - name: one_row_per_customer
+    on: profile
+    rule: unique
+    columns: [customer_id]
+    action: fail
+
+  - name: spend_is_not_negative
+    on: profile
+    rule: range
+    column: lifetime_spend
+    min: "0"
+    action: fail
+
+  - name: every_customer_is_in_the_master
+    on: profile
+    rule: referential
+    columns: [customer_id]
+    references: customers
+    action: fail
+
+sinks:
+  - from: profile
+    dataset: customer_summary

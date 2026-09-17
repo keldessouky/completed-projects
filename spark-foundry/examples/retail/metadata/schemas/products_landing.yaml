@@ -1,0 +1,18 @@
+kind: schema
+name: retail.products.landing
+version: 1
+description: The product catalogue export, untyped as delivered.
+fields:
+  - name: sku
+    type: string
+    description: Product code.
+    tags: [key]
+  - name: product_name
+    type: string
+    description: Display name of the product.
+  - name: category
+    type: string
+    description: Merchandising category.
+  - name: list_price
+    type: string
+    description: Catalogue price, before any order-level discount.

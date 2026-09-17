@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+#
+# The foundry command.
+#
+# Builds the project if it has not been built, then runs the CLI with the JVM
+# flags Spark needs on Java 17 and later. Set FOUNDRY_SKIP_BUILD=1 once you have
+# a build and want the fast path.
+#
+set -euo pipefail
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+jar_classes="$here/foundry-cli/target/classes"
+classpath_file="$here/foundry-cli/target/runtime-classpath.txt"
+
+if [[ "${FOUNDRY_SKIP_BUILD:-0}" != "1" && ( ! -d "$jar_classes" || ! -f "$classpath_file" ) ]]; then
+  echo "foundry: building..." >&2
+  (cd "$here" && mvn -B -q -DskipTests package)
+fi
+
+if [[ ! -f "$classpath_file" ]]; then
+  echo "foundry: no build found; run 'mvn -DskipTests package' in $here" >&2
+  exit 1
+fi
+
+# Spark reaches into JDK internals that are closed by default from Java 17 on.
+# The same list lives in the parent pom, for the test JVM.
+add_opens=(
+  --add-opens=java.base/java.lang=ALL-UNNAMED
+  --add-opens=java.base/java.lang.invoke=ALL-UNNAMED
+  --add-opens=java.base/java.lang.reflect=ALL-UNNAMED
+  --add-opens=java.base/java.io=ALL-UNNAMED
+  --add-opens=java.base/java.net=ALL-UNNAMED
+  --add-opens=java.base/java.nio=ALL-UNNAMED
+  --add-opens=java.base/java.util=ALL-UNNAMED
+  --add-opens=java.base/java.util.concurrent=ALL-UNNAMED
+  --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED
+  --add-opens=java.base/sun.nio.ch=ALL-UNNAMED
+  --add-opens=java.base/sun.nio.cs=ALL-UNNAMED
+  --add-opens=java.base/sun.security.action=ALL-UNNAMED
+  --add-opens=java.base/sun.util.calendar=ALL-UNNAMED
+)
+
+exec java "${add_opens[@]}" \
+  -cp "$jar_classes:$(cat "$classpath_file")" \
+  dev.foundry.cli.Foundry "$@"

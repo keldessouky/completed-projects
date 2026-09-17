@@ -1,0 +1,26 @@
+kind: schema
+name: retail.revenue.daily
+version: 1
+description: Revenue rolled up by day, region and category.
+fields:
+  - name: order_date
+    type: date
+    description: Calendar date the orders were placed.
+    tags: [key]
+  - name: region
+    type: string
+    description: Sales region.
+    tags: [key]
+  - name: category
+    type: string
+    description: Merchandising category.
+    tags: [key]
+  - name: revenue
+    type: "decimal(18,2)"
+    description: Sum of line totals.
+  - name: units
+    type: bigint
+    description: Total units sold.
+  - name: orders
+    type: bigint
+    description: Distinct orders contributing to this row.

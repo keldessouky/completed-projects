@@ -1,0 +1,7 @@
+customer_id,full_name,email,region,segment,signed_up_at
+C001,Amara Okafor,amara.okafor@example.com,emea,retail,2024-03-11T09:12:00
+C002,Bo Lindqvist,bo.lindqvist@example.com,emea,trade,2024-06-02T14:40:00
+C003,Chen Wei,chen.wei@example.com,apac,retail,2025-01-19T08:05:00
+C004,Dara Singh,dara.singh@example.com,apac,wholesale,2025-02-27T17:31:00
+C005,Elif Demir,elif.demir@example.com,emea,retail,2025-05-08T11:00:00
+C006,Farid Haddad,farid.haddad@example.com,amer,trade,2025-07-21T13:15:00

@@ -1,0 +1,4 @@
+target/
+*.class
+# Local warehouse output produced by `foundry run`
+warehouse/

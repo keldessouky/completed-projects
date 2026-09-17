@@ -1,0 +1,35 @@
+kind: schema
+name: retail.customers.summary
+version: 1
+description: One row per customer who has ever ordered, with their trading history.
+fields:
+  - name: customer_id
+    type: string
+    nullable: false
+    description: Stable customer identifier.
+    tags: [key]
+  - name: full_name
+    type: string
+    description: Customer's name.
+    tags: ["pii:name"]
+  - name: region
+    type: string
+    description: Sales region.
+  - name: segment
+    type: string
+    description: Commercial segment.
+  - name: order_count
+    type: bigint
+    description: Distinct orders placed.
+  - name: lifetime_spend
+    type: "decimal(20,2)"
+    description: Everything this customer has spent, net of discounts.
+  - name: first_order_at
+    type: timestamp
+    description: When they first ordered.
+  - name: last_order_at
+    type: timestamp
+    description: When they last ordered.
+  - name: last_category
+    type: string
+    description: The category of their most recent order line.

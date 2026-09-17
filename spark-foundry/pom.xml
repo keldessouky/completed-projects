@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>dev.foundry</groupId>
+  <artifactId>spark-foundry</artifactId>
+  <version>0.1.0</version>
+  <packaging>pom</packaging>
+
+  <name>Spark Foundry</name>
+  <description>A metadata-as-code framework for building Apache Spark ETL pipelines.</description>
+
+  <modules>
+    <module>foundry-metadata</module>
+    <module>foundry-core</module>
+    <module>foundry-cli</module>
+  </modules>
+
+  <properties>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <maven.compiler.release>21</maven.compiler.release>
+    <spark.version>4.0.4</spark.version>
+    <scala.binary.version>2.13</scala.binary.version>
+    <snakeyaml.version>2.7</snakeyaml.version>
+    <junit.version>5.14.4</junit.version>
+    <surefire.version>3.5.4</surefire.version>
+    <!--
+      Spark reaches into JDK internals for its own memory management and
+      serialization. On Java 17+ those packages are closed by default, so every
+      JVM that hosts a SparkSession - tests included - needs them opened.
+      foundry.sh passes the same list to the CLI.
+    -->
+    <spark.add.opens>
+      --add-opens=java.base/java.lang=ALL-UNNAMED
+      --add-opens=java.base/java.lang.invoke=ALL-UNNAMED
+      --add-opens=java.base/java.lang.reflect=ALL-UNNAMED
+      --add-opens=java.base/java.io=ALL-UNNAMED
+      --add-opens=java.base/java.net=ALL-UNNAMED
+      --add-opens=java.base/java.nio=ALL-UNNAMED
+      --add-opens=java.base/java.util=ALL-UNNAMED
+      --add-opens=java.base/java.util.concurrent=ALL-UNNAMED
+      --add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED
+      --add-opens=java.base/sun.nio.ch=ALL-UNNAMED
+      --add-opens=java.base/sun.nio.cs=ALL-UNNAMED
+      --add-opens=java.base/sun.security.action=ALL-UNNAMED
+      --add-opens=java.base/sun.util.calendar=ALL-UNNAMED
+    </spark.add.opens>
+  </properties>
+
+  <dependencyManagement>
+    <dependencies>
+      <dependency>
+        <groupId>dev.foundry</groupId>
+        <artifactId>foundry-metadata</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>dev.foundry</groupId>
+        <artifactId>foundry-core</artifactId>
+        <version>${project.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.spark</groupId>
+        <artifactId>spark-sql_${scala.binary.version}</artifactId>
+        <version>${spark.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.yaml</groupId>
+        <artifactId>snakeyaml</artifactId>
+        <version>${snakeyaml.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>org.junit.jupiter</groupId>
+        <artifactId>junit-jupiter</artifactId>
+        <version>${junit.version}</version>
+        <scope>test</scope>
+      </dependency>
+    </dependencies>
+  </dependencyManagement>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <pluginManagement>
+      <plugins>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-surefire-plugin</artifactId>
+          <version>${surefire.version}</version>
+          <configuration>
+            <argLine>${spark.add.opens}</argLine>
+            <trimStackTrace>false</trimStackTrace>
+            <includes>
+              <!--
+                Surefire's defaults would leave the *IT classes out, which is
+                where every test that actually starts Spark lives. They are run
+                here rather than under failsafe so that a plain `mvn test` runs
+                the whole suite - a test that only runs when someone remembers
+                the right goal is a test that stops running.
+              -->
+              <include>**/*Test.java</include>
+              <include>**/*IT.java</include>
+            </includes>
+          </configuration>
+        </plugin>
+      </plugins>
+    </pluginManagement>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+      </plugin>
+    </plugins>
+  </build>
+</project>

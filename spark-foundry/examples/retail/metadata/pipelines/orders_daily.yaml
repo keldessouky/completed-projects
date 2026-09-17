@@ -1,0 +1,213 @@
+kind: pipeline
+name: orders_daily
+description: >-
+  Turns the storefront's raw order export into the warehouse's order line table
+  and the daily revenue mart. Everything this pipeline knows about the shape of
+  its data is declared here or in the schemas it references; there is no Java to
+  read alongside it.
+
+quarantine: rejected_rows
+
+params:
+  - name: run_date
+    type: date
+    required: true
+    description: >-
+      Orders placed after this date are left for a later run. Passing it
+      explicitly is what makes a re-run of an old day reproduce that day.
+  - name: min_line_total
+    type: decimal
+    default: "0.01"
+    description: Lines worth less than this are treated as data errors, not as sales.
+
+sources:
+  - alias: orders
+    dataset: landing_orders
+  - alias: customers
+    dataset: landing_customers
+  - alias: products
+    dataset: landing_products
+
+steps:
+  - id: typed_orders
+    type: select
+    from: orders
+    description: >-
+      The one place raw text becomes typed data. Naming each column and its type
+      here means a storefront that starts sending "N/A" in a numeric column
+      breaks this step, loudly, instead of quietly nulling a revenue figure.
+    columns:
+      - { name: order_id, expr: "nullif(trim(order_id), '')" }
+      - { name: customer_id, expr: "nullif(trim(customer_id), '')" }
+      - { name: sku, expr: "upper(trim(sku))" }
+      - { name: quantity, expr: "quantity", type: int }
+      - { name: unit_price, expr: "unit_price", type: "decimal(12,2)" }
+      - { name: discount, expr: "coalesce(nullif(trim(discount), ''), '0')", type: "decimal(12,2)" }
+      - { name: ordered_at, expr: "ordered_at", type: timestamp }
+      - { name: status, expr: "lower(trim(status))" }
+      - { name: channel, expr: "lower(trim(channel))" }
+      - { name: received_at, expr: "received_at", type: timestamp }
+
+  - id: in_scope
+    type: filter
+    from: typed_orders
+    description: Hold back anything the run date says has not happened yet.
+    condition: "to_date(ordered_at) <= ${run_date}"
+
+  - id: latest_lines
+    type: deduplicate
+    from: in_scope
+    description: >-
+      The storefront re-delivers corrected lines under the same identifiers, so
+      the newest delivery of each line wins. Which version is authoritative is a
+      business decision, and this is where it is written down.
+    keys: [order_id, sku]
+    orderBy:
+      - received_at desc
+
+  - id: priced_lines
+    type: derive
+    from: latest_lines
+    description: What each line was actually worth, and the day it belongs to.
+    columns:
+      - name: line_total
+        expr: "quantity * unit_price - discount"
+        type: "decimal(14,2)"
+        description: Net value of the line.
+      - name: order_date
+        expr: "to_date(ordered_at)"
+        type: date
+
+  - id: customer_facts
+    type: select
+    from: customers
+    description: Only the customer attributes the order table needs.
+    columns:
+      - customer_id
+      - region
+      - segment
+
+  - id: product_facts
+    type: select
+    from: products
+    description: Only the product attributes the order table needs.
+    columns:
+      - { name: line_sku, expr: "upper(trim(sku))" }
+      - category
+      - product_name
+
+  - id: with_customer
+    type: join
+    left: priced_lines
+    right: customer_facts
+    on: [customer_id]
+    how: inner
+    description: >-
+      An inner join is safe here only because the referential expectation above
+      has already set aside the lines whose customer is unknown. Without it this
+      join would silently drop them.
+
+  - id: with_product
+    type: join
+    left: with_customer
+    right: product_facts
+    condition: "with_customer.sku = product_facts.line_sku"
+    how: left
+    description: >-
+      A left join: a product missing from the catalogue is a gap in the
+      catalogue, not a reason to lose the sale.
+
+  - id: curated_lines
+    type: select
+    from: with_product
+    description: >-
+      States the order line table's columns in the order the schema declares
+      them. Without this step the table's shape would be whatever the joins
+      happened to produce.
+    columns:
+      - order_id
+      # Taken from the order, not from the catalogue lookup: 'product_facts.line_sku'
+      # is null whenever the left join found no product, and this column is a key.
+      - { name: line_sku, expr: "sku" }
+      - customer_id
+      - order_date
+      - ordered_at
+      - quantity
+      - unit_price
+      - discount
+      - line_total
+      - status
+      - channel
+      - region
+      - segment
+      - category
+      - product_name
+
+  - id: daily
+    type: aggregate
+    from: curated_lines
+    description: The daily revenue mart.
+    groupBy: [order_date, region, category]
+    measures:
+      - { name: revenue, expr: "sum(line_total)", type: "decimal(18,2)" }
+      - { name: units, expr: "sum(quantity)", type: bigint }
+      - { name: orders, expr: "count(distinct order_id)", type: bigint }
+
+expectations:
+  - name: order_identifiers_present
+    on: priced_lines
+    rule: not_null
+    columns: [order_id, customer_id, sku]
+    action: quarantine
+    description: A line nobody can attribute is not a sale.
+
+  - name: lines_are_worth_something
+    on: priced_lines
+    rule: expression
+    expr: "line_total >= ${min_line_total}"
+    action: quarantine
+    description: >-
+      Catches negative quantities, prices of zero and discounts larger than the
+      line itself - each of which would otherwise quietly reduce revenue.
+
+  - name: customer_is_known
+    on: priced_lines
+    rule: referential
+    columns: [customer_id]
+    references: customers
+    action: quarantine
+    description: >-
+      Orders for customers the master does not have. Setting them aside keeps
+      the join below honest and keeps the evidence.
+
+  - name: status_is_recognised
+    on: priced_lines
+    rule: accepted_values
+    column: status
+    values: [placed, paid, shipped, delivered, cancelled, refunded]
+    action: warn
+    description: >-
+      A warning rather than a failure: a new status code is news, not a reason
+      to stop the warehouse.
+
+  - name: one_row_per_line
+    on: curated_lines
+    rule: unique
+    columns: [order_id, line_sku]
+    action: fail
+    description: >-
+      The deduplicate step above is supposed to guarantee this. Checking it
+      anyway is how a mistake in that step gets found on the day it is made.
+
+  - name: something_was_loaded
+    on: curated_lines
+    rule: row_count
+    min: 1
+    action: fail
+    description: An empty load is the failure that no row-level rule can see.
+
+sinks:
+  - from: curated_lines
+    dataset: curated_order_lines
+  - from: daily
+    dataset: daily_revenue

@@ -1,0 +1,58 @@
+kind: schema
+name: retail.orders.curated
+version: 1
+description: >-
+  One row per order line, typed, deduplicated, and enriched with the customer's
+  region and the product's category. This is the table the rest of the warehouse
+  is built from.
+fields:
+  - name: order_id
+    type: string
+    nullable: false
+    description: Storefront order identifier.
+    tags: [key]
+  - name: line_sku
+    type: string
+    nullable: false
+    description: Product code, normalised to upper case.
+    tags: [key]
+  - name: customer_id
+    type: string
+    nullable: false
+    description: Customer who placed the order.
+  - name: order_date
+    type: date
+    description: Calendar date the order was placed, in the warehouse time zone.
+  - name: ordered_at
+    type: timestamp
+    description: Exact time the order was placed.
+  - name: quantity
+    type: int
+    description: Units ordered on this line.
+  - name: unit_price
+    type: "decimal(12,2)"
+    description: Price per unit at the time of ordering.
+  - name: discount
+    type: "decimal(12,2)"
+    description: Absolute discount applied to this line, zero when none was given.
+  - name: line_total
+    type: "decimal(14,2)"
+    description: What this line was actually worth - quantity times price, less discount.
+  - name: status
+    type: string
+    description: Order status, lower-cased.
+  - name: channel
+    type: string
+    description: Where the order came from.
+  - name: region
+    type: string
+    description: Sales region, from the customer master.
+  - name: segment
+    type: string
+    description: Commercial segment, from the customer master.
+  - name: category
+    type: string
+    description: Merchandising category, from the product catalogue.
+  - name: product_name
+    type: string
+    description: Display name of the product.

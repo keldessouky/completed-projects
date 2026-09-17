@@ -1,0 +1,67 @@
+name: Spark Foundry
+
+on:
+  push:
+    branches: ['**']
+    paths:
+      - 'spark-foundry/**'
+      - '.github/workflows/spark-foundry.yml'
+  pull_request:
+    paths:
+      - 'spark-foundry/**'
+      - '.github/workflows/spark-foundry.yml'
+
+defaults:
+  run:
+    shell: bash
+    working-directory: spark-foundry
+
+jobs:
+  build:
+    name: Build & test (Java 21)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Build and run the full suite
+        run: mvn -B test
+
+      - name: Package
+        run: mvn -B -DskipTests package
+
+      # The three commands that never start Spark. Validating the shipped
+      # example on every push is what keeps the example honest.
+      - name: Validate the example metadata
+        run: FOUNDRY_SKIP_BUILD=1 ./foundry validate --metadata examples/retail/metadata
+
+      - name: Plan both pipelines
+        run: FOUNDRY_SKIP_BUILD=1 ./foundry plan --metadata examples/retail/metadata
+
+      # The catalogue is generated, not maintained, so a committed copy that has
+      # drifted from the metadata is a build failure rather than a stale page.
+      - name: Check the generated catalogue is up to date
+        run: |
+          FOUNDRY_SKIP_BUILD=1 ./foundry docs \
+            --metadata examples/retail/metadata --out /tmp/catalog.md
+          if ! diff -u docs/catalog.md /tmp/catalog.md; then
+            echo
+            echo "docs/catalog.md is out of date. Regenerate it with:"
+            echo "  ./foundry docs --metadata examples/retail/metadata --out docs/catalog.md"
+            exit 1
+          fi
+
+      - name: Run both example pipelines end to end
+        run: ./examples/retail/run-demo.sh "$RUNNER_TEMP/warehouse"
+
+      - name: Upload run manifests
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: foundry-run-manifests
+          path: ${{ runner.temp }}/warehouse/_foundry/runs/*.json
+          if-no-files-found: ignore

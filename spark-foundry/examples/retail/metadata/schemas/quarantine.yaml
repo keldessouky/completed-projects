@@ -1,0 +1,32 @@
+kind: schema
+name: retail.quarantine
+version: 1
+description: >-
+  Rows turned away by a quality rule. One table serves every pipeline and every
+  step, so the offending row is kept as JSON alongside the labels that say where
+  it came from and which rule rejected it.
+fields:
+  - name: pipeline
+    type: string
+    nullable: false
+    description: The pipeline that rejected the row.
+  - name: step
+    type: string
+    nullable: false
+    description: The step whose output the row was in.
+  - name: expectation
+    type: string
+    nullable: false
+    description: The name of the expectation that rejected it.
+  - name: rule
+    type: string
+    nullable: false
+    description: The rule behind that expectation.
+  - name: detected_at
+    type: timestamp
+    nullable: false
+    description: When the rejection happened.
+  - name: row
+    type: string
+    nullable: false
+    description: The rejected row, as JSON.
