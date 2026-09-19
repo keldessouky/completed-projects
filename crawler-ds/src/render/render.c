@@ -695,66 +695,41 @@ static void message_box(Surface *s) {
  *  Pokemon idiom holds -- a bar and no numbers for the other side -- but the
  *  touch screen is where the fight actually gets planned, so it gets the
  *  detail, and it fills the band above the command buttons that was bare. */
-/*  A full card per crawler: level, health and stamina with the actual numbers
- *  on them, whatever is running on them this turn, and what they are holding.
- *  This is what the bottom screen shows while a message is being read.
+/*  Who is still standing, and how badly.
  *
- *  The first version put the battle log here alone, which on turn one is a
- *  single sentence and a hundred and forty empty pixels -- the same fault the
- *  duplicated roster had, committed by its replacement. The party's own state
- *  is the one panel that is always full, is never on the top screen in this
- *  much detail, and is what you actually want while deciding a turn. */
-static void party_cards(Surface *bot, int y) {
-    static const char *kStatus[ST_COUNT] = { "BLEED", "STUN", "ATK+", "DEF-" };
-    static const uint16_t kStatusCol[ST_COUNT] = { C_RED, C_MAGENTA, C_GREEN, C_AMBER };
-    for (int i = 0; i < PARTY; i++) {
-        const Hero *h = &g.hero[i];
-        int x = 6 + i * 124, w = 120;
-        int down = h->hp <= 0;
-        window(bot, x, y, w, 74, 0);
-
-        gfx_text(bot, x + 6, y + 6, down ? C_RED : C_INK, h->name);
-        gfx_text(bot, x + w - 26, y + 6, C_DIM, "L");
-        gfx_text(bot, x + w - 20, y + 6, C_AMBER, gfx_num(h->level));
-
-        gfx_text(bot, x + 6, y + 20, C_GOLD, "HP");
-        bar_meter(bot, x + 24, y + 19, w - 30, 8, h->hp, h->hp_max,
-                  health_colour(h->hp, h->hp_max), 0);
-        gfx_text(bot, x + 6, y + 32, C_DIM, gfx_num(h->hp));
-        gfx_text(bot, x + 6 + gfx_text_width(gfx_num(h->hp)), y + 32, C_DIM, "/");
-        gfx_text(bot, x + 12 + gfx_text_width(gfx_num(h->hp)), y + 32, C_DIM,
-                 gfx_num(h->hp_max));
-
-        gfx_text(bot, x + 6, y + 44, C_CYAN, "SP");
-        bar_meter(bot, x + 24, y + 43, w - 30, 8, h->mp, h->mp_max, C_CYAN, 0);
-
-        /*  Statuses where they can be seen before choosing, not after. A stun
-            you find out about by losing the turn is a bug report. */
-        int sx = x + 6;
-        for (int k = 0; k < ST_COUNT; k++) {
-            if (!h->status[k]) continue;
-            int tw = gfx_text_width(kStatus[k]);
-            if (sx + tw > x + w - 6) break;
-            gfx_text(bot, sx, y + 58, kStatusCol[k], kStatus[k]);
-            sx += tw + 6;
-        }
-        if (down) gfx_text(bot, x + 6, y + 58, C_RED, "DOWN");
-        else if (h->guard) gfx_text(bot, x + 6, y + 58, C_GREEN, "GUARDING");
-        else if (sx == x + 6) {
-            int wep = h->equip[0];
-            gfx_text(bot, x + 6, y + 58, C_DIM,
-                     wep > 0 ? item_defs[wep].name : "bare hands");
-        }
+ *  A foe's health is a four-pixel bar under its feet on the other screen, one
+ *  of three, at a distance. Nowhere in the game could you actually read how
+ *  much was left in the thing you were hitting -- so while a message is up and
+ *  the bottom screen has nothing to offer, it offers that. It replaced a
+ *  second copy of the party's health, which the strip above it was already
+ *  showing, and a lot of empty blue.
+ */
+static void foe_roster(Surface *bot, int y) {
+    gfx_text(bot, 6, y, C_AMBER, "STILL UP");
+    int shown = 0;
+    for (int i = 0; i < g.bat.n_foes; i++) {
+        const Foe *f = &g.bat.foes[i];
+        const FoeDef *d = &foe_defs[f->def];
+        int ry = y + 14 + shown * 20;
+        int live = f->alive && f->hp > 0;
+        window(bot, 6, ry, 244, 18, g.bat.tell && g.bat.tell_foe == i);
+        const Sprite *sp = sprite_table[d->sprite];
+        /*  num/den, not a percentage: passing the same value for both is a
+            ratio of one, which drew every mob at full size straight down
+            through the panel. */
+        if (sp) gfx_sprite_scaled(bot, sp, 9, ry + 1, 16, sp->h ? sp->h : 1);
+        char name[24];
+        gfx_text(bot, 30, ry + 5, live ? (d->rank ? C_GOLD : C_INK) : C_DIM,
+                 render_fit_name(d->name, 110, name, (int)sizeof name));
+        if (live)
+            bar_meter(bot, 150, ry + 5, 94, 8, f->hp, f->hp_max,
+                      health_colour(f->hp, f->hp_max), 0);
+        else
+            gfx_text(bot, 150, ry + 5, C_DIM, "down");
+        shown++;
     }
 }
 
-/*  What just happened, oldest at the top. This replaced a second copy of the
- *  enemy roster: the top screen already carries every foe's name and health
- *  under its feet, so listing them again down here was two screens spending
- *  their space on one fact. The log is the thing a turn-based fight actually
- *  hides -- by the time you have read "Donut is down" the message box has
- *  moved on -- so the half of the screen that is not taking orders shows the
- *  last few lines instead. */
 static void battle_log_panel(Surface *bot, int y, int rows) {
     gfx_text(bot, 6, y, C_AMBER, "WHAT HAPPENED");
     int first = g.bat.n_log - rows;
@@ -857,7 +832,14 @@ static void draw_battle(Surface *top, Surface *bot) {
      *  neighbour's knees, and 58 pixels of spacing cannot hold a plate wide
      *  enough to write "Club Bouncer" on. Slots fix both: nothing overlaps by
      *  construction, and the plate simply gets told how much room it has. */
-    int msg_top = SCREEN_H - 38;
+    /*  The message box is for things that have happened. While the game is
+        asking what you want to do, the last thing that happened is not news --
+        it just sat there reading "Goblin Trapper noticed you." underneath a
+        menu asking what Donut does about it. So the box is only up when there
+        is something to read, and the arena gets its thirty-four pixels back
+        for the rest of the turn. */
+    int reading = battle_message(0) >= 0 || g.bat.phase != BAT_CHOOSE;
+    int msg_top = reading ? SCREEN_H - 38 : SCREEN_H - 4;
     /*  The party's own boxes start at y=98, so a plate hung under a foe has to
      *  be finished by then -- the first cut of this put the names at 92 and
      *  the bars underneath them disappeared behind Carl's box. */
@@ -965,7 +947,7 @@ static void draw_battle(Surface *top, Surface *bot) {
         hp_box(top, SCREEN_W - 122, msg_top - 56 + i * 28, 118,
                g.hero[i].name, g.hero[i].level, g.hero[i].hp, g.hero[i].hp_max, 1, 0);
 
-    message_box(top);
+    if (reading) message_box(top);
 
     if (g.bat.phase == BAT_WON) {
         window(top, 44, 56, 168, 44, 0);
@@ -987,9 +969,15 @@ static void draw_battle(Surface *top, Surface *bot) {
     gfx_hline(bot, 0, SCREEN_W - 1, 20, C_AMBER_DK);
 
     if (battle_message(0) >= 0) {                   /* reading: no menu yet */
-        party_cards(bot, 26);
-        battle_log_panel(bot, 108, 5);
-        gfx_text(bot, 8, 178, C_DIM, "A or tap to continue");
+        /*  The party used to be drawn here a third time -- boxed on the top
+            screen, barred in the strip above, and carded again right here:
+            three readouts of two crawlers in one turn. The strip keeps the
+            one that carries stamina as well as health, and the log gets the
+            space the cards were using, which is what the player is actually
+            reading at this moment. */
+        battle_log_panel(bot, 26, 4);
+        foe_roster(bot, 96);
+        gfx_text(bot, 8, 180, C_DIM, "A or tap to continue");
         return;
     }
 
@@ -1057,8 +1045,8 @@ static void draw_battle(Surface *top, Surface *bot) {
         /*  Somebody else's turn. The screen still carries the roster, because a
          *  touch screen that empties out mid-fight reads as the game hanging. */
         int foe = g.bat.actor - PARTY;
-        party_cards(bot, 26);
-        battle_log_panel(bot, 108, 5);
+        battle_log_panel(bot, 26, 4);
+        foe_roster(bot, 96);
         if (foe >= 0 && foe < g.bat.n_foes) {
             const char *name = foe_defs[g.bat.foes[foe].def].name;
             gfx_text(bot, 6, 178, C_MAGENTA, name);
