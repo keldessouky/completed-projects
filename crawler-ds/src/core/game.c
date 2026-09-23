@@ -194,6 +194,23 @@ void game_set_scene(Scene s) {
     /*  A battle gets a longer one: it is a shutter closing rather than a fade,
         and a shutter needs frames to travel. */
     g.fade = s == SCENE_BATTLE ? 14 : 12;
+
+    /*  A toast belongs to the moment it fired.
+     *
+     *  They live three seconds, which is longer than it takes to leave the
+     *  room that produced them -- so "Not enough gold. Bopca is unmoved."
+     *  followed the player out of the shop and sat across the level-up
+     *  screen, and a previous season's achievements were still stacked over
+     *  the crawler panel on the draft. The screenshot tour had a memset in it
+     *  to keep them out of the pictures, which is the wrong end to fix it
+     *  from: the pictures were telling the truth.
+     *
+     *  Cleared on the screens that begin something rather than continue it.
+     *  A toast crossing from the dungeon into a fight, a box or a safe room
+     *  is still about what just happened and stays. */
+    if (s == SCENE_TITLE || s == SCENE_DRAFT || s == SCENE_LEVELUP ||
+        s == SCENE_VICTORY || s == SCENE_GAMEOVER || s == SCENE_CODE)
+        memset(g.toast, 0, sizeof g.toast);
 }
 
 void game_story(int floor, int trigger, Scene after) {

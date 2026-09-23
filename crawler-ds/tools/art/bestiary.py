@@ -232,53 +232,71 @@ def troglodyte():
 
 
 def kobold_sapper():
-    """Carrying something with a fuse, and pleased about it."""
+    """Carrying something with a fuse, and pleased about it.
+
+    Canine, which it was not. The first draft was a round brown body with big
+    curved horns and two tusks -- a horned toad, and every kobold on floor one
+    was one. Book one's are dogs: jackal-headed, lean, up on their toes.
+
+    The second draft failed for a reason worth writing down: the head sat over
+    the middle of the body, so the muzzle had nothing to project into and was
+    drawn in a value one step off the skull, which made the whole head one
+    blob with ears. A muzzle only reads if it leaves the skull's outline and
+    changes value doing it. The head is offset left here, the snout runs well
+    clear of the chest, and it is the lightest thing on the sprite.
+    """
     s = Sprite(FOE, FOE)
-    scale = s.register_family(s.ramp((190, 112, 56), 6))
-    belly = s.register_family(s.ramp((234, 190, 130), 5))
-    horn = s.register_family(s.ramp((228, 214, 186), 5))
-    leather = s.register_family(s.ramp((96, 66, 44), 5))
-    dark = s.ink((28, 20, 18))
-    white = s.ink((248, 244, 232))
+    hide = s.register_family(s.ramp((176, 122, 70), 6))
+    pale = s.register_family(s.ramp((230, 196, 148), 5))
+    leather = s.register_family(s.ramp((92, 62, 40), 5))
+    claw = s.register_family(s.ramp((230, 220, 198), 4))
+    dark = s.ink((26, 18, 16))
+    amber = s.ink((242, 182, 66))
     spark = s.ink((255, 232, 140))
 
-    s.limb(30, 52, 26, 66, 11, 8, scale)             # legs
-    s.limb(42, 52, 46, 66, 11, 8, scale)
-    s.poly([(20, 68), (32, 68), (30, 71), (18, 71)], scale[1])   # splayed feet
-    s.poly([(40, 68), (52, 68), (54, 71), (42, 71)], scale[1])
-    s.limb(48, 44, 62, 52, 8, 5, scale)              # tail
-    s.form(36, 44, 14, 15, scale, wrap=0.85)         # body
-    s.form(36, 48, 9, 10, belly, wrap=0.7)
-    for y in range(42, 56, 3):                       # belly scutes
-        s.line(30, y, 42, y, belly[1])
-    s.poly([(22, 40), (50, 40), (52, 46), (20, 46)], leather[2])  # satchel strap
-    s.limb(24, 36, 16, 48, 9, 7, scale)              # arms
-    s.limb(48, 36, 56, 44, 9, 7, scale)
-    s.form(15, 50, 4, 4, scale)
+    #  Digitigrade, and the legs are kept apart: the first pass ran both feet
+    #  into one bar along the bottom and the stance vanished.
+    for sx, hipx in ((-1, 32), (1, 46)):
+        s.limb(hipx, 46, hipx + sx * 4, 55, 9, 6, hide)           # thigh
+        s.limb(hipx + sx * 4, 55, hipx - sx * 1, 65, 6, 4, hide)  # hock
+        s.poly([(hipx - sx * 6, 65), (hipx + sx * 3, 65),
+                (hipx + sx * 3, 69), (hipx - sx * 7, 69)], hide[2])
+        for t in range(3):
+            s.put(hipx - sx * (6 - t * 3), 69, claw[3])
 
-    s.form(36, 24, 13, 12, scale, wrap=0.85)         # head
-    s.poly([(28, 30), (44, 30), (40, 42), (32, 42)], scale[1])    # snout
-    s.poly([(30, 36), (42, 36), (41, 41), (31, 41)], belly[3])
-    s.poly([(26, 14), (18, 0), (32, 12)], horn[2])   # horns
-    s.poly([(46, 14), (54, 0), (40, 12)], horn[2])
-    s.line(20, 3, 27, 13, horn[4])
-    s.stamp(26, 18, [
-        ".ddd.....ddd.",
-        "dwwwd...dwwwd",
-        "dwrpd...dwrpd",
-        ".dppd...dppd.",
-        "..dd.....dd..",
-    ], {'d': scale[1], 'w': white, 'p': dark, 'r': s.ink((222, 70, 40))})
-    s.rect(32, 39, 33, 41, white)                    # teeth
-    s.rect(38, 39, 39, 41, white)
-    s.put(35, 34, dark); s.put(37, 34, dark)         # nostrils
+    s.limb(48, 42, 63, 54, 7, 3, hide)                # tail
+    s.put(64, 55, hide[0])
 
-    s.line(58, 46, 62, 22, leather[2], 3)            # the thing with the fuse
-    s.form(60, 18, 6, 6, s.register_family(s.ramp((196, 74, 46), 5)))
-    s.line(62, 12, 66, 4, s.ink((150, 130, 100)))
-    s.put(66, 3, spark); s.put(67, 2, spark); s.put(65, 1, s.ink((255, 190, 90)))
+    s.form(41, 40, 12, 13, hide, wrap=0.8)            # chest
+    s.form(41, 46, 8, 8, pale, wrap=0.7)
+    s.poly([(29, 35), (53, 35), (55, 41), (27, 41)], leather[2])  # satchel strap
+    s.put(49, 38, leather[4])
+
+    s.limb(31, 33, 22, 48, 8, 5, hide)                # arms
+    s.limb(51, 33, 59, 41, 8, 5, hide)
+    for t in range(3):
+        s.put(20 + t, 50, claw[3])
+
+    #  The head, offset left so the muzzle has somewhere to go.
+    s.form(44, 19, 10, 9, hide, wrap=0.85)                        # skull
+    s.poly([(36, 15), (44, 14), (44, 27), (34, 25)], hide[4])     # muzzle, lighter
+    s.poly([(24, 19), (36, 15), (36, 25), (25, 24)], pale[3])     # and its bridge
+    s.poly([(25, 23), (36, 22), (36, 27), (27, 26)], hide[2])     # the jaw under it
+    s.form(24, 21, 3, 3, [dark, dark], wrap=1.2)                  # the nose
+    for t in range(4):
+        s.put(29 + t * 2, 26, claw[3])                            # teeth
+    s.poly([(40, 11), (37, 1), (46, 10)], hide[2])                # ears, upright
+    s.poly([(48, 11), (53, 2), (44, 10)], hide[2])
+    s.poly([(41, 10), (39, 4), (45, 10)], leather[1])
+    s.poly([(47, 10), (51, 4), (45, 10)], leather[1])
+    s.form(38, 18, 2, 2, [dark, amber], wrap=1.2)                 # the eye
+    s.put(38, 17, amber)
+
+    s.line(59, 43, 63, 22, leather[2], 3)             # the thing with the fuse
+    s.form(62, 18, 6, 6, s.register_family(s.ramp((196, 74, 46), 5)))
+    s.line(64, 12, 68, 4, s.ink((150, 130, 100)))
+    s.put(68, 3, spark); s.put(69, 2, spark); s.put(67, 1, s.ink((255, 190, 90)))
     return s.finish().stage(s.w, s.h, ground=None).emit()
-
 
 def bramble_hound():
     """It was a dog. The floor improved it."""

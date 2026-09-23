@@ -867,7 +867,7 @@ static void draw_battle(Surface *top, Surface *bot) {
             and a single foe has the whole width to write on anyway. */
         int rank = foe_defs[f->def].rank;
         int plate_y = kBase + 4, base = kBase, ceil_ = kCeil;
-        if (rank) { plate_y = 6; base = 96; ceil_ = 24; }
+        if (rank) { plate_y = 6; base = 96; ceil_ = 16; }
         /*  Height comes from what the thing is, not just from how many are
             in the room. Everything used to be normalised to one target, so a
             sewer rat and a club bouncer arrived the same size and a boss was
@@ -876,9 +876,24 @@ static void draw_battle(Surface *top, Surface *bot) {
 
             The room still gets a say -- three foes have to fit side by side
             -- but it scales the whole line-up rather than flattening it. */
-        int room = rank ? 84 : g.bat.n_foes >= 3 ? 46 : g.bat.n_foes == 2 ? 50 : 56;
         int bulk = foe_defs[f->def].bulk ? foe_defs[f->def].bulk : 100;
-        int want = room * bulk / 100;
+        int want;
+        if (rank) {
+            /*  Bosses get their own curve, because the mob one flattened them.
+             *  room*bulk/100 against an 80px headroom means anything over a
+             *  bulk of 96 clamps -- and every boss in the table is over it, so
+             *  all fourteen rendered at exactly the ceiling. The Ball of Swine
+             *  is written as filling the corridor and came out the same height
+             *  as the Doorman.
+             *
+             *  Mapped onto the band instead: the smallest boss in the roster
+             *  still reads as a boss, the largest fills the frame, and the
+             *  column in between actually does something. */
+            want = 42 + bulk * 38 / 255;
+        } else {
+            int room = g.bat.n_foes >= 3 ? 46 : g.bat.n_foes == 2 ? 50 : 56;
+            want = room * bulk / 100;
+        }
         int headroom = base - ceil_;
         if (want > headroom) want = headroom;
         int scale = want * 100 / (sp->h ? sp->h : 1);

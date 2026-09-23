@@ -152,7 +152,15 @@ const FoeDef foe_defs[] = {
       WEAK_HIT, "A grub is halfway out of her mouth." },
     { "The Juicer",     SPR_TROGLODYTE, 110, 18,  6,  7, 105,   0, 45, SK_BLEED,      95, 1, 1, 115, "A troglodyte that found a use for people.",
       WEAK_MOVE, "The veins in his arms stand right out." },
-    { "Goblin War Chief", SPR_GOBLIN,   130, 16, 11,  6, 120,   0, 35, SK_DEBUFF_DEF, 70, 1, 1, 140, "Sponsored. Finally.", WEAK_NONE, 0 },
+    /*  The one boss in the table that had no opening at all. Its ring never
+        came up, so the mechanic the game teaches on floor one simply did not
+        exist in the third fight a player has -- and WEAK_ITEM was the thinnest
+        column in the roster with two entries. Its quip was already about the
+        sponsorship, so the tell is the sponsorship: he stops mid-swing to
+        check what the deal is paying, and the answer is something out of the
+        bag while both his hands are busy. */
+    { "Goblin War Chief", SPR_GOBLIN,   130, 16, 11,  6, 120,   0, 35, SK_DEBUFF_DEF, 70, 1, 1, 140, "Sponsored. Finally.",
+      WEAK_ITEM, "He turns away to read what the deal is paying." },
     /*  Tiers two and three need their own, or foe_nboss falls back to the
         borough boss and every chamber on floor seven downward holds a Foreman.
         Each is still the local mob with something from the surface welded on,
