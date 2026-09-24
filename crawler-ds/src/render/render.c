@@ -54,6 +54,21 @@ static void window(Surface *s, int x, int y, int w, int h, int lit) {
                lit ? C_SEL_HI : C_WIN_HI, C_WIN_LO, C_WIN_EDGE);
 }
 
+/*  A text colour for a row that may be lit. Glass colours stay as they are on
+ *  glass; on paper each becomes its paper counterpart, and anything that was
+ *  light -- ink, amber, the tier colours -- becomes paper ink. */
+static uint16_t ink_on(int lit, uint16_t c) {
+    if (!lit) return c;
+    switch (c) {
+    case C_CYAN:  return C_SEL_CYAN;
+    case C_GOLD:  return C_SEL_GOLD;
+    case C_RED:   return C_SEL_RED;
+    case C_GREEN: return C_SEL_GREEN;
+    case C_DIM:   return C_SEL_DIM;
+    default:      return C_SEL_INK;
+    }
+}
+
 /*  The screen behind everything: a gradient with a faint weave in it, because
  *  a flat black background is the single loudest thing saying "terminal". */
 static void backdrop(Surface *s) {
@@ -343,24 +358,24 @@ static void draw_story(Surface *top, Surface *bot) {
 
 /* -------------------------------------------------------------- dungeon --- */
 
-static void draw_map(Surface *s, int x0, int y0, int w, int h, int cell) {
+static void draw_map(Surface *s, int x0, int y0, int w, int h) {
     gfx_panel(s, x0, y0, w, h, C_VOID, C_EDGE);
-    int cols = (w - 4) / cell, rows = (h - 4) / cell;
+    /*  The same view the stylus picks from, so a tap lands on the square that
+        was drawn under it. */
+    int cell = dungeon_map_cell(), cx, cy, cols, rows;
+    dungeon_map_view(w, h, &cx, &cy, &cols, &rows);
 
-    /*  A lattice under the whole map, so the ground the party has not walked
-     *  yet reads as somewhere they have not been rather than as a hole in the
-     *  screen. It also says how big the floor is before they have seen it. */
+    /*  A lattice under the whole floor, so the ground the party has not
+     *  walked yet reads as somewhere they have not been rather than as a hole
+     *  in the screen. It also says how big the floor is before they have seen
+     *  it -- which is why it stops at the floor's edge rather than filling the
+     *  panel. */
     for (int j = 0; j <= rows; j++)
-        for (int i = 0; i <= cols; i++)
+        for (int i = 0; i <= cols; i++) {
+            int mx = cx + i, my = cy + j;
+            if (mx < 0 || my < 0 || mx > g.dun.w || my > g.dun.h) continue;
             gfx_pixel(s, x0 + 2 + i * cell, y0 + 2 + j * cell, RGB(53, 44, 69) /* cloth_purple 0 */);
-
-    int cx = g.dun.px - cols / 2, cy = g.dun.py - rows / 2;
-    if (cx < 0) cx = 0;
-    if (cy < 0) cy = 0;
-    if (cx + cols > g.dun.w) cx = g.dun.w - cols;
-    if (cy + rows > g.dun.h) cy = g.dun.h - rows;
-    if (cx < 0) cx = 0;
-    if (cy < 0) cy = 0;
+        }
 
     for (int j = 0; j < rows; j++) {
         for (int i = 0; i < cols; i++) {
@@ -400,6 +415,19 @@ static void draw_map(Surface *s, int x0, int y0, int w, int h, int cell) {
      *  stem too, which at seven pixels turned the whole thing into a plus. */
     int px = x0 + 2 + (g.dun.px - cx) * cell + cell / 2;
     int py = y0 + 2 + (g.dun.py - cy) * cell + cell / 2;
+    /*  Where a tap sent them. A pulsing frame on the square rather than a
+        flag on it, so it reads over whatever mark the tile already carries --
+        the shop's gold, the stairs' green. Drawn before the party's arrow so
+        the arrow wins when they are standing on it. */
+    if (g.dun.goal) {
+        int i = g.dun.goal_x - cx, j = g.dun.goal_y - cy;
+        if (i >= 0 && j >= 0 && i < cols && j < rows) {
+            int gx = x0 + 2 + i * cell, gy = y0 + 2 + j * cell;
+            uint16_t c = (g.anim & 8) ? C_AMBER : C_GOLD;
+            gfx_frame(s, gx - 1, gy - 1, cell + 2, cell + 2, c);
+        }
+    }
+
     {
         static const int8_t kArrow[][2] = {
             {  0, -3 },
@@ -564,7 +592,7 @@ static void draw_dungeon(Surface *top, Surface *bot) {
         opposite of a button, which is what makes it read as recessed. */
     gfx_window(bot, 3, 25, SCREEN_W - 6, 88, C_WIN_LO, C_WIN_LO,
                C_WIN_LO, C_WIN_HI, C_WIN_EDGE);
-    draw_map(bot, 6, 28, SCREEN_W - 12, 82, g.menu_cursor & 1 ? 8 : 6);
+    draw_map(bot, kDunMap.x, kDunMap.y, kDunMap.w, kDunMap.h);
 
     /*  The d-pad needs somewhere to live, or four floating diamonds read as
         an unfinished screen. The housing also keeps the run's numbers off it. */
@@ -712,20 +740,21 @@ static void foe_roster(Surface *bot, int y) {
         const FoeDef *d = &foe_defs[f->def];
         int ry = y + 14 + shown * 20;
         int live = f->alive && f->hp > 0;
-        window(bot, 6, ry, 244, 18, g.bat.tell && g.bat.tell_foe == i);
+        int lit = g.bat.tell && g.bat.tell_foe == i;
+        window(bot, 6, ry, 244, 18, lit);
         const Sprite *sp = sprite_table[d->sprite];
         /*  num/den, not a percentage: passing the same value for both is a
             ratio of one, which drew every mob at full size straight down
             through the panel. */
         if (sp) gfx_sprite_scaled(bot, sp, 9, ry + 1, 16, sp->h ? sp->h : 1);
         char name[24];
-        gfx_text(bot, 30, ry + 5, live ? (d->rank ? C_GOLD : C_INK) : C_DIM,
+        gfx_text(bot, 30, ry + 5, ink_on(lit, live ? (d->rank ? C_GOLD : C_INK) : C_DIM),
                  render_fit_name(d->name, 110, name, (int)sizeof name));
         if (live)
             bar_meter(bot, 150, ry + 5, 94, 8, f->hp, f->hp_max,
                       health_colour(f->hp, f->hp_max), 0);
         else
-            gfx_text(bot, 150, ry + 5, C_DIM, "down");
+            gfx_text(bot, 150, ry + 5, ink_on(lit, C_DIM), "down");
         shown++;
     }
 }
@@ -1004,9 +1033,9 @@ static void draw_battle(Surface *top, Surface *bot) {
             int on = g.bat.cursor == i;
             int afford = g.hero[g.bat.actor].mp >= skills[i]->cost;
             window(bot, 6, 30 + i * 18, 244, 17, on);
-            gfx_text(bot, 12, 35 + i * 18, afford ? (on ? C_AMBER : C_INK) : C_DIM, skills[i]->name);
-            gfx_text(bot, 186, 35 + i * 18, C_DIM, "SP");
-            gfx_text(bot, 204, 35 + i * 18, afford ? C_CYAN : C_RED, gfx_num(skills[i]->cost));
+            gfx_text(bot, 12, 35 + i * 18, ink_on(on, afford ? C_INK : C_DIM), skills[i]->name);
+            gfx_text(bot, 186, 35 + i * 18, ink_on(on, C_DIM), "SP");
+            gfx_text(bot, 204, 35 + i * 18, ink_on(on, afford ? C_CYAN : C_RED), gfx_num(skills[i]->cost));
         }
         if (n) gfx_text_wrapped(bot, 6, 142, 244, C_DIM, skills[g.bat.cursor < n ? g.bat.cursor : 0]->blurb);
         draw_button(bot, &kBatCommands[BAT_BACK], 0);
@@ -1024,9 +1053,9 @@ static void draw_battle(Surface *top, Surface *bot) {
             window(bot, 6, y, 244, 19, on);
             const Sprite *ic = item_sprite(i);
             if (ic) gfx_sprite_scaled(bot, ic, 9, y + 1, 53, 100);
-            gfx_text(bot, 32, y + 6, on ? C_AMBER : C_INK, item_defs[i].name);
-            gfx_text(bot, 208, y + 6, C_INK, "x");
-            gfx_text(bot, 216, y + 6, C_INK, gfx_num(g.inventory[i]));
+            gfx_text(bot, 32, y + 6, ink_on(on, C_INK), item_defs[i].name);
+            gfx_text(bot, 208, y + 6, ink_on(on, C_INK), "x");
+            gfx_text(bot, 216, y + 6, ink_on(on, C_INK), gfx_num(g.inventory[i]));
             if (on) {
                 char eff[64];
                 item_effect(eff, i);
@@ -1442,8 +1471,8 @@ static void draw_menu(Surface *top, Surface *bot) {
         for (int i = 0; i < n && i < 6; i++) {
             int on = g.menu_cursor == i;
             window(bot, 6, 52 + i * 18, 244, 17, on);
-            gfx_text(bot, 12, 57 + i * 18, on ? C_AMBER : C_INK, item_defs[list[i]].name);
-            gfx_text(bot, 200, 57 + i * 18, C_CYAN, gfx_num(item_defs[list[i]].power));
+            gfx_text(bot, 12, 57 + i * 18, ink_on(on, C_INK), item_defs[list[i]].name);
+            gfx_text(bot, 200, 57 + i * 18, ink_on(on, C_CYAN), gfx_num(item_defs[list[i]].power));
         }
         if (!n) gfx_text(bot, 12, 56, C_DIM, "No gear yet. Boxes hold most of it.");
         else gfx_text_wrapped(bot, 6, 166, 244, C_DIM, item_defs[list[g.menu_cursor < n ? g.menu_cursor : 0]].blurb);
@@ -1470,12 +1499,13 @@ static void draw_menu(Surface *top, Surface *bot) {
         for (int r = 0; r < rows && first + r < ach_count; r++) {
             int i = first + r, y = 48 + r * 23;
             int got = (g.achievements >> i) & 1;
-            window(bot, 6, y, 244, 21, i == sel);
-            gfx_text(bot, 12, y + 3, got ? C_GOLD : C_DIM, ach_defs[i].name);
-            gfx_text(bot, 12, y + 12, C_DIM, got ? "unlocked" : ach_defs[i].how);
+            int on = i == sel;
+            window(bot, 6, y, 244, 21, on);
+            gfx_text(bot, 12, y + 3, ink_on(on, got ? C_GOLD : C_DIM), ach_defs[i].name);
+            gfx_text(bot, 12, y + 12, ink_on(on, C_DIM), got ? "unlocked" : ach_defs[i].how);
             if (got && ach_defs[i].box < 4) {
                 static const char *const kTier[4] = { "BRZ", "SLV", "GLD", "LEG" };
-                gfx_text(bot, 222, y + 3, C_AMBER, kTier[ach_defs[i].box]);
+                gfx_text(bot, 222, y + 3, ink_on(on, C_AMBER), kTier[ach_defs[i].box]);
             }
         }
     } else {
@@ -1559,11 +1589,11 @@ static void draw_shop(Surface *top, Surface *bot) {
         window(bot, 6, y, 244, 18, on);
         const Sprite *ic = item_sprite(item);
         if (ic) gfx_sprite_scaled(bot, ic, 9, y + 1, 50, 100);
-        gfx_text(bot, 30, y + 6, on ? C_AMBER : C_INK, item_defs[item].name);
-        gfx_text(bot, 186, y + 6, g.gold >= item_defs[item].price ? C_GOLD : C_RED,
+        gfx_text(bot, 30, y + 6, ink_on(on, C_INK), item_defs[item].name);
+        gfx_text(bot, 186, y + 6, ink_on(on, g.gold >= item_defs[item].price ? C_GOLD : C_RED),
                  gfx_num(item_defs[item].price));
-        gfx_text(bot, 228, y + 6, C_DIM, "x");
-        gfx_text(bot, 236, y + 6, C_DIM, gfx_num(g.inventory[item]));
+        gfx_text(bot, 228, y + 6, ink_on(on, C_DIM), "x");
+        gfx_text(bot, 236, y + 6, ink_on(on, C_DIM), gfx_num(g.inventory[item]));
     }
     /*  The pager goes in the header. Rows carry icons now and are a pixel
         taller each, which walked the seventh one down onto where this used to
@@ -1714,7 +1744,16 @@ static void draw_safe_room(Surface *top, Surface *bot) {
     gfx_text(bot, 16, 120, C_DIM, "The floor outside has not stopped.");
 
     int held = game_boxes_held();
-    window(bot, 8, 138, 240, 40, held > 0);
+    /*  Lit when there is something to open -- but lit as a panel, not as
+        paper. Paper means "the thing you are pointing at", and this is not a
+        cursor; it also put the tier colours and the counts on a background
+        they vanished into. */
+    if (held) {
+        gfx_window_shadow(bot, 8, 138, 240, 40);
+        gfx_panel(bot, 8, 138, 240, 40, C_PANEL_LIT, C_AMBER);
+    } else {
+        window(bot, 8, 138, 240, 40, 0);
+    }
     if (held) {
         gfx_text(bot, 16, 146, C_GOLD, "BOXES TO OPEN");
         gfx_text(bot, 122, 146, C_INK, gfx_num(held));
@@ -1924,9 +1963,9 @@ static void draw_levelup(Surface *top, Surface *bot) {
     for (int i = 0; i < 6; i++) {
         int on = g.menu_cursor == i;
         window(bot, 12, 46 + i * 20, 232, 19, on);
-        gfx_text(bot, 18, 52 + i * 20, on ? C_AMBER : C_INK, names[i]);
-        gfx_text(bot, 140, 52 + i * 20, C_DIM, what[i]);
-        gfx_text(bot, 224, 52 + i * 20, C_CYAN, gfx_num(stats[i]));
+        gfx_text(bot, 18, 52 + i * 20, ink_on(on, C_INK), names[i]);
+        gfx_text(bot, 140, 52 + i * 20, ink_on(on, C_DIM), what[i]);
+        gfx_text(bot, 224, 52 + i * 20, ink_on(on, C_CYAN), gfx_num(stats[i]));
     }
 }
 
@@ -1971,6 +2010,10 @@ static void draw_code(Surface *top, Surface *bot) {
         return;
     }
     gfx_text(bot, 8, 10, C_AMBER, "ENTER THE CODE");
+    {
+        const char *b = g.code_len ? "B DELETE  START ENTER" : "B BACK";
+        gfx_text(bot, 248 - gfx_text_width(b), 10, C_DIM, b);
+    }
     window(bot, 8, 20, 240, 36, 0);
     {
         /*  Laid out exactly like the kiosk prints it, so a player copying one
@@ -1995,14 +2038,11 @@ static void draw_code(Surface *top, Surface *bot) {
             char label[2] = { kKeyRowsView[r][c], 0 };
             Rect key = { (int16_t)(8 + c * 30), (int16_t)(60 + r * 26), 28, 24, 0 };
             draw_button(bot, &key, on);
-            gfx_text(bot, key.x + 11, key.y + 8, on ? C_AMBER : C_INK, label);
+            gfx_text(bot, key.x + 11, key.y + 8, ink_on(on, C_INK), label);
         }
-    Rect del = { 8, 166, 74, 22, "DELETE" };
-    Rect go = { 90, 166, 74, 22, "ENTER" };
-    Rect back = { 172, 166, 76, 22, "BACK" };
-    draw_button(bot, &del, 0);
-    draw_button(bot, &go, 1);
-    draw_button(bot, &back, 0);
+    draw_button(bot, &kCodeCmds[CODE_DEL], 0);
+    draw_button(bot, &kCodeCmds[CODE_GO], 1);
+    draw_button(bot, &kCodeCmds[CODE_BACK], 0);
 }
 
 /* ------------------------------------------------------------- endgames --- */
@@ -2118,6 +2158,7 @@ static uint32_t render_signature(void) {
         MIX(g.bat.phase); MIX(g.bat.cursor); MIX(g.bat.target); MIX(g.bat.actor);
         MIX(g.bat.n_log); MIX(g.bat.shake); MIX(g.bat.timer / 6);
         MIX(g.bat.log_shown); MIX(g.bat.reveal);   /* the line being typed out */
+        MIX(g.bat.tell); MIX(g.bat.tell_foe);       /* lights the foe's roster row */
         for (int i = 0; i < MAX_FOES; i++) { MIX(g.bat.foes[i].hp); MIX(g.bat.foes[i].alive); }
         for (int i = 0; i < PARTY + MAX_FOES; i++) MIX(g.bat.pop_life[i] / 4);
         MIX(g.anim >> 2);
@@ -2135,7 +2176,10 @@ static uint32_t render_signature(void) {
      *  all live in these two, and without them the dungeon redrew only when
      *  the party changed square -- so the slide this renderer was built to do
      *  never reached the screen at all. */
-    if (g.scene == SCENE_DUNGEON) { MIX(g.dun.move_anim); MIX(g.anim >> 2); }
+    if (g.scene == SCENE_DUNGEON) {
+        MIX(g.dun.move_anim); MIX(g.anim >> 2);
+        MIX(g.dun.goal); MIX(g.dun.goal_x); MIX(g.dun.goal_y); MIX(g.map_zoom);
+    }
 
     /* Scenes that are alive even when the player is not. */
     if (g.scene == SCENE_TITLE) MIX(season_count());

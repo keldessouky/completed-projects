@@ -352,6 +352,10 @@ typedef struct {
         camera can carry them across rather than teleporting them a tile at a
         time. Cosmetic -- no game logic reads it. */
     int8_t   move_anim;                   /* frames left in the slide */
+    /*  Where a tap on the map sent the party. Walked one step a frame by
+        dungeon_route; cleared on arrival, on any button, on a fight, and --
+        because g.dun is wiped on floor entry -- on the stairs. */
+    uint8_t  goal_x, goal_y, goal;
     int8_t   move_dx, move_dy;            /* the direction it is sliding from */
     uint16_t steps;
     uint16_t explored;
@@ -416,6 +420,10 @@ typedef struct {
     /* menus, shop, boxes */
     uint8_t  menu_tab, menu_cursor;
     uint8_t  gear_hero;      /* which crawler the gear tab is fitting out */
+    /*  The map's zoom. It used to be bit 0 of menu_cursor, which the party
+        menu also uses as its cursor -- so opening the menu, moving the
+        cursor and coming back flipped the map's zoom. Its own byte now. */
+    uint8_t  map_zoom;
     uint8_t  shop_cursor;
     uint8_t  box_tier, box_phase, box_item;
     uint8_t  safe_room;         /* index into safe_room_defs, while in one */
@@ -525,6 +533,13 @@ int   dungeon_is_used(int x, int y);
 int   dungeon_seen(int x, int y);
 void  dungeon_mark_seen(int x, int y);
 int   dungeon_walkable(int x, int y);
+/*  The bottom-screen map, as one rule both sides read. The renderer draws with
+ *  it and the stylus picks tiles with it; they used to be two copies of the
+ *  same camera arithmetic, which is the arrangement that drifts. */
+int   dungeon_map_cell(void);
+void  dungeon_map_view(int w, int h, int *cx, int *cy, int *cols, int *rows);
+int   dungeon_map_pick(int px, int py, int x0, int y0, int w, int h, int *mx, int *my);
+int   dungeon_route(int tx, int ty);
 void  dungeon_step(int forward);
 void  dungeon_view_tick(void);
 void  dungeon_walk(int dir);   /* face `dir` and step, the overworld way */

@@ -335,3 +335,111 @@ void dungeon_tick(void) {
         if (!party_alive()) game_set_scene(SCENE_GAMEOVER);
     }
 }
+
+/* ------------------------------------------------------------ the map ---- */
+
+/*  One tile on the map, in pixels. Zoom is its own byte now -- it used to ride
+ *  in bit 0 of menu_cursor, which the party menu moves as a cursor. */
+int dungeon_map_cell(void) { return g.map_zoom ? 8 : 6; }
+
+/*  Along one axis: the first tile the panel shows. A floor that fits is
+ *  centred in the panel, which can put the first tile before the floor's
+ *  edge; one that does not follows the party and stops at its walls. Floors
+ *  run 25 to 30 across and the panel holds 40 at the smaller cell, so the
+ *  first case is the usual one -- the map used to sit against the left edge
+ *  with a third of the panel to its right drawn as ground that was not
+ *  there. */
+static int map_origin(int at, int size, int fit) {
+    if (fit >= size) return -(fit - size) / 2;
+    int o = at - fit / 2;
+    if (o + fit > size) o = size - fit;
+    return o < 0 ? 0 : o;
+}
+
+/*  Which tile sits in the map panel's top-left corner, and how many fit.
+ *
+ *  Both the renderer and the stylus read this, so a tap lands on the square
+ *  that was drawn under it: the camera arithmetic used to live inline in
+ *  draw_map, and a second copy of it in the input code is exactly the
+ *  arrangement that drifts. */
+void dungeon_map_view(int w, int h, int *cx, int *cy, int *cols, int *rows) {
+    int cell = dungeon_map_cell();
+    *cols = (w - 4) / cell;
+    *rows = (h - 4) / cell;
+    *cx = map_origin(g.dun.px, g.dun.w, *cols);
+    *cy = map_origin(g.dun.py, g.dun.h, *rows);
+}
+
+/*  The tile under a point in the map panel. 0 if the point is on the frame,
+ *  past the last whole cell, or in the margin around a floor that fits. */
+int dungeon_map_pick(int px, int py, int x0, int y0, int w, int h, int *mx, int *my) {
+    int cell = dungeon_map_cell(), cx, cy, cols, rows;
+    dungeon_map_view(w, h, &cx, &cy, &cols, &rows);
+    int i = (px - x0 - 2), j = (py - y0 - 2);
+    if (i < 0 || j < 0) return 0;
+    i /= cell;
+    j /= cell;
+    if (i >= cols || j >= rows) return 0;
+    *mx = cx + i;
+    *my = cy + j;
+    return *mx >= 0 && *my >= 0 && *mx < g.dun.w && *my < g.dun.h;
+}
+
+/*  May a route pass over this tile on the way somewhere else?
+ *
+ *  Only if stepping on it does nothing. A boss tile starts the fight, the
+ *  stairs go down, the shop, shrine and kiosk open, and picking up a box can
+ *  arm Rule 12 -- none of which should happen because a stylus drew a line
+ *  through them. Spent tiles are inert and fine. The tapped tile itself is
+ *  the exception, because that one the player chose. */
+static int passable(int x, int y) {
+    if (!dungeon_walkable(x, y) || !dungeon_seen(x, y)) return 0;
+    switch (dungeon_tile(x, y)) {
+    case T_FLOOR: case T_START: case T_UP: case T_DOOR:
+        return 1;
+    case T_BOX: case T_BOX_GOLD: case T_BOSS: case T_NBOSS: case T_SHRINE:
+        return dungeon_is_used(x, y);
+    default:
+        return 0;
+    }
+}
+
+/*  The first step of the shortest route to (tx, ty), as a direction, or -1.
+ *
+ *  Breadth-first over ground the party has seen -- a stylus should not be a
+ *  way to navigate fog, and routing through unexplored squares would quietly
+ *  reveal what is in them. Searched backwards from the target so the answer
+ *  is simply which neighbour of the party is closest to it. */
+int dungeon_route(int tx, int ty) {
+    if (tx == g.dun.px && ty == g.dun.py) return -1;
+    if (!dungeon_walkable(tx, ty) || !dungeon_seen(tx, ty)) return -1;
+
+    static uint8_t dist[MAP_MAX * MAP_MAX];
+    static uint16_t queue[MAP_MAX * MAP_MAX];
+    memset(dist, 0xFF, sizeof dist);
+    int head = 0, tail = 0;
+    dist[ty * MAP_MAX + tx] = 0;
+    queue[tail++] = (uint16_t)(ty * MAP_MAX + tx);
+    while (head < tail) {
+        int at = queue[head++], x = at % MAP_MAX, y = at / MAP_MAX;
+        for (int d = 0; d < 4; d++) {
+            int nx = x + dx4[d], ny = y + dy4[d];
+            if (nx < 0 || ny < 0 || nx >= g.dun.w || ny >= g.dun.h) continue;
+            int n = ny * MAP_MAX + nx;
+            if (dist[n] != 0xFF) continue;
+            /*  The party's own square is where the search ends, whatever it
+                is standing on. */
+            if (!(nx == g.dun.px && ny == g.dun.py) && !passable(nx, ny)) continue;
+            dist[n] = (uint8_t)(dist[at] + 1 > 250 ? 250 : dist[at] + 1);
+            queue[tail++] = (uint16_t)n;
+        }
+    }
+    int best = -1, best_d = 0xFF;
+    for (int d = 0; d < 4; d++) {
+        int nx = g.dun.px + dx4[d], ny = g.dun.py + dy4[d];
+        if (nx < 0 || ny < 0 || nx >= g.dun.w || ny >= g.dun.h) continue;
+        int v = dist[ny * MAP_MAX + nx];
+        if (v < best_d) { best_d = v; best = d; }
+    }
+    return best;
+}

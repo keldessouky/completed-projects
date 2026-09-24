@@ -47,6 +47,8 @@ static void publish_telemetry(void) {
     g_telemetry.story_beat = g.story_beat;
     g_telemetry.flags = g.flags;
     g_telemetry.collapse = (uint32_t)(g.dun.collapse > 0 ? g.dun.collapse / 60 : 0);
+    g_telemetry.season = g.season;
+    g_telemetry.foe = g.scene == SCENE_BATTLE && g.bat.n_foes ? g.bat.foes[0].def : 0xFFFF;
 #ifdef DS_BUILD
     extern uint32_t plat_touch_raw;
     g_telemetry.touch = g_last_touch ? g_last_touch : plat_touch_raw;
@@ -387,6 +389,46 @@ static void update_dungeon(const PlatInput *in) {
         repeat = 0;
     }
 
+    /*  Anything the player does with their own hands takes the walk back
+        from the map. A route that kept going under a d-pad press would be
+        fighting the player for the character. */
+    if ((in->held & (BTN_UP | BTN_DOWN | BTN_LEFT | BTN_RIGHT)) ||
+        (in->pressed & (BTN_A | BTN_B | BTN_X | BTN_START)))
+        g.dun.goal = 0;
+    for (int i = 0; i < DUN_PAD_N; i++)
+        if (touch_in(in, &kDunPad[i])) g.dun.goal = 0;
+
+    /*  Tap the map to walk there.
+     *
+     *  The map was the biggest thing on the bottom screen and did nothing but
+     *  show where you had been, while moving with the stylus meant a four-way
+     *  pad in the corner, one square per tap. A square the party has seen is
+     *  now a destination: they walk to it by the shortest route over explored
+     *  ground, stepping around anything that would go off if stood on, one
+     *  stride a frame through the same dungeon_walk the d-pad uses. */
+    if (touch_in(in, &kDunMap)) {
+        int mx, my;
+        if (dungeon_map_pick(in->touch_x, in->touch_y, kDunMap.x, kDunMap.y,
+                             kDunMap.w, kDunMap.h, &mx, &my) &&
+            dungeon_route(mx, my) >= 0) {
+            g.dun.goal_x = (uint8_t)mx;
+            g.dun.goal_y = (uint8_t)my;
+            g.dun.goal = 1;
+        }
+    }
+    if (g.dun.goal && !g.dun.move_anim) {
+        int dir = dungeon_route(g.dun.goal_x, g.dun.goal_y);
+        if (dir < 0) {
+            g.dun.goal = 0;                         /* arrived, or cut off */
+        } else {
+            dungeon_walk(dir);
+            /*  A fight, a shop, the stairs: whatever the step set off, the
+                walk is over. Resuming a route the moment a battle ends would
+                march the party on before the player had looked up. */
+            if (g.scene != SCENE_DUNGEON) { g.dun.goal = 0; return; }
+        }
+    }
+
     /*  Four directions, and the way you press is the way you face. An
         overworld does not need a separate look control, which is most of why
         it suits a game whose fights are already drawn from the side. */
@@ -420,7 +462,7 @@ static void update_dungeon(const PlatInput *in) {
         }
     if (touch_in(in, &kDunActions[0])) dungeon_interact();
     else if (touch_in(in, &kDunActions[1])) { g.menu_tab = 0; game_set_scene(SCENE_MENU); }
-    else if (touch_in(in, &kDunActions[2])) g.menu_cursor ^= 1;      /* map zoom */
+    else if (touch_in(in, &kDunActions[2])) g.map_zoom ^= 1;         /* map zoom */
     else if (touch_in(in, &kDunActions[3])) {
         g.code_mode = 0;
         save_make_code(g.code);
@@ -623,13 +665,11 @@ static void update_code(const PlatInput *in) {
         g.code[g.code_len] = 0;
         g.code_status = 0;
     }
-    Rect del = { 8, 166, 74, 22, "DELETE" };
-    Rect go  = { 90, 166, 74, 22, "ENTER" };
-    Rect back = { 172, 166, 76, 22, "BACK" };
-    if ((in->pressed & BTN_B) || touch_in(in, &del)) {
+    if ((in->pressed & BTN_B) && !g.code_len) { game_set_scene(SCENE_TITLE); return; }
+    if ((in->pressed & BTN_B) || touch_in(in, &kCodeCmds[CODE_DEL])) {
         if (g.code_len) g.code[--g.code_len] = 0;
     }
-    if ((in->pressed & BTN_START) || touch_in(in, &go)) {
+    if ((in->pressed & BTN_START) || touch_in(in, &kCodeCmds[CODE_GO])) {
         if (save_apply_code(g.code)) {
             g.code_status = 1;
             game_toast("Run restored. Try to look surprised.", 0);
@@ -638,7 +678,7 @@ static void update_code(const PlatInput *in) {
             g.code_status = 2;
         }
     }
-    if (touch_in(in, &back)) game_set_scene(SCENE_TITLE);
+    if (touch_in(in, &kCodeCmds[CODE_BACK])) game_set_scene(SCENE_TITLE);
 }
 
 int season_count(void)      { return s_seasons_run; }

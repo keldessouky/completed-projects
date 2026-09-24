@@ -15,6 +15,7 @@
 #include <string.h>
 #include <time.h>
 #include <zlib.h>
+#include <math.h>
 
 #include "platform.h"
 #include "game.h"
@@ -24,6 +25,7 @@
 void view2d_draw(Surface *s);
 #include "ui_layout.h"
 #include "art.h"
+#include "theme.h"
 
 static uint16_t fb[2][SCREEN_W * SCREEN_H];
 /*  The dungeon's half-size layer. On the DS this is a background the 2D engine
@@ -126,6 +128,61 @@ static void shot(const char *name) {
     idle(20);                        /* let the scene fade in before shooting */
     write_shot(path);
     if (verbose) printf("  shot %s\n", path);
+}
+
+/* ------------------------------------------------------------- contrast -- */
+
+/*  Relative luminance of a 15-bit colour, the WCAG way. */
+static double lum15(uint16_t c) {
+    double ch[3] = { (c & 31) / 31.0, ((c >> 5) & 31) / 31.0, ((c >> 10) & 31) / 31.0 };
+    for (int i = 0; i < 3; i++)
+        ch[i] = ch[i] <= 0.03928 ? ch[i] / 12.92 : pow((ch[i] + 0.055) / 1.055, 2.4);
+    return 0.2126 * ch[0] + 0.7152 * ch[1] + 0.0722 * ch[2];
+}
+
+static double contrast15(uint16_t a, uint16_t b) {
+    double la = lum15(a), lb = lum15(b);
+    return la > lb ? (la + 0.05) / (lb + 0.05) : (lb + 0.05) / (la + 0.05);
+}
+
+/*  The commonest colour on one scanline of a rect: text is sparse, so that is
+ *  the background, gradient or not. */
+static uint16_t line_bg(const uint16_t *fb_, int x0, int y, int w) {
+    uint16_t best = fb_[y * SCREEN_W + x0];
+    int best_n = 0;
+    for (int i = 0; i < w; i++) {
+        uint16_t c = fb_[y * SCREEN_W + x0 + i];
+        int n = 0;
+        for (int j = 0; j < w; j++) n += fb_[y * SCREEN_W + x0 + j] == c;
+        if (n > best_n) { best_n = n; best = c; }
+    }
+    return best;
+}
+
+/*  How legible a row's text is once it is selected.
+ *
+ *  A lit row changes its background and, if the renderer is doing its job,
+ *  its text colours with it -- so the text cannot be found by colour in the lit
+ *  frame, because text that has vanished into the paper is exactly the case
+ *  being looked for. It is found in the unlit frame instead, as whatever
+ *  stands off its scanline's background there, and then each of those pixels
+ *  is scored against the background in the lit frame. Returns the worst ratio,
+ *  and how many text pixels were found so a rect that missed the text can be
+ *  told from one that passed. */
+static double lit_text_contrast(const uint16_t *glass, const uint16_t *paper,
+                                int x0, int y0, int w, int h, int *found) {
+    double worst = 99.0;
+    *found = 0;
+    for (int y = y0; y < y0 + h; y++) {
+        uint16_t gbg = line_bg(glass, x0, y, w), pbg = line_bg(paper, x0, y, w);
+        for (int x = x0; x < x0 + w; x++) {
+            if (contrast15(glass[y * SCREEN_W + x], gbg) < 2.0) continue;
+            double c = contrast15(paper[y * SCREEN_W + x], pbg);
+            if (c < worst) worst = c;
+            (*found)++;
+        }
+    }
+    return worst;
 }
 
 /* Breadth-first over the floor, so the bot walks like someone with a map. */
@@ -1283,6 +1340,281 @@ int main(int argc, char **argv) {
                     fail = 1;
                 }
             }
+        }
+
+        /*  Tap the map and the party walks there.
+         *
+         *  Driven through real touch coordinates on the map panel, the way a
+         *  stylus would, not through dungeon_route directly. And the marker is
+         *  read back out of the rendered bottom screen and fed to the picker:
+         *  a renderer and a picker that disagreed about the camera would put
+         *  the marker on one square and walk the party to another, and the
+         *  only way to see that is to look at what was drawn. */
+        {
+            printf("== tap the map to walk\n");
+            g.season = 0x7A95;
+            game_set_scene(SCENE_DUNGEON);
+            dungeon_enter(0);
+            idle(20);
+            /*  Reveal the floor so there is somewhere to tap, and keep the
+                corridor quiet so a wandering fight does not end the walk for
+                a reason unrelated to the walk. */
+            for (int y = 0; y < g.dun.h; y++)
+                for (int x = 0; x < g.dun.w; x++) dungeon_mark_seen(x, y);
+            g.dun.steps_to_encounter = 60000;
+
+            /*  The farthest square on screen the router will take them to. */
+            int cell = dungeon_map_cell(), cx, cy, cols, rows;
+            dungeon_map_view(kDunMap.w, kDunMap.h, &cx, &cy, &cols, &rows);
+            int best = -1, bx = 0, by = 0;
+            for (int j = 0; j < rows; j++)
+                for (int i = 0; i < cols; i++) {
+                    int mx = cx + i, my = cy + j;
+                    if (dungeon_tile(mx, my) != T_FLOOR) continue;
+                    if (dungeon_route(mx, my) < 0) continue;
+                    int d = abs(mx - g.dun.px) + abs(my - g.dun.py);
+                    if (d > best) { best = d; bx = mx; by = my; }
+                }
+            int sx = kDunMap.x + 2 + (bx - cx) * cell + cell / 2;
+            int sy = kDunMap.y + 2 + (by - cy) * cell + cell / 2;
+            int from_x = g.dun.px, from_y = g.dun.py;
+
+            /*  Every square that would go off if stood on, as it is now: a box
+                is spent the frame it is stepped on, so asking afterwards
+                whether it was used would always say yes. */
+            static uint8_t armed[MAP_MAX * MAP_MAX];
+            for (int y = 0; y < g.dun.h; y++)
+                for (int x = 0; x < g.dun.w; x++) {
+                    char t = dungeon_tile(x, y);
+                    armed[y * MAP_MAX + x] =
+                        (t == T_DOWN || t == T_SHOP || t == T_KIOSK) ||
+                        ((t == T_BOSS || t == T_NBOSS || t == T_BOX ||
+                          t == T_BOX_GOLD || t == T_SHRINE) && !dungeon_is_used(x, y));
+                }
+
+            /*  A floor narrower than the panel is centred in it, and the
+                margin either side is not ground: a tap there goes nowhere. */
+            if (cx < 0) {
+                input.touching = input.touch_pressed = 1;
+                input.touch_x = (int16_t)(kDunMap.x + 2 + cell / 2);
+                input.touch_y = (int16_t)sy;
+                step();
+                printf("  map walk -> floor is %d wide in a %d-cell panel, %d cells of margin; "
+                       "a tap there %s\n", g.dun.w, cols, -cx,
+                       g.dun.goal ? "SETS A GOAL" : "does nothing");
+                if (g.dun.goal) {
+                    printf("  FAIL a tap off the edge of the floor started a walk\n");
+                    fail = 1;
+                }
+            } else {
+                printf("  FAIL expected floor 1 to be narrower than the map panel\n");
+                fail = 1;
+            }
+
+            input.touching = input.touch_pressed = 1;
+            input.touch_x = (int16_t)sx;
+            input.touch_y = (int16_t)sy;
+            step();
+
+            /*  Find the goal marker in what was drawn -- a square frame whose
+                four corners share one colour -- and ask the picker what is
+                under its middle. */
+            {
+                const uint16_t *bot = plat_screen(SCREEN_BOTTOM);
+                int e = cell + 1, found = 0, gx = -1, gy = -1;
+                for (int y = kDunMap.y; y + e < kDunMap.y + kDunMap.h && !found; y++)
+                    for (int x = kDunMap.x; x + e < kDunMap.x + kDunMap.w && !found; x++) {
+                        uint16_t c = bot[y * SCREEN_W + x];
+                        if (c != C_AMBER && c != C_GOLD) continue;
+                        if (bot[y * SCREEN_W + x + e] != c || bot[(y + e) * SCREEN_W + x] != c ||
+                            bot[(y + e) * SCREEN_W + x + e] != c ||
+                            bot[y * SCREEN_W + x + e / 2] != c) continue;
+                        int mx, my;
+                        if (dungeon_map_pick(x + 1 + cell / 2, y + 1 + cell / 2, kDunMap.x,
+                                             kDunMap.y, kDunMap.w, kDunMap.h, &mx, &my)) {
+                            gx = mx;
+                            gy = my;
+                        }
+                        found = 1;
+                    }
+                printf("  map walk -> the marker is drawn over (%d,%d)\n", gx, gy);
+                if (gx != bx || gy != by) {
+                    printf("  FAIL the marker is not on the square that was tapped\n");
+                    fail = 1;
+                }
+            }
+
+            int trod_on_trigger = 0, frames = 0;
+            for (; frames < 4000 && g.dun.goal && g.scene == SCENE_DUNGEON; frames++) {
+                step();
+                if (!(g.dun.px == bx && g.dun.py == by) &&
+                    armed[g.dun.py * MAP_MAX + g.dun.px])
+                    trod_on_trigger = 1;
+            }
+            idle(WALK_FRAMES + 2);
+            printf("  map walk -> tapped (%d,%d) at screen (%d,%d); walked from (%d,%d) "
+                   "to (%d,%d) in %d frames\n", bx, by, sx, sy, from_x, from_y,
+                   g.dun.px, g.dun.py, frames);
+            if (best < 3) {
+                printf("  FAIL nothing far enough away to make this a real walk\n");
+                fail = 1;
+            } else if (g.dun.px != bx || g.dun.py != by) {
+                printf("  FAIL the party did not end on the square that was tapped\n");
+                fail = 1;
+            }
+            if (trod_on_trigger) {
+                printf("  FAIL the route stepped on something that goes off\n");
+                fail = 1;
+            }
+
+            /*  A d-pad press takes the character back mid-route. */
+            input.touching = input.touch_pressed = 1;
+            input.touch_x = (int16_t)(kDunMap.x + 2 + (from_x - cx) * cell + cell / 2);
+            input.touch_y = (int16_t)(kDunMap.y + 2 + (from_y - cy) * cell + cell / 2);
+            step();
+            int was = g.dun.goal;
+            idle(WALK_FRAMES);
+            tap(BTN_LEFT);
+            printf("  map walk -> a d-pad press %s the route\n",
+                   was && !g.dun.goal ? "cancels" : "DOES NOT cancel");
+            if (!was || g.dun.goal) {
+                printf("  FAIL a route kept walking under the player's own d-pad press\n");
+                fail = 1;
+            }
+
+            /*  The zoom used to live in bit 0 of menu_cursor, which the party
+                menu moves as a cursor. Open it, move the cursor an odd number
+                of times, come back, and the map had changed size. */
+            int before = dungeon_map_cell();
+            input.touching = input.touch_pressed = 1;
+            input.touch_x = (int16_t)(kDunActions[2].x + kDunActions[2].w / 2);
+            input.touch_y = (int16_t)(kDunActions[2].y + kDunActions[2].h / 2);
+            step();
+            idle(1);
+            int zoomed = dungeon_map_cell();
+            tap(BTN_START);
+            tap(BTN_DOWN);
+            tap(BTN_B);
+            idle(2);
+            printf("  map zoom -> %d px to %d px, %d px after a trip through the party menu\n",
+                   before, zoomed, dungeon_map_cell());
+            if (zoomed == before) {
+                printf("  FAIL the zoom button does not change the map\n");
+                fail = 1;
+            }
+            if (g.scene != SCENE_DUNGEON || dungeon_map_cell() != zoomed) {
+                printf("  FAIL the party menu changed the map's zoom\n");
+                fail = 1;
+            }
+        }
+
+        /*  The code keyboard can be left with the buttons alone.
+         *
+         *  BACK was a stylus-only button and B only deleted, so a player who
+         *  opened RESUME FROM CODE with the pad had no way out but a code that
+         *  worked. The ROM bot found this after a lost run: it sat on the
+         *  keyboard for three hundred rounds typing and deleting. */
+        {
+            printf("== the code keyboard lets go\n");
+            game_set_scene(SCENE_TITLE);
+            idle(2);
+            g.title_cursor = 0;
+            tap(BTN_DOWN);
+            tap(BTN_A);
+            int opened = g.scene == SCENE_CODE && g.code_mode;
+            tap(BTN_A);
+            tap(BTN_A);
+            int typed = g.code_len;
+            tap(BTN_B);
+            tap(BTN_B);
+            int emptied = g.scene == SCENE_CODE && g.code_len == 0;
+            tap(BTN_B);
+            printf("  code keys -> opened %d, typed %d, two Bs empty it %d, a third B leaves "
+                   "for scene %d\n", opened, typed, emptied, g.scene);
+            if (!opened || typed != 2 || !emptied) {
+                printf("  FAIL the keyboard did not type and delete with the buttons\n");
+                fail = 1;
+            }
+            if (g.scene != SCENE_TITLE) {
+                printf("  FAIL B on an empty code does not go back to the title\n");
+                fail = 1;
+            }
+        }
+
+        /*  The selected row can be read.
+         *
+         *  The selection is paper -- a pale fill with dark writing -- and most
+         *  lists drew their selected label in amber, which on paper measures
+         *  1.0:1; the counts, prices and stats beside it stayed their glass
+         *  colours and fared no better. A boss's name went pale in the roster
+         *  at the moment its tell was up. Each case is rendered with the row
+         *  off and on, and the text scored where it stands. */
+        {
+            printf("== selected rows are legible\n");
+            static uint16_t glass[SCREEN_W * SCREEN_H], paper[SCREEN_W * SCREEN_H];
+            const uint16_t *bot = plat_screen(SCREEN_BOTTOM);
+            /*  min_px is how much text the rect must contain for the
+                measurement to count: one glyph on a key is sixteen. */
+            struct { const char *what; int scene; int x, y, w, h, min_px; } cases[] = {
+                { "shop row, affordable",   SCENE_SHOP,    28, 28, 220, 14, 60 },
+                { "shop row, too dear",     SCENE_SHOP,    28, 28, 220, 14, 60 },
+                { "level-up stat row",      SCENE_LEVELUP, 16, 49, 226, 14, 60 },
+                { "foe roster during tell", SCENE_BATTLE,  28, 112, 118, 12, 60 },
+                { "keyboard key",           SCENE_CODE,    10, 62, 24, 20, 10 },
+            };
+            for (unsigned k = 0; k < sizeof cases / sizeof cases[0]; k++) {
+                if (cases[k].scene == SCENE_BATTLE) {
+                    int def = -1;
+                    for (int i = 0; i < foe_count && def < 0; i++)
+                        if (foe_defs[i].rank && foe_defs[i].tell) def = i;
+                    battle_start_foe(def, " blocks the way.");
+                } else {
+                    game_set_scene(cases[k].scene);
+                }
+                idle(30);
+                g.fade = 0;
+                g.gold = k == 1 ? 0 : 9999;
+                g.code_mode = 1;
+                for (int lit = 0; lit < 2; lit++) {
+                    switch (cases[k].scene) {
+                    case SCENE_SHOP:    g.shop_cursor = lit ? 0 : 1; break;
+                    case SCENE_LEVELUP: g.menu_cursor = lit ? 0 : 1; break;
+                    case SCENE_CODE:    g.code_cursor = lit ? 0 : 1; break;
+                    case SCENE_BATTLE:
+                        g.bat.phase = BAT_RESOLVE;
+                        g.bat.actor = PARTY;
+                        g.bat.tell = lit ? 2 : 0;
+                        g.bat.tell_foe = 0;
+                        break;
+                    }
+                    render_frame();
+                    memcpy(lit ? paper : glass, bot, sizeof glass);
+                }
+                int found;
+                double c = lit_text_contrast(glass, paper, cases[k].x, cases[k].y,
+                                             cases[k].w, cases[k].h, &found);
+                int mid = cases[k].y + cases[k].h / 2;
+                double lit_l = lum15(line_bg(paper, cases[k].x, mid, cases[k].w));
+                double off_l = lum15(line_bg(glass, cases[k].x, mid, cases[k].w));
+                printf("  %-24s -> worst text %.2f:1 over %d px\n", cases[k].what, c, found);
+                if (lit_l < 0.4 || off_l > 0.2) {
+                    /*  Otherwise this compares glass with glass and passes
+                        having measured nothing -- which it did, the first
+                        time, because the roster never redrew for a tell. */
+                    printf("  FAIL the %s did not light (background %.2f -> %.2f)\n",
+                           cases[k].what, off_l, lit_l);
+                    fail = 1;
+                } else if (found < cases[k].min_px) {
+                    printf("  FAIL found no text to measure in the %s\n", cases[k].what);
+                    fail = 1;
+                } else if (c < 3.0) {
+                    printf("  FAIL the %s cannot be read once selected\n", cases[k].what);
+                    fail = 1;
+                }
+            }
+            g.code_mode = 0;
+            game_set_scene(SCENE_DUNGEON);
+            idle(2);
         }
 
         /*  The item table and the icon strip are one list in two files.

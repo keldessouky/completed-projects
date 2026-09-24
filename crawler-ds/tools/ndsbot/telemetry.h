@@ -29,6 +29,10 @@ typedef struct {
     uint32_t collapse;       /* seconds left on the floor timer                */
     uint32_t touch;          /* last stylus contact: 1<<24 | x<<8 | y           */
     uint32_t touch_raw;      /* raw digitiser reading, for diagnosing calibration */
+    uint32_t season;         /* the seed the floors were dealt from: a run that
+                                fails on the ROM can be replayed on the host   */
+    uint32_t foe;            /* the fight's first foe, as a foe_defs index;
+                                0xFFFF outside a battle                        */
     uint32_t checksum;
 } Telemetry;
 

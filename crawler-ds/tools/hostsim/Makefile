@@ -6,7 +6,7 @@ SRC = hostsim.c $(wildcard ../../src/core/*.c) $(wildcard ../../src/render/*.c) 
 HDR = $(wildcard ../../src/core/*.h) $(wildcard ../../src/render/*.h) \
       $(wildcard ../../src/gen/*.h) $(wildcard ../../tools/ndsbot/*.h)
 hostsim: $(SRC) $(HDR)
-	$(CC) $(CFLAGS) $(SRC) -o hostsim -lz
+	$(CC) $(CFLAGS) $(SRC) -o hostsim -lz -lm
 clean:
 	rm -f hostsim
 .PHONY: clean

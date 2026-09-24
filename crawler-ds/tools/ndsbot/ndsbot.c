@@ -203,6 +203,7 @@ static const struct { const char *name; size_t off; } tel_fields[] = {
     F(carl_hp), F(carl_hp_max), F(carl_level), F(carl_xp),
     F(donut_hp), F(donut_hp_max), F(donut_level),
     F(gold), F(boxes), F(achievements), F(battles_won), F(story_beat), F(flags), F(collapse), F(touch), F(touch_raw),
+    F(season), F(foe),
     #undef F
 };
 
@@ -390,6 +391,16 @@ int main(int argc, char **argv) {
                     g_joypad &= ~(1u << button_id("b")); run_frames(4);
                 }
                 last_steps = steps;
+                /*  One line a round, for finding where two builds' runs part
+                    ways: the checkpoints only say that they did. */
+                if (getenv("NDSBOT_TRACE_AUTOPLAY")) {
+                    uint32_t f = 0, x = 0, y = 0, hp = 0, dhp = 0, foe = 0;
+                    tel_read("frame", &f); tel_read("px", &x); tel_read("py", &y);
+                    tel_read("carl_hp", &hp); tel_read("donut_hp", &dhp); tel_read("foe", &foe);
+                    fprintf(stderr, "[auto] %d %s frame=%u scene=%u steps=%u at=%u,%u "
+                            "hp=%u,%u foe=%d\n", k, button, f, scene, steps, x, y, hp, dhp,
+                            foe == 0xFFFF ? -1 : (int)foe);
+                }
             }
         } else if (!strcmp(cmd, "until")) {
             /* until BTN FIELD OP VALUE [MAX] - tap BTN until the telemetry says so. */

@@ -70,6 +70,15 @@
 #define C_SEL_HI    RGB(0xF1, 0xE8, 0xD0)
 #define C_SEL_INK   RGB(0x20, 0x21, 0x27)   /* what you write on paper */
 #define C_SEL_DIM   RGB(0x46, 0x43, 0x3D)
+/*  The rest of the text colours, for paper. Every colour above was picked for
+ *  dark glass, and on the selection they measured 1.0:1 (amber) to 1.7:1
+ *  (cyan): the row the player was pointing at was the one row they could not
+ *  read. Each is the darkest usable step of the ramp its glass colour comes
+ *  from, and clears 4.5:1 against the darker end of the paper. */
+#define C_SEL_CYAN  RGB(0x20, 0x3F, 0x50)   /* water 0  */
+#define C_SEL_GOLD  RGB(0x60, 0x48, 0x20)   /* gold 0   */
+#define C_SEL_RED   RGB(0x8D, 0x30, 0x35)   /* blood 2  */
+#define C_SEL_GREEN RGB(0x38, 0x55, 0x2F)   /* grass 1  */
 
 #define C_BG_TOP    RGB(0x26, 0x37, 0x42)
 #define C_BG_BOT    RGB(0x24, 0x23, 0x2A)

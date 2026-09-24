@@ -16,6 +16,9 @@ static const Rect kDunPad[] = {
     {  66, 141, 28, 22, "\202" },      /* east  */
 };
 #define DUN_PAD_N ((int)(sizeof kDunPad / sizeof kDunPad[0]))
+/*  The floor map. A target as well as a picture: tap a square the party has
+    seen and they walk there. */
+static const Rect kDunMap = { 6, 28, 244, 82, 0 };
 static const Rect kDunActions[] = {
     { 102, 118, 72, 26, "USE" },
     { 178, 118, 74, 26, "PARTY" },
@@ -60,6 +63,16 @@ static const Rect kMenuTabs[] = {
     {  68, 4, 60, 20, "GEAR" },
     { 132, 4, 60, 20, "FEATS" },   /* it lists achievements, not boxes */
     { 196, 4, 56, 20, "SHOW" },
+};
+
+/*  The recall-code keyboard's three commands. B deletes, and on an empty code
+    it is BACK -- which used to be a stylus-only button, so a player driving
+    this screen with the buttons had no way out of it but a code that worked. */
+enum { CODE_DEL, CODE_GO, CODE_BACK, CODE_CMD_N };
+static const Rect kCodeCmds[CODE_CMD_N] = {
+    {   8, 166, 74, 22, "DELETE" },
+    {  90, 166, 74, 22, "ENTER" },
+    { 172, 166, 76, 22, "BACK" },
 };
 
 #endif
