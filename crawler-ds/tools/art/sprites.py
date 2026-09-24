@@ -5,6 +5,7 @@ they meet, `props` for the furniture — all built on `forge_tools`, all lit by 
 same key light. `tools/forge.py` turns this list into src/gen/art.c.
 """
 import bestiary
+import bosses
 import cast
 import items
 import props
@@ -55,6 +56,20 @@ ROSTER = [
     ('boss_producer', bestiary.boss_producer),
     ('boss_hoarder', bestiary.the_hoarder),
     ('boss_rage', bestiary.rage_elemental),
+    #  The eleven that were wearing a mob's sprite -- three pairs of them the
+    #  same mob as each other. Built in bosses.py as the mob plus what marks it
+    #  out, which is what content.c always said they were.
+    ('boss_juicer', bosses.the_juicer),
+    ('boss_warchief', bosses.goblin_war_chief),
+    ('boss_sapper', bosses.sapper_foreman),
+    ('boss_kennel', bosses.the_kennelmaster),
+    ('boss_bailiff', bosses.bailiff_prime),
+    ('boss_preacher', bosses.street_preacher),
+    ('boss_doorman', bosses.the_doorman),
+    ('boss_housemimic', bosses.house_mimic),
+    ('boss_toll', bosses.silk_road_toll),
+    ('boss_anchor', bosses.carrion_anchor),
+    ('boss_spike', bosses.ratings_spike),
 
     # the furniture (40x40)
     ('box_bronze', lambda: props.loot_box(0)),

@@ -477,7 +477,7 @@ static int floor_is_sound(int show) {
 int main(int argc, char **argv) {
     int bot = 0, runs = 1, want_shots = 0, touch_check = 0, code_check = 0;
     uint32_t map_seed = 0;
-    int sweep = 0, profile = 0;
+    int sweep = 0, profile = 0, gallery = 0;
     for (int i = 1; i < argc; i++) {
         if (!strcmp(argv[i], "--bot")) bot = 1;
         else if (!strcmp(argv[i], "--shots") && i + 1 < argc) { shots_dir = argv[++i]; want_shots = 1; }
@@ -487,8 +487,40 @@ int main(int argc, char **argv) {
         else if (!strcmp(argv[i], "--map") && i + 1 < argc) map_seed = (uint32_t)atoi(argv[++i]);
         else if (!strcmp(argv[i], "--mapsweep") && i + 1 < argc) sweep = atoi(argv[++i]);
         else if (!strcmp(argv[i], "--profile")) profile = 1;
+        else if (!strcmp(argv[i], "--boss-gallery") && i + 1 < argc) {
+            shots_dir = argv[++i]; gallery = 1;
+        }
         else if (!strcmp(argv[i], "-v")) verbose = 1;
         else { fprintf(stderr, "unknown argument %s\n", argv[i]); return 2; }
+    }
+
+    /*  Every boss, in its arena, at the size the renderer actually draws it.
+     *
+     *  The screenshot tour reaches one boss, and a sprite judged on a
+     *  checkerboard at 4x is not the sprite a player sees: it is scaled to a
+     *  target height, stood on a platform, framed by a banner and the party's
+     *  boxes, and read at a distance. Eleven bosses were redrawn at once, so
+     *  this puts each one on the battle screen and photographs it. Not part of
+     *  the docs: it writes wherever it is pointed. */
+    if (gallery) {
+        game_boot();
+        g.season = 0x0B05;
+        dungeon_enter(0);
+        int n = 0;
+        for (int d = 0; d < foe_count; d++) {
+            if (!foe_defs[d].rank) continue;
+            battle_start_foe(d, " blocks the way.");
+            idle(30);
+            char name[64];
+            int k = 0;
+            for (const char *c = foe_defs[d].name; *c && k < 60; c++)
+                name[k++] = (*c == ' ') ? '-' : (char)(*c | 0x20);
+            name[k] = 0;
+            shot(name);
+            n++;
+        }
+        printf("boss gallery: %d bosses written to %s\n", n, shots_dir);
+        return 0;
     }
 
     if (want_shots) {

@@ -150,7 +150,7 @@ const FoeDef foe_defs[] = {
         neighbourhood down: nothing spawns there afterwards. */
     { "The Hoarder",    SPR_BOSS_HOARDER,     120, 15,  9,  4, 110,   0, 40, SK_HIT_ALL,    80, 1, 1, 250, "It has kept everything. All of it.",
       WEAK_HIT, "A grub is halfway out of her mouth." },
-    { "The Juicer",     SPR_TROGLODYTE, 110, 18,  6,  7, 105,   0, 45, SK_BLEED,      95, 1, 1, 115, "A troglodyte that found a use for people.",
+    { "The Juicer",     SPR_BOSS_JUICER, 110, 18,  6,  7, 105,   0, 45, SK_BLEED,      95, 1, 1, 115, "A troglodyte that found a use for people.",
       WEAK_MOVE, "The veins in his arms stand right out." },
     /*  The one boss in the table that had no opening at all. Its ring never
         came up, so the mechanic the game teaches on floor one simply did not
@@ -159,23 +159,23 @@ const FoeDef foe_defs[] = {
         sponsorship, so the tell is the sponsorship: he stops mid-swing to
         check what the deal is paying, and the answer is something out of the
         bag while both his hands are busy. */
-    { "Goblin War Chief", SPR_GOBLIN,   130, 16, 11,  6, 120,   0, 35, SK_DEBUFF_DEF, 70, 1, 1, 140, "Sponsored. Finally.",
+    { "Goblin War Chief", SPR_BOSS_WARCHIEF,   130, 16, 11,  6, 120,   0, 35, SK_DEBUFF_DEF, 70, 1, 1, 140, "Sponsored. Finally.",
       WEAK_ITEM, "He turns away to read what the deal is paying." },
     /*  Tiers two and three need their own, or foe_nboss falls back to the
         borough boss and every chamber on floor seven downward holds a Foreman.
         Each is still the local mob with something from the surface welded on,
         which is what the show does with them. */
-    { "The Sapper Foreman", SPR_KOBOLD,   190, 24, 13,  9, 230,  90, 40, SK_HIT_ALL,   85, 2, 1, 150, "It has requisitioned the whole quadrant.",
+    { "The Sapper Foreman", SPR_BOSS_SAPPER,   190, 24, 13,  9, 230,  90, 40, SK_HIT_ALL,   85, 2, 1, 150, "It has requisitioned the whole quadrant.",
       WEAK_ITEM, "A fuse is burning at his belt." },
-    { "The Kennelmaster", SPR_HOUND,      170, 27,  9, 16, 220,  80, 45, SK_BLEED,    100, 2, 1, 145, "Whistles once. Everything with teeth comes.",
+    { "The Kennelmaster", SPR_BOSS_KENNEL,      170, 27,  9, 16, 220,  80, 45, SK_BLEED,    100, 2, 1, 145, "Whistles once. Everything with teeth comes.",
       WEAK_GUARD, "He whistles. Everything with teeth turns." },
-    { "The Bailiff Prime", SPR_BAILIFF,   200, 25, 15,  8, 240, 100, 35, SK_STUN,      85, 2, 1, 160, "Serving papers on the entire floor.",
+    { "The Bailiff Prime", SPR_BOSS_BAILIFF,   200, 25, 15,  8, 240, 100, 35, SK_STUN,      85, 2, 1, 160, "Serving papers on the entire floor.",
       WEAK_MOVE, "He stops to read the warrant aloud." },
-    { "The Doorman", SPR_BOUNCER,         290, 33, 18, 11, 420, 180, 40, SK_STUN,     100, 3, 1, 178, "The list got shorter. You were on it.",
+    { "The Doorman", SPR_BOSS_DOORMAN,         290, 33, 18, 11, 420, 180, 40, SK_STUN,     100, 3, 1, 178, "The list got shorter. You were on it.",
       WEAK_GUARD, "He sets his weight to put you through a wall." },
-    { "The House Mimic", SPR_MIMIC,       260, 36, 14, 14, 400, 190, 45, SK_HIT_ONE,  160, 3, 1, 170, "It was the room. It was always the room.",
+    { "The House Mimic", SPR_BOSS_HOUSEMIMIC,       260, 36, 14, 14, 400, 190, 45, SK_HIT_ONE,  160, 3, 1, 170, "It was the room. It was always the room.",
       WEAK_HIT, "The lid gapes wider than the room allows." },
-    { "The Carrion Anchor", SPR_VULTURE,  240, 34, 12, 19, 390, 170, 50, SK_BLEED,    130, 3, 1, 155, "Live from the top of the pile.",
+    { "The Carrion Anchor", SPR_BOSS_ANCHOR,  240, 34, 12, 19, 390, 170, 50, SK_BLEED,    130, 3, 1, 155, "Live from the top of the pile.",
       WEAK_MOVE, "It folds its wings to stoop on you." },
 
 
@@ -184,16 +184,16 @@ const FoeDef foe_defs[] = {
       WEAK_GUARD, "It is picking up speed down the slope." },
     /*  Promoted out of a neighbourhood in the second round of patch notes,
         which is the only reason it is standing on a stairwell. */
-    { "The Street Preacher", SPR_BAILIFF, 240, 20, 13,  9, 270,   0, 45, SK_STUN,     90, 1, 2, 185, "Has been expecting you. Personally.",
+    { "The Street Preacher", SPR_BOSS_PREACHER, 240, 20, 13,  9, 270,   0, 45, SK_STUN,     90, 1, 2, 185, "Has been expecting you. Personally.",
       WEAK_MOVE, "He turns to address the balcony." },
     /*  One borough boss a tier meant the same gate six floors running. */
-    { "The Silk Road Toll", SPR_MIMIC,    420, 29, 17, 13, 560, 280, 45, SK_HIT_ONE,  170, 2, 2, 205, "Everything that passes pays. You are passing.",
+    { "The Silk Road Toll", SPR_BOSS_TOLL,    420, 29, 17, 13, 560, 280, 45, SK_HIT_ONE,  170, 2, 2, 205, "Everything that passes pays. You are passing.",
       WEAK_ITEM, "It opens its ledger to price you." },
     { "The Foreman",    SPR_BOSS_FOREMAN, 380, 26, 16, 10, 520, 250, 45, SK_STUN,    100, 2, 2, 200, "Management has come down to the floor.",
       WEAK_HIT, "He leans in to check your paperwork." },
     { "The Producer",   SPR_BOSS_PRODUCER,560, 34, 20, 14, 900, 400, 50, SK_HIT_ALL, 120, 3, 2, 215, "The show, wearing a person.",
       WEAK_MOVE, "He turns to find his own best angle." },
-    { "The Ratings Spike", SPR_VULTURE,   520, 38, 16, 21, 860, 380, 50, SK_BLEED,    150, 3, 2, 195, "Numbers are up. That is your fault.",
+    { "The Ratings Spike", SPR_BOSS_SPIKE,   520, 38, 16, 21, 860, 380, 50, SK_BLEED,    150, 3, 2, 195, "Numbers are up. That is your fault.",
       WEAK_GUARD, "The numbers spike. So does it." },
 };
 const int foe_count = (int)(sizeof foe_defs / sizeof foe_defs[0]);
