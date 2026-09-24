@@ -852,7 +852,7 @@ static void chapter_advance(void) {
     }
     if (next->backdrop != BD_KEEP) g.cut_backdrop = next->backdrop;
     if (next->flags & CUT_SHAKE) g.cut_shake = 40;
-    if (next->flags & CUT_FLASH) g.fade = 14;
+    if (next->flags & CUT_FLASH) g.flash = 14;
 }
 
 void chapter_update(const PlatInput *in) {
@@ -910,6 +910,7 @@ int game_frame(const PlatInput *in) {
     g.frame++;
     g.anim++;
     if (g.fade) g.fade--;
+    if (g.flash) g.flash--;
     if (g.hurt_flash) g.hurt_flash--;
     for (int i = 0; i < MAX_TOASTS; i++) if (g.toast[i].life) g.toast[i].life--;
 

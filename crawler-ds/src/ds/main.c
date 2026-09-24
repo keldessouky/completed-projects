@@ -114,10 +114,25 @@ void plat_init(void) {
  *  measures as a whole 16.7ms -- which compresses real differences to nothing
  *  and inflates trivial ones. Unsynced, the frame counter is proportional to
  *  actual work and the stages can be compared. */
+/*  Set by the renderer, written to the hardware straight after the vblank
+ *  wait, with the frame it belongs to -- a register write mid-scan would
+ *  change the brightness halfway down the screen. */
+static int s_bright_top, s_bright_bottom, s_bright_set_top = 99, s_bright_set_bottom = 99;
+void plat_brightness(int top, int bottom) {
+    s_bright_top = top;
+    s_bright_bottom = bottom;
+}
+static void apply_brightness(void) {
+    if (s_bright_top != s_bright_set_top) setBrightness(1, s_bright_set_top = s_bright_top);
+    if (s_bright_bottom != s_bright_set_bottom)
+        setBrightness(2, s_bright_set_bottom = s_bright_bottom);
+}
+
 void plat_wait(void) {
 #ifndef ABL_NOVSYNC
     swiWaitForVBlank();
 #endif
+    apply_brightness();
 }
 
 /*  `what` is RENDER_TOP | RENDER_BOTTOM: which of the two framebuffers the
@@ -144,6 +159,7 @@ void plat_present(int what) {
 #ifndef ABL_NOVSYNC
     swiWaitForVBlank();
 #endif
+    apply_brightness();
 #ifndef ABL_NODMA
     if ((what & RENDER_TOP) && s_top_rows)
         dmaCopyWords(0, fb_top + s_top_y0 * SCREEN_W, main_gfx + s_top_y0 * SCREEN_W,

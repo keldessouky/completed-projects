@@ -477,6 +477,7 @@ typedef struct {
 
     Toast    toast[MAX_TOASTS];
     uint16_t fade;
+    uint8_t  flash;             /* the System cutting in: a fade to white */
     uint8_t  fade_dir;
     uint8_t  pending_scene;
     uint16_t hurt_flash;

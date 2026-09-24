@@ -35,6 +35,17 @@ static uint16_t fb_world[WORLD_W * WORLD_H];
 uint16_t *plat_screen(int which) {
     return which == SCREEN_WORLD ? fb_world : fb[which ? 1 : 0];
 }
+/*  The DS fades in hardware; here the levels are kept and applied when a
+    screenshot is composed, the same way the world layer is. */
+static int bright[2];
+void plat_brightness(int top, int bottom) { bright[0] = top; bright[1] = bottom; }
+static uint16_t brighten(uint16_t c, int level) {
+    if (!level) return c;
+    int ch[3] = { c & 31, (c >> 5) & 31, (c >> 10) & 31 };
+    for (int i = 0; i < 3; i++)
+        ch[i] = level < 0 ? ch[i] - ch[i] * -level / 16 : ch[i] + (31 - ch[i]) * level / 16;
+    return (uint16_t)((c & 0x8000) | (ch[2] << 10) | (ch[1] << 5) | ch[0]);
+}
 void plat_sound(int voice, int freq, int volume, int duty) { (void)voice; (void)freq; (void)volume; (void)duty; }
 void plat_sound_stop(int voice) { (void)voice; }
 /*  No VRAM here, so nothing to limit; the composition at capture time reads
@@ -76,6 +87,7 @@ static void write_shot(const char *path) {
         for (unsigned x = 0; x < w; x++) {
             uint16_t c = src[x];
             if (wsrc && !(c & 0x8000)) c = wsrc[x / 2];
+            c = brighten(c, bright[y < SCREEN_H ? 0 : 1]);
             *o++ = (unsigned char)(((c) & 31) * 255 / 31);
             *o++ = (unsigned char)(((c >> 5) & 31) * 255 / 31);
             *o++ = (unsigned char)(((c >> 10) & 31) * 255 / 31);

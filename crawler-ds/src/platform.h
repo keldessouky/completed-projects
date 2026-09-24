@@ -74,6 +74,10 @@ uint16_t *plat_screen(int which);
 void      plat_top_rows(int y0, int rows);
 void      plat_wait(void);
 void      plat_present(int what);
+/*  Each screen's master brightness, from -16 (black) through 0 to 16 (white),
+ *  applied at the next vblank. The DS fades a whole screen in hardware, so a
+ *  fade costs nothing to draw and nothing has to be redrawn while it runs. */
+void      plat_brightness(int top, int bottom);
 void      plat_sound(int voice, int freq, int volume, int duty);
 void      plat_sound_stop(int voice);
 

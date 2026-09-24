@@ -142,21 +142,33 @@ void gfx_dither(Surface *s, int x, int y, int w, int h, uint16_t c, int density)
 }
 
 void gfx_shade(Surface *s, int x, int y, int w, int h, int amount) {
+    /*  Every channel of every pixel goes through the same scale, and there are
+     *  only thirty-two channel values: work them out once and look them up.
+     *  gfx_scale_colour per pixel is three integer divides, and the ARM9 has
+     *  no divide instruction -- each one is a library call -- so the fade back
+     *  into the dungeon, which shades two screens and the floor layer every
+     *  frame, ran at a seventh of the frame rate for its whole length. */
+    uint16_t lut[32];
+    for (int v = 0; v < 32; v++) {
+        int t = v * amount / 16;
+        lut[v] = (uint16_t)(t > 31 ? 31 : t);
+    }
+    if (x < 0) { w += x; x = 0; }
+    if (y < 0) { h += y; y = 0; }
+    if (x + w > s->w) w = s->w - x;
+    if (y + h > s->h) h = s->h - y;
     for (int j = 0; j < h; j++) {
-        int yy = y + j;
-        if ((unsigned)yy >= (unsigned)s->h) continue;
+        uint16_t *p = &s->px[(y + j) * s->w + x];
         for (int i = 0; i < w; i++) {
-            int xx = x + i;
-            if ((unsigned)xx >= (unsigned)s->w) continue;
-            uint16_t *p = &s->px[yy * s->w + xx];
-            /*  Leave transparent pixels alone. gfx_scale_colour always sets
-                the alpha bit, so shading a see-through pixel turns it into
-                opaque black -- which on the dungeon's overlay meant the
-                fade-in painted the whole layer solid over the floor and
-                nothing ever cleared it again, because that layer is only
-                wiped in bands. */
-            if (!(*p & 0x8000)) continue;
-            *p = gfx_scale_colour(*p, amount, 16);
+            uint16_t c = p[i];
+            /*  Leave transparent pixels alone. Shading a see-through pixel
+                turns it into opaque black -- which on the dungeon's overlay
+                meant the fade-in painted the whole layer solid over the
+                floor and nothing ever cleared it again, because that layer
+                is only wiped in bands. */
+            if (!(c & 0x8000)) continue;
+            p[i] = (uint16_t)(0x8000 | (lut[(c >> 10) & 31] << 10) |
+                              (lut[(c >> 5) & 31] << 5) | lut[c & 31]);
         }
     }
 }

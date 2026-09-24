@@ -1322,7 +1322,6 @@ static void draw_cutscene(Surface *top, Surface *bot)
         for (int y = 0; y < SCREEN_H; y += 4)
             gfx_rect(top, 0, y, (shake < 0 ? -shake : shake), 4, RGB(36, 35, 42) /* ink ink */);
     }
-    if (g.fade) gfx_shade(top, 0, 0, SCREEN_W, SCREEN_H, 16 + g.fade);
 
     {
         const Chapter *c = 0;
@@ -2158,7 +2157,10 @@ static void draw_victory(Surface *top, Surface *bot) {
 static uint32_t render_signature(void) {
     uint32_t h = 2166136261u;
     #define MIX(v) do { h = (h ^ (uint32_t)(v)) * 16777619u; } while (0)
-    MIX(g.scene); MIX(g.fade); MIX(g.hurt_flash);
+    /*  Not the fade: that is the hardware's (set_brightness), except the
+        battle's shutter, which is drawn. */
+    MIX(g.scene); MIX(g.hurt_flash);
+    if (g.scene == SCENE_BATTLE) MIX(g.fade);
     MIX(g.dun.index); MIX(g.dun.px); MIX(g.dun.py); MIX(g.dun.facing);
     MIX(g.dun.explored); MIX(g.dun.steps); MIX(g.dun.collapse / 60);
     MIX(g.gold); MIX(g.boxes_opened); MIX(g.battles_won); MIX(g.achievements);
@@ -2219,10 +2221,9 @@ static uint32_t render_bottom_signature(void) {
     uint32_t h = 2166136261u;
     #define MIX(v) do { h = (h ^ (uint32_t)(v)) * 16777619u; } while (0)
     /*  Everything the console shows has to be in here, or it is drawn once
-        and then left. The fade was not: the console was drawn on the first
-        dark frame of the way in and kept that shade until the party moved.
-        Nor was the map's zoom, once it stopped riding in menu_cursor. */
-    MIX(g.scene); MIX(g.fade);
+        and then left. The map's zoom was not, once it stopped riding in
+        menu_cursor. (The fade is not drawn, so it is not in here.) */
+    MIX(g.scene);
     MIX(g.dun.index); MIX(g.dun.px); MIX(g.dun.py); MIX(g.dun.facing);
     MIX(g.dun.explored); MIX(g.map_zoom);
     MIX(g.dun.goal); MIX(g.dun.goal_x); MIX(g.dun.goal_y);
@@ -2244,9 +2245,36 @@ static int s_primed;
  *  from the same state, is how a field missing from a signature shows up. */
 void render_invalidate(void) { s_primed = 0; }
 
+/*  How bright each screen is, set on the hardware rather than painted.
+ *
+ *  The fade used to be a shade over both screens and the dungeon's floor
+ *  layer on every frame of it, and a redraw of each so there was something
+ *  fresh to shade: back in the dungeon after every fight that ran at a third
+ *  of the frame rate for its whole length. The DS has a master brightness per
+ *  engine that fades a screen to black or white for nothing, and a fade does
+ *  not change what is drawn -- so it is not in the signatures either, and the
+ *  frames of a fade that change nothing else are not drawn at all.
+ *
+ *  The System's flash was meant to be a flash: it brightened the frame and
+ *  then the generic fade darkened it again, which came out as a dark blink
+ *  with its highlights clipped. It fades from white now. */
+static void set_brightness(void) {
+    int top = 0, bottom = 0;
+    if (g.flash) {
+        top = bottom = g.flash;
+    } else if (g.fade && g.scene == SCENE_BATTLE) {
+        top = g.fade > 10 ? 8 : 0;          /* the shutter opens on a flash */
+        bottom = -(int)g.fade;
+    } else if (g.fade) {
+        top = bottom = -(int)g.fade;
+    }
+    plat_brightness(top, bottom);
+}
+
 int render_frame(void) {
     static uint32_t last_signature, last_bottom;
     int primed = s_primed;
+    set_brightness();
     uint32_t sig = render_signature();
 #ifndef ABL_NOSIGCACHE
     if (primed && sig == last_signature) return 0;
@@ -2290,37 +2318,21 @@ int render_frame(void) {
     /* Paused screens are for reading; the System can wait its turn. */
     if (g.scene != SCENE_DUNGEON && g.scene != SCENE_BATTLE &&
         g.scene != SCENE_MENU && g.scene != SCENE_CODE && g.scene != SCENE_SHOP) toasts(&top);
-    if (g.fade) {
+    /*  Walking into a fight gets a proper transition rather than a fade: the
+     *  screen closes in bands from both edges and opens on the arena, which
+     *  is the beat the genre has used to say "something has found you" since
+     *  the machines were too slow to do anything else. The bands are drawn;
+     *  every other fade is the hardware's, in set_brightness. */
+    if (g.fade && g.scene == SCENE_BATTLE) {
         int a = g.fade;
-        /*  Walking into a fight gets a proper transition rather than a fade:
-         *  the screen closes in bands from both edges and opens on the arena,
-         *  which is the beat the genre has used to say "something has found
-         *  you" since the machines were too slow to do anything else. */
-        if (g.scene == SCENE_BATTLE) {
-            int shut = (14 - a) * (SCREEN_H / 2) / 14;
-            for (int y = 0; y < SCREEN_H; y++) {
-                int from_edge = y < SCREEN_H / 2 ? y : SCREEN_H - 1 - y;
-                if (from_edge < shut) continue;             /* already open */
-                /*  Alternate rows lag by a band, so the shutter has teeth and
-                 *  does not read as a plain box closing. */
-                if (((y >> 2) & 1) && from_edge < shut + 6) continue;
-                gfx_hline(&top, 0, SCREEN_W - 1, y, C_VOID);
-            }
-            if (s_draw_bottom) gfx_shade(&bot, 0, 0, SCREEN_W, SCREEN_H, 16 - a);
-            if (a > 10) gfx_shade(&top, 0, 0, SCREEN_W, SCREEN_H, 30);
-        } else {                                    /* a short wipe otherwise */
-            gfx_shade(&top, 0, 0, SCREEN_W, SCREEN_H, 16 - a);
-            /*  Only over a console drawn this frame. Shading one that was
-                left alone darkens last frame's shade again, and the buffer
-                ends up darker than any frame that was ever drawn. */
-            if (s_draw_bottom) gfx_shade(&bot, 0, 0, SCREEN_W, SCREEN_H, 16 - a);
-        }
-        /*  The dungeon is not on `top` any more, so a fade that only touched
-            that layer would dim the text and leave the floor at full
-            brightness underneath it. */
-        if (g.scene == SCENE_DUNGEON) {
-            Surface w = gfx_surface(SCREEN_WORLD);
-            gfx_shade(&w, 0, 0, WORLD_W, WORLD_H, 16 - a);
+        int shut = (14 - a) * (SCREEN_H / 2) / 14;
+        for (int y = 0; y < SCREEN_H; y++) {
+            int from_edge = y < SCREEN_H / 2 ? y : SCREEN_H - 1 - y;
+            if (from_edge < shut) continue;             /* already open */
+            /*  Alternate rows lag by a band, so the shutter has teeth and
+             *  does not read as a plain box closing. */
+            if (((y >> 2) & 1) && from_edge < shut + 6) continue;
+            gfx_hline(&top, 0, SCREEN_W - 1, y, C_VOID);
         }
     }
     /*  The world layer is only ever touched by the dungeon, so it only needs
