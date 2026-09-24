@@ -126,6 +126,18 @@ static void bar_meter(Surface *s, int x, int y, int w, int h, int value, int max
     if (label) gfx_text(s, x + 3, y + (h - 7) / 2, C_INK, label);
 }
 
+/*  A seven-pixel star, the mark of an achievement: on a toast it stands in
+ *  for a word that took a third of the toast, and in the list it marks the
+ *  ones that are earned. */
+static void star(Surface *s, int x, int y, uint16_t c) {
+    static const char kStar[7][8] = {
+        "...#...", "..###..", "#######", ".#####.", "..###..", ".##.##.", ".#...#.",
+    };
+    for (int j = 0; j < 7; j++)
+        for (int i = 0; i < 7; i++)
+            if (kStar[j][i] == '#') gfx_pixel(s, x + i, y + j, c);
+}
+
 static void toasts(Surface *s) {
     /*  Three at a time. Walking in earns six achievements at once and a stack
         of six panels covers the floor the player is trying to look at; the
@@ -135,12 +147,14 @@ static void toasts(Surface *s) {
         const Toast *t = &g.toast[i];
         if (!t->life) continue;
         shown++;
-        int w = gfx_text_width(t->text) + 10;
+        int medal = t->kind == 3, inset = medal ? 11 : 0;
+        int w = gfx_text_width(t->text) + 10 + inset;
         if (w > SCREEN_W - 8) w = SCREEN_W - 8;
-        uint16_t edge = t->kind == 1 ? C_GOLD : t->kind == 2 ? C_MAGENTA : C_AMBER_DK;
+        uint16_t edge = t->kind == 1 || medal ? C_GOLD : t->kind == 2 ? C_MAGENTA : C_AMBER_DK;
         int slide = t->life > 170 ? (180 - t->life) * 2 : 0;
         gfx_panel(s, 4 - slide, y, w, 13, C_PANEL, edge);
-        gfx_text(s, 9 - slide, y + 3, t->kind ? C_GOLD : C_INK, t->text);
+        if (medal) star(s, 8 - slide, y + 3, C_GOLD);
+        gfx_text(s, 9 + inset - slide, y + 3, t->kind ? C_GOLD : C_INK, t->text);
         y -= 15;
         if (y < 40) break;
     }
@@ -1496,13 +1510,18 @@ static void draw_menu(Surface *top, Surface *bot) {
         int first = sel - rows / 2;
         if (first > ach_count - rows) first = ach_count - rows;
         if (first < 0) first = 0;
+        /*  Two lines a row and room for both: the second used to sit on
+            the row's bottom edge with its descenders cut off. And it says
+            how the thing is earned whether or not it has been -- "unlocked"
+            told you nothing the gold name and the star did not. */
         for (int r = 0; r < rows && first + r < ach_count; r++) {
-            int i = first + r, y = 48 + r * 23;
+            int i = first + r, y = 46 + r * 25;
             int got = (g.achievements >> i) & 1;
             int on = i == sel;
-            window(bot, 6, y, 244, 21, on);
-            gfx_text(bot, 12, y + 3, ink_on(on, got ? C_GOLD : C_DIM), ach_defs[i].name);
-            gfx_text(bot, 12, y + 12, ink_on(on, C_DIM), got ? "unlocked" : ach_defs[i].how);
+            window(bot, 6, y, 244, 24, on);
+            if (got) star(bot, 11, y + 3, ink_on(on, C_GOLD));
+            gfx_text(bot, got ? 21 : 12, y + 3, ink_on(on, got ? C_GOLD : C_DIM), ach_defs[i].name);
+            gfx_text(bot, 12, y + 13, ink_on(on, C_DIM), ach_defs[i].how);
             if (got && ach_defs[i].box < 4) {
                 static const char *const kTier[4] = { "BRZ", "SLV", "GLD", "LEG" };
                 gfx_text(bot, 222, y + 3, ink_on(on, C_AMBER), kTier[ach_defs[i].box]);

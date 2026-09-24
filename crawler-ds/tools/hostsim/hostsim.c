@@ -1614,6 +1614,41 @@ int main(int argc, char **argv) {
             memset(stale, 0, sizeof stale);
         }
 
+        /*  Every achievement arrives with its whole name. The toast holds
+            thirty-seven characters and used to spend thirteen of them on
+            "Achievement: ", which cut the show's longest titles short. */
+        {
+            printf("== achievement toasts carry the whole name\n");
+            int cut = 0;
+            /*  Awarding pays out gold and boxes; put them back after. */
+            uint32_t had = g.achievements;
+            int32_t gold = g.gold;
+            uint8_t held[sizeof g.boxes_held];
+            memcpy(held, g.boxes_held, sizeof held);
+            for (int i = 0; i < ach_count; i++) {
+                g.achievements &= ~(1u << i);
+                game_award(i);
+                if (strcmp(g.toast[0].text, ach_defs[i].name) != 0 || g.toast[0].kind != 3) {
+                    printf("  FAIL \"%s\" arrived as \"%s\"\n", ach_defs[i].name, g.toast[0].text);
+                    cut++;
+                }
+            }
+            g.achievements = had;
+            g.gold = gold;
+            memcpy(g.boxes_held, held, sizeof held);
+            memset(g.toast, 0, sizeof g.toast);
+            printf("  toasts -> %d of %d names arrived whole\n", ach_count - cut, ach_count);
+            if (cut) fail = 1;
+            /*  The FEATS list shows name and how-to on every row, in a 244px
+                window with 12px of margin, the name after a star. */
+            for (int i = 0; i < ach_count; i++)
+                if (gfx_text_width(ach_defs[i].how) > 232 ||
+                    gfx_text_width(ach_defs[i].name) > 232 - 9 - 30) {
+                    printf("  FAIL \"%s\" runs off its row in the FEATS list\n", ach_defs[i].name);
+                    fail = 1;
+                }
+        }
+
         /*  The code keyboard can be left with the buttons alone.
          *
          *  BACK was a stylus-only button and B only deleted, so a player who

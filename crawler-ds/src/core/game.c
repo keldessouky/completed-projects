@@ -126,7 +126,11 @@ void game_award(int achievement) {
     if (g.achievements & (1u << achievement)) return;
     g.achievements |= 1u << achievement;
     audio_sfx(SFX_LEVEL);
-    toast_join("Achievement: ", ach_defs[achievement].name);
+    /*  The name alone, with a medal drawn beside it. "Achievement: " took
+        thirteen of the toast's thirty-seven characters and the show's
+        longest titles are twenty-eight, so "Why Aren't You Wearing Pants"
+        arrived as "Why Aren't You Wearing". */
+    game_toast(ach_defs[achievement].name, 3);
     gold_add(ach_defs[achievement].gold);
     /*  Stowed, not opened. Six of these land at once when a run starts, and
         game_open_box sets the scene -- so opening them directly showed the

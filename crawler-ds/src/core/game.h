@@ -375,7 +375,8 @@ typedef struct {
 typedef struct {
     char     text[38];
     uint8_t  life;
-    uint8_t  kind;      /* 0 system, 1 achievement, 2 loot */
+    uint8_t  kind;      /* 0 system, 1 an item changed hands, 2 loot,
+                           3 an achievement: the text is just its name */
 } Toast;
 
 typedef struct {
