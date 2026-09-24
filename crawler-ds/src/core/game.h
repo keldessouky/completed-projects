@@ -627,6 +627,7 @@ int   game_hero_skills(int hero, const SkillDef **out, int max);
 
 /* render */
 int   render_frame(void);
+void  render_invalidate(void);
 const char *render_fit_name(const char *name, int room, char *buf, int cap);
 void  ui_touch_reset(void);
 int   ui_button(int screen, int x, int y, int w, int h, const char *label, int enabled);

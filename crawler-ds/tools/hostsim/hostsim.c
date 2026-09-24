@@ -105,7 +105,69 @@ static const char *shots_dir;
 static int verbose;
 static int pause_scene = -1;      /* the tour stops here instead of tapping through */
 
-static void step(void) { game_frame(&input); memset(&input, 0, sizeof input); }
+/*  What the screens are showing, as opposed to what is in the buffers.
+ *
+ *  The renderer skips a frame outright when its signature says nothing
+ *  visible changed, and the DS then keeps showing the last frame it was sent.
+ *  A field the signature leaves out is drawn once and then left: the
+ *  dungeon's console kept the first dark frame of a fade until the party
+ *  moved, the map ignored its zoom button, a boss's roster row did not light
+ *  for its tell. With this on, every frame what the screens hold is compared
+ *  with a frame drawn fresh from the same state.
+ *
+ *  Some lag is the design -- the battle redraws its idle motion every fourth
+ *  frame, the title every second -- so what is measured is how long a screen
+ *  stays wrong, not whether it ever is. A few frames is a frame rate. Longer
+ *  is a picture that is waiting for the player to do something before it
+ *  catches up. */
+#define STALE_MAX_LAG 4    /* the longest the design asks for is three */
+static int stale_on;
+static uint16_t shown[3][SCREEN_W * SCREEN_H];
+typedef struct { int worst, frame, px, x0, y0, x1, y1; } Stale;
+static Stale stale[SCENE_COUNT][3];
+static int stale_age[3];
+static uint16_t check_buf[3][SCREEN_W * SCREEN_H];
+
+static void stale_check(int what) {
+    uint16_t *bufs[3] = { fb[0], fb[1], fb_world };
+    const size_t sizes[3] = { sizeof fb[0], sizeof fb[1], sizeof fb_world };
+    const int widths[3] = { SCREEN_W, SCREEN_W, WORLD_W };
+    if (what & RENDER_TOP) memcpy(shown[0], bufs[0], sizes[0]);
+    if (what & RENDER_BOTTOM) memcpy(shown[1], bufs[1], sizes[1]);
+    if (what & RENDER_WORLD) memcpy(shown[2], bufs[2], sizes[2]);
+    /*  The buffers are the renderer's scratch as well: keep them, so the
+        fresh draw does not become the next frame's starting point. */
+    for (int k = 0; k < 3; k++) memcpy(check_buf[k], bufs[k], sizes[k]);
+    render_invalidate();
+    int fresh = render_frame();
+    for (int k = 0; k < 3; k++) {
+        if (k == 2 && !(fresh & RENDER_WORLD)) { stale_age[k] = 0; continue; }  /* hidden */
+        int n = 0, x0 = 9999, y0 = 9999, x1 = -1, y1 = -1;
+        for (size_t i = 0; i < sizes[k] / 2; i++)
+            if (shown[k][i] != bufs[k][i]) {
+                int x = (int)(i % (size_t)widths[k]), y = (int)(i / (size_t)widths[k]);
+                n++;
+                if (x < x0) x0 = x;
+                if (y < y0) y0 = y;
+                if (x > x1) x1 = x;
+                if (y > y1) y1 = y;
+            }
+        stale_age[k] = n ? stale_age[k] + 1 : 0;
+        Stale *st = &stale[g.scene][k];
+        if (stale_age[k] > st->worst) {
+            st->worst = stale_age[k];
+            st->frame = (int)g.frame; st->px = n;
+            st->x0 = x0; st->y0 = y0; st->x1 = x1; st->y1 = y1;
+        }
+    }
+    for (int k = 0; k < 3; k++) memcpy(bufs[k], check_buf[k], sizes[k]);
+}
+
+static void step(void) {
+    int what = game_frame(&input);
+    memset(&input, 0, sizeof input);
+    if (stale_on) stale_check(what);
+}
 static void idle(int n) { for (int i = 0; i < n; i++) step(); }
 static void tap(uint32_t button) { input.pressed = button; input.held = button; step(); idle(1); }
 
@@ -1352,6 +1414,11 @@ int main(int argc, char **argv) {
          *  only way to see that is to look at what was drawn. */
         {
             printf("== tap the map to walk\n");
+            /*  The walk, its marker and the zoom button all draw on the
+                console, which has a signature of its own; watch it. */
+            memset(stale, 0, sizeof stale);
+            memset(stale_age, 0, sizeof stale_age);
+            stale_on = 1;
             g.season = 0x7A95;
             game_set_scene(SCENE_DUNGEON);
             dungeon_enter(0);
@@ -1506,6 +1573,45 @@ int main(int argc, char **argv) {
                 printf("  FAIL the party menu changed the map's zoom\n");
                 fail = 1;
             }
+            /*  And a zoom that changes the number but not the picture is the
+                same bug from the other side: the console has its own
+                signature, and zoom was once in the main one only. The map
+                has to change on the frame the button is pressed. */
+            {
+                /*  Past the fade back from the menu first: it redraws the
+                    console every frame, and would carry a zoom that the
+                    signature had forgotten. And halfway between the ticks of
+                    the console's own blink, which redraws it every sixteen
+                    frames -- the first version of this pressed on one. */
+                idle(30);
+                while ((g.anim & 15) != 6) idle(1);
+                static uint16_t before_px[SCREEN_W * SCREEN_H];
+                memcpy(before_px, shown[1], sizeof before_px);
+                input.touching = input.touch_pressed = 1;
+                input.touch_x = (int16_t)(kDunActions[2].x + kDunActions[2].w / 2);
+                input.touch_y = (int16_t)(kDunActions[2].y + kDunActions[2].h / 2);
+                step();
+                int changed = 0;
+                for (int y = kDunMap.y; y < kDunMap.y + kDunMap.h; y++)
+                    for (int x = kDunMap.x; x < kDunMap.x + kDunMap.w; x++)
+                        changed += shown[1][y * SCREEN_W + x] != before_px[y * SCREEN_W + x];
+                printf("  map zoom -> %d px of the map changed on the frame it was pressed\n",
+                       changed);
+                if (changed < 100) {
+                    printf("  FAIL the zoom button does not redraw the map\n");
+                    fail = 1;
+                }
+            }
+            idle(40);
+            stale_on = 0;
+            for (int sc = 0; sc < SCENE_COUNT; sc++)
+                for (int k = 0; k < 3; k++)
+                    if (stale[sc][k].worst > STALE_MAX_LAG) {
+                        printf("  FAIL screen %d in scene %d stayed behind the game for %d "
+                               "frames\n", k, sc, stale[sc][k].worst);
+                        fail = 1;
+                    }
+            memset(stale, 0, sizeof stale);
         }
 
         /*  The code keyboard can be left with the buttons alone.
@@ -1921,6 +2027,7 @@ int main(int argc, char **argv) {
     }
 
     if (bot) {
+        stale_on = 1;
         for (int r = 0; r < runs; r++) {
             int seed = 1000 + r * 977;
             printf("run %d (seed %d)\n", r + 1, seed);
@@ -1941,6 +2048,23 @@ int main(int argc, char **argv) {
             check(g.hero[0].level >= 4, "the crawlers levelled on the way");
             check(g.battles_won >= 6, "the run involved a real number of fights");
             check(g.boxes_opened >= 3, "loot boxes actually opened");
+        }
+        stale_on = 0;
+        {
+            static const char *const kScreen[3] = { "top", "bottom", "world" };
+            int any = 0;
+            for (int sc = 0; sc < SCENE_COUNT; sc++)
+                for (int k = 0; k < 3; k++) {
+                    const Stale *st = &stale[sc][k];
+                    if (!st->worst) continue;
+                    int bad = st->worst > STALE_MAX_LAG;
+                    printf("  %s %-6s in scene %2d: behind a fresh draw for up to %d frames "
+                           "(at frame %d, %d px in (%d,%d)-(%d,%d))\n",
+                           bad ? "STALE" : "lag  ", kScreen[k], sc, st->worst, st->frame,
+                           st->px, st->x0, st->y0, st->x1, st->y1);
+                    any |= bad;
+                }
+            check(!any, "no screen stays behind the game state for more than a few frames");
         }
         printf("%s: %d failures\n", fail_count ? "FAILED" : "passed", fail_count);
         return fail_count ? 1 : 0;

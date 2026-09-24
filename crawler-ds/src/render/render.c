@@ -2179,6 +2179,7 @@ static uint32_t render_signature(void) {
     if (g.scene == SCENE_DUNGEON) {
         MIX(g.dun.move_anim); MIX(g.anim >> 2);
         MIX(g.dun.goal); MIX(g.dun.goal_x); MIX(g.dun.goal_y); MIX(g.map_zoom);
+        MIX(g.dun.goal ? g.anim & 8 : 0);
     }
 
     /* Scenes that are alive even when the player is not. */
@@ -2198,9 +2199,15 @@ static uint32_t render_bottom_signature(void) {
     if (g.scene != SCENE_DUNGEON) return render_signature();
     uint32_t h = 2166136261u;
     #define MIX(v) do { h = (h ^ (uint32_t)(v)) * 16777619u; } while (0)
-    MIX(g.scene);
+    /*  Everything the console shows has to be in here, or it is drawn once
+        and then left. The fade was not: the console was drawn on the first
+        dark frame of the way in and kept that shade until the party moved.
+        Nor was the map's zoom, once it stopped riding in menu_cursor. */
+    MIX(g.scene); MIX(g.fade);
     MIX(g.dun.index); MIX(g.dun.px); MIX(g.dun.py); MIX(g.dun.facing);
-    MIX(g.dun.explored); MIX(g.menu_cursor);
+    MIX(g.dun.explored); MIX(g.map_zoom);
+    MIX(g.dun.goal); MIX(g.dun.goal_x); MIX(g.dun.goal_y);
+    MIX(g.dun.goal ? g.anim & 8 : 0);   /* the goal marker pulses */
     MIX(g.gold); MIX(g.boxes_opened);
     for (int i = 0; i < PARTY; i++) {
         MIX(g.hero[i].hp); MIX(g.hero[i].hp_max);
@@ -2211,9 +2218,16 @@ static uint32_t render_bottom_signature(void) {
     return h;
 }
 
+static int s_primed;
+
+/*  Forget what was drawn, so the next frame draws both screens from scratch.
+ *  For the host tests: a frame the cache kept, compared with one drawn fresh
+ *  from the same state, is how a field missing from a signature shows up. */
+void render_invalidate(void) { s_primed = 0; }
+
 int render_frame(void) {
     static uint32_t last_signature, last_bottom;
-    static int primed;
+    int primed = s_primed;
     uint32_t sig = render_signature();
 #ifndef ABL_NOSIGCACHE
     if (primed && sig == last_signature) return 0;
@@ -2223,7 +2237,7 @@ int render_frame(void) {
 
     last_signature = sig;
     last_bottom = bsig;
-    primed = 1;
+    s_primed = 1;
 
     Surface top = gfx_surface(SCREEN_TOP);
     Surface bot = gfx_surface(SCREEN_BOTTOM);
@@ -2273,11 +2287,14 @@ int render_frame(void) {
                 if (((y >> 2) & 1) && from_edge < shut + 6) continue;
                 gfx_hline(&top, 0, SCREEN_W - 1, y, C_VOID);
             }
-            gfx_shade(&bot, 0, 0, SCREEN_W, SCREEN_H, 16 - a);
+            if (s_draw_bottom) gfx_shade(&bot, 0, 0, SCREEN_W, SCREEN_H, 16 - a);
             if (a > 10) gfx_shade(&top, 0, 0, SCREEN_W, SCREEN_H, 30);
         } else {                                    /* a short wipe otherwise */
             gfx_shade(&top, 0, 0, SCREEN_W, SCREEN_H, 16 - a);
-            gfx_shade(&bot, 0, 0, SCREEN_W, SCREEN_H, 16 - a);
+            /*  Only over a console drawn this frame. Shading one that was
+                left alone darkens last frame's shade again, and the buffer
+                ends up darker than any frame that was ever drawn. */
+            if (s_draw_bottom) gfx_shade(&bot, 0, 0, SCREEN_W, SCREEN_H, 16 - a);
         }
         /*  The dungeon is not on `top` any more, so a fade that only touched
             that layer would dim the text and leave the floor at full
