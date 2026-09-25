@@ -37,13 +37,17 @@ def pair(c, x, y, rows, key, flip=False):
 
 def carl(k=1.0):
     """Carl, squared up: fists raised, feet apart, eyes on whatever is on
-    the right of the screen -- which in a fight is the other side. A battler
-    standing with its arms by its sides is a figure on a shelf; this is a man
-    who has decided to punch something."""
+    the right of the screen -- which in a fight is the other side.
+
+    Built on the look of the actor the audiobook's narrator says he pitches
+    Carl's voice at: a jaw like a cinder block and a chin to match, short
+    dark hair combed over with a bit of a quiff, heavy level brows over
+    small, unimpressed eyes, a thick neck and a barrel chest. The beard is
+    stubble now, because a beard hides the one thing that makes the face."""
     c = Cel(outline=OUT, k=k)
     skin = M('skin', 5, 4, 2, 1)
-    hair = Mat(R['hair_brown'][3], R['hair_brown'][2], R['hair_brown'][1], R['hair_brown'][0])
-    beard = Mat(R['hair_brown'][2], R['hair_brown'][1], R['hair_brown'][0], R['hair_brown'][0])
+    stubble = Mat((0xc6, 0x9c, 0x8c), (0xb4, 0x8e, 0x84), (0x9a, 0x78, 0x72), (0x7e, 0x60, 0x5c))
+    hair = Mat((0x7a, 0x58, 0x44), (0x52, 0x3a, 0x30), (0x3a, 0x29, 0x25), (0x28, 0x1c, 0x1c))
     jacket = M('cloth_green', 4, 3, 1, 0)
     cuff = M('cloth_green', 4, 4, 2, 0)
     tee = M('steel', 4, 3, 2, 1)
@@ -51,91 +55,94 @@ def carl(k=1.0):
     cx = 32
 
     # legs apart, knees soft, bare feet turned out
-    c.paint(c.capsule(27, 55, 24, 64, 3.4, 3.0), skin, shade=1)
-    c.paint(c.capsule(37, 55, 40, 64, 3.4, 3.0), skin, shade=1)
-    c.paint(c.ellipse(22.5, 66.5, 4.6, 2.5), skin, shade=1)
-    c.paint(c.ellipse(41.5, 66.5, 4.6, 2.5), skin, shade=1)
+    c.paint(c.capsule(27, 55, 24, 64, 3.6, 3.2), skin, shade=1)
+    c.paint(c.capsule(37, 55, 40, 64, 3.6, 3.2), skin, shade=1)
+    c.paint(c.ellipse(22.5, 66.5, 4.8, 2.5), skin, shade=1)
+    c.paint(c.ellipse(41.5, 66.5, 4.8, 2.5), skin, shade=1)
 
-    # the tee, crew neck, then the jacket open over it with its lapels
-    c.paint(c.poly([(24, 32), (40, 32), (41, 51), (23, 51)]), tee)
-    c.paint(c.poly([(28, 32), (36, 32), (34, 35), (30, 35)]), tee, shade=1)
-    left = c.poly([(18, 34), (29, 31), (28, 40), (27, 52), (17, 52)])
+    # a barrel chest: the tee, a crew neck, the jacket open over it, lapels
+    c.paint(c.poly([(22, 33), (42, 33), (42, 51), (22, 51)]), tee)
+    c.paint(c.poly([(27, 33), (37, 33), (35, 36), (29, 36)]), tee, shade=1)
+    left = c.poly([(15, 36), (29, 32), (28, 40), (27, 52), (16, 52)])
     c.paint(left, jacket)
     c.paint(c.mirror(left), jacket)
-    lapel = c.poly([(24, 32), (29, 31), (27, 39)])
+    lapel = c.poly([(23, 33), (29, 32), (27, 40)])
     c.paint(lapel, cuff, shade=1)
     c.paint(c.mirror(lapel), cuff, shade=1)
-    # boxers, a notch between the legs, a fold on each side
-    c.paint(c.poly([(20, 49), (44, 49), (46, 58), (35, 58), (32, 55), (29, 58), (18, 58)]),
+    # boxers, a notch between the legs
+    c.paint(c.poly([(19, 49), (45, 49), (47, 58), (35, 58), (32, 55), (29, 58), (17, 58)]),
             boxers, shade=1)
 
-    # head: ears, face, beard, hair
-    c.paint(c.ellipse(19.5, 21, 2.8, 3.6), skin, shade=1)
-    c.paint(c.ellipse(44.5, 21, 2.8, 3.6), skin, shade=1)
-    c.paint(c.capsule(cx, 29, cx, 33, 3.5), skin, shade=1)
-    c.paint(c.ellipse(cx, 19, 12.5, 12.5), skin, shade=2)
-    c.paint(c.poly([(20, 21), (24, 26), (28, 27.5), (36, 27.5), (40, 26), (44, 21), (44, 25),
-                    (41, 31), (32, 34), (23, 31), (20, 25)]), beard, shade=1)
-    #  Hair with a direction: a cap, and three big clumps swept to the right
-    #  over the forehead, with one lock kicking up at the crown. The shape is
-    #  most of it -- the same count of pixels as a round mop, but it moves.
-    cap = c.ellipse(cx - 0.5, 12.5, 13.8, 8.8) - c.rect(19, 12, 45, 71) - c.rect(0, 16, 63, 71)
-    cap |= c.poly([(37, 5), (43, 1.5), (42, 8)])            # one cowlick
-    fringe = set()
-    for pts in ([(18, 10), (27, 9), (28, 12), (23, 17)],
-                [(26, 10), (35, 9), (36, 12), (31.5, 16.5)],
-                [(34, 10), (45, 9), (46, 13), (42, 16)],
-                [(17, 12), (21, 12), (19.5, 23)], [(43, 12), (47, 13), (45.5, 22)]):
-        fringe |= c.poly(pts)
-    #  A one-pixel shadow: a deeper one swallows a lock two pixels wide.
-    hair_all = c.paint(cap | fringe, hair, shade=1, seam_dirs=((0, 1),))
-    #  The sheen: a band of light round the crown, the stripe every handheld
-    #  sprite puts on hair so it reads as hair and not as a hat.
-    hcx, hcy, hrx, hry = cx - 0.5, 12.5, 13.8, 8.8
-    for (x, y) in list(hair_all):
-        dx = (x / k + 0.5 / k - hcx) / hrx
-        dy = (y / k + 0.5 / k - hcy) / hry
-        d = dx * dx + dy * dy
-        if 0.34 < d < 0.56 and dy < -0.25 and dx < 0.35:
-            c.put(x, y, R['hair_brown'][3])
-    #  Partings between the clumps.
-    for x0, y0, x1, y1 in ((27, 8, 28.5, 12.5), (35, 8, 36.5, 12.5)):
-        n = 8
-        for t in range(n + 1):
-            p = c.at(x0 + (x1 - x0) * t / n, y0 + (y1 - y0) * t / n)
-            if p in hair_all:
-                c.put(p[0], p[1], R['hair_brown'][0])
+    # a neck like a post
+    c.paint(c.capsule(cx, 29, cx, 34, 5.2), skin, shade=1)
+    # ears, set low
+    c.paint(c.ellipse(19, 20.5, 2.8, 3.6), skin, shade=1)
+    c.paint(c.ellipse(45, 20.5, 2.8, 3.6), skin, shade=1)
+    #  The head is a block, not a ball: temples narrower than the jaw, the
+    #  jaw squared off, and the chin standing out below it.
+    head = c.poly([(22, 7), (42, 7), (45, 12), (45.5, 21), (46, 27), (43, 32), (38, 35),
+                   (26, 35), (21, 32), (18, 27), (18.5, 21), (19, 12)])
+    c.paint(head, skin, shade=2)
+    #  Stubble over the jaw and the upper lip, hugging the square of it.
+    jaw = c.poly([(18.5, 24), (22, 26.5), (28, 27), (36, 27), (42, 26.5), (45.5, 24),
+                  (46, 27), (43, 32), (38, 35), (26, 35), (21, 32), (18, 27)])
+    jaw_px = c.paint(jaw, stubble, shade=1, hi=0, seam=False)
+    #  A sparse speckle, so it reads as stubble rather than as a tan line.
+    for (x, y) in jaw_px:
+        if (x * 3 + y * 5) % 7 == 0 and c.col.get((x, y)) == stubble.base:
+            c.put(x, y, stubble.shade)
+    #  Hair: short, dark, combed over from a part on the left, a small quiff
+    #  lifting at the front right. Tidy -- the opposite of the mop before.
+    cap = c.ellipse(cx, 11, 14.2, 7.6) - c.rect(0, 13, 63, 71)
+    cap |= c.poly([(18.5, 9), (21, 9), (20.5, 19), (18.5, 17)])        # sideburns
+    cap |= c.poly([(43, 9), (45.5, 9), (45.5, 17), (43.5, 19)])
+    cap |= c.poly([(24, 13), (46, 11), (45, 14), (30, 14.5)])        # the sweep
+    cap |= c.ellipse(38, 4.8, 6.5, 3.2)                               # the quiff
+    hair_all = c.paint(cap, hair, shade=1, seam_dirs=((0, 1),))
+    #  Sheen along the sweep, and the part.
+    x0, x1 = c.at(26, 0)[0], c.at(43, 0)[0]
+    for px in range(x0, x1 + 1):
+        y = int(round((6.2 - (px / k - 26) * 0.08) * k))
+        for dy in range(max(1, int(round(k)))):
+            if (px, y + dy) in hair_all:
+                c.put(px, y + dy, (0x7a, 0x58, 0x44))
+    for y in range(5, 12):
+        p = c.at(24.5, y)
+        if p in hair_all:
+            c.put(p[0], p[1], (0x28, 0x1c, 0x1c))
 
     #  The guard: the rear fist tucked by the chin, the lead fist up and out
     #  toward the right. Upper arm, then forearm, then the fist over both.
-    c.paint(c.capsule(20, 35, 15, 46, 3.8, 3.4), jacket)
-    c.paint(c.capsule(15, 46, 23, 42, 3.4, 3.2), jacket)
-    c.paint(c.capsule(21, 43, 23, 42, 3.3), cuff, shade=1)
-    c.paint(c.ellipse(26, 41, 3.8, 3.6), skin, shade=1)
-    c.paint(c.capsule(44, 35, 50, 44, 3.8, 3.4), jacket)
-    c.paint(c.capsule(50, 44, 47, 36, 3.4, 3.2), jacket)
-    c.paint(c.capsule(48, 38, 47.5, 37, 3.3), cuff, shade=1)
-    c.paint(c.ellipse(47, 33.5, 3.8, 3.6), skin, shade=1)
+    c.paint(c.capsule(18, 37, 13, 47, 4.2, 3.6), jacket)
+    c.paint(c.capsule(13, 47, 22, 43, 3.6, 3.3), jacket)
+    c.paint(c.capsule(20, 44, 22, 43, 3.4), cuff, shade=1)
+    c.paint(c.ellipse(25.5, 42, 4.0, 3.7), skin, shade=1)
+    c.paint(c.capsule(46, 37, 51, 45, 4.2, 3.6), jacket)
+    c.paint(c.capsule(51, 45, 48, 37, 3.6, 3.3), jacket)
+    c.paint(c.capsule(49, 39, 48.5, 38, 3.4), cuff, shade=1)
+    c.paint(c.ellipse(48, 34.5, 4.0, 3.7), skin, shade=1)
 
     # the face, by hand
-    key = {'D': OUT, 'w': R['cloth_cream'][4], 'i': R['hair_brown'][1],
-           'b': R['hair_brown'][0], 'n': R['skin'][2], 'm': R['skin'][1],
-           'r': R['blood'][3], 'p': R['skin'][3], 'k': R['skin'][2],
-           'B': R['hair_brown'][3]}
-    #  Eyes with whites, the irises to the right: he is looking at the fight,
-    #  not at you. Brows down at the middle -- set, not angry.
-    pair(c, 23, 17, c.size(["b..", "...", "wD.", "wD."],
-                           [".b..", "..bb", "wwDD", "wDwD", ".wDD"],
-                           [".bb...", "...bbb", ".wwDD.", "wwDwDD", "wwDDDD",
-                            ".wiiD.", "..DD.."]), key, flip=True)
-    c.stamp(32, 23, c.size(["n"], ["kn"], ["kkn", ".nn"]), key)
-    #  A set mouth, the corner up on one side, sitting in the beard.
-    c.stamp(29, 28, c.size(["DD"], ["DDDm", "...D"], ["DDDDm", "....D"]), key)
+    key = {'D': OUT, 'w': R['cloth_cream'][4], 'b': (0x28, 0x1c, 0x1c),
+           'n': R['skin'][2], 'N': R['skin'][1], 'm': (0x86, 0x5e, 0x4e),
+           'r': R['blood'][3], 'k': R['skin'][2]}
+    #  Heavy brows, dead level; small eyes under a lowered lid, looking right.
+    #  Nothing surprises him and nothing is going to.
+    pair(c, 22.5, 15.5, c.size(["bbb", "...", "DD.", "wD."],
+                               ["bbbbb", ".....", ".DDDD", ".wwDD"],
+                               ["bbbbbbb", "bbbbbbb", ".......", "..DDDDD", "..wwwDD",
+                                "...wDD."]), key)
+    # a strong nose, straight down
+    c.stamp(31.5, 20, c.size(["n", "N"], ["n", "n", "nN"], ["n.", "n.", "nn", "NN"]), key)
+    # a flat mouth, one corner a notch up
+    c.stamp(28.5, 28.5, c.size(["DDD"], ["DDDDm", "....D"], ["DDDDDDm", "......D"]), key)
+    # the chin's cleft
+    c.stamp(31.5, 32.5, c.size(["m"], ["m", "m"], ["m", "m", "m"]), key)
     # knuckles
-    for fx, fy in ((24, 39), (45, 31.5)):
+    for fx, fy in ((23.5, 40), (46, 32.5)):
         c.stamp(fx, fy, c.size(["m"], ["m.m", ".m."], ["m.m.m", ".m.m."]), key)
     # hearts on the boxers
-    for hx, hy in ((21, 51), (28, 50), (35, 51), (40, 54), (23, 55)):
+    for hx, hy in ((20, 51), (27.5, 50), (35, 51), (40.5, 54), (22.5, 55)):
         c.stamp(hx, hy, c.size(["r"], ["r.r", "rrr", ".r."],
                                ["rr.rr", "rrrrr", ".rrr.", "..r.."]), key)
     return c.finish()
