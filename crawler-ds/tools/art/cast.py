@@ -38,9 +38,27 @@ def carl():
     return _staged(battlers.carl)
 
 
+def _from_ref(module, size):
+    """A character taken from reference art (see import_ref.py): the
+    importer already drew each size, so this only stands it in its frame."""
+    from forge_tools import Sprite
+    pal, rows = module.SIZES[size]
+    alphabet = __import__('import_ref').ALPHABET
+    s = Sprite(len(rows[0]), len(rows))
+    idx = {alphabet[i]: s.ink(c) for i, c in enumerate(pal)}
+    for y, row in enumerate(rows):
+        for x, ch in enumerate(row):
+            if ch != '.':
+                s.px[y * s.w + x] = idx[ch]
+    k = (SMALL, 1.0, LARGE)[size]
+    return s.stage(int(round(PARTY_W * k)), int(round(PARTY_H * k)),
+                   int(round(GROUND * k))).emit()
+
+
 def donut():
-    """Princess Donut, sitting up, crowned."""
-    return _staged(battlers.donut)
+    """Princess Donut, sitting up, crowned: taken from her reference art."""
+    import donut_ref
+    return _from_ref(donut_ref, 1)
 
 
 def mordecai():
@@ -54,10 +72,10 @@ def bopca():
 
 
 def carl_s():     return _staged(battlers.carl, SMALL)
-def donut_s():    return _staged(battlers.donut, SMALL)
+def donut_s():    return _from_ref(__import__('donut_ref'), 0)
 def mordecai_s(): return _staged(battlers.mordecai, SMALL)
 def bopca_s():    return _staged(battlers.bopca, SMALL)
 def carl_l():     return _staged(battlers.carl, LARGE)
-def donut_l():    return _staged(battlers.donut, LARGE)
+def donut_l():    return _from_ref(__import__('donut_ref'), 2)
 def mordecai_l(): return _staged(battlers.mordecai, LARGE)
 def bopca_l():    return _staged(battlers.bopca, LARGE)
