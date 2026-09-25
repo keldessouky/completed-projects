@@ -220,6 +220,21 @@ static void item_effect(char *out, int id) {
 }
 
 
+/*  The columns a sprite actually draws in. Frames carry transparent margins
+ *  of their own width, so placing two figures side by side by their frames
+ *  leaves a gap that depends on the art rather than on the layout. */
+static void sprite_cols(const Sprite *sp, int *x0, int *x1) {
+    *x0 = sp->w;
+    *x1 = -1;
+    for (int y = 0; y < sp->h; y++)
+        for (int x = 0; x < sp->w; x++)
+            if (sp->pix[y * sp->w + x]) {
+                if (x < *x0) *x0 = x;
+                if (x > *x1) *x1 = x;
+            }
+    if (*x1 < 0) { *x0 = 0; *x1 = sp->w - 1; }
+}
+
 static void draw_title(Surface *top, Surface *bot) {
     gfx_vgradient(top, 0, 0, SCREEN_W, SCREEN_H, RGB(51, 37, 74) /* arcane 0 */, RGB(58, 32, 37) /* blood 0 */);
     for (int i = 0; i < 60; i++) {          /* falling rubble, forever */
@@ -231,39 +246,52 @@ static void draw_title(Surface *top, Surface *bot) {
     gfx_rect(top, 0, 26, SCREEN_W, 44, RGB(51, 37, 74) /* arcane 0 */);
     gfx_hline(top, 0, SCREEN_W - 1, 26, C_AMBER_DK);
     gfx_hline(top, 0, SCREEN_W - 1, 69, C_AMBER_DK);
-    gfx_text_big(top, 20, 32, C_AMBER, "DUNGEON CRAWLER");
-    gfx_text_big(top, 96, 50, C_MAGENTA, "CARL");
+    /*  Centred, over a pair that stands centred: the words were set from the
+        left edge when the two of them stood at opposite ends of the screen. */
+    #define CENTRE_BIG(str) ((SCREEN_W - (gfx_text_width(str) * 2 - 2)) / 2)
+    gfx_text_big(top, CENTRE_BIG("DUNGEON CRAWLER"), 32, C_AMBER, "DUNGEON CRAWLER");
+    gfx_text_big(top, CENTRE_BIG("CARL"), 50, C_MAGENTA, "CARL");
+    #undef CENTRE_BIG
 
     int floor_y = SCREEN_H - 4;
     gfx_vgradient(top, 0, floor_y - 14, SCREEN_W, 18, RGB(53, 44, 69) /* cloth_purple 0 */, RGB(32, 34, 41) /* cloth_black 0 */);
     gfx_hline(top, 0, SCREEN_W - 1, floor_y - 14, gfx_scale_colour(C_AMBER_DK, 10, 16));
     for (int i = 0; i < 3; i++)                       /* light pooling on the floor */
         gfx_dither(top, 0, floor_y - 12 + i * 5, SCREEN_W, 5, C_AMBER_DK, 6 - i * 2);
-    /*  Big. These are the two people the game is about and they were standing
-        at sixty-four pixels in the middle of a two-hundred-and-fifty-six-pixel
-        field, which read as a screen with a gap in it rather than a poster.
-        At 150% they fill the lower half and the empty space becomes framing. */
+    /*  The pair, together: Carl standing, Donut sitting at his right foot, in
+        front of him -- a man and his cat, at the sizes a man and a cat are.
+        They are placed by what is drawn, not by their frames, which carry
+        margins of different widths; with a season on record they move left
+        and the record gets a window of its own on the right, and without one
+        they stand in the middle. */
     {
         const Sprite *c = hero_sized(0, HERO_LARGE), *d = hero_sized(1, HERO_LARGE);
-        int ch = c->h, dh = d->h, cw = c->w, dw = d->w;
+        int cx0, cx1, dx0, dx1;
+        sprite_cols(c, &cx0, &cx1);
+        sprite_cols(d, &dx0, &dx1);
+        int pair_w = (cx1 - cx0 + 1) + (dx1 - dx0 + 1) - 4;
+        int left = season_count() ? 22 : (SCREEN_W - pair_w) / 2;
+        int carl_x = left - cx0;
+        int donut_x = left + (cx1 - cx0 + 1) - 4 - dx0;
         for (int k = 0; k < 5; k++) {   /* they cast something onto the floor */
-            gfx_dither(top, 14 + k * 2, floor_y - 6 + k, cw - k * 4, 1, C_VOID, 11 - k * 2);
-            gfx_dither(top, SCREEN_W - 20 - dw + k * 2, floor_y - 5 + k, dw - k * 4, 1, C_VOID, 11 - k * 2);
+            gfx_dither(top, left + 2 + k * 2, floor_y - 6 + k, pair_w - 4 - k * 4, 1,
+                       C_VOID, 11 - k * 2);
         }
-        gfx_sprite(top, c, 12, floor_y - ch);
-        gfx_sprite(top, d, SCREEN_W - 18 - dw, floor_y - dh + 2);
-        /*  The tagline goes over them, not under: the party are tall enough
-            now that Carl's hair reaches its row, and the line is the joke. */
-        gfx_text(top, 34, 76, C_DIM, "EIGHTEEN FLOORS.  NOBODY HAS SHOES.");
-        /*  The record goes in the gap between them: at this size they own the
-            whole lower screen, and a line of text across it was being worn
-            like a banner across Donut's crown. */
+        gfx_sprite(top, c, carl_x, floor_y - c->h);
+        gfx_sprite(top, d, donut_x, floor_y - d->h + 1);
+        /*  The tagline goes over them, not under: Carl is tall enough that his
+            hair reaches its row, and the line is the joke. */
+        {
+            const char *tag = "EIGHTEEN FLOORS.  NOBODY HAS SHOES.";
+            gfx_text(top, (SCREEN_W - gfx_text_width(tag) + 1) / 2, 73, C_DIM, tag);
+        }
         if (season_count()) {
-            int mid = cw + 18;
-            gfx_text(top, mid, 108, C_DIM, "SEASONS");
-            gfx_text(top, mid + 6, 120, C_INK, gfx_num(season_count()));
-            gfx_text(top, mid, 136, C_DIM, "DEEPEST");
-            gfx_text(top, mid + 6, 148, C_AMBER, gfx_num(season_best_floor()));
+            int px = 164, py = 104;
+            window(top, px, py, 80, 58, 0);
+            gfx_text(top, px + 8, py + 8, C_DIM, "SEASONS");
+            gfx_text(top, px + 8, py + 18, C_INK, gfx_num(season_count()));
+            gfx_text(top, px + 8, py + 32, C_DIM, "DEEPEST");
+            gfx_text(top, px + 8, py + 42, C_AMBER, gfx_num(season_best_floor()));
         }
     }
 
