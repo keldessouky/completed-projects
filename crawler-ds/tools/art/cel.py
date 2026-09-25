@@ -132,7 +132,8 @@ class Cel:
         placed by hand, so it is drawn by hand for each size."""
         return small if self.k < 0.9 else large if self.k > 1.2 else mid
 
-    def paint(self, mask, mat, shade=2, hi=1, seam=True, clip=None):
+    def paint(self, mask, mat, shade=2, hi=1, seam=True, clip=None,
+              seam_dirs=((1, 0), (-1, 0), (0, 1), (0, -1))):
         #  Shadow and light depths are in design pixels too.
         if shade:
             shade = max(1, int(round(shade * self.k)))
@@ -151,8 +152,11 @@ class Cel:
                 c = mat.shade
             elif hi and (x + self.lx * hi, y + self.ly * hi) not in mask:
                 c = mat.hi
+            #  `seam_dirs` narrows which neighbours count: a lock of hair two
+            #  pixels wide is all seam if its sides count, so hair seams only
+            #  along its underside.
             if seam:
-                for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                for dx, dy in seam_dirs:
                     q = (x + dx, y + dy)
                     if q not in mask and q in self.part:
                         c = mat.line

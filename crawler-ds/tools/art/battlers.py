@@ -36,34 +36,38 @@ def pair(c, x, y, rows, key, flip=False):
 # ------------------------------------------------------------------ carl ---
 
 def carl(k=1.0):
+    """Carl, squared up: fists raised, feet apart, eyes on whatever is on
+    the right of the screen -- which in a fight is the other side. A battler
+    standing with its arms by its sides is a figure on a shelf; this is a man
+    who has decided to punch something."""
     c = Cel(outline=OUT, k=k)
     skin = M('skin', 5, 4, 2, 1)
     hair = Mat(R['hair_brown'][3], R['hair_brown'][2], R['hair_brown'][1], R['hair_brown'][0])
     beard = Mat(R['hair_brown'][2], R['hair_brown'][1], R['hair_brown'][0], R['hair_brown'][0])
     jacket = M('cloth_green', 4, 3, 1, 0)
+    cuff = M('cloth_green', 4, 4, 2, 0)
     tee = M('steel', 4, 3, 2, 1)
     boxers = Mat(R['cloth_cream'][4], R['cloth_cream'][4], R['cloth_cream'][2], R['cloth_cream'][1])
     cx = 32
 
-    # legs and feet first: everything above overlaps them
-    for x in (27, 37):
-        c.paint(c.capsule(x, 55, x, 64, 3.2, 3.0), skin, shade=1)
-    c.paint(c.ellipse(26, 66.5, 4.2, 2.4), skin, shade=1)
-    c.paint(c.ellipse(38, 66.5, 4.2, 2.4), skin, shade=1)
+    # legs apart, knees soft, bare feet turned out
+    c.paint(c.capsule(27, 55, 24, 64, 3.4, 3.0), skin, shade=1)
+    c.paint(c.capsule(37, 55, 40, 64, 3.4, 3.0), skin, shade=1)
+    c.paint(c.ellipse(22.5, 66.5, 4.6, 2.5), skin, shade=1)
+    c.paint(c.ellipse(41.5, 66.5, 4.6, 2.5), skin, shade=1)
 
-    # the tee, then the jacket open over it
-    c.paint(c.poly([(24, 33), (40, 33), (41, 51), (23, 51)]), tee)
-    left = c.poly([(19, 33), (29, 32), (28, 40), (27, 52), (18, 52)])
+    # the tee, crew neck, then the jacket open over it with its lapels
+    c.paint(c.poly([(24, 32), (40, 32), (41, 51), (23, 51)]), tee)
+    c.paint(c.poly([(28, 32), (36, 32), (34, 35), (30, 35)]), tee, shade=1)
+    left = c.poly([(18, 34), (29, 31), (28, 40), (27, 52), (17, 52)])
     c.paint(left, jacket)
     c.paint(c.mirror(left), jacket)
-    # boxers: white, a notch between the legs
-    c.paint(c.poly([(20, 49), (44, 49), (45, 58), (34, 58), (32, 55), (30, 58), (19, 58)]),
+    lapel = c.poly([(24, 32), (29, 31), (27, 39)])
+    c.paint(lapel, cuff, shade=1)
+    c.paint(c.mirror(lapel), cuff, shade=1)
+    # boxers, a notch between the legs, a fold on each side
+    c.paint(c.poly([(20, 49), (44, 49), (46, 58), (35, 58), (32, 55), (29, 58), (18, 58)]),
             boxers, shade=1)
-    # arms hang in front of the jacket's sides
-    c.paint(c.capsule(20, 35, 17, 49, 3.6, 3.2), jacket)
-    c.paint(c.capsule(44, 35, 47, 49, 3.6, 3.2), jacket)
-    c.paint(c.ellipse(16.5, 52, 3.2, 3.2), skin, shade=1)
-    c.paint(c.ellipse(47.5, 52, 3.2, 3.2), skin, shade=1)
 
     # head: ears, face, beard, hair
     c.paint(c.ellipse(19.5, 21, 2.8, 3.6), skin, shade=1)
@@ -71,43 +75,67 @@ def carl(k=1.0):
     c.paint(c.capsule(cx, 29, cx, 33, 3.5), skin, shade=1)
     c.paint(c.ellipse(cx, 19, 12.5, 12.5), skin, shade=2)
     c.paint(c.poly([(20, 21), (24, 26), (28, 27.5), (36, 27.5), (40, 26), (44, 21), (44, 25),
-                    (40, 31), (32, 33), (24, 31), (20, 25)]), beard, shade=1)
-    #  Messy, not spiky: a cap of hair with rounded tufts breaking its edge,
-    #  and clumps of fringe hanging over the forehead.
-    hair_top = c.ellipse(cx, 13, 14.0, 8.6) - c.rect(0, 17, 63, 71)
-    for tx, ty, r in ((21, 8.5, 2.8), (26, 5.8, 2.9), (32, 5.0, 3.0), (38, 5.8, 2.9),
-                      (43, 8.5, 2.8)):
-        hair_top |= c.ellipse(tx, ty, r, r)
+                    (41, 31), (32, 34), (23, 31), (20, 25)]), beard, shade=1)
+    #  Hair with a direction: a cap, and three big clumps swept to the right
+    #  over the forehead, with one lock kicking up at the crown. The shape is
+    #  most of it -- the same count of pixels as a round mop, but it moves.
+    cap = c.ellipse(cx - 0.5, 12.5, 13.8, 8.8) - c.rect(19, 12, 45, 71) - c.rect(0, 16, 63, 71)
+    cap |= c.poly([(37, 5), (43, 1.5), (42, 8)])            # one cowlick
     fringe = set()
-    for pts in ([(19, 14), (26, 14), (22.5, 21.5)], [(25, 14), (32, 14), (28, 20.5)],
-                [(31, 14), (38, 14), (35, 20)], [(37, 14), (45, 14), (42, 19.5)],
-                [(18, 12), (21, 13), (19.5, 24)], [(43, 13), (46, 12), (44.5, 24)]):
+    for pts in ([(18, 10), (27, 9), (28, 12), (23, 17)],
+                [(26, 10), (35, 9), (36, 12), (31.5, 16.5)],
+                [(34, 10), (45, 9), (46, 13), (42, 16)],
+                [(17, 12), (21, 12), (19.5, 23)], [(43, 12), (47, 13), (45.5, 22)]):
         fringe |= c.poly(pts)
-    #  One part, so the clumps do not draw seams between each other; the
-    #  strands are drawn into it afterwards, from the crown out.
-    hair_all = c.paint(hair_top | fringe, hair, shade=2)
-    for x1, y1 in ((22, 16), (27, 17), (33, 17), (39, 16)):
-        n = 12
-        for t in range(3, n):
-            x, y = c.at(32 + (x1 - 32) * t / n, 8 + (y1 - 8) * t / n)
-            if (x, y) in hair_all and (x, y + 1) in hair_all:
-                c.put(x, y, R['hair_brown'][1])
+    #  A one-pixel shadow: a deeper one swallows a lock two pixels wide.
+    hair_all = c.paint(cap | fringe, hair, shade=1, seam_dirs=((0, 1),))
+    #  The sheen: a band of light round the crown, the stripe every handheld
+    #  sprite puts on hair so it reads as hair and not as a hat.
+    hcx, hcy, hrx, hry = cx - 0.5, 12.5, 13.8, 8.8
+    for (x, y) in list(hair_all):
+        dx = (x / k + 0.5 / k - hcx) / hrx
+        dy = (y / k + 0.5 / k - hcy) / hry
+        d = dx * dx + dy * dy
+        if 0.34 < d < 0.56 and dy < -0.25 and dx < 0.35:
+            c.put(x, y, R['hair_brown'][3])
+    #  Partings between the clumps.
+    for x0, y0, x1, y1 in ((27, 8, 28.5, 12.5), (35, 8, 36.5, 12.5)):
+        n = 8
+        for t in range(n + 1):
+            p = c.at(x0 + (x1 - x0) * t / n, y0 + (y1 - y0) * t / n)
+            if p in hair_all:
+                c.put(p[0], p[1], R['hair_brown'][0])
+
+    #  The guard: the rear fist tucked by the chin, the lead fist up and out
+    #  toward the right. Upper arm, then forearm, then the fist over both.
+    c.paint(c.capsule(20, 35, 15, 46, 3.8, 3.4), jacket)
+    c.paint(c.capsule(15, 46, 23, 42, 3.4, 3.2), jacket)
+    c.paint(c.capsule(21, 43, 23, 42, 3.3), cuff, shade=1)
+    c.paint(c.ellipse(26, 41, 3.8, 3.6), skin, shade=1)
+    c.paint(c.capsule(44, 35, 50, 44, 3.8, 3.4), jacket)
+    c.paint(c.capsule(50, 44, 47, 36, 3.4, 3.2), jacket)
+    c.paint(c.capsule(48, 38, 47.5, 37, 3.3), cuff, shade=1)
+    c.paint(c.ellipse(47, 33.5, 3.8, 3.6), skin, shade=1)
 
     # the face, by hand
     key = {'D': OUT, 'w': R['cloth_cream'][4], 'i': R['hair_brown'][1],
-           'b': R['hair_brown'][0], 'n': R['skin'][2], 'm': R['blood'][2],
-           'r': R['blood'][3], 'p': R['skin'][3]}
-    #  Eyes with a glint up and in; brows a clear pixel above them, or he
-    #  scowls.
-    pair(c, 24, 16, c.size(["bb.", "...", ".D.", ".D.", ".D."],
-                           ["bbb.", "....", ".DD.", ".wD.", ".DD.", ".iD."],
-                           ["bbbb.", "bb...", ".....", ".DDD.", ".wwD.", ".wDD.",
-                            ".DDD.", ".iiD.", ".DDD."]), key)
-    c.stamp(31, 23, c.size(["n"], ["n"], ["nn", ".n"]), key)
-    c.stamp(30, 27, c.size(["Dm"], ["DmmD"], ["DmmmD", ".mmm."]), key)
-    pair(c, 21, 23, ["p"], key)
+           'b': R['hair_brown'][0], 'n': R['skin'][2], 'm': R['skin'][1],
+           'r': R['blood'][3], 'p': R['skin'][3], 'k': R['skin'][2],
+           'B': R['hair_brown'][3]}
+    #  Eyes with whites, the irises to the right: he is looking at the fight,
+    #  not at you. Brows down at the middle -- set, not angry.
+    pair(c, 23, 17, c.size(["b..", "...", "wD.", "wD."],
+                           [".b..", "..bb", "wwDD", "wDwD", ".wDD"],
+                           [".bb...", "...bbb", ".wwDD.", "wwDwDD", "wwDDDD",
+                            ".wiiD.", "..DD.."]), key, flip=True)
+    c.stamp(32, 23, c.size(["n"], ["kn"], ["kkn", ".nn"]), key)
+    #  A set mouth, the corner up on one side, sitting in the beard.
+    c.stamp(29, 28, c.size(["DD"], ["DDDm", "...D"], ["DDDDm", "....D"]), key)
+    # knuckles
+    for fx, fy in ((24, 39), (45, 31.5)):
+        c.stamp(fx, fy, c.size(["m"], ["m.m", ".m."], ["m.m.m", ".m.m."]), key)
     # hearts on the boxers
-    for hx, hy in ((22, 51), (29, 50), (36, 51), (41, 54), (24, 55)):
+    for hx, hy in ((21, 51), (28, 50), (35, 51), (40, 54), (23, 55)):
         c.stamp(hx, hy, c.size(["r"], ["r.r", "rrr", ".r."],
                                ["rr.rr", "rrrrr", ".rrr.", "..r.."]), key)
     return c.finish()
