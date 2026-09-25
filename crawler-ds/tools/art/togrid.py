@@ -28,7 +28,7 @@ sprite on the palette. Being a grid is what makes it editable. A sprite wants
 both and they are bought separately.
 
 So: this reads any sprite the forge can build and writes it back out as a
-grid module in the same shape as carl_grid.py -- W, H, PALETTE, KEY, grid().
+grid module: W, H, PALETTE, KEY, grid().
 After that the sprite is rows of text and a redraw is an edit.
 
     python3 tools/art/togrid.py bestiary.kobold_sapper

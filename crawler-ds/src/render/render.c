@@ -44,6 +44,17 @@ static const Sprite *hero_sprite(int slot) {
     return sprite_table[crawler_defs[g.hero[slot].crawler].sprite];
 }
 
+/*  The same crawler painted small or large. Every screen draws the party one
+ *  to one at one of three sizes, because scaling finished pixel art by a
+ *  fraction drops or doubles its rows unevenly -- the battle's 72% took bites
+ *  out of every outline. The sizes are three contiguous groups in the sprite
+ *  table, in crawler order (tools/art/sprites.py). */
+enum { HERO_SMALL = SPR_CARL_S - SPR_CARL, HERO_LARGE = SPR_CARL_L - SPR_CARL };
+static const Sprite *hero_sized(int slot, int size) {
+    if (slot < 0 || slot >= PARTY) slot = 0;
+    return sprite_table[crawler_defs[g.hero[slot].crawler].sprite + size];
+}
+
 /*  Every framed thing in the game goes through these two, so the chrome is
  *  one edit rather than ninety. A selected button swaps its gradient for the
  *  warm one and keeps the bevel, which reads as lit rather than as outlined. */
@@ -234,16 +245,14 @@ static void draw_title(Surface *top, Surface *bot) {
         field, which read as a screen with a gap in it rather than a poster.
         At 150% they fill the lower half and the empty space becomes framing. */
     {
-        const Sprite *c = hero_sprite(0), *d = hero_sprite(1);
-        const int z = 150;
-        int ch = c->h * z / 100, dh = d->h * z / 100;
-        int cw = c->w * z / 100, dw = d->w * z / 100;
+        const Sprite *c = hero_sized(0, HERO_LARGE), *d = hero_sized(1, HERO_LARGE);
+        int ch = c->h, dh = d->h, cw = c->w, dw = d->w;
         for (int k = 0; k < 5; k++) {   /* they cast something onto the floor */
             gfx_dither(top, 14 + k * 2, floor_y - 6 + k, cw - k * 4, 1, C_VOID, 11 - k * 2);
             gfx_dither(top, SCREEN_W - 20 - dw + k * 2, floor_y - 5 + k, dw - k * 4, 1, C_VOID, 11 - k * 2);
         }
-        gfx_sprite_scaled(top, c, 12, floor_y - ch, z, 100);
-        gfx_sprite_scaled(top, d, SCREEN_W - 18 - dw, floor_y - dh + 2, z, 100);
+        gfx_sprite(top, c, 12, floor_y - ch);
+        gfx_sprite(top, d, SCREEN_W - 18 - dw, floor_y - dh + 2);
         /*  The record goes in the gap between them: at this size they own the
             whole lower screen, and a line of text across it was being worn
             like a banner across Donut's crown. */
@@ -983,15 +992,13 @@ static void draw_battle(Surface *top, Surface *bot) {
 
     {
         int bob = (g.anim / 12) & 1;
-        const Sprite *c = hero_sprite(0), *dn = hero_sprite(1);
-        const int party_scale = 72;
-        int cw = c->w * party_scale / 100, ch = c->h * party_scale / 100;
-        int dw = dn->w * party_scale / 100, dh = dn->h * party_scale / 100;
+        const Sprite *c = hero_sized(0, HERO_SMALL), *dn = hero_sized(1, HERO_SMALL);
+        int cw = c->w, ch = c->h, dw = dn->w, dh = dn->h;
         int base = msg_top - 6;
         for (int i = 0; i < 5; i++)
             gfx_dither(top, 6 + i, base - 3 + i, cw - i * 2, 1, C_SHADOW, 13 - i * 2);
-        gfx_sprite_scaled(top, c, 4, base - ch + bob, party_scale, 100);
-        gfx_sprite_scaled(top, dn, 4 + cw + 2, base - dh - bob, party_scale, 100);
+        gfx_sprite(top, c, 4, base - ch + bob);
+        gfx_sprite(top, dn, 4 + cw + 2, base - dh - bob);
         if (g.hero[0].hp <= 0) gfx_shade(top, 4, base - ch, cw, ch, 9);
         if (g.hero[1].hp <= 0) gfx_shade(top, 4 + cw + 2, base - dh, dw, dh, 9);
     }
@@ -1163,9 +1170,8 @@ static void draw_draft(Surface *top, Surface *bot)
         gfx_panel(top, x, 22, 110, 132, C_PANEL, previewing ? C_AMBER : C_EDGE);
         const CrawlerDef *c = &crawler_defs[filled ? g.draft_pick[i] : g.draft_cursor];
         const Sprite *sp = sprite_table[c->sprite];
-        int sw = sp->w * 88 / 100;
         if (filled || previewing) {
-            gfx_sprite_scaled(top, sp, x + (110 - sw) / 2, 30, 88, 100);
+            gfx_sprite(top, sp, x + (110 - sp->w) / 2, 30);
             if (previewing) gfx_shade(top, x + 2, 24, 106, 100, 8);   /* not yours yet */
             gfx_text(top, x + 6, 126, filled ? C_AMBER : C_DIM, c->name);
             gfx_text(top, x + 6, 138, C_DIM, filled ? c->title : "not confirmed");
@@ -1194,8 +1200,8 @@ static void draw_draft(Surface *top, Surface *bot)
         gfx_panel(bot, x, y, 120, 56, on ? C_PANEL_LIT : C_PANEL,
                   on ? C_AMBER : taken ? C_DIM : C_EDGE);
         const CrawlerDef *c = &crawler_defs[i];
-        const Sprite *sp = sprite_table[c->sprite];
-        gfx_sprite_scaled(bot, sp, x + 4, y + 3, 68, 100);
+        const Sprite *sp = sprite_table[c->sprite + HERO_SMALL];
+        gfx_sprite(bot, sp, x + 4, y + 2);
         gfx_text(bot, x + 46, y + 8, taken ? C_DIM : on ? C_AMBER : C_INK, c->name);
         gfx_text(bot, x + 46, y + 20, C_DIM, c->title);
         const Stats *st = &c->st;
@@ -1255,9 +1261,9 @@ static void backdrop_street(Surface *s, int lit)
         gfx_rect(s, 192, 96, 3, SCREEN_H - 122, RGB(52, 56, 64) /* ui panel */);
         gfx_rect(s, 148, 92, 60, 4, RGB(80, 85, 91) /* ui panel_lit */);  /* the landing she is on */
         gfx_hline(s, 148, 207, 92, RGB(98, 106, 112) /* snow 0 */);
-        gfx_sprite_scaled(s, &spr_donut, 162, 92 - spr_donut.h * 52 / 100, 52, 100);
+        gfx_sprite(s, &spr_donut_s, 162, 92 - spr_donut_s.h);
     }
-    gfx_sprite_scaled(s, &spr_carl, 40, SCREEN_H - 26 - spr_carl.h * 78 / 100, 78, 100);
+    gfx_sprite(s, &spr_carl_s, 40, SCREEN_H - 26 - spr_carl_s.h);
 }
 
 static void backdrop_collapse(Surface *s)
@@ -1274,7 +1280,7 @@ static void backdrop_collapse(Surface *s)
         int y = SCREEN_H - ((i * 37 + g.anim * 2) % SCREEN_H);
         gfx_pixel(s, x, y, i & 1 ? RGB(73, 59, 58) /* ink warm */ : RGB(61, 48, 48) /* ink brown */);
     }
-    gfx_sprite_scaled(s, &spr_carl, 40, SCREEN_H - 26 - spr_carl.h * 78 / 100, 78, 100);
+    gfx_sprite(s, &spr_carl_s, 40, SCREEN_H - 26 - spr_carl_s.h);
 }
 
 static void backdrop_announce(Surface *s)
@@ -1302,8 +1308,8 @@ static void backdrop_stairs(Surface *s)
         gfx_hline(s, 40 + inset, SCREEN_W - 41 - inset, 30 + i * 16, RGB(36, 35, 42) /* ink ink */);
     }
     gfx_rect(s, 112, 158, 32, 34, RGB(51, 37, 74) /* arcane 0 */);
-    gfx_sprite_scaled(s, hero_sprite(0), 22, 120, 70, 100);
-    gfx_sprite_scaled(s, hero_sprite(1), 186, 128, 58, 100);
+    gfx_sprite(s, hero_sized(0, HERO_SMALL), 22, 120);
+    gfx_sprite(s, hero_sized(1, HERO_SMALL), 186, 128);
 }
 
 static void draw_cutscene(Surface *top, Surface *bot)
@@ -1430,7 +1436,7 @@ static void draw_menu(Surface *top, Surface *bot) {
         const Hero *h = &g.hero[i];
         int x = 4 + i * 128;
         window(top, x, 18, 124, 168, 0);
-        gfx_sprite_scaled(top, hero_sprite(i), x + 40, 22, 75, 100);
+        gfx_sprite(top, hero_sized(i, HERO_SMALL), x + 40, 22);
         gfx_text(top, x + 6, 84, C_AMBER, h->name);
         gfx_text(top, x + 6, 94, C_DIM, h->title);
         gfx_text(top, x + 6, 106, C_INK, "LV");
@@ -1563,7 +1569,7 @@ static void draw_menu(Surface *top, Surface *bot) {
 static void draw_shop(Surface *top, Surface *bot) {
     gfx_vgradient(top, 0, 0, SCREEN_W, SCREEN_H, RGB(57, 42, 39) /* hair_brown 0 */, RGB(53, 37, 31) /* wood_dark 0 */);
     system_bar(top, "BOPCA PROVISIONS", "STOCK IS WHAT IT IS");
-    gfx_sprite_scaled(top, &spr_bopca, 4, 58, 150, 100);
+    gfx_sprite(top, &spr_bopca_l, 4, 58);
     gfx_sprite_scaled(top, &spr_shop, 196, 22, 120, 100);
 
     /*  Same call the input side makes, so the list drawn and the list the
@@ -1745,11 +1751,9 @@ static void draw_safe_room(Surface *top, Surface *bot) {
 
     {   /* The party, standing in it, not fighting anything for once. */
         const Sprite *a = hero_sprite(0), *b = hero_sprite(1);
-        const int sc = 96;
-        int ah = a->h * sc / 100, bh = b->h * sc / 100;
         int bob = (g.anim / 20) & 1;
-        gfx_sprite_scaled(top, a, 42, 176 - ah + bob, sc, 100);
-        gfx_sprite_scaled(top, b, 42 + a->w * sc / 100 + 8, 178 - bh - bob, sc, 100);
+        gfx_sprite(top, a, 42, 176 - a->h + bob);
+        gfx_sprite(top, b, 42 + a->w + 8, 178 - b->h - bob);
     }
 
     system_bar(top, "SAFE ROOM", kFloorNames[g.dun.index]);
@@ -1963,7 +1967,7 @@ static void draw_levelup(Surface *top, Surface *bot) {
     const Hero *h = &g.hero[hero];
     gfx_vgradient(top, 0, 0, SCREEN_W, SCREEN_H, RGB(32, 35, 41) /* ui void */, RGB(38, 59, 41) /* grass 0 */);
     system_bar(top, "LEVEL UP", h->name);
-    gfx_sprite_scaled(top, hero_sprite(hero), 16, 40, 150, 100);
+    gfx_sprite(top, hero_sized(hero, HERO_LARGE), 16, 40);
     gfx_text_big(top, 150, 50, C_GREEN, "LEVEL");
     gfx_text_big(top, 150, 70, C_AMBER, gfx_num(h->level));
     gfx_text(top, 150, 100, C_DIM, "POINTS LEFT");
@@ -2088,11 +2092,10 @@ static void draw_gameover(Surface *top, Surface *bot) {
     gfx_text(top, 200, 104, C_GOLD, gfx_num(g.gold));
 
     for (int i = 0; i < PARTY; i++) {            /* who it was, for the record */
-        const Sprite *sp = hero_sprite(i);
-        int w = sp->w * 52 / 100;
-        gfx_sprite_scaled(top, sp, 24 + i * 64, 126, 52, 100);
-        gfx_shade(top, 24 + i * 64, 126, w, sp->h * 52 / 100, 10);
-        gfx_text(top, 24 + i * 64, 126 + sp->h * 52 / 100, C_DIM, g.hero[i].name);
+        const Sprite *sp = hero_sized(i, HERO_SMALL);
+        gfx_sprite(top, sp, 24 + i * 64, 126);
+        gfx_shade(top, 24 + i * 64, 126, sp->w, sp->h, 10);
+        gfx_text(top, 24 + i * 64, 126 + sp->h, C_DIM, g.hero[i].name);
     }
     gfx_sprite_scaled(top, &spr_boss_producer, 168, 120, 62, 100);
 

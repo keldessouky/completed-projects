@@ -13,11 +13,22 @@ import textures
 import overworld
 
 ROSTER = [
-    # the party and the two people who talk to them (56x72)
+    # the party and the two people who talk to them, at three sizes, each
+    # painted at its own size rather than scaled (see cast.py). The order
+    # within each size is crawler order and the three groups are contiguous:
+    # render.c finds a crawler's other sizes by offset.
     ('carl', cast.carl),
     ('donut', cast.donut),
     ('mordecai', cast.mordecai),
     ('bopca', cast.bopca),
+    ('carl_s', cast.carl_s),
+    ('donut_s', cast.donut_s),
+    ('mordecai_s', cast.mordecai_s),
+    ('bopca_s', cast.bopca_s),
+    ('carl_l', cast.carl_l),
+    ('donut_l', cast.donut_l),
+    ('mordecai_l', cast.mordecai_l),
+    ('bopca_l', cast.bopca_l),
 
     # the bestiary (72x72)
     ('rat', bestiary.sewer_rat),
