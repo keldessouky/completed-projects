@@ -62,15 +62,14 @@ REFS = {
         #  cute in the reference; shrunk, they came out as small green slits
         #  in a dark face, which read as a scowl.
         eye_art=(
+            ["wD", "Dg"],
             [".DDD.", "DwwDD", "DwDDD", "DGgGD", ".DDD."],
-            ["..DDD..", ".DgggD.", "DgwwDgD", "DgwDDgD", "DgDDDgD", ".DGGGD.", "..DDD.."],
-            ["...DDDD...", ".DDggggDD.", ".DggggggD.", "DggwwDDggD", "DggwwDDDgD",
-             "DggwDDDDgD", "DGgDDDDggD", ".DGggggGD.", ".DDGGGGDD.", "...DDDD..."]),
-        nose_art=(["nn", "N."], [".nnn.", "..N.."], ["nnnnn", ".nnN.", "..N.."]),
+            ["..DDD..", ".DgggD.", "DgwwDgD", "DgwDDgD", "DgDDDgD", ".DGGGD.", "..DDD.."]),
+        nose_art=(["n"], ["nn"], [".nnn.", "..N.."]),
         #  A little cat mouth under the nose, turned up at the ends: the
         #  straight line the painting shrinks to reads as a frown.
         mouth=(82, 119.5),
-        mouth_art=(["m.m", ".m."], ["m...m", ".m.m."], ["m.....m", ".m...m.", "..m.m.."]),
+        mouth_art=(["."], ["m.m"], ["m...m", ".m.m."]),
         #  Lift the muzzle: the painting's shadow between the eyes and under
         #  the nose shrinks into a scowl.
         muzzle=(82, 112, 27, 21),
@@ -83,7 +82,12 @@ REFS = {
                      'm': (0x4a, 0x30, 0x22)},
         #  Heights before the outline, one per party size: small, standard,
         #  large. Each plus its outline fits that size's frame (cast.py).
-        heights=(49, 68, 103),
+        #  About half Carl's height at each size: she is a cat, sitting. The
+        #  poster stands them shoulder to shoulder; the game does not.
+        heights=(25, 34, 52),
+        #  At half the size the collar and the amethyst go murky: purples in
+        #  that band go back to a clear amethyst.
+        recolour=[((25, 150, 150, 215), (0.70, 0.93), 0.22, (0x8e, 0x5c, 0xbe))],
         edge=(0x1c, 0x12, 0x10),
     ),
 }
@@ -130,7 +134,8 @@ def convert(cfg, height):
             for x in range(int((rx0 - x0) * sc), int((rx1 - x0) * sc) + 1):
                 if 0 <= x < w and 0 <= y < height:
                     h, l, s_ = colorsys.rgb_to_hls(*(v / 255 for v in rgb.getpixel((x, y))))
-                    if (h0 <= h <= h1 or h >= 0.95) and s_ >= smin and l < 0.8:
+                    #  A window starting at 0 is red, and red wraps round.
+                    if (h0 <= h <= h1 or (h0 == 0.0 and h >= 0.95)) and s_ >= smin and l < 0.8:
                         rgb.putpixel((x, y), target)
 
     #  Quantise in three groups, so the few accent pixels are not outvoted

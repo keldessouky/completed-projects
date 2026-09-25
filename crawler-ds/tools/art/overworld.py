@@ -129,12 +129,12 @@ CAST = {
     'donut': dict(
         pal=G.DONUT_PAL, leg='c', leg_shade='C',
         grids={DOWN: G.DONUT_DOWN, UP: G.DONUT_UP, SIDE: G.DONUT_SIDE},
-        legs={DOWN: [dict(x=4, group='a'), dict(x=9, group='b')],
-              UP: [dict(x=4, group='b'), dict(x=9, group='a')],
-              SIDE: [dict(x=3, group='b', z=0, fill='d', shade='D'),
-                     dict(x=11, group='a', z=0, fill='d', shade='D'),
-                     dict(x=2, group='a', z=1, fill='f', shade='d'),
-                     dict(x=10, group='b', z=1, fill='c', shade='C')]}),
+        legs={DOWN: [dict(x=5, group='a'), dict(x=8, group='b')],
+              UP: [dict(x=5, group='b'), dict(x=8, group='a')],
+              SIDE: [dict(x=4, group='b', z=0, fill='d', shade='D'),
+                     dict(x=10, group='a', z=0, fill='d', shade='D'),
+                     dict(x=3, group='a', z=1, fill='f', shade='d'),
+                     dict(x=9, group='b', z=1, fill='c', shade='C')]}),
     #  The robe reaches the floor; what walks under it is a pair of boots.
     'mordecai': dict(
         pal=G.MORD_PAL, leg='k', leg_shade='o',
