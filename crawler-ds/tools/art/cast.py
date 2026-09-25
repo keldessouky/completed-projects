@@ -1,9 +1,8 @@
 """Carl, Princess Donut, and the two people who talk to them.
 
-Drawn in battlers.py, cel painted to the handheld battler's brief: about
-three heads tall, flat tones with a hard shadow edge, a dark outline round the
-silhouette, and the face placed by hand. This file only stands them in the
-party frame.
+Carl and Donut are taken from their reference art (import_ref.py, which
+writes carl_ref.py and donut_ref.py); Mordecai and the Bopca are cel painted
+in battlers.py. This file only stands them in the party frame.
 """
 import battlers
 
@@ -34,8 +33,9 @@ def _staged(draw, k=1.0):
 
 def carl():
     """Carl, in what he had on when he went out after the cat: a jacket over
-    a T-shirt, boxers with hearts on, and no shoes."""
-    return _staged(battlers.carl)
+    a T-shirt, boxers with hearts on, and no shoes. Taken from his
+    reference art."""
+    return _from_ref(__import__('carl_ref'), 1)
 
 
 def _from_ref(module, size):
@@ -71,11 +71,11 @@ def bopca():
     return _staged(battlers.bopca)
 
 
-def carl_s():     return _staged(battlers.carl, SMALL)
+def carl_s():     return _from_ref(__import__('carl_ref'), 0)
 def donut_s():    return _from_ref(__import__('donut_ref'), 0)
 def mordecai_s(): return _staged(battlers.mordecai, SMALL)
 def bopca_s():    return _staged(battlers.bopca, SMALL)
-def carl_l():     return _staged(battlers.carl, LARGE)
+def carl_l():     return _from_ref(__import__('carl_ref'), 2)
 def donut_l():    return _from_ref(__import__('donut_ref'), 2)
 def mordecai_l(): return _staged(battlers.mordecai, LARGE)
 def bopca_l():    return _staged(battlers.bopca, LARGE)

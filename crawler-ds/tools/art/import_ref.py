@@ -26,6 +26,26 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 
 REFS = {
+    'carl': dict(
+        #  The reference, cropped round him and halved: 215x405.
+        source='ref/carl_reference.png',
+        outline=[(68, 40), (72, 22), (85, 12), (100, 5), (118, 2), (135, 8), (150, 15),
+                 (158, 30), (155, 55), (152, 65), (152, 95), (145, 105), (140, 120),
+                 (150, 125), (172, 135), (182, 150), (186, 180), (188, 232), (195, 240),
+                 (196, 272), (185, 280), (170, 278), (165, 270), (166, 292), (165, 300),
+                 (163, 375), (182, 385), (183, 398), (125, 399), (122, 375), (125, 300),
+                 (122, 293), (100, 293), (97, 300), (96, 375), (100, 399), (35, 399),
+                 (35, 385), (58, 375), (60, 300), (57, 292), (56, 280), (52, 280),
+                 (20, 278), (18, 240), (22, 235), (20, 200), (22, 160), (35, 138),
+                 (55, 125), (80, 120), (92, 115), (85, 112), (78, 95), (64, 90),
+                 (60, 70), (66, 62), (65, 50)],
+        heights=(49, 68, 103),
+        edge=(0x1c, 0x12, 0x10),
+        #  The hearts on his boxers are the joke, and shrinking plus the
+        #  softer contrast turn them brown: inside the boxers, anything
+        #  reddish goes back to heart red.
+        recolour=[((62, 238, 162, 288), (0.0, 0.045), 0.35, (0xcc, 0x3a, 0x38))],
+    ),
     'donut': dict(
         #  The reference, cropped round her and halved: 220x306.
         source='ref/donut_reference.png',
@@ -83,11 +103,11 @@ def convert(cfg, height):
             r, g, b = half.getpixel((x, y))
             if not (r > 80 and r - b > 30):
                 mask.putpixel((x, y), 0)
-    mcx, mcy, mrx, mry = cfg['muzzle']
+    mcx, mcy, mrx, mry = cfg.get('muzzle', (0, 0, 1, 1))
     for y in range(int(mcy - mry), int(mcy + mry) + 1):
         for x in range(int(mcx - mrx), int(mcx + mrx) + 1):
             d = ((x - mcx) / mrx) ** 2 + ((y - mcy) / mry) ** 2
-            if d <= 1:
+            if d <= 1 and 'muzzle' in cfg:
                 r, g, b = half.getpixel((x, y))
                 f = 1.0 + 0.35 * (1 - d)
                 half.putpixel((x, y), (min(255, int(r * f + 10)), min(255, int(g * f + 8)),
@@ -104,6 +124,14 @@ def convert(cfg, height):
     rgb = ImageEnhance.Color(rgb).enhance(1.06)
 
     sc = height / (y1 - y0)
+
+    for (rx0, ry0, rx1, ry1), (h0, h1), smin, target in cfg.get('recolour', ()):
+        for y in range(int((ry0 - y0) * sc), int((ry1 - y0) * sc) + 1):
+            for x in range(int((rx0 - x0) * sc), int((rx1 - x0) * sc) + 1):
+                if 0 <= x < w and 0 <= y < height:
+                    h, l, s_ = colorsys.rgb_to_hls(*(v / 255 for v in rgb.getpixel((x, y))))
+                    if (h0 <= h <= h1 or h >= 0.95) and s_ >= smin and l < 0.8:
+                        rgb.putpixel((x, y), target)
 
     #  Quantise in three groups, so the few accent pixels are not outvoted
     #  by forty-odd shades of brown: the coat, the jewellery's purples and
@@ -130,7 +158,7 @@ def convert(cfg, height):
 
     #  The face, drawn over the top at this size.
     size = cfg['heights'].index(height)
-    key = cfg['feature_key']
+    key = cfg.get('feature_key', {})
 
     def stamp(art, cx, cy):
         ox = int(round((cx - x0) * sc - len(art[0]) / 2))
@@ -139,10 +167,11 @@ def convert(cfg, height):
             for i, ch in enumerate(row):
                 if ch != '.' and 0 <= ox + i < w and 0 <= oy + j < height:
                     out.putpixel((ox + i, oy + j), key[ch])
-    for ex, ey in cfg['eyes']:
+    for ex, ey in cfg.get('eyes', ()):
         stamp(cfg['eye_art'][size], ex, ey)
-    stamp(cfg['mouth_art'][size], *cfg['mouth'])
-    stamp(cfg['nose_art'][size], *cfg['nose'])
+    for part in ('mouth', 'nose'):
+        if part in cfg:
+            stamp(cfg[part + '_art'][size], *cfg[part])
 
     #  Opaque where the traced outline covers at least half a pixel, then a
     #  one-pixel outline round the lot, as the rest of the cast has.

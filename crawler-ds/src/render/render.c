@@ -233,7 +233,6 @@ static void draw_title(Surface *top, Surface *bot) {
     gfx_hline(top, 0, SCREEN_W - 1, 69, C_AMBER_DK);
     gfx_text_big(top, 20, 32, C_AMBER, "DUNGEON CRAWLER");
     gfx_text_big(top, 96, 50, C_MAGENTA, "CARL");
-    gfx_text(top, 34, 76, C_DIM, "EIGHTEEN FLOORS.  NOBODY HAS SHOES.");
 
     int floor_y = SCREEN_H - 4;
     gfx_vgradient(top, 0, floor_y - 14, SCREEN_W, 18, RGB(53, 44, 69) /* cloth_purple 0 */, RGB(32, 34, 41) /* cloth_black 0 */);
@@ -253,6 +252,9 @@ static void draw_title(Surface *top, Surface *bot) {
         }
         gfx_sprite(top, c, 12, floor_y - ch);
         gfx_sprite(top, d, SCREEN_W - 18 - dw, floor_y - dh + 2);
+        /*  The tagline goes over them, not under: the party are tall enough
+            now that Carl's hair reaches its row, and the line is the joke. */
+        gfx_text(top, 34, 76, C_DIM, "EIGHTEEN FLOORS.  NOBODY HAS SHOES.");
         /*  The record goes in the gap between them: at this size they own the
             whole lower screen, and a line of text across it was being worn
             like a banner across Donut's crown. */
