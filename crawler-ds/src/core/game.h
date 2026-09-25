@@ -99,9 +99,10 @@ typedef struct {
     uint8_t     trick_kind; /* a SkillKind */
     uint8_t     trick_power;
     uint8_t     floor;      /* which floor it wanders */
-    /*  0 mob, 1 neighbourhood boss, 2 borough boss. The floor is four
-        neighbourhoods to a square, each with its own boss, and borough bosses
-        are the rarer ones that sit on a stairwell. */
+    /*  0 mob, 1 neighbourhood boss, 2 borough boss, 3 city boss. The floor
+        is four neighbourhoods to a square, each with its own boss, and
+        borough bosses are the rarer ones that sit on a stairwell; a city
+        boss outranks them both. */
     uint8_t     rank;
     /*  How big it is, as a percentage of a middling thing. Every foe used to
      *  be normalised to one target height on screen, which meant a sewer rat
@@ -116,7 +117,7 @@ typedef struct {
     uint8_t     bulk;
     const char *quip;       /* the announcers love a caption */
     /*  Every boss has a way to be broken, and the guide says so out loud:
-     *  choke the Hoarder on the grub coming out of her, burst the Juicer's
+     *  choke the Hoarder on the Scatterer coming out of her, burst the Juicer's
      *  veins, stop the Ball of Swine rolling. It was three special cases in
      *  the prose and nothing in the code, so a boss was a mob with more
      *  health. Now it is a rule: bosses open up, the opening wants one

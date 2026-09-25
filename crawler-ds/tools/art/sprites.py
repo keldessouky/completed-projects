@@ -5,12 +5,26 @@ they meet, `props` for the furniture — all built on `forge_tools`, all lit by 
 same key light. `tools/forge.py` turns this list into src/gen/art.c.
 """
 import bestiary
-import bosses
 import cast
 import items
 import props
 import textures
 import overworld
+
+def _boss(name):
+    """A boss from boss_ref.py, which boss_paint.py writes."""
+    from boss_ref import BOSSES
+    from import_ref import ALPHABET
+    from forge_tools import Sprite
+    pal, rows = BOSSES[name]
+    s = Sprite(len(rows[0]), len(rows))
+    idx = {ALPHABET[i]: s.ink(c) for i, c in enumerate(pal)}
+    for y, row in enumerate(rows):
+        for x, ch in enumerate(row):
+            if ch != '.':
+                s.px[y * s.w + x] = idx[ch]
+    return s.emit()
+
 
 ROSTER = [
     # the party and the two people who talk to them, at three sizes, each
@@ -61,26 +75,19 @@ ROSTER = [
     ('mindhorror', bestiary.mind_horror),
     ('grub', bestiary.brindle_grub),
 
-    # the bosses (96x96)
-    ('boss_ratking', bestiary.boss_ratking),
-    ('boss_foreman', bestiary.boss_foreman),
-    ('boss_producer', bestiary.boss_producer),
-    ('boss_hoarder', bestiary.the_hoarder),
-    ('boss_rage', bestiary.rage_elemental),
-    #  The eleven that were wearing a mob's sprite -- three pairs of them the
-    #  same mob as each other. Built in bosses.py as the mob plus what marks it
-    #  out, which is what content.c always said they were.
-    ('boss_juicer', bosses.the_juicer),
-    ('boss_warchief', bosses.goblin_war_chief),
-    ('boss_sapper', bosses.sapper_foreman),
-    ('boss_kennel', bosses.the_kennelmaster),
-    ('boss_bailiff', bosses.bailiff_prime),
-    ('boss_preacher', bosses.street_preacher),
-    ('boss_doorman', bosses.the_doorman),
-    ('boss_housemimic', bosses.house_mimic),
-    ('boss_toll', bosses.silk_road_toll),
-    ('boss_anchor', bosses.carrion_anchor),
-    ('boss_spike', bosses.ratings_spike),
+    #  The bosses of book one's floors, sculpted and lit in boss_paint.py
+    #  and each painted at the height the battle screen shows it, so it is
+    #  drawn one to one. See boss_ref.py for the pixels.
+    ('boss_hoarder', lambda: _boss('hoarder')),
+    ('boss_juicer', lambda: _boss('juicer')),
+    ('boss_warchief', lambda: _boss('warchief')),
+    ('boss_swine', lambda: _boss('swine')),
+    ('boss_krakaren', lambda: _boss('krakaren')),
+    ('boss_ralph', lambda: _boss('ralph')),
+    ('boss_heather', lambda: _boss('heather')),
+    ('boss_clammy', lambda: _boss('clammy')),
+    ('boss_grimaldi', lambda: _boss('grimaldi')),
+    ('boss_rage', lambda: _boss('rage')),
 
     # the furniture (40x40)
     ('box_bronze', lambda: props.loot_box(0)),

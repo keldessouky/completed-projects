@@ -704,12 +704,11 @@ static void hp_box(Surface *s, int x, int y, int w, const char *name, int level,
                    int hp, int hp_max, int mine, int rank) {
     const int h = 24;
     window(s, x, y, w, h, 0);
-    /*  Several bosses wear the sprite of the mob they lead, and at 72 pixels
-        the boss and the mob scale to within a percent of each other. So the
-        box says it: a gold rule across the top, and what it is. */
+    /*  A boss's box says what it is: a gold rule across the top, and its
+        rank. */
     if (rank) {
-        gfx_hline(s, x + 1, x + w - 2, y, rank == 2 ? C_GOLD : C_AMBER);
-        gfx_hline(s, x + 1, x + w - 2, y + 1, gfx_scale_colour(rank == 2 ? C_GOLD : C_AMBER, 7, 16));
+        gfx_hline(s, x + 1, x + w - 2, y, rank >= 2 ? C_GOLD : C_AMBER);
+        gfx_hline(s, x + 1, x + w - 2, y + 1, gfx_scale_colour(rank >= 2 ? C_GOLD : C_AMBER, 7, 16));
     }
     gfx_hline(s, x + 1, x + w - 2, y + 1, gfx_scale_colour(C_INK, 3, 16));
     gfx_text(s, x + 5, y + 4, rank ? C_GOLD : C_INK, name);
@@ -725,8 +724,8 @@ static void hp_box(Surface *s, int x, int y, int w, const char *name, int level,
      *  these stack above the message box, and the row they used to take was
      *  the band the foes stand in. */
     /*  A boss gives up bar width for its tag: there is no room on the name
-        line once a name like "The Street Preacher" is on it. */
-    const char *tag = rank == 2 ? "BOROUGH" : rank == 1 ? "BLOCK" : 0;
+        line once a name like "Goblin War Chieftain" is on it. */
+    const char *tag = rank == 3 ? "CITY" : rank == 2 ? "BOROUGH" : rank == 1 ? "BLOCK" : 0;
     char num[16];
     int nw = tag ? gfx_text_width(tag) + 6 : 0;
     if (mine) {
@@ -798,8 +797,14 @@ static void foe_roster(Surface *bot, int y) {
         const Sprite *sp = sprite_table[d->sprite];
         /*  num/den, not a percentage: passing the same value for both is a
             ratio of one, which drew every mob at full size straight down
-            through the panel. */
-        if (sp) gfx_sprite_scaled(bot, sp, 9, ry + 1, 16, sp->h ? sp->h : 1);
+            through the panel. Fitted to a sixteen pixel square by whichever
+            side is longer: a boss wider than it is tall -- the Hoarder in her
+            heap, a Krakaren's tentacles -- ran into the name at sixteen tall. */
+        if (sp) {
+            int den = sp->w > sp->h ? sp->w : sp->h;
+            if (den < 1) den = 1;
+            gfx_sprite_scaled(bot, sp, 9, ry + 1 + (16 - sp->h * 16 / den) / 2, 16, den);
+        }
         char name[24];
         gfx_text(bot, 30, ry + 5, ink_on(lit, live ? (d->rank ? C_GOLD : C_INK) : C_DIM),
                  render_fit_name(d->name, 110, name, (int)sizeof name));
@@ -864,7 +869,7 @@ const char *render_fit_name(const char *name, int room, char *buf, int cap) {
 
 static void foe_plate(Surface *s, int cx, int y, int room,
                       const FoeDef *def, int hp, int hp_max) {
-    const char *tag = def->rank == 2 ? "BOROUGH" : def->rank == 1 ? "BLOCK" : 0;
+    const char *tag = def->rank == 3 ? "CITY" : def->rank == 2 ? "BOROUGH" : def->rank == 1 ? "BLOCK" : 0;
     char cut[32];
     const char *name = render_fit_name(def->name, room, cut, (int)sizeof cut);
     int nw = gfx_text_width(name);
@@ -875,16 +880,20 @@ static void foe_plate(Surface *s, int cx, int y, int room,
     if (x < 2) x = 2;
     if (x + w > SCREEN_W - 2) x = SCREEN_W - 2 - w;
 
-    /*  A boss announces itself: the plate is gold-ruled and carries its tier,
-        because several of them wear the sprite of the mob they lead. */
+    /*  A boss announces itself: the plate is gold-ruled and carries its
+        rank. */
     if (def->rank) {
-        uint16_t gold = def->rank == 2 ? C_GOLD : C_AMBER;
+        uint16_t gold = def->rank >= 2 ? C_GOLD : C_AMBER;
         gfx_hline(s, x, x + w - 1, y - 2, gold);
-        /*  Under the bar, not over the name: a boss banner sits at the very
-            top of the screen and there is no room above it for a tag. */
+        /*  Beside the name: a boss banner sits at the very top of the screen,
+            so there is no room above it, and under the bar the tag sat on the
+            top rows of the tallest bosses -- which are their heads. */
         if (tag) {
             int tw = gfx_text_width(tag);
-            gfx_text(s, x + (w - tw) / 2, y + 16, gold, tag);
+            int tx = x + w + 4;
+            if (tx + tw > SCREEN_W - 2) tx = x - tw - 4;
+            gfx_text(s, tx + 1, y + 1, C_VOID, tag);
+            gfx_text(s, tx, y, gold, tag);
         }
     }
     /*  Drawn on the arena rather than in a window: a bordered box per foe was
@@ -937,12 +946,10 @@ static void draw_battle(Surface *top, Surface *bot) {
         const Foe *f = &g.bat.foes[i];
         const Sprite *sp = sprite_table[foe_defs[f->def].sprite];
         /*  Sized to a target height on screen, not to a percentage of the
-            source art. Several bosses are built from a mob's own sprite --
-            the Hoarder is a Sludge Mound, the Juicer a Troglodyte -- so a flat
-            percentage left them the same size as the thing they lead, while
-            the 96px boss art at the same percentage was too tall to fit above
-            the party's health boxes. Rank picks the height; the scale falls
-            out of whatever the sprite happens to be. */
+            source art. Rank picks the height; the scale falls out of whatever
+            the sprite happens to be. The bosses are painted at exactly the
+            height this picks for them (tools/art/boss_paint.py), so for them
+            the scale comes out at one to one and nothing is resampled. */
         /*  A boss wears its name as a banner across the top instead of a
             plate at its feet. Hanging one under a boss costs it the sixteen
             pixels of height that are most of what makes it read as a boss,
@@ -964,9 +971,9 @@ static void draw_battle(Surface *top, Surface *bot) {
             /*  Bosses get their own curve, because the mob one flattened them.
              *  room*bulk/100 against an 80px headroom means anything over a
              *  bulk of 96 clamps -- and every boss in the table is over it, so
-             *  all fourteen rendered at exactly the ceiling. The Ball of Swine
+             *  all of them rendered at exactly the ceiling. The Ball of Swine
              *  is written as filling the corridor and came out the same height
-             *  as the Doorman.
+             *  as everything else.
              *
              *  Mapped onto the band instead: the smallest boss in the roster
              *  still reads as a boss, the largest fills the frame, and the
@@ -2127,7 +2134,17 @@ static void draw_gameover(Surface *top, Surface *bot) {
         gfx_shade(top, 24 + i * 64, 126, sp->w, sp->h, 10);
         gfx_text(top, 24 + i * 64, 126 + sp->h, C_DIM, g.hero[i].name);
     }
-    gfx_sprite_scaled(top, &spr_boss_producer, 168, 120, 62, 100);
+    /*  What ended it, if something did: the foe that won the last fight,
+        stood in the corner at its own size. A floor that came down on the
+        party leaves the corner empty. */
+    if (g.bat.phase == BAT_LOST && g.bat.n_foes) {
+        int who = 0;
+        for (int i = g.bat.n_foes - 1; i >= 0; i--)
+            if (g.bat.foes[i].alive) who = i;
+        const Sprite *sp = sprite_table[foe_defs[g.bat.foes[who].def].sprite];
+        int fx = 140 + (116 - sp->w) / 2, fy = 191 - sp->h;
+        gfx_sprite(top, sp, fx < 140 ? 140 : fx, fy < 112 ? 112 : fy);
+    }
 
     backdrop(bot);
     gfx_text_wrapped(bot, 12, 24, 232, C_INK,

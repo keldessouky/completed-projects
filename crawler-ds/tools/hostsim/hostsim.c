@@ -855,6 +855,11 @@ int main(int argc, char **argv) {
             g.scene = SCENE_VICTORY;
             idle(6);
             shot("14-victory");
+            /*  Lost to something, as a season usually is: the screen stands
+                whatever won the last fight in its corner. */
+            for (int d = 0; d < foe_count; d++)
+                if (foe_defs[d].sprite == SPR_BOSS_JUICER) battle_start_foe(d, " blocks the way.");
+            g.bat.phase = BAT_LOST;
             memset(g.toast, 0, sizeof g.toast);
             g.scene = SCENE_GAMEOVER;
             idle(6);
@@ -1322,6 +1327,26 @@ int main(int argc, char **argv) {
                     printf("  FAIL floor %d: foe_nboss -> %d\n", f, nb); bad++;
                 }
             }
+            /*  The bosses are painted at the height the battle screen shows
+                them (tools/art/boss_paint.py), so they are drawn one to one.
+                That only holds while the bulk column and the art agree: a
+                bulk changed here without repainting would put a boss back to
+                being resampled by a fraction, and nothing would look wrong
+                enough to notice until it did. */
+            int painted = 0;
+            for (int i = 0; i < foe_count; i++) {
+                const FoeDef *d = &foe_defs[i];
+                if (!d->rank) continue;
+                const Sprite *sp = sprite_table[d->sprite];
+                int want = 42 + d->bulk * 38 / 255;
+                if (sp->h != want) {
+                    printf("  FAIL %s is painted %d tall and shown %d tall\n", d->name, sp->h, want);
+                    bad++;
+                } else {
+                    painted++;
+                }
+            }
+            printf("  bosses -> %d drawn at the height they were painted\n", painted);
             printf("  tables -> %d foes, %d items, %d floors of bosses, %d problems\n",
                    foe_count, item_count, FLOORS, bad);
             if (bad) fail = 1;

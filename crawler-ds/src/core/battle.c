@@ -118,6 +118,10 @@ void battle_start(int boss) {
         if (g.bat.foes[i].def == foe_grub())
             scale = scale * (100 + g.grubs / 4) / 100;
         int hp = d->hp * scale / 100;
+        /*  A neighbourhood boss holding a stairwell, on a floor the books
+            give no borough boss to: it is standing in for one, so it is
+            stood up with the health of one. */
+        if (boss == 1 && d->rank == 1) hp = hp * 3 / 2;
         hp += rng_range(-hp / 10, hp / 10);
         if (hp > 30000) hp = 30000;
         g.bat.foes[i].hp = g.bat.foes[i].hp_max = (int16_t)hp;
@@ -174,9 +178,9 @@ static void hurt_foe(int index, int amount);   /* defined with the resolving */
 /*  Mordecai's one piece of real advice: everything with a boss card has a way
  *  to be broken, and it is never its health bar. So a boss spends most of the
  *  fight closed, and every few turns it does the thing its entry describes --
- *  the Hoarder's next grub crowning, the Juicer's veins standing out, the Ball
- *  of Swine getting up to speed. That opening stays up for two rounds and
- *  wants one specific answer off the command menu.
+ *  the Hoarder's next Scatterer crowning, the Juicer's veins standing out,
+ *  the Ball of Swine getting up to speed. That opening stays up for two rounds
+ *  and wants one specific answer off the command menu.
  *
  *  Take it and the boss dies on the spot, whatever its health bar says. This
  *  used to be a quarter of its maximum health -- four right answers to kill

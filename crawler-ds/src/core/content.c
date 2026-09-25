@@ -144,57 +144,42 @@ const FoeDef foe_defs[] = {
     { "Rusted Boiler",  SPR_BOILER,       58, 13, 10,  4,  42,  28, 30, SK_HIT_ALL,    80, 2, 0, 120, "The gauge is in the red. It has been for years.", WEAK_NONE, 0 },
     { "Parking Meter",  SPR_METER,        44, 15,  5, 13,  38,  24, 35, SK_STUN,       70, 3, 0,  95, "Your time expired before you arrived.", WEAK_NONE, 0 },
     { "Payphone",       SPR_PAYPHONE,     70, 18,  9, 10,  60,  46, 40, SK_STUN,       85, 3, 0, 115, "It is ringing. It is for you.", WEAK_NONE, 0 },
-    /*  Neighbourhood bosses. The floor is four to a square, they sit between
-        levels seven and nine, and each is a caricature of the local mob
-        crossed with something from the surface. Killing one shuts its
-        neighbourhood down: nothing spawns there afterwards. */
-    { "The Hoarder",    SPR_BOSS_HOARDER,     120, 15,  9,  4, 110,   0, 40, SK_HIT_ALL,    80, 1, 1, 250, "It has kept everything. All of it.",
-      WEAK_HIT, "A grub is halfway out of her mouth." },
-    { "The Juicer",     SPR_BOSS_JUICER, 110, 18,  6,  7, 105,   0, 45, SK_BLEED,      95, 1, 1, 115, "A troglodyte that found a use for people.",
+    /*  Neighbourhood bosses, from the books: each floor's are the ones book
+        one (and, for the third, book two) actually puts in front of Carl and
+        Donut. Killing one shuts its neighbourhood down: nothing spawns there
+        afterwards. Tier one is book one's first floor, tier two its second,
+        tier three the circus on the third. */
+    { "The Hoarder",    SPR_BOSS_HOARDER,     120, 15,  9,  4, 110,   0, 40, SK_HIT_ALL,    80, 1, 1, 250, "She has kept everything. All of it.",
+      WEAK_HIT, "A Scatterer is halfway out of her mouth." },
+    { "The Juicer",     SPR_BOSS_JUICER, 110, 18,  6,  7, 105,   0, 45, SK_BLEED,      95, 1, 1, 150, "Pushing iron. Snapping necks.",
       WEAK_MOVE, "The veins in his arms stand right out." },
-    /*  The one boss in the table that had no opening at all. Its ring never
-        came up, so the mechanic the game teaches on floor one simply did not
-        exist in the third fight a player has -- and WEAK_ITEM was the thinnest
-        column in the roster with two entries. Its quip was already about the
-        sponsorship, so the tell is the sponsorship: he stops mid-swing to
-        check what the deal is paying, and the answer is something out of the
-        bag while both his hands are busy. */
-    { "Goblin War Chief", SPR_BOSS_WARCHIEF,   130, 16, 11,  6, 120,   0, 35, SK_DEBUFF_DEF, 70, 1, 1, 140, "Sponsored. Finally.",
-      WEAK_ITEM, "He turns away to read what the deal is paying." },
-    /*  Tiers two and three need their own, or foe_nboss falls back to the
-        borough boss and every chamber on floor seven downward holds a Foreman.
-        Each is still the local mob with something from the surface welded on,
-        which is what the show does with them. */
-    { "The Sapper Foreman", SPR_BOSS_SAPPER,   190, 24, 13,  9, 230,  90, 40, SK_HIT_ALL,   85, 2, 1, 150, "It has requisitioned the whole quadrant.",
-      WEAK_ITEM, "A fuse is burning at his belt." },
-    { "The Kennelmaster", SPR_BOSS_KENNEL,      170, 27,  9, 16, 220,  80, 45, SK_BLEED,    100, 2, 1, 145, "Whistles once. Everything with teeth comes.",
-      WEAK_GUARD, "He whistles. Everything with teeth turns." },
-    { "The Bailiff Prime", SPR_BOSS_BAILIFF,   200, 25, 15,  8, 240, 100, 35, SK_STUN,      85, 2, 1, 160, "Serving papers on the entire floor.",
-      WEAK_MOVE, "He stops to read the warrant aloud." },
-    { "The Doorman", SPR_BOSS_DOORMAN,         290, 33, 18, 11, 420, 180, 40, SK_STUN,     100, 3, 1, 178, "The list got shorter. You were on it.",
-      WEAK_GUARD, "He sets his weight to put you through a wall." },
-    { "The House Mimic", SPR_BOSS_HOUSEMIMIC,       260, 36, 14, 14, 400, 190, 45, SK_HIT_ONE,  160, 3, 1, 170, "It was the room. It was always the room.",
-      WEAK_HIT, "The lid gapes wider than the room allows." },
-    { "The Carrion Anchor", SPR_BOSS_ANCHOR,  240, 34, 12, 19, 390, 170, 50, SK_BLEED,    130, 3, 1, 155, "Live from the top of the pile.",
-      WEAK_MOVE, "It folds its wings to stoop on you." },
+    /*  Carl never fought him so much as delivered a cart of explosives to
+        him, and that is the opening: something out of the bag, thrown while
+        his back is to it. */
+    { "Goblin War Chieftain", SPR_BOSS_WARCHIEF, 130, 16, 11,  6, 120,   0, 35, SK_DEBUFF_DEF, 70, 1, 1, 170, "Towering, for a goblin, and he knows it.",
+      WEAK_ITEM, "His back is to the explosives cart." },
+    /*  The second floor's. The clones do not move from where they grew, so
+        the shriek is the thing to brace for. */
+    { "Krakaren Clone", SPR_BOSS_KRAKAREN,     190, 24, 13,  9, 230,  90, 40, SK_HIT_ALL,   85, 2, 1, 245, "Every mouth on it is shrieking at you.",
+      WEAK_GUARD, "Every mouth on it draws breath at once." },
+    { "Ralph",          SPR_BOSS_RALPH,        170, 27,  9, 16, 220,  80, 45, SK_BLEED,    100, 2, 1,  25, "A gerbil. Frenzied. Mostly jaw.",
+      WEAK_MOVE, "It crouches, frothing, to spring." },
+    /*  The third floor's, out of Grimaldi's circus. */
+    { "Heather the Bear", SPR_BOSS_HEATHER,    290, 33, 18, 11, 420, 180, 40, SK_STUN,     100, 3, 1, 200, "Old, on skates, and not alone in there.",
+      WEAK_MOVE, "She winds up to charge on her skates." },
+    { "Clammy the Clown", SPR_BOSS_CLAMMY,     260, 36, 14, 14, 400, 190, 45, SK_HIT_ONE,  160, 3, 1, 150, "The greasepaint is the clean part.",
+      WEAK_GUARD, "He reaches for you, nails first." },
 
-
-    /* Borough bosses: the ones with a stairwell in the room. */
-    { "Ball of Swine",  SPR_BOSS_RATKING, 220, 17,  9,  8, 260,   0, 40, SK_HIT_ALL,  95, 1, 2, 255, "It only does one thing. It does it downhill.",
+    /*  Stairwell bosses. The first floor's is a borough boss. Book one
+        names none for its second floor, so foe_boss puts one of that floor's
+        own neighbourhood bosses on the stairs rather than inventing one. The
+        third floor's is the circus's master, who is a city boss -- rank 3,
+        the rank above a borough's. Grimaldi stays last: foe_boss falls back
+        to the last row. */
+    { "Ball of Swine",  SPR_BOSS_SWINE,   220, 17,  9,  8, 260,   0, 40, SK_HIT_ALL,  95, 1, 2, 255, "It only does one thing. It does it downhill.",
       WEAK_GUARD, "It is picking up speed down the slope." },
-    /*  Promoted out of a neighbourhood in the second round of patch notes,
-        which is the only reason it is standing on a stairwell. */
-    { "The Street Preacher", SPR_BOSS_PREACHER, 240, 20, 13,  9, 270,   0, 45, SK_STUN,     90, 1, 2, 185, "Has been expecting you. Personally.",
-      WEAK_MOVE, "He turns to address the balcony." },
-    /*  One borough boss a tier meant the same gate six floors running. */
-    { "The Silk Road Toll", SPR_BOSS_TOLL,    420, 29, 17, 13, 560, 280, 45, SK_HIT_ONE,  170, 2, 2, 205, "Everything that passes pays. You are passing.",
-      WEAK_ITEM, "It opens its ledger to price you." },
-    { "The Foreman",    SPR_BOSS_FOREMAN, 380, 26, 16, 10, 520, 250, 45, SK_STUN,    100, 2, 2, 200, "Management has come down to the floor.",
-      WEAK_HIT, "He leans in to check your paperwork." },
-    { "The Producer",   SPR_BOSS_PRODUCER,560, 34, 20, 14, 900, 400, 50, SK_HIT_ALL, 120, 3, 2, 215, "The show, wearing a person.",
-      WEAK_MOVE, "He turns to find his own best angle." },
-    { "The Ratings Spike", SPR_BOSS_SPIKE,   520, 38, 16, 21, 860, 380, 50, SK_BLEED,    150, 3, 2, 195, "Numbers are up. That is your fault.",
-      WEAK_GUARD, "The numbers spike. So does it." },
+    { "Grimaldi",       SPR_BOSS_GRIMALDI, 560, 34, 20, 14, 900, 400, 50, SK_HIT_ALL, 120, 3, 3, 255, "The ringmaster. The rest of him is roots.",
+      WEAK_HIT, "The vines part over something pulsing." },
 };
 const int foe_count = (int)(sizeof foe_defs / sizeof foe_defs[0]);
 
@@ -552,12 +537,17 @@ int foe_pick(int floor_no) {
 }
 
 /*  The boss on the stairwell. Borough bosses are the rare ones, and every one
- *  of them has a stairwell in the room. */
+ *  of them has a stairwell in the room; so does a city boss. Where the books
+ *  name none for a floor, one of the floor's own neighbourhood bosses holds
+ *  the stairs instead (battle_start stands it up with more health). */
 int foe_boss(int floor_no) {
     int tier = tier_for(floor_no);
     int candidates[8], n = 0;
     for (int i = 0; i < foe_count && n < 8; i++)
-        if (foe_defs[i].rank == 2 && foe_defs[i].floor == tier) candidates[n++] = i;
+        if (foe_defs[i].rank >= 2 && foe_defs[i].floor == tier) candidates[n++] = i;
+    if (!n)
+        for (int i = 0; i < foe_count && n < 8; i++)
+            if (foe_defs[i].rank == 1 && foe_defs[i].floor == tier) candidates[n++] = i;
     if (n) return candidates[rng_range(0, n - 1)];
     return foe_count - 1;
 }
