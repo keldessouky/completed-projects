@@ -104,53 +104,14 @@ CARL_SIDE = [
 #  behind its trainer in the handheld games, which is what the two of them
 #  are. Standing upright with ears on, she read as a person in a crown.
 DONUT_PAL = {
-    'o': (0x3b, 0x22, 0x1d),
-    'F': (0xea, 0xa8, 0x6c), 'f': R['copper'][3], 'd': R['copper'][2], 'D': R['copper'][1],
-    'c': R['sand'][5], 'C': R['sand'][4], 'q': R['sand'][3],
-    'p': R['cloth_red'][4], 'n': R['cloth_red'][3],
-    'e': R['grass'][4], 'E': (0x1f, 0x2a, 0x22),
+    'o': (0x3d, 0x22, 0x1c),
+    'F': (0xfb, 0xcf, 0x9c), 'f': (0xf0, 0xae, 0x74), 'd': (0xd4, 0x86, 0x52),
+    'D': (0xa4, 0x5c, 0x38),
+    'c': (0xf6, 0xe3, 0xbd), 'C': (0xe0, 0xc2, 0x92),
+    'p': (0xf0, 0x94, 0x8e), 'n': (0xe8, 0x80, 0x88),
+    'e': (0x8c, 0xc0, 0x5a), 'E': (0x2a, 0x1c, 0x1c), 'w': (0xff, 0xfb, 0xf0),
     'Y': R['gold'][4], 'y': R['gold'][2], 'P': R['arcane'][2],
 }
-
-DONUT_DOWN = [
-    "....oYoYYoYo....",
-    ".o..oYYYYYYo..o.",
-    "ofo.oyPyyPyo.ofo",
-    "opfoooooooooofpo",
-    "opfFFFdffdfffdpo",
-    "ofFFfffddfffffdo",
-    "ofFfffffffffffdo",
-    "offEEffffffEEfdo",
-    "offeEffccffeEfdo",
-    "ofcccccnnccccCdo",
-    "oddcccCqqCcccCdo",
-    ".oddccccccccddo.",
-    "..ooPPPPPPPPoo..",
-    "..ofcccYyccCfo..",
-    ".ofFcccccccCdfo.",
-    ".offcccccccCdfo.",
-    "..ofddddddddfo..",
-]
-
-DONUT_UP = [
-    "....oYoYYoYo....",
-    ".o..oYYYYYYo..o.",
-    "ofo.oyyyyyyo.ofo",
-    "offoooooooooofdo",
-    "offfFFFffffffffo",
-    "ofFFffdffdffffdo",
-    "ofFffffddfffffdo",
-    "offfffffffffffdo",
-    "offfffffffffffdo",
-    "oddfffffffffdddo",
-    "odddffffffdddddo",
-    ".oPPPPPPPPPPPoo.",
-    "..ooddddddddo.oo",
-    "..ofFfffffffdofo",
-    ".ofFfffffffdddfo",
-    ".offfffffffddfo.",
-    "..ofddddddddoo..",
-]
 
 def _painted(rows, shapes, marks):
     """A grid from filled shapes, shaded from the upper left and outlined
@@ -192,6 +153,54 @@ def _painted(rows, shapes, marks):
     return [''.join(r) for r in out]
 
 
+#  A floof, head-on and from behind: a round head set in a rounder body,
+#  tufts breaking the outline at the cheeks and flanks, a cream ruff, big eyes
+#  with a glint, a small crown perched on the lot.
+_EARS = [(2, 1), (2, 2), (3, 2), (3, 3), (13, 1), (13, 2), (12, 2), (12, 3)]
+_TUFTS = [(0, 9), (15, 9), (0, 10), (15, 10), (1, 13), (14, 13), (0, 14), (15, 14)]
+_CROWN = {(5, 0): 'Y', (7, 0): 'Y', (8, 0): 'Y', (10, 0): 'Y',
+          (5, 1): 'Y', (6, 1): 'Y', (7, 1): 'P', (8, 1): 'P', (9, 1): 'Y', (10, 1): 'Y',
+          (5, 2): 'y', (6, 2): 'y', (7, 2): 'y', (8, 2): 'y', (9, 2): 'y', (10, 2): 'y'}
+
+DONUT_DOWN = _painted(17, [
+    ('ellipse', (8, 14.0, 6.6, 3.8), 'F', 'f', 'd'),
+    ('pixels', _TUFTS, 'f', 'f', 'd'),
+    ('pixels', _EARS, 'f', 'f', 'd'),
+    ('ellipse', (8, 7.8, 7.2, 5.4), 'F', 'f', 'd'),
+], {**_CROWN, **{
+    (2, 2): 'p', (13, 2): 'p',
+    (4, 6): 'E', (5, 6): 'E', (4, 7): 'w', (5, 7): 'E', (4, 8): 'e', (5, 8): 'E',
+    (10, 6): 'E', (11, 6): 'E', (10, 7): 'w', (11, 7): 'E', (10, 8): 'e', (11, 8): 'E',
+    (3, 9): 'p', (12, 9): 'p', (7, 9): 'n', (8, 9): 'n',
+    (4, 10): 'c', (5, 10): 'c', (6, 10): 'c', (7, 10): 'D', (8, 10): 'D', (9, 10): 'c',
+    (10, 10): 'c', (11, 10): 'c', (0, 10): 'c', (15, 10): 'c',
+    (2, 11): 'c', (3, 11): 'c', (4, 11): 'c', (5, 11): 'c', (6, 11): 'c', (7, 11): 'c',
+    (8, 11): 'c', (9, 11): 'c', (10, 11): 'c', (11, 11): 'c', (12, 11): 'c', (13, 11): 'c',
+    (3, 12): 'C', (4, 12): 'c', (5, 12): 'c', (6, 12): 'P', (7, 12): 'P', (8, 12): 'P',
+    (9, 12): 'P', (10, 12): 'c', (11, 12): 'c', (12, 12): 'C',
+    (5, 13): 'c', (6, 13): 'c', (7, 13): 'Y', (8, 13): 'y', (9, 13): 'c', (10, 13): 'c',
+    (5, 14): 'c', (6, 14): 'c', (7, 14): 'c', (8, 14): 'c', (9, 14): 'c', (10, 14): 'C',
+    (6, 15): 'c', (7, 15): 'c', (8, 15): 'c', (9, 15): 'C',
+    (6, 4): 'd', (9, 4): 'd',
+}})
+
+DONUT_UP = _painted(17, [
+    ('pixels', [(13, 12), (14, 11), (14, 10), (15, 9), (15, 8), (14, 7), (13, 11), (13, 10),
+                (14, 9)], 'f', 'f', 'd'),
+    ('ellipse', (8, 14.0, 6.6, 3.8), 'F', 'f', 'd'),
+    ('pixels', _TUFTS, 'f', 'f', 'd'),
+    ('pixels', _EARS, 'f', 'f', 'd'),
+    ('ellipse', (8, 7.8, 7.2, 5.4), 'F', 'f', 'd'),
+], {**_CROWN, **{
+    (7, 1): 'Y', (8, 1): 'Y',
+    (6, 5): 'd', (9, 5): 'd', (7, 6): 'd', (8, 6): 'd',
+    (0, 10): 'c', (15, 10): 'c',
+    (4, 12): 'P', (5, 12): 'P', (6, 12): 'P', (7, 12): 'P', (8, 12): 'P', (9, 12): 'P',
+    (10, 12): 'P', (11, 12): 'P',
+    (14, 8): 'F', (15, 9): 'F',
+}})
+
+
 #  Facing right: a big round head up front, a round body behind it, and the
 #  tail up in a curl -- proportions of a partner creature, not of a cat.
 DONUT_SIDE = _painted(17, [
@@ -199,8 +208,12 @@ DONUT_SIDE = _painted(17, [
                 (3, 5), (2, 4), (2, 12), (2, 11)], 'f', 'f', 'd'),
     ('ellipse', (6.5, 13.0, 5.2, 3.6), 'F', 'f', 'd'),
     ('pixels', [(7, 2), (7, 3), (8, 3), (7, 4), (8, 4), (9, 4)], 'f', 'f', 'f'),
+    ('pixels', [(0, 12), (0, 14), (4, 9), (6, 9), (12, 11), (8, 16), (3, 16)], 'f', 'f', 'd'),
     ('ellipse', (10.4, 7.0, 4.1, 3.9), 'F', 'f', 'd'),
+    ('pixels', [(6, 6), (6, 8), (15, 6)], 'f', 'f', 'd'),
 ], {
+    (9, 10): 'c', (10, 10): 'c', (8, 9): 'c', (13, 10): 'c',
+
     (7, 3): 'p', (8, 4): 'p',
     (10, 2): 'Y', (11, 2): 'P', (12, 2): 'Y', (10, 1): 'Y', (12, 1): 'Y', (10, 3): 'y', (11, 3): 'y', (12, 3): 'y',
     (7, 10): 'P', (8, 10): 'P', (9, 11): 'P',

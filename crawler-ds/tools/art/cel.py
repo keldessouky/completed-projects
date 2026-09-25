@@ -119,6 +119,26 @@ class Cel:
         return capsule(x0 * self.k, y0 * self.k, x1 * self.k, y1 * self.k, r0 * self.k,
                        None if r1 is None else r1 * self.k)
 
+    def fluff(self, cx, cy, rx, ry, n=14, size=2.6, a0=0.0, a1=360.0, jitter=0.35):
+        """An ellipse with tufts of fur standing out round its edge, between
+        angles a0 and a1 (degrees, 0 = right, 90 = down). A smooth ellipse is
+        a ball; the same ellipse with its outline broken into tufts is a cat
+        that needs brushing."""
+        m = self.ellipse(cx, cy, rx, ry)
+        span = (a1 - a0) % 360 or 360
+        for i in range(n):
+            t = a0 + span * (i + 0.5) / n
+            wob = 1.0 + jitter * (((i * 7919) % 5) / 4.0 - 0.5)
+            a = math.radians(t)
+            ox, oy = math.cos(a), math.sin(a)
+            # base on the rim, tip pushed out and swept slightly clockwise
+            bx, by = cx + ox * rx * 0.86, cy + oy * ry * 0.86
+            tx = cx + ox * (rx + size * wob) - oy * size * 0.45
+            ty = cy + oy * (ry + size * wob) + ox * size * 0.45
+            w = size * 0.9
+            m |= self.poly([(bx - oy * w, by + ox * w), (tx, ty), (bx + oy * w, by - ox * w)])
+        return m
+
     def rect(self, x0, y0, x1, y1):
         a, b = self.at(x0, y0)
         c, d = self.at(x1, y1)

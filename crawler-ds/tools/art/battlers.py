@@ -144,68 +144,79 @@ def carl(k=1.0):
 # ----------------------------------------------------------------- donut ---
 
 def donut(k=1.0):
-    """Princess Donut, sitting up: the round head and the big eyes of a
-    partner creature, the crown, and the attitude."""
-    c = Cel(outline=(0x33, 0x1c, 0x18), k=k)
-    fur = Mat((0xea, 0xab, 0x72), R['copper'][3], R['copper'][2], R['copper'][1])
-    cream = Mat(R['sand'][5], R['sand'][5], R['sand'][4], R['sand'][2])
+    """Princess Donut: a floof. A Persian is a sphere of fur with a flat
+    little face set in it -- a huge cream ruff, ears nearly lost in the fluff,
+    a tail like a feather duster, toe beans showing under the loaf -- and a
+    crown, because she has one."""
+    c = Cel(outline=(0x3d, 0x22, 0x1c), k=k)
+    fur = Mat((0xfb, 0xcf, 0x9c), (0xf0, 0xae, 0x74), (0xd4, 0x86, 0x52), (0xa4, 0x5c, 0x38))
+    ruff = Mat((0xfd, 0xf3, 0xde), (0xf6, 0xe3, 0xbd), (0xe0, 0xc2, 0x92), (0xb9, 0x94, 0x64))
     gold = M('gold', 4, 3, 2, 1)
     purple = M('arcane', 3, 2, 1, 0)
-    pink = Mat(R['cloth_red'][4], R['cloth_red'][4], R['cloth_red'][3], R['cloth_red'][2])
+    pink = Mat((0xf8, 0xb4, 0xac), (0xf0, 0x94, 0x8e), (0xd8, 0x72, 0x70), (0xb0, 0x52, 0x54))
     cx = 32
 
-    # the tail, curled up the right side behind her
-    tail = c.capsule(42, 64, 51, 58, 3.4) | c.capsule(51, 58, 53, 49, 3.4, 3.0) | \
-        c.capsule(53, 49, 50, 42, 3.0, 2.6)
-    c.paint(tail, fur, shade=1)
-    # sitting body, haunches either side, cream chest
-    c.paint(c.ellipse(cx, 55, 14, 13), fur)
-    c.paint(c.ellipse(20.5, 61, 6.5, 6.5), fur, shade=1)
-    c.paint(c.ellipse(43.5, 61, 6.5, 6.5), fur, shade=1)
-    c.paint(c.ellipse(cx, 51, 8.5, 9), cream, shade=1)
-    for x in (27, 37):
-        c.paint(c.capsule(x, 53, x, 65, 3.4, 3.2), fur, shade=1)
-        c.paint(c.ellipse(x, 66.5, 4.0, 2.6), cream, shade=1)
-    # collar and pendant
-    c.paint(c.poly([(21, 37), (43, 37), (42, 42), (22, 42)]), purple, shade=1)
-    c.paint(c.ellipse(cx, 44.5, 2.8, 2.8), gold, shade=1)
+    # the tail: a plume curling up behind her right side
+    tail = c.capsule(40, 63, 54, 58, 5.0, 5.5) | c.capsule(54, 58, 56.5, 46, 5.5, 5.0) | \
+        c.capsule(56.5, 46, 51, 37, 5.0, 3.8)
+    tail |= c.fluff(55, 52, 5.2, 9, n=9, size=2.2, a0=-80, a1=100)
+    c.paint(tail, fur, shade=2)
+    # the loaf: round body, fluffed everywhere but where it sits
+    c.paint(c.fluff(cx, 53, 17, 13.5, n=16, size=2.4, a0=150, a1=390), fur, shade=2)
+    # toe beans peeking out underneath
+    for x in (25.5, 38.5):
+        c.paint(c.ellipse(x, 66, 4.4, 2.8), ruff, shade=1)
+    # the bib: the ruff runs down her chest
+    c.paint(c.fluff(cx, 48, 11.5, 10.5, n=11, size=2.2, a0=20, a1=160), ruff, shade=1,
+            seam=False)
+    # collar, most of it lost in the ruff, and the pendant
+    c.paint(c.poly([(24, 40), (40, 40), (39, 43), (25, 43)]), purple, shade=1)
+    c.paint(c.ellipse(cx, 45.5, 2.6, 2.6), gold, shade=1)
 
-    # ears, then the head over their bases
-    ear, inner = c.poly([(15, 22), (17, 3), (29, 12)]), c.poly([(18, 17), (19, 8), (25, 13)])
+    # ears: small, far apart, nearly swallowed by the fluff
+    ear = c.poly([(15, 18), (17, 7.5), (25, 13)])
+    inner = c.poly([(17.5, 15), (18.5, 10), (22.5, 13.5)])
     c.paint(ear, fur, shade=1)
     c.paint(c.mirror(ear), fur, shade=1)
     c.paint(inner, pink, shade=0, hi=0, seam=False)
     c.paint(c.mirror(inner), pink, shade=0, hi=0, seam=False)
-    head = c.ellipse(cx, 25, 17, 13.5)
-    #  Cheek ruffs: a Persian's face is wider than its skull.
-    for pts in ([(16, 26), (12, 31), (18, 33)], [(17, 31), (14, 36), (21, 36)]):
-        head |= c.poly(pts) | c.mirror(c.poly(pts))
-    c.paint(head, fur, shade=2)
-    c.paint(c.ellipse(cx, 31.5, 7.5, 5.2), cream, shade=1, seam=False)
+    # the head: wide and round, fluffed all round
+    c.paint(c.fluff(cx, 25.5, 17.5, 14.5, n=18, size=2.6, a0=190, a1=530), fur, shade=2)
+    # the ruff framing the face, and the cream of the muzzle
+    c.paint(c.fluff(cx, 33.5, 14.5, 7.5, n=12, size=2.4, a0=-10, a1=190), ruff, shade=1,
+            seam=False)
+    c.paint(c.ellipse(cx, 31, 6.5, 4.2), ruff, shade=0, seam=False)
 
-    # the crown, between the ears
-    crown = c.rect(24, 8, 40, 11)
-    for x0 in (24, 29, 34):
-        crown |= c.poly([(x0, 9), (x0 + 3, 1), (x0 + 6.5, 9)])
+    # the crown, perched on top of all that
+    crown = c.rect(26, 9, 38, 11)
+    for x0 in (26, 30, 34):
+        crown |= c.poly([(x0 - 0.2, 10), (x0 + 2, 3.5), (x0 + 4.4, 10)])
     c.paint(crown, gold, shade=1)
 
-    key = {'D': (0x22, 0x1c, 0x1a), 'w': (0xf4, 0xf0, 0xe0), 'g': R['grass'][4],
-           'G': R['grass'][3], 'P': R['arcane'][3], 'p': R['arcane'][1],
-           'n': R['cloth_red'][3], 'm': R['copper'][1], 's': R['copper'][1]}
-    for x in (27, 32, 37):                         # jewels on the tips
-        c.stamp(x, 2, ["P"], key)
-    c.stamp(31, 9, c.size(["P"], ["Pp", "pp"], ["PPp", "Ppp", "ppp"]), key)
-    c.stamp(28, 14, c.size(["s.s", "s.s"], ["s.s.s", "s.s.s", "..s.."],
-                           ["s..s..s", "s..s..s", "s..s..s", "...s..."]), key)
-    #  Eyes: big, round, green, a slit of pupil, a glint up and in.
-    pair(c, 19, 20, c.size(
-        [".DDD.", "DwDgD", "DgDgD", "DGGGD", ".DDD."],
-        [".DDDDD.", "DwwgggD", "DwggDgD", "DgggDgD", "DGggDGD", "DGGGGGD", ".DDDDD."],
-        ["..DDDDD..", ".DwwgggD.", "DwwggDDgD", "DwgggDDgD", "DggggDDgD", "DGgggDDGD",
-         "DGGggDGGD", ".DGGGGGD.", "..DDDDD.."]), key)
-    c.stamp(30, 29, c.size(["nn"], ["nnnn", ".nn."], ["nnnnn", ".nnn.", "..n.."]), key)
-    c.stamp(29, 31, c.size(["m..m"], ["m.mm.m", ".m..m."],
-                           ["m..m..m", ".mm.mm.", "......."]), key)
+    key = {'D': (0x2a, 0x1c, 0x1c), 'w': (0xff, 0xfb, 0xf0), 'g': (0x8c, 0xc0, 0x5a),
+           'G': (0x5f, 0x93, 0x3e), 'P': R['arcane'][3], 'p': R['arcane'][1],
+           'n': (0xe8, 0x80, 0x88), 'm': (0x9c, 0x5a, 0x48), 'b': (0xf4, 0x9a, 0x92),
+           's': (0xd4, 0x86, 0x52), 'h': (0xfb, 0xcf, 0x9c)}
+    for x in (28, 32, 36):                         # jewels on the tips
+        c.stamp(x, 4, ["P"], key)
+    c.stamp(31, 9.5, c.size(["P"], ["Pp"], ["PPp", "ppp"]), key)
+    #  Two faint tabby marks, and a highlight on the crown of the head.
+    c.stamp(29, 15, c.size(["s.s"], ["s..s", "s..s"], ["s...s", "s...s", "s...s"]), key)
+    #  Eyes: big, round, a full dark pupil and two glints -- the partner
+    #  creature's eye, all shine and no menace.
+    pair(c, 18.5, 20, c.size(
+        [".DDD.", "DwgDD", "DgDDD", "DGGGD", ".DDD."],
+        ["..DDDD..", ".DwwgDD.", "DwwDDDgD", "DwDDDDgD", "DgDDDwgD", "DGGGGGGD", ".DGGGGD.",
+         "..DDDD.."],
+        ["...DDDDD...", "..DwwggDD..", ".DwwwDDDgD.", "DwwwDDDDDgD", "DgwDDDDDDgD",
+         "DggDDDDDwgD", "DGgDDDDwwGD", "DGGGgggGGGD", ".DGGGGGGGD.", "..DDDDDDD.."]), key)
+    pair(c, 18.5, 29.5, c.size(["b"], ["bb"], ["bbb", ".b."]), key)   # blush
+    c.stamp(31, 30, c.size(["n"], ["nn"], ["nnn", ".n."]), key)
+    c.stamp(29.5, 31.5, c.size(["mm"], ["m.mm.m", ".m..m."],
+                               ["m..m..m", ".mm.mm."]), key)
+    #  Toe beans.
+    for x in (23, 36):
+        c.stamp(x, 66.5, c.size(["b"], ["b.b"], ["b.b.b", ".b.b."]), key)
     return c.finish()
 
 
