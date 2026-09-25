@@ -35,7 +35,32 @@ REFS = {
                  (172, 238), (184, 254), (203, 262), (211, 282), (206, 300), (160, 304),
                  (110, 304), (30, 304), (9, 292), (5, 255), (9, 215), (19, 196),
                  (22, 165), (12, 142), (7, 110), (10, 76), (17, 56), (29, 50)],
-        eyes=[(57, 100), (107, 100)], eye_r=8.0,
+        eyes=[(57, 100), (107, 100)], nose=(82, 113),
+        #  Drawn, not shrunk: big round eyes with a dark pupil and a white
+        #  catchlight, one design per size, deliberately larger than a
+        #  straight shrink would make them. Her eyes are most of why she is
+        #  cute in the reference; shrunk, they came out as small green slits
+        #  in a dark face, which read as a scowl.
+        eye_art=(
+            [".DDD.", "DwwDD", "DwDDD", "DGgGD", ".DDD."],
+            ["..DDD..", ".DgggD.", "DgwwDgD", "DgwDDgD", "DgDDDgD", ".DGGGD.", "..DDD.."],
+            ["...DDDD...", ".DDggggDD.", ".DggggggD.", "DggwwDDggD", "DggwwDDDgD",
+             "DggwDDDDgD", "DGgDDDDggD", ".DGggggGD.", ".DDGGGGDD.", "...DDDD..."]),
+        nose_art=(["nn", "N."], [".nnn.", "..N.."], ["nnnnn", ".nnN.", "..N.."]),
+        #  A little cat mouth under the nose, turned up at the ends: the
+        #  straight line the painting shrinks to reads as a frown.
+        mouth=(82, 119.5),
+        mouth_art=(["m.m", ".m."], ["m...m", ".m.m."], ["m.....m", ".m...m.", "..m.m.."]),
+        #  Lift the muzzle: the painting's shadow between the eyes and under
+        #  the nose shrinks into a scowl.
+        muzzle=(82, 112, 27, 21),
+        #  Above this row of the source only the crown is her; the dark
+        #  between its points is dungeon.
+        crown_to=24,
+        feature_key={'D': (0x16, 0x10, 0x0c), 'w': (0xff, 0xfd, 0xf2),
+                     'g': (0x9e, 0xd2, 0x52), 'G': (0x5e, 0x98, 0x32),
+                     'n': (0xf2, 0x9e, 0xa4), 'N': (0xc8, 0x70, 0x7a),
+                     'm': (0x4a, 0x30, 0x22)},
         #  Heights before the outline, one per party size: small, standard,
         #  large. Each plus its outline fits that size's frame (cast.py).
         heights=(49, 68, 103),
@@ -53,31 +78,32 @@ def convert(cfg, height):
     half = Image.open(os.path.join(HERE, cfg['source'])).convert('RGB')
     mask = Image.new('L', half.size, 0)
     ImageDraw.Draw(mask).polygon(cfg['outline'], fill=255)
+    for y in range(cfg.get('crown_to', 0)):
+        for x in range(half.width):
+            r, g, b = half.getpixel((x, y))
+            if not (r > 80 and r - b > 30):
+                mask.putpixel((x, y), 0)
+    mcx, mcy, mrx, mry = cfg['muzzle']
+    for y in range(int(mcy - mry), int(mcy + mry) + 1):
+        for x in range(int(mcx - mrx), int(mcx + mrx) + 1):
+            d = ((x - mcx) / mrx) ** 2 + ((y - mcy) / mry) ** 2
+            if d <= 1:
+                r, g, b = half.getpixel((x, y))
+                f = 1.0 + 0.35 * (1 - d)
+                half.putpixel((x, y), (min(255, int(r * f + 10)), min(255, int(g * f + 8)),
+                                       min(255, int(b * f + 4))))
     x0, y0, x1, y1 = mask.getbbox()
     src, m = half.crop((x0, y0, x1, y1)), mask.crop((x0, y0, x1, y1))
     w = round(src.width * height / src.height)
     rgb = src.resize((w, height), Image.LANCZOS)
     alpha = m.resize((w, height), Image.LANCZOS)
-    #  A touch brighter and punchier than the painting: it was lit for a
-    #  poster, and the game puts her on a dozen different backgrounds.
-    rgb = ImageEnhance.Brightness(rgb).enhance(1.14)
-    rgb = ImageEnhance.Contrast(rgb).enhance(1.12)
-    rgb = ImageEnhance.Color(rgb).enhance(1.04)
+    #  Brighter and softer than the painting: it was lit dark for a poster,
+    #  and at this size its contrast turns fluffy fur into harsh stripes.
+    rgb = ImageEnhance.Brightness(rgb).enhance(1.24)
+    rgb = ImageEnhance.Contrast(rgb).enhance(0.9)
+    rgb = ImageEnhance.Color(rgb).enhance(1.06)
 
-    #  The eyes: keep the pupil, keep the glint, put the green back.
     sc = height / (y1 - y0)
-    eyes = []
-    for ex, ey in cfg['eyes']:
-        cx, cy, r = (ex - x0) * sc, (ey - y0) * sc, cfg['eye_r'] * sc
-        for y in range(int(cy - r) - 1, int(cy + r) + 2):
-            for x in range(int(cx - r) - 1, int(cx + r) + 2):
-                if not (0 <= x < w and 0 <= y < height) or (x - cx) ** 2 + (y - cy) ** 2 > r * r:
-                    continue
-                h, l, s = colorsys.rgb_to_hls(*(v / 255 for v in rgb.getpixel((x, y))))
-                if 0.07 < l < 0.72 and (0.06 < h < 0.4 or s < 0.25):
-                    nr, ng, nb = colorsys.hls_to_rgb(0.24, min(0.6, max(0.34, l * 1.8)), 0.72)
-                    rgb.putpixel((x, y), (int(nr * 255), int(ng * 255), int(nb * 255)))
-                    eyes.append((x, y))
 
     #  Quantise in three groups, so the few accent pixels are not outvoted
     #  by forty-odd shades of brown: the coat, the jewellery's purples and
@@ -98,12 +124,25 @@ def convert(cfg, height):
         for i, p in enumerate(points):
             into.putpixel(p, q.getpixel((i, 0)))
 
-    eyeset = set(eyes)
-    acc = [(x, y) for y in range(height) for x in range(w)
-           if (x, y) not in eyeset and accent(rgb.getpixel((x, y)))]
-    out = rgb.quantize(colors=44, method=Image.Quantize.MEDIANCUT).convert('RGB')
+    acc = [(x, y) for y in range(height) for x in range(w) if accent(rgb.getpixel((x, y)))]
+    out = rgb.quantize(colors=40, method=Image.Quantize.MEDIANCUT).convert('RGB')
     requant(acc, 14, out)
-    requant(eyes, 4, out)
+
+    #  The face, drawn over the top at this size.
+    size = cfg['heights'].index(height)
+    key = cfg['feature_key']
+
+    def stamp(art, cx, cy):
+        ox = int(round((cx - x0) * sc - len(art[0]) / 2))
+        oy = int(round((cy - y0) * sc - len(art) / 2))
+        for j, row in enumerate(art):
+            for i, ch in enumerate(row):
+                if ch != '.' and 0 <= ox + i < w and 0 <= oy + j < height:
+                    out.putpixel((ox + i, oy + j), key[ch])
+    for ex, ey in cfg['eyes']:
+        stamp(cfg['eye_art'][size], ex, ey)
+    stamp(cfg['mouth_art'][size], *cfg['mouth'])
+    stamp(cfg['nose_art'][size], *cfg['nose'])
 
     #  Opaque where the traced outline covers at least half a pixel, then a
     #  one-pixel outline round the lot, as the rest of the cast has.
