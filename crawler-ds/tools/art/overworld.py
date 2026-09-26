@@ -135,15 +135,16 @@ CAST = {
                      dict(x=10, group='a', z=0, fill='d', shade='D'),
                      dict(x=3, group='a', z=1, fill='f', shade='d'),
                      dict(x=9, group='b', z=1, fill='c', shade='C')]}),
-    #  The robe reaches the floor; what walks under it is a pair of boots.
+    #  Blue trousers to the ankle, and the ankles are a rat's.
     'mordecai': dict(
-        pal=G.MORD_PAL, leg='k', leg_shade='o',
+        pal=G.MORD_PAL, leg='j', leg_shade='J',
         grids={DOWN: G.MORD_DOWN, UP: G.MORD_UP, SIDE: G.MORD_SIDE},
         legs={DOWN: [dict(x=5, group='a'), dict(x=8, group='b')],
               UP: [dict(x=5, group='b'), dict(x=8, group='a')],
               SIDE: [dict(x=6, group='a', z=0), dict(x=8, group='b', z=1)]}),
+    #  Short legs, hairy to the feet.
     'bopca': dict(
-        pal=G.BOPCA_PAL, leg='s', leg_shade='S',
+        pal=G.BOPCA_PAL, leg='h', leg_shade='g',
         grids={DOWN: G.BOPCA_DOWN, UP: G.BOPCA_UP, SIDE: G.BOPCA_SIDE},
         legs={DOWN: [dict(x=5, group='a'), dict(x=8, group='b')],
               UP: [dict(x=5, group='b'), dict(x=8, group='a')],

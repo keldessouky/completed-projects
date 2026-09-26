@@ -2024,9 +2024,9 @@ int main(int argc, char **argv) {
         /*  The achievement table and its enum have to stay the same length,
          *  or every name after the mismatch is attached to the wrong feat and
          *  nothing complains. */
-        if (ach_count != ACH_LOOPHOLE + 1) {
+        if (ach_count != ACH_COUNT) {
             printf("  achievements -> %d rows for %d enum entries\n",
-                   ach_count, ACH_LOOPHOLE + 1);
+                   ach_count, ACH_COUNT);
             fail = 1;
         } else printf("  achievements -> %d rows, enum agrees\n", ach_count);
 

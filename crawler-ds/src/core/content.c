@@ -238,25 +238,24 @@ int32_t crawlers_left(void) {
 
 /* ------------------------------------------------------------ safe rooms -- */
 
-/*  The one thing about the dungeon that everybody who has read the book
- *  remembers: the safe rooms are not shrines or checkpoints, they are ordinary
- *  buildings from Earth, lifted whole and set into the rock. A Waffle House
- *  with the lights still on, four hundred feet underground, on a floor that is
- *  going to stop existing. The joke only works if they are mundane, so none of
- *  these are impressive and one of them is a DMV.
+/*  Safe rooms: nothing hostile can come in, and they are the only places a
+ *  loot box can be opened. The staffed ones are run by a Bopca Protector and
+ *  have a kitchen, beds, a bathroom and three screens showing the show.
  *
- *  Everything here is written for the game. The premise is Matt Dinniman's;
- *  the specific rooms are not from the books.
+ *  The first is from the book: Sebastian's Peruvian Taco Bell, on the first
+ *  floor near the Juicer's neighbourhood. The rest are this game's own, built
+ *  the same way -- somewhere ordinary from the surface, with a Bopca behind
+ *  the counter.
  */
 const SafeRoomDef safe_room_defs[] = {
-    { "PERUVIAN TACO BELL",   "The menu is in Spanish. The horchata is free and nobody can explain why it is here." },
-    { "ALABAMA WAFFLE HOUSE", "Open. Always was, always will be. The grill is hot and there is nobody working it." },
-    { "DMV WAITING ROOM",     "Now serving number 41. The board has been showing 41 since the world ended." },
-    { "AIRPORT SMOKING BOX",  "A glass cube that smells like 1994, and somehow the most comforting place on the floor." },
-    { "TURNPIKE REST STOP",   "Vending machines, a wall map of a state that is gone, and a bathroom that locks." },
-    { "LAUNDROMAT",           "Fluorescent, humming, warm. One dryer is running. Do not ask whose clothes." },
-    { "HOSPITAL CAFETERIA",   "Jello in four colours. Trays. The particular quiet of a room built for bad news." },
-    { "BOWLING ALLEY BAR",    "Lane three is set up. The pins reset if you knock them down, which is worse." },
+    { "PERUVIAN TACO BELL",   "Sebastian, a Bopca Protector, runs the kitchen. Coffee, Peruvian beer, beds and a bathroom." },
+    { "ALABAMA WAFFLE HOUSE", "The grill is hot and a Bopca is working it, grumbling about the price of eggs." },
+    { "DMV WAITING ROOM",     "Now serving number 41. The Bopca at the counter has been saying so since the world ended." },
+    { "AIRPORT SMOKING BOX",  "A glass cube that smells like 1994. The Bopca sells cigarettes and does not give discounts." },
+    { "TURNPIKE REST STOP",   "Vending machines, a map of a state that is gone, a Bopca at the till and a bathroom that locks." },
+    { "LAUNDROMAT",           "Fluorescent, humming, warm. The Bopca folding towels will sell you a clean one." },
+    { "HOSPITAL CAFETERIA",   "Jello in four colours, served by a Bopca. The particular quiet of a room built for bad news." },
+    { "BOWLING ALLEY BAR",    "Lane three is set up. The Bopca behind the bar pours, and watches the screens with you." },
 };
 const int safe_room_count = (int)(sizeof safe_room_defs / sizeof safe_room_defs[0]);
 
@@ -284,50 +283,50 @@ const int crawler_count = (int)(sizeof crawler_defs / sizeof crawler_defs[0]);
 
 /* ---------------------------------------------------------- achievements -- */
 
-/*  The first floor's achievement list, as the show actually hands them out.
- *  Rewards are the box tier each one pays: 0 bronze, 1 silver, 2 gold,
- *  3 legendary, 255 for the ones that pay nothing but a notification.
+/*  The first floor's achievement list, as Carl earns it in book one. Rewards
+ *  are the box tier each one pays: 0 bronze, 1 silver, 2 gold, 3 legendary,
+ *  255 for the ones that pay nothing but a notification. The book's names are
+ *  whole sentences ("You've killed an armed mob with your bare fucking
+ *  hands!"); where one will not fit a toast it is cut down to the words
+ *  people remember, and the rest of it is the description.
  *
- *  Two from the real list are deliberately absent. Both are jokes about
+ *  Absent on purpose: "You Monster" and "War Criminal", both jokes about
  *  atrocity that work on the page, where nobody has to do them, and neither
- *  survives being a thing a player is rewarded for pressing a button to do.
- *  The rest are here, including the ones that pay nothing, because a list of
- *  achievements where everything pays out is a list nobody reads.
+ *  survives being a thing a player is rewarded for pressing a button to do;
+ *  and "Oooh Magic" and "Fall into an Obvious Trap", because this game has no
+ *  magic and no traps to earn them with.
  */
 const AchDef ach_defs[] = {
     { "Crazy Cat Lady",   "Enter the dungeon with a cat.",         0,   0 },
+    /*  The first crawler anywhere to walk in with a cat. It pays the
+        Legendary Pet Box, and what is in that box is the Enhanced Pet
+        Biscuit: it is opened in the guild hall, in the story, not here. */
+    { "Trailblazing Crazy Cat Lady",
+                          "The first crawler in with a cat.",    255,   0 },
     { "Early Adopter",    "Be one of the first 5,000 in.",         1,   0 },
     { "Empty Pockets",    "Enter with nothing at all.",            0,   0 },
-    { "Why Aren't You Wearing Pants",
+    { "Why Aren't You Wearing Pants?",
                           "Enter the dungeon in your boxers.",     2,   0 },
     { "Unarmed Combat",   "Enter without a weapon.",               0,   0 },
-    { "Loner",            "Enter with no human company.",        255,   0 },
-    { "Damage",           "Inflict damage on a mob.",            255,   0 },
+    { "Loner",            "Enter with no human companions.",     255,   0 },
+    { "Read a Dungeon Sign",
+                          "Discover and read an official sign.", 255,   0 },
+    { "Inflicted Damage", "Inflict damage on a mob.",            255,   0 },
     /*  The one that matters: until a crawler has killed something, they do
         not earn experience at all. */
     { "You've Killed a Mob",
                           "Kill your first mob.",                255,   0 },
     { "Bare Fucking Hands",
-                          "Kill an armed mob unarmed.",            0,   0 },
-    { "Podophilia",       "Kill something with your bare feet.",   2,   0 },
+                          "Kill an armed mob, unarmed.",          0,   0 },
+    { "Killed a Higher Level Mob",
+                          "Kill a mob a higher level than you.",   0,   0 },
+    { "You've Entered a Guildhall",
+                          "Find a tutorial guild and go in.",    255,   0 },
+    { "Podophilia",       "Crush and kill a mob with bare feet.",  2,   0 },
     { "Boom",             "Set off a blast the floor can feel.",   1,   0 },
-    { "Level-Up, Baby",   "Gain a level.",                       255,   0 },
-    { "Loot",             "Wear something you found down here.",  255,   0 },
+    { "Level-Up, Baby!",  "Gain a level.",                       255,   0 },
+    { "Loot",             "Wear something you found down here.", 255,   0 },
     { "Boss Babe",        "Draw blood from a boss.",             255,   0 },
-    { "Two Chicks at the Same Time",
-                          "Kill two mobs with one blow.",          2,   0 },
-    { "Neighbourhood Watch",
-                          "Put a neighbourhood boss down.",        1,   0 },
-    { "Stairwell",        "Take a borough boss off a stairwell.",  1, 120 },
-    { "Cartographer",     "See two hundred tiles of one floor.",   0,  60 },
-    { "Read The Room",    "Sit through every System briefing.",    0,  70 },
-    /*  Chapter one: neither is earned in a dungeon, and neither pays out in a
-        box -- a loot box scene opening in the middle of a cutscene takes the
-        screen away from the thing the player was reading. */
-    { "No Shoes",         "Go outside for the cat anyway.",      255,  40 },
-    { "Outside At The Time", "Be in the road when it happened.",  255,   0 },
-    { "Working As Intended",
-                          "Lose a chase to the stairwell. Once.",  2,   0 },
 };
 const int ach_count = (int)(sizeof ach_defs / sizeof ach_defs[0]);
 
@@ -339,33 +338,42 @@ const char *const speaker_names[] = { "THE SYSTEM", "CARL", "PRINCESS DONUT",
 /* ---------------------------------------------------------------- script -- */
 
 
+/*  Floor one, in the order the book takes it: a sign, the guild hall it
+ *  points to, and Mordecai in it -- a Rat Hooligan on this floor, because a
+ *  Changeling gets a new body every floor and does not get to choose it. The
+ *  boxes are opened there, because a safe room is the only place they open,
+ *  and one of them is the Legendary Pet Box with the biscuit in it. */
 static const Line beat_f1_1[] = {
-    { SP_SYSTEM, "Tutorial floor. The rules are short." },
-    { SP_SYSTEM, "Walk with the pad. Turn with left and right. The bottom screen maps itself as you go." },
-    { SP_SYSTEM, "Touch a wall on that map and nothing happens. Touch a button and something does." },
-    { SP_CARL,   "And the timer at the top?" },
-    { SP_SYSTEM, "That is how long this floor exists. Do try to be elsewhere." },
+    { SP_NARRATOR, "An official dungeon sign, lit up on the wall: TUTORIAL GUILD, and an arrow." },
+    { SP_CARL,     "Finally. Directions." },
+    { SP_SYSTEM,   "Official dungeon signage will be easier to spot from now on." },
 };
 
 static const Line beat_f1_2[] = {
-    { SP_DONUT,  "Carl." },
-    { SP_CARL,   "...Donut?" },
-    { SP_DONUT,  "I have been given words. I intend to use all of them." },
-    { SP_DONUT,  "Also a title. I am a princess now. You may continue carrying things." },
-    { SP_SYSTEM, "Party member registered: Princess Donut. Charisma is a combat stat here, and hers is obscene." },
+    { SP_NARRATOR, "A heavy door with a guild crest on it. It will not open while anything hostile is near." },
+    { SP_MORDECAI, "Is it gone? It's gone. Get in here." },
+    { SP_NARRATOR, "A rat of a man, a head shorter than Carl: grey fur, a beard, a black vest, blue trousers, sandals." },
+    { SP_MORDECAI, "Mordecai. Your game guide. I was a crawler myself, once. Got to floor eleven." },
+    { SP_MORDECAI, "I'm a Changeling now. New floor, new body, and I don't get a say. This floor I'm a Rat Hooligan." },
+    { SP_MORDECAI, "This is a guild hall, and it's a safe room. Loot boxes only open in a safe room. Open yours." },
+    { SP_SYSTEM,   "Trailblazing Crazy Cat Lady: a Legendary Pet Box. Inside it, an Enhanced Pet Biscuit." },
+    { SP_NARRATOR, "Donut takes it out of Carl's hand, eats it, and melts into a heap of furry goo." },
+    { SP_NARRATOR, "The goo pulls itself back together into a cat. She looks exactly the same, and not at all." },
+    { SP_DONUT,    "Carl. We need to talk about those shoes." },
+    { SP_SYSTEM,   "Princess Donut is now a crawler. Her stats are the highest in the party: she is the party leader." },
+    { SP_DONUT,    "Then we are the Royal Court of Princess Donut. Carl, you were my manservant. You are my Royal Bodyguard." },
 };
 
 static const Line beat_f1_3[] = {
-    { SP_SYSTEM, "You are being watched by roughly four billion viewers." },
-    { SP_SYSTEM, "They like you. Not respect. Like. It is worth actual money." },
-    { SP_CARL,   "How much money?" },
-    { SP_SYSTEM, "Enough that the things down here have started auditioning." },
+    { SP_SYSTEM, "Your view count is climbing. Viewers become followers, and followers become patrons." },
+    { SP_SYSTEM, "Patrons and benefactors can send boxes, further down. Be worth watching." },
+    { SP_DONUT,  "Carl, did you hear? They adore me." },
+    { SP_CARL,   "I heard." },
 };
 
 static const Line beat_f1_4[] = {
-    { SP_SYSTEM, "Reminder: when the countdown ends, this floor stops being a floor." },
-    { SP_SYSTEM, "Crawlers still standing on it stop being crawlers." },
-    { SP_DONUT,  "Then we should stop reading walls and start finding stairs." },
+    { SP_SYSTEM, "Reminder: when the timer runs out, this floor collapses, with every crawler still on it." },
+    { SP_DONUT,  "Then my Royal Bodyguard should stop reading walls and find the stairs." },
 };
 
 static const Line beat_shop[] = {
@@ -380,21 +388,22 @@ static const Line beat_box[] = {
     { SP_SYSTEM, "Bronze. Do not make that face. Bronze is what the audience gives people they are still deciding about." },
 };
 
+/*  The first floor's stairwell is the Ball of Swine's room, and the book's
+ *  Carl did not take it on his own: the four carers from the Meadow Lark care
+ *  home helped him trap the thing. */
 static const Line beat_f1_boss[] = {
-    { SP_SYSTEM, "Floor one boss defeated." },
-    { SP_SYSTEM, "The crown was not load-bearing. Neither were the rats." },
-    { SP_CARL,   "It had a crown." },
-    { SP_DONUT,  "It had my crown, briefly. That has been corrected." },
-    { SP_SYSTEM, "Stairs unlocked. Take them before the ceiling takes an interest." },
+    { SP_SYSTEM,   "Borough boss defeated: the Ball of Swine." },
+    { SP_NARRATOR, "It took Carl, Donut and the four carers from the Meadow Lark care home to trap it." },
+    { SP_SYSTEM,   "The stairwell is open. Take it before the floor collapses." },
+    { SP_DONUT,    "Well done, bodyguard. Adequately done." },
 };
 
+/*  Floor two. Mordecai has a new body, as he does every floor. Classes are
+ *  still a floor away: race and class are chosen on the third floor. */
 static const Line beat_f2_enter[] = {
-    { SP_MORDECAI, "There you are. I've been assigned to you." },
-    { SP_CARL,     "Assigned." },
-    { SP_MORDECAI, "Guide, manager, the man who explains why you're about to die. Mordecai." },
-    { SP_MORDECAI, "Floor two is where the show starts caring. Pick a class before something eats you mid-explanation." },
-    { SP_SYSTEM,   "Class assigned - Carl: Compensated Anarchist. Damage scales with how unfair the fight is." },
-    { SP_SYSTEM,   "Class assigned - Princess Donut: Former Child Actor. Charisma now hurts people." },
+    { SP_MORDECAI, "Don't stare. Floor two, new body. I'm a Bugaboo now. Long arms, big eyes, and it itches." },
+    { SP_CARL,     "You look like an owl had a bear." },
+    { SP_MORDECAI, "Charming. Mobs drop gold from here on. Neighbourhood bosses drop maps. Get both." },
 };
 
 static const Line beat_f2_1[] = {
@@ -410,7 +419,7 @@ static const Line beat_f2_2[] = {
 };
 
 static const Line beat_f2_boss[] = {
-    { SP_SYSTEM,   "Floor two boss defeated. Site supervisor terminated." },
+    { SP_SYSTEM,   "Floor two stairwell cleared." },
     { SP_MORDECAI, "That's a real kill. Not a mob, a name. They'll run it on the recaps." },
     { SP_CARL,     "Good. Where's the next one." },
     { SP_MORDECAI, "That's the wrong attitude and exactly the right attitude." },
@@ -418,6 +427,8 @@ static const Line beat_f2_boss[] = {
 
 static const Line beat_f3_enter[] = {
     { SP_SYSTEM,   "Floor three. Welcome to the Over City." },
+    { SP_SYSTEM,   "Race and class selection is open. Carl: Primal, Compensated Anarchist. Traps, bombs and a following." },
+    { SP_SYSTEM,   "Princess Donut: Former Child Actor." },
     { SP_MORDECAI, "There's a club down here. Real drinks, real safety, real cameras." },
     { SP_MORDECAI, "Everything in it wants something from you. Some of it will settle for the rights to your name." },
     { SP_DONUT,    "Finally. A floor with a green room." },
@@ -431,8 +442,7 @@ static const Line beat_f3_1[] = {
 };
 
 static const Line beat_f3_boss[] = {
-    { SP_SYSTEM,   "Production interrupted." },
-    { SP_SYSTEM,   "That was not a monster. That was a department." },
+    { SP_SYSTEM,   "City boss defeated: Grimaldi." },
     { SP_MORDECAI, "They'll send another. They always send another." },
     { SP_CARL,     "Then we keep going down." },
     { SP_DONUT,    "Obviously. My audience is on floor four." },
@@ -446,8 +456,8 @@ static const Line beat_end[] = {
 };
 
 const Beat story_beats[] = {
-    { 1,  1, 1,                beat_f1_1,    (uint8_t)(sizeof beat_f1_1 / sizeof(Line)) },
-    { 2,  1, 2,                beat_f1_2,    (uint8_t)(sizeof beat_f1_2 / sizeof(Line)) },
+    { 1,  1, 1,                beat_f1_1,    (uint8_t)(sizeof beat_f1_1 / sizeof(Line)), ACH_SIGN + 1 },
+    { 2,  1, 2,                beat_f1_2,    (uint8_t)(sizeof beat_f1_2 / sizeof(Line)), ACH_GUILDHALL + 1 },
     { 3,  1, 3,                beat_f1_3,    (uint8_t)(sizeof beat_f1_3 / sizeof(Line)) },
     { 4,  1, 4,                beat_f1_4,    (uint8_t)(sizeof beat_f1_4 / sizeof(Line)) },
     { 5,  0, TRIG_SHOP,        beat_shop,    (uint8_t)(sizeof beat_shop / sizeof(Line)) },

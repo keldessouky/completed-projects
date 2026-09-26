@@ -41,7 +41,9 @@ static void publish_telemetry(void) {
     g_telemetry.donut_hp_max = (uint32_t)g.hero[1].hp_max;
     g_telemetry.donut_level = g.hero[1].level;
     g_telemetry.gold = (uint32_t)g.gold;
-    g_telemetry.boxes = g.boxes_opened;
+    /*  Won, not opened: a box only opens in a safe room, so a run that has
+        not found one yet is carrying its loot rather than lacking it. */
+    g_telemetry.boxes = (uint32_t)(g.boxes_opened + game_boxes_held());
     g_telemetry.achievements = g.achievements;
     g_telemetry.battles_won = g.battles_won;
     g_telemetry.story_beat = g.story_beat;
@@ -109,7 +111,8 @@ uint32_t game_entry_achievements(void) {
                       down with at most one, which is what Loner is for. */
                   | (1u << ACH_LONER);
     for (int i = 0; i < PARTY; i++) {
-        if (g.hero[i].crawler == CR_DONUT) bits |= 1u << ACH_CAT_LADY;
+        if (g.hero[i].crawler == CR_DONUT)
+            bits |= (1u << ACH_CAT_LADY) | (1u << ACH_TRAILBLAZER);
         if (g.hero[i].crawler == CR_CARL) bits |= 1u << ACH_NO_PANTS;
     }
     return bits;
@@ -153,11 +156,11 @@ void game_hold_box(int tier) {
      *  Walk into a safe room and open them.
      *
      *  This used to hang off game_open_box() instead, on the reasoning that
-     *  opening one in a corridor was the transgression -- but corridor boxes
-     *  are stowed, never opened, so the only unsafe opens in the game are the
-     *  ones the game hands you for winning a fight. It was punishing combat.
-     *  Five seeded runs went from finishing around floor sixteen to dying on
-     *  floors one to four, which is how it was caught. */
+     *  opening one in a corridor was the transgression -- but no box opens
+     *  outside a safe room now, fight rewards included, so the only thing to
+     *  count is how many are being carried. Hanging it off opens once punished
+     *  combat: five seeded runs went from finishing around floor sixteen to
+     *  dying on floors one to four, which is how it was caught. */
     /*  Not on the first floor. The floor one maze is where the party is
         level two and still being told what buttons do; the posted rules and
         the penalties for breaking them start on the floor below it, which is
@@ -227,7 +230,7 @@ void game_story(int floor, int trigger, Scene after) {
     g.beat_reveal = 0;
     g.beat_after = (uint8_t)after;
     if (b->id > g.story_beat) g.story_beat = b->id;
-    if (g.story_beat >= 14) game_award(ACH_READ_THE_ROOM);
+    if (b->award) game_award(b->award - 1);
     game_set_scene(SCENE_STORY);
 }
 
@@ -556,7 +559,9 @@ static void box_advance(int to) {
 }
 
 static void box_close(void) {
-    if (g.box_from_safe && game_boxes_held()) { game_set_scene(SCENE_SAFEROOM); return; }
+    /*  Once the first one opens, they all do, one after the next: the book's
+        rule is that a crawler cannot pick and choose or stop partway. */
+    if (g.box_from_safe && game_boxes_held()) { game_open_held_box(); return; }
     if (g.box_from_safe) {
         g.box_from_safe = 0;
         if (g.hero[0].points || g.hero[1].points) game_set_scene(SCENE_LEVELUP);
@@ -598,8 +603,8 @@ static void update_box(const PlatInput *in) {
 }
 
 /*  A safe room is where the run gets cashed in. The party is healed by the
- *  time the screen comes up; A opens whatever boxes they are carrying, one at
- *  a time, and B leaves whenever they have had enough. */
+ *  time the screen comes up; A opens every box they are carrying, all of them
+ *  in a row, and B leaves. */
 static void update_safe_room(const PlatInput *in) {
     if ((in->pressed & BTN_A) || in->touch_pressed) {
         if (game_boxes_held()) {

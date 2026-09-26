@@ -204,12 +204,16 @@ class Mat:
 # ------------------------------------------------------------------ scene ---
 
 class Scene:
-    """A boss being sculpted: `w` by `h` finished pixels, worked at `ss`
-    times that."""
+    """A figure being sculpted: `w` by `h` in design units, worked at `ss`
+    times that. `k` paints the same design at another size -- the party is
+    shown at three -- by laying a finer or coarser pixel grid over it, so a
+    small one is painted small rather than shrunk."""
 
-    def __init__(self, w, h, ss=4, light=(-0.55, -0.72, 0.52), seed=7):
-        self.w, self.h, self.ss = w, h, ss
-        self.W, self.H = w * ss, h * ss
+    def __init__(self, w, h, ss=4, light=(-0.55, -0.72, 0.52), seed=7, k=1.0):
+        self.k = k
+        self.w, self.h, self.ss = int(round(w * k)), int(round(h * k)), ss
+        self.S = ss * k                  # sub-pixels per design unit
+        self.W, self.H = self.w * ss, self.h * ss
         n = self.W * self.H
         self.z = [-1e9] * n
         self.nx = [0.0] * n
@@ -231,7 +235,7 @@ class Scene:
         only where nothing is yet -- for a thing seen behind the rest."""
         self.parts += 1
         me = self.parts
-        ss, W, H = self.ss, self.W, self.H
+        ss, W, H = self.S, self.W, self.H
         buf = {}
         for p in prims:
             x0, y0, x1, y1 = p.bbox()
@@ -266,6 +270,7 @@ class Scene:
                                 old[2] * w + r[2] * (1 - w),
                                 old[3] * w + r[3] * (1 - w))
         zz, mats = self.z, self.mat
+        ss = self.S
         for idx, (h, nx, ny, nz) in buf.items():
             if clip is not None:
                 x, y = ((idx % W) + 0.5) / ss, ((idx // W) + 0.5) / ss
@@ -287,7 +292,7 @@ class Scene:
 
     def height_at(self, x, y):
         """The surface height at a design point, as built so far."""
-        i, j = int(x * self.ss), int(y * self.ss)
+        i, j = int(x * self.S), int(y * self.S)
         if 0 <= i < self.W and 0 <= j < self.H and self.mat[j * self.W + i] is not None:
             return self.z[j * self.W + i]
         return None
@@ -309,7 +314,7 @@ class Scene:
         """Paint colour onto what is already there, without changing its
         shape: a pattern on cloth, a stripe of greasepaint, a stain. `where`
         is a function of the design point; `col` a colour or a function."""
-        ss, W = self.ss, self.W
+        ss, W = self.S, self.W
         for idx in range(W * self.H):
             if self.mat[idx] is None:
                 continue
@@ -319,13 +324,17 @@ class Scene:
             if where(x, y):
                 self.paint[idx] = col(x, y) if callable(col) else col
 
+    def at(self, x, y):
+        """A design point, in finished pixels at this size."""
+        return int(round(x * self.k)), int(round(y * self.k))
+
     def stamp(self, x, y, rows, key):
         """Hand-placed pixels at the finished size, laid after quantising."""
         self.stamps.append((int(round(x)), int(round(y)), rows, key))
 
     # -- lighting -------------------------------------------------------------
     def _shade(self):
-        ss, W, H = self.ss, self.W, self.H
+        ss, S, W, H = self.ss, self.S, self.W, self.H
         Lx, Ly, Lz = self.light
         hx, hy, hz = _norm(Lx, Ly, Lz + 1.0)
         lxy = math.hypot(Lx, Ly)
@@ -358,7 +367,7 @@ class Scene:
         out = {}
         for idx in covered:
             i, j = idx % W, idx // W
-            x, y = (i + 0.5) / ss, (j + 0.5) / ss
+            x, y = (i + 0.5) / S, (j + 0.5) / S
             m = mat[idx]
             nx, ny, nz = self.nx[idx], self.ny[idx], self.nz[idx]
             if m.bump is not None:
@@ -380,8 +389,8 @@ class Scene:
             occl = 0.0
             t = 0.75
             while t < 28.0:
-                qi = int((x + sdx * t) * ss)
-                qj = int((y + sdy * t) * ss)
+                qi = int((x + sdx * t) * S)
+                qj = int((y + sdy * t) * S)
                 if not (0 <= qi < W and 0 <= qj < H):
                     break
                 q = qj * W + qi

@@ -1,7 +1,7 @@
 """Turn a piece of reference art into the game's sprites for a character.
 
 For when the character should look like a picture rather than like
-something drawn in battlers.py: Princess Donut is taken straight from the
+something built by hand: Princess Donut is taken straight from the
 reference art that was supplied for her. This cuts her out of the
 painting, shrinks her to each size the game shows the party at, quantises,
 and outlines her like the rest of the cast, then writes the result as a

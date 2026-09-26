@@ -1,10 +1,10 @@
 """Carl, Princess Donut, and the two people who talk to them.
 
 Carl and Donut are taken from their reference art (import_ref.py, which
-writes carl_ref.py and donut_ref.py); Mordecai and the Bopca are cel painted
-in battlers.py. This file only stands them in the party frame.
+writes carl_ref.py and donut_ref.py); Mordecai and the Bopca are sculpted
+and lit in party_paint.py, which writes mordecai_ref.py and bopca_ref.py in
+the same format. This file only stands them in the party frame.
 """
-import battlers
 
 #  The standard character frame: everyone stands on the same row, in the same
 #  box, with the same shadow. See Sprite.stage in forge_tools.
@@ -24,11 +24,6 @@ GROUND = 69
 #  fractional scales this replaced (72%, 75%, 150% and others) each dropped
 #  or doubled rows and columns of a finished drawing, unevenly.
 SMALL, LARGE = 0.72, 1.5
-
-
-def _staged(draw, k=1.0):
-    return draw(k).sprite().stage(int(round(PARTY_W * k)), int(round(PARTY_H * k)),
-                                  int(round(GROUND * k))).emit()
 
 
 def carl():
@@ -62,20 +57,50 @@ def donut():
 
 
 def mordecai():
-    """The guide: short, broad, four eyes, a thousand seasons of this behind him."""
-    return _staged(battlers.mordecai)
+    """The guide, as the first floor has him: a Rat Hooligan."""
+    return _from_ref(__import__('mordecai_ref'), 1)
 
 
 def bopca():
-    """The Bopca: issued a uniform, has strong feelings about it."""
-    return _staged(battlers.bopca)
+    """A Bopca: stout, green-tinted, shaggy, and an excellent cook."""
+    return _from_ref(__import__('bopca_ref'), 1)
 
 
 def carl_s():     return _from_ref(__import__('carl_ref'), 0)
 def donut_s():    return _from_ref(__import__('donut_ref'), 0)
-def mordecai_s(): return _staged(battlers.mordecai, SMALL)
-def bopca_s():    return _staged(battlers.bopca, SMALL)
+def mordecai_s(): return _from_ref(__import__('mordecai_ref'), 0)
+def bopca_s():    return _from_ref(__import__('bopca_ref'), 0)
 def carl_l():     return _from_ref(__import__('carl_ref'), 2)
 def donut_l():    return _from_ref(__import__('donut_ref'), 2)
-def mordecai_l(): return _staged(battlers.mordecai, LARGE)
-def bopca_l():    return _staged(battlers.bopca, LARGE)
+def mordecai_l(): return _from_ref(__import__('mordecai_ref'), 2)
+def bopca_l():    return _from_ref(__import__('bopca_ref'), 2)
+
+
+def carl_crocs_s():
+    """Carl as he went out after the cat: the small sprite, with Bea's pink
+    Crocs on. Chapter one only -- he is barefoot soon enough, because the
+    dungeon likes him that way."""
+    from forge_tools import Sprite
+    alphabet = __import__('import_ref').ALPHABET
+    pal, rows = __import__('carl_ref').SIZES[0]
+    rows = [list(r) for r in rows]
+    outline = rows[-1][[i for i, ch in enumerate(rows[-1]) if ch != '.'][0]]
+    pinks = [(150, 58, 104), (218, 108, 158), (246, 164, 202)]
+    #  The last three rows above the ground line are feet; a Croc is a clog,
+    #  so it covers all of them. Shaded by how light the foot was there.
+    for y in range(len(rows) - 4, len(rows) - 1):
+        for x, ch in enumerate(rows[y]):
+            if ch in ('.', outline):
+                continue
+            r, g, b = pal[alphabet.index(ch)]
+            lum = (r * 3 + g * 6 + b) / 10.0
+            rows[y][x] = '#' + str(0 if lum < 45 else 1 if lum < 110 else 2)
+    s = Sprite(len(rows[0]), len(rows))
+    idx = {alphabet[i]: s.ink(c) for i, c in enumerate(pal)}
+    idx.update({'#%d' % k: s.ink(c) for k, c in enumerate(pinks)})
+    for y, row in enumerate(rows):
+        for x, ch in enumerate(row):
+            if ch != '.':
+                s.px[y * s.w + x] = idx[ch]
+    return s.stage(int(round(PARTY_W * SMALL)), int(round(PARTY_H * SMALL)),
+                   int(round(GROUND * SMALL))).emit()

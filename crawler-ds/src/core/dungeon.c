@@ -41,7 +41,6 @@ void dungeon_mark_seen(int x, int y) {
     if (!((g.dun.seen[i >> 3] >> (i & 7)) & 1)) {
         g.dun.seen[i >> 3] |= (uint8_t)(1 << (i & 7));
         g.dun.explored++;
-        if (g.dun.explored == 200) game_award(ACH_CARTOGRAPHER);
     }
 }
 
@@ -159,18 +158,19 @@ static void enter_tile(int x, int y) {
         break;
     case T_SHOP:
         /*  Nothing on the first floor drops gold, so a stall that only sells
-            is a locked door with a shopkeeper behind it. Down here the Bopca
-            hands out a ration instead, which is what the unstaffed safe rooms
-            do in the book -- experience cookies and dexterity candies. */
+            is a locked door with a shopkeeper behind it -- and a Bopca does
+            not give things away. On this floor the stall is what the book's
+            unstaffed safe rooms put out instead: Experience Cookies, one
+            helping, and a few supplies next to them. */
         if (g.dun.index == 0) {
             if (!dungeon_is_used(x, y)) {
                 dungeon_set_used(x, y);
                 inventory_add(ITEM_SPLINT, 2);
                 inventory_add(ITEM_ENERGY, 2);
                 for (int i = 0; i < PARTY; i++) hero_gain_xp(&g.hero[i], 24);
-                game_toast("The Bopca hands over a ration. No charge.", 0);
+                game_toast("Experience Cookies, one each. Free.", 0);
             } else {
-                game_toast("The Bopca has nothing left for you.", 0);
+                game_toast("The cookie plate is empty.", 0);
             }
             break;
         }
@@ -229,7 +229,6 @@ static void enter_tile(int x, int y) {
                 if (!g.rage_patched) {
                     g.rage_patched = 1;
                     g.rage_hunt = 0;
-                    game_award(ACH_LOOPHOLE);
                     game_toast("It did not survive the threshold.", 1);
                     game_toast("PATCH NOTE: that will not work again.", 2);
                 } else {
@@ -246,7 +245,7 @@ static void enter_tile(int x, int y) {
     default:
         if (t >= '1' && t <= '9' && !dungeon_is_used(x, y)) {
             dungeon_set_used(x, y);
-            game_story(g.dun.index + 1, t - '0', SCENE_DUNGEON);
+            game_story(g.dun.index + 1, ++g.dun.beats_played, SCENE_DUNGEON);
         }
         break;
     }

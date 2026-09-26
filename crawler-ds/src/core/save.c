@@ -81,9 +81,9 @@ void save_make_code(char *out) {
     put_bits(&b, g.hero[1].level, 5);
     put_bits(&b, (uint32_t)(g.gold < 0 ? 0 : g.gold > 16000 ? 16000 : g.gold) / 8, 11);
     put_bits(&b, g.flags & 0xFFF, 12);
-    /*  Only the earned ones. The six the draft decides are rebuilt on load
-        from the crawler pair above, which is the only reason twenty-one of
-        them fit a payload that has no spare bits. */
+    /*  Only the earned ones. The seven the draft decides are rebuilt on load
+        from the crawler pair above, which is the only reason all of them fit
+        a payload that has no spare bits. */
     put_bits(&b, (g.achievements >> ACH_ENTRY_COUNT) & 0xFFFF, 16);
     put_bits(&b, g.battles_won > 127 ? 127 : g.battles_won, 7);
     put_bits(&b, g.boxes_opened > 15 ? 15 : g.boxes_opened, 4);

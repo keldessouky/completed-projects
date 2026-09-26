@@ -24,7 +24,9 @@ typedef struct {
     uint32_t explored;       /* tiles seen on this floor                       */
     uint32_t carl_hp, carl_hp_max, carl_level, carl_xp;
     uint32_t donut_hp, donut_hp_max, donut_level;
-    uint32_t gold, boxes, achievements;
+    uint32_t gold;
+    uint32_t boxes;          /* loot boxes won: opened, or stowed for a safe room */
+    uint32_t achievements;
     uint32_t battles_won, story_beat, flags;
     uint32_t collapse;       /* seconds left on the floor timer                */
     uint32_t touch;          /* last stylus contact: 1<<24 | x<<8 | y           */

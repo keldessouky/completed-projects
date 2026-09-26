@@ -1265,7 +1265,7 @@ static void draw_draft(Surface *top, Surface *bot)
 
 /* -------------------------------------------------------------- cutscene -- */
 
-/*  Five backdrops, drawn rather than stored: a street at three in the morning,
+/*  Five backdrops, drawn rather than stored: a street at 2:23 in the morning,
  *  the same street ninety seconds later, the sky when it starts talking, the
  *  stairwell, and the first corridor. Each is a gradient, a silhouette and one
  *  moving thing, which is all a backdrop has to be when the words are doing
@@ -1291,16 +1291,21 @@ static void backdrop_street(Surface *s, int lit)
         gfx_pixel(s, x, y, RGB(81, 64, 100) /* cloth_purple 1 */);
         gfx_pixel(s, x + 1, y + 2, RGB(38, 55, 66) /* ink blue */);
     }
-    if (lit) {                                          /* the cat, up the ironwork */
-        for (int y = 96; y < SCREEN_H - 26; y += 8)     /* the ladder she went up */
-            gfx_rect(s, 172, y, 22, 2, RGB(58, 65, 72) /* ink cool */);
-        gfx_rect(s, 170, 96, 3, SCREEN_H - 122, RGB(70, 72, 80) /* cloth_black 2 */);
-        gfx_rect(s, 192, 96, 3, SCREEN_H - 122, RGB(52, 56, 64) /* ui panel */);
-        gfx_rect(s, 148, 92, 60, 4, RGB(80, 85, 91) /* ui panel_lit */);  /* the landing she is on */
-        gfx_hline(s, 148, 207, 92, RGB(98, 106, 112) /* snow 0 */);
-        gfx_sprite(s, &spr_donut_s, 162, 92 - spr_donut_s.h);
+    if (lit) {                                          /* the cat, up the tree */
+        uint16_t bark = RGB(46, 38, 36), bark_lit = RGB(66, 54, 48);
+        gfx_rect(s, 178, 70, 9, SCREEN_H - 96, bark);   /* the trunk */
+        gfx_rect(s, 178, 70, 2, SCREEN_H - 96, bark_lit);
+        for (int k = 0; k < 4; k++) {                   /* the branch she is on */
+            gfx_rect(s, 150 + k * 7, 95 - k, 8, 3, bark);
+            gfx_hline(s, 150 + k * 7, 157 + k * 7, 95 - k, bark_lit);
+        }
+        gfx_rect(s, 186, 84, 26, 3, bark);              /* and another, bare */
+        gfx_rect(s, 205, 78, 3, 7, bark);
+        for (int k = 0; k < 3; k++)                     /* twigs */
+            gfx_rect(s, 140 + k * 5, 90 - k * 3, 2, 5, bark);
+        gfx_sprite(s, &spr_donut_s, 152, 95 - spr_donut_s.h);
     }
-    gfx_sprite(s, &spr_carl_s, 40, SCREEN_H - 26 - spr_carl_s.h);
+    gfx_sprite(s, &spr_carl_crocs_s, 40, SCREEN_H - 26 - spr_carl_crocs_s.h);
 }
 
 static void backdrop_collapse(Surface *s)
@@ -1317,7 +1322,7 @@ static void backdrop_collapse(Surface *s)
         int y = SCREEN_H - ((i * 37 + g.anim * 2) % SCREEN_H);
         gfx_pixel(s, x, y, i & 1 ? RGB(73, 59, 58) /* ink warm */ : RGB(61, 48, 48) /* ink brown */);
     }
-    gfx_sprite(s, &spr_carl_s, 40, SCREEN_H - 26 - spr_carl_s.h);
+    gfx_sprite(s, &spr_carl_crocs_s, 40, SCREEN_H - 26 - spr_carl_crocs_s.h);
 }
 
 static void backdrop_announce(Surface *s)
@@ -1751,6 +1756,11 @@ static void draw_safe_room(Surface *top, Surface *bot) {
             gfx_frame(top, x, y, w, h, RGB(32, 34, 41) /* cloth_black 0 */);
         }
     }
+
+    /*  The Bopca Protector who runs the place, behind the counter: a staffed
+        safe room has one, and the counter drawn next cuts them off at the
+        waist. */
+    gfx_sprite(top, &spr_bopca_s, 44, 111 - spr_bopca_s.h);
 
     {   /* The back counter, and the hatch behind it. Without them the upper
            half is a gradient, and a gradient is not a room. */

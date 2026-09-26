@@ -89,6 +89,9 @@ ROSTER = [
     ('boss_grimaldi', lambda: _boss('grimaldi')),
     ('boss_rage', lambda: _boss('rage')),
 
+    #  Carl in chapter one, before the dungeon took his shoes off him.
+    ('carl_crocs_s', cast.carl_crocs_s),
+
     # the furniture (40x40)
     ('box_bronze', lambda: props.loot_box(0)),
     ('box_silver', lambda: props.loot_box(1)),

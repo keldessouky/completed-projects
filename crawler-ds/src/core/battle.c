@@ -287,11 +287,6 @@ static int roll_damage(int attack, int defence, int power_pct, int luck) {
     return dmg < 1 ? 1 : dmg;
 }
 
-/*  Kills landed by the blow currently being resolved. Two in one go is worth
- *  an achievement, so the count has to survive across the calls a single
- *  hit-all attack makes. */
-static int s_kills_this_blow;
-
 static void hurt_foe(int index, int amount) {
     Foe *f = &g.bat.foes[index];
     if (!f->alive) return;
@@ -303,7 +298,6 @@ static void hurt_foe(int index, int amount) {
     if (f->hp <= 0) {
         f->alive = 0;
         f->hp = 0;
-        if (++s_kills_this_blow == 2) game_award(ACH_TWO_AT_ONCE);
         /*  A corpse with no grubs near it gets between one and fifteen sent
             to eat it. They are harmless one at a time; the count is the
             threat, and the count is entirely the party's own doing. */
@@ -320,6 +314,11 @@ static void hurt_foe(int index, int amount) {
             game_award(ACH_BARE_HANDS);
             if (g.hero[g.bat.actor].crawler == CR_CARL) game_award(ACH_PODOPHILIA);
         }
+        /*  Everything on the first floor outranks a crawler who has not
+            levelled yet -- Carl earns this off the first goblin he kills --
+            so a kill made at level one is a kill made punching up. */
+        if (g.bat.actor < PARTY && g.hero[g.bat.actor].level <= 1)
+            game_award(ACH_HIGHER_LEVEL);
         log_line(foe_defs[f->def].name, " is finished.", 0);
     }
 }
@@ -344,7 +343,6 @@ static void hurt_hero(int index, int amount) {
 }
 
 static void apply_effect(int kind, int power, int from_hero, int actor, int target) {
-    s_kills_this_blow = 0;      /* one blow, however many things it lands on */
     switch (kind) {
     case SK_HIT_ONE:
         if (from_hero)
@@ -535,7 +533,6 @@ static void finish_battle(int won, int fled) {
     /*  The neighbourhood shuts down the moment its boss does. */
     if (g.pending_zone) {
         g.zone_cleared |= (uint16_t)(1u << (g.pending_zone - 1));
-        game_award(ACH_NEIGHBOURHOOD);
         game_toast("The neighbourhood goes quiet.", 0);
         g.pending_zone = 0;
     }
@@ -568,10 +565,14 @@ static void finish_battle(int won, int fled) {
         if (floor_no == 1) g.flags |= F_FLOOR1_BOSS;
         if (floor_no == 2) g.flags |= F_FLOOR2_BOSS;
         if (floor_no == 3) g.flags |= F_FLOOR3_BOSS;
-        game_award(ACH_STAIRWELL);
-        game_open_box(floor_no >= 3 ? 3 : 2);
+        game_hold_box(floor_no >= 3 ? 3 : 2);
+        game_toast("Boss box stowed. Safe rooms only.", 0);
     } else if (rng_chance(30)) {
-        game_open_box(rng_chance(20) ? 1 : 0);
+        /*  Stowed, like every other box: a loot box only opens in a safe
+            room. These used to burst open on the spot, which made every
+            fight the one place the rule did not hold. */
+        game_hold_box(rng_chance(20) ? 1 : 0);
+        game_toast("Loot box stowed. Safe rooms only.", 0);
     }
     g.bat.phase = BAT_WON;
     g.bat.timer = 110;
@@ -604,7 +605,6 @@ static void use_item(int item) {
         log_line(g.hero[actor].name, " cracks the ", d->name);
         break;
     case IT_BOMB:
-        s_kills_this_blow = 0;
         for (int i = 0; i < g.bat.n_foes; i++)
             if (g.bat.foes[i].alive) hurt_foe(i, d->power + rng_range(0, 10));
         game_award(ACH_BOOM);
@@ -850,7 +850,9 @@ void battle_update(const PlatInput *in) {
     case BAT_FLED:
         if (g.bat.timer) g.bat.timer--;
         if (!g.bat.timer || (in->pressed & (BTN_A | BTN_B)) || in->touch_pressed) {
-            if (g.bat.boss && g.bat.phase == BAT_WON)
+            /*  The stairwell boss, not every boss: the scene is the stairs
+                opening, and a neighbourhood boss does not open them. */
+            if (g.bat.boss == 1 && g.bat.phase == BAT_WON)
                 game_story(g.dun.index + 1, TRIG_BOSS_WIN, SCENE_DUNGEON);
             else if (g.hero[0].points || g.hero[1].points)
                 game_set_scene(SCENE_LEVELUP);

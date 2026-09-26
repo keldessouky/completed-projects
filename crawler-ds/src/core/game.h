@@ -195,6 +195,7 @@ typedef struct {
     uint8_t      trigger;    /* map digit, or one of the TRIG_* codes */
     const Line  *lines;
     uint8_t      count;
+    uint8_t      award;      /* achievement + 1 to hand over, 0 for none */
 } Beat;
 
 enum {
@@ -360,6 +361,11 @@ typedef struct {
     int8_t   move_dx, move_dy;            /* the direction it is sliding from */
     uint16_t steps;
     uint16_t explored;
+    /*  Story spots found so far on this floor. The spots are scattered at
+        random, so they play in the order they are found rather than by the
+        number on them: a guild hall found before the sign that points to it
+        would have Donut talking before she can. */
+    uint8_t  beats_played;
 
     /*  Book One describes the first floor as squares of neighbourhoods, each
      *  with its own local mob, rather than one undifferentiated maze. The
@@ -576,19 +582,19 @@ extern const FoeDef   foe_defs[];
 extern const int      foe_count;
 /*  Named, because these were bare integers scattered across four files and
  *  that is exactly how an index drifts off the end of its array. */
-/*  The first six are decided entirely by which pair went down, and a recall
+/*  The first seven are decided entirely by which pair went down, and a recall
  *  code already carries that. Keeping them at the bottom of the enum lets the
- *  code store only the ones actually earned by playing -- which is what makes
- *  twenty-one achievements fit a payload with no spare bits left in it. */
+ *  code store only the ones actually earned by playing, in sixteen bits --
+ *  so there is room for at most sixteen of those. */
 enum {
-    ACH_CAT_LADY, ACH_EARLY_ADOPTER, ACH_EMPTY_POCKETS, ACH_NO_PANTS,
-    ACH_UNARMED, ACH_LONER,
+    ACH_CAT_LADY, ACH_TRAILBLAZER, ACH_EARLY_ADOPTER, ACH_EMPTY_POCKETS,
+    ACH_NO_PANTS, ACH_UNARMED, ACH_LONER,
     ACH_ENTRY_COUNT,                    /* everything below is earned, not given */
 
-    ACH_DAMAGE = ACH_ENTRY_COUNT, ACH_FIRST_KILL, ACH_BARE_HANDS,
-    ACH_PODOPHILIA, ACH_BOOM, ACH_LEVEL_UP, ACH_LOOT, ACH_BOSS_BABE,
-    ACH_TWO_AT_ONCE, ACH_NEIGHBOURHOOD, ACH_STAIRWELL, ACH_CARTOGRAPHER,
-    ACH_READ_THE_ROOM, ACH_NO_SHOES, ACH_OUTSIDE, ACH_LOOPHOLE
+    ACH_SIGN = ACH_ENTRY_COUNT, ACH_DAMAGE, ACH_FIRST_KILL, ACH_BARE_HANDS,
+    ACH_HIGHER_LEVEL, ACH_GUILDHALL, ACH_PODOPHILIA, ACH_BOOM, ACH_LEVEL_UP,
+    ACH_LOOT, ACH_BOSS_BABE,
+    ACH_COUNT
 };
 
 void     game_award_entry(void);        /* the six the draft decides */
