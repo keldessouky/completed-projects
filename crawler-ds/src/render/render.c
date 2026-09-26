@@ -4,10 +4,13 @@
  *  this resolution and it keeps the drawing code honest — nothing here depends
  *  on what was on screen last frame.
  */
+#include <stdlib.h>
+
 #include "gfx.h"
 #include "theme.h"
 #include "game.h"
 #include "art.h"
+#include "backdrops.h"
 #include "ui_layout.h"
 #include "views.h"
 
@@ -236,14 +239,14 @@ static void sprite_cols(const Sprite *sp, int *x0, int *x1) {
 }
 
 static void draw_title(Surface *top, Surface *bot) {
-    gfx_vgradient(top, 0, 0, SCREEN_W, SCREEN_H, RGB(51, 37, 74) /* arcane 0 */, RGB(58, 32, 37) /* blood 0 */);
-    for (int i = 0; i < 60; i++) {          /* falling rubble, forever */
+    gfx_backdrop(top, &bg_title);
+    for (int i = 0; i < 40; i++) {          /* embers on the wind, forever */
         int x = (int)((i * 8641 + g.anim / 2 + i * i) % SCREEN_W);
         int y = (int)((i * 4211 + g.anim * (1 + (i & 3))) % SCREEN_H);
         gfx_pixel(top, x, y, gfx_scale_colour(C_AMBER, 6 + (i & 7), 16));
     }
-    /* The title block, then a floor for the two of them to stand on. */
-    gfx_rect(top, 0, 26, SCREEN_W, 44, RGB(51, 37, 74) /* arcane 0 */);
+    /* The title block: the sky dimmed behind the words, not painted out. */
+    gfx_shade(top, 0, 26, SCREEN_W, 44, 6);
     gfx_hline(top, 0, SCREEN_W - 1, 26, C_AMBER_DK);
     gfx_hline(top, 0, SCREEN_W - 1, 69, C_AMBER_DK);
     /*  Centred, over a pair that stands centred: the words were set from the
@@ -253,11 +256,7 @@ static void draw_title(Surface *top, Surface *bot) {
     gfx_text_big(top, CENTRE_BIG("CARL"), 50, C_MAGENTA, "CARL");
     #undef CENTRE_BIG
 
-    int floor_y = SCREEN_H - 4;
-    gfx_vgradient(top, 0, floor_y - 14, SCREEN_W, 18, RGB(53, 44, 69) /* cloth_purple 0 */, RGB(32, 34, 41) /* cloth_black 0 */);
-    gfx_hline(top, 0, SCREEN_W - 1, floor_y - 14, gfx_scale_colour(C_AMBER_DK, 10, 16));
-    for (int i = 0; i < 3; i++)                       /* light pooling on the floor */
-        gfx_dither(top, 0, floor_y - 12 + i * 5, SCREEN_W, 5, C_AMBER_DK, 6 - i * 2);
+    int floor_y = SCREEN_H - 4;             /* they stand on the rocks */
     /*  The pair, together: Carl standing, Donut sitting at his right foot, in
         front of him -- a man and his cat, at the sizes a man and a cat are.
         They are placed by what is drawn, not by their frames, which carry
@@ -283,7 +282,9 @@ static void draw_title(Surface *top, Surface *bot) {
             hair reaches its row, and the line is the joke. */
         {
             const char *tag = "EIGHTEEN FLOORS.  NOBODY HAS SHOES.";
-            gfx_text(top, (SCREEN_W - gfx_text_width(tag) + 1) / 2, 73, C_DIM, tag);
+            int tx = (SCREEN_W - gfx_text_width(tag) + 1) / 2;
+            gfx_text(top, tx + 1, 74, C_VOID, tag);
+            gfx_text(top, tx, 73, C_INK, tag);
         }
         if (season_count()) {
             int px = 164, py = 104;
@@ -685,15 +686,21 @@ static void draw_damage_pops(Surface *s) {
  *  happens on the same ground the party were walking on -- in the same
  *  place the party were standing. All this adds is the show's lighting rig,
  *  which is the one thing down there that is not part of the building. */
+/*  Which of the five materials a floor is built from. The same order the
+ *  floor tiles (view2d.c) use, so a fight happens in the place it was
+ *  walked into. */
+static const Backdrop *arena_for(int floor_index) {
+    static const uint8_t kOrder[18] = { 0, 3, 1, 3, 2, 0, 1, 4, 2, 3, 0, 4, 1, 2, 4, 0, 3, 2 };
+    static const Backdrop *const kArena[5] = { &bg_arena_a, &bg_arena_b, &bg_arena_c,
+                                               &bg_arena_d, &bg_arena_e };
+    int slot = floor_index >= 0 && floor_index < 18 ? kOrder[floor_index] : floor_index % 5;
+    return kArena[slot];
+}
+
+/*  The battle arena: a photograph of the place, looked at from the height of
+ *  someone standing in it, with the horizon where the foes stand. */
 static void draw_arena(Surface *s, int floor_index) {
-    view3d_arena(s, floor_index);
-    for (int i = 0; i < 4; i++) {                 /* studio lights */
-        int x = 26 + i * 68;
-        int pulse = 10 + ((g.anim / 3 + i * 7) & 5);
-        gfx_rect(s, x, 4, 14, 5, gfx_scale_colour(C_AMBER, pulse, 16));
-        gfx_rect(s, x, 9, 14, 1, gfx_scale_colour(C_AMBER, 4, 16));
-        gfx_dither(s, x - 6, 10, 26, 20, gfx_scale_colour(C_AMBER, 5, 16), 5);
-    }
+    gfx_backdrop(s, arena_for(floor_index));
 }
 
 /*  A Pokemon battle box: name, level, a health bar that changes colour as it
@@ -1265,73 +1272,61 @@ static void draw_draft(Surface *top, Surface *bot)
 
 /* -------------------------------------------------------------- cutscene -- */
 
-/*  Five backdrops, drawn rather than stored: a street at 2:23 in the morning,
- *  the same street ninety seconds later, the sky when it starts talking, the
- *  stairwell, and the first corridor. Each is a gradient, a silhouette and one
- *  moving thing, which is all a backdrop has to be when the words are doing
- *  the work. */
+/*  The chapter's backdrops are photographs (tools/art/photo_bg.py): a city
+ *  street after rain at 2:23 in the morning, the same city ninety seconds
+ *  later with nothing standing, the sky when it starts talking, and the
+ *  stone staircase down. What moves in them -- rain, dust, the cat -- is
+ *  drawn over the top. */
 static void backdrop_street(Surface *s, int lit)
 {
-    gfx_vgradient(s, 0, 0, SCREEN_W, SCREEN_H, RGB(32, 63, 80) /* water 0 */, RGB(37, 53, 74) /* cloth_blue 0 */);
-    for (int i = 0; i < 7; i++) {                       /* blocks against the sky */
-        int bx = i * 40 - 8, bw = 34;
-        int bh = 70 + ((i * 37) % 5) * 12;
-        gfx_rect(s, bx, SCREEN_H - bh - 26, bw, bh, RGB(37, 53, 74) /* cloth_blue 0 */);
-        for (int wy = 0; wy < bh - 12; wy += 12)        /* a few lights still on */
-            for (int wx = 0; wx < bw - 8; wx += 10)
-                if (((i * 7 + wx + wy) % 11) < 3)
-                    gfx_rect(s, bx + 4 + wx, SCREEN_H - bh - 20 + wy, 4, 5,
-                             RGB(111, 84, 44) /* hair_blonde 0 */);
-    }
-    gfx_rect(s, 0, SCREEN_H - 26, SCREEN_W, 26, RGB(32, 34, 41) /* cloth_black 0 */);
-    gfx_hline(s, 0, SCREEN_W - 1, SCREEN_H - 26, RGB(32, 34, 41) /* cloth_black 0 */);
+    gfx_backdrop(s, &bg_street);
     for (int i = 0; i < 70; i++) {                      /* rain, going sideways */
         int x = (i * 53 + g.anim * 3) % (SCREEN_W + 40) - 20;
         int y = (i * 31 + g.anim * 6) % SCREEN_H;
-        gfx_pixel(s, x, y, RGB(81, 64, 100) /* cloth_purple 1 */);
-        gfx_pixel(s, x + 1, y + 2, RGB(38, 55, 66) /* ink blue */);
+        gfx_pixel(s, x, y, RGB(120, 132, 150));
+        gfx_pixel(s, x + 1, y + 2, RGB(70, 80, 96));
     }
     if (lit) {                                          /* the cat, up the tree */
-        uint16_t bark = RGB(46, 38, 36), bark_lit = RGB(66, 54, 48);
-        gfx_rect(s, 178, 70, 9, SCREEN_H - 96, bark);   /* the trunk */
-        gfx_rect(s, 178, 70, 2, SCREEN_H - 96, bark_lit);
-        for (int k = 0; k < 4; k++) {                   /* the branch she is on */
-            gfx_rect(s, 150 + k * 7, 95 - k, 8, 3, bark);
-            gfx_hline(s, 150 + k * 7, 157 + k * 7, 95 - k, bark_lit);
+        /*  Black against the lit windows behind it, as a street tree is at
+            night: a trunk that narrows as it climbs, and bare branches. */
+        uint16_t bark = RGB(14, 12, 14);
+        for (int y = 30; y < SCREEN_H - 20; y++) {
+            int w = 3 + (y - 30) * 7 / (SCREEN_H - 50);
+            gfx_rect(s, 182 - w / 2, y, w, 1, bark);
         }
-        gfx_rect(s, 186, 84, 26, 3, bark);              /* and another, bare */
-        gfx_rect(s, 205, 78, 3, 7, bark);
-        for (int k = 0; k < 3; k++)                     /* twigs */
-            gfx_rect(s, 140 + k * 5, 90 - k * 3, 2, 5, bark);
-        gfx_sprite(s, &spr_donut_s, 152, 95 - spr_donut_s.h);
+        static const uint8_t kBranch[][4] = {           /* x0, y0, x1, y1 */
+            { 182, 100, 148, 90 }, { 160, 94, 146, 80 }, { 182, 80, 214, 58 },
+            { 200, 67, 222, 60 }, { 182, 62, 160, 40 }, { 170, 50, 176, 32 },
+            { 182, 44, 200, 24 }, { 182, 118, 212, 104 }, { 154, 91, 140, 94 },
+        };
+        for (unsigned k = 0; k < sizeof kBranch / sizeof kBranch[0]; k++) {
+            int x0 = kBranch[k][0], y0 = kBranch[k][1], x1 = kBranch[k][2], y1 = kBranch[k][3];
+            int n = abs(x1 - x0) > abs(y1 - y0) ? abs(x1 - x0) : abs(y1 - y0);
+            for (int i = 0; i <= n; i++) {
+                int x = x0 + (x1 - x0) * i / n, y = y0 + (y1 - y0) * i / n;
+                int thick = i < n / 2 ? 2 : 1;
+                gfx_rect(s, x, y, thick, thick, bark);
+            }
+        }
+        gfx_sprite(s, &spr_donut_s, 150, 93 - spr_donut_s.h);
     }
-    gfx_sprite(s, &spr_carl_crocs_s, 40, SCREEN_H - 26 - spr_carl_crocs_s.h);
+    gfx_sprite(s, &spr_carl_crocs_s, 40, SCREEN_H - 20 - spr_carl_crocs_s.h);
 }
 
 static void backdrop_collapse(Surface *s)
 {
-    gfx_vgradient(s, 0, 0, SCREEN_W, SCREEN_H, RGB(99, 37, 43) /* blood 1 */, RGB(57, 42, 39) /* hair_brown 0 */);
-    for (int i = 0; i < 7; i++) {                       /* what is left of them */
-        int bx = i * 40 - 8, bw = 34;
-        int bh = 10 + ((i * 29) % 4) * 8;
-        gfx_rect(s, bx, SCREEN_H - bh - 26, bw, bh, RGB(36, 35, 42) /* ink ink */);
-    }
-    gfx_rect(s, 0, SCREEN_H - 26, SCREEN_W, 26, RGB(36, 35, 42) /* ink ink */);
+    gfx_backdrop(s, &bg_collapse);
     for (int i = 0; i < 120; i++) {                     /* dust, going up */
         int x = (i * 71 + g.anim) % SCREEN_W;
         int y = SCREEN_H - ((i * 37 + g.anim * 2) % SCREEN_H);
-        gfx_pixel(s, x, y, i & 1 ? RGB(73, 59, 58) /* ink warm */ : RGB(61, 48, 48) /* ink brown */);
+        gfx_pixel(s, x, y, i & 1 ? RGB(150, 120, 96) : RGB(110, 86, 70));
     }
-    gfx_sprite(s, &spr_carl_crocs_s, 40, SCREEN_H - 26 - spr_carl_crocs_s.h);
+    gfx_sprite(s, &spr_carl_crocs_s, 40, SCREEN_H - 20 - spr_carl_crocs_s.h);
 }
 
 static void backdrop_announce(Surface *s)
 {
-    gfx_vgradient(s, 0, 0, SCREEN_W, SCREEN_H, RGB(51, 37, 74) /* arcane 0 */, RGB(51, 37, 74) /* arcane 0 */);
-    for (int i = 0; i < 40; i++) {                      /* the broadcast carrier */
-        int y = (i * 9 + g.anim / 2) % SCREEN_H;
-        gfx_hline(s, 0, SCREEN_W - 1, y, RGB(51, 37, 74) /* arcane 0 */);
-    }
+    gfx_backdrop(s, &bg_sky);
     int w = 200, x = (SCREEN_W - w) / 2;
     window(s, x, 62, w, 60, 0);
     gfx_text_big(s, x + 20, 72, C_MAGENTA, "THE SYSTEM");
@@ -1342,14 +1337,7 @@ static void backdrop_announce(Surface *s)
 
 static void backdrop_stairs(Surface *s)
 {
-    gfx_vgradient(s, 0, 0, SCREEN_W, SCREEN_H, RGB(32, 34, 41) /* cloth_black 0 */, RGB(32, 34, 41) /* cloth_black 0 */);
-    for (int i = 0; i < 9; i++) {                       /* steps going down */
-        int inset = i * 12;
-        gfx_rect(s, 40 + inset, 30 + i * 16, SCREEN_W - 80 - inset * 2, 12,
-                 gfx_scale_colour(RGB(70, 72, 80) /* cloth_black 2 */, 14 - i, 16));
-        gfx_hline(s, 40 + inset, SCREEN_W - 41 - inset, 30 + i * 16, RGB(36, 35, 42) /* ink ink */);
-    }
-    gfx_rect(s, 112, 158, 32, 34, RGB(51, 37, 74) /* arcane 0 */);
+    gfx_backdrop(s, &bg_stairs);
     gfx_sprite(s, hero_sized(0, HERO_SMALL), 22, 120);
     gfx_sprite(s, hero_sized(1, HERO_SMALL), 186, 128);
 }
@@ -1609,7 +1597,9 @@ static void draw_menu(Surface *top, Surface *bot) {
 /* ----------------------------------------------------------------- shop --- */
 
 static void draw_shop(Surface *top, Surface *bot) {
-    gfx_vgradient(top, 0, 0, SCREEN_W, SCREEN_H, RGB(57, 42, 39) /* hair_brown 0 */, RGB(53, 37, 31) /* wood_dark 0 */);
+    /*  The stall stands in the floor it was found on. */
+    gfx_backdrop(top, arena_for(g.dun.index));
+    gfx_shade(top, 0, 0, SCREEN_W, SCREEN_H, 11);
     system_bar(top, "BOPCA PROVISIONS", "STOCK IS WHAT IT IS");
     gfx_sprite(top, &spr_bopca_l, 4, 58);
     gfx_sprite_scaled(top, &spr_shop, 196, 22, 120, 100);
@@ -2117,7 +2107,7 @@ static void draw_code(Surface *top, Surface *bot) {
 /* ------------------------------------------------------------- endgames --- */
 
 static void draw_gameover(Surface *top, Surface *bot) {
-    gfx_vgradient(top, 0, 0, SCREEN_W, SCREEN_H, RGB(99, 37, 43) /* blood 1 */, RGB(32, 34, 41) /* cloth_black 0 */);
+    gfx_backdrop(top, &bg_gameover);
     gfx_text_big(top, 30, 24, C_RED, "SEASON OVER");
     season_tag(top, 30, 46, C_MAGENTA);
     gfx_text(top, 60, 46, C_DIM, "ends here. There is no continue.");
@@ -2177,14 +2167,11 @@ static void draw_gameover(Surface *top, Surface *bot) {
 }
 
 static void draw_victory(Surface *top, Surface *bot) {
-    gfx_vgradient(top, 0, 0, SCREEN_W, SCREEN_H, RGB(51, 37, 74) /* arcane 0 */, RGB(51, 37, 74) /* arcane 0 */);
-    for (int i = 0; i < 80; i++) {
-        int x = (i * 61 + g.anim / 2) % SCREEN_W;
-        int y = (i * 29 + g.anim) % SCREEN_H;
-        gfx_pixel(top, x, y, i & 1 ? C_GOLD : C_MAGENTA);
-    }
+    gfx_backdrop(top, &bg_victory);     /* sunrise, over water, above ground */
     /*  Eighteen floors, not three, and not a book: this is the screen for
      *  having walked out the other end of a whole season. */
+    gfx_shade(top, 0, 34, SCREEN_W, 40, 7);
+    gfx_shade(top, 0, 160, SCREEN_W, 32, 6);
     gfx_text_big(top, 44, 40, C_GOLD, "YOU GOT OUT");
     season_tag(top, 30, 62, C_MAGENTA);
     gfx_sprite(top, hero_sprite(0), 34, 86);

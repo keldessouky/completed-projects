@@ -410,3 +410,18 @@ const char *gfx_numpad(int value, int digits) {
     pad[o] = 0;
     return pad;
 }
+
+/*  A whole screen of photograph. Four pixels a pass: the palette lookups are
+ *  the cost, and there are forty-nine thousand of them. */
+void gfx_backdrop(Surface *s, const Backdrop *bg) {
+    const uint8_t *src = bg->pix;
+    const uint16_t *pal = bg->pal;
+    uint16_t *dst = s->px;
+    int n = s->w * s->h;
+    for (int i = 0; i < n; i += 4) {
+        dst[i]     = pal[src[i]];
+        dst[i + 1] = pal[src[i + 1]];
+        dst[i + 2] = pal[src[i + 2]];
+        dst[i + 3] = pal[src[i + 3]];
+    }
+}

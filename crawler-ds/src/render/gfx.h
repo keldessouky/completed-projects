@@ -25,6 +25,13 @@ typedef struct {
     const uint8_t  *pix;
 } Sprite;
 
+/*  A photographic background: a whole screen, one byte a pixel into its own
+ *  256-colour palette. */
+typedef struct {
+    const uint16_t *pal;
+    const uint8_t  *pix;
+} Backdrop;
+
 /* --- surfaces ---------------------------------------------------------- */
 Surface gfx_surface(int screen);
 void    gfx_clear(Surface *s, uint16_t colour);
@@ -47,6 +54,7 @@ void gfx_trapezoid(Surface *s, int x0, int yt0, int yb0, int x1, int yt1, int yb
 
 /* --- sprites ----------------------------------------------------------- */
 void gfx_sprite(Surface *s, const Sprite *sp, int x, int y);
+void gfx_backdrop(Surface *s, const Backdrop *bg);
 void gfx_sprite_flip(Surface *s, const Sprite *sp, int x, int y);
 void gfx_sprite_scaled(Surface *s, const Sprite *sp, int x, int y, int num, int den);
 void gfx_sprite_scaled_flip(Surface *s, const Sprite *sp, int x, int y, int num, int den);

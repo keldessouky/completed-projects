@@ -303,6 +303,44 @@ def preview_sheets(sprite_list, font_glyph_count, icon_canvas, icon_pal):
     print("  previews in docs/art/")
 
 
+# ------------------------------------------------------------- backdrops ----
+
+#  The photographic backgrounds (tools/art/photo_bg.py renders them into
+#  assets/bg). Each is a full screen, 256 x 192, one byte a pixel into its own
+#  256-colour palette: forty-eight kilobytes, a quarter of what a straight
+#  15-bit screen would cost, and error-diffused so a photograph survives it.
+BACKDROPS = ('title', 'street', 'collapse', 'sky', 'stairs',
+             'arena_a', 'arena_b', 'arena_c', 'arena_d', 'arena_e',
+             'gameover', 'victory')
+
+
+def emit_backdrops():
+    import png
+    hdr = [BANNER, "#ifndef CRAWLER_GEN_BACKDROPS_H", "#define CRAWLER_GEN_BACKDROPS_H", "",
+           '#include "gfx.h"', ""]
+    src = [BANNER, '#include "backdrops.h"', ""]
+    total = 0
+    for name in BACKDROPS:
+        w, h, pal, index = png.read_indexed(os.path.join(ROOT, 'assets', 'bg', name + '.png'))
+        assert (w, h) == (256, 192), "%s is %dx%d, not a screen" % (name, w, h)
+        pal = (pal + [(0, 0, 0)] * 256)[:256]
+        src.append("static const uint16_t bgpal_%s[256] = {" % name)
+        src.append(c_words([rgb555(c) for c in pal]))
+        src.append("};")
+        src.append("static const uint8_t bgpix_%s[%d] = {" % (name, w * h))
+        #  Dense: this is most of the generated source by size.
+        for i in range(0, len(index), 64):
+            src.append(",".join(str(b) for b in index[i:i + 64]) + ",")
+        src.append("};")
+        src.append("const Backdrop bg_%s = { bgpal_%s, bgpix_%s };\n" % (name, name, name))
+        hdr.append("extern const Backdrop bg_%s;" % name)
+        total += w * h + 512
+    hdr += ["", "#endif"]
+    open(os.path.join(GEN, 'backdrops.h'), 'w').write("\n".join(hdr) + "\n")
+    open(os.path.join(GEN, 'backdrops.c'), 'w').write("\n".join(src) + "\n")
+    return len(BACKDROPS), total
+
+
 def main():
     os.makedirs(GEN, exist_ok=True)
     hdr = [BANNER, "#ifndef CRAWLER_GEN_ART_H", "#define CRAWLER_GEN_ART_H", "",
@@ -318,12 +356,14 @@ def main():
     open(os.path.join(GEN, 'art.c'), 'w').write("\n".join(src) + "\n")
 
     icon_path, icon_canvas, icon_pal = emit_icon()
+    n_bg, bg_bytes = emit_backdrops()
 
     print("forge:")
     print("  %d glyphs, %d sprites" % (glyph_count, len(sprite_list)))
     print("  %s" % os.path.relpath(icon_path, ROOT))
     total = sum(c.w * c.h for _, c, _ in sprite_list)
     print("  sprite pixels: %d bytes" % total)
+    print("  %d backdrops: %d bytes" % (n_bg, bg_bytes))
     if '--preview' in sys.argv:
         preview_sheets(sprite_list, glyph_count, icon_canvas, icon_pal)
 

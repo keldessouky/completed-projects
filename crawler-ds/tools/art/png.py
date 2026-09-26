@@ -1,5 +1,7 @@
 """Minimal PNG writer (8-bit RGB), so the art tools can show their work without
-a third-party imaging library."""
+a third-party imaging library -- and an indexed-colour writer and reader, so
+the build can read the photographic backgrounds in assets/bg without one
+either."""
 import struct
 import zlib
 
@@ -19,6 +21,55 @@ def write_rgb(path, width, height, pixels):
     png += chunk(b'IDAT', zlib.compress(bytes(raw), 9))
     png += chunk(b'IEND', b'')
     open(path, 'wb').write(png)
+
+
+def _chunk(tag, data):
+    c = struct.pack('>I', len(data)) + tag + data
+    return c + struct.pack('>I', zlib.crc32(tag + data) & 0xFFFFFFFF)
+
+
+def write_indexed(path, width, height, palette, index):
+    """An 8-bit palettised PNG: `palette` is up to 256 (r, g, b), `index` a
+    flat sequence of width*height palette indices. Rows are stored unfiltered,
+    which is what read_indexed expects."""
+    raw = bytearray()
+    for y in range(height):
+        raw.append(0)
+        raw += bytes(index[y * width:(y + 1) * width])
+    plte = b''.join(bytes(c) for c in palette)
+    data = b'\x89PNG\r\n\x1a\n'
+    data += _chunk(b'IHDR', struct.pack('>IIBBBBB', width, height, 8, 3, 0, 0, 0))
+    data += _chunk(b'PLTE', plte)
+    data += _chunk(b'IDAT', zlib.compress(bytes(raw), 9))
+    data += _chunk(b'IEND', b'')
+    open(path, 'wb').write(data)
+
+
+def read_indexed(path):
+    """(width, height, palette, index) from a PNG written by write_indexed."""
+    data = open(path, 'rb').read()
+    assert data[:8] == b'\x89PNG\r\n\x1a\n', path
+    pos, idat, plte = 8, b'', b''
+    width = height = 0
+    while pos < len(data):
+        n, = struct.unpack('>I', data[pos:pos + 4])
+        tag, body = data[pos + 4:pos + 8], data[pos + 8:pos + 8 + n]
+        pos += 12 + n
+        if tag == b'IHDR':
+            width, height, depth, kind = struct.unpack('>IIBB', body[:10])
+            assert depth == 8 and kind == 3, "%s is not 8-bit indexed" % path
+        elif tag == b'PLTE':
+            plte = body
+        elif tag == b'IDAT':
+            idat += body
+    raw = zlib.decompress(idat)
+    index = bytearray()
+    for y in range(height):
+        row = raw[y * (width + 1):(y + 1) * (width + 1)]
+        assert row[0] == 0, "%s: row %d is filtered; rewrite it with write_indexed" % (path, y)
+        index += row[1:]
+    palette = [tuple(plte[i:i + 3]) for i in range(0, len(plte), 3)]
+    return width, height, palette, index
 
 
 class Canvas:

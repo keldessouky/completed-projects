@@ -43,13 +43,21 @@ Everything in `src/`, `tools/`, `assets/` and `docs/` was written for this
 project and is offered under the **MIT license**, with the fan-work caveat above:
 the code is yours to reuse, the characters are not mine to license.
 
-**No third-party art, audio or font file is bundled.** Every sprite, glyph,
+**The backgrounds and the dungeon's floor and wall tiles are photographs**,
+not the project's own work: views cut from 360-degree panoramas by Poly Haven
+(CC0) and Emil Persson (Humus; free to redistribute with his readme, which is
+reproduced in full). What each one is, where it came from and which screen it
+is used on is in [assets/CREDITS.txt](assets/CREDITS.txt). They are framed,
+graded and colour-reduced by `tools/art/photo_bg.py` and shipped as
+`src/gen/backdrops.c` and the `tex_*` sprites in `src/gen/art.c`.
+
+No other third-party art, audio or font file is bundled. Every sprite, glyph,
 floor plan, sound effect and piece of music in the ROM is produced by code in
 this repository:
 
 | Asset | Made by | Shipped as |
 | --- | --- | --- |
-| 55 sprites (party, bestiary, bosses, props, overworld, floor textures) | `tools/art/cast.py`, `bestiary.py`, `props.py`, `overworld.py`, `textures.py`, the hand-placed `*_grid.py`, on `forge_tools.py` | `src/gen/art.c` |
+| Sprites (party, bestiary, bosses, props, overworld) | `tools/art/cast.py`, `party_paint.py`, `boss_paint.py`, `bestiary.py`, `props.py`, `overworld.py`, the hand-placed `*_grid.py`, on `forge_tools.py` | `src/gen/art.c` |
 | The 5×7 font, 106 glyphs | `tools/art/font5x7.py` | `src/gen/art.c` |
 | Eighteen floors a season | `src/core/mapgen.c`, built on the DS from the season seed | generated at run time |
 | Four songs, nine sound effects | `src/core/audio.c` (note tables, PSG) | compiled in |

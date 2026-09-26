@@ -209,12 +209,15 @@ licensed.
 - **`tools/art/cast.py`, `bestiary.py`, `props.py`** — the rest of the
   drawings: the party at 56×72, the bestiary at 72×72, the bosses at 96×96 and
   the furniture at 40×40.
-- **`tools/art/textures.py`** — nine tiling 32×32 surfaces, a wall, floor and
-  ceiling each for poured concrete, riveted steel and cut stone. The detail
-  that earns its place in every one of them is the band running round at a
-  constant height — hazard chevrons, a plate seam, a neon tube. It converges
-  with the walls, and that is what gives a neighbourhood its own look at a
-  glance.
+- **`tools/art/photo_bg.py`** — the backgrounds, which are photographs: views
+  framed out of 360-degree panoramas from Poly Haven (CC0) and Emil Persson
+  (Humus), graded, reduced to the DS's colours and written to `assets/bg`.
+  The title, chapter one's street, collapse, sky and staircase, one battle
+  arena per floor material, and the two endings. It also cuts the dungeon's
+  32×32 floor and wall tiles out of the same panoramas -- straight down for a
+  floor, square-on for a wall -- so a fight happens in the place it was
+  walked into. `tools/art/textures.py` reads those tiles; credits are in
+  `assets/CREDITS.txt`.
 - **`tools/art/font5x7.py`** — the font, drawn as ASCII art, seven rows of five
   cells per glyph, 104 glyphs including the System's arrows and pips.
 - **`tools/art/overworld.py`** — the party as the dungeon sees them, and the
@@ -255,13 +258,6 @@ licensed.
   that forgets the moment you step away is one you cannot read your way back
   across. The compass marker on the touch map is an arrowhead, so the screen
   that tells you where you are also tells you which way you are pointed.
-- **`src/render/view3d.c`** — what is left of the perspective renderer: the
-  ground a fight happens on. A pinhole camera, a surface `z` cells away having
-  screen half-width `PROJ/z`, horizontal planes solved once per scanline.
-  Distance is fog rather than darkness, through a palette precomputed per shade
-  level, so a texel costs one lookup however far away it is. It still draws the
-  arena from the party's own dungeon tile, so the ground under a fight is the
-  ground they were walking.
 - **`src/core/mapgen.c`** — the floors, built on the DS itself when you
   descend. Rooms are placed and joined in sequence, which makes the floor
   connected by construction; then the exit room is sealed, one doorway is cut
@@ -542,7 +538,7 @@ redesign needs is isolated: `src/render/theme.h` holds every colour, and each
 screen has its own function in `src/render/render.c`, so it can be replaced
 without touching the game underneath.
 
-Also queued: ceiling detail on the lower floors, an encounter transition, and
+Also queued: an encounter transition, and
 floors four onward.
 
 ---

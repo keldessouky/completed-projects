@@ -1,0 +1,48 @@
+Photographs used for the backgrounds (assets/bg) and the dungeon tiles
+(assets/tiles). Each is a view framed, graded and colour-reduced out of a
+360-degree panorama by tools/art/photo_bg.py; the panoramas themselves are
+not in this repository, only where to fetch them.
+
+POLY HAVEN -- CC0 1.0 (public domain dedication), https://polyhaven.com/license
+Fetched from the sample folders of google/filament and mrdoob/three.js.
+
+  parking_garage       https://polyhaven.com/a/parking_garage
+                       arena_a, tile_floor_a, tile_wall_a
+  graffiti_shelter     https://polyhaven.com/a/graffiti_shelter
+                       arena_b, tile_floor_b, tile_wall_b
+  pillars              https://polyhaven.com/a/pillars
+                       stairs, arena_c, tile_floor_c, tile_wall_c
+  venetian_crossroads  https://polyhaven.com/a/venetian_crossroads
+                       arena_d, tile_floor_d, tile_wall_d
+  the_sky_is_on_fire   https://polyhaven.com/a/the_sky_is_on_fire
+                       title, sky
+  quarry_01            https://polyhaven.com/a/quarry_01
+                       collapse, gameover
+  venice_sunset        https://polyhaven.com/a/venice_sunset
+                       victory
+
+EMIL PERSSON (HUMUS) -- "SwedishRoyalCastle" cube map, http://www.humus.name
+Fetched from mrdoob/three.js examples/textures/cube/SwedishRoyalCastle.
+Used for: street, arena_e, tile_floor_e, tile_wall_e. His readme, which his
+terms ask to travel with the work, follows in full:
+
+  Author
+  ======
+
+  This is the work of Emil Persson, aka Humus.
+  http://www.humus.name
+  humus@comhem.se
+
+
+
+  Legal stuff
+  ===========
+
+  This work is free and may be used by anyone for any purpose
+  and may be distributed freely to anyone using any distribution
+  media or distribution method as long as this file is included.
+  Distribution without this file is allowed if it's distributed
+  with free non-commercial software; however, fair credit of the
+  original author is expected.
+  Any commercial distribution of this software requires the written
+  approval of Emil Persson.
