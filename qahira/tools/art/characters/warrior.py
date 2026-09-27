@@ -528,6 +528,23 @@ def death(P, t):
         P.rot['forearm_' + s] = eul(-30 * k, 0, 0)
 
 
+def cast(P, t):
+    """A spell from a man with a maul: the maul goes back onto the shoulder and the free hand thrusts forward."""
+    k = keys(t, [(0.0, 0.0), (0.2, 1.0), (0.45, 1.0), (0.7, 0.0)])
+    push = keys(t, [(0.18, 0.0), (0.32, 1.0), (0.45, 1.0), (0.7, 0.0)])
+    P.rot['pelvis'] = eul(0, 0, -12 + 16 * push)
+    P.rot['spine'] = eul(4 + 6 * push, 0, 6 - 10 * push)
+    stance_legs(P, t, crouch=0.2 * push)
+    breathe(P, t)
+    g = STANCE['grip'].lerp(V((-0.2, 0.08, 1.62)), k)
+    hv = STANCE['h'].lerp(V((-0.2, 0.9, 0.3)).normalized(), k)
+    wr = frame_rot(hv.normalized(), V((1, 0, 0)))
+    W = P.world()
+    P.arm_ik('R', chest_space(P, g), W['upperarm_R'][1] + V((-0.9, 0.3, -0.4)), weapon_rot=wr, wrist_rot=wr)
+    W = P.world()
+    P.arm_ik('L', chest_space(P, V((0.28, -0.2, 1.3)).lerp(V((0.1, -0.62, 1.44)), push)), W['upperarm_L'][1] + V((0.9, 0.2, -0.5)))
+
+
 CLIPS = [
     Clip('idle', 2.4, idle, loop=True),
     Clip('run', 0.62, run, loop=True),
@@ -537,4 +554,6 @@ CLIPS = [
     Clip('dodge', 0.46, dodge),
     Clip('hit', 0.3, hit),
     Clip('death', 1.4, death),
+    Clip('cast', 0.7, cast, events={'hit': 0.32}),
+    Clip('cast_ground', 0.9, slam, events={'hit': 0.47}),
 ]

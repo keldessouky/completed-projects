@@ -412,6 +412,56 @@ def sfx_slice2():
     write('summon', norm(x, 0.75))
 
 
+def sfx_slice3():
+    """The Sorcerer's spells: three casts (fire, cold, lightning), their hits, the glyph and the falling star."""
+    s = SR
+    # fire cast: a breathy rush that ignites into a crackle
+    t = t_axis(0.5)
+    whoosh = fft_filter(noise(len(t)), 400, 3500) * np.sin(np.pi * np.clip(t / 0.35, 0, 1)) ** 2
+    crackle = fft_filter(noise(len(t)), 2500, 8000) * (np.random.default_rng(3).random(len(t)) > 0.985) * 3
+    write('cast_fire', norm((whoosh + crackle * np.exp(-t * 6)) * env_adsr(len(t), 0.02, 0.1, 0.8, 0.2), 0.5))
+    # cold cast: glassy partials sweeping down, with a frosty hiss
+    t = t_axis(0.7)
+    f = 2400 - 900 * t
+    glass = sum(np.sin(2 * np.pi * np.cumsum(f * m) / s) * np.exp(-t * (4 + 2 * m)) / m for m in (1, 1.51, 2.37))
+    hiss = fft_filter(noise(len(t)), 5000, 12000) * np.exp(-t * 5) * 0.4
+    write('cast_cold', norm(glass * 0.4 + hiss, 0.45))
+    # lightning cast: a snap and a buzzing crackle
+    t = t_axis(0.45)
+    buzz = np.sign(np.sin(2 * np.pi * 110 * t + 3 * np.sin(2 * np.pi * 37 * t))) * 0.3
+    snap = fft_filter(noise(len(t)), 1500, 9000) * np.exp(-t * 18)
+    write('cast_lightning', norm((fft_filter(buzz, 200, 5000) * np.exp(-t * 7) + snap), 0.5))
+    # fire hit: a soft thump into a burst of flame
+    t = t_axis(0.45)
+    thump = np.sin(2 * np.pi * np.cumsum(140 - 80 * t) / s) * np.exp(-t * 16)
+    flame = fft_filter(noise(len(t)), 300, 2500) * np.exp(-t * 7) * 0.7
+    write('fire_hit', norm(thump + flame, 0.55))
+    # lightning hit: a sharp crack with a short tail
+    t = t_axis(0.35)
+    crack = fft_filter(noise(len(t)), 900, 10000) * np.exp(-t * 26) + np.sign(np.sin(2 * np.pi * 60 * t)) * np.exp(-t * 14) * 0.2
+    write('lightning_hit', norm(crack, 0.5))
+    # frozen: ice crystallising, a bright crunch and ringing
+    t = t_axis(0.8)
+    crunch = fft_filter(noise(len(t)), 3000, 11000) * np.exp(-t * 12)
+    ring_ = sum(np.sin(2 * np.pi * f0 * t) * np.exp(-t * d) for f0, d in ((3136, 6), (4186, 8), (5274, 10))) * 0.2
+    write('frozen', norm(crunch + ring_, 0.45))
+    # glyph: a low hum with an airy shimmer, like a struck bowl
+    t = t_axis(1.2)
+    bowl = sum(np.sin(2 * np.pi * f0 * t + 0.3 * np.sin(2 * np.pi * 4 * t)) * np.exp(-t * d) for f0, d in ((392, 2.2), (587.3, 3), (933, 4)))
+    air = fft_filter(noise(len(t)), 4000, 10000) * env_adsr(len(t), 0.1, 0.3, 0.3, 0.6) * 0.2
+    x = bowl * 0.35 + air
+    write('glyph', norm(x + conv(x, reverb_ir(1.4, s, 0.5))[:len(x)] * 0.5, 0.45))
+    # falling star: a descending whistle, then a deep impact with debris
+    t = t_axis(1.4)
+    f = 3000 * np.exp(-t * 3.5) + 200
+    whistle = np.sin(2 * np.pi * np.cumsum(f) / s) * np.clip(1 - t / 0.55, 0, 1) * 0.3
+    hit_t = np.clip(t - 0.55, 0, None)
+    boom = np.sin(2 * np.pi * np.cumsum(70 - 30 * hit_t) / s) * np.exp(-hit_t * 4) * (t > 0.55)
+    debris = fft_filter(noise(len(t)), 200, 3000) * np.exp(-hit_t * 5) * (t > 0.55) * 0.6
+    x = whistle + boom + debris
+    write('star_fall', norm(x + conv(x, reverb_ir(1.6, s, 0.35))[:len(x)] * 0.4, 0.8))
+
+
 def ambience_necro(name, dur=40.0, sr=32000):
     """The Qarafa at night: wind between tomb walls, crickets, a far dog, the city a murmur away."""
     t = t_axis(dur, sr)
@@ -467,6 +517,7 @@ if __name__ == '__main__':
     if 'sfx' in only:
         sfx()
         sfx_slice2()
+        sfx_slice3()
     if 'ambience' in only:
         ambience('amb_street')
         ambience_necro('amb_necro')

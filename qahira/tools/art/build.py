@@ -13,7 +13,7 @@ import qart.geom as geom
 geom.scene = bpy.context.scene
 
 from qart import rig, preview
-from characters import warrior, ghoul, npc, ghoula
+from characters import warrior, ghoul, npc, ghoula, sorcerer
 from env import street, souq, necro, rooftop
 from props import props
 
@@ -40,6 +40,14 @@ if want('warrior'):
     maul = warrior.build_maul().export(os.path.join(OUT, 'meshes', 'maul.qmesh'), skinned=False)
     if PREVIEW:
         preview.sheet(os.path.join(PREV, 'warrior_anims.png'), J, body, warrior.CLIPS, weapon=maul)
+if want('sorcerer'):
+    J = sorcerer.skeleton()
+    rig.write_skeleton(os.path.join(OUT, 'skel', 'sorcerer.qskel'), J)
+    rig.bake(J, sorcerer.CLIPS, os.path.join(OUT, 'anim', 'sorcerer.qanim'))
+    body = sorcerer.build(J).export(os.path.join(OUT, 'meshes', 'sorcerer.qmesh'))
+    staff = sorcerer.build_staff().export(os.path.join(OUT, 'meshes', 'staff.qmesh'), skinned=False)
+    if PREVIEW:
+        preview.sheet(os.path.join(PREV, 'sorcerer_anims.png'), J, body, sorcerer.CLIPS, weapon=staff)
 if want('ghoul'):
     J = ghoul.skeleton()
     rig.write_skeleton(os.path.join(OUT, 'skel', 'ghoul.qskel'), J)

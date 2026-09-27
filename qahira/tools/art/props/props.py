@@ -7,7 +7,7 @@ from mathutils import Vector as V, Matrix
 from qart.geom import Part, TAU
 from qart.model import Model
 
-__all__ = ['chest', 'loot_bundle', 'loot_trinket', 'loot_coins', 'loot_bead', 'export_all']
+__all__ = ['chest', 'loot_bundle', 'loot_trinket', 'loot_coins', 'loot_bead', 'loot_tablet', 'export_all']
 
 
 def _xform(part, M):
@@ -113,6 +113,21 @@ def loot_bead():
     return m
 
 
+def loot_tablet():
+    """A small clay tablet with a grid carved in it: a Wafq, or a Blank Talisman (the engine tints it)."""
+    m = Model('loot_tablet')
+    m.verbose = False
+    t = Part()
+    t.box((0, 0, 0.03), (0.26, 0.2, 0.05))
+    m.add(t, '#E8E4DA', rough=0.7, bevel=0.012, flat=True)
+    g = Part()
+    for i in range(1, 3):
+        g.box((-0.13 + 0.26 * i / 3, 0, 0.056), (0.008, 0.17, 0.006))
+        g.box((0, -0.1 + 0.2 * i / 3, 0.056), (0.22, 0.008, 0.006))
+    m.add(g, '#6A6458', rough=0.8, flat=True)
+    return m
+
+
 def export_all(mesh_dir):
-    for m in (chest(False), chest(True), loot_bundle(), loot_trinket(), loot_coins(), loot_bead()):
+    for m in (chest(False), chest(True), loot_bundle(), loot_trinket(), loot_coins(), loot_bead(), loot_tablet()):
         m.export('%s/%s.qmesh' % (mesh_dir, m.name), skinned=False, ao=True)
