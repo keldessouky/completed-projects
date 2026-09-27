@@ -30,7 +30,7 @@ struct Environment {
     vec3 fog = hex_lin(0x1B1429) * 0.4f;
     float fog_start = 18, fog_end = 40, fog_max = 0.75f;
     vec3 clear = hex_lin(0x0B0910);
-    float exposure = 1.25f;
+    float exposure = 1.0f;
     float bloom_strength = 0.9f;
     float bloom_threshold = 1.1f;
     vec3 lift = {0.02f, 0.012f, 0.03f};

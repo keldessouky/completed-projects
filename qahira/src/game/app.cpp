@@ -6,6 +6,8 @@
 #include "ui/ui.hpp"
 #include "game/assets.hpp"
 #include "game/animator.hpp"
+#include "game/level.hpp"
+#include "core/serial.hpp"
 #include <cstdlib>
 #include <cstring>
 #include <string>
@@ -30,7 +32,7 @@ struct State {
     Camera cam;
     CharacterModel warrior;
     GpuMesh* maul = nullptr;
-    GpuMesh ground;
+    Level level;
     Player player;
     Pose pose;
     std::vector<Xform> scratch;
@@ -46,27 +48,6 @@ struct State {
 };
 
 State* S = nullptr;
-
-void build_ground() {
-    MeshBuilder mb;
-    mb.set_mat(0.85f);
-    Rng rng(7);
-    const float tile = 0.5f;
-    for (int y = -60; y < 60; y++)
-        for (int x = -40; x < 40; x++) {
-            float shade = rng.range(0.82f, 1.05f);
-            vec3 base = hex_rgb(0x5A4F48) * shade;
-            if (rng.chance(0.08f)) base = hex_rgb(0x433A35);
-            mb.set_color(base, 1.f);
-            float g = 0.012f;
-            vec3 a{x * tile + g, y * tile + g, 0}, b{(x + 1) * tile - g, y * tile + g, 0};
-            vec3 c{(x + 1) * tile - g, (y + 1) * tile - g, 0}, d{x * tile + g, (y + 1) * tile - g, 0};
-            mb.quad(a, b, c, d);
-        }
-    mb.set_color(hex_rgb(0x1E1A18), 0.6f);
-    mb.quad({-20, -30, -0.01f}, {20, -30, -0.01f}, {20, 30, -0.01f}, {-20, 30, -0.01f});
-    mb.upload(S->ground);
-}
 
 void update_player(const Input& in, float dt) {
     Player& p = S->player;
@@ -90,7 +71,7 @@ void update_player(const Input& in, float dt) {
         want = from_angle(p.facing) * 9.5f * (1.f - p.anim.progress() * 0.6f);
     }
     p.vel = lerp(p.vel, want, std::min(1.f, dt * 16.f));
-    p.pos += p.vel * dt;
+    p.pos = S->level.resolve(p.pos + p.vel * dt, 0.45f);
     if (!acting) {
         if (length(p.vel) > 0.6f) p.anim.play("run", 0.15f, false, clampf(length(p.vel) / speed, 0.6f, 1.2f));
         else p.anim.play("idle", 0.25f);
@@ -116,6 +97,15 @@ void run_bot(Input& in) {
         if (S->frame == 1) S->start_pos = S->player.pos;
         in.lstick = {0, 1};
         if (S->frame == 60) in.pressed |= 1u << BTN_SOUTH, in.down |= 1u << BTN_SOUTH;
+        if (S->frame == 120) {
+            size_t n = app_serialize_size();
+            std::vector<uint8_t> st(n);
+            app_serialize(st.data(), n);
+            vec2 saved = S->player.pos;
+            S->player.pos += vec2{3, 3};
+            app_unserialize(st.data(), n);
+            if (length(S->player.pos - saved) > 1e-4f) { S->test_status = 2; S->test_msg = "save state round trip failed"; return; }
+        }
         if (S->frame >= 180) {
             float moved = length(S->player.pos - S->start_pos);
             if (moved > 4.f) { S->test_status = 1; S->test_msg = "walked " + std::to_string(moved) + " m"; }
@@ -135,14 +125,18 @@ bool app_init(const char* pack_path, Platform* plat) {
     S->player.anim.bind(S->warrior.skel, S->warrior.anims);
     S->player.anim.play("idle", 0);
     if (const char* b = getenv("QAHIRA_BOT")) S->bot = b;
-    S->cam.target = {0, 0.8f, 0.6f};
+    S->level.add_tile("street_a", {0, 0});
+    S->level.add_tile("street_b", {0, 24});
+    S->level.add_tile("street_c", {0, 48});
+    S->player.pos = {0, -8};
+    S->cam.target = {0, -7.2f, 0.6f};
     update_camera(1.f);
     return true;
 }
 
 void app_shutdown() {
     if (!S) return;
-    if (S->gpu) { S->renderer.shutdown(); S->ground.destroy(); assets().clear(); }
+    if (S->gpu) { S->renderer.shutdown(); assets().clear(); }
     delete S;
     S = nullptr;
 }
@@ -153,7 +147,7 @@ void app_gpu_init() {
     ui().init();
     S->warrior.body = assets().mesh("warrior");
     S->maul = assets().mesh("maul");
-    build_ground();
+    S->level.bind_gpu();
 }
 
 void app_gpu_lost() {
@@ -173,8 +167,7 @@ void app_update(const Input& in_raw, float dt) {
 void app_render(GLuint fbo, int w, int h) {
     Renderer& r = S->renderer;
     r.begin(S->cam, S->env, float(S->time));
-    Instance g;
-    r.draw(&S->ground, g);
+    S->level.render(r, float(S->time), S->player.pos);
     // the Warrior
     Player& p = S->player;
     const CharacterModel& m = S->warrior;
@@ -197,16 +190,6 @@ void app_render(GLuint fbo, int w, int h) {
     // the lantern on his hip, and a warm pool around him
     vec3 hip = S->pose.model[size_t(m.pelvis)].translation();
     r.light(hip + vec3{0.25f, -0.1f, -0.1f}, 6.f, hex_lin(0xFFB04A) * 16.f);
-    // street lights to test the tiled lighting
-    for (int i = 0; i < 12; i++) {
-        float y = -24.f + i * 4.5f;
-        bool pink = i % 2;
-        r.light({i % 3 == 0 ? -7.5f : 7.5f, y, 2.6f}, 7.f, (pink ? hex_lin(0xFF2E88) : hex_lin(0x2BD1C8)) * 26.f);
-    }
-    for (int i = 0; i < 12; i++) {
-        float y = -24.f + i * 4.5f;
-        r.ground({i % 3 == 0 ? -7.5f : 7.5f, y, 0.f}, 1.4f, vec4(1, 0.4f, 0.7f, 0.25f), {0, 2, 0, 1}, Blend::Additive);
-    }
     // soft contact shadow
     r.ground({p.pos.x, p.pos.y, 0.f}, 0.75f, vec4(0, 0, 0, 0.55f), {0, 1.5f, 0, 1}, Blend::Alpha);
     r.end(fbo, w, h, false);
@@ -228,28 +211,43 @@ void app_render(GLuint fbo, int w, int h) {
 void app_audio(int16_t* stereo, int frames) { memset(stereo, 0, size_t(frames) * 4); }
 
 // ---- save states: a versioned byte stream of the simulation state
-size_t app_serialize_size() { return 256; }
+static const uint32_t kStateVersion = 2;
+
+static ByteWriter save_state() {
+    ByteWriter w;
+    w.put(kStateVersion);
+    Player& p = S->player;
+    w.put(p.pos); w.put(p.vel); w.put(p.facing);
+    w.str(p.anim.cur ? p.anim.cur->name : "idle");
+    w.put(p.anim.t); w.put(p.anim.speed); w.put(p.anim.fired);
+    w.put(S->time); w.put(S->frame);
+    w.put(S->cam.target); w.put(S->cam.eye);
+    return w;
+}
+
+size_t app_serialize_size() { return save_state().buf.size() + 1024; }
 bool app_serialize(void* data, size_t size) {
-    if (size < 256) return false;
+    ByteWriter w = save_state();
+    if (w.buf.size() > size) return false;
     memset(data, 0, size);
-    uint8_t* d = (uint8_t*)data;
-    uint32_t ver = 1;
-    memcpy(d, &ver, 4);
-    memcpy(d + 4, &S->player.pos, 8);
-    memcpy(d + 12, &S->player.facing, 4);
-    memcpy(d + 16, &S->time, 8);
+    memcpy(data, w.buf.data(), w.buf.size());
     return true;
 }
 bool app_unserialize(const void* data, size_t size) {
-    if (size < 256) return false;
-    const uint8_t* d = (const uint8_t*)data;
-    uint32_t ver;
-    memcpy(&ver, d, 4);
-    if (ver != 1) return false;
-    memcpy(&S->player.pos, d + 4, 8);
-    memcpy(&S->player.facing, d + 12, 4);
-    memcpy(&S->time, d + 16, 8);
-    return true;
+    ByteReader r(data, size);
+    if (r.get<uint32_t>() != kStateVersion) return false;
+    Player& p = S->player;
+    r.get(p.pos); r.get(p.vel); r.get(p.facing);
+    std::string clip = r.str();
+    float t = r.get<float>(), spd = r.get<float>();
+    uint32_t fired = r.get<uint32_t>();
+    p.anim.play(clip.c_str(), 0, true, spd);
+    p.anim.t = t;
+    p.anim.fired = fired;
+    p.anim.prev = nullptr;
+    r.get(S->time); r.get(S->frame);
+    r.get(S->cam.target); r.get(S->cam.eye);
+    return r.ok;
 }
 void app_set_option(const char*, const char*) {}
 int app_test_status() { return S ? S->test_status : 0; }

@@ -131,7 +131,7 @@ RETRO_API bool retro_load_game(const retro_game_info* game) {
 #endif
     hw.context_reset = context_reset;
     hw.context_destroy = context_destroy;
-    hw.depth = true;
+    hw.depth = false;  // the core renders into its own targets; the frontend FBO only receives the composite
     hw.stencil = false;
     hw.bottom_left_origin = true;
     plat.has_gpu = env_cb(RETRO_ENVIRONMENT_SET_HW_RENDER, &hw);
