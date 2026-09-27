@@ -185,6 +185,8 @@ bool Bot::combat(World& w, Input& in, uint64_t frame, float reach) {
         vec2 out;
         float dist;
         if (!in_danger(g, h, out, dist)) continue;
+        // a boss's swing (a cone) is traded, as a player does, while there is life to spare; circles and charges are not
+        if (g.kind == GroundFx::Telegraph && g.half < kPi - 0.01f && h.life > h.life_max * 0.6f) continue;
         // against a boss, dodge back into her court rather than down the lanes (she resets if we flee)
         for (size_t i = 1; i < w.actors.size(); i++) {
             const Actor& b = w.actors[i];

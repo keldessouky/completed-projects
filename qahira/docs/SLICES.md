@@ -374,7 +374,10 @@ what each slice actually delivered and how it was verified.
   (the hero now arrives on the portal when there is no clear line to the spot); the Iron Microbus was too hard for the
   game's first boss; two drops on one spot could hold a pilot forever; a pilot wedged on a corner now sidesteps. And
   every zone's arrival spot stood just north of the entrance cell's southern block, which hid the hero from the camera;
-  the hero now arrives past the cell's centre, on the open side.
+  the hero now arrives past the cell's centre, on the open side. That fix changed the Warrior pilot's route in the
+  `zone` run: it met the Iron Microbus at level 2 and rolled out of every swing telegraph, never landing a hit. The melee
+  pilot now trades blows against a boss's cone while above 60% life, as a player does, and still steps out of circles
+  and charges.
 
 **Verified**
 
