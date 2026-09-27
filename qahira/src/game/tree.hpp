@@ -38,6 +38,12 @@ public:
     std::vector<Constellation> constellations;
     std::vector<std::string> implemented;   // classes you can play
     int pole = -1;
+    // Recommended Paths (GDD §13): per class, the notables and keystones to aim for, in order
+    std::vector<std::pair<std::string, std::vector<int>>> recommended;
+    const std::vector<int>* recommended_for(const std::string& cls) const {
+        for (auto& r : recommended) if (r.first == cls) return &r.second;
+        return nullptr;
+    }
 
     bool load();                            // from the pack; true if already loaded
     bool load_json(const std::string& text);

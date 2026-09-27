@@ -12,9 +12,12 @@ const char* equip_slot_name(int e);
 bool slot_accepts(int e, const Item& it);
 int equip_slot_for(const Item& it, const Item* equipped);   // prefers an empty ring slot
 
-// Slice 2's five crafting currencies. The names are things from a Cairo street; what they do is plain
+// The crafting currencies. The names are things from a Cairo street; what they do is plain
 // PoE (the tooltip always says it).
-enum Currency : uint8_t { CUR_BEAD, CUR_SALT, CUR_GROUNDS, CUR_SAFFRON, CUR_PIASTRE, CUR_COUNT };
+enum Currency : uint8_t { CUR_BEAD, CUR_SALT, CUR_GROUNDS, CUR_SAFFRON, CUR_PIASTRE,
+                          CUR_ROSEWATER, CUR_STYLUS,   // Slice 3: respec, Wafq slots
+                          CUR_COUNT };
+constexpr int kCurrencyV2 = 5;   // how many the Slice 2 character file stored
 struct CurrencyDef {
     const char* id;
     const char* name;

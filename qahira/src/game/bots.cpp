@@ -4,6 +4,8 @@
 #include <cstdio>
 #include <cstdlib>
 #include <vector>
+#include <deque>
+#include <algorithm>
 
 namespace q {
 
@@ -14,8 +16,11 @@ void Bot::drive(World& w, Menu& m, Areas& a, Input& in, uint64_t frame) {
     now_ = frame;
     if (scenario == "walk") walk(w, in, frame);
     else if (scenario == "fight") fight(w, m, in, frame);
-    else if (scenario == "zone") zone(w, m, a, in, frame);
+    else if (scenario == "zone" || scenario == "sorcerer") zone(w, m, a, in, frame);
     else if (scenario == "tour") tour(w, m, a, in, frame);
+    else if (scenario == "sky") sky(w, in, frame);
+    else if (scenario == "title") title(w, in, frame);
+    else if (scenario == "tour3") tour3(w, m, a, in, frame);
     else fail("unknown bot " + scenario);
 }
 
@@ -53,7 +58,74 @@ void Bot::steer(World& w, Input& in, vec2 target) {
     if (length(wp - h.pos) > 1e-3f) in.lstick = normalize(wp - h.pos);
 }
 
+// the Sorcerer's way: keep 5-9 m away, a glyph under the pack, Arc into crowds, the star on anything chilled
+bool Bot::caster_combat(World& w, Input& in, uint64_t frame, float reach) {
+    Actor& h = w.actors[0];
+    for (auto& g : w.ground) {  // step out of telegraphs first, as the melee pilot does
+        if (g.kind != GroundFx::Telegraph) continue;
+        vec2 d = h.pos - g.pos;
+        float dist = length(d);
+        bool inside = dist < g.radius + h.radius + 0.4f;
+        if (inside && g.half < kPi - 0.01f) inside = std::fabs(wrap_angle(angle_of(d) - g.angle)) < g.half + 0.3f;
+        if (!inside) continue;
+        vec2 out = dist > 0.1f ? d / dist : from_angle(h.facing + kPi);
+        for (size_t i = 1; i < w.actors.size(); i++) {
+            const Actor& b = w.actors[i];
+            if (b.rarity != Rarity::Unique || !b.alive() || length(h.pos - b.home) < 18.f) continue;
+            vec2 home = normalize(b.home - h.pos);
+            vec2 side{-out.y, out.x};
+            if (dot(side, home) < 0) side = -side;
+            out = normalize(out + side * 1.4f + home * 0.5f);
+        }
+        if (h.act == Act::Idle) {
+            in.lstick = out;
+            if (g.life - g.t < 0.45f) press(in, BTN_EAST);
+        }
+        return true;
+    }
+    const Actor* target = nullptr;
+    float best = 1e9f;
+    int near_me = 0;
+    for (size_t i = 1; i < w.actors.size(); i++) {
+        const Actor& e = w.actors[i];
+        if (!e.alive()) continue;
+        float d = length(e.pos - h.pos) - (e.rarity == Rarity::Unique ? 1.0f : 0.f);
+        if (d < 3.2f) near_me++;
+        float score = d - (e.rarity >= Rarity::Rare ? 2.f : 0.f);
+        if (score < best) { best = score; target = &e; }
+    }
+    if (!target || length(target->pos - h.pos) > reach) return false;
+    if (h.life < h.life_max * 0.5f && w.hero.flask >= 1 && frame % 20 == 0) press(in, BTN_L3);
+    vec2 d = target->pos - h.pos;
+    float dist = length(d);
+    if (h.act != Act::Idle) return true;
+    int crowd = 0;
+    for (size_t i = 1; i < w.actors.size(); i++)
+        if (w.actors[i].alive() && length(w.actors[i].pos - target->pos) < 4.f) crowd++;
+    // too close: back off (and roll out of a pack)
+    if (dist < 4.2f && w.level.line_clear(h.pos, h.pos - normalize(d) * 3.f, h.radius)) {
+        in.lstick = normalize(-d);
+        if (near_me >= 2 && frame % 30 == 0) press(in, BTN_EAST);
+        if (frame % 3) return true;   // mostly walking; now and then a bolt over the shoulder
+    }
+    if (dist > 10.f || !w.level.line_clear(h.pos, target->pos, 0.2f)) { steer(w, in, target->pos); return true; }
+    in.rstick = normalize(d);
+    auto ready = [&](int slot) {
+        SkillCtx c = w.slot_ctx(slot);
+        return c.def && w.hero.cooldowns[slot] <= 0 && h.mana >= c.mana && c.usable;
+    };
+    if (frame % 2) return true;   // release between presses
+    bool chilled = target->chill_t > 0 || target->frozen_t > 0;
+    if (ready(2) && (crowd >= 2 || target->rarity >= Rarity::Rare) && dist < 7.5f) press(in, BTN_NORTH);            // Frost Glyph
+    else if (ready(3) && (chilled || target->rarity >= Rarity::Rare) && dist < 9.f) press(in, BTN_R1);             // Falling Star
+    else if (ready(1) && crowd >= 2) press(in, BTN_WEST);                                                            // Arc
+    else if (ready(0)) press(in, BTN_SOUTH);                                                                         // Ember Bolt
+    else if (ready(1)) press(in, BTN_WEST);
+    return true;
+}
+
 bool Bot::combat(World& w, Input& in, uint64_t frame, float reach) {
+    if (w.hero.passives.cls == "sorcerer") return caster_combat(w, in, frame, reach);
     Actor& h = w.actors[0];
     // step out of any telegraph we are standing in
     for (auto& g : w.ground) {
@@ -454,6 +526,238 @@ void Bot::zone(World& w, Menu& m, Areas& a, Input& in, uint64_t frame) {
             break;
         }
     }
+}
+
+// ---------------------------------------------------------------- sky (Slice 3's exit)
+// A level-31 Sorcerer plans a 30-star path on the sticks (magnet cursor, D-pad along edges when the magnet misses),
+// places it one Select at a time, and must do it all in under two minutes. Then a paid respec and a build code.
+void Bot::sky(World& w, Input& in, uint64_t frame) {
+    Hero& H = w.hero;
+    Sky& S = *sky_ui;
+    const PassiveTree& T = tree();
+    auto next_stage = [&](int st) { stage = st; stage_frame = frame; fprintf(stderr, "bot: sky stage %d at %.1fs (plan %zu, held %d)\n", st, frame / 60.f, H.plan.size(), H.passives.spent()); };
+    if (frame == 1) {
+        H.level = 31;
+        H.currency[CUR_ROSEWATER] = 2;
+        H.gold = 1000;
+        w.recompute_hero();
+        return;
+    }
+    if (frame > 60ull * 60 * 4) { fail("sky run took longer than 4 minutes (stage " + std::to_string(stage) + ")"); return; }
+    switch (stage) {
+        case 0:  // hold Select to open the sky
+            if (S.open) { sky_open_frame_ = frame; next_stage(1); break; }
+            in.down |= 1u << BTN_SELECT;
+            break;
+        case 1: {  // choose targets: the far keystone first, then notables, until the plan reaches 30 stars
+            Allocation a = H.passives;
+            int start = T.class_start(H.passives.cls);
+            std::vector<std::pair<size_t, int>> ks;
+            for (auto& st : T.stars)
+                if (st.kind == StarKind::Keystone || st.kind == StarKind::Notable) ks.push_back({a.path_to(st.id).size(), st.id});
+            std::sort(ks.begin(), ks.end());
+            int far_key = -1;
+            for (auto& [d, id] : ks) if (T.stars[size_t(id)].kind == StarKind::Keystone && d <= 30) far_key = id;
+            sky_targets_.clear();
+            if (far_key >= 0) sky_targets_.push_back(far_key);
+            for (auto& [d, id] : ks) if (id != far_key && d > 3) sky_targets_.push_back(id);
+            (void)start;
+            next_stage(2);
+            break;
+        }
+        case 2: {  // walk the cursor to the next target and plan it
+            if (H.plan.size() >= 30) { next_stage(3); break; }
+            // skip targets the plan already covers
+            while (!sky_targets_.empty() && (std::find(H.plan.begin(), H.plan.end(), uint16_t(sky_targets_.front())) != H.plan.end() ||
+                                             H.passives.has(sky_targets_.front())))
+                sky_targets_.erase(sky_targets_.begin());
+            if (sky_targets_.empty()) { fail("ran out of stars to plan at " + std::to_string(H.plan.size())); return; }
+            int target = sky_targets_.front();
+            if (S.cursor == target) {
+                if (frame % 2 == 0) { press(in, BTN_WEST); sky_targets_.erase(sky_targets_.begin()); sky_stuck_ = 0; }
+                break;
+            }
+            if (frame % 2) break;   // let the direction release so each move registers
+            vec2 d = T.stars[size_t(target)].pos - T.stars[size_t(S.cursor)].pos;
+            if (S.cursor != sky_last_cursor_) { sky_last_cursor_ = S.cursor; sky_stuck_ = 0; } else sky_stuck_++;
+            if (sky_stuck_ < 4) {
+                in.lstick = normalize(d);   // the magnet
+            } else {
+                // the magnet found nothing: walk an edge towards the target instead (breadth-first over the tree)
+                std::vector<int> prev(T.stars.size(), -1);
+                std::deque<int> q{S.cursor};
+                prev[size_t(S.cursor)] = S.cursor;
+                while (!q.empty() && prev[size_t(target)] < 0) {
+                    int c = q.front();
+                    q.pop_front();
+                    for (int n : T.stars[size_t(c)].adj) if (prev[size_t(n)] < 0) { prev[size_t(n)] = c; q.push_back(n); }
+                }
+                int step = target;
+                while (prev[size_t(step)] != S.cursor && prev[size_t(step)] >= 0 && step != S.cursor) step = prev[size_t(step)];
+                vec2 e = T.stars[size_t(step)].pos - T.stars[size_t(S.cursor)].pos;
+                Btn b = std::fabs(e.x) > std::fabs(e.y) ? (e.x > 0 ? BTN_RIGHT : BTN_LEFT) : (e.y > 0 ? BTN_UP : BTN_DOWN);
+                in.down |= 1u << b;
+                sky_steps_++;
+            }
+            break;
+        }
+        case 3: {  // place the plan, one Select at a time
+            if (H.passives.spent() >= 30) {
+                float secs = (frame - sky_open_frame_) / 60.f;
+                if (secs > 120.f) { fail("30 stars took " + std::to_string(secs) + " s (rule: under 2 minutes)"); return; }
+                fprintf(stderr, "bot: 30 stars planned and placed in %.1f s on the sticks\n", secs);
+                next_stage(4);
+                break;
+            }
+            if (frame % 4 == 0) press(in, BTN_SELECT);
+            if (frame - stage_frame > 60 * 20) { fail("could not place the plan: " + std::to_string(H.passives.spent()) + " held"); return; }
+            break;
+        }
+        case 4: {  // a respec: refund a leaf star (level 31 costs a Rosewater Vial and dinars), apply with Start
+            int leaf = -1;
+            for (int id : H.passives.held()) if (H.passives.can_refund(id)) leaf = id;
+            if (leaf < 0) { fail("no star can be refunded"); return; }
+            if (S.cursor != leaf) { S.cursor = leaf; break; }   // (the stick walk is proven above)
+            vials_ = H.currency[CUR_ROSEWATER];
+            gold_ = H.gold;
+            press(in, BTN_SOUTH);
+            next_stage(5);
+            break;
+        }
+        case 5:
+            if (frame == stage_frame + 4) press(in, BTN_START);
+            if (frame == stage_frame + 10) {
+                if (H.passives.spent() != 29) { fail("the refund did not apply: " + std::to_string(H.passives.spent()) + " held"); return; }
+                if (H.currency[CUR_ROSEWATER] != vials_ - 1 || H.gold != gold_ - respec_dinars(H.level)) { fail("the refund cost is wrong"); return; }
+                next_stage(6);
+            }
+            break;
+        case 6: {  // the build code round-trips, and East closes the sky
+            Allocation back;
+            if (!parse_build_code(build_code(H.passives), back) || back.held() != H.passives.held() || back.cls != H.passives.cls) {
+                fail("build code round trip failed");
+                return;
+            }
+            if (S.open) { if (frame % 4 == 0) press(in, BTN_EAST); break; }
+            char b[200];
+            snprintf(b, sizeof b, "30 stars planned on the sticks and placed in %.1f s, a paid respec, build code %s", (stage_frame - sky_open_frame_) / 60.f,
+                     build_code(H.passives).c_str());
+            pass(b);
+            break;
+        }
+    }
+}
+
+// ---------------------------------------------------------------- title: a new Sorcerer, a delete, a new Warrior
+void Bot::title(World& w, Input& in, uint64_t frame) {
+    Title& T = *title_ui;
+    auto file_exists = [&](int slot) {
+        FILE* f = fopen(slot_path(save_dir, slot).c_str(), "rb");
+        if (f) fclose(f);
+        return f != nullptr;
+    };
+    auto next_stage = [&](int st) { stage = st; stage_frame = frame; };
+    uint64_t t = frame - stage_frame;
+    if (frame > 60 * 60) { fail("title run took too long (stage " + std::to_string(stage) + ")"); return; }
+    switch (stage) {
+        case 0:  // an empty title: South, Right to the Sorcerer, South
+            if (t == 1 && (!T.open || T.slots[0].exists)) { fail("the title should open on empty slots"); return; }
+            if (t == 10) press(in, BTN_SOUTH);
+            if (t == 20 && !T.picking) { fail("South on an empty slot should choose a class"); return; }
+            if (t == 30) press(in, BTN_RIGHT);
+            if (t == 40) press(in, BTN_SOUTH);
+            if (t == 50) next_stage(1);
+            break;
+        case 1:  // in the hub as a Sorcerer, with the slot's file written
+            if (T.open) { fail("the title is still open after choosing a class"); return; }
+            if (w.hero.passives.cls != "sorcerer" || std::string(hero_model()) != "sorcerer") { fail("the new character is not a Sorcerer"); return; }
+            if (!file_exists(0)) { fail("the new character's file was not written"); return; }
+            T.scan(save_dir);   // back to the title (as a restart would)
+            T.open = true;
+            T.cursor = 0;
+            if (!T.slots[0].exists || T.slots[0].cls != "sorcerer") { fail("the title does not list the Sorcerer"); return; }
+            next_stage(2);
+            break;
+        case 2:  // North twice deletes
+            if (t == 10) press(in, BTN_NORTH);
+            if (t == 20 && !file_exists(0)) { fail("one press of North deleted the character"); return; }
+            if (t == 30) press(in, BTN_NORTH);
+            if (t == 40) {
+                if (file_exists(0) || T.slots[0].exists) { fail("two presses of North did not delete the character"); return; }
+                next_stage(3);
+            }
+            break;
+        case 3:  // and a Warrior in its place
+            if (t == 10) press(in, BTN_SOUTH);
+            if (t == 20) press(in, BTN_SOUTH);
+            if (t == 30) {
+                if (T.open || w.hero.passives.cls != "warrior" || !file_exists(0)) { fail("could not make a Warrior after the delete"); return; }
+                remove(slot_path(save_dir, 0).c_str());
+                pass("title: a new Sorcerer, her file, a delete on two presses, and a new Warrior");
+            }
+            break;
+    }
+}
+
+// ---------------------------------------------------------------- tour3: Slice 3's screens, for screenshots
+void Bot::tour3(World& w, Menu& m, Areas& a, Input& in, uint64_t frame) {
+    Hero& H = w.hero;
+    Sky& S = *sky_ui;
+    auto at = [&](uint64_t f) { return frame == f; };
+    if (at(1)) {
+        Rng r(11);
+        H.level = 14;
+        H.gold = 420;
+        H.currency[CUR_STYLUS] = 2;
+        H.currency[CUR_ROSEWATER] = 1;
+        H.weapon() = make_item(find_base("astrolabe_staff"), Rarity::Rare, 12, r);
+        H.equip[EQ_BODY] = make_item(find_base("astronomers_robe"), Rarity::Rare, 12, r);
+        H.equip[EQ_HELMET] = make_item(find_base("embroidered_hood"), Rarity::Magic, 12, r);
+        H.equip[EQ_AMULET] = make_item(find_base("moonstone_amulet"), Rarity::Rare, 12, r);
+        H.equip[EQ_RING1] = make_item(find_base("lapis_ring"), Rarity::Magic, 12, r);
+        for (auto& t : H.talismans) t.level = 7;
+        H.talismans[0].wafq[0] = WQ_SATURN;
+        H.talismans[0].wafq[1] = WQ_VENUS;
+        H.talismans[1].wafq[0] = WQ_MERCURY;
+        H.talismans[3].wafq[0] = WQ_SUN;
+        H.talismans[3].slots = 3;
+        H.wafq[WQ_MARS] = 1;
+        H.wafq[WQ_JUPITER] = 2;
+        H.blanks = {6, 9, 12};
+        for (int t : *tree().recommended_for("sorcerer")) plan_to(H, t);
+        for (int k = 0; k < 11; k++) place_next_planned(w);
+        w.recompute_hero();
+        w.actors[0].life = w.actors[0].life_max;
+        w.actors[0].mana = w.actors[0].mana_max;
+        H.es = H.es_max;
+    }
+    // the Talismans tab: the bar, then a Wafq slot (its square), then the Character tab and a Why?
+    if (at(60)) press(in, BTN_START);
+    if (at(80)) press(in, BTN_R1);
+    if (at(170)) press(in, BTN_RIGHT);
+    if (at(260)) press(in, BTN_R1);
+    if (at(330)) press(in, BTN_NORTH);
+    if (at(420)) press(in, BTN_START);
+    // the sky: hold Select, walk a little, open the code panel
+    if (frame > 440 && frame < 470) in.down |= 1u << BTN_SELECT;
+    if (frame > 500 && frame < 560 && S.open && frame % 12 == 0) { in.lstick = {0.8f, 0.6f}; }
+    if (at(600) && S.open) press(in, BTN_R3);
+    if (at(700) && S.open) press(in, BTN_EAST);
+    if (at(720) && S.open) press(in, BTN_EAST);
+    // down into the necropolis for the spells
+    if (frame > 740 && a.current == AreaId::Hub && !m.open && !S.open) go_to_interact(w, in, frame, Interactable::Stair);
+    if (a.current == AreaId::Necropolis) {
+        if (stage == 0) { stage = 1; stage_frame = frame; }
+        if (!combat(w, in, frame, 12.f)) {   // walk towards the nearest pack
+            const Actor* best = nullptr;
+            for (size_t i = 1; i < w.actors.size(); i++)
+                if (w.actors[i].alive() && (!best || length(w.actors[i].pos - w.actors[0].pos) < length(best->pos - w.actors[0].pos))) best = &w.actors[i];
+            if (best) steer(w, in, best->pos);
+        }
+        if (frame - stage_frame > 60 * 30) pass("tour3 done");
+    }
+    if (!w.actors[0].alive() && w.actors[0].dead_t > 1.3f && frame % 10 == 0) press(in, BTN_SOUTH);
+    if (frame > 60 * 90) pass("tour3 done");
 }
 
 // ---------------------------------------------------------------- tour (screenshots)

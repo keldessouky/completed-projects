@@ -54,6 +54,8 @@ void write_actor(ByteWriter& w, const Actor& a) {
     w.put(a.break_meter); w.put(a.broken_t); w.put(a.stun_t); w.put(a.hit_flash); w.put(a.dead_t);
     w.put(a.attack_cd); w.put(a.ai_t); w.put(a.ai_state);
     w.put(a.phase); w.put(a.cd2); w.put(a.cd3); w.put(a.from); w.put(a.target); w.put(a.home);
+    w.put(a.ignite_t); w.put(a.ignite_dps); w.put(a.chill_t); w.put(a.chill); w.put(a.freeze_meter); w.put(a.frozen_t);
+    w.put(a.shock_t); w.put(a.shock);
     write_anim(w, a.anim);
 }
 
@@ -65,7 +67,9 @@ void read_actor(ByteReader& r, Actor& a) {
     r.get(a.break_meter); r.get(a.broken_t); r.get(a.stun_t); r.get(a.hit_flash); r.get(a.dead_t);
     r.get(a.attack_cd); r.get(a.ai_t); r.get(a.ai_state);
     r.get(a.phase); r.get(a.cd2); r.get(a.cd3); r.get(a.from); r.get(a.target); r.get(a.home);
-    a.model = assets().character(a.def < 0 ? "warrior" : monster_defs()[size_t(a.def)].model);
+    r.get(a.ignite_t); r.get(a.ignite_dps); r.get(a.chill_t); r.get(a.chill); r.get(a.freeze_meter); r.get(a.frozen_t);
+    r.get(a.shock_t); r.get(a.shock);
+    a.model = assets().character(a.def < 0 ? hero_model() : monster_defs()[size_t(a.def)].model);
     a.anim = Animator{};
     a.anim.bind(a.model.skel, a.model.anims);
     read_anim(r, a.anim);
@@ -85,18 +89,28 @@ GroundItem read_ground_item(ByteReader& r) {
 
 // ---- the character: what persists between sessions
 static const uint32_t kCharMagic = 0x31484351;  // "QCH1"
-static const uint32_t kCharVersion = 2;   // 2: the class and its stars
+static const uint32_t kCharVersion = 3;   // 2: the class and its stars; 3: Talismans, Wafq, Blanks, currency count
 
 void write_character(ByteWriter& w, const Hero& H) {
     w.put(kCharMagic);
     w.put(kCharVersion);
     w.put(H.level); w.put(H.xp); w.put(H.kills); w.put(H.gold); w.put(H.filter);
+    w.put(uint8_t(CUR_COUNT));
     w.bytes(H.currency, sizeof H.currency);
-    w.bytes(H.skills, sizeof H.skills);
     w.str(H.passives.cls);
     std::vector<int> held = H.passives.held();
     w.put(uint16_t(held.size()));
     for (int id : held) w.put(uint16_t(id));
+    // skills
+    w.put(uint8_t(H.talismans.size()));
+    for (auto& t : H.talismans) { w.put(t.skill); w.put(t.level); w.put(t.slots); w.bytes(t.wafq, sizeof t.wafq); }
+    w.bytes(H.bar, sizeof H.bar);
+    w.put(uint8_t(WQ_COUNT));
+    w.bytes(H.wafq, sizeof H.wafq);
+    w.put(uint16_t(H.blanks.size()));
+    if (!H.blanks.empty()) w.bytes(H.blanks.data(), H.blanks.size());
+    w.put(uint16_t(H.plan.size()));
+    for (uint16_t p : H.plan) w.put(p);
     w.put(uint8_t(EQ_COUNT));
     for (auto& e : H.equip) write_item(w, e);
     w.put(uint16_t(H.inv.items.size()));
@@ -108,19 +122,56 @@ bool read_character(ByteReader& r, Hero& H) {
     uint32_t version = r.get<uint32_t>();
     if (version < 1 || version > kCharVersion) return false;
     r.get(H.level); r.get(H.xp); r.get(H.kills); r.get(H.gold); r.get(H.filter);
-    r.bytes(H.currency, sizeof H.currency);
-    r.bytes(H.skills, sizeof H.skills);
+    for (int& c : H.currency) c = 0;
+    if (version >= 3) {
+        uint8_t nc = r.get<uint8_t>();
+        for (int c = 0; c < nc && r.ok; c++) { int v = r.get<int>(); if (c < CUR_COUNT) H.currency[c] = v; }
+    } else {
+        for (int c = 0; c < kCurrencyV2; c++) H.currency[c] = r.get<int>();
+        int old_skills[5];
+        r.bytes(old_skills, sizeof old_skills);   // the Slice 2 skill bar: rebuilt from the class kit below
+    }
     tree().load();
+    std::string cls = "warrior";   // Slice 2 characters were all Warriors, with no stars yet
+    if (version >= 2) cls = r.str();
+    if (cls.empty()) cls = "warrior";
+    apply_class_base(H, cls);
+    H.passives.reset(cls);
     if (version >= 2) {
-        std::string cls = r.str();
-        H.passives.reset(cls.empty() ? "warrior" : cls);
         uint16_t n = r.get<uint16_t>();
         for (uint16_t i = 0; i < n && r.ok; i++) {
             uint16_t id = r.get<uint16_t>();
             if (id < H.passives.taken.size()) H.passives.taken[id] = 1;
         }
+    }
+    H.talismans.clear();
+    H.plan.clear();
+    for (auto& b : H.bar) b = -1;
+    for (int& wq : H.wafq) wq = 0;
+    H.blanks.clear();
+    if (version >= 3) {
+        uint8_t nt = r.get<uint8_t>();
+        for (uint8_t i = 0; i < nt && r.ok; i++) {
+            Talisman t;
+            r.get(t.skill); r.get(t.level); r.get(t.slots); r.bytes(t.wafq, sizeof t.wafq);
+            if (t.skill >= int(skill_defs().size())) t.skill = -1;
+            H.talismans.push_back(t);
+        }
+        r.bytes(H.bar, sizeof H.bar);
+        uint8_t nw = r.get<uint8_t>();
+        for (int i = 0; i < nw && r.ok; i++) { int v = r.get<int>(); if (i < WQ_COUNT) H.wafq[i] = v; }
+        uint16_t nb = r.get<uint16_t>();
+        H.blanks.resize(nb);
+        if (nb) r.bytes(H.blanks.data(), nb);
+        uint16_t np = r.get<uint16_t>();
+        H.plan.clear();
+        for (uint16_t i = 0; i < np && r.ok; i++) {
+            uint16_t id = r.get<uint16_t>();
+            if (id < tree().stars.size()) H.plan.push_back(id);
+        }
+        for (auto& b : H.bar) if (b >= int(H.talismans.size())) b = -1;
     } else {
-        H.passives.reset("warrior");   // Slice 2 characters were all Warriors, with no stars yet
+        give_class_kit(H);
     }
     uint8_t ne = r.get<uint8_t>();
     if (ne != EQ_COUNT) return false;

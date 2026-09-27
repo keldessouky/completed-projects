@@ -38,6 +38,8 @@ const CurrencyDef& currency_def(int c) {
         {"coffee_grounds", "Coffee Grounds", "Rerolls the modifiers of a magic item", 0x9A6A44, 20, 12},
         {"saffron_thread", "Saffron Thread", "Makes a normal item rare", 0xFF8A2A, 7, 45},
         {"gilded_piastre", "Gilded Piastre", "Makes a magic item rare, adding a modifier", 0xF5D76E, 7, 55},
+        {"rosewater_vial", "Rosewater Vial", "Refunds a passive star after level 20 (with dinars)", 0xF7A8C8, 4, 70},
+        {"brass_stylus", "Brass Stylus", "Carves another Wafq slot into a Talisman (up to 5)", 0xD9A441, 4, 90},
     };
     return d[c >= 0 && c < CUR_COUNT ? c : 0];
 }
@@ -90,6 +92,8 @@ bool apply_currency(int c, Item& it, Rng& rng, std::string* why) {
             it.name = rare_name(rng);
             roll_affix(it, rng);
             return true;
+        case CUR_ROSEWATER: return no("Used in the Book of Fixed Stars, to refund a star");
+        case CUR_STYLUS: return no("Used on a Talisman, in the Talismans tab");
         default: return no("Unknown currency");
     }
 }

@@ -10,13 +10,17 @@
 #include "game/assets.hpp"
 #include "game/world.hpp"
 #include "game/menu.hpp"
+#include "game/sky.hpp"
+#include "game/title.hpp"
 #include "game/view.hpp"
 #include "game/save.hpp"
 #include "game/bots.hpp"
+#include "game/classes.hpp"
 #include "audio/audio.hpp"
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <sys/stat.h>
 #include <string>
 
 namespace q {
@@ -32,7 +36,11 @@ struct State {
     World world;
     Areas areas;
     Menu menu;
+    Sky sky;
+    Title title;
+    int slot = 0;                 // which character file is being played
     View view;
+    float select_t = -1;          // how long Select has been held in the field (-1: not held)
     Input last_input;
     uint64_t frame = 0;
     int wave = 0;
@@ -49,11 +57,22 @@ struct State {
 State* S = nullptr;
 constexpr float kFade = 0.35f;
 
+// the hero wears its class's model and name
+void bind_hero_model(World& w) {
+    Actor& h = w.actors[0];
+    h.model = assets().character(hero_model());
+    h.anim = Animator{};
+    h.anim.bind(h.model.skel, h.model.anims);
+    h.anim.play("idle", 0);
+    h.name = class_def(w.hero.passives.cls).name;
+}
+
 // ---------------------------------------------------------------- the character file
-std::string character_path() { return (S->plat ? S->plat->save_dir : std::string(".")) + "/qahira.character"; }
+std::string save_dir() { return S->plat ? S->plat->save_dir : std::string("."); }
+std::string character_path() { return slot_path(save_dir(), S->slot); }
 
 void save_character() {
-    if (!S->persist) return;
+    if (!S->persist || S->title.open) return;
     ByteWriter w;
     write_character(w, S->world.hero);
     std::string path = character_path(), tmp = path + ".tmp";
@@ -176,6 +195,13 @@ void play_event_sounds(const World& w) {
             case Ev::Craft: e.mag > 0 ? a.play("craft", 0.5f, 0, 1) : a.play("ui_move", 0.35f, 0, 1); break;
             case Ev::Sell: a.play("sell", 0.5f, 0, 1); break;
             case Ev::InvFull: a.play("inv_full", 0.6f, 0, 1); break;
+            case Ev::Cast: a.play(int(e.mag) == DT_COLD ? "cast_cold" : int(e.mag) == DT_LIGHTNING ? "cast_lightning" : "cast_fire", 0.5f, 0, pv(1)); break;
+            case Ev::FireHit: a.play("fire_hit", 0.5f * near, pan, pv(1)); break;
+            case Ev::ColdHit: a.play("frozen", 0.4f * near, pan, pv(1.2f)); break;
+            case Ev::LightningHit: a.play("lightning_hit", 0.45f * near, pan, pv(1)); break;
+            case Ev::StarFall: a.play("star_fall", 0.9f, pan, pv(1)); break;
+            case Ev::Frozen: a.play("frozen", 0.6f * near, pan, pv(1)); break;
+            case Ev::Glyph: a.play("glyph", e.mag > 1.5f ? 0.8f : e.mag > 0.8f ? 0.55f : 0.25f, pan, e.mag > 1.5f ? 0.8f : pv(1)); break;
         }
     }
 }
@@ -193,6 +219,8 @@ void presentation_events() {
             case Ev::Break: S->rumble_weak = std::max(S->rumble_weak, 0.8f); break;
             case Ev::BossWail: S->rumble_strong = std::max(S->rumble_strong, 0.6f); break;
             case Ev::Summon: S->rumble_strong = std::max(S->rumble_strong, 0.8f); break;
+            case Ev::StarFall: S->rumble_strong = std::max(S->rumble_strong, 0.8f); break;
+            case Ev::Frozen: S->rumble_weak = std::max(S->rumble_weak, 0.6f); break;
             case Ev::LevelUp: save_character(); break;
             default: break;
         }
@@ -246,14 +274,24 @@ bool app_init(const char* pack_path, Platform* plat) {
     if (!pack().open_file(pack_path)) return false;
     if (!assets().character("warrior").skel) return false;
     World& w = S->world;
-    w.reset_hero();
-    Actor& h = w.actors[0];
-    h.model = assets().character("warrior");
-    h.anim.bind(h.model.skel, h.model.anims);
-    h.anim.play("idle", 0);
     if (const char* b = getenv("QAHIRA_BOT")) S->bot.start(b);
-    S->persist = S->bot.scenario.empty();
-    if (S->persist) load_character(w);
+    S->bot.sky_ui = &S->sky;
+    S->bot.title_ui = &S->title;
+    S->persist = S->bot.scenario.empty() || S->bot.uses_title();
+    if (S->bot.uses_title() && S->plat) {   // the title bot keeps its characters apart from yours
+        S->plat->save_dir += "/bot_title";
+        mkdir(S->plat->save_dir.c_str(), 0755);
+        remove(slot_path(S->plat->save_dir, 0).c_str());
+    }
+    S->bot.save_dir = save_dir();
+    // QAHIRA_CLASS picks a fresh character's class (the bots use it; players choose on the title screen)
+    const char* cls = getenv("QAHIRA_CLASS");
+    w.reset_hero(cls && *cls ? cls : S->bot.default_class());
+    bind_hero_model(w);
+    if (S->persist) {   // players begin at the title screen and choose a character
+        S->title.scan(save_dir());
+        S->title.open = true;
+    }
     if (S->bot.scenario == "fight") S->areas.enter_street(w);
     else S->areas.enter_hub(w, Arrival::Entrance);
     S->menu.restock(w);
@@ -274,8 +312,9 @@ void app_gpu_init() {
     S->gpu = true;
     S->renderer.init(1920, 1080, 0.75f);
     ui().init();
-    for (auto& a : S->world.actors) a.model = assets().character(a.def < 0 ? "warrior" : monster_defs()[size_t(a.def)].model);
+    for (auto& a : S->world.actors) a.model = assets().character(a.def < 0 ? hero_model() : monster_defs()[size_t(a.def)].model);
     assets().mesh("maul");
+    assets().mesh("staff");
     S->world.level.bind_gpu();
 }
 
@@ -292,6 +331,35 @@ void app_update(const Input& in_raw, float dt) {
     Menu& M = S->menu;
     S->bot.drive(w, M, A, in, S->frame);
     S->last_input = in;
+    if (S->title.open) {
+        Title& T = S->title;
+        switch (T.update(in, dt)) {
+            case Title::Action::Play:
+                S->slot = T.cursor;
+                w.reset_hero(T.slots[T.cursor].cls);
+                load_character(w);
+                break;
+            case Title::Action::New:
+                S->slot = T.cursor;
+                w.reset_hero(T.new_class());
+                break;
+            case Title::Action::Delete:
+                remove(slot_path(save_dir(), T.cursor).c_str());
+                T.scan(save_dir());
+                audio().play("inv_full", 0.5f, 0, 1);
+                return;
+            default: return;
+        }
+        T.open = false;
+        bind_hero_model(w);
+        A = Areas{};
+        A.enter_hub(w, Arrival::Entrance);
+        S->menu.restock(w);
+        save_character();
+        arrived();
+        audio().play("portal", 0.6f, 0, 1);
+        return;
+    }
     // travelling: fade out, move, fade in; the world holds still meanwhile
     if (S->fade_t > 0) {
         S->fade_t -= dt;
@@ -305,6 +373,38 @@ void app_update(const Input& in_raw, float dt) {
     }
     if (S->fade_t < 0) S->fade_t = std::min(0.f, S->fade_t + dt);
     S->view.fade = -S->fade_t / kFade;
+    // the Book of Fixed Stars pauses the world too
+    if (S->sky.open) {
+        w.events.clear();
+        S->sky.update(w, in, dt);
+        presentation_events();
+        if (S->sky.applied) { S->sky.applied = false; save_character(); }
+        S->view.follow(w, dt);
+        return;
+    }
+    S->sky.update(w, in, dt);  // its toast fades
+    // Select: a tap places the next planned star (when one is waiting), a hold opens the sky
+    if (in.held(BTN_SELECT) && !M.open) {
+        if (S->select_t < 0) S->select_t = 0;
+        S->select_t += dt;
+        if (S->select_t >= 0.35f && S->select_t - dt < 0.35f) { S->sky.show(w); audio().play("ui_select", 0.4f, 0, 1); return; }
+    } else if (S->select_t >= 0) {
+        bool tap = S->select_t < 0.35f;
+        S->select_t = -1;
+        if (tap && !M.open) {
+            int star = (!w.hero.plan.empty() && w.hero.passive_points() > 0) ? place_next_planned(w) : -1;
+            if (star >= 0) {
+                const Star& st = tree().stars[size_t(star)];
+                S->sky.say("Placed " + (st.name.empty() ? std::string(st.text.empty() ? "a star" : st.text[0]) : st.name));
+                audio().play("levelup", 0.4f, 0, 1.5f);
+                save_character();
+            } else {
+                S->sky.show(w);
+                audio().play("ui_select", 0.4f, 0, 1);
+                return;
+            }
+        }
+    }
     // the menu pauses the world
     if (M.open) {
         w.events.clear();
@@ -360,6 +460,13 @@ void app_update(const Input& in_raw, float dt) {
 }
 
 void app_render(GLuint fbo, int w, int h) {
+    if (S->title.open) {  // the title covers everything: no need to draw the world behind it
+        Ui& u = ui();
+        u.begin();
+        S->title.render();
+        u.end(fbo, w, h);
+        return;
+    }
     Renderer& r = S->renderer;
     r.begin(S->view.cam, S->view.env, S->world.time);
     S->view.render_world(r, S->world);
@@ -369,20 +476,21 @@ void app_render(GLuint fbo, int w, int h) {
     S->view.render_map(S->world, S->areas);
     if (!S->menu.open) S->view.render_hud(S->world, S->last_input, S->areas);
     S->menu.render(S->world);
+    S->sky.render(S->world);
     u.end(fbo, w, h);
 }
 
 void app_audio(int16_t* stereo, int frames) { audio().mix(stereo, frames); }
 
 // ---- save states
-static const uint32_t kStateVersion = 5;  // 5: passives, Hirz, keystone state
+static const uint32_t kStateVersion = 6;  // 5: passives, Hirz, keystone state; 6: Talismans, ailments, glyphs
 
 static ByteWriter save_state() {
     ByteWriter w;
     w.put(kStateVersion);
     write_world(w, S->world);
     S->areas.write(w);
-    w.put(S->wave); w.put(S->wave_t); w.put(S->frame);
+    w.put(S->wave); w.put(S->wave_t); w.put(S->frame); w.put(S->slot);
     w.put(S->view.cam.target); w.put(S->view.cam.eye); w.put(S->view.map_open);
     return w;
 }
@@ -400,11 +508,13 @@ bool app_unserialize(const void* data, size_t size) {
     if (r.get<uint32_t>() != kStateVersion) return false;
     if (!read_world(r, S->world)) return false;
     if (!S->areas.read(r)) return false;
-    r.get(S->wave); r.get(S->wave_t); r.get(S->frame);
+    r.get(S->wave); r.get(S->wave_t); r.get(S->frame); r.get(S->slot);
+    S->title.open = false;
     r.get(S->view.cam.target); r.get(S->view.cam.eye); r.get(S->view.map_open);
     S->areas.rebuild(S->world);
     if (S->gpu) S->world.level.bind_gpu();
     S->menu.hide();
+    S->sky.hide();
     S->travel = Travel::None;
     S->fade_t = 0;
     S->view.fade = 0;

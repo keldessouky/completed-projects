@@ -8,6 +8,8 @@
 #pragma once
 #include "game/areas.hpp"
 #include "game/menu.hpp"
+#include "game/sky.hpp"
+#include "game/title.hpp"
 #include "game/world.hpp"
 #include <string>
 #include <vector>
@@ -22,7 +24,12 @@ struct Bot {
     int initial_enemies = 0;
     bool rare_seen = false, rare_killed = false, picked_up = false, state_ok = false;
     vec2 start_pos;
+    Sky* sky_ui = nullptr;       // the app's tree screen
+    Title* title_ui = nullptr;   // and its title screen
+    std::string save_dir;
     void start(const char* s);
+    bool uses_title() const { return scenario == "title"; }
+    const char* default_class() const { return scenario == "sorcerer" || scenario == "sky" || scenario == "tour3" ? "sorcerer" : "warrior"; }
     void drive(World& w, Menu& m, Areas& a, Input& in, uint64_t frame);
 
 private:
@@ -46,9 +53,18 @@ private:
     void fight(World& w, Menu& m, Input& in, uint64_t frame);
     void zone(World& w, Menu& m, Areas& a, Input& in, uint64_t frame);
     void tour(World& w, Menu& m, Areas& a, Input& in, uint64_t frame);
+    void sky(World& w, Input& in, uint64_t frame);
+    void title(World& w, Input& in, uint64_t frame);
+    void tour3(World& w, Menu& m, Areas& a, Input& in, uint64_t frame);
+    // sky scenario
+    std::vector<int> sky_targets_;
+    int sky_steps_ = 0, sky_last_cursor_ = -1, sky_stuck_ = 0, placed_ = 0;
+    uint64_t sky_open_frame_ = 0;
+    int vials_ = 0, gold_ = 0;
 
     // shared skills
     bool combat(World& w, Input& in, uint64_t frame, float reach);   // true while fighting
+    bool caster_combat(World& w, Input& in, uint64_t frame, float reach);
     bool loot_and_equip(World& w, Menu& m, Input& in, uint64_t frame);  // true while busy with loot or the menu
     bool menu_nav(const World& w, const Menu& m, Input& in, uint64_t frame, Region r, int x, int y);
     void steer(World& w, Input& in, vec2 target);

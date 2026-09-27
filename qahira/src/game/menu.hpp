@@ -4,10 +4,11 @@
 #pragma once
 #include "game/world.hpp"
 #include <string>
+#include <vector>
 
 namespace q {
 
-enum class MenuTab : uint8_t { Inventory, Character, Filter, Count };
+enum class MenuTab : uint8_t { Inventory, Talismans, Character, Filter, Count };
 enum class Region : uint8_t { Grid, Equip, Purse, Stock };
 
 struct Menu {
@@ -23,6 +24,14 @@ struct Menu {
     Inventory stock;             // Amm Sayed's wares, restocked each visit
     std::string toast;
     float toast_t = 0;
+    // the Talismans tab: rows 0-9 are the two bars, row 10 the Blank Talismans; a picker list opens over it
+    int tal_row = 0, tal_col = 0;
+    enum class Pick : uint8_t { None, Talisman, Wafq, Carve } pick = Pick::None;
+    std::vector<int> pick_items;
+    int pick_cursor = 0;
+    // the Character tab: a cursor over the stat rows, and the "Why?" breakdown of the one under it
+    int why_row = 0;
+    bool why_open = false;
 
     void show(World& w, bool at_vendor);
     void hide();
@@ -41,6 +50,10 @@ private:
     void move(World& w, int dir);
     void act_south(World& w);
     void act_north(World& w);
+    void tal_update(World& w, const Input& in, int dir);
+    void tal_render(const World& w) const;
+    void char_update(World& w, const Input& in, int dir);
+    void char_render(const World& w) const;
 };
 
 // Controller-safe item art for the grid: simple vector silhouettes per slot, tinted by rarity.

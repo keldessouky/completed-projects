@@ -1,19 +1,9 @@
 // The Book of Fixed Stars: loading, PoE allocation rules, keystones and build codes, on the generated tree.
 #include "tests/check.hpp"
 #include "game/tree.hpp"
-#include <fstream>
-#include <sstream>
+#include "tests/fixture.hpp"
 
 using namespace q;
-
-static bool load_generated_tree() {
-    if (tree().loaded()) return true;
-    std::ifstream f(std::string(QAHIRA_SOURCE_DIR) + "/assets/generated/tree/tree.json");
-    if (!f) return false;
-    std::stringstream ss;
-    ss << f.rdbuf();
-    return tree().load_json(ss.str());
-}
 
 static int find_star(const char* name) {
     for (auto& s : tree().stars) if (s.name.rfind(name, 0) == 0) return s.id;

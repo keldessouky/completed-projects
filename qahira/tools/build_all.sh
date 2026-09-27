@@ -37,8 +37,10 @@ echo "== android core: skipped (no NDK at $NDK)"
 fi
 echo "== unit tests"
 ./build/mac/qtests
+echo "== build simulator"
+./build/mac/qbuildsim
 echo "== bot tests"
-for bot in walk fight zone; do ./build/mac/qhost build/Qahira.qpk --headless --bot "$bot"; done
+for bot in walk fight zone sorcerer sky title; do ./build/mac/qhost build/Qahira.qpk --headless --bot "$bot"; done
 echo "== screenshot"
 ./build/mac/qhost build/Qahira.qpk --hidden --frames 90 --shot build/screenshot.png
 echo "done: build/Qahira.qpk + build/qahira_libretro_android.so"

@@ -316,6 +316,13 @@ for title, star, flag, ang, text, anchor in KEYSTONES:
     chain(anchor, k, 1, LIFE if flag == 'follower' else SPELL, const='the Lunar Mansions')
     keystones.append(k)
 
+# ---------------------------------------------------------------- Recommended Paths (GDD §13)
+# the notables and keystones a new player aims for, in order; the tree screen can plan them in one press
+RECOMMENDED = {
+    'warrior': [orion['rig'], orion['sai'], orion['bet'], orion['bel'], taurus['zet'], taurus['nat'], leo['reg'], keystones[0]],
+    'sorcerer': [corona['alp'], lyra['veg'], scorpius['ant'], scorpius['sha'], perseus['mir'], perseus['alg'], cygnus['den']],
+}
+
 # ---------------------------------------------------------------- text for every node
 NAMES = {'life': 'maximum Life', 'mana': 'maximum Mana', 'es': 'maximum Hirz', 'str': 'Strength', 'int': 'Intelligence',
          'dex': 'Dexterity', 'armour': 'Armour', 'evasion': 'Evasion', 'fire_res': 'Fire Resistance',
@@ -402,6 +409,32 @@ for cid in IMPLEMENTED:
         errors.append('%s: farthest keystone is %d points away (rule: <= 60)' % (cid, kd[-1]))
     notes.append('%s reaches the keystones in %s points' % (cid, ', '.join(str(k) for k in kd)))
 
+for cid, targets in RECOMMENDED.items():
+    held = {starts[cid]}
+    total = 0
+    for t in targets:
+        # cheapest route from everything held so far
+        d = {h: 0 for h in held}
+        prev = {}
+        q = deque(held)
+        while q:
+            c = q.popleft()
+            for n in adj[c]:
+                if n in d or (nodes[n]['kind'] == 'start' and n != starts[cid]):
+                    continue
+                d[n] = d[c] + 1
+                prev[n] = c
+                q.append(n)
+        if t not in d:
+            errors.append('%s: recommended star %d is unreachable' % (cid, t))
+            continue
+        c = t
+        while c not in held:
+            held.add(c)
+            total += 1
+            c = prev[c]
+    notes.append('%s\'s Recommended Path takes %d points' % (cid, total))
+
 # spacing for the controller UI
 for i, a in enumerate(nodes):
     for b in nodes[i + 1:]:
@@ -467,6 +500,7 @@ os.makedirs(os.path.dirname(OUT), exist_ok=True)
 os.makedirs(os.path.dirname(REPORT), exist_ok=True)
 with open(OUT, 'w') as f:
     json.dump(dict(version=1, classes={cid: starts[cid] for cid in starts}, implemented=sorted(IMPLEMENTED), pole=pole,
+                   recommended=RECOMMENDED,
                    nodes=nodes, edges=sorted(edges), constellations=constellations, keystones=keystones), f, indent=0)
 with open(REPORT, 'w') as f:
     f.write('# Tree report\n\n%d stars, %d edges: %s\n\n' % (len(nodes), len(edges), ', '.join('%d %s' % (v, k) for k, v in sorted(counts.items()))))

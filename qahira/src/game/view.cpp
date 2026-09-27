@@ -91,6 +91,11 @@ void View::draw_actor(Renderer& r, World& w, Actor& a, int index) {
     else if (a.rarity == Rarity::Magic) in.rim = vec4(hex_lin(0x7AA8FF), 0.7f);
     else in.rim = vec4(hex_lin(0xFF2E88), 0.25f);
     if (a.broken_t > 0) in.rim = vec4(hex_lin(0xFF2E88), 1.2f);
+    // ailments: frost whitens and stills, shock flickers blue, fire glows from within
+    if (a.frozen_t > 0) { in.tint = vec4(lerp(a.tint, vec3{0.75f, 0.9f, 1.2f}, 0.75f), 1); in.rim = vec4(hex_lin(0x9FD8FF), 1.4f); }
+    else if (a.chill_t > 0) in.tint = vec4(lerp(a.tint, vec3{0.7f, 0.85f, 1.1f}, 0.35f), 1);
+    if (a.shock_t > 0 && std::sin(w.time * 40.f + a.id) > 0.3f) in.rim = vec4(hex_lin(0xA8B8FF), 1.3f);
+    if (a.ignite_t > 0) in.extra.y = 0.25f + 0.1f * std::sin(w.time * 17.f + a.id);
     r.draw(m.body, in);
     if (index == 0 && m.weapon_bone >= 0) {
         Instance wpn;
@@ -99,7 +104,7 @@ void View::draw_actor(Renderer& r, World& w, Actor& a, int index) {
         wpn.extra = {-1, 0, a.hit_flash * 0.5f, 0};
         uint32_t rc = rarity_color(w.hero.weapon().rarity);
         if (w.hero.weapon().rarity != Rarity::Normal) wpn.rim = vec4(hex_lin(rc), 0.6f);
-        r.draw(assets().mesh("maul"), wpn);
+        r.draw(assets().mesh(w.hero.weapon().b().wkind == WK_STAFF ? "staff" : "maul"), wpn);
         vec3 hip = pose_.model[size_t(m.pelvis)].translation();
         r.light(hip + vec3{0, 0, 0.3f}, 6.5f, hex_lin(0xFFB04A) * 14.f);
     }
@@ -164,6 +169,39 @@ void View::render_world(Renderer& r, World& w) {
             }
         } else if (g.kind == GroundFx::Ring) {
             r.ground(vec3(g.pos, 0.05f), g.radius * (0.3f + 0.7f * k), vec4(1.f, 0.7f, 0.3f, 1 - k), {1, 0.08f, 0, 3}, Blend::Additive);
+        } else if (g.kind == GroundFx::Glyph) {
+            // an inscribed circle with a slowly turning star inside, bright as it pulses
+            float in_a = smoothstep(0.f, 0.3f, g.t) * (1.f - smoothstep(g.life - 0.5f, g.life, g.t));
+            float beat = 0.6f + 0.4f * std::exp(-4.f * (g.t - std::floor(g.t)));
+            vec4 ice{0.45f, 0.75f, 1.f, 0.55f * in_a * beat};
+            r.ground(vec3(g.pos, 0.02f), g.radius, ice, {1, 0.05f, 0, 2}, Blend::Additive);
+            r.ground(vec3(g.pos, 0.02f), g.radius * 0.78f, ice * 0.8f, {1, 0.03f, 0, 2}, Blend::Additive);
+            r.ground(vec3(g.pos, 0.01f), g.radius, vec4(0.2f, 0.4f, 0.8f, 0.18f * in_a), {0, 1.5f, 0, 1}, Blend::Additive);
+            for (int i = 0; i < 8; i++) {  // the star: short bright points round the rim
+                float a = g.t * 0.4f + i * kTau / 8;
+                r.billboard(vec3(g.pos + from_angle(a) * g.radius * 0.78f, 0.1f), 0.22f, vec4(0.6f, 0.85f, 1.f, 0.8f * in_a), {0, 1.5f, 0, 3});
+            }
+            r.light(vec3(g.pos, 1.0f), g.radius * 2.f, hex_lin(0x6FA8FF) * 6.f * in_a * beat);
+        } else if (g.kind == GroundFx::Meteor) {
+            // the telegraph on the ground and the star coming down onto it
+            r.ground(vec3(g.pos, 0.02f), g.radius, vec4(1.f, 0.55f, 0.2f, 0.3f + 0.5f * k), {2, 0.05f, 0, 1}, Blend::Additive);
+            r.ground(vec3(g.pos, 0.03f), g.radius * k, vec4(1.f, 0.7f, 0.3f, 0.7f), {1, 0.1f, 0, 1.5f}, Blend::Additive);
+            vec3 p = vec3(g.pos, 0) + vec3{-3.f, 2.f, 12.f} * (1.f - k);
+            r.billboard(p, 0.9f, vec4(1.f, 0.85f, 0.5f, 1), {0, 1.5f, 0, 4});
+            r.billboard(p + vec3{-0.6f, 0.4f, 2.4f} * 0.5f, 0.6f, vec4(1.f, 0.5f, 0.2f, 0.6f), {0, 1.5f, 0, 4});
+            r.light(p, 8.f, hex_lin(0xFFB060) * 20.f);
+        } else if (g.kind == GroundFx::Bolt) {
+            // a jagged line of bright points from one end to the other
+            float a = 1.f - k;
+            vec3 p0 = vec3(g.pos, 1.2f), p1 = vec3(g.pos2, 1.1f);
+            Rng jr(g.seed);
+            int n = std::max(4, int(length(g.pos2 - g.pos) / 0.35f));
+            for (int i = 0; i <= n; i++) {
+                float t = float(i) / n;
+                vec3 p = lerp(p0, p1, t) + vec3{jr.range(-0.25f, 0.25f), jr.range(-0.25f, 0.25f), jr.range(-0.2f, 0.2f)} * std::sin(t * kPi);
+                r.billboard(p, 0.22f, vec4(0.75f, 0.85f, 1.f, a), {0, 1.5f, 0, 4});
+            }
+            r.light(p1, 5.f, hex_lin(0x9FB8FF) * 14.f * a);
         }
     }
     for (auto& p : w.projectiles) {
@@ -191,6 +229,17 @@ void View::render_world(Renderer& r, World& w) {
             r.draw(assets().mesh("loot_coins"), in);
             continue;
         }
+        if (g.kind == GroundItem::Wafq || g.kind == GroundItem::Blank) {
+            // a small clay tablet: turquoise for a Wafq, brass for a Blank Talisman
+            vec3 c = g.kind == GroundItem::Wafq ? hex_lin(0x2BB5AE) : hex_lin(0xD4A84B);
+            in.model = mat4::translate(vec3(g.pos, z)) * mat4::rot_z(spin);
+            in.tint = vec4(c, 1);
+            in.rim = vec4(c, 0.9f);
+            r.draw(assets().mesh("loot_tablet"), in);
+            r.ground(vec3(g.pos, 0), 0.5f, vec4(c, 0.6f * pulse), {0, 2, 0, 2}, Blend::Additive);
+            r.beam(vec3(g.pos, 0), 4.5f, 0.28f, vec4(c, 0.7f * pulse));
+            continue;
+        }
         if (g.kind == GroundItem::Currency) {
             vec3 c = hex_lin(currency_def(g.currency).color);
             in.model = mat4::translate(vec3(g.pos, z)) * mat4::rot_z(spin) * mat4::scale({1.4f, 1.4f, 1.4f});
@@ -208,7 +257,7 @@ void View::render_world(Renderer& r, World& w) {
         Slot sl = g.item.b().slot;
         if (sl == Slot::Weapon) {
             in.model = mat4::translate(vec3(g.pos, z + 0.1f)) * mat4::rotate(quat::axis_angle({0, 1, 0}, kPi / 2)) * mat4::rot_z(spin);
-            r.draw(assets().mesh("maul"), in);
+            r.draw(assets().mesh(g.item.b().wkind == WK_STAFF ? "staff" : "maul"), in);
         } else {
             bool jewel = sl == Slot::Amulet || sl == Slot::Ring;
             in.model = mat4::translate(vec3(g.pos, z)) * mat4::rot_z(spin) * mat4::scale(jewel ? vec3{1.6f, 1.6f, 1.6f} : vec3{1, 1, 1});
@@ -273,6 +322,34 @@ void draw_skill_icon(float cx, float cy, float s, int glyph, bool ready) {
             for (int i = 0; i < 8; i++) {
                 float a = i * kPi / 4;
                 u.line(cx + std::cos(a) * s * 0.12f, cy + std::sin(a) * s * 0.12f, cx + std::cos(a) * s * 0.38f, cy + std::sin(a) * s * 0.38f, s * 0.07f, c);
+            }
+            break;
+        case 4:  // ember bolt: a flame with a tail
+            u.disc(cx + s * 0.12f, cy - s * 0.1f, s * 0.16f, c);
+            u.line(cx + s * 0.08f, cy - s * 0.06f, cx - s * 0.3f, cy + s * 0.3f, s * 0.12f, c.alpha(0.7f));
+            u.line(cx - s * 0.02f, cy - s * 0.2f, cx - s * 0.28f, cy + s * 0.08f, s * 0.05f, c.alpha(0.5f));
+            u.line(cx + s * 0.22f, cy + s * 0.04f, cx - s * 0.06f, cy + s * 0.34f, s * 0.05f, c.alpha(0.5f));
+            break;
+        case 5:  // frost glyph: a circle inscribed with a star
+            u.ring(cx, cy, s * 0.36f, s * 0.31f, c);
+            for (int i = 0; i < 6; i++) {
+                float a0 = i * kTau / 6, a1 = (i + 2) * kTau / 6;
+                u.line(cx + std::cos(a0) * s * 0.3f, cy + std::sin(a0) * s * 0.3f, cx + std::cos(a1) * s * 0.3f, cy + std::sin(a1) * s * 0.3f, s * 0.035f, c);
+            }
+            break;
+        case 6:  // arc: a zig-zag bolt
+            u.line(cx - s * 0.3f, cy - s * 0.3f, cx - s * 0.02f, cy - s * 0.02f, s * 0.07f, c);
+            u.line(cx - s * 0.02f, cy - s * 0.02f, cx - s * 0.12f, cy + s * 0.06f, s * 0.07f, c);
+            u.line(cx - s * 0.12f, cy + s * 0.06f, cx + s * 0.3f, cy + s * 0.32f, s * 0.07f, c);
+            u.disc(cx + s * 0.3f, cy - s * 0.2f, s * 0.06f, c);
+            u.disc(cx - s * 0.32f, cy + s * 0.22f, s * 0.05f, c);
+            break;
+        case 7:  // falling star: a star over a streak
+            u.line(cx + s * 0.34f, cy - s * 0.34f, cx - s * 0.05f, cy + s * 0.05f, s * 0.06f, c.alpha(0.6f));
+            for (int i = 0; i < 5; i++) {
+                float a0 = -kPi / 2 + i * kTau / 5, a1 = -kPi / 2 + (i + 2) * kTau / 5;
+                u.line(cx - s * 0.1f + std::cos(a0) * s * 0.22f, cy + s * 0.1f + std::sin(a0) * s * 0.22f, cx - s * 0.1f + std::cos(a1) * s * 0.22f,
+                       cy + s * 0.1f + std::sin(a1) * s * 0.22f, s * 0.05f, c);
             }
             break;
         default: break;
@@ -409,7 +486,6 @@ void View::render_hud(World& w, const Input& in, const Areas& areas) {
     Ui& u = ui();
     const Actor& h = w.actors[0];
     const Hero& H = w.hero;
-    (void)in;
     // floating texts
     for (auto& t : w.texts) {
         vec2 p = to_ui(cam, t.pos);
@@ -434,6 +510,8 @@ void View::render_hud(World& w, const Input& in, const Areas& areas) {
         float size = 26;
         if (g.kind == GroundItem::Gold) { n = std::to_string(g.amount) + " dinars"; c = pal::rare.alpha(0.85f); size = 22; }
         else if (g.kind == GroundItem::Currency) { n = currency_def(g.currency).name; c = Rgba::hex(currency_def(g.currency).color); }
+        else if (g.kind == GroundItem::Wafq) { n = wafq_def(g.currency).name; c = pal::turquoise; }
+        else if (g.kind == GroundItem::Blank) { n = "Blank Talisman (level " + std::to_string(g.amount) + ")"; c = pal::brass; }
         else { n = g.item.display_name(); c = Rgba::hex(rarity_color(g.item.rarity)); }
         float tw = u.text_width(n, size) + 24;
         bool sel = int(i) == w.selected_loot;
@@ -497,23 +575,34 @@ void View::render_hud(World& w, const Input& in, const Areas& areas) {
     }
     draw_button_glyph(344, 1036, 36, BTN_L3);
     // skill bar
+    // skill bar: bar one, or bar two while L2 is held (a small strip shows the other)
     static const int btn[5] = {BTN_SOUTH, BTN_WEST, BTN_NORTH, BTN_R1, BTN_R2};
+    const int bar = in.held(BTN_L2) ? 5 : 0;
     float sx = 960 - 5 * 120 / 2.f;
     for (int s = 0; s < 5; s++) {
         float x = sx + s * 120, y = 930;
-        int sk = H.skills[s];
-        u.frame(x + 4, y, 108, 108, pal::panel.alpha(0.92f), pal::line, 14, 2);
-        if (sk >= 0) {
-            const SkillDef& d = skill_defs()[size_t(sk)];
-            bool ready = H.cooldowns[s] <= 0 && h.mana >= d.mana;
-            draw_skill_icon(x + 58, y + 50, 84, d.glyph, ready);
-            if (H.cooldowns[s] > 0) {
-                float k = H.cooldowns[s] / std::max(0.01f, d.cooldown);
+        int slot = bar + s;
+        const Talisman* t = H.slot_talisman(slot);
+        u.frame(x + 4, y, 108, 108, pal::panel.alpha(0.92f), bar ? pal::turquoise.alpha(0.7f) : pal::line, 14, 2);
+        if (t) {
+            SkillCtx c = w.slot_ctx(slot);
+            bool ready = H.cooldowns[slot] <= 0 && h.mana >= c.mana && c.usable;
+            draw_skill_icon(x + 58, y + 50, 84, t->def().glyph, ready);
+            if (H.cooldowns[slot] > 0 && c.cooldown > 0) {
+                float k = std::min(1.f, H.cooldowns[slot] / c.cooldown);
                 u.rect(x + 6, y + 2 + 104 * (1 - k), 104, 104 * k, pal::night.alpha(0.6f), 12);
             }
-            if (h.mana < d.mana) u.rect(x + 6, y + 2, 104, 104, Rgba::hex(0x10204A).alpha(0.5f), 12);
+            if (h.mana < c.mana || !c.usable) u.rect(x + 6, y + 2, 104, 104, Rgba::hex(0x10204A).alpha(0.5f), 12);
+            for (int k = 0; k < t->slots; k++)   // Wafq pips along the bottom edge
+                u.disc(x + 58 + (k - (t->slots - 1) * 0.5f) * 14, y + 96, 4.5f, t->wafq[k] >= 0 ? pal::turquoise : pal::line);
         }
         draw_button_glyph(x + 58, y + 124, 34, btn[s]);
+    }
+    bool second = false;
+    for (int s = 5; s < 10; s++) second = second || H.slot_talisman(s);
+    if (second) {
+        draw_button_glyph(sx - 40, 984, 36, BTN_L2);
+        u.text(sx - 40, 1008, bar ? "2" : "1", 22, bar ? pal::turquoise : pal::dim, Align::Center, 1.f);
     }
     if (H.rally > 0) {
         u.frame(sx + 4, 870, 250, 44, pal::panel.alpha(0.9f), pal::amber, 10, 2);
@@ -527,7 +616,10 @@ void View::render_hud(World& w, const Input& in, const Areas& areas) {
     snprintf(buf, sizeof buf, "Level %d", H.level);
     u.text(290, 1052, buf, 24, pal::soft, Align::Right);
     if (H.passive_points() > 0) {
-        snprintf(buf, sizeof buf, "%d star%s to place", H.passive_points(), H.passive_points() == 1 ? "" : "s");
+        const Star* next = !H.plan.empty() && size_t(H.plan[0]) < tree().stars.size() ? &tree().stars[H.plan[0]] : nullptr;
+        if (next) snprintf(buf, sizeof buf, "Place %s", next->name.empty() ? (next->text.empty() ? "the next star" : next->text[0].c_str())
+                                                                             : next->name.substr(0, next->name.find(',')).c_str());
+        else snprintf(buf, sizeof buf, "%d star%s to place", H.passive_points(), H.passive_points() == 1 ? "" : "s");
         float tw = u.text_width(buf, 24) + 70;
         u.frame(1620 - tw, 1000, tw, 44, pal::panel.alpha(0.9f), pal::brass, 10, 2);
         draw_button_glyph(1620 - tw + 28, 1022, 34, BTN_SELECT);

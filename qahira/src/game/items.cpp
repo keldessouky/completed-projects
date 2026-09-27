@@ -1,5 +1,6 @@
 #include "game/items.hpp"
 #include <cstdio>
+#include <cstdlib>
 
 namespace q {
 
@@ -25,6 +26,19 @@ const std::vector<ItemBase>& item_bases() {
         {"tooled_belt", "Tooled Belt", Slot::Belt, 1, 0, 0, 0, 0, 0, 0, "+20 to maximum Life"},
         {"blue_bead_amulet", "Blue Bead Amulet", Slot::Amulet, 1, 0, 0, 0, 0, 0, 0, "+10 to all Attributes"},
         {"brass_ring", "Brass Ring", Slot::Ring, 1, 0, 0, 0, 0, 0, 0, "+15% to Fire Resistance"},
+        // Slice 3, the Sorcerer: staves and Hirz armour (append only: items store the base's index)
+        {"ashwood_staff", "Ashwood Staff", Slot::Weapon, 1, 7, 13, 1.2f, 7, 0, 0, "18% increased Spell Damage", 0, WK_STAFF},
+        {"astrolabe_staff", "Brass Astrolabe Staff", Slot::Weapon, 5, 11, 21, 1.2f, 7.5f, 0, 0, "24% increased Spell Damage", 0, WK_STAFF},
+        {"qanun_staff", "Qanun-String Staff", Slot::Weapon, 11, 17, 32, 1.25f, 7.5f, 0, 0, "30% increased Spell Damage", 0, WK_STAFF},
+        {"obsidian_staff", "Obsidian Staff", Slot::Weapon, 18, 26, 48, 1.2f, 8, 0, 0, "36% increased Spell Damage", 0, WK_STAFF},
+        {"linen_hood", "Linen Hood", Slot::Helmet, 1, 0, 0, 0, 0, 0, 0, nullptr, 14, WK_NONE},
+        {"scholars_coat", "Scholar's Coat", Slot::Body, 1, 0, 0, 0, 0, 0, 0, nullptr, 32, WK_NONE},
+        {"silk_gloves", "Silk Gloves", Slot::Gloves, 1, 0, 0, 0, 0, 0, 0, nullptr, 9, WK_NONE},
+        {"felt_slippers", "Felt Slippers", Slot::Boots, 1, 0, 0, 0, 0, 0, 0, nullptr, 10, WK_NONE},
+        {"embroidered_hood", "Embroidered Hood", Slot::Helmet, 9, 0, 0, 0, 0, 0, 0, nullptr, 30, WK_NONE},
+        {"astronomers_robe", "Astronomer's Robe", Slot::Body, 10, 0, 0, 0, 0, 0, 0, nullptr, 72, WK_NONE},
+        {"lapis_ring", "Lapis Ring", Slot::Ring, 3, 0, 0, 0, 0, 0, 0, "+14% to Cold Resistance"},
+        {"moonstone_amulet", "Moonstone Amulet", Slot::Amulet, 4, 0, 0, 0, 0, 0, 0, "+20 to maximum Hirz"},
     };
     return b;
 }
@@ -44,8 +58,8 @@ const std::vector<AffixDef>& affix_defs() {
         {"fire_add", true, "Smouldering", AE_LOCAL_FIRE_ADD, W, {2, 9, 17}, {3, 6, 10}, {5, 9, 14}, {7, 12, 19}, {10, 16, 26}, "Adds %d to %d Fire Damage"},
         {"life", true, "Hale", AE_LIFE, ARMOUR_SLOTS | JEWELLERY, {1, 6, 14}, {10, 20, 30}, {19, 29, 44}, {0, 0, 0}, {0, 0, 0}, "+%d to maximum Life"},
         {"mana", true, "Lucid", AE_MANA, JEWELLERY | SB(Slot::Helmet), {1, 7, 15}, {10, 18, 26}, {17, 25, 36}, {0, 0, 0}, {0, 0, 0}, "+%d to maximum Mana"},
-        {"armour_inc", true, "Riveted", AE_LOCAL_ARMOUR_INC, ARMOUR_SLOTS, {1, 8, 16}, {15, 27, 40}, {26, 39, 60}, {0, 0, 0}, {0, 0, 0}, "%d%% increased Armour"},
-        {"armour_add", true, "Plated", AE_LOCAL_ARMOUR_ADD, ARMOUR_SLOTS, {1, 7, 15}, {8, 20, 36}, {19, 35, 60}, {0, 0, 0}, {0, 0, 0}, "+%d to Armour"},
+        {"armour_inc", true, "Riveted", AE_LOCAL_ARMOUR_INC, ARMOUR_SLOTS, {1, 8, 16}, {15, 27, 40}, {26, 39, 60}, {0, 0, 0}, {0, 0, 0}, "%d%% increased Armour", NEED_ARMOUR},
+        {"armour_add", true, "Plated", AE_LOCAL_ARMOUR_ADD, ARMOUR_SLOTS, {1, 7, 15}, {8, 20, 36}, {19, 35, 60}, {0, 0, 0}, {0, 0, 0}, "+%d to Armour", NEED_ARMOUR},
         // suffixes
         {"speed", false, "of Skill", AE_LOCAL_SPEED_INC, W, {1, 9, 17}, {5, 8, 11}, {7, 10, 14}, {0, 0, 0}, {0, 0, 0}, "%d%% increased Attack Speed"},
         {"crit", false, "of Rending", AE_LOCAL_CRIT_INC, W, {3, 10, 18}, {10, 20, 30}, {19, 29, 38}, {0, 0, 0}, {0, 0, 0}, "%d%% increased Critical Strike Chance"},
@@ -60,12 +74,34 @@ const std::vector<AffixDef>& affix_defs() {
         {"life_on_hit", false, "of Feasting", AE_LIFE_ON_HIT, W | SB(Slot::Gloves) | SB(Slot::Ring), {4, 11, 18}, {2, 4, 6}, {3, 5, 8}, {0, 0, 0}, {0, 0, 0}, "Gain %d Life per enemy hit"},
         {"regen", false, "of the Oasis", AE_LIFE_REGEN, ARMOUR_SLOTS | JEWELLERY, {1, 9, 17}, {1, 2, 4}, {2, 4, 6}, {0, 0, 0}, {0, 0, 0}, "Regenerate %d Life per second"},
         {"move", false, "of the Road", AE_MOVE_SPEED, SB(Slot::Boots), {1, 10, 18}, {8, 12, 16}, {11, 15, 20}, {0, 0, 0}, {0, 0, 0}, "%d%% increased Movement Speed"},
+        // Slice 3 (append only: items store the affix's index)
+        {"spell_dmg", true, "Scholar's", AE_SPELL_DMG_INC, W | SB(Slot::Amulet), {1, 8, 16}, {12, 22, 32}, {21, 31, 45}, {0, 0, 0}, {0, 0, 0}, "%d%% increased Spell Damage", NEED_STAFF},
+        {"es_add", true, "Warded", AE_LOCAL_ES_ADD, ARMOUR_SLOTS, {1, 7, 15}, {6, 14, 24}, {13, 23, 38}, {0, 0, 0}, {0, 0, 0}, "+%d to maximum Hirz", NEED_ES},
+        {"es_inc", true, "Inscribed", AE_LOCAL_ES_INC, ARMOUR_SLOTS, {1, 8, 16}, {15, 27, 40}, {26, 39, 60}, {0, 0, 0}, {0, 0, 0}, "%d%% increased Hirz", NEED_ES},
+        {"spell_cold", true, "Frosted", AE_SPELL_COLD_ADD, W | SB(Slot::Ring) | SB(Slot::Amulet), {2, 9, 17}, {2, 4, 7}, {3, 6, 9}, {5, 8, 12}, {7, 11, 17}, "Adds %d to %d Cold Damage to Spells", NEED_STAFF},
+        {"ele_dmg", true, "Kindled", AE_ELE_DMG_INC, SB(Slot::Ring) | SB(Slot::Amulet) | SB(Slot::Gloves), {1, 8, 16}, {8, 14, 20}, {13, 19, 27}, {0, 0, 0}, {0, 0, 0}, "%d%% increased Elemental Damage"},
+        {"cast_speed", false, "of Recitation", AE_CAST_SPEED_INC, W | SB(Slot::Ring) | SB(Slot::Amulet) | SB(Slot::Gloves), {2, 10, 18}, {5, 8, 11}, {7, 10, 15}, {0, 0, 0}, {0, 0, 0}, "%d%% increased Cast Speed", NEED_STAFF},
+        {"mana_regen", false, "of the Well", AE_MANA_REGEN, W | JEWELLERY | SB(Slot::Helmet), {1, 8, 16}, {20, 30, 40}, {29, 39, 55}, {0, 0, 0}, {0, 0, 0}, "%d%% increased Mana Regeneration Rate"},
+        {"spell_crit", false, "of Omens", AE_SPELL_CRIT_INC, W | SB(Slot::Amulet), {3, 10, 18}, {20, 35, 50}, {34, 49, 70}, {0, 0, 0}, {0, 0, 0}, "%d%% increased Critical Strike Chance for Spells", NEED_STAFF},
     };
     return a;
 }
 
+static bool fits_need(const AffixDef& ad, const ItemBase& b) {
+    if (!ad.need) return true;
+    if (ARMOUR_SLOTS & SB(b.slot)) {
+        if (!(ad.need & (NEED_ARMOUR | NEED_ES))) return true;
+        return ((ad.need & NEED_ARMOUR) && b.armour > 0) || ((ad.need & NEED_ES) && b.es > 0);
+    }
+    if (b.slot == Slot::Weapon) {
+        if (!(ad.need & (NEED_MAUL | NEED_STAFF))) return true;
+        return ((ad.need & NEED_MAUL) && b.wkind == WK_MAUL) || ((ad.need & NEED_STAFF) && b.wkind == WK_STAFF);
+    }
+    return true;
+}
+
 const ItemBase& Item::b() const {
-    static const ItemBase none{"none", "Nothing", Slot::Count, 0, 0, 0, 0, 0, 0, 0, nullptr};
+    static const ItemBase none{"none", "Nothing", Slot::Count, 0, 0, 0, 0, 0, 0, 0, nullptr, 0, WK_NONE};
     return base < item_bases().size() ? item_bases()[base] : none;
 }
 
@@ -86,7 +122,7 @@ bool roll_affix(Item& it, Rng& rng) {
     for (int tries = 0; tries < 80; tries++) {
         int d = rng.irange(0, int(defs.size()) - 1);
         const AffixDef& ad = defs[size_t(d)];
-        if (!(ad.slots & SB(b.slot))) continue;
+        if (!(ad.slots & SB(b.slot)) || !fits_need(ad, b)) continue;
         if (ad.prefix ? pre >= limit : suf >= limit) continue;
         bool dup = false;
         for (auto& a : it.affixes) if (a.def == d) dup = true;
@@ -177,8 +213,20 @@ WeaponStats Item::weapon() const {
     w.phys_max = std::round((bb.phys_max + add_hi) * (1 + inc / 100.f));
     w.aps = bb.aps * (1 + speed / 100.f);
     w.crit = bb.crit * (1 + crit / 100.f);
+    w.tags = T_TWO_HAND | (bb.wkind == WK_STAFF ? T_STAFF : T_MACE);
     w.valid = true;
     return w;
+}
+
+float Item::local_es() const {
+    const ItemBase& bb = b();
+    float add = 0, inc = 0;
+    for (auto& a : affixes) {
+        auto e = affix_defs()[a.def].effect;
+        if (e == AE_LOCAL_ES_ADD) add += a.v1;
+        if (e == AE_LOCAL_ES_INC) inc += a.v1;
+    }
+    return (bb.es + add) * (1 + inc / 100.f);
 }
 
 void Item::add_global_mods(Stats& s, uint16_t src) const {
@@ -203,15 +251,25 @@ void Item::add_global_mods(Stats& s, uint16_t src) const {
             case AE_ATTACK_SPEED_INC: s.add(S_ATTACK_SPEED, MK_INC, a.v1, 0, src); break;
             case AE_LOCAL_ARMOUR_ADD: armour_add += a.v1; break;
             case AE_LOCAL_ARMOUR_INC: armour_inc += a.v1; break;
+            case AE_SPELL_DMG_INC: s.add(S_DAMAGE, MK_INC, a.v1, T_SPELL, src); break;
+            case AE_CAST_SPEED_INC: s.add(S_CAST_SPEED, MK_INC, a.v1, 0, src); break;
+            case AE_SPELL_COLD_ADD: s.add(S_ADDED_MIN, MK_FLAT, a.v1, T_SPELL | T_COLD, src); s.add(S_ADDED_MAX, MK_FLAT, a.v2, T_SPELL | T_COLD, src); break;
+            case AE_ELE_DMG_INC: s.add(S_DAMAGE, MK_INC, a.v1, T_ELEMENTAL, src); break;
+            case AE_MANA_REGEN: s.add(S_MANA_REGEN, MK_INC, a.v1, 0, src); break;
+            case AE_SPELL_CRIT_INC: s.add(S_CRIT_CHANCE, MK_INC, a.v1, T_SPELL, src); break;
             default: break;
         }
     }
+    if (bb.es > 0) s.add(S_ES, MK_FLAT, local_es(), 0, src);
     if (bb.armour > 0 || armour_add > 0) s.add(S_ARMOUR, MK_FLAT, (bb.armour + armour_add) * (1 + armour_inc / 100.f), 0, src);
     if (bb.implicit) {
         std::string imp = bb.implicit;
         if (imp.find("maximum Life") != std::string::npos) s.add(S_LIFE, MK_FLAT, 20, 0, src);
         if (imp.find("all Attributes") != std::string::npos) { s.add(S_STR, MK_FLAT, 10, 0, src); s.add(S_DEX, MK_FLAT, 10, 0, src); s.add(S_INT, MK_FLAT, 10, 0, src); }
         if (imp.find("Fire Resistance") != std::string::npos) s.add(S_FIRE_RES, MK_FLAT, 15, 0, src);
+        if (imp.find("Cold Resistance") != std::string::npos) s.add(S_COLD_RES, MK_FLAT, 14, 0, src);
+        if (imp.find("maximum Hirz") != std::string::npos) s.add(S_ES, MK_FLAT, 20, 0, src);
+        if (imp.find("Spell Damage") != std::string::npos) s.add(S_DAMAGE, MK_INC, float(atoi(bb.implicit)), T_SPELL, src);
     }
 }
 
@@ -221,7 +279,7 @@ std::vector<std::string> Item::lines() const {
     char buf[160];
     if (bb.slot == Slot::Weapon) {
         WeaponStats w = weapon();
-        out.push_back("Two-Handed Mace");
+        out.push_back(bb.wkind == WK_STAFF ? "Staff" : "Two-Handed Mace");
         snprintf(buf, sizeof buf, "Physical Damage: %d-%d", int(w.phys_min), int(w.phys_max));
         out.push_back(buf);
         if (w.add_max[DT_FIRE] > 0) { snprintf(buf, sizeof buf, "Fire Damage: %d-%d", int(w.add_min[DT_FIRE]), int(w.add_max[DT_FIRE])); out.push_back(buf); }
@@ -237,6 +295,9 @@ std::vector<std::string> Item::lines() const {
             if (e == AE_LOCAL_ARMOUR_INC) inc += a.v1;
         }
         snprintf(buf, sizeof buf, "Armour: %d", int((bb.armour + add) * (1 + inc / 100.f)));
+        out.push_back(buf);
+    } else if (bb.es > 0) {
+        snprintf(buf, sizeof buf, "Hirz: %d", int(local_es()));
         out.push_back(buf);
     }
     if (bb.implicit) out.push_back(std::string("~") + bb.implicit);

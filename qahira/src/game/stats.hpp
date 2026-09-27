@@ -16,6 +16,7 @@ enum Tag : uint32_t {
     T_SLAM = 1u << 5, T_STRIKE = 1u << 6, T_WARCRY = 1u << 7, T_DURATION = 1u << 8, T_MINION = 1u << 9,
     T_PHYSICAL = 1u << 10, T_FIRE = 1u << 11, T_COLD = 1u << 12, T_LIGHTNING = 1u << 13, T_CHAOS = 1u << 14,
     T_ELEMENTAL = 1u << 15, T_TWO_HAND = 1u << 16, T_MACE = 1u << 17, T_AILMENT = 1u << 18, T_CHANNEL = 1u << 19,
+    T_CHAINING = 1u << 20, T_STAFF = 1u << 21, T_GLYPH = 1u << 22,
 };
 
 enum DamageType { DT_PHYS, DT_FIRE, DT_COLD, DT_LIGHTNING, DT_CHAOS, DT_COUNT };
@@ -36,6 +37,10 @@ enum Stat : uint16_t {
     S_ES, S_ES_RECHARGE,      // Hirz: the energy shield analog (GDD §8)
     S_FREEZE, S_SHOCK,        // freeze buildup, effect of shock
     S_CHAINS, S_PROJ_SPEED, S_WARCRY,
+    S_PROJECTILES,            // additional projectiles
+    S_GAIN_FIRE,              // gain % of damage as extra Fire (pipeline step 3)
+    S_IGNITE,                 // chance to Ignite, percent
+    S_SKILL_LEVEL,            // + levels of every Talisman
     S_COUNT
 };
 const char* stat_name(Stat s);
@@ -53,6 +58,12 @@ struct Mod {
     uint16_t source = 0;     // who granted it (item slot, passive, buff) — used to remove groups
 };
 
+// Where a modifier came from, for the "Why?" breakdown: equipment slots are 1..9, then these ranges.
+enum ModSource : uint16_t {
+    SRC_NONE = 0, SRC_CLASS = 50, SRC_LEVEL = 80, SRC_ATTRIBUTES = 90, SRC_WAFQ = 600,  // + wafq id
+    SRC_STAR = 1000,                                                                   // + star id
+};
+
 struct StatSum {
     float flat = 0, inc = 0, more = 1;
     float apply(float base) const { return (base + flat) * (1.f + inc / 100.f) * more; }
@@ -66,12 +77,15 @@ public:
     void remove_source(uint16_t src);
     StatSum sum(Stat s, uint32_t context = 0) const;
     float value(Stat s, float base = 0, uint32_t context = 0) const { return sum(s, context).apply(base); }
+    // the mods that apply to a stat in a context, for "Why?"
+    std::vector<Mod> why(Stat s, uint32_t context = 0) const;
 };
 
 // ---- the damage pipeline -------------------------------------------------
 struct WeaponStats {
     float phys_min = 0, phys_max = 0, aps = 1.0f, crit = 5.0f, range = 1.2f;
     std::array<float, DT_COUNT> add_min{}, add_max{};  // other local added damage
+    uint32_t tags = 0;       // weapon tags an attack's context carries (Mace, Staff, Two-Handed)
     bool valid = false;
 };
 

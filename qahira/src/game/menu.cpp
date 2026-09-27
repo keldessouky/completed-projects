@@ -152,6 +152,8 @@ void Menu::update(World& w, const Input& in, float dt) {
     if (in.hit(BTN_START)) { hide(); return; }
     if (in.hit(BTN_EAST)) {
         if (held >= 0) { held = -1; return; }
+        if (pick != Pick::None) { pick = Pick::None; return; }
+        if (why_open) { why_open = false; return; }
         hide();
         return;
     }
@@ -159,6 +161,8 @@ void Menu::update(World& w, const Input& in, float dt) {
         int n = int(MenuTab::Count);
         tab = MenuTab((int(tab) + (in.hit(BTN_R1) ? 1 : n - 1)) % n);
         held = -1;
+        pick = Pick::None;
+        why_open = false;
         w.emit(Ev::Craft, w.actors[0].pos, 0);
         return;
     }
@@ -168,9 +172,13 @@ void Menu::update(World& w, const Input& in, float dt) {
     else if (in.held(BTN_DOWN) || in.lstick.y < -0.6f) dir = D_DOWN;
     else if (in.held(BTN_LEFT) || in.lstick.x < -0.6f) dir = D_LEFT;
     else if (in.held(BTN_RIGHT) || in.lstick.x > 0.6f) dir = D_RIGHT;
+    int step = -1;
     if (dir < 0) last_dir_ = -1;
-    else if (dir != last_dir_) { last_dir_ = dir; repeat_t_ = 0.3f; move(w, dir); }
-    else if ((repeat_t_ -= dt) <= 0) { repeat_t_ = 0.09f; move(w, dir); }
+    else if (dir != last_dir_) { last_dir_ = dir; repeat_t_ = 0.3f; step = dir; }
+    else if ((repeat_t_ -= dt) <= 0) { repeat_t_ = 0.09f; step = dir; }
+    if (tab == MenuTab::Talismans && !vendor) { tal_update(w, in, step); return; }
+    if (tab == MenuTab::Character && !vendor) { char_update(w, in, step); return; }
+    if (step >= 0) move(w, step);
     if (in.hit(BTN_SOUTH)) act_south(w);
     else if (in.hit(BTN_NORTH)) act_north(w);
 }
@@ -393,15 +401,15 @@ void Menu::render(const World& w) const {
     if (vendor) {
         u.text(PX + PW / 2, PY + 22, "Your Belongings", 38, pal::bone, Align::Center, 1.2f, true);
     } else {
-        static const char* names[] = {"Inventory", "Character", "Loot Filter"};
+        static const char* names[] = {"Inventory", "Talismans", "Character", "Loot Filter"};
         float tx = PX + 110;
         draw_button_glyph(PX + 50, PY + 44, 40, BTN_L1);
         for (int t = 0; t < int(MenuTab::Count); t++) {
             bool on = int(tab) == t;
-            float tw = u.text_width(names[t], 32) + 40;
-            if (on) u.frame(tx, PY + 18, tw, 54, pal::dusk, pal::amber, 10, 2);
-            u.text(tx + tw / 2, PY + 26, names[t], 32, on ? pal::amber : pal::soft, Align::Center, on ? 1.f : 0.3f);
-            tx += tw + 14;
+            float tw = u.text_width(names[t], 28) + 28;
+            if (on) u.frame(tx, PY + 20, tw, 50, pal::dusk, pal::amber, 10, 2);
+            u.text(tx + tw / 2, PY + 28, names[t], 28, on ? pal::amber : pal::soft, Align::Center, on ? 1.f : 0.3f);
+            tx += tw + 10;
         }
         draw_button_glyph(tx + 34, PY + 44, 40, BTN_R1);
     }
@@ -509,55 +517,10 @@ void Menu::render(const World& w) const {
         else if (region == Region::Grid) legend(PX + 30, PY + PH - 58, {{BTN_SOUTH, "Equip"}, {BTN_NORTH, "Drop"}, {BTN_EAST, "Close"}});
         else if (region == Region::Purse) legend(PX + 30, PY + PH - 58, {{BTN_SOUTH, "Pick up"}, {BTN_EAST, "Close"}});
         else legend(PX + 30, PY + PH - 58, {{BTN_SOUTH, eq == EQ_WEAPON ? "-" : "Unequip"}, {BTN_EAST, "Close"}});
+    } else if (tab == MenuTab::Talismans) {
+        tal_render(w);
     } else if (tab == MenuTab::Character) {
-        const Stats& s = H.stats;
-        const Actor& h = w.actors[0];
-        float x = PX + 60, y = PY + 110;
-        char b[96];
-        auto head = [&](const char* t) { u.text(x, y, t, 26, pal::brass, Align::Left, 1.2f); y += 40; };
-        auto row = [&](const char* k, const std::string& v) {
-            u.text(x + 10, y, k, 28, pal::soft);
-            u.text(PX + PW - 60, y, v, 28, pal::bone, Align::Right, 0.6f);
-            y += 38;
-        };
-        u.text(x, y, H.passives.cls == "sorcerer" ? "The Sorcerer" : "The Warrior", 44, pal::amber, Align::Left, 1.4f, true);
-        snprintf(b, sizeof b, "Level %d  \xC2\xB7  %d stars placed, %d to place  \xC2\xB7  %d ghouls laid to rest", H.level,
-                 H.passives.spent(), H.passive_points(), H.kills);
-        u.text(x, y + 56, b, 26, pal::soft);
-        y += 110;
-        head("OFFENCE");
-        WeaponStats ws = w.hero_weapon();
-        snprintf(b, sizeof b, "%.1f", w.hero_dps(H.weapon()));
-        row("Crushing Blow DPS", b);
-        snprintf(b, sizeof b, "%d-%d", int(ws.phys_min), int(ws.phys_max));
-        row("Weapon physical damage", b);
-        snprintf(b, sizeof b, "%.2f", s.value(S_ATTACK_SPEED, ws.aps, T_ATTACK | T_MELEE));
-        row("Attacks per second", b);
-        snprintf(b, sizeof b, "%.1f%%", ws.crit);
-        row("Critical strike chance", b);
-        y += 14;
-        head("DEFENCE");
-        snprintf(b, sizeof b, "%d", int(h.life_max));
-        row("Maximum life", b);
-        snprintf(b, sizeof b, "%d", int(h.mana_max));
-        row("Maximum mana", b);
-        if (H.es_max > 0) {
-            snprintf(b, sizeof b, "%d", int(H.es_max));
-            row("Maximum Hirz (energy shield)", b);
-        }
-        snprintf(b, sizeof b, "%d  (%d%% vs a 40 hit)", int(h.armour), int(armour_reduction(h.armour, 40) * 100));
-        row("Armour", b);
-        Defences d = defences_of(s);
-        snprintf(b, sizeof b, "%d%% / %d%% / %d%% / %d%%", int(std::min(d.res[DT_FIRE], d.max_res)), int(std::min(d.res[DT_COLD], d.max_res)),
-                 int(std::min(d.res[DT_LIGHTNING], d.max_res)), int(std::min(d.res[DT_CHAOS], d.max_res)));
-        row("Fire / Cold / Lightning / Chaos", b);
-        snprintf(b, sizeof b, "%.1f / s", s.value(S_LIFE_REGEN));
-        row("Life regeneration", b);
-        y += 14;
-        head("ATTRIBUTES");
-        snprintf(b, sizeof b, "%d / %d / %d", int(s.value(S_STR)), int(s.value(S_DEX)), int(s.value(S_INT)));
-        row("Strength / Dexterity / Intelligence", b);
-        legend(PX + 30, PY + PH - 58, {{BTN_L1, "Tabs"}, {BTN_EAST, "Close"}});
+        char_render(w);
     } else if (tab == MenuTab::Filter) {
         float x = PX + 60, y = PY + 120;
         u.text(x, y, "Choose what the ground shows you.", 28, pal::soft);

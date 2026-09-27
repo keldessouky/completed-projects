@@ -9,6 +9,8 @@ namespace q {
 enum class Rarity : uint8_t { Normal, Magic, Rare, Unique };
 enum class Slot : uint8_t { Weapon, Helmet, Body, Gloves, Boots, Belt, Amulet, Ring, Count };
 
+enum WeaponKind : uint8_t { WK_NONE, WK_MAUL, WK_STAFF };
+
 struct ItemBase {
     const char* id;
     const char* name;
@@ -19,6 +21,8 @@ struct ItemBase {
     // armour pieces
     float armour, evasion;
     const char* implicit;  // text of the implicit, if any
+    float es = 0;          // Hirz on armour pieces
+    uint8_t wkind = WK_MAUL;
 };
 
 enum AffixEffect : uint8_t {
@@ -26,7 +30,12 @@ enum AffixEffect : uint8_t {
     AE_LOCAL_ARMOUR_INC, AE_LOCAL_ARMOUR_ADD,
     AE_STR, AE_DEX, AE_INT, AE_LIFE, AE_MANA, AE_FIRE_RES, AE_COLD_RES, AE_LIGHTNING_RES, AE_CHAOS_RES,
     AE_BREAK_INC, AE_LIFE_ON_HIT, AE_LIFE_REGEN, AE_MOVE_SPEED, AE_AREA_INC, AE_ATTACK_SPEED_INC,
+    // Slice 3: spells and Hirz
+    AE_SPELL_DMG_INC, AE_CAST_SPEED_INC, AE_LOCAL_ES_ADD, AE_LOCAL_ES_INC, AE_SPELL_COLD_ADD, AE_ELE_DMG_INC, AE_MANA_REGEN,
+    AE_SPELL_CRIT_INC,
 };
+// AffixDef::need: which bases in a slot can roll it (0: any)
+enum AffixNeed : uint8_t { NEED_ARMOUR = 1, NEED_ES = 2, NEED_MAUL = 4, NEED_STAFF = 8 };
 
 struct AffixDef {
     const char* id;
@@ -38,6 +47,7 @@ struct AffixDef {
     float lo[3], hi[3];     // value range per tier (for added damage: min range; hi2 is the max)
     float lo2[3], hi2[3];   // second value (added damage max), unused otherwise
     const char* fmt;        // "%d%% increased Physical Damage"
+    uint8_t need = 0;       // AffixNeed bits
 };
 
 struct Affix {
@@ -60,6 +70,7 @@ struct Item {
     std::string display_name() const;
     std::vector<std::string> lines() const;   // stat block lines for the tooltip
     WeaponStats weapon() const;               // local mods applied
+    float local_es() const;                   // Hirz on an armour piece, local mods applied
     void add_global_mods(Stats& s, uint16_t source) const;
 };
 

@@ -75,6 +75,12 @@ bool PassiveTree::load_json(const std::string& text) {
         constellations.push_back(std::move(k));
     }
     for (auto& c : j["implemented"].arr) implemented.push_back(c.str());
+    recommended.clear();
+    for (auto& kv : j["recommended"].obj) {
+        std::vector<int> ids;
+        for (auto& s : kv.second.arr) ids.push_back(s.i());
+        recommended.push_back({kv.first, ids});
+    }
     pole = j["pole"].i(-1);
     return !stars.empty();
 }
