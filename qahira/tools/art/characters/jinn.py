@@ -695,6 +695,93 @@ IFRIT_CLIPS = [
 ]
 
 
+# ================================================================ the Sand Jinn (Slice 5: the Haboob's own)
+SAND = dict(body='#B8925A', body2='#8E6C3E', ribbon='#D8B880', eye='#FFF0B0', dark='#5A4428')
+
+
+def sand_skeleton():
+    return rig.humanoid(height=2.05, shoulder=0.21, hip=0.1, arm_drop=58.0, hunch=0.25, arm_len=1.2, leg_len=0.9)
+
+
+def sand(J):
+    """A figure of blown sand: a lean body that thins into a whirling column below the waist, ribbons of sand round it."""
+    rnd = random.Random(17)
+    m = Model('sand', J)
+    H, T_ = _H(J)
+    t = Part()
+    t.capsule(H('spine'), H('chest'), 0.13, 0.17, seg=12)
+    t.capsule(H('chest'), T_('chest'), 0.19, 0.13, seg=12)
+    for s_ in 'LR':
+        t.capsule(H('upperarm_' + s_), H('forearm_' + s_), 0.06, 0.05, seg=10)
+        t.capsule(H('forearm_' + s_), H('hand_' + s_), 0.05, 0.03, seg=10)
+        wr, ht = H('hand_' + s_), T_('hand_' + s_)
+        d, u, v = _frame(wr, ht)
+        for k in range(3):   # fingers of sand, drawn out to points
+            b = wr + v * ((k - 1) * 0.02)
+            t.capsule(b, b + d * 0.14 + u * 0.03, 0.014, 0.002, seg=5)
+    t.capsule(H('neck'), H('head'), 0.06, 0.07, seg=10)
+    m.add(t, SAND['body'], rough=0.95, bones=['spine', 'chest', 'neck', 'clavicle_L', 'clavicle_R', 'upperarm_L', 'upperarm_R',
+                                              'forearm_L', 'forearm_R', 'hand_L', 'hand_R'], sigma=0.1, voxel=0.014, smooth=3, tris=1100)
+    h0, h1 = H('head'), T_('head')
+    up = (h1 - h0).normalized()
+    fw = up.cross(V((1, 0, 0))).normalized()
+    hd = Part()   # a head like a wrapped face, swept back into a trailing plume
+    hd.sphere(h0 + up * 0.11, (0.1, 0.12, 0.13), seg=14)
+    hd.sweep([h0 + up * 0.14 - fw * 0.05, h0 + up * 0.2 - fw * 0.2, h0 + up * 0.18 - fw * 0.42], lambda t: 0.08 * (1 - 0.8 * t), seg=8)
+    m.add(hd, SAND['body2'], rough=0.95, bones=['head', 'neck'], sigma=0.06, voxel=0.01, smooth=2, tris=500)
+    for s_ in (-1, 1):
+        e = Part()
+        e.sphere(h0 + up * 0.12 + fw * 0.1 + V((s_ * 0.035, 0, 0)), (0.02, 0.008, 0.01), seg=8)
+        m.add(e, SAND['eye'], rough=0.3, emit=0.8, bone='head')
+    # below the waist, a column of turning sand
+    col = Part()
+    pel = H('pelvis')
+    secs = []
+    for i in range(9):
+        f = i / 8
+        z = pel.z + 0.2 - f * (pel.z + 0.1)
+        r = 0.2 * (1 - f) ** 0.7 + 0.04
+        secs.append((z, 0.04 * math.sin(f * 6), 0.05 * f, r, r * 0.9, 0.15))
+    col.loft(secs, seg=16, caps=True, folds=6, phase=1.3)
+    m.add(col, SAND['body2'], rough=0.95, bones=['pelvis', 'spine', 'thigh_L', 'thigh_R', 'calf_L', 'calf_R'], sigma=0.22,
+          voxel=0.025, smooth=4, tris=600)
+    # ribbons of sand wound round the body
+    rb = Part()
+    for k in range(4):
+        z0 = 0.2 + 0.35 * k
+        ph = rnd.uniform(0, TAU)
+        pts = []
+        for i in range(14):
+            a_ = ph + i / 13 * TAU * 0.8
+            r = 0.3 + 0.05 * math.sin(i)
+            pts.append(V((r * math.cos(a_), r * math.sin(a_), z0 + 0.25 * i / 13)))
+        rb.sweep(pts, lambda t: (0.004, 0.03 * math.sin(math.pi * t) + 0.004), seg=4, hint=V((0, 0, 1)))
+    m.add(rb, SAND['ribbon'], rough=0.9, bones=['pelvis', 'spine', 'chest'], sigma=0.3)
+    return m
+
+
+def sand_claw(P, t):
+    ghoul.claw(P, t)
+    P.off['root'] = V((0, 0, 0.12))
+
+
+def sand_death(P, t):
+    float_idle(P, t)
+    k = keys(t, [(0.0, 0.0), (0.9, 1.0)])
+    P.off['root'] = V((0, 0, 0.12 - 1.6 * k))   # it pours away into the ground
+    P.rot['spine'] = eul(25 * k, 0, 0)
+
+
+SAND_CLIPS = [
+    Clip('idle', 2.4, float_idle, loop=True),
+    Clip('run', 0.8, float_run, loop=True),
+    Clip('claw', 1.0, sand_claw, events={'hit': 0.56}),
+    Clip('hit', 0.3, ghoul.hit),
+    Clip('stagger', 1.2, ghoul.stagger, loop=True),
+    Clip('death', 1.0, sand_death),
+]
+
+
 # ================================================================ possessed things (static)
 def dish():
     m = Model('dish')
@@ -844,5 +931,6 @@ CREATURES = [
     ('qutrub', qutrub_skeleton, qutrub, QUTRUB_CLIPS),
     ('ifrit', ifrit_skeleton, ifrit, IFRIT_CLIPS),
     ('coppersmith', coppersmith_skeleton, coppersmith, COPPERSMITH_CLIPS),
+    ('sand', sand_skeleton, sand, SAND_CLIPS),
 ]
 STATICS = [('dish', dish), ('microbus', microbus)]
