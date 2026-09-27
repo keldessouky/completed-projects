@@ -39,6 +39,8 @@ struct Areas {
 
     void enter_hub(World& w, Arrival how);
     void enter_zone(World& w, int def, Arrival how);   // def -1: the kept instance
+    void enter_chart(World& w, int site, const Item& chart);   // a chart consumed at the table: a fresh site
+    void arm_haboob(World& w);                 // this site gets a Haboob (its bounds from the layout)
     void enter_street(World& w);
     void leave_zone(World& w);                 // snapshot the live zone into the instance
     void close_zone(World& w);                 // the instance is finished or abandoned (a trial's toll comes back)
@@ -56,6 +58,6 @@ struct Areas {
     bool read(ByteReader& r);
 };
 
-void populate_zone(World& w, const ZoneLayout& z, const ZoneDef& d, int level);
+void populate_zone(World& w, const ZoneLayout& z, const ZoneDef& d, int level, const ChartMods* chart = nullptr);
 
 }  // namespace q

@@ -3,9 +3,12 @@
 
 namespace q {
 
-static void place_hero(World& w, vec2 p, float facing) {
+// `anchor`: a spot known to be open (a portal, which was cast where the hero stood). The hero arrives beside it only
+// when there is a clear line from it; otherwise on it, never in a pocket between two blocks.
+static void place_hero(World& w, vec2 p, float facing, const vec2* anchor = nullptr) {
     Actor& h = w.actors[0];
     h.pos = w.level.resolve(p, h.radius);
+    if (anchor && !w.level.line_clear(*anchor, h.pos, h.radius)) h.pos = w.level.resolve(*anchor, h.radius);
     h.vel = h.knock = {0, 0};
     h.facing = facing;
     if (h.alive()) {
@@ -87,15 +90,23 @@ void Areas::enter_hub(World& w, Arrival how) {
     w.interacts.push_back({Interactable::Vendor, vendor, 2.0f, "Trade with Amm Sayed"});
     if (w.hero.quests & Q_BENCH)
         w.interacts.push_back({Interactable::Bench, w.level.point("spawn") + vec2{-4.2f, 3.6f}, 1.9f, "Usta Hassan's bench"});
+    if (w.hero.quests & Q_ACT1)   // the chart table: al-Idrisi's map, spread out under the lights
+        w.interacts.push_back({Interactable::ChartTable, w.level.point("spawn") + vec2{4.6f, 3.8f}, 1.9f, "The Map of al-Idrisi"});
+    w.in_chart = false;
     if (zone.valid && zone.has_portal)
         w.interacts.push_back({Interactable::Portal, hub_portal_pos(w), 1.7f, std::string("Portal to ") + zone_def(zone.def).name});
-    if (how == Arrival::Portal && zone.valid && zone.has_portal) place_hero(w, hub_portal_pos(w) + vec2{-1.4f, -0.6f}, kPi / 2);
+    if (how == Arrival::Portal && zone.valid && zone.has_portal) {
+        vec2 portal = hub_portal_pos(w);
+        place_hero(w, portal + vec2{-1.4f, -0.6f}, kPi / 2, &portal);
+    }
     else place_hero(w, w.level.point("spawn"), kPi / 2);
 }
 
 // ---------------------------------------------------------------- the City of the Dead
-void populate_zone(World& w, const ZoneLayout& z, const ZoneDef& zd, int lvl) {
+void populate_zone(World& w, const ZoneLayout& z, const ZoneDef& zd, int lvl, const ChartMods* cm) {
     Rng& r = w.rng;
+    const size_t first = w.actors.size();
+    const float packs = cm ? 1.f + cm->pack_size / 100.f : 1.f, elites = cm ? cm->magic_packs / 100.f : 0.f;
     int total = 0;
     for (auto& e : zd.spawns) if (e.monster) total += e.weight;
     auto pick = [&]() {
@@ -128,14 +139,24 @@ void populate_zone(World& w, const ZoneLayout& z, const ZoneDef& zd, int lvl) {
             for (int i = 0; i < 5; i++) w.spawn_monster(pick(), at(ctr + jitter(3.f)), Rarity::Normal, lvl);
             continue;
         }
-        int n = r.irange(3, 5) + std::min(3, c.depth / 2);
-        for (int i = 0; i < n; i++) w.spawn_monster(pick(), at(ctr + jitter(2.f)), Rarity::Normal, lvl);
+        int n = int(std::round((r.irange(3, 5) + std::min(3, c.depth / 2)) * packs));
+        for (int i = 0; i < n; i++)
+            w.spawn_monster(pick(), at(ctr + jitter(2.f)), r.chance(elites * 0.12f) ? Rarity::Magic : Rarity::Normal, lvl);
         if (c.kind == ZoneCell::Branch) {
             Rarity rr = r.chance(0.55f) ? Rarity::Rare : Rarity::Magic;
             w.spawn_monster(elite, at(ctr), rr, lvl);
             if (rr == Rarity::Magic) w.spawn_monster(pick(), at(ctr + vec2{1, 1}), Rarity::Magic, lvl);
         }
+        if (cm && c.kind == ZoneCell::Normal && r.chance(elites * 0.3f)) w.spawn_monster(elite, at(ctr + jitter(1.f)), Rarity::Rare, lvl);
     }
+    if (cm)   // the chart's mods on every monster it brought
+        for (size_t i = first; i < w.actors.size(); i++) {
+            Actor& m = w.actors[i];
+            m.life_max *= 1.f + cm->monster_life / 100.f;
+            m.dmg_mult *= 1.f + cm->monster_damage / 100.f;
+            m.speed *= 1.f + cm->monster_speed / 100.f;
+        }
+    for (size_t i = first; i < w.actors.size(); i++) w.actors[i].life = w.actors[i].life_max;
 }
 
 static vec2 entrance_dir(const ZoneCell& e) {
@@ -160,12 +181,13 @@ void Areas::enter_zone(World& w, int def, Arrival how) {
         zone.layout = generate_zone(zone.seed, zd.w, zd.h, zd.branches);
         build_zone_level(zone.layout, zd.tileset, w.level);
         w.area_level = zone.level;
-        populate_zone(w, zone.layout, zd, zone.level);
+        w.in_chart = zd.act == 0;
+        populate_zone(w, zone.layout, zd, zone.level, w.in_chart ? &w.chart.mods : nullptr);
         zone.revealed.assign(zone.layout.cells.size(), 0);
-        // the waypoint at the entrance
+        // the waypoint at the entrance (a chart's site has none: the table sends you)
         const ZoneCell& e = zone.layout.cells[size_t(zone.layout.entrance)];
         vec2 wp = w.level.resolve(zone.layout.center(e) + vec2{2.2f, 0.5f}, 0.8f);
-        w.interacts.push_back({Interactable::Waypoint, wp, 1.7f, "Waypoint"});
+        if (zd.act > 0) w.interacts.push_back({Interactable::Waypoint, wp, 1.7f, "Waypoint"});
         if (zone.layout.landmark >= 0) {
             const ZoneCell& c = zone.layout.cells[size_t(zone.layout.landmark)];
             vec2 at = zone.layout.center(c);
@@ -203,13 +225,48 @@ void Areas::enter_zone(World& w, int def, Arrival how) {
         }
         w.loot = zone.loot;
         w.interacts = zone.interacts;
+        w.in_chart = zd.act == 0;
     }
-    w.hero.waypoints |= 1u << zone.def;
-    w.meet_codex("waypoints");
+    if (zone_def(zone.def).act > 0) {
+        w.hero.waypoints |= 1u << zone.def;
+        w.meet_codex("waypoints");
+    }
     if (zone_def(zone.def).trial) w.meet_codex("trial");
     const ZoneCell& e = zone.layout.cells[size_t(zone.layout.entrance)];
-    if (how == Arrival::Portal && zone.has_portal) place_hero(w, zone.portal + vec2{-1.2f, -1.0f}, kPi / 2);
+    if (how == Arrival::Portal && zone.has_portal) place_hero(w, zone.portal + vec2{-1.2f, -1.0f}, kPi / 2, &zone.portal);
     else place_hero(w, entrance_spot(zone.layout), angle_of(entrance_dir(e)));
+}
+
+void Areas::enter_chart(World& w, int site, const Item& chart) {
+    const Site& st = sites()[size_t(site)];
+    close_zone(w);
+    w.chart = ChartRun{};
+    w.chart.tier = st.tier;
+    w.chart.mods = chart_mods(chart);
+    w.chart.astro = w.hero.astro;
+    enter_zone(w, find_zone(st.zone), Arrival::Entrance);   // (a fresh instance: it closes the last one first)
+    w.chart_site = site;
+    // the Haboob, if the chart has one: it rises in the south of the site after a while
+    if (w.rng.chance(haboob_chance(w.chart))) arm_haboob(w);
+    w.meet_codex("charts");
+}
+
+void Areas::arm_haboob(World& w) {
+    Haboob& hb = w.haboob;
+    hb = Haboob{};
+    hb.armed = true;
+    float lo_x = 1e9f, hi_x = -1e9f, lo_y = 1e9f, hi_y = -1e9f;
+    for (auto& c : zone.layout.cells) {
+        vec2 p = zone.layout.center(c);
+        lo_x = std::min(lo_x, p.x - 8); hi_x = std::max(hi_x, p.x + 8);
+        lo_y = std::min(lo_y, p.y - 8); hi_y = std::max(hi_y, p.y + 8);
+    }
+    hb.x0 = lo_x; hb.x1 = hi_x; hb.y0 = lo_y; hb.y1 = hi_y;
+    hb.depth *= 1.f + astro_value(w.chart.astro, AX_HABOOB_WIDTH) / 100.f;
+    hb.front = lo_y;
+    hb.delay = w.rng.range(8.f, 20.f);
+    // it crosses the site in about two minutes, whatever its size
+    hb.speed = std::max(0.5f, (hi_y - lo_y + hb.depth) / 120.f);
 }
 
 void Areas::leave_zone(World& w) {
@@ -238,6 +295,8 @@ void Areas::close_zone(World& w) {
         w.recompute_hero();
     }
     zone = ZoneInstance{};
+    w.chart_site = -1;
+    w.haboob = Haboob{};
 }
 
 void Areas::cast_portal(World& w) {
@@ -376,6 +435,7 @@ static void street_static(World& w) {
 void Areas::enter_street(World& w) {
     current = AreaId::Street;
     clear_transient(w);
+    w.in_chart = false;
     street_static(w);
     w.area_level = 1;
     place_hero(w, {0, -9}, kPi / 2);

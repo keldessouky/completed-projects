@@ -528,6 +528,24 @@ void View::render_hud(World& w, const Input& in, const Areas& areas) {
     Ui& u = ui();
     const Actor& h = w.actors[0];
     const Hero& H = w.hero;
+    // the Haboob: where its front is, and what staying in it has earned
+    if (w.haboob.active) {
+        const Haboob& hb = w.haboob;
+        bool in = hb.inside(h.pos);
+        float x = 1880, y = 90;
+        u.frame(x - 300, y, 300, 64, pal::panel.alpha(0.85f), in ? Rgba::hex(0xC8A060) : pal::line, 10, 2);
+        u.text(x - 286, y + 6, in ? "IN THE HABOOB" : "HABOOB", 24, Rgba::hex(0xE0C080), Align::Left, 1.f);
+        char b[32];
+        snprintf(b, sizeof b, "%d", int(hb.meter));
+        u.text(x - 16, y + 6, b, 24, pal::bone, Align::Right, 1.f);
+        float k = clampf((hb.front - hb.y0) / std::max(1.f, hb.y1 - hb.y0 + hb.depth), 0.f, 1.f);   // its crossing
+        u.rect(x - 286, y + 42, 272, 8, pal::night.alpha(0.8f), 4);
+        u.rect(x - 286, y + 42, 272 * k, 8, Rgba::hex(0xC8A060), 4);
+        if (!in) {   // which way the storm is
+            float dy = h.pos.y > hb.front ? -1.f : 1.f;
+            u.text(x - 150, y + 66, dy < 0 ? "the storm is south of you" : "the storm is north of you", 20, pal::dim, Align::Center);
+        }
+    }
     // floating texts
     for (auto& t : w.texts) {
         vec2 p = to_ui(cam, t.pos);

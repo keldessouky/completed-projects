@@ -2,6 +2,8 @@
 
 namespace q {
 
+#define SITE_TINT(r, g, b) {r, g, b}
+
 // Append only: the character file stores which zones' waypoints you have, by index.
 const std::vector<ZoneDef>& zone_defs() {
     static const std::vector<ZoneDef> d = {
@@ -26,6 +28,43 @@ const std::vector<ZoneDef>& zone_defs() {
         {"mokattam", "The Mokattam Cliffs", "Above the city, the quarries howl", "mokattam", 1, 12, 4, 5, 3,
          "mus_mokattam", "amb_cliffs", {{"qutrub", 6}, {"ghoul", 5}, {"ghoul_spitter", 2}}, "qutrub",
          "qutrub_alpha", "The Qutrub of the Quarries is dead. Act I is over", "", "cache", "", false, -1, {0.9f, 0.95f, 1.1f}},
+        // Slice 5: the sites of the Map of al-Idrisi (act 0: the endgame; no waypoints; the chart sets the level)
+#define SITE(id, name, sub, tiles, tier, w, h, br, mus, amb, s1, w1, s2, w2, s3, w3, elite, boss, tint)                          \
+        {"site_" id, name, sub, tiles, 0, 13 + tier, w, h, br, mus, amb, {{s1, w1}, {s2, w2}, {s3, w3}}, elite, boss,       \
+         "The site's master falls. The chart is complete", "", "cache", "", false, -1, tint}
+        SITE("iskandariya", "al-Iskandariya", "The lighthouse city, where the sea wind never rests", "muizz", 1, 3, 5, 2, "mus_muizz",
+             "amb_street", "nasnas", 5, "ghoul", 5, "silah", 3, "nasnas", "nasnas_kabir", SITE_TINT(1.0f, 1.0f, 1.1f)),
+        SITE("dimyat", "Dimyat", "The river's mouth, and its chains across the water", "khan", 1, 4, 4, 2, "mus_khan", "amb_street",
+             "silah", 4, "cable_jinn", 5, "ghoul", 5, "silah", "silah_sadat", SITE_TINT(1.05f, 1.0f, 0.9f)),
+        SITE("tinnis", "Tinnis", "An island of weavers in the lake", "downtown", 1, 3, 4, 2, "mus_downtown", "amb_street",
+             "cable_jinn", 6, "dish_sentinel", 2, "ghoul", 5, "cable_jinn", "microbus_jinn", SITE_TINT(1.0f, 0.9f, 1.1f)),
+        SITE("qus", "Qus", "Where the pilgrims' road leaves the Nile", "necro", 1, 4, 5, 3, "mus_saba", "amb_necro",
+             "ghoul", 8, "ghoul_spitter", 3, "ghoul_bruiser", 2, "ghoul_bruiser", "umm_al_ghula", SITE_TINT(1.0f, 0.95f, 1.05f)),
+        SITE("aswan", "Aswan", "The first cataract, and the granite of the kings", "mokattam", 2, 4, 5, 2, "mus_mokattam", "amb_cliffs",
+             "qutrub", 5, "sand_jinn", 5, "ghoul", 3, "qutrub", "qutrub_alpha", SITE_TINT(1.1f, 0.95f, 0.85f)),
+        SITE("wahat", "al-Wahat", "The Oases, green islands in the sand sea", "mokattam", 2, 3, 6, 2, "mus_mokattam", "amb_cliffs",
+             "sand_jinn", 7, "nasnas", 4, "qutrub", 2, "sand_jinn", "ifrit_zuweila", SITE_TINT(1.15f, 1.0f, 0.8f)),
+        SITE("barqa", "Barqa", "Red earth, and the road west", "muizz", 2, 4, 4, 3, "mus_muizz", "amb_street",
+             "sand_jinn", 4, "nasnas", 5, "silah", 3, "nasnas", "nasnas_kabir", SITE_TINT(1.15f, 0.9f, 0.8f)),
+        SITE("tur", "al-Tur", "The harbour below the mountain of Sinai", "mokattam", 2, 3, 5, 2, "mus_mokattam", "amb_cliffs",
+             "qutrub", 5, "sand_jinn", 4, "silah", 3, "qutrub", "qutrub_alpha", SITE_TINT(1.0f, 0.95f, 0.95f)),
+        SITE("atrabulus", "Atrabulus", "Tripoli of the West, walls to the sea", "khan", 3, 4, 5, 3, "mus_khan", "amb_street",
+             "silah", 5, "cable_jinn", 4, "nasnas", 4, "silah", "silah_sadat", SITE_TINT(1.0f, 1.0f, 1.0f)),
+        SITE("qayrawan", "al-Qayrawan", "The caravan city, and its great cisterns", "muizz", 3, 4, 5, 3, "mus_muizz", "amb_street",
+             "sand_jinn", 5, "nasnas", 4, "ghoul_bruiser", 2, "sand_jinn", "ifrit_zuweila", SITE_TINT(1.1f, 0.95f, 0.85f)),
+        SITE("mahdiya", "al-Mahdiya", "A fortress on a finger of rock", "gate", 3, 2, 6, 2, "mus_trial", "amb_necro",
+             "ghoul", 4, "nasnas", 4, "cable_jinn", 4, "ghoul_bruiser", "ifrit_zuweila", SITE_TINT(1.1f, 0.85f, 0.8f)),
+        SITE("ayla", "Ayla", "The port at the head of the gulf", "downtown", 3, 4, 4, 3, "mus_downtown", "amb_street",
+             "cable_jinn", 5, "dish_sentinel", 3, "sand_jinn", 3, "cable_jinn", "microbus_jinn", SITE_TINT(1.0f, 0.95f, 1.0f)),
+        SITE("tunis", "Tunis", "The lake, the olive groves, the white houses", "khan", 4, 4, 5, 3, "mus_khan", "amb_street",
+             "nasnas", 5, "silah", 4, "ghoul", 4, "nasnas", "nasnas_kabir", SITE_TINT(1.0f, 1.0f, 1.05f)),
+        SITE("balarm", "Balarm", "King Roger's court, where the map was drawn", "muizz", 4, 4, 6, 3, "mus_muizz", "amb_street",
+             "silah", 5, "nasnas", 4, "qutrub", 3, "silah", "silah_sadat", SITE_TINT(1.0f, 0.95f, 1.1f)),
+        SITE("fas", "Fas", "A city of a thousand lanes", "necro", 4, 5, 5, 3, "mus_saba", "amb_necro",
+             "ghoul", 6, "ghoul_spitter", 3, "sand_jinn", 3, "ghoul_bruiser", "umm_al_ghula", SITE_TINT(1.05f, 0.95f, 1.0f)),
+        SITE("sabta", "Sabta", "The strait, and the edge of the known sea", "gate", 4, 3, 6, 2, "mus_trial", "amb_cliffs",
+             "qutrub", 5, "sand_jinn", 4, "nasnas", 3, "qutrub", "qutrub_alpha", SITE_TINT(0.95f, 0.95f, 1.1f)),
+#undef SITE
     };
     return d;
 }

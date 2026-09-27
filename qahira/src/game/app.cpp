@@ -10,6 +10,7 @@
 #include "game/assets.hpp"
 #include "game/world.hpp"
 #include "game/menu.hpp"
+#include "game/atlas_ui.hpp"
 #include "game/sky.hpp"
 #include "game/title.hpp"
 #include "game/view.hpp"
@@ -28,7 +29,7 @@ namespace q {
 
 namespace {
 
-enum class Travel : uint8_t { None, ZoneEntrance, ZonePortal, HubPortal, HubExit };
+enum class Travel : uint8_t { None, ZoneEntrance, ZonePortal, HubPortal, HubExit, Chart };
 
 // the waypoint list: the hub and every zone whose waypoint you have touched
 using Waypoints = WaypointList;
@@ -55,6 +56,10 @@ struct State {
     Travel travel = Travel::None;
     int travel_zone = -1;         // where a ZoneEntrance goes
     Waypoints wp;
+    MapScreen map;                // the Map of al-Idrisi, at the chart table
+    int chart_site = -1;          // where a Chart travel goes, and the chart it spends
+    Item chart_item;
+    float storm_k = 0;            // how deep in the Haboob the camera's fog is
     float fade_t = 0;             // > 0 fading out towards the travel, < 0 fading back in
     bool boss_music = false;
     bool persist = true;          // write the character file (off for bots)
@@ -159,6 +164,11 @@ void do_travel(Travel t) {
             A.close_zone(w);
             A.enter_hub(w, Arrival::Entrance);
             S->menu.restock(w);
+            save_character();
+            break;
+        case Travel::Chart:
+            A.enter_chart(w, S->chart_site, S->chart_item);
+            S->chart_item = Item{};
             save_character();
             break;
         default: return;
@@ -289,6 +299,25 @@ void boss_state(World& w) {
         S->boss_music = fighting;
         audio().music(fighting ? (zd->trial ? "mus_trial" : "mus_boss") : zd->music, fighting ? 0.6f : 0.5f, fighting ? 0.8f : 3.f);
     }
+    if (w.boss_killed && !S->areas.zone.cleared && zd->act == 0) {   // a chart's site is finished
+        S->areas.open_exit(w);
+        Hero& H = w.hero;
+        int site = w.chart_site;
+        bool fresh = site >= 0 && !(H.sites_done >> site & 1);
+        if (site >= 0) {
+            H.sites_done |= 1u << site;
+            uint32_t before = H.sites_revealed;
+            H.sites_revealed |= reveal_after(site);
+            int shown = __builtin_popcount(H.sites_revealed & ~before);
+            if (shown) w.notices.push_back("The map grows: " + std::to_string(shown) + (shown == 1 ? " new site" : " new sites"));
+        }
+        S->view.banner = std::string(site >= 0 ? sites()[size_t(site)].name : zd->name) + " is charted";
+        S->view.banner_sub = fresh ? "An Astrolabe point, and the road on is drawn" : "A portal home opens";
+        S->view.banner_t = 5.f;
+        if (fresh) w.meet_codex("astrolabe");
+        save_character();
+        return;
+    }
     if (w.boss_killed && !S->areas.zone.cleared) {
         S->areas.open_exit(w);
         uint32_t q = boss_quest(*zd), fresh = q & ~w.hero.quests;
@@ -303,7 +332,21 @@ void boss_state(World& w) {
         if (fresh & Q_TRIAL1) S->view.banner_sub = "The trial is passed: two ascendancy points. Your amulet is returned when you leave";
         for (auto& qd : quest_defs())
             if ((fresh & qd.bit) && qd.passive_points) S->view.banner_sub += "  \xC2\xB7  +1 passive star";
-        if (fresh & Q_ACT1) { S->view.banner = "Act I is over"; S->view.banner_sub = "Cairo holds, for now. The eclipse does not end."; }
+        if (fresh & Q_ACT1) {
+            S->view.banner = "Act I is over";
+            S->view.banner_sub = "Cairo holds, for now. The eclipse does not end. On the rooftop, al-Idrisi's map is waiting.";
+            // the endgame opens: the First Clime's sites, and four charts to start with
+            w.hero.sites_revealed |= starting_sites();
+            vec2 at = w.actors[0].pos;
+            for (int k = 0; k < 4; k++) {
+                GroundItem g;
+                g.item = make_chart(1, w.rng, 0.25f, 0.f);
+                g.pos = w.level.resolve(at + rotate(vec2{2.f, 0}, 0.5f + k * 1.5f), 0.3f);
+                g.id = w.next_id++;
+                w.loot.push_back(g);
+            }
+            w.notices.push_back("Four charts of the First Clime: run them at the table on the roof");
+        }
         S->view.banner_t = 5.f;
         save_character();
     }
@@ -376,6 +419,7 @@ bool app_init(const char* pack_path, Platform* plat) {
     if (const char* b = getenv("QAHIRA_BOT")) S->bot.start(b);
     S->bot.sky_ui = &S->sky;
     S->bot.wp_ui = &S->wp;
+    S->bot.map_ui = &S->map;
     S->bot.title_ui = &S->title;
     S->persist = S->bot.scenario.empty() || S->bot.uses_title();
     if (S->bot.uses_title() && S->plat) {   // the title bot keeps its characters apart from yours
@@ -387,6 +431,7 @@ bool app_init(const char* pack_path, Platform* plat) {
     // QAHIRA_CLASS picks a fresh character's class (the bots use it; players choose on the title screen)
     const char* cls = getenv("QAHIRA_CLASS");
     w.reset_hero(cls && *cls ? cls : S->bot.default_class());
+    S->bot.prepare(w);   // a bot that starts further on sets its character up before the rooftop is built
     bind_hero_model(w);
     if (S->persist) {   // players begin at the title screen and choose a character
         S->title.scan(save_dir());
@@ -431,6 +476,7 @@ void app_update(const Input& in_raw, float dt) {
     Menu& M = S->menu;
     S->bot.drive(w, M, A, in, S->frame);
     S->last_input = in;
+    S->storm_k = damp(S->storm_k, w.haboob.inside(w.actors[0].pos) ? 1.f : 0.f, 2.5f, dt);
     if (S->title.open) {
         Title& T = S->title;
         switch (T.update(in, dt)) {
@@ -505,8 +551,25 @@ void app_update(const Input& in_raw, float dt) {
             }
         }
     }
-    // the waypoint list pauses the world
+    // the waypoint list and the Map of al-Idrisi pause the world
     if (waypoints_update(w, in)) { S->view.follow(w, dt); return; }
+    if (S->map.open) {
+        w.events.clear();
+        S->map.update(w, in, dt);
+        presentation_events();
+        if (S->map.go_site >= 0) {   // a chart chosen: spend it and set out
+            Hero& H = w.hero;
+            if (S->map.go_chart >= 0 && S->map.go_chart < int(H.inv.items.size())) {
+                S->chart_item = H.inv.take(S->map.go_chart);
+                S->chart_site = S->map.go_site;
+                begin_travel(Travel::Chart);
+            }
+            S->map.go_site = S->map.go_chart = -1;
+        }
+        if (!S->map.open) save_character();
+        S->view.follow(w, dt);
+        return;
+    }
     // the menu pauses the world
     if (M.open) {
         w.events.clear();
@@ -557,6 +620,7 @@ void app_update(const Input& in_raw, float dt) {
                 if (const ZoneDef* zd = S->areas.def()) if (int n = find_zone(zd->next); n >= 0) w.hero.waypoints |= 1u << n;
                 M.show_bench(w); audio().play("craft", 0.5f, 0, 1); break;
             case Interactable::Vendor: M.show(w, true); audio().play("ui_select", 0.4f, 0, 1); break;
+            case Interactable::ChartTable: S->map.show(w); w.meet_codex("charts"); audio().play("portal", 0.4f, 0, 0.8f); break;
             case Interactable::Chest: A.open_chest(w, w.used_interact); break;
         }
     }
@@ -579,7 +643,24 @@ void app_render(GLuint fbo, int w, int h) {
         return;
     }
     Renderer& r = S->renderer;
-    r.begin(S->view.cam, S->view.env, S->world.time);
+    // the zone's mood, and the Haboob's sand when you are inside it
+    Environment env = S->view.env;
+    if (const ZoneDef* zd = S->areas.def()) {
+        vec3 t{zd->env_tint[0], zd->env_tint[1], zd->env_tint[2]};
+        env.fog = env.fog * t;
+        env.sky = env.sky * t;
+        env.ground = env.ground * t;
+    }
+    float k = S->storm_k;
+    if (k > 0.01f) {
+        env.fog = lerp(env.fog, hex_lin(0x6A5034) * 0.4f, k);
+        env.fog_start = lerpf(env.fog_start, 6.f, k);
+        env.fog_end = lerpf(env.fog_end, 20.f, k);
+        env.fog_max = lerpf(env.fog_max, 0.8f, k);
+        env.sky = lerp(env.sky, hex_lin(0xC09060) * 0.9f, k * 0.6f);
+        env.sun_color = env.sun_color * (1.f - 0.5f * k);
+    }
+    r.begin(S->view.cam, env, S->world.time);
     S->view.render_world(r, S->world);
     r.end(fbo, w, h, false);
     Ui& u = ui();
@@ -589,13 +670,15 @@ void app_render(GLuint fbo, int w, int h) {
     S->menu.render(S->world);
     waypoints_render();
     S->sky.render(S->world);
+    S->map.render(S->world);
     u.end(fbo, w, h);
 }
 
 void app_audio(int16_t* stereo, int frames) { audio().mix(stereo, frames); }
 
 // ---- save states
-static const uint32_t kStateVersion = 7;  // 5: passives, Hirz, keystone state; 6: Talismans, ailments, glyphs; 7: Act I
+static const uint32_t kStateVersion = 8;  // 5: passives, Hirz, keystone state; 6: Talismans, ailments, glyphs; 7: Act I;
+                                          // 8: chart runs and the Haboob
 
 static ByteWriter save_state() {
     ByteWriter w;

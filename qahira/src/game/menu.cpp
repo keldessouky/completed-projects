@@ -116,6 +116,17 @@ void draw_item_icon(float x, float y, float w, float h, const Item& it, float al
             u.ring(cx, cy + s * 0.04f, s * 0.26f, s * 0.17f, c);
             u.disc(cx, cy - s * 0.2f, s * 0.08f, d);
             break;
+        case Slot::Chart: {   // a rolled chart, tied, with a compass rose on its face
+            Rgba parch = Rgba::hex(0xD8C090).alpha(alpha);
+            u.rect(cx - s * 0.34f, cy - s * 0.22f, s * 0.68f, s * 0.44f, parch, s * 0.06f);
+            u.disc(cx - s * 0.34f, cy, s * 0.22f, parch.mix(pal::night, 0.2f));
+            u.disc(cx + s * 0.34f, cy, s * 0.22f, parch.mix(pal::night, 0.2f));
+            u.line(cx, cy - s * 0.16f, cx, cy + s * 0.16f, s * 0.04f, c);
+            u.line(cx - s * 0.16f, cy, cx + s * 0.16f, cy, s * 0.04f, c);
+            u.ring(cx, cy, s * 0.1f, s * 0.06f, c);
+            u.rect(cx + s * 0.12f, cy - s * 0.24f, s * 0.05f, s * 0.48f, d, 2);
+            break;
+        }
         default: break;
     }
 }
@@ -358,6 +369,7 @@ void Menu::act_south(World& w) {
             held = purse;
             say(std::string(currency_def(purse).name) + ": choose an item");
             return;
+        case Region::Bench: return;   // bench_south handled it
         case Region::Stock: {
             int i = hovered_stock();
             if (i < 0) return;

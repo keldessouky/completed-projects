@@ -21,11 +21,13 @@ const std::vector<MonsterDef>& monster_defs() {
             {"silah", "Si'lah", "silah", 1.0f, {1, 1, 1}, 52, 4.6f, 0.45f, AttackKind::Leap, 6.5f, 3.0f, 8, 13, DT_PHYS, 10, 18, 0},
             {"nasnas", "Nasnas", "nasnas", 1.0f, {1, 1, 1}, 34, 5.2f, 0.4f, AttackKind::Claw, 1.4f, 1.0f, 4, 9, DT_PHYS, 5, 12, 0},
             {"qutrub", "Qutrub", "qutrub", 1.05f, {1, 1, 1}, 70, 5.0f, 0.5f, AttackKind::Leap, 7.0f, 2.8f, 10, 16, DT_PHYS, 20, 24, 0},
-            {"microbus_jinn", "The Iron Microbus", "microbus", 1.0f, {1, 1, 1}, 520, 3.2f, 1.3f, AttackKind::Boss, 3.0f, 1.5f, 12, 18, DT_PHYS, 120, 300, 0},
+            {"microbus_jinn", "The Iron Microbus", "microbus", 1.0f, {1, 1, 1}, 400, 3.2f, 1.3f, AttackKind::Boss, 3.0f, 1.5f, 9, 14, DT_PHYS, 120, 300, 0},
             {"silah_sadat", "The Si'lah of Sadat Station", "silah", 1.45f, {0.8f, 0.9f, 1.1f}, 620, 4.4f, 0.8f, AttackKind::Boss, 2.8f, 1.3f, 10, 16, DT_PHYS, 60, 360, 0},
             {"nasnas_kabir", "al-Nasnas al-Kabir", "nasnas", 1.7f, {0.9f, 0.8f, 0.8f}, 700, 4.6f, 0.9f, AttackKind::Boss, 3.0f, 1.2f, 12, 18, DT_PHYS, 80, 400, 0},
             {"ifrit_zuweila", "The Ifrit of Bab Zuweila", "ifrit", 1.0f, {1, 1, 1}, 680, 3.6f, 1.0f, AttackKind::Boss, 3.4f, 1.4f, 11, 16, DT_FIRE, 100, 500, 0},
             {"qutrub_alpha", "The Qutrub of the Quarries", "qutrub", 1.55f, {0.85f, 0.8f, 0.75f}, 980, 5.0f, 0.9f, AttackKind::Boss, 3.2f, 1.1f, 15, 22, DT_PHYS, 90, 600, 0},
+            // Slice 5: the Haboob's own
+            {"sand_jinn", "Sand Jinn", "sand", 1.0f, {1, 1, 1}, 42, 5.0f, 0.45f, AttackKind::Claw, 1.6f, 1.2f, 6, 11, DT_PHYS, 10, 16, 0},
         };
         auto set = [&](const char* id, bool rigid, const char* fam, const char* voice = "ghoul") {
             for (auto& m : v) if (std::string(m.id) == id) { m.rigid = rigid; m.family = fam; m.voice = voice; }
@@ -44,12 +46,14 @@ const std::vector<MonsterDef>& monster_defs() {
         set("qutrub", false, "Qutrub, the grave wolves", "howl");
         set("qutrub_alpha", false, "Qutrub, the grave wolves", "howl");
         set("ifrit_zuweila", false, "Ifrit, the fire jinn", "fire");
+        set("sand_jinn", false, "Sand jinn of the Haboob", "whisper");
         codex("Ghouls", "ghouls");
         codex("Possessed", "possessed");
         codex("Si'lah", "silah");
         codex("Nasnas", "nasnas");
         codex("Qutrub", "qutrub");
         codex("Ifrit", "ifrit");
+        codex("Sand jinn", "sand_jinn");
         return v;
     }();
     return d;
@@ -331,6 +335,7 @@ void World::step(const Input& in, float dt) {
     hero_step(in, dt);
     for (size_t i = 1; i < actors.size(); i++) monster_step(actors[i], dt);
     separate();
+    if (in_chart) haboob_step(dt);
     // projectiles: the monsters' bile and the hero's bolts
     Actor& h = actors[0];
     for (auto& p : projectiles) {
@@ -514,6 +519,81 @@ void World::drop_currency(vec2 at, int c, int amount) {
     g.pos = level.resolve(at, 0.3f);
     g.id = next_id++;
     loot.push_back(g);
+}
+
+// ---- the Haboob
+void World::haboob_step(float dt) {
+    Haboob& hb = haboob;
+    if (!hb.armed || hb.passed) return;
+    Actor& h = actors[0];
+    if (!hb.active) {
+        if ((hb.delay -= dt) > 0) return;
+        hb.active = true;
+        hb.front = hb.y0;
+        meet_codex("haboob");
+        notices.push_back("A HABOOB rises in the south: stay in the storm");
+        emit(Ev::BossWail, h.pos, 0.5f);
+    }
+    hb.front += hb.speed * dt;
+    // the wall itself: sand thrown up along the front, near the hero
+    for (int k = 0; k < 6; k++) {
+        float x = h.pos.x + fx_rng.range(-16.f, 16.f);
+        if (x < hb.x0 || x > hb.x1) continue;
+        float y = hb.front - fx_rng.range(0.f, 2.5f);
+        Particle q{vec3(x, y, fx_rng.range(0.2f, 5.f)), vec3(fx_rng.range(-1.f, 1.f), fx_rng.range(0.5f, 2.f), fx_rng.range(-0.3f, 0.6f)),
+                   1.6f, 1.6f, fx_rng.range(0.4f, 0.9f), fx_rng.range(0.9f, 1.6f), 0, 0.2f, vec4(0.72f, 0.58f, 0.38f, 0.28f),
+                   vec4(0.6f, 0.48f, 0.3f, 0), 1, false};
+        particles.push_back(q);
+    }
+    if (hb.inside(h.pos) && h.alive()) {
+        hb.meter += dt;
+        for (int k = 0; k < 2; k++) {   // blowing sand all round you
+            vec3 p = vec3(h.pos + vec2{fx_rng.range(-9.f, 9.f), fx_rng.range(-7.f, 7.f)}, fx_rng.range(0.2f, 3.f));
+            Particle q{p, vec3(fx_rng.range(2.f, 4.f), fx_rng.range(1.f, 2.f), 0), 0.9f, 0.9f, 0.06f, 0.14f, 0, 0.05f,
+                       vec4(0.8f, 0.66f, 0.45f, 0.5f), vec4(0.7f, 0.56f, 0.36f, 0), 0, false};
+            particles.push_back(q);
+        }
+        if ((hb.spawn_t -= dt) <= 0) {   // the sand jinn ride in with it
+            hb.spawn_t = rng.range(6.f, 9.f);
+            int n = rng.irange(2, 4);
+            int def = find_monster("sand_jinn");
+            // out of the storm's murk, somewhere in sight of you (never inside a wall's pocket)
+            vec2 from = h.pos;
+            for (int t = 0; t < 12; t++) {
+                vec2 c = level.resolve(h.pos + rotate(vec2{rng.range(5.f, 9.f), 0}, rng.range(0.f, kTau)), 0.6f);
+                if (level.line_clear(h.pos, c, 0.6f)) { from = c; break; }
+            }
+            for (int i = 0; i < n; i++) {
+                vec2 at = level.resolve(from + vec2{rng.range(-1.2f, 1.2f), rng.range(-1.2f, 1.2f)}, 0.5f);
+                if (!level.line_clear(from, at, 0.5f)) at = from;
+                Actor& m = spawn_monster(def, at,
+                                         i == 0 && rng.chance(0.25f) ? Rarity::Magic : Rarity::Normal, area_level);
+                m.ai_state = 1;   // already hunting
+                burst(vec3(m.pos, 0.8f), 16, vec4(0.8f, 0.66f, 0.42f, 0.8f), vec4(0.6f, 0.5f, 0.3f, 0), 2.f, 0.3f, 0.8f, false, 1.f, 1);
+            }
+        }
+    }
+    if (hb.front - hb.depth > hb.y1) { hb.active = false; hb.passed = true; haboob_reward(); }
+}
+
+void World::haboob_reward() {
+    Haboob& hb = haboob;
+    Actor& h = actors[0];
+    int currency = 1 + int(hb.meter / 14.f) + int(astro_value(chart.astro, AX_HABOOB_REWARD));
+    vec2 at = level.resolve(h.pos + vec2{0, 1.5f}, 0.4f);
+    for (int i = 0; i < currency; i++) drop_currency(at + rotate(vec2{1.4f, 0}, i * 0.9f), roll_currency(rng, area_level), 1);
+    drop_gold(at, int(20 + hb.meter * 3.f));
+    if (rng.chance(std::min(0.9f, hb.meter / 90.f))) {   // a long stay can leave a chart behind
+        GroundItem g;
+        g.item = make_chart(roll_chart_tier(chart, rng), rng);
+        g.pos = level.resolve(at + vec2{-1.5f, 0.5f}, 0.3f);
+        g.id = next_id++;
+        loot.push_back(g);
+    }
+    char b[96];
+    snprintf(b, sizeof b, "The Haboob passes (%d), and leaves %d currency behind", int(hb.meter), currency);
+    notices.push_back(b);
+    emit(Ev::Pickup, at, 2.f);
 }
 
 void World::gain_endurance(int n) {
@@ -1059,6 +1139,9 @@ void World::kill(Actor& e) {
     const MonsterDef& d = monster_defs()[size_t(e.def)];
     float xp = d.xp * (e.rarity == Rarity::Rare ? 6.f : e.rarity == Rarity::Magic ? 2.f : 1.f);
     xp *= 1.f + 0.3f * float(area_level - 1);                  // deeper areas are worth more
+    if (in_chart) xp *= 1.f + astro_value(chart.astro, AX_XP) / 100.f;
+    if (haboob.inside(e.pos)) haboob.meter += (e.rarity >= Rarity::Rare ? 5.f : e.rarity == Rarity::Magic ? 2.5f : 1.5f) *
+                                              (1.f + astro_value(chart.astro, AX_HABOOB_METER) / 100.f);
     if (int over = hero.level - area_level - 2; over > 0)      // and little once you have outgrown them
         xp *= std::max(0.15f, 1.f - 0.2f * float(over));
     if (d.attack == AttackKind::Boss) {
@@ -1100,6 +1183,14 @@ void World::drop_loot(const Actor& e) {
         drop_gold(e.pos + vec2{0, -1.8f}, 60 + 12 * area_level);
         drop_special(e.pos + vec2{1.6f, -1.2f}, GroundItem::Wafq, rng.irange(0, WQ_COUNT - 1));
         drop_special(e.pos + vec2{-1.6f, -1.2f}, GroundItem::Blank, std::min(20, area_level + 1));
+        if (in_chart)   // a site's master always carries charts
+            for (int k = 0, n = boss_chart_drops(chart, rng); k < n; k++) {
+                GroundItem g;
+                g.item = make_chart(roll_chart_tier(chart, rng), rng, 0.4f, 0.12f);
+                g.pos = level.resolve(e.pos + rotate(vec2{2.8f, 0}, 0.3f + k * 0.8f), 0.3f);
+                g.id = next_id++;
+                loot.push_back(g);
+            }
         if (int u = random_unique(area_level + 2, rng); u >= 0) drop_special(e.pos + vec2{0, 1.8f}, GroundItem::Scrap, u);
         if (rng.chance(0.08f)) if (int u = random_unique(area_level + 2, rng); u >= 0) {
             GroundItem g;
@@ -1110,8 +1201,20 @@ void World::drop_loot(const Actor& e) {
         }
         return;
     }
+    // charts drop inside charts (and, rarely, in the act's last reaches)
+    if (in_chart && rng.chance(chart_drop_chance(chart, e.rarity))) {
+        GroundItem g;
+        float mc = 0.3f * (1.f + astro_value(chart.astro, AX_MAGIC_CHARTS) / 100.f);
+        g.item = make_chart(roll_chart_tier(chart, rng), rng, mc, 0.08f * (1.f + astro_value(chart.astro, AX_MAGIC_CHARTS) / 100.f));
+        g.pos = level.resolve(scatter(0.9f), 0.3f);
+        g.id = next_id++;
+        loot.push_back(g);
+    }
+    const float qty = in_chart ? 1.f + (chart.mods.quantity + astro_value(chart.astro, AX_QUANTITY)) / 100.f : 1.f;
+    const float rar = in_chart ? 1.f + (chart.mods.rarity + astro_value(chart.astro, AX_RARITY)) / 100.f : 1.f;
     // Poster Scraps, and now and then a unique itself
-    float sc = e.rarity == Rarity::Rare ? 0.05f : e.rarity == Rarity::Magic ? 0.012f : 0.0015f;
+    float sc = (e.rarity == Rarity::Rare ? 0.05f : e.rarity == Rarity::Magic ? 0.012f : 0.0015f) *
+               (in_chart ? 1.f + astro_value(chart.astro, AX_SCRAPS) / 100.f : 1.f);
     if (rng.chance(sc)) if (int u = random_unique(area_level, rng); u >= 0) drop_special(scatter(0.9f), GroundItem::Scrap, u);
     float un = e.rarity == Rarity::Rare ? 0.006f : e.rarity == Rarity::Magic ? 0.001f : 0.0002f;
     if (rng.chance(un)) if (int u = random_unique(area_level, rng); u >= 0) {
@@ -1127,12 +1230,16 @@ void World::drop_loot(const Actor& e) {
     float bl = e.rarity == Rarity::Rare ? 0.35f : e.rarity == Rarity::Magic ? 0.07f : 0.012f;
     if (rng.chance(bl)) drop_special(scatter(0.9f), GroundItem::Blank, std::clamp(area_level + rng.irange(-1, 1), 1, 20));
     // currency and dinars
-    float cur_chance = e.rarity == Rarity::Rare ? 0.9f : e.rarity == Rarity::Magic ? 0.25f : 0.045f;
+    float cur_chance = (e.rarity == Rarity::Rare ? 0.9f : e.rarity == Rarity::Magic ? 0.25f : 0.045f) * qty *
+                       (in_chart ? 1.f + astro_value(chart.astro, AX_CURRENCY) / 100.f : 1.f);
     if (rng.chance(cur_chance)) drop_currency(scatter(0.8f), roll_currency(rng, area_level), 1);
     float gold_chance = e.rarity == Rarity::Normal ? 0.22f : 1.f;
     if (rng.chance(gold_chance)) drop_gold(scatter(0.8f), int(rng.irange(2, 5) * (1 + area_level * 0.5f) * (e.rarity == Rarity::Rare ? 5 : 1)));
     if (e.rarity == Rarity::Rare) { chance = 1.f; rare = 1.f; }
     else if (e.rarity == Rarity::Magic) { chance = 0.35f; rare = 0.15f; magic = 0.6f; }
+    chance = std::min(1.f, chance * qty);
+    rare = std::min(1.f, rare * rar);
+    magic = std::min(1.f - rare, magic * rar);
     if (!rng.chance(chance)) return;
     GroundItem g;
     // early on, a third of drops are weapons: the maul is the build
@@ -1149,7 +1256,11 @@ void World::damage_hero(float lo, float hi, int type, vec2 from, float break_amt
     HitDamage hd;
     hd.min[size_t(type)] = lo;
     hd.max[size_t(type)] = hi;
-    Defences def = defences_of(hero.stats);
+    if (in_chart && attacker && chart.mods.extra_fire > 0) {   // a Burning chart: their hits carry fire too
+        hd.min[DT_FIRE] += lo * chart.mods.extra_fire / 100.f;
+        hd.max[DT_FIRE] += hi * chart.mods.extra_fire / 100.f;
+    }
+    Defences def = defences_of(hero.stats, in_chart ? -chart.mods.hero_res : 0.f);
     const int ec = hero.endurance;
     for (int t : {DT_FIRE, DT_COLD, DT_LIGHTNING}) def.res[size_t(t)] += 4.f * ec;   // Endurance Charges
     HitResult r = roll_hit(hd, def, rng);
@@ -1161,6 +1272,7 @@ void World::damage_hero(float lo, float hi, int type, vec2 from, float break_amt
     float taken = 0;
     for (float v : r.by_type) taken += v;
     if ((hero.keystones & KS_UNSHAKEN) && ec >= endurance_max()) taken *= 0.85f;   // Unshaken
+    if (haboob.inside(h.pos)) taken *= std::max(0.5f, 1.f - astro_value(chart.astro, AX_STORM_GUARD) / 100.f);
     r.total = taken;
     float soak = std::min(hero.es, taken);                     // Hirz takes the hit first
     hero.es -= soak;

@@ -6,9 +6,12 @@
 //          the cache -> the Iron Microbus (with a save state mid-fight) -> home -> vendor, then a character file round trip
 //   act1   Slice 4's exit: a fresh character plays Act I through, Downtown to the Mokattam cliffs, the Bab Zuweila
 //          trial and the bench included, spending its stars and ascendancy points and wearing what it finds
+//   charts Slice 5's exit: a level-14 character, as Act I leaves one, runs charts at the Map of al-Idrisi (through the
+//          map screen) until it has finished a site of the Fourth Clime, spending Astrolabe points on the way
 //   tour   not a test: a scripted visit of every screen for screenshots (it gives itself gear)
 #pragma once
 #include "game/areas.hpp"
+#include "game/atlas_ui.hpp"
 #include "game/menu.hpp"
 #include "game/sky.hpp"
 #include "game/title.hpp"
@@ -29,11 +32,13 @@ struct Bot {
     Sky* sky_ui = nullptr;       // the app's tree screen
     Title* title_ui = nullptr;   // and its title screen
     WaypointList* wp_ui = nullptr;
+    MapScreen* map_ui = nullptr;
     std::string save_dir;
     void start(const char* s);
     bool uses_title() const { return scenario == "title"; }
     const char* default_class() const { return scenario == "sorcerer" || scenario == "sky" || scenario == "tour3" ? "sorcerer" : "warrior"; }
     void drive(World& w, Menu& m, Areas& a, Input& in, uint64_t frame);
+    void prepare(World& w);   // before the first area: a character further on, for the scenarios that need one
 
 private:
     // zone scenario
@@ -48,6 +53,8 @@ private:
     vec2 path_goal_;
     uint64_t path_frame_ = 0, now_ = 0;
     size_t path_i_ = 0;
+    vec2 unstick_pos_;
+    uint64_t unstick_frame_ = 0;
 
     void press(Input& in, Btn b) { in.down |= 1u << b; in.pressed |= 1u << b; }
     void pass(const std::string& m) { status = 1; message = m; }
@@ -63,6 +70,13 @@ private:
     void tour4(World& w, Menu& m, Areas& a, Input& in, uint64_t frame);
     void act1(World& w, Menu& m, Areas& a, Input& in, uint64_t frame);
     void tour5(World& w, Areas& a, Input& in, uint64_t frame);
+    void charts(World& w, Menu& m, Areas& a, Input& in, uint64_t frame);
+    void tour6(World& w, Areas& a, Input& in, uint64_t frame);
+    // charts scenario
+    int chart_runs_ = 0, chart_target_ = -1, map_presses_ = 0, best_tier_done_ = 0, haboobs_seen_ = 0;
+    uint32_t run_seed_ = 0;
+    uint64_t run_frame_ = 0;
+    const char* branch_ = "";
     // act1 scenario
     uint32_t act_seed_ = 0;
     std::vector<uint8_t> visited_;
@@ -86,9 +100,11 @@ private:
     bool menu_nav(const World& w, const Menu& m, Input& in, uint64_t frame, Region r, int x, int y);
     void steer(World& w, Input& in, vec2 target);
     void chase(World& w, Input& in, const Actor& e);
-    std::vector<uint32_t> ignored_;
+    std::vector<uint32_t> ignored_, ignored_loot_;
+    uint32_t loot_seed_ = 0;
+    uint64_t loot_frame_ = 0;
     uint32_t chase_id_ = 0;
-    vec2 chase_pos_;
+    float chase_best_ = 0;
     uint64_t chase_frame_ = 0;
     bool unreachable(uint32_t id) const { for (uint32_t i : ignored_) if (i == id) return true; return false; }
     bool go_to_interact(World& w, Input& in, uint64_t frame, Interactable::Kind k);

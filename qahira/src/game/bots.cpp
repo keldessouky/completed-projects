@@ -14,6 +14,7 @@ void Bot::start(const char* s) { scenario = s ? s : ""; }
 void Bot::drive(World& w, Menu& m, Areas& a, Input& in, uint64_t frame) {
     if (scenario.empty() || status != 0) return;
     now_ = frame;
+    if (frame % 1200 == 0) { ignored_.clear(); ignored_loot_.clear(); }   // what was out of reach may not be any more
     if (scenario == "walk") walk(w, in, frame);
     else if (scenario == "fight") fight(w, m, in, frame);
     else if (scenario == "zone" || scenario == "sorcerer") zone(w, m, a, in, frame);
@@ -25,6 +26,8 @@ void Bot::drive(World& w, Menu& m, Areas& a, Input& in, uint64_t frame) {
     else if (scenario == "tour4") tour4(w, m, a, in, frame);
     else if (scenario == "act1") act1(w, m, a, in, frame);
     else if (scenario == "tour5") tour5(w, a, in, frame);
+    else if (scenario == "charts") charts(w, m, a, in, frame);
+    else if (scenario == "tour6") tour6(w, a, in, frame);
     else fail("unknown bot " + scenario);
 }
 
@@ -47,8 +50,10 @@ static bool state_round_trip(World& w) {
 // the nav grid cannot get round), and the pilots leave it be.
 void Bot::chase(World& w, Input& in, const Actor& e) {
     const Actor& h = w.actors[0];
-    if (e.id != chase_id_ || length(h.pos - chase_pos_) > 0.5f) { chase_id_ = e.id; chase_pos_ = h.pos; chase_frame_ = now_; }
-    else if (now_ - chase_frame_ > 180) { ignored_.push_back(e.id); chase_id_ = 0; return; }
+    float d = length(e.pos - h.pos);
+    // progress is getting closer: pacing back and forth on the far side of a wall is not
+    if (e.id != chase_id_ || d < chase_best_ - 0.5f) { chase_id_ = e.id; chase_best_ = d; chase_frame_ = now_; }
+    else if (now_ - chase_frame_ > 240 && !w.level.line_clear(h.pos, e.pos, 0.3f)) { ignored_.push_back(e.id); chase_id_ = 0; return; }
     steer(w, in, e.pos);
 }
 
@@ -83,6 +88,16 @@ static bool in_danger(const GroundFx& g, const Actor& h, vec2& out, float& dist)
 void Bot::steer(World& w, Input& in, vec2 target) {
     const Actor& h = w.actors[0];
     if (length(target - h.pos) < 0.4f) return;
+    // wedged on a corner the nav grid cuts tighter than the colliders allow: sidestep, then find the way again
+    if (length(h.pos - unstick_pos_) > 0.3f || now_ - unstick_frame_ > 600) { unstick_pos_ = h.pos; unstick_frame_ = now_; }
+    else if (now_ - unstick_frame_ > 45) {
+        vec2 d = normalize(target - h.pos);
+        float side = (now_ / 90) % 2 ? 1.f : -1.f;
+        in.lstick = normalize(vec2{-d.y, d.x} * side - d * 0.3f);
+        path_.clear();
+        if (now_ - unstick_frame_ > 75) { unstick_pos_ = h.pos; unstick_frame_ = now_; }
+        return;
+    }
     if (w.level.line_clear(h.pos, target, h.radius)) {
         in.lstick = normalize(target - h.pos);
         path_.clear();
@@ -126,7 +141,7 @@ bool Bot::caster_combat(World& w, Input& in, uint64_t frame, float reach) {
     int near_me = 0;
     for (size_t i = 1; i < w.actors.size(); i++) {
         const Actor& e = w.actors[i];
-        if (!e.alive() || unreachable(e.id)) continue;
+        if (!e.alive() || (unreachable(e.id) && length(e.pos - h.pos) > 3.f)) continue;
         float d = length(e.pos - h.pos) - (e.rarity == Rarity::Unique ? 1.0f : 0.f);
         if (d < 3.2f) near_me++;
         float score = d - (e.rarity >= Rarity::Rare ? 2.f : 0.f);
@@ -190,7 +205,7 @@ bool Bot::combat(World& w, Input& in, uint64_t frame, float reach) {
     int near = 0;
     for (size_t i = 1; i < w.actors.size(); i++) {
         const Actor& e = w.actors[i];
-        if (!e.alive() || unreachable(e.id)) continue;
+        if (!e.alive() || (unreachable(e.id) && length(e.pos - h.pos) > 3.f)) continue;
         float d = length(e.pos - h.pos) - (e.rarity == Rarity::Unique ? 1.5f : 0.f);
         if (d < 3.8f) near++;
         if (d < best) { best = d; target = &e; }
@@ -245,6 +260,7 @@ bool Bot::menu_nav(const World& w, const Menu& m, Input& in, uint64_t frame, Reg
         case Region::Purse: b = r == Region::Purse ? (m.purse < x ? BTN_RIGHT : BTN_LEFT) : BTN_UP; break;
         case Region::Stock: b = r == Region::Stock ? grid_dir() : BTN_RIGHT; break;
         case Region::Grid: b = r == Region::Grid ? grid_dir() : r == Region::Stock ? BTN_LEFT : BTN_DOWN; break;
+        case Region::Bench: b = BTN_RIGHT; break;   // out of the recipe list, into your belongings
     }
     if (b != BTN_COUNT) press(in, b);
     return false;
@@ -305,12 +321,18 @@ bool Bot::loot_and_equip(World& w, Menu& m, Input& in, uint64_t frame) {
     for (size_t i = 0; i < w.loot.size(); i++) {
         const GroundItem& g = w.loot[i];
         if (g.kind != GroundItem::Gear || !w.loot_visible(g)) continue;
+        if (std::find(ignored_loot_.begin(), ignored_loot_.end(), g.item.seed) != ignored_loot_.end()) continue;
         int x, y;
         if (!H.inv.find_space(g.item, x, y)) continue;
         int slot = equip_slot_for(g.item, H.equip);
         bool better = g.item.b().slot == Slot::Weapon && w.hero_dps(g.item) > w.hero_dps(H.weapon()) + 0.5f;
         bool fills = slot > EQ_WEAPON && H.equip[slot].empty();
-        if (scenario == "act1") {   // the long run keeps its bags for upgrades only
+        if (g.item.b().slot == Slot::Chart) {   // charts are the endgame's currency: always worth the space
+            float d = length(g.pos - h.pos);
+            if (d < bd) { bd = d; best = int(i); best_equip = false; }
+            continue;
+        }
+        if (scenario == "act1" || scenario == "charts") {   // the long runs keep their bags for upgrades only
             if (slot < 0 || slot == H.sealed_slot) continue;
             better = better || (slot > EQ_WEAPON && upgrade(w, g.item));
             if (!better && !fills) continue;
@@ -320,9 +342,20 @@ bool Bot::loot_and_equip(World& w, Menu& m, Input& in, uint64_t frame) {
         if (d < bd) { bd = d; best = int(i); best_equip = better || fills; }
     }
     if (best < 0) return false;
+    // a drop we cannot get to (a nook the hero does not fit, another drop always nearer): leave it after four seconds
+    if (w.loot[size_t(best)].item.seed != loot_seed_) { loot_seed_ = w.loot[size_t(best)].item.seed; loot_frame_ = frame; }
+    else if (frame - loot_frame_ > 240) { ignored_loot_.push_back(loot_seed_); loot_seed_ = 0; return false; }
     if (best_equip) { equip_target = w.loot[size_t(best)].item.seed; return true; }
     if (w.selected_loot == best) { if (frame % 6 == 0) press(in, BTN_LEFT); }
-    else steer(w, in, w.loot[size_t(best)].pos);
+    else {
+        // another drop on top of it is the one the field selects: step past, to the wanted one's far side
+        vec2 p = w.loot[size_t(best)].pos;
+        if (w.selected_loot >= 0 && length(w.loot[size_t(w.selected_loot)].pos - p) < 1.2f) {
+            vec2 away = p - w.loot[size_t(w.selected_loot)].pos;
+            p += (length(away) > 0.01f ? normalize(away) : vec2{0, 1}) * 0.7f;
+        }
+        steer(w, in, p);
+    }
     return true;
 }
 
@@ -482,12 +515,13 @@ void Bot::zone(World& w, Menu& m, Areas& a, Input& in, uint64_t frame) {
             if (frame == stage_frame + 30 || frame == stage_frame + 150) { press(in, BTN_DOWN); break; }
             const Actor* boss = nullptr;
             for (size_t i = 1; i < w.actors.size(); i++) if (w.actors[i].rarity == Rarity::Unique && w.actors[i].alive()) boss = &w.actors[i];
-            if (boss && boss->phase == 1 && !boss_state_ok && boss->act != Act::Skill) {
+            if (boss && boss->ai_state > 0 && boss->life < boss->life_max * 0.97f && !boss_state_ok && boss->act != Act::Skill) {
                 float life = boss->life;
+                int phase = boss->phase;
                 if (!state_round_trip(w)) { fail("save state in the middle of the boss failed"); return; }
                 const Actor* b2 = nullptr;
                 for (size_t i = 1; i < w.actors.size(); i++) if (w.actors[i].rarity == Rarity::Unique) b2 = &w.actors[i];
-                if (!b2 || b2->life != life || b2->phase != 1) { fail("the boss did not survive the save state"); return; }
+                if (!b2 || b2->life != life || b2->phase != phase) { fail("the boss did not survive the save state"); return; }
                 boss_state_ok = true;
                 fprintf(stderr, "bot: save state mid-boss ok (boss life %.0f / %.0f)\n", life, boss->life_max);
             }
@@ -1071,6 +1105,211 @@ void Bot::tour5(World& w, Areas& a, Input& in, uint64_t frame) {
             if (w.actors[i].rarity != Rarity::Unique && length(w.actors[i].pos - h.pos) < 14.f) w.actors[i].life = 0, w.actors[i].act = Act::Dead, w.actors[i].dead_t = 3;
     }
     if (t > 120) combat(w, in, frame, 30.f);
+}
+
+// ---------------------------------------------------------------- charts: the endgame loop, from where Act I ends
+void Bot::prepare(World& w) {
+    if (scenario != "charts" && scenario != "tour6") return;
+    Hero& H = w.hero;
+    Rng r(1404);
+    H.level = 14;
+    H.quests = Q_MICROBUS | Q_SILAH | Q_NASNAS | Q_TRIAL1 | Q_GHULA | Q_QUTRUB | Q_BENCH | Q_ACT1;
+    H.recipes = kStarterRecipes;
+    H.sites_revealed = starting_sites();
+    for (int k = 0; k < 4; k++) H.inv.add(make_chart(1, r, 0.25f, 0.f));
+    // what a player carries out of Act I: level-appropriate rares in every slot
+    const bool caster = H.passives.cls == "sorcerer";
+    auto best = [&](Slot slot, bool es, int wk) {
+        int b = -1;
+        for (size_t i = 0; i < item_bases().size(); i++) {
+            const ItemBase& ib = item_bases()[i];
+            if (ib.slot != slot || ib.level > 14) continue;
+            if (slot == Slot::Weapon && ib.wkind != wk) continue;
+            if ((slot == Slot::Helmet || slot == Slot::Body || slot == Slot::Gloves || slot == Slot::Boots) && (ib.es > 0) != es) continue;
+            if (b < 0 || ib.level >= item_bases()[size_t(b)].level) b = int(i);
+        }
+        return b;
+    };
+    const Slot slots[EQ_COUNT] = {Slot::Weapon, Slot::Helmet, Slot::Body, Slot::Gloves, Slot::Boots, Slot::Belt, Slot::Amulet, Slot::Ring, Slot::Ring};
+    for (int e = 0; e < EQ_COUNT; e++)
+        if (int b = best(slots[e], caster, caster ? WK_STAFF : WK_MAUL); b >= 0) H.equip[e] = make_item(b, Rarity::Rare, 14, r);
+    for (auto& t : H.talismans) t.level = 10;
+    if (const auto* rec = tree().recommended_for(H.passives.cls)) for (int t : *rec) plan_to(H, t);
+    for (int k = 0; k < 40 && H.passive_points() > 0; k++) if (place_next_planned(w) < 0) break;
+    if (ascendancy_for(H.passives.cls)) H.asc = (1u << 1) | (1u << 2);   // Trial I's two points
+    if (scenario == "tour6") {   // further on: a few sites done, some of the Astrolabe set, charts of every Clime
+        H.level = 17;
+        H.sites_done = (1u << find_site("iskandariya")) | (1u << find_site("qus")) | (1u << find_site("wahat"));
+        for (int s : {find_site("iskandariya"), find_site("qus"), find_site("wahat")}) H.sites_revealed |= reveal_after(s);
+        H.astro = (1u << 0) | (1u << 1) | (1u << 5);
+        for (int t = 1; t <= 4; t++) H.inv.add(make_chart(t, r, 0.6f, 0.3f));
+        H.inv.add(make_chart(3, r, 0.f, 1.f));
+    }
+    w.recompute_hero();
+    w.actors[0].life = w.actors[0].life_max;
+    w.actors[0].mana = w.actors[0].mana_max;
+}
+
+void Bot::charts(World& w, Menu& m, Areas& a, Input& in, uint64_t frame) {
+    Actor& h = w.actors[0];
+    Hero& H = w.hero;
+    if (frame > 60ull * 60 * 100) { fail("the charts took longer than 100 minutes of play (" + std::to_string(chart_runs_) + " runs)"); return; }
+    if (!h.alive()) {
+        if (h.dead_t > 1.3f && frame % 10 == 0) { press(in, BTN_SOUTH); deaths++; fprintf(stderr, "charts: died in %s\n", a.name()); }
+        if (deaths > 25) fail("died more than 25 times");
+        return;
+    }
+    // done: a site of the Fourth Clime finished
+    for (size_t i = 0; i < sites().size(); i++)
+        if ((H.sites_done >> i & 1) && sites()[i].tier == kChartTiers) {
+            char b[200];
+            int held[kChartTiers + 1] = {};
+            for (auto& e : H.inv.items) held[chart_tier(e.item)]++;
+            snprintf(b, sizeof b, "charted %s (the Fourth Clime) after %d runs: %d sites, %d Astrolabe nodes, %d Haboobs, %d deaths; "
+                     "charts left T1-4: %d %d %d %d", sites()[i].name, chart_runs_, __builtin_popcount(H.sites_done),
+                     __builtin_popcount(H.astro), haboobs_seen_, deaths, held[1], held[2], held[3], held[4]);
+            pass(b);
+            return;
+        }
+    // points: stars as they come, the Astrolabe along the charts' arm first
+    if (!m.open && frame % 20 == 0 && H.passive_points() > 0) place_next_planned(w);
+    if (frame % 20 == 10 && H.astro_points() > 0) {
+        static const int order[] = {0, 1, 3, 4, 2, 5, 6, 7, 8, 10, 11, 12, 13, 14, 15, 16, 18, 17, 19, 9};
+        for (int n : order)
+            if (astro_can_take(H.astro, n)) { H.astro |= 1u << n; fprintf(stderr, "charts: Astrolabe: %s\n", astro_nodes()[size_t(n)].name); break; }
+    }
+    if (m.open || equip_target) { loot_and_equip(w, m, in, frame); return; }
+    MapScreen& M = *map_ui;
+    if (M.open) {   // at the table: walk the cursor to the chosen site, pick a chart, set out
+        if (chart_target_ < 0) {
+            int best = -1, score = -1;
+            for (size_t s = 0; s < sites().size(); s++) {
+                if (!(H.sites_revealed >> s & 1)) continue;
+                int tier = sites()[s].tier;
+                bool have = false;
+                for (auto& e : H.inv.items) have = have || chart_tier(e.item) == tier;
+                if (!have) continue;
+                int sc = tier * 10 + ((H.sites_done >> s & 1) ? 0 : 15);
+                if (sc > score) { score = sc; best = int(s); }
+            }
+            if (best < 0) {
+                int n = 0;
+                for (auto& e : H.inv.items) n += chart_tier(e.item) > 0;
+                fail("out of charts that fit a revealed site after " + std::to_string(chart_runs_) + " runs (" + std::to_string(n) + " charts held)");
+                return;
+            }
+            chart_target_ = best;
+            map_presses_ = 0;
+        }
+        if (frame % 6) return;   // one press at a time, so each registers
+        if (M.picking) { press(in, BTN_SOUTH); return; }
+        if (M.cursor == chart_target_) { press(in, BTN_SOUTH); return; }
+        if (++map_presses_ > 80) { fail("could not walk the map's cursor to " + std::string(sites()[size_t(chart_target_)].name)); return; }
+        vec2 d = site_screen(sites()[size_t(chart_target_)]) - site_screen(sites()[size_t(M.cursor)]);
+        // push the stick straight at it: the map's magnet picks the nearest site that way
+        in.lstick = normalize(vec2{d.x, -d.y});
+        return;
+    }
+    chart_target_ = -1;
+    bool in_zone = a.current == AreaId::Zone;
+    if (!in_zone) {   // the rooftop: to the table
+        go_to_interact(w, in, frame, Interactable::ChartTable);
+        return;
+    }
+    const ZoneLayout& L = a.zone.layout;
+    if (a.zone.seed != run_seed_) {
+        run_seed_ = a.zone.seed;
+        run_frame_ = frame;
+        chart_runs_++;
+        visited_.assign(L.cells.size(), 0);
+        act_moved_frame_ = frame;
+        act_last_pos_ = h.pos;
+        int held = 0;
+        for (auto& e : H.inv.items) held += chart_tier(e.item) > 0;
+        fprintf(stderr, "charts: t=%.0fs run %d, %s (Clime %d, area level %d)%s: level %d, %zu mods; done %x revealed %x, %d charts left\n",
+                frame / 60.f, chart_runs_, a.name(), w.chart.tier, w.area_level, w.haboob.armed ? ", a Haboob" : "", H.level,
+                w.chart.mods.quantity > 0 ? size_t(w.chart.mods.quantity / 8) : size_t(0), H.sites_done, H.sites_revealed, held);
+        if (w.haboob.armed) haboobs_seen_++;
+    }
+    int here = L.cell_index_at(h.pos);
+    if (here >= 0) visited_[size_t(here)] = 1;
+    const Actor* boss = nullptr;
+    for (size_t i = 1; i < w.actors.size(); i++) if (w.actors[i].rarity == Rarity::Unique && w.actors[i].alive()) boss = &w.actors[i];
+    if (getenv("QAHIRA_BOT_TRACE") && frame % 300 == 0) {
+        int alive = 0;
+        for (size_t i = 1; i < w.actors.size(); i++) alive += w.actors[i].alive();
+        fprintf(stderr, "trace t=%.0f pos (%.1f,%.1f) cell %d/%d arena %d alive %d boss %s cleared %d haboob armed %d active %d passed %d "
+                "front %.0f..%.0f loot %zu eqt %u branch %s sel %d near %d\n", frame / 60.f, h.pos.x, h.pos.y, here, int(L.cells.size()), L.arena, alive,
+                boss ? "yes" : "no", int(a.zone.cleared), int(w.haboob.armed), int(w.haboob.active), int(w.haboob.passed), w.haboob.front,
+                w.haboob.y1, w.loot.size(), equip_target, branch_, w.selected_loot, w.near_interact);
+        for (size_t i = 1; i < w.actors.size(); i++) {
+            const Actor& e = w.actors[i];
+            if (e.alive() && length(e.pos - h.pos) < 12)
+                fprintf(stderr, "   enemy %s at (%.1f,%.1f) dist %.1f clear %d act %d ignored %d ground %zu\n", e.name.c_str(), e.pos.x, e.pos.y,
+                        length(e.pos - h.pos), int(w.level.line_clear(h.pos, e.pos, 0.2f)), int(e.act), int(unreachable(e.id)), w.ground.size());
+        }
+        for (auto& it : w.interacts) fprintf(stderr, "   interact %d at (%.1f,%.1f) '%s'\n", int(it.kind), it.pos.x, it.pos.y, it.label.c_str());
+        for (size_t i = 0; i < w.loot.size(); i++)
+            if (w.loot[i].kind == GroundItem::Gear)
+                fprintf(stderr, "   loot %zu at (%.1f,%.1f) %s vis %d dist %.1f\n", i, w.loot[i].pos.x, w.loot[i].pos.y, w.loot[i].item.display_name().c_str(),
+                        int(w.loot_visible(w.loot[i])), length(w.loot[i].pos - h.pos));
+    }
+    if (combat(w, in, frame, boss && boss->ai_state > 0 ? 30.f : 9.f)) { branch_ = "combat"; return; }
+    if (loot_and_equip(w, m, in, frame)) { branch_ = "loot"; return; }
+    branch_ = "other";
+    // the Haboob: once it is up, go and stand in it until it has passed (that is where its rewards are)
+    const Haboob& hb = w.haboob;
+    if (hb.active && !hb.inside(h.pos)) {
+        vec2 want{h.pos.x, hb.front - hb.depth * 0.5f};
+        steer(w, in, w.level.resolve(want, h.radius));
+        return;
+    }
+    if (hb.active) {   // inside: hold ground, let the jinn come
+        if (frame % 60 == 0) steer(w, in, h.pos + vec2{0, 0.8f});
+        return;
+    }
+    if (!boss && a.zone.cleared) {   // finished: home by the exit
+        if (hb.armed && !hb.passed) return;   // wait for the storm first (it has not risen yet)
+        if (go_to_interact(w, in, frame, Interactable::Exit)) return;
+        if (frame % 30 == 0) press(in, BTN_UP);
+        go_to_interact(w, in, frame, Interactable::Portal);
+        return;
+    }
+    if (length(h.pos - act_last_pos_) > 1.5f) { act_last_pos_ = h.pos; act_moved_frame_ = frame; }
+    steer(w, in, L.center(L.cells[size_t(L.arena)]) + vec2{0, 1.f});
+}
+
+// ---------------------------------------------------------------- tour6: the Map of al-Idrisi, the Astrolabe, a Haboob
+void Bot::tour6(World& w, Areas& a, Input& in, uint64_t frame) {
+    Actor& h = w.actors[0];
+    MapScreen& M = *map_ui;
+    h.life = h.life_max;   // a tour, not a test
+    if (a.current == AreaId::Hub && !M.open && !sky_open_frame_) { go_to_interact(w, in, frame, Interactable::ChartTable); return; }
+    if (M.open && !sky_open_frame_) sky_open_frame_ = frame;   // the map's timeline starts when it opens
+    auto at = [&](uint64_t f) { return sky_open_frame_ && frame == sky_open_frame_ + f; };
+    if (at(140) || at(160) || at(180)) in.lstick = {-1, 0};   // walk the cursor west, towards the Maghreb
+    if (at(260)) press(in, BTN_R1);                          // the Astrolabe
+    if (at(300) || at(330)) in.lstick = {1, 0};
+    if (at(420)) press(in, BTN_L1);
+    if (at(440)) { M.cursor = find_site("barqa"); }
+    if (at(470)) press(in, BTN_SOUTH);                       // choose a chart
+    if (at(540)) press(in, BTN_SOUTH);                       // and set out
+    if (a.current == AreaId::Zone) {
+        if (stage == 0) {
+            stage = 1;
+            stage_frame = frame;
+            a.arm_haboob(w);                                  // a storm, and soon
+            w.haboob.delay = 2.f;
+        }
+        uint64_t t = frame - stage_frame;
+        const Haboob& hb = w.haboob;
+        if (hb.active && !hb.inside(h.pos) && t < 900) {
+            h.pos = w.level.resolve(vec2{h.pos.x, hb.front - hb.depth * 0.4f}, h.radius);   // into the storm, for the pictures
+        }
+        combat(w, in, frame, 9.f);
+        if (t > 900) { pass("tour6 done"); return; }
+    }
+    if (frame > 60 * 60) pass("tour6 done");
 }
 
 // ---------------------------------------------------------------- tour (screenshots)

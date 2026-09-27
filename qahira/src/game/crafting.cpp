@@ -118,6 +118,16 @@ const std::vector<CodexEntry>& codex_entries() {
          "The city's old cinema posters were torn up and scattered. Four scraps make a poster, and a whole poster gives you what it shows."},
         {"ascendancy", CX_MECHANIC, "Ascendancy",
          "Your class's inner sky. Trials give its points; each node changes how your class plays."},
+        // Slice 5
+        {"charts", CX_MECHANIC, "The Map of al-Idrisi",
+         "Al-Idrisi drew the world for King Roger in 1154, with south at the top. Run a chart of a Clime on a site of that Clime at "
+         "the chart table; finish the site and its neighbours appear. Charts drop inside charts."},
+        {"haboob", CX_MECHANIC, "The Haboob",
+         "A wall of sand rolls across the site. Inside it you can hardly see, and the sand jinn come with it; the longer you stay in "
+         "the storm and the more you kill there, the more it leaves behind when it passes."},
+        {"astrolabe", CX_MECHANIC, "The Astrolabe",
+         "Every site you finish gives a point for the Astrolabe, the map's own tree: more charts, higher Climes, deeper storms."},
+        {"sand_jinn", CX_MONSTER, "Sand jinn of the Haboob", "They ride the storm wall and fall apart into sand when it has passed."},
     };
     return c;
 }

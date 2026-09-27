@@ -100,9 +100,10 @@ GroundItem read_ground_item(ByteReader& r) {
 
 // ---- the character: what persists between sessions
 static const uint32_t kCharMagic = 0x31484351;  // "QCH1"
-static const uint32_t kCharVersion = 4;   // 2: the class and its stars; 3: Talismans, Wafq, Blanks, currency count;
+static const uint32_t kCharVersion = 5;   // 2: the class and its stars; 3: Talismans, Wafq, Blanks, currency count;
                                           // 4: Act I (waypoints, quests, the toll, recipes, scraps, codex, omens,
-                                          //    ascendancy) and item format 2
+                                          //    ascendancy) and item format 2; 5: the Map of al-Idrisi (sites, the
+                                          //    Astrolabe)
 
 void write_character(ByteWriter& w, const Hero& H) {
     w.put(kCharMagic);
@@ -134,6 +135,8 @@ void write_character(ByteWriter& w, const Hero& H) {
     w.put(H.omens); w.put(H.recipes); w.put(H.codex); w.put(H.asc);
     w.put(uint8_t(kMaxUniques));
     w.bytes(H.scraps, sizeof H.scraps);
+    // v5
+    w.put(H.sites_revealed); w.put(H.sites_done); w.put(H.astro);
 }
 
 bool read_character(ByteReader& r, Hero& H) {
@@ -219,7 +222,10 @@ bool read_character(ByteReader& r, Hero& H) {
         for (int i = 0; i < ns && r.ok; i++) { uint8_t v = r.get<uint8_t>(); if (i < kMaxUniques) H.scraps[i] = v; }
         if (H.sealed_slot >= EQ_COUNT) H.sealed_slot = -1;
     }
+    H.sites_revealed = H.sites_done = H.astro = 0;
+    if (version >= 5) { r.get(H.sites_revealed); r.get(H.sites_done); r.get(H.astro); }
     if (H.quests & Q_BENCH) H.recipes |= kStarterRecipes;
+    if (H.quests & Q_ACT1) H.sites_revealed |= starting_sites();   // an Act I finished before the map existed
     if (H.filter >= FILTER_COUNT) H.filter = FILTER_STANDARD;
     return r.ok;
 }
@@ -233,6 +239,7 @@ void write_world(ByteWriter& w, const World& W) {
     w.put(H.es); w.put(H.es_wait); w.put(H.overload_t); w.put(H.last_attacker);
     w.bytes(H.cooldowns, sizeof H.cooldowns);
     w.put(H.endurance); w.put(H.endurance_t);
+    w.put(W.in_chart); w.put(W.chart_site); w.put(W.chart); w.put(W.haboob);
     w.put(uint32_t(W.actors.size()));
     for (const Actor& a : W.actors) write_actor(w, a);
     w.vec(W.projectiles);
@@ -253,6 +260,7 @@ bool read_world(ByteReader& r, World& W) {
     r.get(H.es_wait); r.get(H.overload_t); r.get(H.last_attacker);
     r.bytes(H.cooldowns, sizeof H.cooldowns);
     r.get(H.endurance); r.get(H.endurance_t);
+    r.get(W.in_chart); r.get(W.chart_site); r.get(W.chart); r.get(W.haboob);
     uint32_t na = r.get<uint32_t>();
     if (!r.ok || na == 0 || na > 4096) return false;
     W.actors.resize(na);

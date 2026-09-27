@@ -3,6 +3,7 @@
 #pragma once
 #include "game/acts.hpp"
 #include "game/asc.hpp"
+#include "game/atlas.hpp"
 #include "game/crafting.hpp"
 #include "game/uniques.hpp"
 #include "game/animator.hpp"
@@ -144,6 +145,20 @@ struct GroundFx {
     HeroHit hh;                    // glyph pulses and meteors
 };
 
+// The Haboob (a chart mechanic): a wall of sand rolls north across the site. Inside the storm (the band behind its
+// front) you can hardly see and sand jinn come with it; time spent and kills made inside fill its meter, and what it
+// leaves behind when it has passed grows with the meter.
+struct Haboob {
+    bool armed = false;            // this chart has one
+    bool active = false, passed = false;
+    float delay = 20.f;            // seconds before it rises in the south
+    float front = 0, depth = 16.f, speed = 0.75f;
+    float y0 = 0, y1 = 0, x0 = 0, x1 = 0;   // the site's bounds
+    float meter = 0;
+    float spawn_t = 3.f;
+    bool inside(vec2 p) const { return active && p.y <= front && p.y >= front - depth && p.x >= x0 && p.x <= x1; }
+};
+
 struct Particle {
     vec3 pos, vel;
     float life, max_life, size0, size1, gravity, drag;
@@ -171,7 +186,7 @@ struct GroundItem {
 };
 
 struct Interactable {
-    enum Kind : uint8_t { Stair, Portal, Vendor, Exit, Chest, Waypoint, Next, Bench, Gate } kind;
+    enum Kind : uint8_t { Stair, Portal, Vendor, Exit, Chest, Waypoint, Next, Bench, Gate, ChartTable } kind;
     // Next: the way on to zone `target`; Gate: a side zone (a trial); Waypoint: the waypoint list; Bench: the Coppersmith
     vec2 pos;
     float radius = 1.8f;
@@ -223,6 +238,11 @@ struct Hero {
     uint8_t scraps[kMaxUniques] = {};   // Poster Scraps held, per unique
     uint64_t codex = 0;            // codex entries you have seen
     uint32_t asc = 0;              // ascendancy nodes held (bits, game/asc.hpp)
+    // Slice 5: the Map of al-Idrisi
+    uint32_t sites_revealed = 0;   // sites you can run a chart on (bits, game/atlas.hpp)
+    uint32_t sites_done = 0;       // sites finished: each gives an Astrolabe point
+    uint32_t astro = 0;            // Astrolabe nodes held
+    int astro_points() const { return std::max(0, q::astro_points(sites_done) - __builtin_popcount(astro)); }
     int endurance = 0;             // Endurance Charges (Ironclad)
     float endurance_t = 0;         // seconds until they fall off
     int asc_points() const;        // from trials, minus nodes held
@@ -288,6 +308,11 @@ public:
     float shake = 0;
     int area_level = 1;
     bool boss_killed = false;
+    // a chart run: its tier and mods, the Astrolabe it was opened under, and its Haboob
+    bool in_chart = false;
+    int chart_site = -1;
+    ChartRun chart;
+    Haboob haboob;
     int selected_loot = -1;
 
     Actor& hero_actor() { return actors[0]; }
@@ -319,6 +344,8 @@ public:
     bool learn_recipe(int r);                 // true if it was new (a banner says so)
     void meet_codex(const char* id);          // the first time: an entry and a toast
     void gain_endurance(int n);
+    void haboob_step(float dt);
+    void haboob_reward();
     int endurance_max() const { return kEnduranceMax + ((hero.keystones & KS_FOUNDRY) ? 1 : 0); }
     std::vector<std::string> notices;         // for the HUD: recipes learned, codex entries, posters completed
 

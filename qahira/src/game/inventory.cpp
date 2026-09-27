@@ -302,6 +302,7 @@ const char* filter_desc(int f) {
 }
 
 bool filter_shows(int f, const Item& it) {
+    if (it.b().slot == Slot::Chart) return true;   // charts always show, as currency does
     switch (f) {
         case FILTER_STANDARD: return it.rarity != Rarity::Normal;
         case FILTER_STRICT: return it.rarity >= Rarity::Rare;

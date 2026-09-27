@@ -41,6 +41,11 @@ const std::vector<ItemBase>& item_bases() {
         {"astronomers_robe", "Astronomer's Robe", Slot::Body, 10, 0, 0, 0, 0, 0, 0, nullptr, 72, WK_NONE},
         {"lapis_ring", "Lapis Ring", Slot::Ring, 3, 0, 0, 0, 0, 0, 0, "+14% to Cold Resistance"},
         {"moonstone_amulet", "Moonstone Amulet", Slot::Amulet, 4, 0, 0, 0, 0, 0, 0, "+20 to maximum Hirz"},
+        // Slice 5: charts of al-Idrisi's Seven Climes (map items), run on the Map of al-Idrisi
+        {"chart_clime_1", "Chart of the First Clime", Slot::Chart, 14, 0, 0, 0, 0, 0, 0, nullptr, 0, WK_NONE},
+        {"chart_clime_2", "Chart of the Second Clime", Slot::Chart, 15, 0, 0, 0, 0, 0, 0, nullptr, 0, WK_NONE},
+        {"chart_clime_3", "Chart of the Third Clime", Slot::Chart, 16, 0, 0, 0, 0, 0, 0, nullptr, 0, WK_NONE},
+        {"chart_clime_4", "Chart of the Fourth Clime", Slot::Chart, 17, 0, 0, 0, 0, 0, 0, nullptr, 0, WK_NONE},
     };
     return b;
 }
@@ -150,9 +155,23 @@ const std::vector<AffixDef>& affix_defs() {
         v.push_back(AffixDef{"g_all_attr", false, "", AE_ALL_ATTR, 0, {1, 1, 1}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0}, "+%d to all Attributes"});
         return v;
     }();
+    // Slice 5: chart mods (risk, and 8% more items each). They roll only on charts. Append only, after the rest.
+    const uint32_t CH = SB(Slot::Chart);
+    static const std::vector<AffixDef> c = {
+        {"cm_life", true, "Hulking", AE_CHART, CH, {14, 15, 16}, {20, 30, 40}, {29, 39, 50}, {0, 0, 0}, {0, 0, 0}, "Monsters have %d%% more Life"},
+        {"cm_damage", true, "Savage", AE_CHART, CH, {14, 15, 16}, {10, 15, 20}, {14, 19, 25}, {0, 0, 0}, {0, 0, 0}, "Monsters deal %d%% more Damage"},
+        {"cm_packs", true, "Teeming", AE_CHART, CH, {14, 15, 16}, {15, 22, 30}, {21, 29, 40}, {0, 0, 0}, {0, 0, 0}, "%d%% more Monsters"},
+        {"cm_fire", true, "Burning", AE_CHART, CH, {14, 15, 16}, {15, 20, 25}, {19, 24, 30}, {0, 0, 0}, {0, 0, 0}, "Monsters' hits add %d%% of their damage as Fire"},
+        {"cm_elites", true, "Crowned", AE_CHART, CH, {14, 15, 16}, {20, 30, 40}, {29, 39, 50}, {0, 0, 0}, {0, 0, 0}, "%d%% more Magic and Rare Monsters"},
+        {"cm_speed", false, "of Haste", AE_CHART, CH, {14, 15, 16}, {10, 14, 18}, {13, 17, 22}, {0, 0, 0}, {0, 0, 0}, "Monsters move %d%% faster"},
+        {"cm_res", false, "of the Simoom", AE_CHART, CH, {14, 15, 16}, {5, 8, 11}, {7, 10, 14}, {0, 0, 0}, {0, 0, 0}, "-%d%% to your maximum Resistances"},
+        {"cm_rarity", false, "of Plenty", AE_CHART, CH, {14, 15, 16}, {10, 15, 20}, {14, 19, 25}, {0, 0, 0}, {0, 0, 0}, "%d%% increased Rarity of Items found"},
+        {"cm_sand", false, "of Sand", AE_CHART, CH, {14, 15, 16}, {35, 50, 70}, {49, 69, 100}, {0, 0, 0}, {0, 0, 0}, "+%d%% chance of a Haboob"},
+    };
     static const std::vector<AffixDef> all = [&] {
         std::vector<AffixDef> v = a;
         v.insert(v.end(), g.begin(), g.end());
+        v.insert(v.end(), c.begin(), c.end());
         return v;
     }();
     return all;
@@ -272,7 +291,7 @@ Item random_drop(int area_level, float rare_chance, float magic_chance, Rng& rng
     auto& bases = item_bases();
     std::vector<int> pool;
     for (size_t i = 0; i < bases.size(); i++)
-        if (bases[i].level <= area_level && (only == Slot::Count || bases[i].slot == only)) pool.push_back(int(i));
+        if (bases[i].level <= area_level && (only == Slot::Count ? bases[i].slot != Slot::Chart : bases[i].slot == only)) pool.push_back(int(i));
     int base = pool.empty() ? 0 : pool[size_t(rng.irange(0, int(pool.size()) - 1))];
     float r = rng.uniform();
     Rarity rar = r < rare_chance ? Rarity::Rare : r < rare_chance + magic_chance ? Rarity::Magic : Rarity::Normal;
@@ -405,6 +424,10 @@ std::vector<std::string> Item::lines() const {
     } else if (bb.es > 0) {
         snprintf(buf, sizeof buf, "Hirz: %d", int(local_es()));
         out.push_back(buf);
+    } else if (bb.slot == Slot::Chart) {
+        snprintf(buf, sizeof buf, "Clime %d chart: Area Level %d", bb.level - 13, bb.level);
+        out.push_back(buf);
+        out.push_back("~Run it on a site of its Clime, at the chart table");
     }
     if (bb.implicit) out.push_back(std::string("~") + bb.implicit);
     auto text = [&](const Affix& a) {

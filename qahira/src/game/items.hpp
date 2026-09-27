@@ -7,7 +7,7 @@
 namespace q {
 
 enum class Rarity : uint8_t { Normal, Magic, Rare, Unique };
-enum class Slot : uint8_t { Weapon, Helmet, Body, Gloves, Boots, Belt, Amulet, Ring, Count };
+enum class Slot : uint8_t { Weapon, Helmet, Body, Gloves, Boots, Belt, Amulet, Ring, Chart, Count };   // Chart: a map item
 
 enum WeaponKind : uint8_t { WK_NONE, WK_MAUL, WK_STAFF };
 
@@ -35,6 +35,7 @@ enum AffixEffect : uint8_t {
     AE_SPELL_CRIT_INC,
     // Slice 4: bench, corruption and unique mods that map straight onto one stat (AffixDef::gstat/gkind/gtags)
     AE_GENERIC, AE_ALL_RES, AE_ALL_ATTR,
+    AE_CHART,   // a chart's mod: it changes the site it is run on (game/atlas.cpp reads it by id)
 };
 // AffixDef::need: which bases in a slot can roll it (0: any)
 enum AffixNeed : uint8_t { NEED_ARMOUR = 1, NEED_ES = 2, NEED_MAUL = 4, NEED_STAFF = 8 };
