@@ -6,10 +6,17 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 BLENDER=${BLENDER:-/Applications/Blender.app/Contents/MacOS/Blender}
 NDK=${ANDROID_NDK:-/opt/homebrew/share/android-ndk}
+# On Linux (CI) the art runs under the `bpy` module (pip install bpy==5.0.1) instead of the Blender app:
+#   BLENDER_PY=/opt/bpyenv/bin/python tools/build_all.sh
+BLENDER_PY=${BLENDER_PY:-}
 
 if [[ "${1:-}" != "--no-art" ]]; then
   echo "== art (Blender)"
-  "$BLENDER" -b --factory-startup -P tools/art/build.py -- --preview 2>&1 | grep -E "EXPORT|PREVIEW|BUILD|Error|Traceback" || true
+  if [[ -n "$BLENDER_PY" ]]; then
+    "$BLENDER_PY" tools/art/build.py -- --preview 2>&1 | grep -E "EXPORT|PREVIEW|BUILD|Error|Traceback" || true
+  else
+    "$BLENDER" -b --factory-startup -P tools/art/build.py -- --preview 2>&1 | grep -E "EXPORT|PREVIEW|BUILD|Error|Traceback" || true
+  fi
 fi
 echo "== passive tree (layout + validator)"
 python3 tools/tree/build_tree.py
@@ -19,11 +26,15 @@ echo "== shaders (GLSL ES 3.00)"
 python3 tools/check_shaders.py
 echo "== mac host + core"
 cmake -S . -B build/mac -G Ninja >/dev/null && cmake --build build/mac
+if [[ -d "$NDK" ]]; then
 echo "== android core (arm64-v8a)"
 cmake -S . -B build/android -G Ninja -DCMAKE_BUILD_TYPE=Release \
   -DCMAKE_TOOLCHAIN_FILE="$NDK/build/cmake/android.toolchain.cmake" -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-29 >/dev/null
 cmake --build build/android
 "$NDK"/toolchains/llvm/prebuilt/*/bin/llvm-strip -o build/qahira_libretro_android.so build/android/qahira_libretro_android.so
+else
+echo "== android core: skipped (no NDK at $NDK)"
+fi
 echo "== unit tests"
 ./build/mac/qtests
 echo "== bot tests"

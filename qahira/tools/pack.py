@@ -5,14 +5,33 @@ import os, struct, subprocess, shutil, sys
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 OUT = os.path.join(ROOT, 'build', 'Qahira.qpk')
 VERSION = 1
-BLENDER_FONTS = '/Applications/Blender.app/Contents/Resources/5.2/datafiles/fonts'
+
+
+def blender_fonts():
+    """Blender's bundled OFL fonts: $BLENDER_FONTS, the Mac app, or the `bpy` module's datafiles."""
+    import glob
+    cands = [os.environ.get('BLENDER_FONTS', '')]
+    cands += sorted(glob.glob('/Applications/Blender.app/Contents/Resources/*/datafiles/fonts'), reverse=True)
+    try:
+        import importlib.util
+        spec = importlib.util.find_spec('bpy')
+        if spec and spec.submodule_search_locations:
+            for loc in spec.submodule_search_locations:
+                cands += sorted(glob.glob(os.path.join(loc, '*', 'datafiles', 'fonts')), reverse=True)
+    except Exception:
+        pass
+    cands += sorted(glob.glob('/opt/bpyenv/lib/python3*/site-packages/bpy/*/datafiles/fonts'), reverse=True)
+    for c in cands:
+        if c and os.path.isfile(os.path.join(c, 'Inter.woff2')):
+            return c
+    sys.exit('Blender fonts not found: set BLENDER_FONTS to Blender\'s datafiles/fonts')
 
 
 def font(name_in, name_out):
     """OFL fonts that ship inside Blender, converted from WOFF2 to TTF with Google's woff2 tool."""
     dst_dir = os.path.join(ROOT, 'build', 'fonts')
     os.makedirs(dst_dir, exist_ok=True)
-    src = os.path.join(BLENDER_FONTS, name_in)
+    src = os.path.join(blender_fonts(), name_in)
     tmp = os.path.join(dst_dir, name_out.replace('.ttf', '.woff2'))
     ttf = tmp[:-6] + '.ttf'
     if not os.path.exists(ttf) or os.path.getmtime(ttf) < os.path.getmtime(src):

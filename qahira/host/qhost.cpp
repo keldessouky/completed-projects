@@ -5,8 +5,7 @@
 #include "libretro.h"
 #include "platform/app_api.hpp"
 #include <SDL.h>
-#define GL_SILENCE_DEPRECATION
-#include <OpenGL/gl3.h>
+#include "gfx/gl.hpp"
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
 #include <cstdio>
