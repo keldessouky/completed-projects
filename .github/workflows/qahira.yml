@@ -1,0 +1,72 @@
+name: QAHIRA (Linux)
+
+on:
+  push:
+    branches: ['**']
+    paths:
+      - 'qahira/**'
+      - '.github/workflows/qahira.yml'
+  pull_request:
+    paths:
+      - 'qahira/**'
+      - '.github/workflows/qahira.yml'
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build:
+    name: Art, pack, tests, build simulator and bots
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: qahira
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'   # bpy 5.0 is built for Python 3.11
+      - name: System packages
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq cmake ninja-build libsdl2-dev libgl-dev glslang-tools woff2
+      - name: Blender as a Python module
+        run: pip install -q bpy==5.0.1
+      - name: Cache the generated art and audio (keyed on their generators)
+        id: art
+        uses: actions/cache@v4
+        with:
+          path: qahira/assets/generated
+          key: qahira-art-${{ hashFiles('qahira/tools/art/**', 'qahira/tools/audio/**') }}
+      - name: Generate art and audio
+        if: steps.art.outputs.cache-hit != 'true'
+        run: |
+          python tools/art/build.py 2>&1 | grep -E "EXPORT|BUILD|Error|Traceback" || true
+          test -f assets/generated/meshes/warrior.qmesh
+          python tools/audio/synth.py
+      - name: Passive tree (layout and validator)
+        run: python tools/tree/build_tree.py
+      - name: Pack
+        run: python tools/pack.py
+      - name: Shaders as GLSL ES 3.00
+        run: python tools/check_shaders.py
+      - name: Build (host, core, tests, build simulator)
+        run: cmake -S . -B build/linux -G Ninja && cmake --build build/linux
+      - name: Unit tests
+        run: ./build/linux/qtests
+      - name: Build simulator
+        run: ./build/linux/qbuildsim
+      - name: Bots
+        run: |
+          for bot in walk fight zone sorcerer sky title; do
+            ./build/linux/qhost build/Qahira.qpk --headless --bot "$bot"
+          done
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: qahira-reports
+          path: |
+            qahira/build/tree_report.md
+            qahira/build/tree_preview.png
+            qahira/build/buildsim_report.md
