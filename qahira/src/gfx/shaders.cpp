@@ -277,6 +277,24 @@ void main() {
         float half_ = vParams.y;
         float edge = smoothstep(half_, half_ - 0.05, abs(ang));
         a = edge * smoothstep(1.0, 0.96, r) * (0.35 + 0.65 * smoothstep(0.0, 1.0, r));
+    } else if (shape == 5) {
+        // radial cracks: jagged rays from the centre, seeded by params.y
+        float ang = atan(p.y, p.x);
+        float best = 1.0;
+        for (int i = 0; i < 7; i++) {
+            float fi = float(i);
+            float ra = fract(sin(fi * 12.9898 + vParams.y * 78.233) * 43758.5453) * 6.2831;
+            float wob = sin(r * 17.0 + fi * 3.1 + vParams.y) * 0.18 * r;
+            float d = abs(mod(ang - ra - wob + 3.14159, 6.28318) - 3.14159) * r;
+            float len = 0.55 + 0.45 * fract(sin(fi * 4.1 + vParams.y) * 9123.1);
+            d += smoothstep(len - 0.1, len, r);
+            best = min(best, d);
+        }
+        a = smoothstep(0.06, 0.0, best) * smoothstep(1.0, 0.85, r);
+        a = max(a, smoothstep(0.35, 0.0, r) * 0.6);
+    } else if (shape == 6) {
+        // vertical loot beam: bright core fading upward
+        a = pow(clamp(1.0 - abs(vUV.x * 2.0 - 1.0), 0.0, 1.0), 3.0) * pow(1.0 - vUV.y, 1.5);
     }
     oColor = vec4(vColor.rgb * vParams.w, vColor.a * a);
 }
@@ -318,7 +336,7 @@ void main() {
     int mode = int(vParams.x + 0.5);
     vec4 c = vColor;
     if (mode == 0) {
-        c *= texture(uTex, vUV);
+        c.a *= texture(uTex, vUV).r;
     } else if (mode == 1) {
         float d = texture(uTex, vUV).r;
         float w = fwidth(d) * 0.75;

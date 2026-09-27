@@ -158,10 +158,16 @@ void Renderer::ground(vec3 c, float r, vec4 color, vec4 params, Blend blend, flo
     quad(c + vec3{0, 0, 0.02f}, ax, ay, color, params, blend);
 }
 
-void Renderer::billboard(vec3 c, float size, vec4 color, vec4 params) {
+void Renderer::billboard(vec3 c, float size, vec4 color, vec4 params, Blend blend) {
     vec3 right{cam_.view(0, 0), cam_.view(0, 1), cam_.view(0, 2)};
     vec3 up{cam_.view(1, 0), cam_.view(1, 1), cam_.view(1, 2)};
-    quad(c, right * size, up * size, color, params, Blend::Additive);
+    quad(c, right * size, up * size, color, params, blend);
+}
+
+void Renderer::beam(vec3 base, float height, float width, vec4 color) {
+    vec3 right{cam_.view(0, 0), cam_.view(0, 1), cam_.view(0, 2)};
+    right = normalize(vec3{right.x, right.y, 0});
+    quad(base + vec3{0, 0, height * 0.5f}, right * width, vec3{0, 0, height * 0.5f}, color, {6, 0, 0, 1}, Blend::Additive);
 }
 
 void Renderer::build_tiles() {

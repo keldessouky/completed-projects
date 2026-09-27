@@ -68,7 +68,8 @@ public:
     void light(vec3 pos, float radius, vec3 color);
     void quad(vec3 c, vec3 ax, vec3 ay, vec4 color, vec4 params, Blend blend);
     void ground(vec3 c, float r, vec4 color, vec4 params, Blend blend, float rot = 0.f);
-    void billboard(vec3 c, float size, vec4 color, vec4 params);
+    void billboard(vec3 c, float size, vec4 color, vec4 params, Blend blend = Blend::Additive);
+    void beam(vec3 base, float height, float width, vec4 color);
     void end(GLuint out_fbo, int out_w, int out_h, bool flip_y);
 
     int scene_w() const { return scene_.w; }
