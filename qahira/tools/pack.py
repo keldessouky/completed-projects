@@ -29,6 +29,9 @@ def collect():
         if os.path.isdir(d):
             for f in sorted(os.listdir(d)):
                 entries.append((sub + '/' + f, os.path.join(d, f)))
+    tree = os.path.join(gen, 'tree', 'tree.json')
+    if os.path.isfile(tree):
+        entries.append(('data/tree.json', tree))
     tiles = os.path.join(gen, 'tiles')
     if os.path.isdir(tiles):
         for f in sorted(os.listdir(tiles)):

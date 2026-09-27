@@ -11,6 +11,8 @@ if [[ "${1:-}" != "--no-art" ]]; then
   echo "== art (Blender)"
   "$BLENDER" -b --factory-startup -P tools/art/build.py -- --preview 2>&1 | grep -E "EXPORT|PREVIEW|BUILD|Error|Traceback" || true
 fi
+echo "== passive tree (layout + validator)"
+python3 tools/tree/build_tree.py
 echo "== pack"
 python3 tools/pack.py
 echo "== shaders (GLSL ES 3.00)"
