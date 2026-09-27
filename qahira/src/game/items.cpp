@@ -1,4 +1,6 @@
 #include "game/items.hpp"
+#include "game/uniques.hpp"
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 
@@ -49,6 +51,12 @@ int find_base(const char* id) {
     return 0;
 }
 
+int find_affix(const char* id) {
+    auto& a = affix_defs();
+    for (size_t i = 0; i < a.size(); i++) if (std::string(a[i].id) == id) return int(i);
+    return -1;
+}
+
 const std::vector<AffixDef>& affix_defs() {
     const uint32_t W = SB(Slot::Weapon);
     static const std::vector<AffixDef> a = {
@@ -84,6 +92,70 @@ const std::vector<AffixDef>& affix_defs() {
         {"mana_regen", false, "of the Well", AE_MANA_REGEN, W | JEWELLERY | SB(Slot::Helmet), {1, 8, 16}, {20, 30, 40}, {29, 39, 55}, {0, 0, 0}, {0, 0, 0}, "%d%% increased Mana Regeneration Rate"},
         {"spell_crit", false, "of Omens", AE_SPELL_CRIT_INC, W | SB(Slot::Amulet), {3, 10, 18}, {20, 35, 50}, {34, 49, 70}, {0, 0, 0}, {0, 0, 0}, "%d%% increased Critical Strike Chance for Spells", NEED_STAFF},
     };
+    // Slice 4: mods that never roll on drops (no slots): uniques, the Ifrit's Ember and the bench use them.
+    // Append only, after the rolled ones.
+    static const std::vector<AffixDef> g = [] {
+        struct G { const char* id; bool pre; const char* fmt; Stat st; ModKind k; uint32_t tags; float sign; };
+        const G list[] = {
+            {"g_life_pct", true, "%d%% increased maximum Life", S_LIFE, MK_INC, 0, 1},
+            {"g_crit_multi", false, "+%d%% to Critical Strike Multiplier", S_CRIT_MULTI, MK_FLAT, 0, 1},
+            {"g_attack_speed", false, "%d%% increased Attack Speed", S_ATTACK_SPEED, MK_INC, 0, 1},
+            {"g_cast_speed", false, "%d%% increased Cast Speed", S_CAST_SPEED, MK_INC, 0, 1},
+            {"g_area", false, "%d%% increased Area of Effect", S_AREA, MK_INC, 0, 1},
+            {"g_dmg_taken", false, "%d%% increased Damage taken", S_DAMAGE_TAKEN, MK_INC, 0, 1},
+            {"g_mana_cost", false, "%d%% reduced Mana Cost of Skills", S_MANA_COST, MK_INC, 0, -1},
+            {"g_fire_dmg", true, "%d%% increased Fire Damage", S_DAMAGE, MK_INC, T_FIRE, 1},
+            {"g_cold_dmg", true, "%d%% increased Cold Damage", S_DAMAGE, MK_INC, T_COLD, 1},
+            {"g_light_dmg", true, "%d%% increased Lightning Damage", S_DAMAGE, MK_INC, T_LIGHTNING, 1},
+            {"g_phys_dmg", true, "%d%% increased Physical Damage", S_DAMAGE, MK_INC, T_PHYSICAL, 1},
+            {"g_slam_dmg", true, "%d%% increased Slam Damage", S_DAMAGE, MK_INC, T_SLAM, 1},
+            {"g_spell_dmg", true, "%d%% increased Spell Damage", S_DAMAGE, MK_INC, T_SPELL, 1},
+            {"g_warcry", false, "%d%% increased Warcry Effect", S_WARCRY, MK_INC, 0, 1},
+            {"g_skill_level", false, "+%d to Level of all Talismans", S_SKILL_LEVEL, MK_FLAT, 0, 1},
+            {"g_ignite", false, "%d%% chance to Ignite", S_IGNITE, MK_FLAT, 0, 1},
+            {"g_freeze", false, "%d%% increased Freeze Buildup", S_FREEZE, MK_INC, 0, 1},
+            {"g_shock", false, "%d%% increased Effect of Shock", S_SHOCK, MK_INC, 0, 1},
+            {"g_chains", false, "Skills Chain +%d times", S_CHAINS, MK_FLAT, 0, 1},
+            {"g_gain_fire", true, "Gain %d%% of Physical Damage as extra Fire Damage", S_GAIN_FIRE, MK_FLAT, 0, 1},
+            {"g_es_recharge", false, "%d%% increased Hirz Recharge Rate", S_ES_RECHARGE, MK_INC, 0, 1},
+            {"g_flask", false, "%d%% increased Flask Life Recovery", S_FLASK_RECOVERY, MK_INC, 0, 1},
+            {"g_move", false, "%d%% increased Movement Speed", S_MOVE_SPEED, MK_INC, 0, 1},
+            {"g_move_less", false, "%d%% reduced Movement Speed", S_MOVE_SPEED, MK_INC, 0, -1},
+            {"g_cdr", false, "%d%% increased Cooldown Recovery Rate", S_COOLDOWN_RECOVERY, MK_INC, 0, 1},
+            {"g_armour", true, "+%d to Armour", S_ARMOUR, MK_FLAT, 0, 1},
+            {"g_es", true, "+%d to maximum Hirz", S_ES, MK_FLAT, 0, 1},
+            {"g_es_pct", true, "%d%% increased maximum Hirz", S_ES, MK_INC, 0, 1},
+            {"g_mana_pct", true, "%d%% increased maximum Mana", S_MANA, MK_INC, 0, 1},
+            {"g_break", false, "%d%% increased Break buildup", S_BREAK, MK_INC, 0, 1},
+            {"g_crit", false, "%d%% increased Critical Strike Chance", S_CRIT_CHANCE, MK_INC, 0, 1},
+            {"g_ele_dmg", true, "%d%% increased Elemental Damage", S_DAMAGE, MK_INC, T_ELEMENTAL, 1},
+            {"g_life_regen", false, "Regenerate %d Life per second", S_LIFE_REGEN, MK_FLAT, 0, 1},
+            {"g_mana_regen", false, "%d%% increased Mana Regeneration Rate", S_MANA_REGEN, MK_INC, 0, 1},
+            {"g_leech", false, "Gain %d Life per enemy hit", S_LIFE_LEECH, MK_FLAT, 0, 1},
+            {"g_projectiles", false, "Skills fire %d additional Projectiles", S_PROJECTILES, MK_FLAT, 0, 1},
+            {"g_phys_more", true, "%d%% more Physical Damage", S_DAMAGE, MK_MORE, T_PHYSICAL, 1},
+            {"g_spell_more", true, "%d%% more Spell Damage", S_DAMAGE, MK_MORE, T_SPELL, 1},
+            {"g_life_less", true, "%d%% less maximum Life", S_LIFE, MK_MORE, 0, -1},
+        };
+        std::vector<AffixDef> v;
+        for (const G& e : list) {
+            AffixDef d{e.id, e.pre, "", AE_GENERIC, 0, {1, 1, 1}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0}, e.fmt};
+            d.gstat = e.st;
+            d.gkind = e.k;
+            d.gtags = e.tags;
+            d.gsign = e.sign;
+            v.push_back(d);
+        }
+        v.push_back(AffixDef{"g_all_res", false, "", AE_ALL_RES, 0, {1, 1, 1}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0}, "+%d%% to all Elemental Resistances"});
+        v.push_back(AffixDef{"g_all_attr", false, "", AE_ALL_ATTR, 0, {1, 1, 1}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0}, {0, 0, 0}, "+%d to all Attributes"});
+        return v;
+    }();
+    static const std::vector<AffixDef> all = [&] {
+        std::vector<AffixDef> v = a;
+        v.insert(v.end(), g.begin(), g.end());
+        return v;
+    }();
+    return all;
     return a;
 }
 
@@ -112,31 +184,57 @@ static const char* kRareB[] = {"Breaker", "Knell", "Hammer", "Crusher", "Maw", "
 
 std::string rare_name(Rng& rng) { return std::string(kRareA[rng.next() % 16]) + " " + kRareB[rng.next() % 16]; }
 
-bool roll_affix(Item& it, Rng& rng) {
+void Item::count_affixes(int& pre, int& suf) const {
+    pre = suf = 0;
+    for (auto& a : affixes)
+        if (!(a.flags & AF_IMPLICIT)) (affix_defs()[a.def].prefix ? pre : suf)++;
+}
+
+bool Item::has_crafted() const {
+    for (auto& a : affixes) if (a.flags & AF_CRAFTED) return true;
+    return false;
+}
+
+bool roll_affix(Item& it, Rng& rng, int want_prefix, const std::vector<int>* only) {
     if (it.rarity != Rarity::Magic && it.rarity != Rarity::Rare) return false;
     int limit = it.rarity == Rarity::Magic ? 1 : 3;
-    int pre = 0, suf = 0;
+    int pre, suf;
+    it.count_affixes(pre, suf);
     auto& defs = affix_defs();
-    for (auto& a : it.affixes) (defs[a.def].prefix ? pre : suf)++;
     const ItemBase& b = it.b();
-    for (int tries = 0; tries < 80; tries++) {
-        int d = rng.irange(0, int(defs.size()) - 1);
-        const AffixDef& ad = defs[size_t(d)];
+    std::vector<int> cand;
+    for (size_t d = 0; d < defs.size(); d++) {
+        const AffixDef& ad = defs[d];
         if (!(ad.slots & SB(b.slot)) || !fits_need(ad, b)) continue;
         if (ad.prefix ? pre >= limit : suf >= limit) continue;
+        if (want_prefix >= 0 && ad.prefix != (want_prefix == 1)) continue;
+        if (only && std::find(only->begin(), only->end(), int(d)) == only->end()) continue;
         bool dup = false;
         for (auto& a : it.affixes) if (a.def == d) dup = true;
         if (dup || it.ilvl < ad.tier_levels[0]) continue;
-        int top = 0;
-        for (int t = 0; t < 3; t++) if (it.ilvl >= ad.tier_levels[t]) top = t;
-        int tier = rng.chance(0.55f) ? top : rng.irange(0, top);
-        Affix af{uint16_t(d), uint8_t(tier), 0, 0};
-        af.v1 = std::round(rng.range(ad.lo[tier], ad.hi[tier]));
-        af.v2 = std::round(rng.range(ad.lo2[tier], ad.hi2[tier]));
-        it.affixes.push_back(af);
-        return true;
+        cand.push_back(int(d));
     }
-    return false;
+    if (cand.empty()) return false;
+    int d = cand[size_t(rng.irange(0, int(cand.size()) - 1))];
+    const AffixDef& ad = defs[size_t(d)];
+    int top = 0;
+    for (int t = 0; t < 3; t++) if (it.ilvl >= ad.tier_levels[t]) top = t;
+    int tier = rng.chance(0.55f) ? top : rng.irange(0, top);
+    Affix af{uint16_t(d), uint8_t(tier), 0, 0};
+    af.v1 = std::round(rng.range(ad.lo[tier], ad.hi[tier]));
+    af.v2 = std::round(rng.range(ad.lo2[tier], ad.hi2[tier]));
+    it.affixes.push_back(af);
+    return true;
+}
+
+void reroll_values(Item& it, Rng& rng) {
+    if (it.unique != kNoItem) { reroll_unique(it, rng); return; }
+    for (auto& a : it.affixes) {
+        if (a.flags & (AF_CRAFTED | AF_IMPLICIT)) continue;   // bench mods are fixed; implicits are the ember's
+        const AffixDef& ad = affix_defs()[a.def];
+        a.v1 = std::round(rng.range(ad.lo[a.tier], ad.hi[a.tier]));
+        a.v2 = std::round(rng.range(ad.lo2[a.tier], ad.hi2[a.tier]));
+    }
 }
 
 Item make_item(int base, Rarity r, int ilvl, Rng& rng) {
@@ -182,6 +280,7 @@ Item random_drop(int area_level, float rare_chance, float magic_chance, Rng& rng
 }
 
 std::string Item::display_name() const {
+    if (rarity == Rarity::Unique && unique != kNoItem) return unique_def(unique).name;
     if (rarity == Rarity::Rare || rarity == Rarity::Unique) return name;
     std::string n = b().name;
     if (rarity == Rarity::Magic) {
@@ -257,6 +356,13 @@ void Item::add_global_mods(Stats& s, uint16_t src) const {
             case AE_ELE_DMG_INC: s.add(S_DAMAGE, MK_INC, a.v1, T_ELEMENTAL, src); break;
             case AE_MANA_REGEN: s.add(S_MANA_REGEN, MK_INC, a.v1, 0, src); break;
             case AE_SPELL_CRIT_INC: s.add(S_CRIT_CHANCE, MK_INC, a.v1, T_SPELL, src); break;
+            case AE_GENERIC: {
+                const AffixDef& d = affix_defs()[a.def];
+                s.add(d.gstat, d.gkind, a.v1 * d.gsign, d.gtags, src);
+                break;
+            }
+            case AE_ALL_RES: for (Stat r : {S_FIRE_RES, S_COLD_RES, S_LIGHTNING_RES}) s.add(r, MK_FLAT, a.v1, 0, src); break;
+            case AE_ALL_ATTR: for (Stat r : {S_STR, S_DEX, S_INT}) s.add(r, MK_FLAT, a.v1, 0, src); break;
             default: break;
         }
     }
@@ -301,13 +407,17 @@ std::vector<std::string> Item::lines() const {
         out.push_back(buf);
     }
     if (bb.implicit) out.push_back(std::string("~") + bb.implicit);
-    for (auto& a : affixes) {
+    auto text = [&](const Affix& a) {
         const AffixDef& d = affix_defs()[a.def];
         if (std::string(d.fmt).find("to %d") != std::string::npos && d.effect != AE_STR && d.effect != AE_DEX && d.effect != AE_INT)
             snprintf(buf, sizeof buf, d.fmt, int(a.v1), int(a.v2));
         else snprintf(buf, sizeof buf, d.fmt, int(a.v1));
-        out.push_back(buf);
-    }
+        return std::string(buf);
+    };
+    for (auto& a : affixes) if (a.flags & AF_IMPLICIT) out.push_back("~" + text(a));
+    for (auto& a : affixes) if (!(a.flags & AF_IMPLICIT)) out.push_back(((a.flags & AF_CRAFTED) ? "^" : "") + text(a));
+    if (unique != kNoItem) for (auto& l : unique_def(unique).flavour) out.push_back("\"" + std::string(l));
+    if (corrupted) out.push_back("!Corrupted");
     snprintf(buf, sizeof buf, "#Item Level %d", ilvl);
     out.push_back(buf);
     return out;

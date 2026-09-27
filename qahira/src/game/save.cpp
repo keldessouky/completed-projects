@@ -4,6 +4,7 @@
 
 namespace q {
 
+// Item format 2 (character v4): corruption, the unique it is, and each affix's bench/implicit flags
 void write_item(ByteWriter& w, const Item& it) {
     w.put(it.base);
     w.put(uint8_t(it.rarity));
@@ -11,10 +12,12 @@ void write_item(ByteWriter& w, const Item& it) {
     w.put(it.seed);
     w.str(it.name);
     w.put(uint8_t(it.affixes.size()));
-    for (auto& a : it.affixes) { w.put(a.def); w.put(a.tier); w.put(a.v1); w.put(a.v2); }
+    for (auto& a : it.affixes) { w.put(a.def); w.put(a.tier); w.put(a.v1); w.put(a.v2); w.put(a.flags); }
+    w.put(uint8_t(it.corrupted));
+    w.put(it.unique);
 }
 
-Item read_item(ByteReader& r) {
+Item read_item(ByteReader& r, int fmt) {
     Item it;
     r.get(it.base);
     it.rarity = Rarity(r.get<uint8_t>());
@@ -25,7 +28,13 @@ Item read_item(ByteReader& r) {
     for (uint8_t i = 0; i < n && r.ok; i++) {
         Affix a;
         r.get(a.def); r.get(a.tier); r.get(a.v1); r.get(a.v2);
-        it.affixes.push_back(a);
+        if (fmt >= 2) r.get(a.flags);
+        if (a.def < affix_defs().size()) it.affixes.push_back(a);
+    }
+    if (fmt >= 2) {
+        it.corrupted = r.get<uint8_t>() != 0;
+        r.get(it.unique);
+        if (it.unique != kNoItem && it.unique >= unique_defs().size()) it.unique = kNoItem;
     }
     return it;
 }
@@ -56,6 +65,7 @@ void write_actor(ByteWriter& w, const Actor& a) {
     w.put(a.phase); w.put(a.cd2); w.put(a.cd3); w.put(a.from); w.put(a.target); w.put(a.home);
     w.put(a.ignite_t); w.put(a.ignite_dps); w.put(a.chill_t); w.put(a.chill); w.put(a.freeze_meter); w.put(a.frozen_t);
     w.put(a.shock_t); w.put(a.shock);
+    w.bytes(a.move_cd, sizeof a.move_cd);
     write_anim(w, a.anim);
 }
 
@@ -69,7 +79,8 @@ void read_actor(ByteReader& r, Actor& a) {
     r.get(a.phase); r.get(a.cd2); r.get(a.cd3); r.get(a.from); r.get(a.target); r.get(a.home);
     r.get(a.ignite_t); r.get(a.ignite_dps); r.get(a.chill_t); r.get(a.chill); r.get(a.freeze_meter); r.get(a.frozen_t);
     r.get(a.shock_t); r.get(a.shock);
-    a.model = assets().character(a.def < 0 ? hero_model() : monster_defs()[size_t(a.def)].model);
+    r.bytes(a.move_cd, sizeof a.move_cd);
+    a.model = a.def < 0 ? assets().character(hero_model()) : monster_model(a.def);
     a.anim = Animator{};
     a.anim.bind(a.model.skel, a.model.anims);
     read_anim(r, a.anim);
@@ -89,7 +100,9 @@ GroundItem read_ground_item(ByteReader& r) {
 
 // ---- the character: what persists between sessions
 static const uint32_t kCharMagic = 0x31484351;  // "QCH1"
-static const uint32_t kCharVersion = 3;   // 2: the class and its stars; 3: Talismans, Wafq, Blanks, currency count
+static const uint32_t kCharVersion = 4;   // 2: the class and its stars; 3: Talismans, Wafq, Blanks, currency count;
+                                          // 4: Act I (waypoints, quests, the toll, recipes, scraps, codex, omens,
+                                          //    ascendancy) and item format 2
 
 void write_character(ByteWriter& w, const Hero& H) {
     w.put(kCharMagic);
@@ -115,6 +128,12 @@ void write_character(ByteWriter& w, const Hero& H) {
     for (auto& e : H.equip) write_item(w, e);
     w.put(uint16_t(H.inv.items.size()));
     for (auto& e : H.inv.items) { write_item(w, e.item); w.put(uint8_t(e.x)); w.put(uint8_t(e.y)); }
+    // v4
+    w.put(H.waypoints); w.put(H.quests);
+    write_item(w, H.sealed); w.put(H.sealed_slot);
+    w.put(H.omens); w.put(H.recipes); w.put(H.codex); w.put(H.asc);
+    w.put(uint8_t(kMaxUniques));
+    w.bytes(H.scraps, sizeof H.scraps);
 }
 
 bool read_character(ByteReader& r, Hero& H) {
@@ -175,16 +194,32 @@ bool read_character(ByteReader& r, Hero& H) {
     }
     uint8_t ne = r.get<uint8_t>();
     if (ne != EQ_COUNT) return false;
-    for (auto& e : H.equip) e = read_item(r);
+    const int fmt = version >= 4 ? 2 : 1;
+    for (auto& e : H.equip) e = read_item(r, fmt);
     uint16_t ni = r.get<uint16_t>();
     H.inv.items.clear();
     for (uint16_t i = 0; i < ni && r.ok; i++) {
         InvItem e;
-        e.item = read_item(r);
+        e.item = read_item(r, fmt);
         e.x = r.get<uint8_t>();
         e.y = r.get<uint8_t>();
         H.inv.items.push_back(e);
     }
+    H.waypoints = H.quests = H.recipes = H.asc = 0;
+    H.codex = 0;
+    H.omens = 0;
+    H.sealed = Item{};
+    H.sealed_slot = -1;
+    for (auto& sc : H.scraps) sc = 0;
+    if (version >= 4) {
+        r.get(H.waypoints); r.get(H.quests);
+        H.sealed = read_item(r, fmt); r.get(H.sealed_slot);
+        r.get(H.omens); r.get(H.recipes); r.get(H.codex); r.get(H.asc);
+        uint8_t ns = r.get<uint8_t>();
+        for (int i = 0; i < ns && r.ok; i++) { uint8_t v = r.get<uint8_t>(); if (i < kMaxUniques) H.scraps[i] = v; }
+        if (H.sealed_slot >= EQ_COUNT) H.sealed_slot = -1;
+    }
+    if (H.quests & Q_BENCH) H.recipes |= kStarterRecipes;
     if (H.filter >= FILTER_COUNT) H.filter = FILTER_STANDARD;
     return r.ok;
 }
@@ -197,6 +232,7 @@ void write_world(ByteWriter& w, const World& W) {
     w.put(H.rally); w.put(H.combo); w.put(H.flask); w.put(H.flask_heal_t);
     w.put(H.es); w.put(H.es_wait); w.put(H.overload_t); w.put(H.last_attacker);
     w.bytes(H.cooldowns, sizeof H.cooldowns);
+    w.put(H.endurance); w.put(H.endurance_t);
     w.put(uint32_t(W.actors.size()));
     for (const Actor& a : W.actors) write_actor(w, a);
     w.vec(W.projectiles);
@@ -204,7 +240,7 @@ void write_world(ByteWriter& w, const World& W) {
     w.put(uint32_t(W.loot.size()));
     for (auto& g : W.loot) write_ground_item(w, g);
     w.put(uint16_t(W.interacts.size()));
-    for (auto& i : W.interacts) { w.put(i.kind); w.put(i.pos); w.put(i.radius); w.str(i.label); w.put(i.facing); w.put(i.spent); }
+    for (auto& i : W.interacts) { w.put(i.kind); w.put(i.pos); w.put(i.radius); w.str(i.label); w.put(i.facing); w.put(i.spent); w.put(i.target); }
 }
 
 bool read_world(ByteReader& r, World& W) {
@@ -216,6 +252,7 @@ bool read_world(ByteReader& r, World& W) {
     float es = r.get<float>();
     r.get(H.es_wait); r.get(H.overload_t); r.get(H.last_attacker);
     r.bytes(H.cooldowns, sizeof H.cooldowns);
+    r.get(H.endurance); r.get(H.endurance_t);
     uint32_t na = r.get<uint32_t>();
     if (!r.ok || na == 0 || na > 4096) return false;
     W.actors.resize(na);
@@ -231,7 +268,7 @@ bool read_world(ByteReader& r, World& W) {
     W.interacts.clear();
     for (uint16_t i = 0; i < ni && r.ok; i++) {
         Interactable it{};
-        r.get(it.kind); r.get(it.pos); r.get(it.radius); it.label = r.str(); r.get(it.facing); r.get(it.spent);
+        r.get(it.kind); r.get(it.pos); r.get(it.radius); it.label = r.str(); r.get(it.facing); r.get(it.spent); r.get(it.target);
         W.interacts.push_back(it);
     }
     W.particles.clear();

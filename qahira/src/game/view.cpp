@@ -1,4 +1,6 @@
 #include "game/view.hpp"
+#include <cstdio>
+#include <cstdlib>
 #include "ui/ui.hpp"
 #include "game/menu.hpp"
 #include <cstdio>
@@ -9,7 +11,13 @@ void View::follow(const World& w, float dt, bool snap) {
     const Actor& h = w.actors[0];
     vec2 tp = h.pos + h.vel * 0.15f;
     vec3 target{tp.x, tp.y + 0.8f, 0.6f};
-    float d = 18.f, pitch = radians(55.f);
+    // QAHIRA_CAM=dist,pitch: a closer look for art checks (dev hosts only)
+    static const vec2 dp = [] {
+        vec2 v{18.f, 55.f};
+        if (const char* e = getenv("QAHIRA_CAM")) sscanf(e, "%f,%f", &v.x, &v.y);
+        return v;
+    }();
+    float d = dp.x, pitch = radians(dp.y);
     vec3 off{0, -d * std::cos(pitch), d * std::sin(pitch)};
     cam.target = snap ? target : lerp(cam.target, target, std::min(1.f, dt * 8.f));
     cam.eye = cam.target + off;
@@ -73,6 +81,23 @@ void View::draw_portal(Renderer& r, const World& w, vec2 pos, vec3 color, float 
 void View::draw_actor(Renderer& r, World& w, Actor& a, int index) {
     if (!a.model.body && !a.model.name.empty()) a.model.body = assets().mesh(a.model.name);
     const CharacterModel& m = a.model;
+    if (!m.skel && m.body && index > 0) {
+        // a possessed object: one mesh that sways, shudders when struck and lurches as it attacks
+        Instance in;
+        float sway = std::sin(w.time * 3.1f + a.id) * 0.03f + (a.act == Act::Skill ? std::sin(a.act_t * 40.f) * 0.04f : 0.f);
+        float dissolve = a.act == Act::Dead ? clampf((a.dead_t - 0.85f) / 1.0f, 0, 1) : 0;
+        in.model = mat4::translate(vec3(a.pos, 0)) * mat4::rot_z(a.facing + kPi / 2) * mat4::rotate(quat::axis_angle({1, 0, 0}, sway)) *
+                   mat4::scale({a.scale, a.scale, a.scale});
+        in.tint = vec4(a.tint, 1);
+        in.extra = {-1, 0.15f + 0.1f * std::sin(w.time * 7.f + a.id), a.hit_flash * 0.6f, dissolve};
+        in.rim = a.rarity == Rarity::Unique ? vec4(hex_lin(0xE08A3C), 0.4f) : vec4(hex_lin(0xFF2E88), 0.35f);
+        if (a.broken_t > 0) in.rim = vec4(hex_lin(0xFF2E88), 1.2f);
+        if (a.frozen_t > 0) in.rim = vec4(hex_lin(0x9FD8FF), 1.4f);
+        r.draw(m.body, in);
+        r.light(vec3(a.pos, 1.5f * a.scale), 4.f * a.scale, hex_lin(0x7AA8FF) * 6.f);
+        if (dissolve < 1) r.ground(vec3(a.pos, 0), 1.0f * a.scale + a.radius * 0.5f, vec4(0, 0, 0, 0.5f * (1 - dissolve)), {0, 1.5f, 0, 1}, Blend::Alpha);
+        return;
+    }
     if (!m.skel || !m.body) return;
     pose_.resize(m.skel->bones.size());
     a.anim.pose(pose_, scratch_);
@@ -190,6 +215,22 @@ void View::render_world(Renderer& r, World& w) {
             r.billboard(p, 0.9f, vec4(1.f, 0.85f, 0.5f, 1), {0, 1.5f, 0, 4});
             r.billboard(p + vec3{-0.6f, 0.4f, 2.4f} * 0.5f, 0.6f, vec4(1.f, 0.5f, 0.2f, 0.6f), {0, 1.5f, 0, 4});
             r.light(p, 8.f, hex_lin(0xFFB060) * 20.f);
+        } else if (g.kind == GroundFx::Fire) {
+            float in_a = smoothstep(0.f, 0.3f, g.t) * (1.f - smoothstep(g.life - 0.6f, g.life, g.t));
+            r.ground(vec3(g.pos, 0.02f), g.radius, vec4(1.f, 0.35f, 0.08f, 0.55f * in_a), {0, 1.2f, 0, 2}, Blend::Additive);
+            r.ground(vec3(g.pos, 0.03f), g.radius * 0.6f, vec4(1.f, 0.7f, 0.25f, 0.5f * in_a), {0, 1.5f, 0, 2.5f}, Blend::Additive);
+            if (std::fmod(w.time * 13.f + g.pos.x, 1.f) < 0.5f)
+                r.billboard(vec3(g.pos + vec2{std::sin(w.time * 9.f) * g.radius * 0.5f, std::cos(w.time * 7.f) * g.radius * 0.5f}, 0.4f), 0.35f,
+                            vec4(1.f, 0.6f, 0.2f, 0.8f * in_a), {0, 1.5f, 0, 3});
+            r.light(vec3(g.pos, 0.8f), g.radius * 3.f, hex_lin(0xFF7020) * 8.f * in_a);
+        } else if (g.kind == GroundFx::Line) {
+            // a telegraphed strip: discs along the line, filling as the strike nears
+            vec2 ab = g.pos2 - g.pos;
+            int n = std::max(2, int(length(ab) / (g.radius * 0.9f)));
+            for (int i = 0; i <= n; i++) {
+                vec2 p = g.pos + ab * (float(i) / n);
+                r.ground(vec3(p, 0.01f), g.radius, vec4(1.f, 0.18f, 0.53f, (0.2f + 0.45f * k) * 0.5f), {0, 0.5f, 0, 1}, Blend::Alpha);
+            }
         } else if (g.kind == GroundFx::Bolt) {
             // a jagged line of bright points from one end to the other
             float a = 1.f - k;
@@ -229,9 +270,10 @@ void View::render_world(Renderer& r, World& w) {
             r.draw(assets().mesh("loot_coins"), in);
             continue;
         }
-        if (g.kind == GroundItem::Wafq || g.kind == GroundItem::Blank) {
-            // a small clay tablet: turquoise for a Wafq, brass for a Blank Talisman
-            vec3 c = g.kind == GroundItem::Wafq ? hex_lin(0x2BB5AE) : hex_lin(0xD4A84B);
+        if (g.kind == GroundItem::Wafq || g.kind == GroundItem::Blank || g.kind == GroundItem::Scrap) {
+            // a small clay tablet: turquoise for a Wafq, brass for a Blank Talisman; a Poster Scrap in its poster's paint
+            vec3 c = g.kind == GroundItem::Wafq ? hex_lin(0x2BB5AE) : g.kind == GroundItem::Blank ? hex_lin(0xD4A84B)
+                                                                   : hex_lin(unique_def(g.amount).poster[0]);
             in.model = mat4::translate(vec3(g.pos, z)) * mat4::rot_z(spin);
             in.tint = vec4(c, 1);
             in.rim = vec4(c, 0.9f);
@@ -411,7 +453,7 @@ float draw_item_card(float x, float y, float bw, const Item& it, const World& wo
 }
 
 void View::render_map(const World& w, const Areas& areas) {
-    if (!map_open || areas.current != AreaId::Necropolis) return;
+    if (!map_open || areas.current != AreaId::Zone) return;
     Ui& u = ui();
     const ZoneInstance& z = areas.zone;
     const ZoneLayout& L = z.layout;
@@ -512,6 +554,7 @@ void View::render_hud(World& w, const Input& in, const Areas& areas) {
         else if (g.kind == GroundItem::Currency) { n = currency_def(g.currency).name; c = Rgba::hex(currency_def(g.currency).color); }
         else if (g.kind == GroundItem::Wafq) { n = wafq_def(g.currency).name; c = pal::turquoise; }
         else if (g.kind == GroundItem::Blank) { n = "Blank Talisman (level " + std::to_string(g.amount) + ")"; c = pal::brass; }
+        else if (g.kind == GroundItem::Scrap) { n = std::string("Poster Scrap: ") + unique_def(g.amount).film; c = pal::unique; }
         else { n = g.item.display_name(); c = Rgba::hex(rarity_color(g.item.rarity)); }
         float tw = u.text_width(n, size) + 24;
         bool sel = int(i) == w.selected_loot;
@@ -574,6 +617,13 @@ void View::render_hud(World& w, const Input& in, const Areas& areas) {
         if (fill > 0) u.rect(x + 3, y + 5 - 42 * fill, 16, 42 * fill, pal::life, 4);
     }
     draw_button_glyph(344, 1036, 36, BTN_L3);
+    // Endurance Charges (Ironclad): small ember-red studs above the flasks, dimming as they run out
+    for (int i = 0; i < H.endurance; i++) {
+        float x = 330 + i * 30, y = 900, k = clampf(H.endurance_t / 3.f, 0.35f, 1.f);
+        u.disc(x, y, 12, pal::night.alpha(0.8f));
+        u.disc(x, y, 9, Rgba::hex(0xE8703A).alpha(k));
+        u.disc(x - 3, y - 3, 3, Rgba::hex(0xFFE0C0).alpha(k));
+    }
     // skill bar
     // skill bar: bar one, or bar two while L2 is held (a small strip shows the other)
     static const int btn[5] = {BTN_SOUTH, BTN_WEST, BTN_NORTH, BTN_R1, BTN_R2};
@@ -640,7 +690,7 @@ void View::render_hud(World& w, const Input& in, const Areas& areas) {
             y += 44;
         };
         hint(BTN_START, "Inventory");
-        if (areas.current == AreaId::Necropolis) {
+        if (areas.current == AreaId::Zone) {
             hint(BTN_UP, "Portal");
             hint(BTN_DOWN, map_open ? "Hide map" : "Map");
         }

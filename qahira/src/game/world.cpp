@@ -8,13 +8,90 @@ namespace q {
 
 // ============================================================ data tables
 const std::vector<MonsterDef>& monster_defs() {
-    static const std::vector<MonsterDef> d = {
-        {"ghoul", "Ghoul", "ghoul", 1.0f, {1, 1, 1}, 38, 4.3f, 0.42f, AttackKind::Claw, 1.5f, 1.3f, 5, 9, DT_PHYS, 10, 12, 0},
-        {"ghoul_bruiser", "Grave Bruiser", "ghoul", 1.38f, {0.62f, 0.55f, 0.6f}, 110, 3.1f, 0.62f, AttackKind::Slam, 2.3f, 2.4f, 13, 19, DT_PHYS, 80, 40, 0},
-        {"ghoul_spitter", "Bile Spitter", "ghoul", 0.95f, {0.72f, 0.95f, 0.62f}, 46, 3.7f, 0.4f, AttackKind::Spit, 9.0f, 2.0f, 7, 12, DT_CHAOS, 5, 16, 6.5f},
-        {"umm_al_ghula", "Umm al-Ghula, Mother of the Ghouls", "ghoula", 1.25f, {1, 1, 1}, 760, 3.9f, 0.85f, AttackKind::Boss, 3.2f, 1.5f, 11, 17, DT_PHYS, 150, 420, 0},
-    };
+    // append only: save states store the index
+    static const std::vector<MonsterDef> d = [] {
+        std::vector<MonsterDef> v = {
+            {"ghoul", "Ghoul", "ghoul", 1.0f, {1, 1, 1}, 38, 4.3f, 0.42f, AttackKind::Claw, 1.5f, 1.3f, 5, 9, DT_PHYS, 10, 12, 0},
+            {"ghoul_bruiser", "Grave Bruiser", "ghoul", 1.38f, {0.62f, 0.55f, 0.6f}, 110, 3.1f, 0.62f, AttackKind::Slam, 2.3f, 2.4f, 13, 19, DT_PHYS, 80, 40, 0},
+            {"ghoul_spitter", "Bile Spitter", "ghoul", 0.95f, {0.72f, 0.95f, 0.62f}, 46, 3.7f, 0.4f, AttackKind::Spit, 9.0f, 2.0f, 7, 12, DT_CHAOS, 5, 16, 6.5f},
+            {"umm_al_ghula", "Umm al-Ghula, Mother of the Ghouls", "ghoula", 1.25f, {1, 1, 1}, 760, 3.9f, 0.85f, AttackKind::Boss, 3.2f, 1.5f, 11, 17, DT_PHYS, 150, 420, 0},
+            // Act I (Slice 4)
+            {"cable_jinn", "Cable Jinn", "cable", 1.0f, {1, 1, 1}, 44, 4.0f, 0.45f, AttackKind::Claw, 1.6f, 1.4f, 5, 10, DT_LIGHTNING, 5, 14, 0},
+            {"dish_sentinel", "Dish Sentinel", "dish", 1.0f, {1, 1, 1}, 60, 0.f, 0.6f, AttackKind::Beam, 11.f, 3.2f, 9, 15, DT_LIGHTNING, 20, 18, 0},
+            {"silah", "Si'lah", "silah", 1.0f, {1, 1, 1}, 52, 4.6f, 0.45f, AttackKind::Leap, 6.5f, 3.0f, 8, 13, DT_PHYS, 10, 18, 0},
+            {"nasnas", "Nasnas", "nasnas", 1.0f, {1, 1, 1}, 34, 5.2f, 0.4f, AttackKind::Claw, 1.4f, 1.0f, 4, 9, DT_PHYS, 5, 12, 0},
+            {"qutrub", "Qutrub", "qutrub", 1.05f, {1, 1, 1}, 70, 5.0f, 0.5f, AttackKind::Leap, 7.0f, 2.8f, 10, 16, DT_PHYS, 20, 24, 0},
+            {"microbus_jinn", "The Iron Microbus", "microbus", 1.0f, {1, 1, 1}, 520, 3.2f, 1.3f, AttackKind::Boss, 3.0f, 1.5f, 12, 18, DT_PHYS, 120, 300, 0},
+            {"silah_sadat", "The Si'lah of Sadat Station", "silah", 1.45f, {0.8f, 0.9f, 1.1f}, 620, 4.4f, 0.8f, AttackKind::Boss, 2.8f, 1.3f, 10, 16, DT_PHYS, 60, 360, 0},
+            {"nasnas_kabir", "al-Nasnas al-Kabir", "nasnas", 1.7f, {0.9f, 0.8f, 0.8f}, 700, 4.6f, 0.9f, AttackKind::Boss, 3.0f, 1.2f, 12, 18, DT_PHYS, 80, 400, 0},
+            {"ifrit_zuweila", "The Ifrit of Bab Zuweila", "ifrit", 1.0f, {1, 1, 1}, 680, 3.6f, 1.0f, AttackKind::Boss, 3.4f, 1.4f, 11, 16, DT_FIRE, 100, 500, 0},
+            {"qutrub_alpha", "The Qutrub of the Quarries", "qutrub", 1.55f, {0.85f, 0.8f, 0.75f}, 980, 5.0f, 0.9f, AttackKind::Boss, 3.2f, 1.1f, 15, 22, DT_PHYS, 90, 600, 0},
+        };
+        auto set = [&](const char* id, bool rigid, const char* fam, const char* voice = "ghoul") {
+            for (auto& m : v) if (std::string(m.id) == id) { m.rigid = rigid; m.family = fam; m.voice = voice; }
+        };
+        auto codex = [&](const char* prefix, const char* entry) {
+            for (auto& m : v) if (std::string(m.family).rfind(prefix, 0) == 0) m.codex = entry;
+        };
+        for (const char* g : {"ghoul", "ghoul_bruiser", "ghoul_spitter", "umm_al_ghula"}) set(g, false, "Ghouls of the City of the Dead");
+        set("cable_jinn", false, "Possessed things", "spark");
+        set("dish_sentinel", true, "Possessed things", "spark");
+        set("microbus_jinn", true, "Possessed things", "metal");
+        set("silah", false, "Si'lah, the shape-shifters", "whisper");
+        set("silah_sadat", false, "Si'lah, the shape-shifters", "whisper");
+        set("nasnas", false, "Nasnas, the half-men");
+        set("nasnas_kabir", false, "Nasnas, the half-men");
+        set("qutrub", false, "Qutrub, the grave wolves", "howl");
+        set("qutrub_alpha", false, "Qutrub, the grave wolves", "howl");
+        set("ifrit_zuweila", false, "Ifrit, the fire jinn", "fire");
+        codex("Ghouls", "ghouls");
+        codex("Possessed", "possessed");
+        codex("Si'lah", "silah");
+        codex("Nasnas", "nasnas");
+        codex("Qutrub", "qutrub");
+        codex("Ifrit", "ifrit");
+        return v;
+    }();
     return d;
+}
+
+CharacterModel monster_model(int def) {
+    const MonsterDef& d = monster_defs()[size_t(def)];
+    if (d.rigid) { CharacterModel c; c.name = d.model; return c; }   // a possessed object: one static mesh
+    return assets().character(d.model);
+}
+
+const BossDef* boss_def(int monster) {
+    static const std::vector<BossDef> d = {
+        {"umm_al_ghula",
+         {{MoveKind::Summon, "summon", 1e9f, 0, 99, 0, 1}, {MoveKind::Wail, "wail", 11.f, 0, 99, 0, 1},
+          {MoveKind::Leap, "leap", 6.f, 5.5f, 40, 1.6f, 0}, {MoveKind::Combo, "combo", 1.4f, 0, 3.6f, 1.f, 0}},
+         0.55f, "RISE, MY CHILDREN", "ghoul", 5, 9.f, 1.25f, {0.6f, 1.f, 0.4f}},
+        {"microbus_jinn",
+         {{MoveKind::Summon, "", 1e9f, 0, 99, 0, 1}, {MoveKind::Nova, "", 6.f, 0, 5.f, 1.1f, 1},
+          {MoveKind::Charge, "", 4.2f, 3.5f, 30, 1.6f, 0}, {MoveKind::Combo, "", 1.6f, 0, 3.2f, 1.f, 0}},
+         0.5f, "THE DOORS FLY OPEN", "cable_jinn", 3, 10.f, 1.2f, {0.6f, 0.8f, 1.f}},
+        {"silah_sadat",
+         {{MoveKind::Summon, "summon", 1e9f, 0, 99, 0, 1}, {MoveKind::Volley, "cast", 5.f, 5, 20, 0.6f, 1},
+          {MoveKind::Blink, "cast", 5.f, 4.f, 30, 0, 0}, {MoveKind::Combo, "combo", 1.3f, 0, 3.2f, 1.f, 0}},
+         0.5f, "THE PASSENGERS STEP FORWARD", "silah", 3, 10.f, 1.2f, {0.7f, 0.9f, 0.6f}},
+        {"nasnas_kabir",
+         {{MoveKind::Summon, "summon", 1e9f, 0, 99, 0, 1}, {MoveKind::Nova, "slam", 7.f, 0, 4.5f, 1.2f, 1},
+          {MoveKind::Leap, "leap", 4.f, 4.f, 25, 1.4f, 0}, {MoveKind::Combo, "combo", 1.2f, 0, 3.4f, 1.f, 0}},
+         0.5f, "THE OTHER HALF ANSWERS", "nasnas", 4, 10.f, 1.25f, {0.8f, 0.6f, 0.5f}},
+        {"ifrit_zuweila",
+         {{MoveKind::Nova, "wail", 8.f, 0, 6.f, 1.3f, 1}, {MoveKind::Pools, "cast", 9.f, 0, 30, 0.5f, 0},
+          {MoveKind::Volley, "cast", 4.f, 4.f, 30, 0.8f, 0}, {MoveKind::Combo, "combo", 1.4f, 0, 3.8f, 1.f, 0}},
+         0.5f, "THE GATE'S FIRE BURNS IN HIM", "", 0, 10.f, 1.2f, {1.f, 0.5f, 0.15f}},
+        {"qutrub_alpha",
+         {{MoveKind::Summon, "summon", 1e9f, 0, 99, 0, 1}, {MoveKind::Wail, "wail", 10.f, 0, 99, 0, 1},
+          {MoveKind::Leap, "leap", 3.5f, 4.f, 25, 1.5f, 0}, {MoveKind::Combo, "combo", 1.1f, 0, 3.4f, 1.f, 0}},
+         0.55f, "THE PACK ANSWERS", "qutrub", 3, 10.f, 1.3f, {0.7f, 0.7f, 0.7f}},
+    };
+    if (monster < 0 || monster >= int(monster_defs().size())) return nullptr;
+    const char* id = monster_defs()[size_t(monster)].id;
+    for (auto& b : d) if (std::string(b.monster) == id) return &b;
+    return nullptr;
 }
 
 int find_monster(const char* id) {
@@ -91,6 +168,7 @@ void compute_hero_stats(Hero& H) {
         if (!H.equip[e].empty()) H.equip[e].add_global_mods(H.stats, uint16_t(1 + e));
     H.passives.apply(H.stats);
     H.keystones = H.passives.keystones();
+    if (const Ascendancy* a = ascendancy_for(H.passives.cls)) asc_apply(*a, H.asc, H.stats, H.keystones);
     // attributes: Strength gives life and melee damage, Dexterity evasion, Intelligence mana and Hirz
     float str = H.stats.value(S_STR), dex = H.stats.value(S_DEX), in = H.stats.value(S_INT);
     H.stats.add(S_LIFE, MK_FLAT, str * 0.5f, 0, SRC_ATTRIBUTES);
@@ -191,7 +269,12 @@ Actor& World::spawn_monster(int def, vec2 pos, Rarity rarity, int lvl) {
     m.speed = d.speed * rng.range(0.92f, 1.08f);
     m.attack_cd = rng.range(0.2f, 1.2f);
     if (rarity == Rarity::Magic) { m.life_max *= 1.8f; m.dmg_mult = 1.2f; }
-    if (d.attack == AttackKind::Boss) { m.rarity = Rarity::Unique; m.cd2 = 3.f; m.cd3 = 1e9f; m.home = pos; }
+    if (d.attack == AttackKind::Boss) {
+        m.rarity = Rarity::Unique;
+        m.home = pos;
+        if (const BossDef* bd = boss_def(def))
+            for (size_t i = 0; i < bd->moves.size() && i < 8; i++) m.move_cd[i] = bd->moves[i].phase ? 1e9f : (bd->moves[i].kind == MoveKind::Combo ? 0.f : 3.f);
+    }
     if (rarity == Rarity::Rare) {
         m.life_max *= 2.6f;
         m.dmg_mult = 1.25f;
@@ -211,7 +294,7 @@ Actor& World::spawn_monster(int def, vec2 pos, Rarity rarity, int lvl) {
     }
     m.speed *= m.speed_mult;
     m.life = m.life_max;
-    m.model = assets().character(d.model);
+    m.model = monster_model(def);
     m.anim.bind(m.model.skel, m.model.anims);
     m.anim.play("idle", 0);
     m.anim.t = rng.range(0, 2);
@@ -283,6 +366,11 @@ void World::step(const Input& in, float dt) {
         g.t += dt;
         if (g.kind == GroundFx::Glyph && g.t >= g.pulse && g.t < g.life) { g.pulse += 1.f; glyph_pulse(ground[i]); }
         if (g.kind == GroundFx::Meteor && g.t >= g.life) star_fall(ground[i]);
+        if (g.kind == GroundFx::Fire && g.t >= g.pulse && g.t < g.life) {   // a burning pool: it bites twice a second
+            g.pulse += 0.5f;
+            if (h.alive() && length(h.pos - g.pos) < g.radius + h.radius * 0.5f)
+                damage_hero(g.hh.hit.min[DT_FIRE] * 0.4f, g.hh.hit.max[DT_FIRE] * 0.4f, DT_FIRE, g.pos, 0, g.owner);
+        }
     }
     ground.erase(std::remove_if(ground.begin(), ground.end(), [](const GroundFx& g) { return g.t >= g.life; }), ground.end());
     // remove fully dissolved corpses
@@ -299,6 +387,7 @@ void World::step(const Input& in, float dt) {
     // loot selection: the nearest item within reach
     selected_loot = -1;
     float bd = 2.2f;
+    std::vector<GroundItem> pending_loot;   // a completed poster's unique, added after the walk
     for (size_t i = 0; i < loot.size(); i++) {
         GroundItem& g = loot[i];
         g.t += dt;
@@ -318,10 +407,30 @@ void World::step(const Input& in, float dt) {
                     std::sort(hero.blanks.begin(), hero.blanks.end());
                     texts.push_back({vec3(g.pos, 1.2f), "Blank Talisman (" + std::to_string(g.amount) + ")", 0xD4A84B, 0, 30});
                     emit(Ev::Currency, g.pos);
+                } else if (g.kind == GroundItem::Scrap) {
+                    int u = std::clamp(g.amount, 0, kMaxUniques - 1);
+                    const UniqueDef& ud = unique_def(u);
+                    meet_codex("posters");
+                    texts.push_back({vec3(g.pos, 1.2f), std::string("Poster Scrap: ") + ud.film, 0xE08A3C, 0, 30});
+                    emit(Ev::Currency, g.pos);
+                    if (++hero.scraps[u] >= kScrapsPerPoster) {   // the poster is whole: what it shows is yours
+                        hero.scraps[u] = 0;
+                        GroundItem gi;
+                        gi.item = make_unique(u, area_level, rng);
+                        gi.pos = level.resolve(h.pos + vec2{0.8f, -0.6f}, 0.3f);
+                        gi.id = next_id++;
+                        pending_loot.push_back(gi);
+                        notices.push_back(std::string("The poster is whole: ") + ud.film + " (" + std::to_string(ud.year) + ")");
+                        emit(Ev::Pickup, g.pos, 2.f);
+                    }
                 } else {
                     hero.currency[g.currency] += g.amount;
                     texts.push_back({vec3(g.pos, 1.2f), currency_def(g.currency).name, currency_def(g.currency).color, 0, 30});
                     emit(Ev::Currency, g.pos);
+                    int c = g.currency;
+                    if (c >= kFirstBlend && c <= kLastBlend) meet_codex("blends");
+                    else if (is_omen(c)) meet_codex("omens");
+                    else if (c == CUR_EMBER) meet_codex("ember");
                 }
                 g.t = -1;
             }
@@ -330,6 +439,7 @@ void World::step(const Input& in, float dt) {
         if (d < bd && loot_visible(g)) { bd = d; selected_loot = int(i); }
     }
     loot.erase(std::remove_if(loot.begin(), loot.end(), [](const GroundItem& g) { return g.t < 0; }), loot.end());
+    loot.insert(loot.end(), pending_loot.begin(), pending_loot.end());
     if (selected_loot >= int(loot.size())) selected_loot = -1;
 }
 
@@ -389,7 +499,7 @@ void World::drop_from_inventory(int i) {
 
 bool World::craft(int c, Item& target, std::string* why) {
     if (c < 0 || c >= CUR_COUNT || hero.currency[c] <= 0) { if (why) *why = "You have none left"; return false; }
-    if (!apply_currency(c, target, rng, why)) return false;
+    if (!apply_currency(c, target, rng, why, &hero.omens)) return false;
     hero.currency[c]--;
     recompute_hero();
     emit(Ev::Craft, actors[0].pos);
@@ -404,6 +514,27 @@ void World::drop_currency(vec2 at, int c, int amount) {
     g.pos = level.resolve(at, 0.3f);
     g.id = next_id++;
     loot.push_back(g);
+}
+
+void World::gain_endurance(int n) {
+    int before = hero.endurance;
+    hero.endurance = std::min(endurance_max(), hero.endurance + n);
+    hero.endurance_t = 10.f;
+    if (hero.endurance > before) texts.push_back({vec3(actors[0].pos, 2.6f), "ENDURANCE", 0xE8A060, 0, 30});
+}
+
+bool World::learn_recipe(int r) {
+    if (r < 0 || r >= 32 || (hero.recipes >> r & 1)) return false;
+    hero.recipes |= 1u << r;
+    notices.push_back(std::string("Recipe learned: ") + affix_defs()[recipe_affix(r).def].name + " (" + recipes()[size_t(r)].id + ")");
+    return true;
+}
+
+void World::meet_codex(const char* id) {
+    int c = find_codex(id);
+    if (c < 0 || (hero.codex >> c & 1)) return;
+    hero.codex |= uint64_t(1) << c;
+    notices.push_back(std::string("New in the Journal: ") + codex_entries()[size_t(c)].title);
 }
 
 void World::drop_special(vec2 at, GroundItem::Kind kind, int value) {
@@ -514,6 +645,9 @@ void World::hero_step(const Input& in, float dt) {
     if (H.es_wait > 0) H.es_wait -= dt;
     else if (H.es < H.es_max) H.es = std::min(H.es_max, H.es + H.es_max * 0.2f * (1 + H.stats.sum(S_ES_RECHARGE).inc / 100.f) * dt);
     h.life = std::min(h.life_max, h.life + H.stats.value(S_LIFE_REGEN) * dt);
+    // Endurance Charges fall off ten seconds after the last one was gained
+    if (H.endurance > 0 && (H.endurance_t -= dt) <= 0) H.endurance = 0;
+    if ((H.keystones & KS_OATH) && H.endurance > 0) h.life = std::min(h.life_max, h.life + h.life_max * 0.006f * H.endurance * dt);
     if (H.flask_heal_t > 0) {
         float rate = h.life_max * 0.5f / 1.5f;
         h.life = std::min(h.life_max, h.life + rate * dt);
@@ -589,10 +723,13 @@ float World::hit_enemy(Actor& e, const HeroHit& hh, vec2 from, float knock, floa
     HitDamage he = hh.hit;
     float k = extra_more;
     if (H.keystones & KS_FOLLOWER) k *= e.id == H.last_attacker ? 1.4f : 0.8f;   // al-Dabaran
+    uint32_t sk_tags = hh.talisman >= 0 && hh.talisman < int(H.talismans.size()) ? H.talismans[size_t(hh.talisman)].def().tags : 0;
+    if ((H.keystones & KS_FOUNDRY) && (sk_tags & T_SLAM) && e.broken_t > 0) k *= 1.25f;   // Hammer of the Foundry
     for (int t = 0; t < DT_COUNT; t++) { he.min[size_t(t)] *= k; he.max[size_t(t)] *= k; }
     Defences def;
     def.armour = e.armour;
     def.damage_taken_inc = (e.broken_t > 0 ? 50.f : 0.f) + (e.shock_t > 0 ? e.shock : 0.f);
+    if ((H.keystones & KS_BIND_COLD) && (e.chill_t > 0 || e.frozen_t > 0)) def.damage_taken_inc += 15.f;   // Binding Cold
     HitResult res = roll_hit(he, def, rng);
     if (res.crit && (H.keystones & KS_OVERLOAD)) H.overload_t = 6.f;
     e.life -= res.total;
@@ -615,7 +752,7 @@ float World::hit_enemy(Actor& e, const HeroHit& hh, vec2 from, float knock, floa
     // ailments: fire can Ignite, cold always Chills and builds Freeze, lightning can Shock
     float fire = res.by_type[DT_FIRE], cold = res.by_type[DT_COLD], light = res.by_type[DT_LIGHTNING];
     if (fire > 0 && hh.ignite > 0 && rng.chance(hh.ignite)) {
-        float dps = fire * 0.9f;
+        float dps = fire * 0.9f * ((H.keystones & KS_WEAVER) ? 1.3f : 1.f);   // Ailment Weaver
         if (dps > e.ignite_dps || e.ignite_t <= 0) e.ignite_dps = dps;
         e.ignite_t = 4.f;
     }
@@ -630,7 +767,8 @@ float World::hit_enemy(Actor& e, const HeroHit& hh, vec2 from, float knock, floa
             texts.push_back({vec3(e.pos, 2.4f), "FROZEN", 0x9FD8FF, 0, 34});
         }
     }
-    if (light > 0 && hh.shock > 0 && rng.chance(hh.shock)) {
+    bool storm_eye = (H.keystones & KS_STORM_EYE) && res.crit && (sk_tags & T_SPELL);   // Eye of the Storm
+    if ((light > 0 && hh.shock > 0 && rng.chance(hh.shock)) || storm_eye) {
         e.shock = std::max(e.shock, 20.f * hh.shock_effect);
         e.shock_t = 4.f;
     }
@@ -645,6 +783,7 @@ float World::hit_enemy(Actor& e, const HeroHit& hh, vec2 from, float knock, floa
         e.anim.play("stagger", 0.08f, true);
         emit(Ev::Break, e.pos);
         texts.push_back({vec3(e.pos, 2.4f), "BROKEN", 0xFF2E88, 0, 34});
+        if (H.keystones & KS_ENDURANCE) gain_endurance(1);   // Riveted Skin
     } else if (e.act != Act::Stun && res.total > e.life_max * 0.12f && e.rarity < Rarity::Rare && e.frozen_t <= 0) {
         e.act = Act::Hit;
         e.act_t = 0;
@@ -807,6 +946,7 @@ void World::resolve_skill(Actor& h) {
             g.life = 0.6f;
             ground.push_back(g);
             emit(Ev::Warcry, h.pos);
+            if (H.keystones & KS_IRON_CRY) gain_endurance(2);   // The Iron Cry
             shake = std::max(shake, 0.3f);
             break;
         }
@@ -918,6 +1058,9 @@ void World::kill(Actor& e) {
     e.anim.play("death", 0.05f, true);
     const MonsterDef& d = monster_defs()[size_t(e.def)];
     float xp = d.xp * (e.rarity == Rarity::Rare ? 6.f : e.rarity == Rarity::Magic ? 2.f : 1.f);
+    xp *= 1.f + 0.3f * float(area_level - 1);                  // deeper areas are worth more
+    if (int over = hero.level - area_level - 2; over > 0)      // and little once you have outgrown them
+        xp *= std::max(0.15f, 1.f - 0.2f * float(over));
     if (d.attack == AttackKind::Boss) {
         boss_killed = true;
         emit(Ev::BossDie, e.pos);
@@ -938,7 +1081,7 @@ void World::kill(Actor& e) {
         emit(Ev::LevelUp, actors[0].pos);
         texts.push_back({vec3(actors[0].pos, 2.6f), "LEVEL UP", 0xF2A541, 0, 44});
     }
-    emit(Ev::EnemyDie, e.pos, e.scale);
+    emit(Ev::EnemyDie, e.pos, e.scale, e.def);
     drop_loot(e);
 }
 
@@ -953,11 +1096,30 @@ void World::drop_loot(const Actor& e) {
             g.id = next_id++;
             loot.push_back(g);
         }
-        for (int k = 0; k < 4; k++) drop_currency(e.pos + rotate(vec2{2.2f, 0}, k * 1.57f), k == 0 ? CUR_PIASTRE : roll_currency(rng), 1);
+        for (int k = 0; k < 4; k++) drop_currency(e.pos + rotate(vec2{2.2f, 0}, k * 1.57f), k == 0 ? CUR_PIASTRE : roll_currency(rng, area_level + 2), 1);
         drop_gold(e.pos + vec2{0, -1.8f}, 60 + 12 * area_level);
         drop_special(e.pos + vec2{1.6f, -1.2f}, GroundItem::Wafq, rng.irange(0, WQ_COUNT - 1));
         drop_special(e.pos + vec2{-1.6f, -1.2f}, GroundItem::Blank, std::min(20, area_level + 1));
+        if (int u = random_unique(area_level + 2, rng); u >= 0) drop_special(e.pos + vec2{0, 1.8f}, GroundItem::Scrap, u);
+        if (rng.chance(0.08f)) if (int u = random_unique(area_level + 2, rng); u >= 0) {
+            GroundItem g;
+            g.item = make_unique(u, area_level + 2, rng);
+            g.pos = level.resolve(e.pos + vec2{0, 2.6f}, 0.3f);
+            g.id = next_id++;
+            loot.push_back(g);
+        }
         return;
+    }
+    // Poster Scraps, and now and then a unique itself
+    float sc = e.rarity == Rarity::Rare ? 0.05f : e.rarity == Rarity::Magic ? 0.012f : 0.0015f;
+    if (rng.chance(sc)) if (int u = random_unique(area_level, rng); u >= 0) drop_special(scatter(0.9f), GroundItem::Scrap, u);
+    float un = e.rarity == Rarity::Rare ? 0.006f : e.rarity == Rarity::Magic ? 0.001f : 0.0002f;
+    if (rng.chance(un)) if (int u = random_unique(area_level, rng); u >= 0) {
+        GroundItem g;
+        g.item = make_unique(u, area_level, rng);
+        g.pos = level.resolve(scatter(0.6f), 0.3f);
+        g.id = next_id++;
+        loot.push_back(g);
     }
     // Wafq and Blank Talismans: rare finds, likelier from stronger monsters
     float wq = e.rarity == Rarity::Rare ? 0.3f : e.rarity == Rarity::Magic ? 0.06f : 0.008f;
@@ -966,7 +1128,7 @@ void World::drop_loot(const Actor& e) {
     if (rng.chance(bl)) drop_special(scatter(0.9f), GroundItem::Blank, std::clamp(area_level + rng.irange(-1, 1), 1, 20));
     // currency and dinars
     float cur_chance = e.rarity == Rarity::Rare ? 0.9f : e.rarity == Rarity::Magic ? 0.25f : 0.045f;
-    if (rng.chance(cur_chance)) drop_currency(scatter(0.8f), roll_currency(rng), 1);
+    if (rng.chance(cur_chance)) drop_currency(scatter(0.8f), roll_currency(rng, area_level), 1);
     float gold_chance = e.rarity == Rarity::Normal ? 0.22f : 1.f;
     if (rng.chance(gold_chance)) drop_gold(scatter(0.8f), int(rng.irange(2, 5) * (1 + area_level * 0.5f) * (e.rarity == Rarity::Rare ? 5 : 1)));
     if (e.rarity == Rarity::Rare) { chance = 1.f; rare = 1.f; }
@@ -988,15 +1150,24 @@ void World::damage_hero(float lo, float hi, int type, vec2 from, float break_amt
     hd.min[size_t(type)] = lo;
     hd.max[size_t(type)] = hi;
     Defences def = defences_of(hero.stats);
+    const int ec = hero.endurance;
+    for (int t : {DT_FIRE, DT_COLD, DT_LIGHTNING}) def.res[size_t(t)] += 4.f * ec;   // Endurance Charges
     HitResult r = roll_hit(hd, def, rng);
     if (attacker) hero.last_attacker = attacker;
-    float taken = r.total;
+    if (ec > 0) r.by_type[DT_PHYS] *= 1.f - 0.04f * ec;
+    if (hero.keystones & KS_PLATE)   // Plate upon Plate: armour at half value against the elemental part of a hit
+        for (int t : {DT_FIRE, DT_COLD, DT_LIGHTNING})
+            r.by_type[size_t(t)] *= 1.f - armour_reduction(def.armour * 0.5f, r.by_type[size_t(t)]);
+    float taken = 0;
+    for (float v : r.by_type) taken += v;
+    if ((hero.keystones & KS_UNSHAKEN) && ec >= endurance_max()) taken *= 0.85f;   // Unshaken
+    r.total = taken;
     float soak = std::min(hero.es, taken);                     // Hirz takes the hit first
     hero.es -= soak;
     hero.es_wait = 2.f;
     h.life -= taken - soak;
     h.hit_flash = 0.6f;
-    h.knock += normalize(h.pos - from) * 1.5f;
+    if (!(hero.keystones & KS_UNSHAKEN)) h.knock += normalize(h.pos - from) * 1.5f;
     emit(Ev::HeroHit, h.pos, r.total / std::max(1.f, h.life_max));
     shake = std::max(shake, 0.25f);
     (void)break_amt;
@@ -1032,6 +1203,28 @@ void World::monster_attack(Actor& m) {
             shake = std::max(shake, 0.35f);
             break;
         }
+        case AttackKind::Leap: {
+            if (length(h.pos - m.target) <= 1.8f * m.scale + h.radius) damage_hero(lo, hi, d.dmg_type, m.target, 20, m.id);
+            burst(vec3(m.target, 0.1f), 16, vec4(0.5f, 0.45f, 0.42f, 0.9f), vec4(0.3f, 0.28f, 0.26f, 0), 4.f, 0.3f, 0.7f, false, -5.f, 1);
+            emit(Ev::SlamImpact, m.target, 0.6f);
+            break;
+        }
+        case AttackKind::Beam: {
+            // a line of lightning from the dish to where the telegraph pointed
+            vec2 end = m.target;
+            vec2 ab = end - m.pos;
+            float t = clampf(dot(h.pos - m.pos, ab) / std::max(1e-3f, dot(ab, ab)), 0, 1);
+            if (length(h.pos - (m.pos + ab * t)) < 0.9f + h.radius) damage_hero(lo, hi, d.dmg_type, m.pos, 8, m.id);
+            GroundFx b;
+            b.kind = GroundFx::Bolt;
+            b.pos = m.pos;
+            b.pos2 = end;
+            b.life = 0.25f;
+            b.seed = rng.next();
+            ground.push_back(b);
+            emit(Ev::LightningHit, end);
+            break;
+        }
         case AttackKind::Spit: {
             Projectile p;
             vec2 target = h.pos + h.vel * 0.35f;
@@ -1064,6 +1257,7 @@ void World::monster_step(Actor& m, float dt) {
         return;
     }
     ailments_step(m, dt);
+    if (*d.codex && length(m.pos - h.pos) < 11.f) meet_codex(d.codex);   // the first time you meet the family
     if (!m.alive()) return;
     if (m.frozen_t > 0) {  // frozen solid: no thought, no motion, only knockback
         m.vel = {0, 0};
@@ -1088,46 +1282,85 @@ void World::monster_step(Actor& m, float dt) {
             if (m.anim.done()) m.act = Act::Idle;
             break;
         case Act::Skill: {
+            const bool rigid = d.rigid || !m.model.skel;
             const char* ev = d.attack == AttackKind::Spit ? "fire" : "hit";
-            if (m.act_t < 0.3f) m.facing = wrap_angle(m.facing + wrap_angle(angle_of(to) - m.facing) * std::min(1.f, dt * 6.f));
-            if (!m.struck && m.anim.event(ev)) { m.struck = true; monster_attack(m); }
-            if (m.anim.done()) {
+            if (m.act_t < 0.3f && d.attack != AttackKind::Beam && d.attack != AttackKind::Leap)
+                m.facing = wrap_angle(m.facing + wrap_angle(angle_of(to) - m.facing) * std::min(1.f, dt * 6.f));
+            float hit_t = rigid ? 0.9f : (m.anim.cur ? m.anim.cur->event_time(ev, 0.5f) / std::max(0.1f, m.anim.speed) : 0.5f);
+            if (d.attack == AttackKind::Leap) {  // airborne from the start of the clip to its strike
+                float u = smoothstep(0.1f, 1.f, clampf(m.act_t / std::max(0.1f, hit_t), 0, 1));
+                m.pos = level.resolve(lerp(m.from, m.target, u), m.radius);
+            }
+            bool fire = rigid ? m.act_t >= hit_t : (m.anim.event(ev) || m.act_t >= hit_t + 0.05f);
+            if (!m.struck && fire) { m.struck = true; monster_attack(m); }
+            bool done = rigid ? m.act_t >= hit_t + 0.5f : (m.anim.done() || !m.anim.cur);
+            if (done) {
                 m.act = Act::Idle;
                 m.attack_cd = d.attack_cd * rng.range(0.8f, 1.25f);
             }
+            if (d.attack == AttackKind::Leap) { anim_step(m, dt); return; }
             break;
         }
         default: {
+            const bool rigid = d.rigid || !m.model.skel;
             bool aggro = m.ai_state > 0 || dist < 13.f || m.life < m.life_max;
-            if (!aggro || !h.alive()) { m.anim.play("idle", 0.25f); break; }
+            if (!aggro || !h.alive()) { if (!rigid) m.anim.play("idle", 0.25f); break; }
             m.ai_state = 1;
-            float reach = d.attack == AttackKind::Spit ? d.attack_range : d.attack_range * m.scale + h.radius;
-            bool in_range = dist <= reach;
+            float reach = (d.attack == AttackKind::Spit || d.attack == AttackKind::Beam || d.attack == AttackKind::Leap)
+                              ? d.attack_range : d.attack_range * m.scale + h.radius;
+            bool in_range = dist <= reach && (d.attack != AttackKind::Leap || dist > 2.5f || m.attack_cd > 0);
+            if (d.attack == AttackKind::Leap && dist <= 2.5f) in_range = dist <= 1.8f * m.scale + h.radius;   // close in: a leap is a pounce
             if (d.keep_distance > 0) {
                 if (dist < d.keep_distance - 1.5f) want = -dir * m.speed * 0.8f;
                 else if (dist > d.keep_distance + 1.f) want = dir * m.speed;
-            } else if (!in_range) {
+            } else if (!in_range && m.speed > 0) {
                 want = dir * m.speed;
+                // no straight line to the hero: follow the nav grid round the walls
+                m.ai_t -= dt;
+                if (!level.line_clear(m.pos, h.pos, 0.3f)) {
+                    if (m.ai_t <= 0 || length(m.target - m.pos) < 0.7f) {
+                        std::vector<vec2> path;
+                        m.ai_t = 0.6f + fx_rng.range(0, 0.3f);
+                        if (level.find_path(m.pos, h.pos, 0.55f, path) && !path.empty()) m.target = path.front();
+                        else m.target = h.pos;
+                    }
+                    if (length(m.target - m.pos) > 0.1f) want = normalize(m.target - m.pos) * m.speed;
+                }
             }
-            if (in_range && m.attack_cd <= 0) {
+            if (in_range && m.attack_cd <= 0 && (d.attack != AttackKind::Beam || level.line_clear(m.pos, h.pos, 0.1f))) {
                 m.act = Act::Skill;
                 m.act_t = 0;
                 m.struck = false;
                 m.facing = angle_of(to);
-                const char* clip = d.attack == AttackKind::Claw ? "claw" : d.attack == AttackKind::Slam ? "slam" : "spit";
-                m.anim.play(clip, 0.08f, true, m.speed_mult);
+                const char* clip = d.attack == AttackKind::Claw ? "claw" : d.attack == AttackKind::Slam ? "slam" : d.attack == AttackKind::Leap ? "leap" : "spit";
+                if (!rigid && !m.anim.play(clip, 0.08f, true, m.speed_mult)) m.anim.play(d.attack == AttackKind::Leap ? "slam" : "claw", 0.08f, true, m.speed_mult);
                 // telegraph on the ground for everything that can really hurt
                 GroundFx g;
                 g.kind = GroundFx::Telegraph;
                 g.owner = m.id;
-                const Clip* c = m.anim.cur;
-                float hit_t = c ? c->event_time(d.attack == AttackKind::Spit ? "fire" : "hit", 0.5f) / m.speed_mult : 0.5f;
+                const Clip* c = rigid ? nullptr : m.anim.cur;
+                float hit_t = rigid ? 0.9f : c ? c->event_time(d.attack == AttackKind::Spit ? "fire" : "hit", 0.5f) / m.speed_mult : 0.5f;
                 g.life = hit_t;
                 if (d.attack == AttackKind::Slam) { g.pos = m.pos + from_angle(m.facing) * 1.3f * m.scale; g.radius = 1.7f * m.scale; g.half = kPi; }
                 else if (d.attack == AttackKind::Claw) { g.pos = m.pos; g.radius = d.attack_range * m.scale + 0.3f; g.half = radians(75); g.angle = m.facing; }
+                else if (d.attack == AttackKind::Leap) {
+                    m.from = m.pos;
+                    m.target = level.resolve(h.pos + h.vel * 0.25f, m.radius);
+                    g.pos = m.target;
+                    g.radius = 1.8f * m.scale;
+                    g.half = kPi;
+                } else if (d.attack == AttackKind::Beam) {
+                    m.target = m.pos + dir * d.attack_range;
+                    g.kind = GroundFx::Line;
+                    g.pos = m.pos;
+                    g.pos2 = m.target;
+                    g.radius = 0.9f;
+                }
                 if (d.attack != AttackKind::Spit) ground.push_back(g);
             }
-            if (length(want) > 0.1f) {
+            if (rigid) {
+                if (length(want) < 0.1f && m.act == Act::Idle) m.facing = wrap_angle(m.facing + wrap_angle(angle_of(to) - m.facing) * std::min(1.f, dt * 3.f));
+            } else if (length(want) > 0.1f) {
                 m.facing = wrap_angle(m.facing + wrap_angle(angle_of(want) - m.facing) * std::min(1.f, dt * 8.f));
                 m.anim.play("run", 0.15f, false, clampf(length(want) / 4.3f, 0.6f, 1.4f));
             } else if (m.act == Act::Idle) {
@@ -1138,79 +1371,191 @@ void World::monster_step(Actor& m, float dt) {
     }
     m.vel = lerp(m.vel, want, std::min(1.f, dt * 10.f));
     m.pos = level.resolve(m.pos + (m.vel + m.knock) * dt, m.radius);
-    anim_step(m, dt);
+    if (d.rigid || !m.model.skel) m.hit_flash = std::max(0.f, m.hit_flash - dt * 6.f);
+    else anim_step(m, dt);
 }
 
-// ---- Umm al-Ghula: claw combos up close, leap slams at range; below 55% she summons and wails
+// ---- bosses: moves from a table (boss_def), each resolved on its clip's events or, for a possessed object with no
+// skeleton, on a timer. Leashed to their court: engaged, they follow a way; if the hero escapes or dies they walk home
+// and heal.
+namespace {
+// a strike's timing when there is no clip: when it lands, and when the move is over
+constexpr float kRigidHit = 0.85f, kRigidEnd = 1.5f;
+}
+
 void World::boss_strike(Actor& m, const char* ev) {
     Actor& h = actors[0];
     const MonsterDef& d = monster_defs()[size_t(m.def)];
+    const BossDef* bd = boss_def(m.def);
+    if (!bd || m.skill < 0 || m.skill >= int(bd->moves.size())) return;
+    const BossMove& mv = bd->moves[size_t(m.skill)];
     float k = 1 + 0.12f * (area_level - 1);
-    float lo = d.dmg_min * k * m.dmg_mult, hi = d.dmg_max * k * m.dmg_mult;
-    if (m.skill == 0) {  // claw combo
-        vec2 dd = h.pos - m.pos;
-        if (length(dd) <= d.attack_range + h.radius && std::fabs(wrap_angle(angle_of(dd) - m.facing)) < radians(70))
-            damage_hero(lo, hi, DT_PHYS, m.pos, 12, m.id);
-        (void)ev;
-    } else if (m.skill == 1) {  // leap landing
-        if (length(h.pos - m.target) <= 2.7f + h.radius) damage_hero(lo * 1.6f, hi * 1.6f, DT_PHYS, m.target, 25, m.id);
-        burst(vec3(m.target, 0.1f), 30, vec4(0.45f, 0.4f, 0.36f, 0.8f), vec4(0.3f, 0.27f, 0.25f, 0), 6.f, 0.35f, 1.0f, false, -6.f, 1);
-        emit(Ev::SlamImpact, m.target, 1.2f);
-        emit(Ev::BossLeap, m.target);
-        shake = std::max(shake, 0.7f);
-    } else if (m.skill == 2) {  // wail
-        if (length(h.pos - m.pos) <= 7.5f) damage_hero(h.life_max * 0.28f, h.life_max * 0.34f, DT_CHAOS, m.pos, 40, m.id);
-        GroundFx g;
-        g.kind = GroundFx::Ring;
-        g.pos = m.pos;
-        g.radius = 7.5f;
-        g.life = 0.7f;
-        ground.push_back(g);
-        emit(Ev::BossWail, m.pos, 2.f);
-        shake = std::max(shake, 0.6f);
-    } else if (m.skill == 3) {  // summon from the graves
-        int g = find_monster("ghoul");
-        emit(Ev::Summon, m.pos);
-        for (int i = 0; i < 5; i++) {
-            vec2 p = level.resolve(m.pos + rotate(vec2{3.2f, 0}, i * kTau / 5 + 0.3f), 0.5f);
-            Actor& a = spawn_monster(g, p, Rarity::Normal, area_level);
-            a.ai_state = 1;
-            burst(vec3(p, 0.1f), 16, vec4(0.4f, 0.35f, 0.3f, 0.8f), vec4(0.3f, 0.25f, 0.2f, 0), 3.f, 0.3f, 0.9f, false, -4.f, 1);
+    float lo = d.dmg_min * k * m.dmg_mult * mv.dmg, hi = d.dmg_max * k * m.dmg_mult * mv.dmg;
+    (void)ev;
+    switch (mv.kind) {
+        case MoveKind::Combo: {
+            vec2 dd = h.pos - m.pos;
+            if (length(dd) <= d.attack_range * std::max(1.f, m.scale * 0.8f) + h.radius &&
+                std::fabs(wrap_angle(angle_of(dd) - m.facing)) < radians(70))
+                damage_hero(lo, hi, d.dmg_type, m.pos, 12, m.id);
+            break;
         }
+        case MoveKind::Leap:
+            if (length(h.pos - m.target) <= 2.7f + h.radius) damage_hero(lo, hi, d.dmg_type, m.target, 25, m.id);
+            burst(vec3(m.target, 0.1f), 30, vec4(0.45f, 0.4f, 0.36f, 0.8f), vec4(0.3f, 0.27f, 0.25f, 0), 6.f, 0.35f, 1.0f, false, -6.f, 1);
+            emit(Ev::SlamImpact, m.target, 1.2f);
+            emit(Ev::BossLeap, m.target);
+            shake = std::max(shake, 0.7f);
+            break;
+        case MoveKind::Wail: {
+            if (length(h.pos - m.pos) <= 7.5f) damage_hero(h.life_max * 0.28f, h.life_max * 0.34f, DT_CHAOS, m.pos, 40, m.id);
+            GroundFx g;
+            g.kind = GroundFx::Ring;
+            g.pos = m.pos;
+            g.radius = 7.5f;
+            g.life = 0.7f;
+            ground.push_back(g);
+            emit(Ev::BossWail, m.pos, 2.f);
+            shake = std::max(shake, 0.6f);
+            break;
+        }
+        case MoveKind::Nova: {
+            float r = mv.max_range;
+            if (length(h.pos - m.pos) <= r + h.radius) damage_hero(lo, hi, d.dmg_type, m.pos, 30, m.id);
+            GroundFx g;
+            g.kind = GroundFx::Ring;
+            g.pos = m.pos;
+            g.radius = r;
+            g.life = 0.6f;
+            ground.push_back(g);
+            vec4 c = d.dmg_type == DT_FIRE ? vec4(1.f, 0.5f, 0.15f, 1) : d.dmg_type == DT_LIGHTNING ? vec4(0.6f, 0.75f, 1.f, 1) : vec4(0.6f, 0.55f, 0.5f, 1);
+            burst(vec3(m.pos, 0.3f), 40, c, c * 0.3f, 8.f, 0.16f, 0.6f, true, -4.f);
+            emit(Ev::SlamImpact, m.pos, 1.3f);
+            shake = std::max(shake, 0.55f);
+            break;
+        }
+        case MoveKind::Summon: {
+            int g = bd->summon && *bd->summon ? find_monster(bd->summon) : -1;
+            if (g < 0) break;
+            emit(Ev::Summon, m.pos);
+            for (int i = 0; i < bd->summon_n; i++) {
+                vec2 p = level.resolve(m.pos + rotate(vec2{3.2f, 0}, i * kTau / float(bd->summon_n) + 0.3f), 0.5f);
+                Actor& a = spawn_monster(g, p, Rarity::Normal, area_level);
+                a.ai_state = 1;
+                burst(vec3(p, 0.1f), 16, vec4(0.4f, 0.35f, 0.3f, 0.8f), vec4(0.3f, 0.25f, 0.2f, 0), 3.f, 0.3f, 0.9f, false, -4.f, 1);
+            }
+            break;
+        }
+        case MoveKind::Volley: {
+            vec2 aim = normalize(h.pos + h.vel * 0.3f - m.pos);
+            for (int i = -2; i <= 2; i++) {
+                Projectile p;
+                vec2 dir = rotate(aim, i * 0.2f);
+                p.pos = m.pos + dir * (m.radius + 0.4f);
+                p.vel = dir * 11.f;
+                p.z = 1.4f * std::max(1.f, m.scale * 0.8f);
+                p.dmg_min = lo * 0.6f;   // a fan: at close range more than one bolt lands
+                p.dmg_max = hi * 0.6f;
+                p.dmg_type = d.dmg_type;
+                p.color = bd->bolt;
+                p.owner = m.id;
+                p.life = 2.2f;
+                projectiles.push_back(p);
+            }
+            emit(Ev::Spit, m.pos);
+            break;
+        }
+        case MoveKind::Pools:
+            for (int i = 0; i < 3; i++) {
+                GroundFx g;
+                g.kind = GroundFx::Fire;
+                g.pos = level.resolve(h.pos + rotate(vec2{i == 0 ? 0.f : 2.4f, 0}, i * 2.1f + rng.range(0, 1)), 0.2f);
+                g.radius = 1.5f;
+                g.life = 4.5f;
+                g.pulse = 0.9f;   // a moment to step out before it bites
+                g.owner = m.id;
+                g.hh.hit.min[DT_FIRE] = lo;
+                g.hh.hit.max[DT_FIRE] = hi;
+                ground.push_back(g);
+            }
+            emit(Ev::FireHit, h.pos);
+            break;
+        case MoveKind::Charge: break;   // resolved while it travels (boss_step)
+        case MoveKind::Blink: break;
     }
 }
 
 void World::boss_step(Actor& m, float dt) {
     const MonsterDef& d = monster_defs()[size_t(m.def)];
+    const BossDef* bd = boss_def(m.def);
     Actor& h = actors[0];
+    if (!bd) return;
     vec2 to = h.pos - m.pos;
     float dist = length(to);
     vec2 dir = dist > 1e-4f ? to / dist : vec2{0, 1};
-    float haste = m.phase ? 1.25f : 1.f;
-    m.attack_cd -= dt * haste;
-    m.cd2 -= dt;
-    m.cd3 -= dt;
+    float haste = m.phase ? bd->haste2 : 1.f;
+    for (size_t i = 0; i < bd->moves.size() && i < 8; i++) m.move_cd[i] -= dt * haste;
     m.act_t += dt;
     vec2 want{0, 0};
-    auto start = [&](int skill, const char* clip, float speed) {
-        m.act = Act::Skill;
-        m.act_t = 0;
-        m.skill = skill;
-        m.struck = false;
-        m.facing = angle_of(to);
-        m.anim.play(clip, 0.08f, true, speed);
-    };
-    auto telegraph = [&](vec2 at, float r, float half, float angle, const char* ev) {
+    const bool rigid = d.rigid || !m.model.skel;
+    auto telegraph = [&](GroundFx::Kind kind, vec2 at, float r, float half, float angle, float life, vec2 at2 = {}) {
         GroundFx g;
-        g.kind = GroundFx::Telegraph;
+        g.kind = kind;
         g.owner = m.id;
         g.pos = at;
+        g.pos2 = at2;
         g.radius = r;
         g.half = half;
         g.angle = angle;
-        const Clip* c = m.anim.cur;
-        g.life = c ? c->event_time(ev, 0.8f) / m.anim.speed : 0.8f;
+        g.life = life;
         ground.push_back(g);
+    };
+    auto hit_time = [&](const char* ev) {
+        if (rigid) return kRigidHit;
+        const Clip* c = m.anim.cur;
+        return c ? c->event_time(ev, 0.8f) / std::max(0.1f, m.anim.speed) : 0.8f;
+    };
+    auto start = [&](int i) {
+        const BossMove& mv = bd->moves[size_t(i)];
+        m.act = Act::Skill;
+        m.act_t = 0;
+        m.skill = i;
+        m.struck = false;
+        m.facing = angle_of(to);
+        m.move_cd[i] = mv.cooldown;
+        if (!rigid && !(mv.clip && *mv.clip && m.anim.play(mv.clip, 0.08f, true, haste)))
+            m.anim.play(mv.kind == MoveKind::Combo ? "claw" : "slam", 0.08f, true, haste);
+        switch (mv.kind) {
+            case MoveKind::Combo: telegraph(GroundFx::Telegraph, m.pos, d.attack_range * std::max(1.f, m.scale * 0.8f) + 0.4f, radians(70), m.facing, hit_time("hit")); break;
+            case MoveKind::Leap: {
+                m.from = m.pos;
+                vec2 aim = h.pos + h.vel * 0.3f;
+                if (length(aim - m.home) > bd->court) aim = m.home + normalize(aim - m.home) * bd->court;
+                m.target = level.resolve(aim, m.radius);
+                telegraph(GroundFx::Telegraph, m.target, 2.7f, kPi, 0, hit_time("hit"));
+                break;
+            }
+            case MoveKind::Wail: telegraph(GroundFx::Telegraph, m.pos, 7.5f, kPi, 0, hit_time("hit")); break;
+            case MoveKind::Nova: telegraph(GroundFx::Telegraph, m.pos, mv.max_range, kPi, 0, hit_time("hit")); break;
+            case MoveKind::Charge: {
+                m.from = m.pos;
+                vec2 aim = m.pos + dir * std::min(14.f, dist + 4.f);
+                m.target = level.resolve(aim, m.radius);
+                telegraph(GroundFx::Line, m.pos, m.radius + 0.4f, 0, 0, kRigidHit, m.target);
+                break;
+            }
+            case MoveKind::Blink: {
+                // vanish, and step out beside the hero
+                burst(vec3(m.pos, 1.0f), 24, vec4(0.5f, 0.6f, 0.5f, 0.8f), vec4(0.2f, 0.25f, 0.2f, 0), 3.f, 0.3f, 0.7f, false, 1.f, 1);
+                m.pos = level.resolve(h.pos - from_angle(h.facing) * 3.f + perp(dir) * rng.range(-1.5f, 1.5f), m.radius);
+                burst(vec3(m.pos, 1.0f), 24, vec4(0.5f, 0.6f, 0.5f, 0.8f), vec4(0.2f, 0.25f, 0.2f, 0), 3.f, 0.3f, 0.7f, false, 1.f, 1);
+                emit(Ev::Portal, m.pos, 0.5f);
+                for (size_t k = 0; k < bd->moves.size(); k++) if (bd->moves[k].kind == MoveKind::Combo) m.move_cd[k] = 0;
+                m.act = Act::Idle;
+                break;
+            }
+            default: break;
+        }
     };
     switch (m.act) {
         case Act::Stun:
@@ -1218,84 +1563,95 @@ void World::boss_step(Actor& m, float dt) {
             if (m.stun_t <= 0) m.act = Act::Idle;
             break;
         case Act::Skill: {
-            if (m.skill == 1) {  // airborne: travel to the landing point
-                float p = m.anim.progress();
-                m.pos = lerp(m.from, m.target, smoothstep(0.3f, 0.66f, p));
+            const BossMove& mv = bd->moves[size_t(m.skill)];
+            float t_hit = hit_time(mv.kind == MoveKind::Summon ? "summon" : "hit");
+            if (mv.kind == MoveKind::Leap) {  // airborne: travel to the landing point
+                float p = rigid ? clampf(m.act_t / kRigidHit, 0, 1) : m.anim.progress();
+                m.pos = lerp(m.from, m.target, smoothstep(rigid ? 0.2f : 0.3f, rigid ? 1.f : 0.66f, p));
             }
-            if (!m.struck && m.anim.event(m.skill == 3 ? "summon" : "hit")) { m.struck = true; boss_strike(m, "hit"); }
-            if (m.skill == 0 && m.anim.event("hit2")) boss_strike(m, "hit2");
-            if (m.anim.done()) {
+            if (mv.kind == MoveKind::Charge && m.act_t >= kRigidHit && m.act_t < kRigidHit + 0.55f) {
+                // the dash: fast along the telegraphed line, and whoever is in the way is struck once
+                float u = clampf((m.act_t - kRigidHit) / 0.55f, 0, 1);
+                m.pos = level.resolve(lerp(m.from, m.target, u), m.radius);
+                if (!m.struck && length(h.pos - m.pos) < m.radius + h.radius + 0.3f) {
+                    m.struck = true;
+                    float k = 1 + 0.12f * (area_level - 1);
+                    damage_hero(d.dmg_min * k * mv.dmg, d.dmg_max * k * mv.dmg, DT_PHYS, m.pos, 40, m.id);
+                    h.knock += normalize(h.pos - m.pos) * 6.f;
+                    shake = std::max(shake, 0.6f);
+                }
+                if (fx_rng.chance(0.5f)) burst(vec3(m.pos, 0.2f), 3, vec4(0.5f, 0.45f, 0.4f, 0.7f), vec4(0.3f, 0.28f, 0.25f, 0), 2.f, 0.3f, 0.6f, false, 1.f, 1);
+            } else if (!m.struck && mv.kind != MoveKind::Charge) {
+                bool fire = rigid ? m.act_t >= t_hit : (m.anim.event(mv.kind == MoveKind::Summon ? "summon" : "hit") || m.anim.event("hit") ||
+                                                        (m.anim.cur && m.act_t >= t_hit + 0.05f));
+                if (fire) { m.struck = true; boss_strike(m, "hit"); }
+            }
+            if (mv.kind == MoveKind::Combo && !rigid && m.anim.event("hit2")) boss_strike(m, "hit2");
+            bool done = rigid ? m.act_t >= kRigidEnd : (m.anim.done() || !m.anim.cur || m.act_t > 4.f);
+            if (done) {
                 m.act = Act::Idle;
-                if (m.skill == 2) {  // spent after the wail: a Break window
+                if (mv.kind == MoveKind::Wail) {  // spent after the wail: a Break window
                     m.act = Act::Stun;
                     m.stun_t = 1.8f;
                     m.broken_t = 3.0f;
                     m.anim.play("stagger", 0.1f, true);
                     texts.push_back({vec3(m.pos, 3.2f), "EXHAUSTED", 0xFF2E88, 0, 34});
                 }
-                m.attack_cd = 1.4f;
             }
             break;
         }
         default: {
-            // she keeps to her court: engaged, she follows a little way; if the hero truly escapes (or falls)
-            // she walks home and gathers herself
-            float leash = m.ai_state > 0 ? 26.f : 17.f;
+            float leash = m.ai_state > 0 ? bd->court + 17.f : bd->court + 8.f;
             if (length(h.pos - m.home) > leash || !h.alive()) {
                 m.ai_state = 0;
                 vec2 back = m.home - m.pos;
                 if (length(back) > 0.8f) {
                     want = normalize(back) * m.speed;
                     m.facing = wrap_angle(m.facing + wrap_angle(angle_of(back) - m.facing) * std::min(1.f, dt * 6.f));
-                    m.anim.play("run", 0.15f, false, 1.f);
-                } else {
+                    if (!rigid) m.anim.play("run", 0.15f, false, 1.f);
+                } else if (!rigid) {
                     m.anim.play("idle", 0.25f);
                 }
                 m.life = std::min(m.life_max, m.life + m.life_max * 0.08f * dt);
-                if (m.life >= m.life_max) { m.phase = 0; m.cd3 = 1e9f; m.break_meter = 0; }  // fully reset
+                if (m.life >= m.life_max) {  // fully reset
+                    m.phase = 0;
+                    m.break_meter = 0;
+                    for (size_t i = 0; i < bd->moves.size() && i < 8; i++) m.move_cd[i] = bd->moves[i].phase ? 1e9f : 0.f;
+                }
                 break;
             }
             bool aggro = m.ai_state > 0 || dist < 11.f || m.life < m.life_max;
-            if (!aggro) { m.anim.play("idle", 0.25f); break; }
+            if (!aggro) { if (!rigid) m.anim.play("idle", 0.25f); break; }
             m.ai_state = 1;
-            if (m.phase == 0 && m.life < m.life_max * 0.55f) {
+            if (m.phase == 0 && m.life < m.life_max * bd->phase2_at) {
                 m.phase = 1;
-                m.cd3 = 5.f;
-                start(3, "summon", 1.f);
-                texts.push_back({vec3(m.pos, 3.4f), "RISE, MY CHILDREN", 0xFF2E88, 0, 38});
+                for (size_t i = 0; i < bd->moves.size() && i < 8; i++)
+                    if (bd->moves[i].phase) m.move_cd[i] = bd->moves[i].kind == MoveKind::Summon ? 0.f : bd->moves[i].cooldown * 0.45f;
+                texts.push_back({vec3(m.pos, 3.4f), bd->phase2_line, 0xFF2E88, 0, 38});
+            }
+            int pick = -1;
+            for (size_t i = 0; i < bd->moves.size() && i < 8; i++) {
+                const BossMove& mv = bd->moves[i];
+                if (mv.phase > m.phase || m.move_cd[i] > 0) continue;
+                float reach = mv.kind == MoveKind::Combo ? d.attack_range * std::max(1.f, m.scale * 0.8f) + h.radius : mv.max_range;
+                if (dist < mv.min_range || dist > reach) continue;
+                pick = int(i);
                 break;
             }
-            if (m.phase == 1 && m.cd3 <= 0) {
-                start(2, "wail", 1.f);
-                telegraph(m.pos, 7.5f, kPi, 0, "hit");
-                m.cd3 = 11.f;
-                break;
-            }
-            if (dist > 5.5f && m.cd2 <= 0) {
-                start(1, "leap", haste);
-                m.from = m.pos;
-                vec2 aim = h.pos + h.vel * 0.3f;
-                if (length(aim - m.home) > 9.f) aim = m.home + normalize(aim - m.home) * 9.f;
-                m.target = level.resolve(aim, m.radius);
-                telegraph(m.target, 2.7f, kPi, 0, "hit");
-                m.cd2 = m.phase ? 5.f : 6.5f;
-                break;
-            }
-            if (dist <= d.attack_range + h.radius && m.attack_cd <= 0) {
-                start(0, "combo", haste);
-                telegraph(m.pos, d.attack_range + 0.4f, radians(70), m.facing, "hit");
-                break;
-            }
+            if (pick >= 0) { start(pick); break; }
             want = dir * m.speed * haste;
             m.facing = wrap_angle(m.facing + wrap_angle(angle_of(to) - m.facing) * std::min(1.f, dt * 6.f));
-            m.anim.play("run", 0.15f, false, 1.f);
+            if (!rigid) m.anim.play("run", 0.15f, false, 1.f);
         }
     }
-    if (m.act != Act::Skill || m.skill != 1) {
+    bool moving_itself = m.act == Act::Skill && m.skill >= 0 && m.skill < int(bd->moves.size()) &&
+                         (bd->moves[size_t(m.skill)].kind == MoveKind::Leap || bd->moves[size_t(m.skill)].kind == MoveKind::Charge);
+    if (!moving_itself) {
         m.vel = lerp(m.vel, want, std::min(1.f, dt * 8.f));
         m.pos = level.resolve(m.pos + (m.vel + m.knock * 0.3f) * dt, m.radius);
     }
-    anim_step(m, dt);
+    if (rigid) m.hit_flash = std::max(0.f, m.hit_flash - dt * 6.f);
+    else anim_step(m, dt);
 }
 
 void World::separate() {

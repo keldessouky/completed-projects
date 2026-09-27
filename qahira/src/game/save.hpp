@@ -4,7 +4,7 @@
 
 namespace q {
 void write_item(ByteWriter& w, const Item& it);
-Item read_item(ByteReader& r);
+Item read_item(ByteReader& r, int fmt = 2);   // fmt 1: character files before v4
 void write_character(ByteWriter& w, const Hero& h);   // the character save file's payload
 bool read_character(ByteReader& r, Hero& h);
 void write_actor(ByteWriter& w, const Actor& a);

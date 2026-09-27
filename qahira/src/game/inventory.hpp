@@ -16,7 +16,17 @@ int equip_slot_for(const Item& it, const Item* equipped);   // prefers an empty 
 // PoE (the tooltip always says it).
 enum Currency : uint8_t { CUR_BEAD, CUR_SALT, CUR_GROUNDS, CUR_SAFFRON, CUR_PIASTRE,
                           CUR_ROSEWATER, CUR_STYLUS,   // Slice 3: respec, Wafq slots
+                          // Slice 4: rares, and the Ifrit's Ember
+                          CUR_KHAMSA, CUR_BAKHOOR, CUR_GLASS, CUR_ATTAR, CUR_EMBER,
+                          // Spice Blends: add a mod of one family to a magic or rare item
+                          CUR_BLEND_EMBERS, CUR_BLEND_FROST, CUR_BLEND_STORM, CUR_BLEND_OASIS, CUR_BLEND_SCRIBE, CUR_BLEND_HAMMER,
+                          // Coffee-Cup Omens: read one to bend your next craft
+                          CUR_OMEN_BIRD, CUR_OMEN_FISH, CUR_OMEN_DOOR, CUR_OMEN_CRESCENT,
                           CUR_COUNT };
+constexpr int kFirstBlend = CUR_BLEND_EMBERS, kLastBlend = CUR_BLEND_HAMMER;
+constexpr int kFirstOmen = CUR_OMEN_BIRD, kLastOmen = CUR_OMEN_CRESCENT;
+inline bool is_omen(int c) { return c >= kFirstOmen && c <= kLastOmen; }
+inline uint8_t omen_bit(int c) { return uint8_t(1u << (c - kFirstOmen)); }
 constexpr int kCurrencyV2 = 5;   // how many the Slice 2 character file stored
 struct CurrencyDef {
     const char* id;
@@ -25,11 +35,14 @@ struct CurrencyDef {
     uint32_t color;
     int weight;             // drop weight
     int price;              // vendor price in dinars
+    int min_level = 1;      // the area level it starts to drop at (staged unlocks, GDD §13)
 };
 const CurrencyDef& currency_def(int c);
-int roll_currency(Rng& rng);
-// Applies a currency to an item. Returns false (and a reason) when it cannot be used on it.
-bool apply_currency(int c, Item& it, Rng& rng, std::string* why = nullptr);
+int roll_currency(Rng& rng, int area_level = 100);
+// Applies a currency to an item. Returns false (and a reason) when it cannot be used on it. `omens` is the hero's
+// read Omens (bits by omen_bit); the one a craft uses is cleared.
+bool apply_currency(int c, Item& it, Rng& rng, std::string* why = nullptr, uint8_t* omens = nullptr);
+const std::vector<int>& blend_family(int c);   // the affixes a Spice Blend can add
 
 struct InvItem {
     Item item;

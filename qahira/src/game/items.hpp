@@ -33,6 +33,8 @@ enum AffixEffect : uint8_t {
     // Slice 3: spells and Hirz
     AE_SPELL_DMG_INC, AE_CAST_SPEED_INC, AE_LOCAL_ES_ADD, AE_LOCAL_ES_INC, AE_SPELL_COLD_ADD, AE_ELE_DMG_INC, AE_MANA_REGEN,
     AE_SPELL_CRIT_INC,
+    // Slice 4: bench, corruption and unique mods that map straight onto one stat (AffixDef::gstat/gkind/gtags)
+    AE_GENERIC, AE_ALL_RES, AE_ALL_ATTR,
 };
 // AffixDef::need: which bases in a slot can roll it (0: any)
 enum AffixNeed : uint8_t { NEED_ARMOUR = 1, NEED_ES = 2, NEED_MAUL = 4, NEED_STAFF = 8 };
@@ -48,12 +50,20 @@ struct AffixDef {
     float lo2[3], hi2[3];   // second value (added damage max), unused otherwise
     const char* fmt;        // "%d%% increased Physical Damage"
     uint8_t need = 0;       // AffixNeed bits
+    // AE_GENERIC: the stat it adds to. An affix with no slots never rolls on drops (bench, corruption, uniques).
+    Stat gstat = S_COUNT;
+    ModKind gkind = MK_FLAT;
+    uint32_t gtags = 0;
+    float gsign = 1;        // -1: "reduced" / "less" text over a positive number
 };
+
+enum AffixFlag : uint8_t { AF_CRAFTED = 1, AF_IMPLICIT = 2 };   // from the bench; an Ifrit's Ember implicit
 
 struct Affix {
     uint16_t def;
     uint8_t tier;           // 0 weakest .. 2 strongest
     float v1, v2;
+    uint8_t flags = 0;      // AffixFlag
 };
 
 static constexpr uint16_t kNoItem = 0xFFFF;
@@ -65,7 +75,11 @@ struct Item {
     std::vector<Affix> affixes;
     std::string name;       // rare / unique name; magic and normal names are built from affixes
     uint32_t seed = 0;
+    bool corrupted = false; // touched by an Ifrit's Ember: no more crafting
+    uint16_t unique = kNoItem;   // index into unique_defs() (game/uniques.hpp)
     bool empty() const { return base == kNoItem; }
+    void count_affixes(int& pre, int& suf) const;   // explicit mods, bench mods included
+    bool has_crafted() const;
     const ItemBase& b() const;                // a placeholder base (slot Count) when empty
     std::string display_name() const;
     std::vector<std::string> lines() const;   // stat block lines for the tooltip
@@ -77,9 +91,13 @@ struct Item {
 const std::vector<ItemBase>& item_bases();
 const std::vector<AffixDef>& affix_defs();
 int find_base(const char* id);
+int find_affix(const char* id);
 
 Item make_item(int base, Rarity r, int ilvl, Rng& rng);
-bool roll_affix(Item& it, Rng& rng);          // adds one affix within the rarity's prefix/suffix limits
+// One affix within the rarity's prefix/suffix limits. want_prefix 1/0 forces a prefix or a suffix; `only` limits the
+// choice to those affix indices (a Spice Blend's family).
+bool roll_affix(Item& it, Rng& rng, int want_prefix = -1, const std::vector<int>* only = nullptr);
+void reroll_values(Item& it, Rng& rng);       // new numbers within each affix's tier
 std::string rare_name(Rng& rng);
 void grid_size(const Item& it, int& w, int& h);  // inventory cells: a maul is 2x4, a ring 1x1
 int sell_price(const Item& it);               // in dinars

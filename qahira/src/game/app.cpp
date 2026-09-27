@@ -17,6 +17,7 @@
 #include "game/bots.hpp"
 #include "game/classes.hpp"
 #include "audio/audio.hpp"
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -28,6 +29,9 @@ namespace q {
 namespace {
 
 enum class Travel : uint8_t { None, ZoneEntrance, ZonePortal, HubPortal, HubExit };
+
+// the waypoint list: the hub and every zone whose waypoint you have touched
+using Waypoints = WaypointList;
 
 struct State {
     Platform* plat = nullptr;
@@ -49,6 +53,8 @@ struct State {
     Bot bot;
     Rng sfx_rng{77};
     Travel travel = Travel::None;
+    int travel_zone = -1;         // where a ZoneEntrance goes
+    Waypoints wp;
     float fade_t = 0;             // > 0 fading out towards the travel, < 0 fading back in
     bool boss_music = false;
     bool persist = true;          // write the character file (off for bots)
@@ -111,7 +117,12 @@ void area_audio() {
     Audio& a = audio();
     switch (S->areas.current) {
         case AreaId::Hub: a.music("mus_hijaz", 0.45f, 2.f); a.ambience("amb_street", 0.5f, 2.f); break;
-        case AreaId::Necropolis: a.music("mus_saba", 0.5f, 2.f); a.ambience("amb_necro", 0.6f, 2.f); break;
+        case AreaId::Zone: {
+            const ZoneDef* zd = S->areas.def();
+            a.music(zd ? zd->music : "mus_saba", 0.5f, 2.f);
+            a.ambience(zd ? zd->ambience : "amb_necro", 0.6f, 2.f);
+            break;
+        }
         case AreaId::Street: a.music("mus_hijaz", 0.5f, 2.f); a.ambience("amb_street", 0.5f, 2.f); break;
     }
     S->boss_music = false;
@@ -132,8 +143,12 @@ void do_travel(Travel t) {
     World& w = S->world;
     Areas& A = S->areas;
     switch (t) {
-        case Travel::ZoneEntrance: A.enter_zone(w, Arrival::Entrance); break;
-        case Travel::ZonePortal: A.enter_zone(w, Arrival::Portal); break;
+        case Travel::ZoneEntrance:
+            if (A.current == AreaId::Zone && A.zone.valid && A.zone.def != S->travel_zone) A.close_zone(w);
+            A.enter_zone(w, S->travel_zone, Arrival::Entrance);
+            save_character();
+            break;
+        case Travel::ZonePortal: A.enter_zone(w, -1, Arrival::Portal); break;
         case Travel::HubPortal:
             A.leave_zone(w);
             A.enter_hub(w, Arrival::Portal);
@@ -141,7 +156,7 @@ void do_travel(Travel t) {
             save_character();
             break;
         case Travel::HubExit:
-            A.close_zone();
+            A.close_zone(w);
             A.enter_hub(w, Arrival::Entrance);
             S->menu.restock(w);
             save_character();
@@ -151,9 +166,10 @@ void do_travel(Travel t) {
     arrived();
 }
 
-void begin_travel(Travel t) {
+void begin_travel(Travel t, int zone = -1) {
     if (S->travel != Travel::None) return;
     S->travel = t;
+    if (zone >= 0) S->travel_zone = zone;
     S->fade_t = kFade;
     S->world.emit(Ev::Portal, S->world.actors[0].pos, 0.5f);
 }
@@ -173,7 +189,11 @@ void play_event_sounds(const World& w) {
             case Ev::SlamImpact: a.play("slam", 0.9f * std::min(1.f, e.mag) * near, pan, pv(1)); break;
             case Ev::Aftershock: a.play("aftershock", 0.95f, 0, pv(1)); break;
             case Ev::EnemyHit: a.play("hit", 0.35f * near, pan, pv(1)); break;
-            case Ev::EnemyDie: a.play("ghoul_die", 0.55f * near, pan, pv(e.mag > 1.2f ? 0.75f : 1.f)); break;
+            case Ev::EnemyDie: {
+                std::string v = std::string(e.def >= 0 ? monster_defs()[size_t(e.def)].voice : "ghoul") + "_die";
+                if (a.play(v.c_str(), 0.55f * near, pan, pv(e.mag > 1.2f ? 0.75f : 1.f)) < 0) a.play("ghoul_die", 0.55f * near, pan, pv(1));
+                break;
+            }
             case Ev::HeroHit: a.play("hero_hit", 0.7f, 0, pv(1)); break;
             case Ev::Warcry: a.play("warcry", 0.85f, 0, 1); break;
             case Ev::Dodge: a.play("dodge", 0.5f, 0, pv(1)); break;
@@ -246,22 +266,101 @@ void street_waves(World& w, float dt) {
     S->view.banner_t = 2.5f;
 }
 
+// the quest a zone's boss completes
+uint32_t boss_quest(const ZoneDef& zd) {
+    std::string id = zd.id;
+    if (id == "downtown") return Q_MICROBUS;
+    if (id == "metro") return Q_SILAH;
+    if (id == "muizz") return Q_NASNAS;
+    if (id == "bab_zuweila") return Q_TRIAL1;
+    if (id == "necropolis") return Q_GHULA;
+    if (id == "mokattam") return Q_QUTRUB | Q_ACT1;
+    return 0;
+}
+
 void boss_state(World& w) {
-    if (S->areas.current != AreaId::Necropolis) return;
+    const ZoneDef* zd = S->areas.def();
+    if (!zd) return;
     const Actor* boss = nullptr;
     for (size_t i = 1; i < w.actors.size(); i++)
         if (w.actors[i].rarity == Rarity::Unique && w.actors[i].alive()) boss = &w.actors[i];
     bool fighting = boss && boss->ai_state > 0 && w.actors[0].alive();
     if (fighting != S->boss_music) {
         S->boss_music = fighting;
-        audio().music(fighting ? "mus_boss" : "mus_saba", fighting ? 0.6f : 0.5f, fighting ? 0.8f : 3.f);
+        audio().music(fighting ? (zd->trial ? "mus_trial" : "mus_boss") : zd->music, fighting ? 0.6f : 0.5f, fighting ? 0.8f : 3.f);
     }
     if (w.boss_killed && !S->areas.zone.cleared) {
-        S->areas.open_exit_portal(w);
-        S->view.banner = "Umm al-Ghula is laid to rest";
-        S->view.banner_sub = "A portal home opens in her court";
-        S->view.banner_t = 4.f;
+        S->areas.open_exit(w);
+        uint32_t q = boss_quest(*zd), fresh = q & ~w.hero.quests;
+        w.hero.quests |= q;
+        w.learn_recipe(recipe_for_zone(zd->id, true));
+        for (const char* z : {zd->next, zd->side})   // the way on stays open: its waypoint is yours
+            if (int n = find_zone(z); n >= 0) w.hero.waypoints |= 1u << n;
+        if (fresh & Q_TRIAL1) w.meet_codex("ascendancy");
+        S->view.banner = zd->boss_line;
+        int next = find_zone(zd->next);
+        S->view.banner_sub = next >= 0 ? std::string("The way on to ") + zone_def(next).name + " is open" : "A portal home opens";
+        if (fresh & Q_TRIAL1) S->view.banner_sub = "The trial is passed: two ascendancy points. Your amulet is returned when you leave";
+        for (auto& qd : quest_defs())
+            if ((fresh & qd.bit) && qd.passive_points) S->view.banner_sub += "  \xC2\xB7  +1 passive star";
+        if (fresh & Q_ACT1) { S->view.banner = "Act I is over"; S->view.banner_sub = "Cairo holds, for now. The eclipse does not end."; }
+        S->view.banner_t = 5.f;
         save_character();
+    }
+}
+
+// ---------------------------------------------------------------- the waypoint list
+void open_waypoints(World& w) {
+    Waypoints& W = S->wp;
+    W.items.clear();
+    if (S->areas.current != AreaId::Hub) W.items.push_back(-1);
+    for (size_t i = 0; i < zone_defs().size(); i++)
+        if ((w.hero.waypoints >> i & 1) || (i == size_t(find_zone("downtown"))))
+            W.items.push_back(int(i));   // a trial is listed once its gate has opened
+    // the act's order, not the table's
+    std::sort(W.items.begin(), W.items.end(), [](int a, int b) { return (a < 0 ? -1 : zone_def(a).level) < (b < 0 ? -1 : zone_def(b).level); });
+    W.cursor = 0;
+    for (size_t i = 0; i < W.items.size(); i++) if (W.items[i] >= 0 && S->areas.zone.valid && W.items[i] == S->areas.zone.def) W.cursor = int(i);
+    W.open = true;
+    audio().play("portal", 0.4f, 0, 1.2f);
+}
+
+bool waypoints_update(World& w, const Input& in) {
+    Waypoints& W = S->wp;
+    if (!W.open) return false;
+    int n = int(W.items.size());
+    if (in.hit(BTN_UP) || (in.lstick.y > 0.7f && S->frame % 8 == 0)) W.cursor = (W.cursor + n - 1) % n;
+    if (in.hit(BTN_DOWN) || (in.lstick.y < -0.7f && S->frame % 8 == 0)) W.cursor = (W.cursor + 1) % n;
+    if (in.hit(BTN_EAST)) W.open = false;
+    if (in.hit(BTN_SOUTH) && n > 0) {
+        int z = W.items[size_t(W.cursor)];
+        W.open = false;
+        if (z < 0) begin_travel(Travel::HubExit);
+        else begin_travel(Travel::ZoneEntrance, z);
+    }
+    (void)w;
+    return true;
+}
+
+void waypoints_render() {
+    const Waypoints& W = S->wp;
+    if (!W.open) return;
+    Ui& u = ui();
+    float bw = 760, bh = 150 + W.items.size() * 64.f, x = 960 - bw / 2, y = 540 - bh / 2;
+    u.rect(0, 0, 1920, 1080, pal::night.alpha(0.5f));
+    u.frame(x, y, bw, bh, pal::panel.alpha(0.97f), pal::turquoise, 16, 2);
+    u.text(960, y + 22, "Waypoints", 40, pal::turquoise, Align::Center, 1.2f, true);
+    for (size_t i = 0; i < W.items.size(); i++) {
+        float yy = y + 96 + i * 64;
+        bool cur = int(i) == W.cursor;
+        if (cur) u.frame(x + 30, yy - 6, bw - 60, 56, pal::dusk, pal::amber, 10, 2);
+        int z = W.items[i];
+        u.text(x + 60, yy + 4, z < 0 ? "The Rooftop Ahwa" : zone_def(z).name, 30, cur ? pal::amber : pal::bone, Align::Left, cur ? 0.8f : 0.3f);
+        if (z >= 0) {
+            char b[48];
+            snprintf(b, sizeof b, "Act %d  \xC2\xB7  level %d", zone_def(z).act, zone_def(z).level);
+            u.text(x + bw - 60, yy + 8, b, 22, pal::dim, Align::Right);
+        }
     }
 }
 
@@ -276,6 +375,7 @@ bool app_init(const char* pack_path, Platform* plat) {
     World& w = S->world;
     if (const char* b = getenv("QAHIRA_BOT")) S->bot.start(b);
     S->bot.sky_ui = &S->sky;
+    S->bot.wp_ui = &S->wp;
     S->bot.title_ui = &S->title;
     S->persist = S->bot.scenario.empty() || S->bot.uses_title();
     if (S->bot.uses_title() && S->plat) {   // the title bot keeps its characters apart from yours
@@ -312,7 +412,7 @@ void app_gpu_init() {
     S->gpu = true;
     S->renderer.init(1920, 1080, 0.75f);
     ui().init();
-    for (auto& a : S->world.actors) a.model = assets().character(a.def < 0 ? hero_model() : monster_defs()[size_t(a.def)].model);
+    for (auto& a : S->world.actors) a.model = a.def < 0 ? assets().character(hero_model()) : monster_model(a.def);
     assets().mesh("maul");
     assets().mesh("staff");
     S->world.level.bind_gpu();
@@ -405,6 +505,8 @@ void app_update(const Input& in_raw, float dt) {
             }
         }
     }
+    // the waypoint list pauses the world
+    if (waypoints_update(w, in)) { S->view.follow(w, dt); return; }
     // the menu pauses the world
     if (M.open) {
         w.events.clear();
@@ -416,6 +518,11 @@ void app_update(const Input& in_raw, float dt) {
         return;
     }
     M.update(w, in, dt);  // toasts fade
+    if (!w.notices.empty() && M.toast_t <= 0.2f) {   // recipes, codex entries, posters: one at a time
+        M.say(w.notices.front());
+        M.toast_t = 3.2f;
+        w.notices.erase(w.notices.begin());
+    }
     Actor& h = w.actors[0];
     if (in.hit(BTN_START) && h.alive()) {
         M.show(w, false);
@@ -428,8 +535,8 @@ void app_update(const Input& in_raw, float dt) {
     }
     // the D-pad: portal, map, loot filter (Left picks up, in the world step)
     if (h.alive()) {
-        if (in.hit(BTN_UP) && A.current == AreaId::Necropolis) A.cast_portal(w);
-        if (in.hit(BTN_DOWN) && A.current == AreaId::Necropolis) S->view.map_open = !S->view.map_open;
+        if (in.hit(BTN_UP) && A.current == AreaId::Zone) A.cast_portal(w);
+        if (in.hit(BTN_DOWN) && A.current == AreaId::Zone) S->view.map_open = !S->view.map_open;
         if (in.hit(BTN_RIGHT)) {
             w.hero.filter = uint8_t((w.hero.filter + 1) % FILTER_COUNT);
             M.say(std::string("Loot filter: ") + filter_name(w.hero.filter) + "  \xC2\xB7  " + filter_desc(w.hero.filter));
@@ -442,9 +549,13 @@ void app_update(const Input& in_raw, float dt) {
     if (w.used_interact >= 0 && size_t(w.used_interact) < w.interacts.size()) {
         const Interactable& it = w.interacts[size_t(w.used_interact)];
         switch (it.kind) {
-            case Interactable::Stair: begin_travel(Travel::ZoneEntrance); break;
+            case Interactable::Stair: case Interactable::Waypoint: open_waypoints(w); break;
             case Interactable::Portal: begin_travel(A.current == AreaId::Hub ? Travel::ZonePortal : Travel::HubPortal); break;
             case Interactable::Exit: begin_travel(Travel::HubExit); break;
+            case Interactable::Next: case Interactable::Gate: begin_travel(Travel::ZoneEntrance, it.target); break;
+            case Interactable::Bench: w.hero.quests |= Q_BENCH; w.hero.recipes |= kStarterRecipes; w.meet_codex("bench");
+                if (const ZoneDef* zd = S->areas.def()) if (int n = find_zone(zd->next); n >= 0) w.hero.waypoints |= 1u << n;
+                M.show_bench(w); audio().play("craft", 0.5f, 0, 1); break;
             case Interactable::Vendor: M.show(w, true); audio().play("ui_select", 0.4f, 0, 1); break;
             case Interactable::Chest: A.open_chest(w, w.used_interact); break;
         }
@@ -476,6 +587,7 @@ void app_render(GLuint fbo, int w, int h) {
     S->view.render_map(S->world, S->areas);
     if (!S->menu.open) S->view.render_hud(S->world, S->last_input, S->areas);
     S->menu.render(S->world);
+    waypoints_render();
     S->sky.render(S->world);
     u.end(fbo, w, h);
 }
@@ -483,7 +595,7 @@ void app_render(GLuint fbo, int w, int h) {
 void app_audio(int16_t* stereo, int frames) { audio().mix(stereo, frames); }
 
 // ---- save states
-static const uint32_t kStateVersion = 6;  // 5: passives, Hirz, keystone state; 6: Talismans, ailments, glyphs
+static const uint32_t kStateVersion = 7;  // 5: passives, Hirz, keystone state; 6: Talismans, ailments, glyphs; 7: Act I
 
 static ByteWriter save_state() {
     ByteWriter w;

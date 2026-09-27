@@ -14,6 +14,7 @@ constexpr float GX = PX + 41, GY = 580;       // inventory grid
 constexpr float PUY = 912;                    // purse row
 constexpr float VX = 40, VY = 36, VW = 850;   // vendor panel
 constexpr float SX = VX + 41, SY = VY + 104;  // vendor stock grid
+constexpr int kPurseCells = 10;               // currencies shown at once; the row scrolls
 
 struct SlotRect { float x, y, w, h; };
 constexpr SlotRect kSlots[EQ_COUNT] = {
@@ -37,6 +38,22 @@ enum Dir { D_UP, D_DOWN, D_LEFT, D_RIGHT };
 void draw_currency_icon(float cx, float cy, float s, int c, float alpha) {
     Ui& u = ui();
     Rgba col = Rgba::hex(currency_def(c).color).alpha(alpha);
+    if (is_omen(c)) {   // a small coffee cup, the grounds' shape inside
+        u.rect(cx - s * 0.24f, cy - s * 0.16f, s * 0.42f, s * 0.36f, Rgba::hex(0xEDE3D1).alpha(alpha), s * 0.08f);
+        u.ring(cx + s * 0.22f, cy, s * 0.11f, s * 0.06f, Rgba::hex(0xEDE3D1).alpha(alpha));
+        u.disc(cx - s * 0.03f, cy - s * 0.1f, s * 0.12f, col);
+        static const float mx[4] = {-0.08f, 0.05f, 0.0f, -0.05f};
+        u.disc(cx + s * mx[c - kFirstOmen], cy - s * 0.12f, s * 0.05f, Rgba::hex(0x1A120C).alpha(alpha));
+        u.rect(cx - s * 0.32f, cy + s * 0.2f, s * 0.58f, s * 0.05f, pal::brass.alpha(alpha), 2);
+        return;
+    }
+    if (c >= kFirstBlend && c <= kLastBlend) {   // a little paper cone of spice
+        u.line(cx - s * 0.26f, cy - s * 0.18f, cx, cy + s * 0.3f, s * 0.08f, Rgba::hex(0xE8DCC0).alpha(alpha));
+        u.line(cx + s * 0.26f, cy - s * 0.18f, cx, cy + s * 0.3f, s * 0.08f, Rgba::hex(0xE8DCC0).alpha(alpha));
+        u.disc(cx, cy - s * 0.16f, s * 0.26f, col);
+        u.disc(cx - s * 0.08f, cy - s * 0.22f, s * 0.07f, Rgba::hex(0xFFFFFF).alpha(0.4f * alpha));
+        return;
+    }
     u.disc(cx, cy + s * 0.04f, s * 0.36f, Rgba::hex(0x000000).alpha(0.35f * alpha));
     u.disc(cx, cy, s * 0.32f, col);
     u.disc(cx - s * 0.1f, cy - s * 0.1f, s * 0.09f, Rgba::hex(0xFFFFFF).alpha(0.7f * alpha));
@@ -116,10 +133,20 @@ void Menu::show(World& w, bool at_vendor) {
     last_dir_ = -1;
 }
 
+void Menu::show_bench(World& w) {
+    show(w, false);
+    bench = true;
+    region = Region::Bench;
+    bench_cursor = 0;
+    held_recipe = -1;
+}
+
 void Menu::hide() {
     open = false;
     vendor = false;
+    bench = false;
     held = -1;
+    held_recipe = -1;
 }
 
 void Menu::restock(World& w) {
@@ -152,12 +179,13 @@ void Menu::update(World& w, const Input& in, float dt) {
     if (in.hit(BTN_START)) { hide(); return; }
     if (in.hit(BTN_EAST)) {
         if (held >= 0) { held = -1; return; }
+        if (held_recipe >= 0) { held_recipe = -1; return; }
         if (pick != Pick::None) { pick = Pick::None; return; }
         if (why_open) { why_open = false; return; }
         hide();
         return;
     }
-    if (!vendor && (in.hit(BTN_L1) || in.hit(BTN_R1))) {
+    if (!vendor && !bench && (in.hit(BTN_L1) || in.hit(BTN_R1))) {
         int n = int(MenuTab::Count);
         tab = MenuTab((int(tab) + (in.hit(BTN_R1) ? 1 : n - 1)) % n);
         held = -1;
@@ -178,6 +206,8 @@ void Menu::update(World& w, const Input& in, float dt) {
     else if ((repeat_t_ -= dt) <= 0) { repeat_t_ = 0.09f; step = dir; }
     if (tab == MenuTab::Talismans && !vendor) { tal_update(w, in, step); return; }
     if (tab == MenuTab::Character && !vendor) { char_update(w, in, step); return; }
+    if (tab == MenuTab::Ascendancy && !vendor) { asc_update(w, in, step); return; }
+    if (tab == MenuTab::Journal && !vendor) { journal_update(w, in, step); return; }
     if (step >= 0) move(w, step);
     if (in.hit(BTN_SOUTH)) act_south(w);
     else if (in.hit(BTN_NORTH)) act_north(w);
@@ -217,11 +247,16 @@ void Menu::move(World& w, int dir) {
                 region = Region::Equip;
             } else if (dir == D_DOWN) {
                 region = Region::Purse;
-                purse = std::min(int(CUR_COUNT) - 1, cx);
+                purse = std::min(int(CUR_COUNT) - 1, purse_scroll + std::min(cx, kPurseCells - 1));
             } else if (dir == D_LEFT && vendor) {
                 region = Region::Stock;
                 cx = Inventory::W - 1;
+            } else if (dir == D_LEFT && bench) {
+                region = Region::Bench;
             }
+            break;
+        case Region::Bench:
+            bench_move(w, dir);
             break;
         case Region::Stock:
             if (hop(stock, cx, cy, dx, dy)) break;
@@ -230,7 +265,7 @@ void Menu::move(World& w, int dir) {
         case Region::Purse:
             if (dir == D_LEFT) purse = std::max(0, purse - 1);
             else if (dir == D_RIGHT) purse = std::min(int(CUR_COUNT) - 1, purse + 1);
-            else if (dir == D_UP) { region = Region::Grid; cx = purse; cy = Inventory::H - 1; int it = inv.at(cx, cy); if (it >= 0) { cx = inv.items[size_t(it)].x; cy = inv.items[size_t(it)].y; } }
+            else if (dir == D_UP) { region = Region::Grid; cx = std::min(Inventory::W - 1, purse - purse_scroll); cy = Inventory::H - 1; int it = inv.at(cx, cy); if (it >= 0) { cx = inv.items[size_t(it)].x; cy = inv.items[size_t(it)].y; } }
             break;
         case Region::Equip: {
             vec2 from = slot_center(eq), want{float(dx), float(dy)};
@@ -255,6 +290,8 @@ void Menu::move(World& w, int dir) {
             break;
         }
     }
+    if (purse < purse_scroll) purse_scroll = purse;
+    if (purse >= purse_scroll + kPurseCells) purse_scroll = purse - kPurseCells + 1;
     w.emit(Ev::Craft, w.actors[0].pos, 0);  // a soft tick
 }
 
@@ -267,6 +304,7 @@ void Menu::act_south(World& w) {
         return;
     }
     if (tab != MenuTab::Inventory) return;
+    if (bench && bench_south(w)) return;
     std::string why;
     switch (region) {
         case Region::Grid: {
@@ -309,6 +347,14 @@ void Menu::act_south(World& w) {
                 return;
             }
             if (H.currency[purse] <= 0) { say("You have none"); return; }
+            if (is_omen(purse)) {   // an Omen is read, not used on an item
+                if (H.omens & omen_bit(purse)) { say("That Omen is already in your cup"); return; }
+                H.omens |= omen_bit(purse);
+                H.currency[purse]--;
+                say(std::string("You read the cup: ") + (currency_def(purse).name + 7));
+                w.emit(Ev::Craft, w.actors[0].pos);
+                return;
+            }
             held = purse;
             say(std::string(currency_def(purse).name) + ": choose an item");
             return;
@@ -401,17 +447,25 @@ void Menu::render(const World& w) const {
     if (vendor) {
         u.text(PX + PW / 2, PY + 22, "Your Belongings", 38, pal::bone, Align::Center, 1.2f, true);
     } else {
-        static const char* names[] = {"Inventory", "Talismans", "Character", "Loot Filter"};
-        float tx = PX + 110;
-        draw_button_glyph(PX + 50, PY + 44, 40, BTN_L1);
-        for (int t = 0; t < int(MenuTab::Count); t++) {
-            bool on = int(tab) == t;
-            float tw = u.text_width(names[t], 28) + 28;
-            if (on) u.frame(tx, PY + 20, tw, 50, pal::dusk, pal::amber, 10, 2);
-            u.text(tx + tw / 2, PY + 28, names[t], 28, on ? pal::amber : pal::soft, Align::Center, on ? 1.f : 0.3f);
-            tx += tw + 10;
+        static const char* names[] = {"Items", "Talismans", "Character", "Ascendancy", "Journal", "Filter"};
+        if (bench) {
+            u.text(PX + PW / 2, PY + 22, "Your Belongings", 38, pal::bone, Align::Center, 1.2f, true);
+        } else {
+            // the tabs shrink to fit between the shoulder glyphs
+            float fs = 28, avail = PW - 190, total = 0;
+            for (int t = 0; t < int(MenuTab::Count); t++) total += u.text_width(names[t], fs) + 22 + 8;
+            if (total > avail) fs *= avail / total;
+            float tx = PX + 95;
+            draw_button_glyph(PX + 48, PY + 44, 40, BTN_L1);
+            for (int t = 0; t < int(MenuTab::Count); t++) {
+                bool on = int(tab) == t;
+                float tw = u.text_width(names[t], fs) + 22;
+                if (on) u.frame(tx, PY + 20, tw, 50, pal::dusk, pal::amber, 10, 2);
+                u.text(tx + tw / 2, PY + 45 - fs * 0.6f, names[t], fs, on ? pal::amber : pal::soft, Align::Center, on ? 1.f : 0.3f);
+                tx += tw + 8;
+            }
+            draw_button_glyph(tx + 30, PY + 44, 40, BTN_R1);
         }
-        draw_button_glyph(tx + 34, PY + 44, 40, BTN_R1);
     }
     const Item* tip = nullptr;
     const Item* compare = nullptr;
@@ -457,26 +511,32 @@ void Menu::render(const World& w) const {
             footer = vendor ? "Sell for " + std::to_string(sell_price(*tip)) + " dinars" : "";
         }
         // purse
-        for (int c = 0; c < CUR_COUNT; c++) {
-            float x = GX + c * C, y = PUY;
+        for (int k = 0; k < kPurseCells && purse_scroll + k < CUR_COUNT; k++) {
+            int c = purse_scroll + k;
+            float x = GX + k * C, y = PUY;
             bool cur = region == Region::Purse && purse == c;
             u.frame(x + 2, y + 2, C - 4, C - 4, pal::panel2, cur ? pal::amber : pal::line, 6, cur ? 3.f : 1.f);
             draw_currency_icon(x + C / 2, y + C / 2, C * 0.9f, c, H.currency[c] > 0 ? 1.f : 0.35f);
             u.text(x + C - 8, y + C - 30, std::to_string(H.currency[c]), 22, pal::bone, Align::Right, 1.f, true);
             if (held == c) u.ring(x + C / 2, y + C / 2, C * 0.46f, C * 0.4f, pal::amber);
         }
+        if (purse_scroll > 0) u.text(GX - 22, PUY + 14, "<", 30, pal::amber);
+        if (purse_scroll + kPurseCells < CUR_COUNT) u.text(GX + kPurseCells * C + 4, PUY + 14, ">", 30, pal::amber);
+        for (int o = kFirstOmen; o <= kLastOmen; o++)   // the Omens in your cup
+            if (H.omens & omen_bit(o)) u.ring(GX + (o - kFirstOmen) * 18 + 8, PUY - 10, 7, 4, pal::amber);
         char g[64];
         snprintf(g, sizeof g, "%d", H.gold);
-        u.disc(GX + 5 * C + 50, PUY + C / 2, 16, pal::brass);
-        u.disc(GX + 5 * C + 46, PUY + C / 2 - 4, 5, Rgba::hex(0xFFF0B0));
-        u.text(GX + 5 * C + 78, PUY + 12, g, 36, pal::rare, Align::Left, 1.f);
-        u.text(GX + 5 * C + 78 + u.text_width(g, 36) + 10, PUY + 20, "dinars", 26, pal::dim);
+        float gx = GX + kPurseCells * C + 30;
+        u.disc(gx + 14, PUY + C / 2, 14, pal::brass);
+        u.disc(gx + 10, PUY + C / 2 - 4, 4, Rgba::hex(0xFFF0B0));
+        u.text(gx + 34, PUY + 16, g, std::min(32.f, 32.f * 110 / std::max(1.f, u.text_width(g, 32))), pal::rare, Align::Left, 1.f);
         if (region == Region::Purse) {
             const CurrencyDef& d = currency_def(purse);
             float x = PX - 620, y = PUY - 150;
             u.frame(x, y, 600, 190, pal::panel.alpha(0.97f), Rgba::hex(d.color).alpha(0.8f), 12, 2);
-            u.text(x + 300, y + 16, d.name, 34, Rgba::hex(d.color), Align::Center, 1.2f);
-            u.text(x + 300, y + 66, d.does, 26, pal::bone, Align::Center);
+            auto fit = [&](const char* t, float fs) { return std::min(fs, fs * 560 / std::max(1.f, u.text_width(t, fs))); };
+            u.text(x + 300, y + 16, d.name, fit(d.name, 34), Rgba::hex(d.color), Align::Center, 1.2f);
+            u.text(x + 300, y + 66, d.does, fit(d.does, 26), pal::bone, Align::Center);
             u.text(x + 300, y + 110, vendor ? "Buy for " + std::to_string(d.price) + " dinars" : "You have " + std::to_string(H.currency[purse]),
                    26, vendor ? pal::rare : pal::soft, Align::Center);
         }
@@ -494,6 +554,7 @@ void Menu::render(const World& w) const {
             }
             tip_y = 540;
         }
+        if (bench) bench_render(w, tip, tip_y, footer);
         // tooltip, and the equipped piece it would replace
         if (tip) {
             float tw = vendor ? 415 : 560;
@@ -512,7 +573,8 @@ void Menu::render(const World& w) const {
             }
         }
         // legend
-        if (held >= 0) legend(PX + 30, PY + PH - 58, {{BTN_SOUTH, "Use on item"}, {BTN_EAST, "Put back"}});
+        if (held >= 0 || held_recipe >= 0) legend(PX + 30, PY + PH - 58, {{BTN_SOUTH, held_recipe >= 0 ? "Craft on item" : "Use on item"}, {BTN_EAST, "Put back"}});
+        else if (bench && region == Region::Bench) legend(PX + 30, PY + PH - 58, {{BTN_SOUTH, "Choose recipe"}, {BTN_EAST, "Leave"}});
         else if (vendor) legend(PX + 30, PY + PH - 58, {{BTN_SOUTH, region == Region::Stock || region == Region::Purse ? "Buy" : "Sell"}, {BTN_EAST, "Leave"}});
         else if (region == Region::Grid) legend(PX + 30, PY + PH - 58, {{BTN_SOUTH, "Equip"}, {BTN_NORTH, "Drop"}, {BTN_EAST, "Close"}});
         else if (region == Region::Purse) legend(PX + 30, PY + PH - 58, {{BTN_SOUTH, "Pick up"}, {BTN_EAST, "Close"}});
@@ -521,6 +583,10 @@ void Menu::render(const World& w) const {
         tal_render(w);
     } else if (tab == MenuTab::Character) {
         char_render(w);
+    } else if (tab == MenuTab::Ascendancy) {
+        asc_render(w);
+    } else if (tab == MenuTab::Journal) {
+        journal_render(w);
     } else if (tab == MenuTab::Filter) {
         float x = PX + 60, y = PY + 120;
         u.text(x, y, "Choose what the ground shows you.", 28, pal::soft);

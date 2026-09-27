@@ -2,8 +2,10 @@
 // report pass/fail.
 //   walk   the hub: move, and a save state round trip
 //   fight  the Slice 1 street: clear the packs and the rare, equip upgrades through the inventory
-//   zone   Slice 2's exit: hub -> City of the Dead -> town portal round trip -> vendor -> the cache ->
-//          Umm al-Ghula (with a save state mid-fight) -> exit portal -> hub, then a character file round trip
+//   zone   Slice 2's exit, now in Downtown: hub -> the waypoint list -> Wust el-Balad -> town portal round trip ->
+//          the cache -> the Iron Microbus (with a save state mid-fight) -> home -> vendor, then a character file round trip
+//   act1   Slice 4's exit: a fresh character plays Act I through, Downtown to the Mokattam cliffs, the Bab Zuweila
+//          trial and the bench included, spending its stars and ascendancy points and wearing what it finds
 //   tour   not a test: a scripted visit of every screen for screenshots (it gives itself gear)
 #pragma once
 #include "game/areas.hpp"
@@ -26,6 +28,7 @@ struct Bot {
     vec2 start_pos;
     Sky* sky_ui = nullptr;       // the app's tree screen
     Title* title_ui = nullptr;   // and its title screen
+    WaypointList* wp_ui = nullptr;
     std::string save_dir;
     void start(const char* s);
     bool uses_title() const { return scenario == "title"; }
@@ -56,11 +59,25 @@ private:
     void sky(World& w, Input& in, uint64_t frame);
     void title(World& w, Input& in, uint64_t frame);
     void tour3(World& w, Menu& m, Areas& a, Input& in, uint64_t frame);
+    void bestiary(World& w, Areas& a, Input& in, uint64_t frame);
+    void tour4(World& w, Menu& m, Areas& a, Input& in, uint64_t frame);
+    void act1(World& w, Menu& m, Areas& a, Input& in, uint64_t frame);
+    void tour5(World& w, Areas& a, Input& in, uint64_t frame);
+    // act1 scenario
+    uint32_t act_seed_ = 0;
+    std::vector<uint8_t> visited_;
+    uint64_t act_zone_frame_ = 0, act_moved_frame_ = 0;
+    vec2 act_last_pos_;
+    int act_goal_ = -1, act_zones_ = 0;
+    int zone_deaths_ = 0, grind_zone_ = -1, grind_until_ = 0, last_target_ = -1;
+    std::vector<std::pair<uint32_t, bool>> judged_;   // gear already weighed: seed, upgrade?
+    bool upgrade(World& w, const Item& it);
     // sky scenario
     std::vector<int> sky_targets_;
     int sky_steps_ = 0, sky_last_cursor_ = -1, sky_stuck_ = 0, placed_ = 0;
     uint64_t sky_open_frame_ = 0;
     int vials_ = 0, gold_ = 0;
+    std::string zone_name_;
 
     // shared skills
     bool combat(World& w, Input& in, uint64_t frame, float reach);   // true while fighting
@@ -68,6 +85,12 @@ private:
     bool loot_and_equip(World& w, Menu& m, Input& in, uint64_t frame);  // true while busy with loot or the menu
     bool menu_nav(const World& w, const Menu& m, Input& in, uint64_t frame, Region r, int x, int y);
     void steer(World& w, Input& in, vec2 target);
+    void chase(World& w, Input& in, const Actor& e);
+    std::vector<uint32_t> ignored_;
+    uint32_t chase_id_ = 0;
+    vec2 chase_pos_;
+    uint64_t chase_frame_ = 0;
+    bool unreachable(uint32_t id) const { for (uint32_t i : ignored_) if (i == id) return true; return false; }
     bool go_to_interact(World& w, Input& in, uint64_t frame, Interactable::Kind k);
 };
 

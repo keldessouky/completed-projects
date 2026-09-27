@@ -1,6 +1,10 @@
 // The simulation: actors (hero and monsters), skills, projectiles, ground effects, loot, particles.
 // Fixed 60 Hz steps; everything here is plain data so save states can serialise it.
 #pragma once
+#include "game/acts.hpp"
+#include "game/asc.hpp"
+#include "game/crafting.hpp"
+#include "game/uniques.hpp"
 #include "game/animator.hpp"
 #include "game/assets.hpp"
 #include "game/inventory.hpp"
@@ -19,7 +23,7 @@ enum Team : uint8_t { TEAM_HERO, TEAM_ENEMY };
 enum class Act : uint8_t { Idle, Skill, Dodge, Hit, Stun, Dead };
 
 // ---- monsters ------------------------------------------------------------
-enum class AttackKind : uint8_t { Claw, Slam, Spit, Boss };
+enum class AttackKind : uint8_t { Claw, Slam, Spit, Boss, Leap, Beam };
 struct MonsterDef {
     const char* id;
     const char* name;
@@ -34,8 +38,36 @@ struct MonsterDef {
     float armour;
     float xp;
     float keep_distance;  // ranged: preferred distance from the hero
+    bool rigid = false;   // a possessed object: a static mesh, timed attacks instead of clip events
+    const char* family = "";   // for the codex
+    const char* voice = "ghoul";   // its sounds: <voice>_die
+    const char* codex = "";        // the Journal entry its family unlocks
 };
 const std::vector<MonsterDef>& monster_defs();
+
+// Bosses are data: a list of moves in priority order, used when their cooldown is ready and the hero is in range.
+enum class MoveKind : uint8_t { Combo, Leap, Summon, Wail, Charge, Volley, Nova, Blink, Pools };
+struct BossMove {
+    MoveKind kind;
+    const char* clip;
+    float cooldown;
+    float min_range, max_range;
+    float dmg;             // times the monster's base damage
+    uint8_t phase;         // from which phase (0 or 1)
+};
+struct BossDef {
+    const char* monster;
+    std::vector<BossMove> moves;
+    float phase2_at;       // life fraction where phase 2 begins
+    const char* phase2_line;
+    const char* summon;    // what Summon raises
+    int summon_n;
+    float court;           // how far from home she may chase before walking back
+    float haste2;          // speed in phase 2
+    vec3 bolt;             // colour of Volley's projectiles
+};
+const BossDef* boss_def(int monster_def);
+CharacterModel monster_model(int monster_def);   // a rigid monster's has a mesh name and no skeleton
 int find_monster(const char* id);
 
 enum MonsterMod : uint8_t { MM_HASTED, MM_ARMOURED, MM_FRENZIED, MM_VAMPIRIC, MM_COUNT };
@@ -72,6 +104,7 @@ struct Actor {
     float cd2 = 0, cd3 = 0;
     vec2 from, target;
     vec2 home;                     // bosses keep to their court
+    float move_cd[8] = {};         // bosses: each move's cooldown
     // elemental ailments (GDD §3.3)
     float ignite_t = 0, ignite_dps = 0;
     float chill_t = 0, chill = 0;  // slowed by `chill` (0..1)
@@ -101,7 +134,7 @@ struct Projectile {
 };
 
 struct GroundFx {
-    enum Kind : uint8_t { Crack, Telegraph, Ring, Glyph, Meteor, Bolt } kind = Crack;
+    enum Kind : uint8_t { Crack, Telegraph, Ring, Glyph, Meteor, Bolt, Fire, Line } kind = Crack;   // Fire: a hazard; Line: a telegraphed strip
     vec2 pos;
     float radius = 1, t = 0, life = 6, angle = 0, half = 0.6f;
     uint32_t owner = 0;
@@ -127,7 +160,8 @@ struct FloatText {
 };
 
 struct GroundItem {
-    enum Kind : uint8_t { Gear, Currency, Gold, Wafq, Blank } kind = Gear;   // Wafq: `currency` is the id; Blank: `amount` is the level
+    enum Kind : uint8_t { Gear, Currency, Gold, Wafq, Blank, Scrap } kind = Gear;   // Wafq: `currency` is the id; Blank: `amount` is
+    // the level; Scrap: a Poster Scrap, `amount` is the unique
     Item item;
     vec2 pos;
     float t = 0;
@@ -137,12 +171,14 @@ struct GroundItem {
 };
 
 struct Interactable {
-    enum Kind : uint8_t { Stair, Portal, Vendor, Exit, Chest } kind;
+    enum Kind : uint8_t { Stair, Portal, Vendor, Exit, Chest, Waypoint, Next, Bench, Gate } kind;
+    // Next: the way on to zone `target`; Gate: a side zone (a trial); Waypoint: the waypoint list; Bench: the Coppersmith
     vec2 pos;
     float radius = 1.8f;
     std::string label;
     float facing = 0;
     bool spent = false;        // an opened chest stays, but cannot be used again
+    int16_t target = -1;       // a zone, for Next and Gate
 };
 
 struct Npc {
@@ -160,7 +196,7 @@ enum class Ev : uint8_t { Swing, Impact, SlamImpact, EnemyHit, EnemyDie, HeroHit
                           Drink, Crit, Break, LevelUp, HeroDie, Aftershock, Portal, Gold, Currency, BossDie, BossWail,
                           BossLeap, Summon, Craft, Sell, InvFull, Cast, FireHit, ColdHit, LightningHit, StarFall, Frozen,
                           Glyph };
-struct Event { Ev type; vec2 pos; float mag; };
+struct Event { Ev type; vec2 pos; float mag; int def = -1; };   // def: the monster, for its voice
 
 struct Hero {
     Stats base;                    // class base stats
@@ -177,7 +213,20 @@ struct Hero {
     float es_wait = 0;             // seconds until Hirz starts to recharge
     float overload_t = 0;          // al-Simak: elemental damage after a crit
     uint32_t last_attacker = 0;    // al-Dabaran: the last enemy that hit you
-    int passive_points() const { return std::max(0, level - 1 - passives.spent()); }
+    uint32_t waypoints = 0;        // zones whose waypoint you have touched (bit = zone index)
+    uint32_t quests = 0;           // Quest bits (game/acts.hpp)
+    Item sealed;                   // what a trial's gatekeeper holds as the toll
+    int8_t sealed_slot = -1;
+    // Slice 4: crafting, posters, the codex, the ascendancy
+    uint8_t omens = 0;             // Coffee-Cup Omens read, waiting for a craft (bits by omen_bit)
+    uint32_t recipes = 0;          // the bench recipes you know (game/crafting.hpp)
+    uint8_t scraps[kMaxUniques] = {};   // Poster Scraps held, per unique
+    uint64_t codex = 0;            // codex entries you have seen
+    uint32_t asc = 0;              // ascendancy nodes held (bits, game/asc.hpp)
+    int endurance = 0;             // Endurance Charges (Ironclad)
+    float endurance_t = 0;         // seconds until they fall off
+    int asc_points() const;        // from trials, minus nodes held
+    int passive_points() const;    // level - 1 + quest points - stars placed
     Item& weapon() { return equip[EQ_WEAPON]; }
     const Item& weapon() const { return equip[EQ_WEAPON]; }
     // skills: carved Talismans, the two bars of five that point at them, and what is not slotted yet
@@ -200,6 +249,9 @@ struct Hero {
     float regen_acc = 0;
     int kills = 0;
 };
+
+inline int Hero::asc_points() const { return std::max(0, quest_asc_points(quests) - asc_spent(asc)); }
+inline int Hero::passive_points() const { return std::max(0, level - 1 + quest_passive_points(quests) - passives.spent()); }
 
 // The hero's numbers for a sheet or a preview (the tree screen compares two of these).
 struct HeroSummary {
@@ -262,9 +314,15 @@ public:
     bool craft(int currency, Item& target, std::string* why);
     void drop_currency(vec2 at, int currency, int amount);
     void drop_gold(vec2 at, int amount);
-    void drop_special(vec2 at, GroundItem::Kind kind, int value);   // a Wafq (value: id) or a Blank Talisman (value: level)
+    void drop_special(vec2 at, GroundItem::Kind kind, int value);   // a Wafq (value: id), a Blank Talisman (value: level),
+                                                                    // or a Poster Scrap (value: unique)
+    bool learn_recipe(int r);                 // true if it was new (a banner says so)
+    void meet_codex(const char* id);          // the first time: an entry and a toast
+    void gain_endurance(int n);
+    int endurance_max() const { return kEnduranceMax + ((hero.keystones & KS_FOUNDRY) ? 1 : 0); }
+    std::vector<std::string> notices;         // for the HUD: recipes learned, codex entries, posters completed
 
-    void emit(Ev t, vec2 p, float mag = 1) { events.push_back({t, p, mag}); }
+    void emit(Ev t, vec2 p, float mag = 1, int def = -1) { events.push_back({t, p, mag, def}); }
     void burst(vec3 p, int n, vec4 c0, vec4 c1, float speed, float size, float life, bool additive, float gravity = -6.f, uint8_t shape = 0);
 
 private:

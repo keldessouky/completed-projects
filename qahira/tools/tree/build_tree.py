@@ -319,7 +319,7 @@ for title, star, flag, ang, text, anchor in KEYSTONES:
 # ---------------------------------------------------------------- Recommended Paths (GDD §13)
 # the notables and keystones a new player aims for, in order; the tree screen can plan them in one press
 RECOMMENDED = {
-    'warrior': [orion['rig'], orion['sai'], orion['bet'], orion['bel'], taurus['zet'], taurus['nat'], leo['reg'], keystones[0]],
+    'warrior': [orion['rig'], orion['sai'], leo['reg'], orion['bet'], orion['bel'], taurus['zet'], taurus['nat'], keystones[0]],
     'sorcerer': [corona['alp'], lyra['veg'], scorpius['ant'], scorpius['sha'], perseus['mir'], perseus['alg'], cygnus['den']],
 }
 

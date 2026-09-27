@@ -1,3 +1,4 @@
+#include "game/asc.hpp"
 // The menu's Talismans tab (skills and their Wafq) and Character tab (the sheet, with a "Why?" for every number).
 #include "game/classes.hpp"
 #include "game/menu.hpp"
@@ -51,6 +52,9 @@ std::string source_name(const Hero& H, uint16_t src) {
     if (src == SRC_LEVEL) return "Level " + std::to_string(H.level);
     if (src == SRC_ATTRIBUTES) return "Attributes";
     if (src >= SRC_WAFQ && src < int(SRC_WAFQ) + int(WQ_COUNT)) return wafq_def(src - SRC_WAFQ).name;
+    if (src > SRC_ASC && src < SRC_WAFQ)
+        if (const Ascendancy* a = ascendancy_for(H.passives.cls); a && src - SRC_ASC < int(a->nodes.size()))
+            return std::string(a->nodes[size_t(src - SRC_ASC)].name) + " (" + a->name + ")";
     if (src >= SRC_STAR) {
         const PassiveTree& T = tree();
         int id = src - SRC_STAR;

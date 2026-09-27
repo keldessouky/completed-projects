@@ -29,7 +29,7 @@ static void clear_transient(World& w) {
 const char* Areas::name() const {
     switch (current) {
         case AreaId::Hub: return "The Rooftop Ahwa";
-        case AreaId::Necropolis: return "The City of the Dead";
+        case AreaId::Zone: return zone.valid ? zone_def(zone.def).name : "";
         default: return "The Street of Lamps";
     }
 }
@@ -37,7 +37,7 @@ const char* Areas::name() const {
 const char* Areas::subtitle() const {
     switch (current) {
         case AreaId::Hub: return "Above the Qarafa, the kettle is always on";
-        case AreaId::Necropolis: return "Something old is waking between the tombs";
+        case AreaId::Zone: return zone.valid ? zone_def(zone.def).subtitle : "";
         default: return "Combat range";
     }
 }
@@ -63,6 +63,16 @@ static void hub_static(World& w) {
     c.facing = -1.0f;
     c.scale = 1.1f;
     w.npcs.push_back(c);
+    if (w.hero.quests & Q_BENCH) {   // Usta Hassan came up to the roof with his bench
+        Npc smith;
+        smith.model = "coppersmith";
+        smith.pos = w.level.point("spawn") + vec2{-5.2f, 4.6f};
+        smith.facing = -kPi * 0.25f;
+        smith.cm = assets().character("coppersmith");
+        smith.anim.bind(smith.cm.skel, smith.cm.anims);
+        smith.anim.play("idle", 0);
+        w.npcs.push_back(smith);
+    }
 }
 
 static vec2 hub_portal_pos(const World& w) { return w.level.point("spawn") + vec2{2.6f, 1.6f}; }
@@ -73,43 +83,57 @@ void Areas::enter_hub(World& w, Arrival how) {
     hub_static(w);
     w.area_level = 1;
     vec2 stair = w.level.point("stair"), vendor = w.level.point("vendor");
-    w.interacts.push_back({Interactable::Stair, stair, 2.0f, "Descend to the City of the Dead"});
+    w.interacts.push_back({Interactable::Stair, stair, 2.0f, "Down into the city"});
     w.interacts.push_back({Interactable::Vendor, vendor, 2.0f, "Trade with Amm Sayed"});
+    if (w.hero.quests & Q_BENCH)
+        w.interacts.push_back({Interactable::Bench, w.level.point("spawn") + vec2{-4.2f, 3.6f}, 1.9f, "Usta Hassan's bench"});
     if (zone.valid && zone.has_portal)
-        w.interacts.push_back({Interactable::Portal, hub_portal_pos(w), 1.7f, "Portal to the City of the Dead"});
+        w.interacts.push_back({Interactable::Portal, hub_portal_pos(w), 1.7f, std::string("Portal to ") + zone_def(zone.def).name});
     if (how == Arrival::Portal && zone.valid && zone.has_portal) place_hero(w, hub_portal_pos(w) + vec2{-1.4f, -0.6f}, kPi / 2);
     else place_hero(w, w.level.point("spawn"), kPi / 2);
 }
 
 // ---------------------------------------------------------------- the City of the Dead
-void populate_zone(World& w, const ZoneLayout& z, int lvl) {
-    int g = find_monster("ghoul"), sp = find_monster("ghoul_spitter"), b = find_monster("ghoul_bruiser");
+void populate_zone(World& w, const ZoneLayout& z, const ZoneDef& zd, int lvl) {
     Rng& r = w.rng;
+    int total = 0;
+    for (auto& e : zd.spawns) if (e.monster) total += e.weight;
+    auto pick = [&]() {
+        int k = r.irange(0, std::max(1, total) - 1);
+        for (auto& e : zd.spawns) {
+            if (!e.monster) continue;
+            if ((k -= e.weight) < 0) return find_monster(e.monster);
+        }
+        return find_monster("ghoul");
+    };
+    const int elite = find_monster(zd.elite);
     for (const ZoneCell& c : z.cells) {
         vec2 ctr = z.center(c);
         auto at = [&](vec2 p) { return w.level.resolve(p, 0.6f); };
         auto jitter = [&](float k) { return vec2{r.range(-k, k), r.range(-k, k)}; };
         if (c.kind == ZoneCell::Entrance) continue;
         if (c.kind == ZoneCell::Arena) {
-            Actor& a = w.spawn_monster(find_monster("umm_al_ghula"), at(ctr + vec2{0, 1.5f}), Rarity::Unique, lvl + 1);
-            a.facing = -kPi / 2;
+            if (*zd.boss) {
+                Actor& a = w.spawn_monster(find_monster(zd.boss), at(ctr + vec2{0, 1.5f}), Rarity::Unique, lvl + 1);
+                a.facing = -kPi / 2;
+            } else {   // no boss: a rare and its pack guard the way on
+                w.spawn_monster(elite, at(ctr + vec2{0, 1.5f}), Rarity::Rare, lvl + 1);
+                for (int i = 0; i < 4; i++) w.spawn_monster(pick(), at(ctr + jitter(3.f)), Rarity::Normal, lvl);
+            }
             continue;
         }
         if (c.kind == ZoneCell::Landmark) {
-            // the cache is guarded: a rare bruiser and its pack
-            w.spawn_monster(b, at(ctr + jitter(1.5f)), Rarity::Rare, lvl + 1);
-            for (int i = 0; i < 4; i++) w.spawn_monster(g, at(ctr + jitter(3.f)), Rarity::Normal, lvl);
-            w.spawn_monster(sp, at(ctr + jitter(3.f)), Rarity::Normal, lvl);
+            // the landmark is guarded: a rare and its pack
+            w.spawn_monster(elite, at(ctr + jitter(1.5f)), Rarity::Rare, lvl + 1);
+            for (int i = 0; i < 5; i++) w.spawn_monster(pick(), at(ctr + jitter(3.f)), Rarity::Normal, lvl);
             continue;
         }
         int n = r.irange(3, 5) + std::min(3, c.depth / 2);
-        for (int i = 0; i < n; i++) w.spawn_monster(g, at(ctr + jitter(2.f)), Rarity::Normal, lvl);
-        if (c.depth >= 1 && r.chance(0.6f)) w.spawn_monster(sp, at(ctr + jitter(2.f)), Rarity::Normal, lvl);
-        if (c.depth >= 2 && r.chance(0.5f)) w.spawn_monster(b, at(ctr + jitter(1.5f)), Rarity::Normal, lvl);
+        for (int i = 0; i < n; i++) w.spawn_monster(pick(), at(ctr + jitter(2.f)), Rarity::Normal, lvl);
         if (c.kind == ZoneCell::Branch) {
             Rarity rr = r.chance(0.55f) ? Rarity::Rare : Rarity::Magic;
-            w.spawn_monster(r.chance(0.5f) ? b : g, at(ctr), rr, lvl);
-            if (rr == Rarity::Magic) w.spawn_monster(g, at(ctr + vec2{1, 1}), Rarity::Magic, lvl);
+            w.spawn_monster(elite, at(ctr), rr, lvl);
+            if (rr == Rarity::Magic) w.spawn_monster(pick(), at(ctr + vec2{1, 1}), Rarity::Magic, lvl);
         }
     }
 }
@@ -123,35 +147,56 @@ static vec2 entrance_spot(const ZoneLayout& z) {
     return z.center(e) - entrance_dir(e) * 3.f;
 }
 
-void Areas::enter_zone(World& w, Arrival how) {
-    current = AreaId::Necropolis;
+void Areas::enter_zone(World& w, int def, Arrival how) {
+    if (def >= 0 && (!zone.valid || zone.def != def)) close_zone(w);   // another zone: a new instance
+    current = AreaId::Zone;
     clear_transient(w);
     if (!zone.valid) {
+        const ZoneDef& zd = zone_def(def);
         zone = ZoneInstance{};
+        zone.def = def;
         zone.seed = w.rng.next();
-        zone.level = std::clamp(w.hero.level + 1, 2, 8);  // Slice 2 spans levels 1-8
-        zone.layout = generate_zone(zone.seed, 4, 6, 3);
-        build_zone_level(zone.layout, "necro", w.level);
+        zone.level = zd.level;
+        zone.layout = generate_zone(zone.seed, zd.w, zd.h, zd.branches);
+        build_zone_level(zone.layout, zd.tileset, w.level);
         w.area_level = zone.level;
-        populate_zone(w, zone.layout, zone.level);
+        populate_zone(w, zone.layout, zd, zone.level);
         zone.revealed.assign(zone.layout.cells.size(), 0);
+        // the waypoint at the entrance
+        const ZoneCell& e = zone.layout.cells[size_t(zone.layout.entrance)];
+        vec2 wp = w.level.resolve(zone.layout.center(e) + vec2{2.2f, 0.5f}, 0.8f);
+        w.interacts.push_back({Interactable::Waypoint, wp, 1.7f, "Waypoint"});
         if (zone.layout.landmark >= 0) {
             const ZoneCell& c = zone.layout.cells[size_t(zone.layout.landmark)];
             vec2 at = zone.layout.center(c);
+            int ci = zone.layout.landmark;
             for (auto& p : w.level.points)
-                if (p.first == "chest" && zone.layout.cell_index_at(p.second) == zone.layout.landmark) at = p.second;
-            Interactable ch{Interactable::Chest, at, 1.9f, "Open the Lamplighter's cache"};
+                if (p.first == "chest" && zone.layout.cell_index_at(p.second) == ci) at = p.second;
+            Interactable ch{Interactable::Chest, at, 1.9f, "Open the cache"};
             ch.facing = angle_of(zone.layout.center(c) - at) - kPi / 2;
             w.interacts.push_back(ch);
+            if (std::string(zd.landmark) == "bench")
+                for (auto& p : w.level.points)
+                    if (p.first == "bench" && zone.layout.cell_index_at(p.second) == ci)
+                        w.interacts.push_back({Interactable::Bench, p.second, 1.9f, "The Coppersmith's Bench"});
         }
+        if (!*zd.boss) open_exit(w);   // no boss: the way on is open from the start
         zone.valid = true;
+        // a trial takes its toll at the gate: one slot is sealed until you leave
+        if (zd.trial && zd.toll_slot >= 0 && w.hero.sealed_slot < 0) {
+            w.hero.sealed = w.hero.equip[zd.toll_slot];
+            w.hero.sealed_slot = int8_t(zd.toll_slot);
+            w.hero.equip[zd.toll_slot] = Item{};
+            w.recompute_hero();
+        }
     } else {
-        build_zone_level(zone.layout, "necro", w.level);
+        const ZoneDef& zd = zone_def(zone.def);
+        build_zone_level(zone.layout, zd.tileset, w.level);
         w.area_level = zone.level;
         for (auto& m : zone.monsters) {
             w.actors.push_back(m);
             Actor& a = w.actors.back();
-            a.model = assets().character(monster_defs()[size_t(a.def)].model);
+            a.model = monster_model(a.def);
             a.anim = Animator{};
             a.anim.bind(a.model.skel, a.model.anims);
             a.anim.play("idle", 0, true);
@@ -159,13 +204,16 @@ void Areas::enter_zone(World& w, Arrival how) {
         w.loot = zone.loot;
         w.interacts = zone.interacts;
     }
+    w.hero.waypoints |= 1u << zone.def;
+    w.meet_codex("waypoints");
+    if (zone_def(zone.def).trial) w.meet_codex("trial");
     const ZoneCell& e = zone.layout.cells[size_t(zone.layout.entrance)];
     if (how == Arrival::Portal && zone.has_portal) place_hero(w, zone.portal + vec2{-1.2f, -1.0f}, kPi / 2);
     else place_hero(w, entrance_spot(zone.layout), angle_of(entrance_dir(e)));
 }
 
 void Areas::leave_zone(World& w) {
-    if (current != AreaId::Necropolis || !zone.valid) return;
+    if (current != AreaId::Zone || !zone.valid) return;
     zone.monsters.clear();
     for (size_t i = 1; i < w.actors.size(); i++)
         if (w.actors[i].alive()) {
@@ -179,10 +227,21 @@ void Areas::leave_zone(World& w) {
     zone.interacts = w.interacts;
 }
 
-void Areas::close_zone() { zone = ZoneInstance{}; }
+void Areas::close_zone(World& w) {
+    // the gatekeeper gives the toll back when you leave a trial, finished or not
+    Hero& H = w.hero;
+    if (H.sealed_slot >= 0) {
+        if (H.equip[H.sealed_slot].empty()) H.equip[H.sealed_slot] = H.sealed;
+        else if (!H.sealed.empty() && !H.inv.add(H.sealed)) H.equip[H.sealed_slot] = H.sealed;   // never lost
+        H.sealed = Item{};
+        H.sealed_slot = -1;
+        w.recompute_hero();
+    }
+    zone = ZoneInstance{};
+}
 
 void Areas::cast_portal(World& w) {
-    if (current != AreaId::Necropolis) return;
+    if (current != AreaId::Zone) return;
     Actor& h = w.actors[0];
     vec2 at = w.level.resolve(h.pos + from_angle(h.facing) * 1.6f, 0.8f);
     w.interacts.erase(std::remove_if(w.interacts.begin(), w.interacts.end(), [](const Interactable& i) { return i.kind == Interactable::Portal; }),
@@ -193,13 +252,25 @@ void Areas::cast_portal(World& w) {
     w.emit(Ev::Portal, at);
 }
 
-void Areas::open_exit_portal(World& w) {
-    for (auto& i : w.interacts) if (i.kind == Interactable::Exit) return;
+void Areas::open_exit(World& w) {
+    const ZoneDef& zd = zone_def(zone.def);
     vec2 c = zone.layout.center(zone.layout.cells[size_t(zone.layout.arena)]);
-    vec2 at = w.level.resolve(c + vec2{0, -1.0f}, 0.8f);
-    w.interacts.push_back({Interactable::Exit, at, 1.8f, "Portal home to the rooftop"});
+    auto has = [&](Interactable::Kind k) { for (auto& i : w.interacts) if (i.kind == k) return true; return false; };
+    int next = find_zone(zd.next), side = find_zone(zd.side);
+    if (next >= 0 && !has(Interactable::Next)) {
+        Interactable it{Interactable::Next, w.level.resolve(c + vec2{0, -1.0f}, 0.8f), 1.8f, std::string("On to ") + zone_def(next).name};
+        it.target = int16_t(next);
+        w.interacts.push_back(it);
+    }
+    if (side >= 0 && !has(Interactable::Gate)) {
+        Interactable it{Interactable::Gate, w.level.resolve(c + vec2{3.4f, 1.0f}, 0.8f), 1.8f, std::string("Enter ") + zone_def(side).name};
+        it.target = int16_t(side);
+        w.interacts.push_back(it);
+    }
+    if (next < 0 && !has(Interactable::Exit))
+        w.interacts.push_back({Interactable::Exit, w.level.resolve(c + vec2{0, -1.0f}, 0.8f), 1.8f, "Portal home to the rooftop"});
     zone.cleared = true;
-    w.emit(Ev::Portal, at);
+    w.emit(Ev::Portal, c);
 }
 
 void Areas::open_chest(World& w, int i) {
@@ -221,6 +292,12 @@ void Areas::open_chest(World& w, int i) {
     w.drop_currency(pos + rotate(vec2{1.8f, 0}, out + 1.4f), roll_currency(w.rng), 1);
     w.drop_currency(pos + rotate(vec2{1.8f, 0}, out - 1.4f), CUR_SAFFRON, 1);
     w.drop_gold(pos + rotate(vec2{1.0f, 0}, out), 25 + 8 * lvl);
+    if (const ZoneDef* zd = def()) {
+        w.learn_recipe(recipe_for_zone(zd->id, false));
+        if (std::string(zd->landmark) == "poster")   // the cinema's old billboard: scraps of its posters
+            for (int k = 0; k < 2; k++)
+                if (int u = random_unique(lvl + 2, w.rng); u >= 0) w.drop_special(pos + rotate(vec2{2.2f, 0}, out + (k ? 0.6f : -0.6f)), GroundItem::Scrap, u);
+    }
     w.burst(vec3(pos, 0.6f), 30, vec4(1.f, 0.75f, 0.35f, 1), vec4(1.f, 0.4f, 0.1f, 0), 3.f, 0.12f, 0.9f, true, -2.f);
     w.emit(Ev::Pickup, pos, 2.f);
 }
@@ -234,7 +311,7 @@ void Areas::respawn(World& w) {
     w.hero.flask = w.hero.flask_max;
     w.projectiles.clear();
     w.ground.clear();
-    if (current == AreaId::Necropolis) {
+    if (current == AreaId::Zone) {
         // PoE2 rules: back to the entrance; a boss you were fighting heals and returns to her court
         vec2 court = zone.layout.center(zone.layout.cells[size_t(zone.layout.arena)]);
         for (size_t i = 1; i < w.actors.size(); i++) {
@@ -248,8 +325,8 @@ void Areas::respawn(World& w) {
                 a.break_meter = 0;
                 a.broken_t = a.stun_t = 0;
                 a.pos = court + vec2{0, 1.5f};
-                a.cd2 = 3.f;
-                a.cd3 = 1e9f;
+                if (const BossDef* bd = boss_def(a.def))
+                    for (size_t k = 0; k < bd->moves.size() && k < 8; k++) a.move_cd[k] = bd->moves[k].phase ? 1e9f : 3.f;
             } else if (length(a.pos - court) < 12.f) {
                 // her summoned brood goes back into the ground
                 a.life = 0;
@@ -268,7 +345,7 @@ void Areas::respawn(World& w) {
 }
 
 void Areas::reveal(const World& w) {
-    if (current != AreaId::Necropolis || zone.revealed.size() != zone.layout.cells.size()) return;
+    if (current != AreaId::Zone || zone.revealed.size() != zone.layout.cells.size()) return;
     vec2 p = w.actors[0].pos;
     for (size_t i = 0; i < zone.layout.cells.size(); i++)
         if (length(zone.layout.center(zone.layout.cells[i]) - p) < 19.f) zone.revealed[i] = 1;  // the cell you are in and what you can see
@@ -309,7 +386,7 @@ void Areas::enter_street(World& w) {
 void Areas::rebuild(World& w) {
     switch (current) {
         case AreaId::Hub: hub_static(w); break;
-        case AreaId::Necropolis: w.npcs.clear(); build_zone_level(zone.layout, "necro", w.level); break;
+        case AreaId::Zone: w.npcs.clear(); build_zone_level(zone.layout, zone_def(zone.def).tileset, w.level); break;
         case AreaId::Street: w.npcs.clear(); street_static(w); break;
     }
 }
@@ -333,7 +410,7 @@ static void read_layout(ByteReader& r, ZoneLayout& z) {
 
 static void write_interacts(ByteWriter& w, const std::vector<Interactable>& v) {
     w.put(uint16_t(v.size()));
-    for (auto& i : v) { w.put(i.kind); w.put(i.pos); w.put(i.radius); w.str(i.label); w.put(i.facing); w.put(i.spent); }
+    for (auto& i : v) { w.put(i.kind); w.put(i.pos); w.put(i.radius); w.str(i.label); w.put(i.facing); w.put(i.spent); w.put(i.target); }
 }
 
 static void read_interacts(ByteReader& r, std::vector<Interactable>& v) {
@@ -341,7 +418,7 @@ static void read_interacts(ByteReader& r, std::vector<Interactable>& v) {
     v.clear();
     for (uint16_t k = 0; k < n && r.ok; k++) {
         Interactable i{};
-        r.get(i.kind); r.get(i.pos); r.get(i.radius); i.label = r.str(); r.get(i.facing); r.get(i.spent);
+        r.get(i.kind); r.get(i.pos); r.get(i.radius); i.label = r.str(); r.get(i.facing); r.get(i.spent); r.get(i.target);
         v.push_back(i);
     }
 }
@@ -349,7 +426,7 @@ static void read_interacts(ByteReader& r, std::vector<Interactable>& v) {
 void Areas::write(ByteWriter& w) const {
     w.put(current);
     const ZoneInstance& z = zone;
-    w.put(z.valid); w.put(z.cleared); w.put(z.has_portal); w.put(z.portal); w.put(z.level); w.put(z.seed);
+    w.put(z.valid); w.put(z.def); w.put(z.cleared); w.put(z.has_portal); w.put(z.portal); w.put(z.level); w.put(z.seed);
     if (!z.valid) return;
     write_layout(w, z.layout);
     w.put(uint16_t(z.monsters.size()));
@@ -365,7 +442,8 @@ bool Areas::read(ByteReader& r) {
     r.get(current);
     ZoneInstance& z = zone;
     z = ZoneInstance{};
-    r.get(z.valid); r.get(z.cleared); r.get(z.has_portal); r.get(z.portal); r.get(z.level); r.get(z.seed);
+    r.get(z.valid); r.get(z.def); r.get(z.cleared); r.get(z.has_portal); r.get(z.portal); r.get(z.level); r.get(z.seed);
+    if (z.valid && (z.def < 0 || z.def >= int(zone_defs().size()))) return false;
     if (!z.valid) return r.ok;
     read_layout(r, z.layout);
     uint16_t nm = r.get<uint16_t>();
