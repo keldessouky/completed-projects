@@ -1,5 +1,6 @@
 #include "game/view.hpp"
 #include "ui/ui.hpp"
+#include "game/menu.hpp"
 #include <cstdio>
 
 namespace q {
@@ -40,6 +41,35 @@ void View::on_events(const World& w) {
     }
 }
 
+void View::draw_skinned(Renderer& r, const CharacterModel& m, const Animator& anim, vec2 pos, float facing, float scale, Instance in) {
+    GpuMesh* body = m.body ? m.body : assets().mesh(m.name);
+    if (!m.skel || !body) return;
+    pose_.resize(m.skel->bones.size());
+    anim.pose(pose_, scratch_);
+    mat4 root = mat4::translate(vec3(pos, 0)) * mat4::rot_z(facing + kPi / 2) * mat4::scale({scale, scale, scale});
+    pose_.compute_model(*m.skel, root);
+    int off = r.alloc_palette(int(m.skel->bones.size()));
+    if (off < 0) return;
+    pose_.write_palette(*m.skel, r.palette(off));
+    in.extra.x = float(off);
+    r.draw(body, in);
+}
+
+void View::draw_portal(Renderer& r, const World& w, vec2 pos, vec3 color, float t) {
+    // a standing oval of swirling motes around a soft core, facing the camera
+    vec3 c(pos, 1.35f);
+    for (int i = 0; i < 30; i++) {
+        float a = t * 1.7f + i * kTau / 30.f;
+        float k = 0.85f + 0.15f * std::sin(t * 3.f + i * 1.3f);
+        vec3 p = c + vec3{std::cos(a) * 0.78f * k, 0, std::sin(a) * 1.18f * k};
+        r.billboard(p, 0.22f, vec4(color * 1.6f, 0.9f), {0, 1.4f, 0, 3}, Blend::Additive);
+    }
+    for (int i = 0; i < 3; i++) r.billboard(c + vec3{0, 0.01f * i, (i - 1) * 0.45f}, 1.2f, vec4(color * 0.5f, 0.45f), {0, 1.f, 0, 1}, Blend::Additive);
+    r.ground(vec3(pos, 0.02f), 1.1f + 0.05f * std::sin(t * 2.f), vec4(color, 0.55f), {1, 0.1f, 0, 2}, Blend::Additive);
+    r.light(c, 6.5f, color * 16.f);
+    (void)w;
+}
+
 void View::draw_actor(Renderer& r, World& w, Actor& a, int index) {
     if (!a.model.body && !a.model.name.empty()) a.model.body = assets().mesh(a.model.name);
     const CharacterModel& m = a.model;
@@ -56,6 +86,7 @@ void View::draw_actor(Renderer& r, World& w, Actor& a, int index) {
     float dissolve = a.act == Act::Dead ? clampf((a.dead_t - 0.85f) / 1.0f, 0, 1) : 0;
     in.extra = {float(off), 0, a.hit_flash * (index == 0 ? 0.18f : 0.6f), dissolve};
     if (index == 0) in.rim = vec4(hex_lin(0xF2A541), 0.2f);
+    else if (a.rarity == Rarity::Unique) in.rim = vec4(hex_lin(0xE08A3C), 0.3f);
     else if (a.rarity == Rarity::Rare) in.rim = vec4(hex_lin(0xF5D76E), 0.9f);
     else if (a.rarity == Rarity::Magic) in.rim = vec4(hex_lin(0x7AA8FF), 0.7f);
     else in.rim = vec4(hex_lin(0xFF2E88), 0.25f);
@@ -66,8 +97,8 @@ void View::draw_actor(Renderer& r, World& w, Actor& a, int index) {
         wpn.model = pose_.model[size_t(m.weapon_bone)];
         wpn.rim = in.rim;
         wpn.extra = {-1, 0, a.hit_flash * 0.5f, 0};
-        uint32_t rc = rarity_color(w.hero.weapon.rarity);
-        if (w.hero.weapon.rarity != Rarity::Normal) wpn.rim = vec4(hex_lin(rc), 0.6f);
+        uint32_t rc = rarity_color(w.hero.weapon().rarity);
+        if (w.hero.weapon().rarity != Rarity::Normal) wpn.rim = vec4(hex_lin(rc), 0.6f);
         r.draw(assets().mesh("maul"), wpn);
         vec3 hip = pose_.model[size_t(m.pelvis)].translation();
         r.light(hip + vec3{0, 0, 0.3f}, 6.5f, hex_lin(0xFFB04A) * 14.f);
@@ -79,6 +110,41 @@ void View::render_world(Renderer& r, World& w) {
     const Actor& h = w.actors[0];
     w.level.render(r, w.time, h.pos);
     for (size_t i = 0; i < w.actors.size(); i++) draw_actor(r, w, w.actors[i], int(i));
+    for (auto& n : w.npcs) {
+        Instance in;
+        in.rim = vec4(hex_lin(0xF2A541), 0.12f);
+        if (n.rigged) draw_skinned(r, n.cm, n.anim, n.pos, n.facing, n.scale, in);
+        else {
+            float breathe = 1.f + 0.02f * std::sin(w.time * 2.1f);
+            in.model = mat4::translate(vec3(n.pos, 0)) * mat4::rot_z(n.facing + kPi / 2) * mat4::scale({n.scale, n.scale, n.scale * breathe});
+            in.extra = {-1, 0, 0, 0};
+            r.draw(assets().mesh(n.model), in);
+        }
+        r.ground(vec3(n.pos, 0), 0.6f * n.scale, vec4(0, 0, 0, 0.45f), {0, 1.5f, 0, 1}, Blend::Alpha);
+    }
+    for (size_t i = 0; i < w.interacts.size(); i++) {
+        const Interactable& it = w.interacts[i];
+        bool near = int(i) == w.near_interact;
+        switch (it.kind) {
+            case Interactable::Portal: draw_portal(r, w, it.pos, hex_lin(0x7A8CFF), w.time); break;
+            case Interactable::Exit: draw_portal(r, w, it.pos, hex_lin(0xF2C060), w.time * 1.2f); break;
+            case Interactable::Chest: {
+                Instance in;
+                in.model = mat4::translate(vec3(it.pos, 0)) * mat4::rot_z(it.facing);
+                in.extra = {-1, 0, 0, 0};
+                in.rim = vec4(hex_lin(0xF2A541), it.spent ? 0.f : 0.25f + (near ? 0.4f : 0.f));
+                r.draw(assets().mesh(it.spent ? "chest_open" : "chest"), in);
+                if (!it.spent) r.light(vec3(it.pos, 1.0f), 4.f, hex_lin(0xFFB050) * (near ? 10.f : 5.f));
+                r.ground(vec3(it.pos, 0), 0.9f, vec4(0, 0, 0, 0.5f), {0, 1.5f, 0, 1}, Blend::Alpha);
+                break;
+            }
+            case Interactable::Stair:
+                r.ground(vec3(it.pos, 0.02f), 1.2f + 0.08f * std::sin(w.time * 2.f), vec4(hex_lin(0xF2A541), near ? 0.7f : 0.3f), {1, 0.08f, 0, 2},
+                         Blend::Additive);
+                break;
+            default: break;
+        }
+    }
     // ground effects
     for (auto& g : w.ground) {
         float k = g.t / g.life;
@@ -112,15 +178,43 @@ void View::render_world(Renderer& r, World& w) {
         else r.billboard(p.pos, s, c, {0, 0.8f, 0, 1}, Blend::Alpha);
     }
     for (auto& g : w.loot) {
-        uint32_t rc = rarity_color(g.item.rarity);
-        vec3 c = hex_lin(rc);
+        if (!w.loot_visible(g)) continue;
         float pulse = 0.8f + 0.2f * std::sin(w.time * 3 + g.id);
+        float spin = float(g.id % 628) * 0.01f;
+        float drop = std::max(0.f, 1.f - g.t / 0.35f);                  // a little hop as it lands
+        float z = 0.02f + std::sin(std::min(1.f, g.t / 0.35f) * kPi) * 0.6f * (drop > 0 ? 1.f : 0.f);
+        Instance in;
+        in.extra = {-1, 0, 0, 0};
+        if (g.kind == GroundItem::Gold) {
+            in.model = mat4::translate(vec3(g.pos, z)) * mat4::rot_z(spin);
+            in.rim = vec4(hex_lin(0xF5D76E), 0.3f);
+            r.draw(assets().mesh("loot_coins"), in);
+            continue;
+        }
+        if (g.kind == GroundItem::Currency) {
+            vec3 c = hex_lin(currency_def(g.currency).color);
+            in.model = mat4::translate(vec3(g.pos, z)) * mat4::rot_z(spin) * mat4::scale({1.4f, 1.4f, 1.4f});
+            in.tint = vec4(c, 1);
+            in.rim = vec4(c, 0.9f);
+            r.draw(assets().mesh("loot_bead"), in);
+            r.ground(vec3(g.pos, 0), 0.45f, vec4(c, 0.55f * pulse), {0, 2, 0, 2}, Blend::Additive);
+            if (g.currency >= CUR_SAFFRON) r.beam(vec3(g.pos, 0), 4.f, 0.25f, vec4(c, 0.6f * pulse));
+            continue;
+        }
+        vec3 c = hex_lin(rarity_color(g.item.rarity));
         if (g.item.rarity >= Rarity::Rare) r.beam(vec3(g.pos, 0), 5.f, 0.35f, vec4(c, 0.8f * pulse));
         r.ground(vec3(g.pos, 0), 0.5f, vec4(c, 0.6f * pulse), {0, 2, 0, 2}, Blend::Additive);
-        Instance in;
-        in.model = mat4::translate(vec3(g.pos, 0.1f)) * mat4::rotate(quat::axis_angle({0, 1, 0}, kPi / 2)) * mat4::rot_z(float(g.id));
         in.rim = vec4(c, 0.8f);
-        r.draw(assets().mesh("maul"), in);
+        Slot sl = g.item.b().slot;
+        if (sl == Slot::Weapon) {
+            in.model = mat4::translate(vec3(g.pos, z + 0.1f)) * mat4::rotate(quat::axis_angle({0, 1, 0}, kPi / 2)) * mat4::rot_z(spin);
+            r.draw(assets().mesh("maul"), in);
+        } else {
+            bool jewel = sl == Slot::Amulet || sl == Slot::Ring;
+            in.model = mat4::translate(vec3(g.pos, z)) * mat4::rot_z(spin) * mat4::scale(jewel ? vec3{1.6f, 1.6f, 1.6f} : vec3{1, 1, 1});
+            in.tint = vec4(jewel ? vec3{1, 1, 1} : lerp(c, vec3{1, 1, 1}, 0.55f), 1);
+            r.draw(assets().mesh(jewel ? "loot_trinket" : "loot_bundle"), in);
+        }
     }
     for (auto& f : flashes) {
         float k = 1.f - f.t / f.life;
@@ -141,9 +235,14 @@ void draw_button_glyph(float cx, float cy, float s, int b) {
         }
         return;
     }
-    const char* t = b == BTN_R1 ? "R1" : b == BTN_R2 ? "R2" : b == BTN_L1 ? "L1" : b == BTN_L2 ? "L2" : b == BTN_L3 ? "M1" :
-                    b == BTN_R3 ? "M2" : b == BTN_LEFT ? "\xE2\x97\x80" : "?";
     u.frame(cx - s * 0.6f, cy - s * 0.38f, s * 1.2f, s * 0.76f, pal::panel2, pal::dim, s * 0.2f, 2);
+    if (b == BTN_START) {
+        for (int i = -1; i <= 1; i++) u.line(cx - s * 0.24f, cy + i * s * 0.14f, cx + s * 0.24f, cy + i * s * 0.14f, s * 0.07f, pal::bone);
+        return;
+    }
+    const char* t = b == BTN_R1 ? "R1" : b == BTN_R2 ? "R2" : b == BTN_L1 ? "L1" : b == BTN_L2 ? "L2" : b == BTN_L3 ? "M1" :
+                    b == BTN_R3 ? "M2" : b == BTN_LEFT ? "\xE2\x86\x90" : b == BTN_UP ? "\xE2\x86\x91" : b == BTN_RIGHT ? "\xE2\x86\x92" :
+                    b == BTN_DOWN ? "\xE2\x86\x93" : "?";
     u.text(cx, cy - s * 0.32f, t, s * 0.5f, pal::bone, Align::Center, 1);
 }
 
@@ -195,7 +294,118 @@ static void orb(float cx, float cy, float r, float frac, Rgba fill, Rgba glow, c
     u.text(cx, cy - 18, label, 30, pal::bone, Align::Center, 1.2f, true);
 }
 
-void View::render_hud(World& w, const Input& in) {
+float draw_item_card(float x, float y, float bw, const Item& it, const World& world, const Item* compare, const std::string& footer, bool draw) {
+    Ui& u = ui();
+    auto lines = it.lines();
+    float lh = 36;
+    bool rare = it.rarity >= Rarity::Rare;
+    float head = rare ? 96 : 64;
+    float bh = head + 16 + lines.size() * lh + 14;
+    bool delta = compare && it.b().slot == Slot::Weapon;
+    if (delta) bh += 44;
+    if (!footer.empty()) bh += 44;
+    if (!draw) return bh;
+    Rgba rc = Rgba::hex(rarity_color(it.rarity));
+    u.frame(x, y, bw, bh, pal::panel.alpha(0.97f), rc.alpha(0.8f), 12, 2);
+    u.rect(x + 2, y + 2, bw - 4, head - 4, rc.alpha(0.12f), 10);
+    std::string title = it.display_name();
+    float ts = std::min(34.f, 34.f * (bw - 36) / std::max(1.f, u.text_width(title, 34)));  // long names shrink to fit
+    u.text(x + bw / 2, y + 12 + (34 - ts) * 0.5f, title, ts, rc, Align::Center, 1.2f);
+    if (rare) u.text(x + bw / 2, y + 52, it.b().name, 26, rc.alpha(0.8f), Align::Center);
+    float cy = y + head + 12;
+    for (auto& l : lines) {
+        Rgba c = pal::bone;
+        std::string s = l;
+        if (!s.empty() && s[0] == '~') { c = pal::soft; s = s.substr(1); }
+        if (!s.empty() && s[0] == '#') { c = pal::dim; s = s.substr(1); }
+        else if (s.find(':') == std::string::npos && c.r == pal::bone.r) c = pal::magic;
+        u.text(x + bw / 2, cy, s, 28, c, Align::Center);
+        cy += lh;
+    }
+    if (delta) {
+        float d = world.hero_dps(it) - world.hero_dps(*compare);
+        char b[64];
+        snprintf(b, sizeof b, "%+.1f DPS with Crushing Blow", d);
+        u.text(x + bw / 2, cy + 6, b, 30, d >= 0 ? pal::good : pal::bad, Align::Center, 1);
+        cy += 44;
+    }
+    if (!footer.empty()) u.text(x + bw / 2, cy + 6, footer, 28, pal::rare, Align::Center, 0.8f);
+    return bh;
+}
+
+void View::render_map(const World& w, const Areas& areas) {
+    if (!map_open || areas.current != AreaId::Necropolis) return;
+    Ui& u = ui();
+    const ZoneInstance& z = areas.zone;
+    const ZoneLayout& L = z.layout;
+    vec2 hp = w.actors[0].pos;
+    float s = 12.f;
+    auto to = [&](vec2 p) { return vec2{960 + (p.x - hp.x) * s, 560 - (p.y - hp.y) * s}; };
+    float lane = 5.4f * s * 0.5f, half = L.cell * s * 0.5f;
+    u.rect(0, 0, 1920, 1080, pal::night.alpha(0.35f));
+    // unexplored cells that open off explored ones: faint, so you know where the lanes lead
+    for (size_t i = 0; i < L.cells.size(); i++) {
+        if (i >= z.revealed.size() || z.revealed[i]) continue;
+        const ZoneCell& c = L.cells[i];
+        bool near_known = false;
+        const int dx[4] = {0, 1, 0, -1}, dy[4] = {1, 0, -1, 0};
+        for (int k = 0; k < 4; k++)
+            if (const ZoneCell* n = L.at(c.x + dx[k], c.y + dy[k])) {
+                size_t ni = size_t(n - L.cells.data());
+                if (ni < z.revealed.size() && z.revealed[ni]) near_known = true;
+            }
+        if (!near_known) continue;
+        vec2 p = to(L.center(c));
+        u.rect(p.x - half + 2, p.y - half + 2, half * 2 - 4, half * 2 - 4, pal::sand.alpha(0.06f), 6);
+    }
+    for (size_t i = 0; i < L.cells.size(); i++) {
+        if (i >= z.revealed.size() || !z.revealed[i]) continue;
+        const ZoneCell& c = L.cells[i];
+        vec2 p = to(L.center(c));
+        u.rect(p.x - half + 2, p.y - half + 2, half * 2 - 4, half * 2 - 4, pal::night.alpha(0.45f), 6);  // the cell's footprint
+        Rgba col = pal::sand.alpha(0.55f);
+        if (c.kind == ZoneCell::Arena) col = pal::magenta.alpha(0.6f);
+        else if (c.kind == ZoneCell::Landmark) col = pal::amber.alpha(0.6f);
+        else if (c.kind == ZoneCell::Entrance) col = pal::turquoise.alpha(0.6f);
+        float core = (c.kind == ZoneCell::Arena || c.kind == ZoneCell::Landmark) ? half * 0.8f : lane;
+        u.rect(p.x - core, p.y - core, core * 2, core * 2, col, 4);
+        if (c.mask & DIR_N) u.rect(p.x - lane, p.y - half, lane * 2, half - core + 1, col);
+        if (c.mask & DIR_S) u.rect(p.x - lane, p.y + core - 1, lane * 2, half - core + 1, col);
+        if (c.mask & DIR_E) u.rect(p.x + core - 1, p.y - lane, half - core + 1, lane * 2, col);
+        if (c.mask & DIR_W) u.rect(p.x - half, p.y - lane, half - core + 1, lane * 2, col);
+    }
+    auto revealed_at = [&](vec2 wp) {
+        int ci = L.cell_index_at(wp);
+        return ci >= 0 && size_t(ci) < z.revealed.size() && z.revealed[size_t(ci)];
+    };
+    for (auto& it : w.interacts) {
+        if (!revealed_at(it.pos)) continue;
+        vec2 p = to(it.pos);
+        if (it.kind == Interactable::Portal) { u.disc(p.x, p.y, 11, Rgba::hex(0x7A8CFF)); u.ring(p.x, p.y, 15, 12, pal::bone); }
+        else if (it.kind == Interactable::Exit) { u.disc(p.x, p.y, 11, Rgba::hex(0xF2C060)); u.ring(p.x, p.y, 15, 12, pal::bone); }
+        else if (it.kind == Interactable::Chest && !it.spent) u.rect(p.x - 9, p.y - 7, 18, 14, pal::amber, 3);
+    }
+    for (size_t i = 1; i < w.actors.size(); i++) {
+        const Actor& a = w.actors[i];
+        if (!a.alive() || a.rarity != Rarity::Unique || !revealed_at(a.pos)) continue;
+        vec2 p = to(a.pos);
+        u.disc(p.x, p.y, 13, pal::magenta);
+        u.disc(p.x - 4, p.y - 2, 3, pal::night);
+        u.disc(p.x + 4, p.y - 2, 3, pal::night);
+    }
+    // the hero: an arrow pointing where they face
+    vec2 c{960, 560};
+    float f = w.actors[0].facing;
+    vec2 d{std::cos(f), -std::sin(f)}, n{-d.y, d.x};
+    vec2 tip = c + d * 18, l = c - d * 10 + n * 11, r = c - d * 10 - n * 11;
+    u.line(tip.x, tip.y, l.x, l.y, 6, pal::amber);
+    u.line(tip.x, tip.y, r.x, r.y, 6, pal::amber);
+    u.line(l.x, l.y, r.x, r.y, 6, pal::amber);
+    u.text(1880, 30, areas.name(), 30, pal::bone.alpha(0.8f), Align::Right, 1.f, true);
+    u.text(1880, 70, "Level " + std::to_string(z.level), 24, pal::soft.alpha(0.8f), Align::Right);
+}
+
+void View::render_hud(World& w, const Input& in, const Areas& areas) {
     Ui& u = ui();
     const Actor& h = w.actors[0];
     const Hero& H = w.hero;
@@ -214,49 +424,46 @@ void View::render_hud(World& w, const Input& in) {
         u.rect(p.x - 40, p.y, 80, 8, pal::night.alpha(0.8f));
         u.rect(p.x - 39, p.y + 1, 78 * a.life / a.life_max, 6, a.rarity == Rarity::Magic ? pal::magic : pal::bad);
     }
-    // loot labels and the tooltip of the selected item
+    // loot labels (what the filter shows) and the card of the selected item
     for (size_t i = 0; i < w.loot.size(); i++) {
         const GroundItem& g = w.loot[i];
+        if (!w.loot_visible(g) || g.t < 0.3f) continue;
         vec2 p = to_ui(cam, vec3(g.pos, 0.5f));
-        std::string n = g.item.display_name();
-        float tw = u.text_width(n, 26) + 24;
+        std::string n;
+        Rgba c;
+        float size = 26;
+        if (g.kind == GroundItem::Gold) { n = std::to_string(g.amount) + " dinars"; c = pal::rare.alpha(0.85f); size = 22; }
+        else if (g.kind == GroundItem::Currency) { n = currency_def(g.currency).name; c = Rgba::hex(currency_def(g.currency).color); }
+        else { n = g.item.display_name(); c = Rgba::hex(rarity_color(g.item.rarity)); }
+        float tw = u.text_width(n, size) + 24;
         bool sel = int(i) == w.selected_loot;
-        u.frame(p.x - tw / 2, p.y - 44, tw, 36, pal::night.alpha(0.88f), sel ? Rgba::hex(rarity_color(g.item.rarity)) : pal::line, 6, 2);
-        u.text(p.x, p.y - 40, n, 26, Rgba::hex(rarity_color(g.item.rarity)), Align::Center, 0.6f);
+        u.frame(p.x - tw / 2, p.y - 44, tw, size + 10, pal::night.alpha(0.88f), sel ? c : pal::line, 6, 2);
+        u.text(p.x, p.y - 40, n, size, c, Align::Center, 0.6f);
     }
     if (w.selected_loot >= 0) {
         const Item& it = w.loot[size_t(w.selected_loot)].item;
-        auto lines = it.lines();
-        float bw = 560, lh = 36, bh = 110 + lines.size() * lh + 70;
-        float x = 1920 - bw - 60, y = 1080 - bh - 230;
-        Rgba rc = Rgba::hex(rarity_color(it.rarity));
-        u.frame(x, y, bw, bh, pal::panel.alpha(0.96f), rc.alpha(0.8f), 12, 2);
-        u.rect(x + 2, y + 2, bw - 4, 84, rc.alpha(0.12f), 10);
-        u.text(x + bw / 2, y + 14, it.display_name(), 34, rc, Align::Center, 1.2f);
-        if (it.rarity >= Rarity::Rare) u.text(x + bw / 2, y + 50, it.b().name, 26, rc.alpha(0.8f), Align::Center);
-        float cy = y + 100;
-        for (auto& l : lines) {
-            Rgba c = pal::bone;
-            std::string s = l;
-            if (!s.empty() && s[0] == '~') { c = pal::soft; s = s.substr(1); }
-            if (!s.empty() && s[0] == '#') { c = pal::dim; s = s.substr(1); }
-            else if (s.find(':') == std::string::npos && c.r == pal::bone.r) c = pal::magic;
-            u.text(x + bw / 2, cy, s, 28, c, Align::Center);
-            cy += lh;
-        }
-        if (it.b().slot == Slot::Weapon) {
-            float delta = w.hero_dps(it) - w.hero_dps(H.weapon);
-            char b[64];
-            snprintf(b, sizeof b, "%+.1f DPS with Crushing Blow", delta);
-            u.text(x + bw / 2, cy + 8, b, 30, delta >= 0 ? pal::good : pal::bad, Align::Center, 1);
-        }
-        draw_button_glyph(x + bw / 2 - 90, y + bh - 26, 44, BTN_LEFT);
-        u.text(x + bw / 2 - 58, y + bh - 42, it.b().slot == Slot::Weapon ? "Equip" : "Pick up", 28, pal::bone);
+        int slot = equip_slot_for(it, H.equip);
+        const Item* cmp = slot >= 0 && !H.equip[slot].empty() ? &H.equip[slot] : nullptr;
+        float bw = 560;
+        float bh = draw_item_card(0, 0, bw, it, w, cmp, "", false);
+        float x = 1920 - bw - 60, y = std::max(20.f, 1080 - bh - 250);
+        draw_item_card(x, y, bw, it, w, cmp, "", true);
+        draw_button_glyph(x + 40, y + bh + 26, 40, BTN_LEFT);
+        u.text(x + 72, y + bh + 10, "Pick up", 28, pal::bone);
+    }
+    // what South does here
+    if (w.near_interact >= 0 && h.alive()) {
+        const Interactable& it = w.interacts[size_t(w.near_interact)];
+        vec2 p = to_ui(cam, vec3(it.pos, it.kind == Interactable::Portal || it.kind == Interactable::Exit ? 2.9f : 2.2f));
+        float tw = u.text_width(it.label, 30) + 90;
+        u.frame(p.x - tw / 2, p.y - 30, tw, 58, pal::panel.alpha(0.92f), pal::amber.alpha(0.8f), 12, 2);
+        draw_button_glyph(p.x - tw / 2 + 34, p.y - 1, 40, BTN_SOUTH);
+        u.text(p.x - tw / 2 + 64, p.y - 20, it.label, 30, pal::bone, Align::Left, 0.6f);
     }
     // target frame
     if (const Actor* f = w.focus_enemy()) {
         float bw = 620, x = 960 - bw / 2, y = 40;
-        u.text(960, y, f->name, 36, pal::rare, Align::Center, 1.4f, true);
+        u.text(960, y, f->name, 36, f->rarity == Rarity::Unique ? pal::unique : pal::rare, Align::Center, 1.4f, true);
         std::string mods;
         for (int i = 0; i < 4; i++) if (f->mods[i] < MM_COUNT) mods += std::string(mods.empty() ? "" : "  \xC2\xB7  ") + monster_mod_name(f->mods[i]);
         u.text(960, y + 44, mods, 24, pal::soft, Align::Center);
@@ -315,6 +522,21 @@ void View::render_hud(World& w, const Input& in) {
         u.text(960, 300, banner, 72, pal::amber.alpha(a), Align::Center, 2, true);
         u.text(960, 384, banner_sub, 30, pal::bone.alpha(a), Align::Center);
     }
+    // field hints: what the D-pad does here
+    {
+        float x = 40, y = 40;
+        auto hint = [&](int b, const char* t) {
+            draw_button_glyph(x + 22, y + 18, 36, b);
+            u.text(x + 50, y + 2, t, 24, pal::soft.alpha(0.75f), Align::Left, 0.4f, true);
+            y += 44;
+        };
+        hint(BTN_START, "Inventory");
+        if (areas.current == AreaId::Necropolis) {
+            hint(BTN_UP, "Portal");
+            hint(BTN_DOWN, map_open ? "Hide map" : "Map");
+        }
+        hint(BTN_RIGHT, (std::string("Filter: ") + filter_name(H.filter)).c_str());
+    }
     // death
     if (!h.alive()) {
         float a = std::min(1.f, h.dead_t / 1.2f);
@@ -322,9 +544,10 @@ void View::render_hud(World& w, const Input& in) {
         u.text(960, 420, "You fell in the long night", 64, pal::bone.alpha(a), Align::Center, 1.5f, true);
         if (h.dead_t > 1.2f) {
             draw_button_glyph(830, 560, 52, BTN_SOUTH);
-            u.text(880, 540, "Rise again at the street's mouth", 34, pal::soft.alpha(a));
+            u.text(880, 540, areas.current == AreaId::Hub ? "Rise again" : "Rise again at the entrance", 34, pal::soft.alpha(a));
         }
     }
+    if (fade > 0) u.rect(0, 0, 1920, 1080, Rgba(0, 0, 0, 255).alpha(fade));
 }
 
 }  // namespace q

@@ -31,6 +31,7 @@ const std::vector<MonsterDef>& monster_defs() {
         {"ghoul", "Ghoul", "ghoul", 1.0f, {1, 1, 1}, 38, 4.3f, 0.42f, AttackKind::Claw, 1.5f, 1.3f, 5, 9, DT_PHYS, 10, 12, 0},
         {"ghoul_bruiser", "Grave Bruiser", "ghoul", 1.38f, {0.62f, 0.55f, 0.6f}, 110, 3.1f, 0.62f, AttackKind::Slam, 2.3f, 2.4f, 13, 19, DT_PHYS, 80, 40, 0},
         {"ghoul_spitter", "Bile Spitter", "ghoul", 0.95f, {0.72f, 0.95f, 0.62f}, 46, 3.7f, 0.4f, AttackKind::Spit, 9.0f, 2.0f, 7, 12, DT_CHAOS, 5, 16, 6.5f},
+        {"umm_al_ghula", "Umm al-Ghula, Mother of the Ghouls", "ghoula", 1.25f, {1, 1, 1}, 760, 3.9f, 0.85f, AttackKind::Boss, 3.2f, 1.5f, 11, 17, DT_PHYS, 150, 420, 0},
     };
     return d;
 }
@@ -57,7 +58,7 @@ void World::reset_hero() {
     b.add(S_MANA, MK_FLAT, 40);
     b.add(S_MANA_REGEN, MK_FLAT, 2.5f);
     b.add(S_ARMOUR, MK_FLAT, 40);
-    hero.weapon = make_item(find_base("worn_maul"), Rarity::Normal, 1, rng);
+    hero.weapon() = make_item(find_base("worn_maul"), Rarity::Normal, 1, rng);
     Actor h;
     h.id = next_id++;
     h.team = TEAM_HERO;
@@ -76,8 +77,8 @@ void World::recompute_hero() {
     H.stats = H.base;
     H.stats.add(S_LIFE, MK_FLAT, 12.f * (H.level - 1));
     H.stats.add(S_MANA, MK_FLAT, 6.f * (H.level - 1));
-    H.weapon.add_global_mods(H.stats, 1);
-    for (size_t i = 0; i < H.gear.size(); i++) H.gear[i].add_global_mods(H.stats, uint16_t(2 + i));
+    for (int e = 0; e < EQ_COUNT; e++)
+        if (!H.equip[e].empty()) H.equip[e].add_global_mods(H.stats, uint16_t(1 + e));
     // attributes: Strength gives life and melee damage, Intelligence mana
     float str = H.stats.value(S_STR), in = H.stats.value(S_INT);
     H.stats.add(S_LIFE, MK_FLAT, str * 0.5f, 0, 90);
@@ -89,7 +90,7 @@ void World::recompute_hero() {
     a.mana_max = std::round(H.stats.value(S_MANA));
     a.armour = H.stats.value(S_ARMOUR);
     a.speed = 5.2f * (1 + H.stats.sum(S_MOVE_SPEED).inc / 100.f);
-    if (old_max > 0) a.life = std::min(a.life_max, a.life * a.life_max / old_max);
+    if (old_max > 0 && old_max != a.life_max) a.life = std::min(a.life_max, a.life * a.life_max / old_max);
     a.mana = std::min(a.mana, a.mana_max);
 }
 
@@ -129,6 +130,7 @@ Actor& World::spawn_monster(int def, vec2 pos, Rarity rarity, int lvl) {
     m.speed = d.speed * rng.range(0.92f, 1.08f);
     m.attack_cd = rng.range(0.2f, 1.2f);
     if (rarity == Rarity::Magic) { m.life_max *= 1.8f; m.dmg_mult = 1.2f; }
+    if (d.attack == AttackKind::Boss) { m.rarity = Rarity::Unique; m.cd2 = 3.f; m.cd3 = 1e9f; m.home = pos; }
     if (rarity == Rarity::Rare) {
         m.life_max *= 2.6f;
         m.dmg_mult = 1.25f;
@@ -169,7 +171,7 @@ const Actor* World::focus_enemy() const {
     for (size_t i = 1; i < actors.size(); i++) {
         const Actor& a = actors[i];
         if (!a.alive() || a.rarity < Rarity::Rare) continue;
-        float d = length(a.pos - h.pos);
+        float d = length(a.pos - h.pos) - (a.rarity == Rarity::Unique ? 6.f : 0.f);
         if (d < 14 && d < bd) { bd = d; best = &a; }
     }
     return best;
@@ -178,6 +180,7 @@ const Actor* World::focus_enemy() const {
 // ============================================================ step
 void World::step(const Input& in, float dt) {
     events.clear();
+    used_interact = -1;
     time += dt;
     fx_step(dt);
     if (hitstop > 0) { hitstop -= dt; return; }
@@ -209,14 +212,123 @@ void World::step(const Input& in, float dt) {
     ground.erase(std::remove_if(ground.begin(), ground.end(), [](const GroundFx& g) { return g.t >= g.life; }), ground.end());
     // remove fully dissolved corpses
     actors.erase(std::remove_if(actors.begin() + 1, actors.end(), [](const Actor& a) { return a.act == Act::Dead && a.dead_t > 2.2f; }), actors.end());
+    // the interactable in reach, if any
+    near_interact = -1;
+    float bi = 1e9f;
+    for (size_t i = 0; i < interacts.size(); i++) {
+        if (interacts[i].spent) continue;
+        float d = length(interacts[i].pos - h.pos);
+        if (d < interacts[i].radius && d < bi) { bi = d; near_interact = int(i); }
+    }
+    for (auto& n : npcs) n.anim.update(dt);
     // loot selection: the nearest item within reach
     selected_loot = -1;
     float bd = 2.2f;
     for (size_t i = 0; i < loot.size(); i++) {
-        loot[i].t += dt;
-        float d = length(loot[i].pos - h.pos);
-        if (d < bd) { bd = d; selected_loot = int(i); }
+        GroundItem& g = loot[i];
+        g.t += dt;
+        float d = length(g.pos - h.pos);
+        if (g.kind != GroundItem::Gear) {
+            if (d < 1.3f && g.t > 0.4f && h.alive()) {
+                if (g.kind == GroundItem::Gold) {
+                    hero.gold += g.amount;
+                    texts.push_back({vec3(g.pos, 1.2f), "+" + std::to_string(g.amount) + " dinars", 0xF5D76E, 0, 28});
+                    emit(Ev::Gold, g.pos);
+                } else {
+                    hero.currency[g.currency] += g.amount;
+                    texts.push_back({vec3(g.pos, 1.2f), currency_def(g.currency).name, currency_def(g.currency).color, 0, 30});
+                    emit(Ev::Currency, g.pos);
+                }
+                g.t = -1;
+            }
+            continue;
+        }
+        if (d < bd && loot_visible(g)) { bd = d; selected_loot = int(i); }
     }
+    loot.erase(std::remove_if(loot.begin(), loot.end(), [](const GroundItem& g) { return g.t < 0; }), loot.end());
+    if (selected_loot >= int(loot.size())) selected_loot = -1;
+}
+
+// ============================================================ belongings
+bool World::pick_up(int i) {
+    if (i < 0 || i >= int(loot.size()) || loot[size_t(i)].kind != GroundItem::Gear) return false;
+    Actor& h = actors[0];
+    if (!hero.inv.add(loot[size_t(i)].item)) {
+        texts.push_back({vec3(h.pos, 2.4f), "Inventory full", 0xE0B0A0, 0, 32});
+        emit(Ev::InvFull, h.pos);
+        return false;
+    }
+    loot.erase(loot.begin() + i);
+    selected_loot = -1;
+    emit(Ev::Pickup, h.pos);
+    return true;
+}
+
+bool World::equip_from_inventory(int i) {
+    if (i < 0 || i >= int(hero.inv.items.size())) return false;
+    InvItem entry = hero.inv.items[size_t(i)];
+    int slot = equip_slot_for(entry.item, hero.equip);
+    if (slot < 0) return false;
+    hero.inv.take(i);
+    Item old = hero.equip[slot];
+    hero.equip[slot] = entry.item;
+    // the old piece goes where the new one was if it fits, otherwise anywhere
+    if (!old.empty() && !hero.inv.place(old, entry.x, entry.y) && !hero.inv.add(old)) {
+        hero.equip[slot] = old;
+        hero.inv.items.insert(hero.inv.items.begin() + i, entry);
+        emit(Ev::InvFull, actors[0].pos);
+        return false;
+    }
+    recompute_hero();
+    emit(Ev::Pickup, actors[0].pos);
+    return true;
+}
+
+bool World::unequip(int slot) {
+    if (slot < 0 || slot >= EQ_COUNT || hero.equip[slot].empty() || slot == EQ_WEAPON) return false;
+    if (!hero.inv.add(hero.equip[slot])) { emit(Ev::InvFull, actors[0].pos); return false; }
+    hero.equip[slot] = Item{};
+    recompute_hero();
+    emit(Ev::Pickup, actors[0].pos);
+    return true;
+}
+
+void World::drop_from_inventory(int i) {
+    if (i < 0 || i >= int(hero.inv.items.size())) return;
+    GroundItem g;
+    g.item = hero.inv.take(i);
+    Actor& h = actors[0];
+    g.pos = level.resolve(h.pos + from_angle(h.facing) * 1.2f + vec2{fx_rng.range(-0.3f, 0.3f), fx_rng.range(-0.3f, 0.3f)}, 0.3f);
+    g.id = next_id++;
+    loot.push_back(g);
+}
+
+bool World::craft(int c, Item& target, std::string* why) {
+    if (c < 0 || c >= CUR_COUNT || hero.currency[c] <= 0) { if (why) *why = "You have none left"; return false; }
+    if (!apply_currency(c, target, rng, why)) return false;
+    hero.currency[c]--;
+    recompute_hero();
+    emit(Ev::Craft, actors[0].pos);
+    return true;
+}
+
+void World::drop_currency(vec2 at, int c, int amount) {
+    GroundItem g;
+    g.kind = GroundItem::Currency;
+    g.currency = uint8_t(c);
+    g.amount = amount;
+    g.pos = level.resolve(at, 0.3f);
+    g.id = next_id++;
+    loot.push_back(g);
+}
+
+void World::drop_gold(vec2 at, int amount) {
+    GroundItem g;
+    g.kind = GroundItem::Gold;
+    g.amount = std::max(1, amount);
+    g.pos = level.resolve(at, 0.3f);
+    g.id = next_id++;
+    loot.push_back(g);
 }
 
 void World::anim_step(Actor& a, float dt) {
@@ -242,7 +354,7 @@ vec2 World::aim_assist(vec2 dir, float range, float cone) {
     return out;
 }
 
-void World::start_skill(int slot) {
+void World::start_skill(int slot, vec2 stick) {
     Actor& h = actors[0];
     int s = hero.skills[slot];
     if (s < 0) return;
@@ -254,7 +366,8 @@ void World::start_skill(int slot) {
     h.act_t = 0;
     h.skill = s;
     h.struck = false;
-    vec2 dir = from_angle(h.facing);
+    // aim where the stick points (after a dodge the body still faces the roll), else where we face
+    vec2 dir = length(stick) > 0.25f ? normalize(stick) : from_angle(h.facing);
     float reach = sk.shape == Shape::Circle ? sk.range + sk.radius : sk.shape == Shape::Cone ? sk.range : 4.f;
     dir = aim_assist(dir, reach + 1.5f, radians(40));
     h.facing = angle_of(dir);
@@ -292,21 +405,13 @@ void World::hero_step(const Input& in, float dt) {
     if (!busy) {
         static const Btn slot_btn[5] = {BTN_SOUTH, BTN_WEST, BTN_NORTH, BTN_R1, BTN_R2};
         bool near_loot = selected_loot >= 0;
-        if (in.hit(BTN_LEFT) && near_loot) {
-            GroundItem gi = loot[size_t(selected_loot)];
-            loot.erase(loot.begin() + selected_loot);
-            if (gi.item.b().slot == Slot::Weapon) {
-                GroundItem old{H.weapon, h.pos + from_angle(h.facing + kPi) * 0.8f, 0, next_id++};
-                H.weapon = gi.item;
-                loot.push_back(old);
-            } else {
-                int si = int(gi.item.b().slot);
-                if (int(H.gear.size()) <= si) H.gear.resize(size_t(si + 1), Item{});
-                H.gear[size_t(si)] = gi.item;
-            }
-            recompute_hero();
-            emit(Ev::Pickup, h.pos);
-            selected_loot = -1;
+        bool calm = true;
+        for (size_t i = 1; i < actors.size(); i++)
+            if (actors[i].alive() && length(actors[i].pos - h.pos) < 6.f) calm = false;
+        if (in.hit(BTN_SOUTH) && near_interact >= 0 && calm) {
+            used_interact = near_interact;
+        } else if ((in.hit(BTN_LEFT) || (in.hit(BTN_SOUTH) && calm)) && near_loot) {
+            pick_up(selected_loot);
         } else if (in.hit(BTN_EAST)) {
             h.act = Act::Dodge;
             h.act_t = 0;
@@ -315,7 +420,7 @@ void World::hero_step(const Input& in, float dt) {
             emit(Ev::Dodge, h.pos);
         } else {
             for (int s = 0; s < 5; s++)
-                if (in.hit(slot_btn[s])) { start_skill(s); break; }
+                if (in.hit(slot_btn[s])) { start_skill(s, stick); break; }
         }
     }
     // movement
@@ -390,11 +495,11 @@ void World::resolve_skill(Actor& h) {
             burst(hp, 7, vec4(1.f, 0.7f, 0.4f, 0.8f), vec4(0.9f, 0.3f, 0.1f, 0), 5.f, 0.08f, 0.3f, true, -9.f);
             burst(hp, 3, vec4(0.2f, 0.17f, 0.18f, 0.55f), vec4(0.15f, 0.13f, 0.14f, 0), 2.f, 0.22f, 0.5f, false, -4.f, 1);
             if (e.life <= 0) { kill(e); continue; }
-            e.break_meter += res.total / e.life_max * 100.f * 1.7f * brk;
+            e.break_meter += res.total / e.life_max * 100.f * 1.7f * brk * (e.rarity == Rarity::Unique ? 0.5f : 1.f);
             if (e.break_meter >= 100.f) {
                 e.break_meter = 0;
-                e.stun_t = 1.4f;
-                e.broken_t = 3.0f;
+                e.stun_t = e.rarity == Rarity::Unique ? 2.5f : 1.4f;
+                e.broken_t = e.rarity == Rarity::Unique ? 5.f : 3.0f;
                 e.act = Act::Stun;
                 e.anim.play("stagger", 0.08f, true);
                 emit(Ev::Break, e.pos);
@@ -498,6 +603,10 @@ void World::kill(Actor& e) {
     e.anim.play("death", 0.05f, true);
     const MonsterDef& d = monster_defs()[size_t(e.def)];
     float xp = d.xp * (e.rarity == Rarity::Rare ? 6.f : e.rarity == Rarity::Magic ? 2.f : 1.f);
+    if (d.attack == AttackKind::Boss) {
+        boss_killed = true;
+        emit(Ev::BossDie, e.pos);
+    }
     hero.xp += xp;
     hero.kills++;
     hero.flask = std::min(hero.flask_max, hero.flask + 0.25f);
@@ -520,12 +629,32 @@ void World::kill(Actor& e) {
 
 void World::drop_loot(const Actor& e) {
     float rare = 0, magic = 0.05f, chance = 0.07f;
+    auto scatter = [&](float r) { return e.pos + vec2{rng.range(-r, r), rng.range(-r, r)}; };
+    if (e.rarity == Rarity::Unique) {
+        for (int k = 0; k < 4; k++) {
+            GroundItem g;
+            g.item = random_drop(area_level + 2, k < 2 ? 1.f : 0.4f, 0.6f, rng, k == 0 ? Slot::Weapon : Slot::Count);
+            g.pos = level.resolve(e.pos + rotate(vec2{1.4f, 0}, k * 1.57f + 0.4f), 0.3f);
+            g.id = next_id++;
+            loot.push_back(g);
+        }
+        for (int k = 0; k < 4; k++) drop_currency(e.pos + rotate(vec2{2.2f, 0}, k * 1.57f), k == 0 ? CUR_PIASTRE : roll_currency(rng), 1);
+        drop_gold(e.pos + vec2{0, -1.8f}, 60 + 12 * area_level);
+        return;
+    }
+    // currency and dinars
+    float cur_chance = e.rarity == Rarity::Rare ? 0.9f : e.rarity == Rarity::Magic ? 0.25f : 0.045f;
+    if (rng.chance(cur_chance)) drop_currency(scatter(0.8f), roll_currency(rng), 1);
+    float gold_chance = e.rarity == Rarity::Normal ? 0.22f : 1.f;
+    if (rng.chance(gold_chance)) drop_gold(scatter(0.8f), int(rng.irange(2, 5) * (1 + area_level * 0.5f) * (e.rarity == Rarity::Rare ? 5 : 1)));
     if (e.rarity == Rarity::Rare) { chance = 1.f; rare = 1.f; }
     else if (e.rarity == Rarity::Magic) { chance = 0.35f; rare = 0.15f; magic = 0.6f; }
     if (!rng.chance(chance)) return;
     GroundItem g;
-    g.item = random_drop(area_level + (e.rarity == Rarity::Rare ? 2 : 0), rare, magic, rng, Slot::Weapon);
-    g.pos = level.resolve(e.pos + vec2{rng.range(-0.6f, 0.6f), rng.range(-0.6f, 0.6f)}, 0.3f);
+    // early on, a third of drops are weapons: the maul is the build
+    Slot only = rng.chance(0.35f) ? Slot::Weapon : Slot::Count;
+    g.item = random_drop(area_level + (e.rarity == Rarity::Rare ? 2 : 0), rare, magic, rng, only);
+    g.pos = level.resolve(scatter(0.6f), 0.3f);
     g.id = next_id++;
     loot.push_back(g);
 }
@@ -560,6 +689,7 @@ void World::monster_attack(Actor& m) {
     vec2 fwd = from_angle(m.facing);
     float lo = d.dmg_min * m.dmg_mult * (1 + 0.12f * (area_level - 1)), hi = d.dmg_max * m.dmg_mult * (1 + 0.12f * (area_level - 1));
     switch (d.attack) {
+        case AttackKind::Boss: break;  // boss_strike handles her
         case AttackKind::Claw: {
             vec2 dd = h.pos - m.pos;
             float dist = length(dd);
@@ -605,6 +735,7 @@ void World::monster_step(Actor& m, float dt) {
         anim_step(m, dt);
         return;
     }
+    if (d.attack == AttackKind::Boss) { boss_step(m, dt); return; }
     vec2 to = h.pos - m.pos;
     float dist = length(to);
     vec2 dir = dist > 1e-4f ? to / dist : vec2{0, 1};
@@ -673,6 +804,163 @@ void World::monster_step(Actor& m, float dt) {
     anim_step(m, dt);
 }
 
+// ---- Umm al-Ghula: claw combos up close, leap slams at range; below 55% she summons and wails
+void World::boss_strike(Actor& m, const char* ev) {
+    Actor& h = actors[0];
+    const MonsterDef& d = monster_defs()[size_t(m.def)];
+    float k = 1 + 0.12f * (area_level - 1);
+    float lo = d.dmg_min * k * m.dmg_mult, hi = d.dmg_max * k * m.dmg_mult;
+    if (m.skill == 0) {  // claw combo
+        vec2 dd = h.pos - m.pos;
+        if (length(dd) <= d.attack_range + h.radius && std::fabs(wrap_angle(angle_of(dd) - m.facing)) < radians(70))
+            damage_hero(lo, hi, DT_PHYS, m.pos, 12);
+        (void)ev;
+    } else if (m.skill == 1) {  // leap landing
+        if (length(h.pos - m.target) <= 2.7f + h.radius) damage_hero(lo * 1.6f, hi * 1.6f, DT_PHYS, m.target, 25);
+        burst(vec3(m.target, 0.1f), 30, vec4(0.45f, 0.4f, 0.36f, 0.8f), vec4(0.3f, 0.27f, 0.25f, 0), 6.f, 0.35f, 1.0f, false, -6.f, 1);
+        emit(Ev::SlamImpact, m.target, 1.2f);
+        emit(Ev::BossLeap, m.target);
+        shake = std::max(shake, 0.7f);
+    } else if (m.skill == 2) {  // wail
+        if (length(h.pos - m.pos) <= 7.5f) damage_hero(h.life_max * 0.28f, h.life_max * 0.34f, DT_CHAOS, m.pos, 40);
+        GroundFx g;
+        g.kind = GroundFx::Ring;
+        g.pos = m.pos;
+        g.radius = 7.5f;
+        g.life = 0.7f;
+        ground.push_back(g);
+        emit(Ev::BossWail, m.pos, 2.f);
+        shake = std::max(shake, 0.6f);
+    } else if (m.skill == 3) {  // summon from the graves
+        int g = find_monster("ghoul");
+        emit(Ev::Summon, m.pos);
+        for (int i = 0; i < 5; i++) {
+            vec2 p = level.resolve(m.pos + rotate(vec2{3.2f, 0}, i * kTau / 5 + 0.3f), 0.5f);
+            Actor& a = spawn_monster(g, p, Rarity::Normal, area_level);
+            a.ai_state = 1;
+            burst(vec3(p, 0.1f), 16, vec4(0.4f, 0.35f, 0.3f, 0.8f), vec4(0.3f, 0.25f, 0.2f, 0), 3.f, 0.3f, 0.9f, false, -4.f, 1);
+        }
+    }
+}
+
+void World::boss_step(Actor& m, float dt) {
+    const MonsterDef& d = monster_defs()[size_t(m.def)];
+    Actor& h = actors[0];
+    vec2 to = h.pos - m.pos;
+    float dist = length(to);
+    vec2 dir = dist > 1e-4f ? to / dist : vec2{0, 1};
+    float haste = m.phase ? 1.25f : 1.f;
+    m.attack_cd -= dt * haste;
+    m.cd2 -= dt;
+    m.cd3 -= dt;
+    m.act_t += dt;
+    vec2 want{0, 0};
+    auto start = [&](int skill, const char* clip, float speed) {
+        m.act = Act::Skill;
+        m.act_t = 0;
+        m.skill = skill;
+        m.struck = false;
+        m.facing = angle_of(to);
+        m.anim.play(clip, 0.08f, true, speed);
+    };
+    auto telegraph = [&](vec2 at, float r, float half, float angle, const char* ev) {
+        GroundFx g;
+        g.kind = GroundFx::Telegraph;
+        g.owner = m.id;
+        g.pos = at;
+        g.radius = r;
+        g.half = half;
+        g.angle = angle;
+        const Clip* c = m.anim.cur;
+        g.life = c ? c->event_time(ev, 0.8f) / m.anim.speed : 0.8f;
+        ground.push_back(g);
+    };
+    switch (m.act) {
+        case Act::Stun:
+            m.stun_t -= dt;
+            if (m.stun_t <= 0) m.act = Act::Idle;
+            break;
+        case Act::Skill: {
+            if (m.skill == 1) {  // airborne: travel to the landing point
+                float p = m.anim.progress();
+                m.pos = lerp(m.from, m.target, smoothstep(0.3f, 0.66f, p));
+            }
+            if (!m.struck && m.anim.event(m.skill == 3 ? "summon" : "hit")) { m.struck = true; boss_strike(m, "hit"); }
+            if (m.skill == 0 && m.anim.event("hit2")) boss_strike(m, "hit2");
+            if (m.anim.done()) {
+                m.act = Act::Idle;
+                if (m.skill == 2) {  // spent after the wail: a Break window
+                    m.act = Act::Stun;
+                    m.stun_t = 1.8f;
+                    m.broken_t = 3.0f;
+                    m.anim.play("stagger", 0.1f, true);
+                    texts.push_back({vec3(m.pos, 3.2f), "EXHAUSTED", 0xFF2E88, 0, 34});
+                }
+                m.attack_cd = 1.4f;
+            }
+            break;
+        }
+        default: {
+            // she keeps to her court: engaged, she follows a little way; if the hero truly escapes (or falls)
+            // she walks home and gathers herself
+            float leash = m.ai_state > 0 ? 26.f : 17.f;
+            if (length(h.pos - m.home) > leash || !h.alive()) {
+                m.ai_state = 0;
+                vec2 back = m.home - m.pos;
+                if (length(back) > 0.8f) {
+                    want = normalize(back) * m.speed;
+                    m.facing = wrap_angle(m.facing + wrap_angle(angle_of(back) - m.facing) * std::min(1.f, dt * 6.f));
+                    m.anim.play("run", 0.15f, false, 1.f);
+                } else {
+                    m.anim.play("idle", 0.25f);
+                }
+                m.life = std::min(m.life_max, m.life + m.life_max * 0.08f * dt);
+                if (m.life >= m.life_max) { m.phase = 0; m.cd3 = 1e9f; m.break_meter = 0; }  // fully reset
+                break;
+            }
+            bool aggro = m.ai_state > 0 || dist < 11.f || m.life < m.life_max;
+            if (!aggro) { m.anim.play("idle", 0.25f); break; }
+            m.ai_state = 1;
+            if (m.phase == 0 && m.life < m.life_max * 0.55f) {
+                m.phase = 1;
+                m.cd3 = 5.f;
+                start(3, "summon", 1.f);
+                texts.push_back({vec3(m.pos, 3.4f), "RISE, MY CHILDREN", 0xFF2E88, 0, 38});
+                break;
+            }
+            if (m.phase == 1 && m.cd3 <= 0) {
+                start(2, "wail", 1.f);
+                telegraph(m.pos, 7.5f, kPi, 0, "hit");
+                m.cd3 = 11.f;
+                break;
+            }
+            if (dist > 5.5f && m.cd2 <= 0) {
+                start(1, "leap", haste);
+                m.from = m.pos;
+                vec2 aim = h.pos + h.vel * 0.3f;
+                if (length(aim - m.home) > 9.f) aim = m.home + normalize(aim - m.home) * 9.f;
+                m.target = level.resolve(aim, m.radius);
+                telegraph(m.target, 2.7f, kPi, 0, "hit");
+                m.cd2 = m.phase ? 5.f : 6.5f;
+                break;
+            }
+            if (dist <= d.attack_range + h.radius && m.attack_cd <= 0) {
+                start(0, "combo", haste);
+                telegraph(m.pos, d.attack_range + 0.4f, radians(70), m.facing, "hit");
+                break;
+            }
+            want = dir * m.speed * haste;
+            m.facing = wrap_angle(m.facing + wrap_angle(angle_of(to) - m.facing) * std::min(1.f, dt * 6.f));
+            m.anim.play("run", 0.15f, false, 1.f);
+        }
+    }
+    if (m.act != Act::Skill || m.skill != 1) {
+        m.vel = lerp(m.vel, want, std::min(1.f, dt * 8.f));
+        m.pos = level.resolve(m.pos + (m.vel + m.knock * 0.3f) * dt, m.radius);
+    }
+    anim_step(m, dt);
+}
+
 void World::separate() {
     for (size_t i = 0; i < actors.size(); i++) {
         Actor& a = actors[i];
@@ -690,6 +978,13 @@ void World::separate() {
             a.pos -= push * wa;
             b.pos += push * wb;
         }
+    }
+    // townsfolk stand their ground
+    Actor& h = actors[0];
+    for (const Npc& n : npcs) {
+        vec2 d = h.pos - n.pos;
+        float r = h.radius + 0.35f * n.scale, len = length(d);
+        if (len < r && len > 1e-4f) h.pos = level.resolve(n.pos + d / len * r, h.radius);
     }
 }
 

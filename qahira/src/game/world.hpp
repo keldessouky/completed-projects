@@ -3,6 +3,7 @@
 #pragma once
 #include "game/animator.hpp"
 #include "game/assets.hpp"
+#include "game/inventory.hpp"
 #include "game/items.hpp"
 #include "game/level.hpp"
 #include "game/stats.hpp"
@@ -36,7 +37,7 @@ const std::vector<SkillDef>& skill_defs();
 int find_skill(const char* id);
 
 // ---- monsters ------------------------------------------------------------
-enum class AttackKind : uint8_t { Claw, Slam, Spit };
+enum class AttackKind : uint8_t { Claw, Slam, Spit, Boss };
 struct MonsterDef {
     const char* id;
     const char* name;
@@ -85,6 +86,10 @@ struct Actor {
     float ai_t = 0;
     int ai_state = 0;
     vec2 ai_dir;
+    uint8_t phase = 0;
+    float cd2 = 0, cd3 = 0;
+    vec2 from, target;
+    vec2 home;                     // bosses keep to their court
     Animator anim;
     CharacterModel model;
     bool alive() const { return act != Act::Dead; }
@@ -123,22 +128,50 @@ struct FloatText {
 };
 
 struct GroundItem {
+    enum Kind : uint8_t { Gear, Currency, Gold } kind = Gear;
     Item item;
     vec2 pos;
     float t = 0;
     uint32_t id = 0;
+    int amount = 0;        // dinars, or a stack of currency
+    uint8_t currency = 0;
+};
+
+struct Interactable {
+    enum Kind : uint8_t { Stair, Portal, Vendor, Exit, Chest } kind;
+    vec2 pos;
+    float radius = 1.8f;
+    std::string label;
+    float facing = 0;
+    bool spent = false;        // an opened chest stays, but cannot be used again
+};
+
+struct Npc {
+    std::string model;
+    vec2 pos;
+    float facing = 0;
+    float scale = 1;
+    bool rigged = true;
+    Animator anim;
+    CharacterModel cm;
 };
 
 // Events the presentation layer (audio, rumble, HUD) consumes after each step.
 enum class Ev : uint8_t { Swing, Impact, SlamImpact, EnemyHit, EnemyDie, HeroHit, Warcry, Dodge, Spit, Splash, Pickup,
-                          Drink, Crit, Break, LevelUp, HeroDie, Aftershock };
+                          Drink, Crit, Break, LevelUp, HeroDie, Aftershock, Portal, Gold, Currency, BossDie, BossWail,
+                          BossLeap, Summon, Craft, Sell, InvFull };
 struct Event { Ev type; vec2 pos; float mag; };
 
 struct Hero {
     Stats base;                    // class base stats
     Stats stats;                   // base + items + buffs (rebuilt when anything changes)
-    Item weapon;
-    std::vector<Item> gear;        // non-weapon equipment, by slot
+    Item equip[EQ_COUNT];          // the paper doll; empty items are free slots
+    Inventory inv;
+    int currency[CUR_COUNT] = {};
+    int gold = 0;                  // dinars
+    uint8_t filter = FILTER_STANDARD;
+    Item& weapon() { return equip[EQ_WEAPON]; }
+    const Item& weapon() const { return equip[EQ_WEAPON]; }
     int skills[5] = {0, 1, 2, 3, -1};
     float cooldowns[8] = {};
     int level = 1;
@@ -161,6 +194,9 @@ public:
     std::vector<FloatText> texts;
     std::vector<GroundItem> loot;
     std::vector<Event> events;
+    std::vector<Interactable> interacts;
+    std::vector<Npc> npcs;
+    int near_interact = -1, used_interact = -1;
     Hero hero;
     Rng rng{1234};
     Rng fx_rng{99};
@@ -169,6 +205,7 @@ public:
     float hitstop = 0;
     float shake = 0;
     int area_level = 1;
+    bool boss_killed = false;
     int selected_loot = -1;
 
     Actor& hero_actor() { return actors[0]; }
@@ -182,7 +219,17 @@ public:
     const Actor* focus_enemy() const;      // rare/unique being fought, for the target frame
     float skill_cost(int slot) const;
     float hero_dps(const Item& weapon) const;
-    WeaponStats hero_weapon() const { return hero.weapon.weapon(); }
+    WeaponStats hero_weapon() const { return hero.weapon().weapon(); }
+    bool loot_visible(const GroundItem& g) const { return g.kind != GroundItem::Gear || filter_shows(hero.filter, g.item); }
+
+    // belongings (the menu drives these; each keeps the stats current)
+    bool pick_up(int loot_index);
+    bool equip_from_inventory(int inv_index);
+    bool unequip(int slot);
+    void drop_from_inventory(int inv_index);
+    bool craft(int currency, Item& target, std::string* why);
+    void drop_currency(vec2 at, int currency, int amount);
+    void drop_gold(vec2 at, int amount);
 
     void emit(Ev t, vec2 p, float mag = 1) { events.push_back({t, p, mag}); }
     void burst(vec3 p, int n, vec4 c0, vec4 c1, float speed, float size, float life, bool additive, float gravity = -6.f, uint8_t shape = 0);
@@ -190,8 +237,10 @@ public:
 private:
     void hero_step(const Input& in, float dt);
     void monster_step(Actor& m, float dt);
+    void boss_step(Actor& m, float dt);
+    void boss_strike(Actor& m, const char* ev);
     void anim_step(Actor& a, float dt);
-    void start_skill(int slot);
+    void start_skill(int slot, vec2 stick);
     void resolve_skill(Actor& h);
     void damage_enemy(Actor& e, const SkillDef& sk, float extra_more, float break_mult, vec2 from);
     void damage_hero(float lo, float hi, int type, vec2 from, float break_amt);

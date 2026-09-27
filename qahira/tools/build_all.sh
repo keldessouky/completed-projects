@@ -25,7 +25,7 @@ cmake --build build/android
 echo "== unit tests"
 ./build/mac/qtests
 echo "== bot tests"
-for bot in walk fight; do ./build/mac/qhost build/Qahira.qpk --headless --bot "$bot"; done
+for bot in walk fight zone; do ./build/mac/qhost build/Qahira.qpk --headless --bot "$bot"; done
 echo "== screenshot"
 ./build/mac/qhost build/Qahira.qpk --hidden --frames 90 --shot build/screenshot.png
 echo "done: build/Qahira.qpk + build/qahira_libretro_android.so"
