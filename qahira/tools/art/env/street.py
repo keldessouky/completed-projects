@@ -67,7 +67,7 @@ def street_tile(name, seed=1, W=14.0, L=24.0, street=7.0):
             m.add(lp, '#2A2A2C', rough=0.5, metal=0.6)
             hd = Part()
             hd.box(base + V((-sx * 1.2, 0, 4.85)), (0.45, 0.22, 0.12))
-            m.add(hd, '#FFC070', rough=0.3, emit=0.9, flat=True)
+            m.add(hd, '#FFC070', rough=0.3, emit=0.3, flat=True)
             lights.append(dict(p=[base.x - sx * 1.2, ly, 4.3], r=9.0, c=[1.0 * 18, 0.62 * 18, 0.28 * 18]))
             colliders.append([base.x, ly, 0.15, 0.15])
 

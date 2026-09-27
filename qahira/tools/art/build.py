@@ -13,7 +13,7 @@ import qart.geom as geom
 geom.scene = bpy.context.scene
 
 from qart import rig, preview
-from characters import warrior
+from characters import warrior, ghoul
 from env import street
 
 args = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
@@ -39,6 +39,14 @@ if want('warrior'):
     maul = warrior.build_maul().export(os.path.join(OUT, 'meshes', 'maul.qmesh'), skinned=False)
     if PREVIEW:
         preview.sheet(os.path.join(PREV, 'warrior_anims.png'), J, body, warrior.CLIPS, weapon=maul)
+if want('ghoul'):
+    J = ghoul.skeleton()
+    rig.write_skeleton(os.path.join(OUT, 'skel', 'ghoul.qskel'), J)
+    rig.bake(J, ghoul.CLIPS, os.path.join(OUT, 'anim', 'ghoul.qanim'))
+    body = ghoul.build(J).export(os.path.join(OUT, 'meshes', 'ghoul.qmesh'))
+    if PREVIEW:
+        preview.sheet(os.path.join(PREV, 'ghoul_anims.png'), J, body, ghoul.CLIPS)
+
 if want('street'):
     tiles = os.path.join(OUT, 'tiles')
     os.makedirs(tiles, exist_ok=True)
