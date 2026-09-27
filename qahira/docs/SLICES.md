@@ -169,3 +169,10 @@ what each slice actually delivered and how it was verified.
 - Monsters still chase in straight lines. The nav grid exists, but only the bots use it so far.
 - Items still have no unique bases. Uniques come with the Act I content in Slice 4.
 - The boss tuning comes from the bot, which is a middling player. It needs a human pass on the device.
+
+## Slice 3 · One Sky (in progress)
+
+Handed off on 2026-09-27. The passive tree's layout tool and validator, and its runtime (allocation rules,
+keystones, Hirz, build codes and the character file v2), are committed and tested. The tree screen, the Sorcerer,
+the Wafq supports, the DPS breakdown, the build simulator and the exit bot are still to do. The details are in the
+[handoff notes](HANDOFF.md).

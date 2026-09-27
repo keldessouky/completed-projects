@@ -19,7 +19,8 @@ Work proceeds in vertical slices ([slice plan](../_bmad-output/planning-artifact
 | 0 · First Light | **Done** (device checks pending). The Warrior on a generated Cairo street. Details: [slice log](docs/SLICES.md) |
 | 1 · One Fight | **Done**. The Warrior against ghouls from the street into the Khan el-Khalili souq, with skills, Break, loot, a HUD and synthesised sound. See the [slice log](docs/SLICES.md). |
 | 2 · One Zone | **Done**. From the rooftop ahwa down into a generated City of the Dead, through the boss Umm al-Ghūla, and home, with the inventory, five crafting currencies, a loot filter, the vendor, portals, the map and a character file. See the [slice log](docs/SLICES.md). |
-| 3–11 | Not started |
+| 3 · One Sky | **In progress**, handed off. The passive tree's layout, validator and runtime are in; the tree screen, the Sorcerer and the rest are not. See the [handoff notes](docs/HANDOFF.md). |
+| 4–11 | Not started |
 
 ## Docs
 
@@ -28,6 +29,7 @@ Work proceeds in vertical slices ([slice plan](../_bmad-output/planning-artifact
 - [Assets](docs/ASSETS.md): the Blender generators, rig and IK, skinning, file formats
 - [Running on the RP6](docs/RP6.md): install, launch, adb workflow, device checklist
 - [Slice log](docs/SLICES.md): what each slice delivered and how it was verified
+- [Handoff notes](docs/HANDOFF.md): the state of Slice 3 and what to know before picking up Slices 3–11
 
 ## Build
 
