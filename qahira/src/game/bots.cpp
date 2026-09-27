@@ -1486,7 +1486,9 @@ void Bot::tour7(World& w, Menu& m, Areas& a, Input& in, uint64_t frame) {
     if (at(150)) { H.asc = (1u << 3) | (1u << 4); w.recompute_hero(); }
     if (at(230)) m.hide();
     if (frame < z0) return;
+    // six zones of `each` frames (the Deep Tomb twice as long, for what comes after its marid), then the rift
     int k = int((frame - z0) / each), t = int((frame - z0) % each);
+    if (k >= 5) { uint64_t f5 = frame - z0 - 5 * each; k = f5 < 2 * each ? 5 : f5 < 3 * each ? 6 : 7; t = int(k == 5 ? f5 : f5 - 2 * each); }
     if (k < 6) {
         if (t == 0) {
             a.enter_zone(w, find_zone(zones[k]), Arrival::Entrance);
@@ -1501,6 +1503,10 @@ void Bot::tour7(World& w, Menu& m, Areas& a, Input& in, uint64_t frame) {
         }
         if (k == 5 && t == 230)   // the Deep Tomb's marid falls, for the glimpse of what lies below
             for (size_t i = 1; i < w.actors.size(); i++) if (w.actors[i].rarity == Rarity::Unique && w.actors[i].alive()) w.actors[i].life = 1;
+        if (k == 5 && t > 300 && w.coil_t >= 0) {   // to the edge of the pit, to watch
+            steer(w, in, w.coil_at - normalize(w.coil_at - L.center(L.cells[size_t(L.arena)])) * 3.f);
+            return;
+        }
         combat(w, in, frame, t > 90 ? 30.f : 9.f);
         return;
     }

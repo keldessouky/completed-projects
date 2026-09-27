@@ -69,10 +69,10 @@ class Nile:
         cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
         if rnd.random() < 0.55:
             # the river: dark water a hand below the bank, a lip of silt round it, reeds at the edge
-            P('#2A5C6E', rough=0.06, metal=0.3, emit=0.12).box((cx, cy, -0.02), (w - 0.5, d - 0.5, 0.02))
+            P('#2A5C6E', rough=0.06, metal=0.3, emit=0.12).box((cx, cy, 0.03), (w - 0.5, d - 0.5, 0.02))   # (above the ground's top at 0)
             for k in range(int(w * d / 2)):   # moonlight on the ripples
                 px, py = rnd.uniform(x0 + 0.5, x1 - 0.5), rnd.uniform(y0 + 0.5, y1 - 0.5)
-                P('#B8E0EC', rough=0.2, emit=0.5).box((px, py, 0.0), (rnd.uniform(0.3, 0.9), 0.04, 0.005))
+                P('#B8E0EC', rough=0.2, emit=0.3).box((px, py, 0.043), (rnd.uniform(0.3, 0.9), 0.03, 0.005))
             for (ax, ay, bx, by) in ((x0, y0, x1, y0 + 0.3), (x0, y1 - 0.3, x1, y1), (x0, y0, x0 + 0.3, y1), (x1 - 0.3, y0, x1, y1)):
                 P('#4A3C2A').box(((ax + bx) / 2, (ay + by) / 2, 0.12), (bx - ax, by - ay, 0.24))
             for s in sides:
@@ -94,7 +94,8 @@ class Nile:
                     r = 0.42 * math.sin(math.pi * (0.08 + 0.84 * f)) ** 0.6
                     hull.append((rot @ V((0, yy, 0.12)) + V((cx, cy, 0)), rot @ V((1, 0, 0)), V((0, 0, 1)), r, 0.22))
                 P('#5A3E28', rough=0.6, flat=False).sloft(hull, seg=10, p=3.0)   # a wooden hull, a blue stripe at the gunwale
-                P('#2A5A8A', rough=0.6).box((cx, cy, 0.3), (0.86, L * 0.8, 0.05), rot)
+                for sx in (-1, 1):   # the blue line along each side, under the gunwale
+                    P('#2A5A8A', rough=0.6).box(rot @ V((sx * 0.4, 0, 0.26)) + V((cx, cy, 0)), (0.03, L * 0.7, 0.05), rot)
                 mast = rot @ V((0, -L * 0.18, 0)) + V((cx, cy, 0))
                 P('#4A3828', flat=False).capsule(mast, mast + V((0, 0, 5.0)), 0.045, 0.025, seg=6)
                 y0v = rot @ V((0, -L * 0.6, 0.8)) + V((cx, cy, 0))
@@ -148,9 +149,9 @@ class Nile:
     def arena(m, rnd, ctx):
         P = Paint(m)
         # a sluice on the canal: a basin of black water to the north, the gate's two stone piers and its iron wheel
-        P('#12282F', rough=0.05, metal=0.5).box((0, 4.4, -0.02), (10.0, 3.2, 0.02))
+        P('#1E4C5A', rough=0.05, metal=0.4, emit=0.1).box((0, 4.4, 0.03), (10.0, 3.2, 0.02))
         for k in range(20):
-            P('#8AB8C8', rough=0.2, emit=0.3).box((rnd.uniform(-4.5, 4.5), rnd.uniform(3.2, 5.6), 0.0), (rnd.uniform(0.4, 1.0), 0.03, 0.005))
+            P('#B8E0EC', rough=0.2, emit=0.3).box((rnd.uniform(-4.5, 4.5), rnd.uniform(3.2, 5.6), 0.043), (rnd.uniform(0.4, 1.0), 0.03, 0.005))
         ctx.solid(0, 4.4, 5.0, 1.6)
         for sx in (-1, 1):
             P('#8A7A62').box((sx * 1.6, 6.2, 1.6), (1.0, 1.4, 3.2))
@@ -168,7 +169,7 @@ class Nile:
         # a saqiya: the ox-driven waterwheel, its pots in a ring, the gearing under a palm-trunk frame (in the court's south
         # half: the way in is from the north)
         c = V((0, -2.6, 0))
-        P('#12282F', rough=0.05, metal=0.5).box((0, -4.6, -0.02), (4.4, 2.0, 0.02))
+        P('#1E4C5A', rough=0.05, metal=0.4, emit=0.1).box((0, -4.6, 0.03), (4.4, 2.0, 0.02))
         rim = [c + V((2.0 * math.cos(a), -1.9, 2.2 + 2.0 * math.sin(a))) for a in [TAU * k / 20 for k in range(20)]]
         P('#5A4430', flat=False).sweep(rim, 0.08, seg=6, closed=True)
         for k in range(12):

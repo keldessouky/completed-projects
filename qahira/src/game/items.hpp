@@ -102,7 +102,7 @@ Item make_item(int base, Rarity r, int ilvl, Rng& rng);
 // choice to those affix indices (a Spice Blend's family).
 bool roll_affix(Item& it, Rng& rng, int want_prefix = -1, const std::vector<int>* only = nullptr);
 void reroll_values(Item& it, Rng& rng);       // new numbers within each affix's tier
-std::string rare_name(Rng& rng);
+std::string rare_name(Rng& rng, const ItemBase* base = nullptr);
 void grid_size(const Item& it, int& w, int& h);  // inventory cells: a maul is 2x4, a ring 1x1
 int sell_price(const Item& it);               // in dinars
 Item random_drop(int area_level, float rare_chance, float magic_chance, Rng& rng, Slot only = Slot::Count);

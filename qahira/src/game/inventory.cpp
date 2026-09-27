@@ -141,7 +141,7 @@ bool apply_currency(int c, Item& it, Rng& rng, std::string* why, uint8_t* omens)
         case CUR_SAFFRON: {
             if (it.rarity != Rarity::Normal) return no("Only works on a normal item");
             it.rarity = Rarity::Rare;
-            it.name = rare_name(rng);
+            it.name = rare_name(rng, &it.b());
             int want = rng.irange(4, 6);
             while (int(it.affixes.size()) < want && roll_affix(it, rng)) {}
             return true;
@@ -149,7 +149,7 @@ bool apply_currency(int c, Item& it, Rng& rng, std::string* why, uint8_t* omens)
         case CUR_PIASTRE:
             if (it.rarity != Rarity::Magic) return no("Only works on a magic item");
             it.rarity = Rarity::Rare;
-            it.name = rare_name(rng);
+            it.name = rare_name(rng, &it.b());
             roll_affix(it, rng);
             return true;
         case CUR_KHAMSA:
@@ -210,7 +210,7 @@ bool apply_currency(int c, Item& it, Rng& rng, std::string* why, uint8_t* omens)
             it.affixes.erase(std::remove_if(it.affixes.begin(), it.affixes.end(), [](const Affix& a) { return !(a.flags & AF_IMPLICIT); }),
                              it.affixes.end());
             it.rarity = Rarity::Rare;
-            if (it.name.empty()) it.name = rare_name(rng);
+            if (it.name.empty()) it.name = rare_name(rng, &it.b());
             int want = rng.irange(4, 6);
             while (int(it.affixes.size()) < want && roll_affix(it, rng)) {}
             return true;
@@ -222,7 +222,7 @@ bool apply_currency(int c, Item& it, Rng& rng, std::string* why, uint8_t* omens)
                 if (it.rarity != Rarity::Magic && it.rarity != Rarity::Rare) return no("Only works on a magic or rare item");
                 // a full magic item is upgraded to rare to make room
                 Rarity was = it.rarity;
-                if (it.rarity == Rarity::Magic && pre >= 1 && suf >= 1) { it.rarity = Rarity::Rare; it.name = rare_name(rng); }
+                if (it.rarity == Rarity::Magic && pre >= 1 && suf >= 1) { it.rarity = Rarity::Rare; it.name = rare_name(rng, &it.b()); }
                 if (!roll_affix(it, rng, side, &blend_family(c))) {
                     if (was == Rarity::Magic && it.rarity == Rarity::Rare) { it.rarity = was; it.name.clear(); }
                     return no("No modifier of that family can be added here");

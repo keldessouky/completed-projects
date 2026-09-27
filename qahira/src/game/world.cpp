@@ -289,7 +289,7 @@ float World::hero_dps(const Item& weapon) const {
     s.remove_source(1);
     weapon.add_global_mods(s, 1);
     SkillCtx c = skill_ctx(*t, s, weapon.weapon());
-    return c.hit.dps() * float(std::max(1, c.projectiles));
+    return c.usable ? c.hit.dps() : 0.f;   // one target's, as everywhere; a bow skill with a maul does nothing
 }
 
 // ============================================================ monsters

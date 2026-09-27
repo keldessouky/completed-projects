@@ -537,7 +537,8 @@ float draw_item_card(float x, float y, float bw, const Item& it, const World& wo
     if (delta) {
         float d = world.hero_dps(it) - world.hero_dps(*compare);
         char b[64];
-        snprintf(b, sizeof b, "%+.1f DPS with Crushing Blow", d);
+        const Talisman* mt = world.hero.slot_talisman(world.main_slot());
+        snprintf(b, sizeof b, "%+.1f DPS with %s", d, mt ? mt->def().name : "your skill");
         u.text(x + bw / 2, cy + 6, b, 30, d >= 0 ? pal::good : pal::bad, Align::Center, 1);
         cy += 44;
     }

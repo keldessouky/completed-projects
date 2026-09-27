@@ -240,7 +240,19 @@ static const char* kRareA[] = {"Dusk", "Grave", "Brass", "Cinder", "Kohl", "Tomb
 static const char* kRareB[] = {"Breaker", "Knell", "Hammer", "Crusher", "Maw", "Toll", "Verdict", "Weight", "Oath",
                                "Mourning", "Ward", "Hold", "Grip", "Step", "Veil", "Knot"};
 
-std::string rare_name(Rng& rng) { return std::string(kRareA[rng.next() % 16]) + " " + kRareB[rng.next() % 16]; }
+// the second word suits the thing: a maul is a Breaker, a bow a Sting, a staff a Lamp (the same two draws either way)
+static const char* kRareBow[] = {"Sting", "Flight", "Whisper", "Reach", "Arc", "Song", "Needle", "Quarrel", "Fang", "Mourning",
+                                 "Hunt", "Wing", "Glance", "Thorn", "Sigh", "Horizon"};
+static const char* kRareStaff[] = {"Lamp", "Spire", "Chant", "Rod", "Gaze", "Oracle", "Candle", "Verse", "Omen", "Mourning",
+                                   "Ward", "Pillar", "Sign", "Beacon", "Veil", "Knot"};
+static const char* kRareGear[] = {"Ward", "Hold", "Veil", "Knot", "Grip", "Step", "Mourning", "Oath", "Toll", "Shroud",
+                                  "Skin", "Shell", "Clasp", "Coil", "Mantle", "Seal"};
+
+std::string rare_name(Rng& rng, const ItemBase* b) {
+    const char** B = !b ? kRareB : b->slot != Slot::Weapon ? kRareGear : b->wkind == WK_BOW ? kRareBow : b->wkind == WK_STAFF ? kRareStaff : kRareB;
+    const char* a = kRareA[rng.next() % 16];
+    return std::string(a) + " " + B[rng.next() % 16];
+}
 
 void Item::count_affixes(int& pre, int& suf) const {
     pre = suf = 0;
@@ -303,7 +315,7 @@ Item make_item(int base, Rarity r, int ilvl, Rng& rng) {
     it.seed = rng.next();
     int want = r == Rarity::Magic ? rng.irange(1, 2) : r == Rarity::Rare ? rng.irange(3, 6) : 0;
     while (int(it.affixes.size()) < want && roll_affix(it, rng)) {}
-    if (r == Rarity::Rare) it.name = rare_name(rng);
+    if (r == Rarity::Rare) it.name = rare_name(rng, &it.b());
     return it;
 }
 
