@@ -20,6 +20,7 @@ Work proceeds in vertical slices ([slice plan](../_bmad-output/planning-artifact
 | 1 · One Fight | **Done**. The Warrior against ghouls from the street into the Khan el-Khalili souq, with skills, Break, loot, a HUD and synthesised sound. See the [slice log](docs/SLICES.md). |
 | 2 · One Zone | **Done**. From the rooftop ahwa down into a generated City of the Dead, through the boss Umm al-Ghūla, and home, with the inventory, five crafting currencies, a loot filter, the vendor, portals, the map and a character file. See the [slice log](docs/SLICES.md). |
 | 3 · One Sky | **Done**. The Book of Fixed Stars on the sticks (magnet cursor, planner, search, respec, build codes with QR), the Sorcerer with four Talismans, six Wafq supports drawn as magic squares, elemental ailments, "Why?" on every number, a title screen, and the build simulator in CI. See the [slice log](docs/SLICES.md). |
+| 4 · Act I, Cairo in Twilight | **Done**. Six regions and seven zones from Downtown to the Mokattam cliffs, with waypoints, six data-driven bosses and the Bab Zuweila trial; the Ironclad and Stormbinder ascendancies; the Coppersmith's Bench, new currencies, Spice Blends and Coffee-Cup Omens; twenty uniques from invented golden-age film posters; the Journal and codex. A bot plays the whole act. See the [slice log](docs/SLICES.md). |
 | 4–11 | Not started |
 
 ## Docs
@@ -69,12 +70,16 @@ cmake --build build/android                # -> qahira_libretro_android.so
 ./build/mac/qtests                                                               # stats, items, zones, nav, saves, skills, tree
 ./build/mac/qbuildsim                                                            # Recommended Paths against random builds
 ./build/mac/qhost build/Qahira.qpk --headless --bot fight                        # plays the Slice 1 fight
-./build/mac/qhost build/Qahira.qpk --headless --bot zone                         # hub -> zone -> boss -> hub
+./build/mac/qhost build/Qahira.qpk --headless --bot zone                         # hub -> Downtown -> boss -> hub
 ./build/mac/qhost build/Qahira.qpk --headless --bot sorcerer                     # the same, as the Sorcerer
 ./build/mac/qhost build/Qahira.qpk --headless --bot sky                          # 30 stars planned on the sticks
 ./build/mac/qhost build/Qahira.qpk --headless --bot title                        # the title screen and its slots
+./build/mac/qhost build/Qahira.qpk --headless --bot act1                         # a fresh Warrior plays Act I through
 ./build/mac/qhost build/Qahira.qpk --hidden --bot tour --shot-every 30           # screenshots of every screen
 ./build/mac/qhost build/Qahira.qpk --hidden --bot tour3 --shot-every 30          # ... and Slice 3's
+./build/mac/qhost build/Qahira.qpk --hidden --bot tour4 --shot-every 30          # Slice 4's bench, ascendancy, Journal
+./build/mac/qhost build/Qahira.qpk --hidden --bot tour5 --shot-every 60          # every Act I zone and its boss
+./build/mac/qhost build/Qahira.qpk --hidden --bot bestiary --shot-every 50       # each Act I monster in turn
 ./build/mac/qhost build/Qahira.qpk --hidden --frames 90 --shot build/shot.png    # render check
 python3 tools/check_shaders.py                                                   # all shaders as GLSL ES 3.00
 ```

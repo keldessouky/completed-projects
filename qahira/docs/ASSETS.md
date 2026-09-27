@@ -128,6 +128,51 @@ Her clips hold the staff in the right hand through IK (`hold_staff`), with the l
 slam, warcry, dodge, hit and death. The Warrior gained `cast` (the maul on the shoulder, the free hand thrust out) and
 `cast_ground`, so any class can use any Talisman.
 
+## Act I's regions
+
+`env/kit.py` is one cell kit shared by every region: a 16 m cell is lanes (a crossing and arms to its open sides) and
+blocks (the rest), each block told which of its sides face a lane. Blocks with a lane to their north stay low, because
+the camera looks north over them. A region supplies the ground, the lanes, a block filler, the dressing, and three set
+pieces; `export_region` writes the eight variants (end, straight, corner, tee, cross in two variants; entrance, arena,
+landmark) with their lights, colliders and named points. `env/regions.py` has the six regions (78 tiles, about 45 s):
+- **Downtown (Wust el-Balad):** faded belle-époque façades with rows of shuttered windows and neon, sidewalks and lane
+  markings, roofs of water tanks and satellite dishes, lamp posts, tuk-tuks parked by the crossings; a square with a
+  plinth for the boss; for the landmark, the old cinema: a marquee of bulbs over a great painted poster.
+- **The Metro under Tahrir:** tiled platforms with the yellow tactile strip, sunken track beds with stalled carriages,
+  cream cladding with adverts and benches, fluorescent tubes and red emergency lamps, the red "M" at junctions; the
+  entrance is the stair down past the turnstiles; a pillared station hall with a mural; a stalled train, its doors
+  open and its lights on.
+- **Khan el-Khalili:** pointed-arch shopfronts with sacks of spice and stacks of brass trays, strings of small lanterns
+  over the lanes; a court with an octagonal fountain; the coppersmith's workshop (forge, anvil, hung pots, his bench).
+- **al-Muizz Street:** ablaq stone in pale and dark courses, crenellations, tall portals with stepped muqarnas hoods and
+  grilled windows, domes and minarets' upper storeys as a skyline set well back from the street (never a place to
+  fight in); a court before a great bronze-doored portal with braziers; a sabil-kuttab fountain house.
+- **The Mokattam cliffs:** quarried terraces cut square, oil-drum fires; a quarry bowl ringed with fallen blocks; a
+  radio mast and guard hut with its red light still blinking.
+- **Bab Zuweila (the trial):** the gate's two round towers with their slender crowns over the passage, and the ifrit's
+  hall: a ring of chains on posts round a great iron brazier.
+
+## Act I's creatures and people
+
+`characters/jinn.py`, on the shared rig, reusing the ghoul clips where they fit:
+- **the Cable Jinn:** twisted strands of black and coloured cable along every bone, loops wound round the chest,
+  frayed copper fingers, a knot of wire round one glowing bulb, sparks at the joints;
+- **the Si'lah:** a tall hooded shape-shifter in a dragging robe, a borrowed pale face with a smile too wide, grey
+  fingers with a joint too many; clips for leaping, casting and summoning;
+- **the Nasnas:** half a man, built on the left half only, with a dark wound plane down the middle, one eye and half a
+  galabeya; it hops (its own idle, run, claw, slam and combo);
+- **the Qutrub:** a hunched grave wolf with a mane, a long snout and a bushy tail, galloping on all fours;
+- **the Ifrit:** 3.1 m of dark red muscle with cracks of fire, curling horns and a crown of flame, broken gold cuffs,
+  and a turning column of smoke with embers for legs; it floats;
+- **possessed things** (static meshes that the engine sways and lights): a rooftop **satellite dish** with a glowing
+  eye in the focus, and the white-and-blue **Cairo microbus** with its roof rack, a red glow in its windows and
+  headlights for eyes;
+- **Usta Hassan the coppersmith** (the keeper's body, recoloured, with a leather apron, a white cap and a copper
+  hammer), whose idle is a steady hammering with a pause to look at the work.
+
+Bosses are these creatures scaled and tinted (the Si'lah of Sadat Station, al-Nasnas al-Kabir, the Qutrub of the
+Quarries) or their own (the Iron Microbus, the Ifrit of Bab Zuweila).
+
 ## Props
 
 `props/props.py`:
@@ -155,9 +200,19 @@ slam, warcry, dodge, hit and death. The Warrior gained `cast` (the maul on the s
   loops cleanly. `mus_hijaz` is 60 s at 96 bpm.
   `mus_saba` (the necropolis) is slower, at 72 bpm, with the qanun leading. `mus_boss` is in Kurd at 128 bpm, with
   doubled dums and a driving riq.
+- **Act I's music** (`music_act1`): each region in its own maqam and rhythm (`RHYTHMS`: maqsum, baladi, saidi,
+  ayyub, wahda): Downtown in Rast on the qanun over a baladi, the Metro slow in Kurd with the ney over a wahda,
+  Khan el-Khalili in Bayati, al-Muizz in Hijaz over a saidi, the Mokattam cliffs in Saba, and the trial in Hijaz at
+  136 bpm over the trance-like ayyub.
 - **Ambience:**
   - `amb_street` is Cairo at night: traffic hum, air, and distant two-tone car horns.
   - `amb_necro` is the Qarafa: wind between the walls, cricket chirps, a far dog, and the city a murmur away.
+  - `amb_metro` is the tunnel: a low roar, a buzzing tube light that flickers, drips, and a far train that never
+    arrives.
+  - `amb_cliffs` is the quarries: gusts over cut stone with a whistle in them, pebbles skittering, the city far
+    below, and a howl on the ridge.
+- **Monster voices:** each family dies in its own sound (`MonsterDef::voice`): sparks and a falling hum, a crumpling
+  bang with glass, a breath falling apart into many voices, a yelp into a howl, a roar collapsing into embers.
 - **Effects:** 37 of them.
   - Combat: swings, slams, the aftershock, impacts, crit ring, ghoul hiss and crumble, bile, warcry, dodge, Break.
   - Items and the hub: pickup, flask, the portal's shimmer, a handful of dinars, a currency bead's ding, the craft

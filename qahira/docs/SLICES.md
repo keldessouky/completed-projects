@@ -257,3 +257,85 @@ what each slice actually delivered and how it was verified.
 - The Stars screen's constellations are drawn as their star lines only; al-Sufi's figure drawings are not generated
   yet.
 - Monsters still chase in straight lines.
+
+## Slice 4 · Act I, Cairo in Twilight
+
+*A fresh character plays from the rooftop to the Mokattam cliffs.*
+
+**Delivered**
+- **Six regions** (`tools/art/env/kit.py`, `regions.py`) on one shared cell kit, so any region's cells join: Downtown
+  (Wust el-Balad), the Metro under Tahrir, Khan el-Khalili, al-Muizz Street, the Mokattam cliffs and the Bab Zuweila
+  gate. 78 tiles, each region with its own entrance, boss court and landmark (the old cinema, a stalled train, the
+  coppersmith's workshop, a sabil-kuttab, a radio mast). A test walks from the entrance to every cell of twenty layouts
+  per zone, and to every monster each zone spawns.
+- **The campaign** (`game/acts.*`): seven zones in a table (area levels 2 to 12), each with its region, music,
+  ambience, spawns, elite, boss and the way on. **Waypoints** at every entrance and on the rooftop stair; a boss's death
+  opens its court's gate to the next zone and records that zone's waypoint.
+- **The Bab Zuweila trial**, the First Trial of Ascendancy: the gatekeeper seals your amulet as the toll, and gives it
+  back when you leave; the Ifrit of Bab Zuweila grants two ascendancy points.
+- **Six bosses, as data** (`BossDef`): Umm al-Ghūla moved onto the table, joined by the Iron Microbus (a possessed
+  microbus that charges down a telegraphed line and throws out cable jinn), the Si'lah of Sadat Station (blinks and
+  bolt volleys), al-Nasnas al-Kabir (leaps and a slam ring), the Ifrit of Bab Zuweila (fire pools, a nova, volleys) and
+  the Qutrub of the Quarries (a pack leader that leaps and howls).
+- **New monsters:** Cable Jinn, Dish Sentinels (a possessed satellite dish whose beam telegraphs its line), Si'lah
+  (leapers), Nasnas (half-men that hop) and Qutrub (grave wolves). Monsters now path round walls on the nav grid, and
+  each family dies in its own sound.
+- **A lighting pass:** the regions' lamps, neon and tube lights were blowing out to white in the bloom (emission is
+  multiplied by 18 in the shader); their emission goes through one scale now.
+- **Art and sound:** the five creatures, the dish, the microbus and Usta Hassan the coppersmith
+  (`characters/jinn.py`); six new pieces of music, each in its own maqam and rhythm (baladi, saidi, wahda, ayyub,
+  maqsum); the Metro's and the cliffs' ambience; five death voices.
+- **Two ascendancies** (`game/asc.*`, the menu's Ascendancy tab): **Ironclad** for the Warrior (Endurance Charges on
+  Break or warcry, no knockback, armour against elemental hits, slams that punish Broken enemies) and **Stormbinder**
+  for the Sorcerer (spell crits always Shock, Binding Cold, Ailment Weaver, Storm Mantle, the Conductor). Thirteen
+  nodes each, a node needs its parent, a refund costs a Rosewater Vial; Endurance Charges show on the HUD.
+- **Crafting** (`game/inventory.cpp`, `game/crafting.*`):
+  - five new currencies with PoE's rules: Khamsa, Bakhoor Ash, Broken Tea Glass, Drop of Attar and the Ifrit's Ember
+    (corruption: unchanged, an implicit, a mod burnt brighter, or remade; sealed either way);
+  - six **Spice Blends** that add a mod of their family;
+  - four **Coffee-Cup Omens**, read from the purse to bend the next craft;
+  - **the Coppersmith's Bench** in Khan el-Khalili: sixteen recipes (three with the bench, the rest from each zone's
+    cache and boss), one exact bench mod per item for dinars, and a free way to take it off. Usta Hassan moves up to
+    the roof once you have found him;
+  - the purse scrolls, and currencies arrive over the act (each has a minimum area level).
+- **Twenty uniques and Poster Scraps** (`game/uniques.*`): each unique is the prop of an invented golden-age film, with
+  its poster, year, cast and tagline. Scraps drop from bosses, rares and the Downtown cinema's billboard; the fourth
+  scrap of a poster gives you what it shows. Uniques also drop, rarely, on their own.
+- **The Journal** (a menu tab): quests with their rewards, the **codex** (an entry the first time you meet each
+  monster family and each mechanic), and the posters, drawn with the quarters you lack torn away.
+- **XP** now grows with the area level and falls off once you outgrow an area.
+- **The waypoint list** includes a trial once its gate has opened, so a trial can be retried after levelling elsewhere.
+- **Saves:** the character file v4 (waypoints, quests, the toll, recipes, the codex, Omens, the ascendancy, scraps, and
+  items with corruption, unique and bench flags; v1–v3 still load) and save states v7 (Endurance Charges, boss move
+  timers, interactable targets).
+- **Bots:** `act1` (the exit), plus `bestiary`, `tour4` and `tour5` for screenshots. The pilots sidestep beams and
+  fire pools as well as telegraphs, give up on an enemy they cannot reach, and navigate the inventory round wide items.
+  CI runs `act1` on every push and nightly.
+
+**Verified**
+
+| Check | Result |
+|---|---|
+| Unit tests (`qtests`) | pass, 32 cases (10 new: zones walkable from the entrance and every spawn reachable; Khamsa, Glass and the Omens; Blends add their family; the Ember corrupts and seals; the bench adds one exact mod; the twenty uniques and Attar; ascendancy parents; character file v4; a hand-written v3 file still loads) |
+| `act1` bot (the exit): a fresh Warrior from the rooftop through Downtown, the Metro, the Khan (the bench), al-Muizz, the Bab Zuweila trial, the City of the Dead and the Mokattam cliffs; it wears what it finds, places its stars and takes its ascendancy nodes | pass: level 13, 2 deaths, 273 kills, 18 minutes of play, 13 recipes learned. Earlier runs found the walls this slice then fixed: the Ifrit's fire pools covered the ground round it (smaller, shorter pools now), the trial fell out of the waypoint list, and an unreachable enemy could hold a pilot against a wall |
+| `act1` as a Sorcerer | pass: level 13, 0 deaths, 253 kills, 11 minutes of play |
+| `zone` and `sorcerer` bots (now in Downtown), `walk`, `fight`, `sky`, `title` | pass |
+| Build simulator, tree validator, shaders | pass (0 flags: the Warrior's Recommended Path now takes the Lion's Heart third, which lifts its level-10 EHP from 2 sd under the crowd to level with it) |
+| On-device feel review | pending (RP6) |
+
+| | |
+|---|---|
+| ![Wust el-Balad: the Iron Microbus and a dish sentinel](img/slice4-downtown.jpg) | ![The Si'lah of Sadat Station, in the Metro](img/slice4-metro.jpg) |
+| ![Khan el-Khalili's lanterns](img/slice4-khan.jpg) | ![al-Nasnas al-Kabir on al-Muizz Street](img/slice4-muizz.jpg) |
+| ![The Ifrit of Bab Zuweila, the First Trial](img/slice4-trial.jpg) | ![The Qutrub of the Quarries on the Mokattam cliffs](img/slice4-mokattam.jpg) |
+| ![Usta Hassan's Bench](img/slice4-bench.jpg) | ![Ironclad, the Warrior's ascendancy](img/slice4-ascendancy.jpg) |
+| ![The Journal's posters, one quarter still torn away](img/slice4-journal.jpg) | |
+
+**Known gaps (carried forward)**
+- One ascendancy per class so far (the GDD has three); later trials add their points in Acts III, V and VI.
+- The bots spend passive and ascendancy points by calling the same functions the screens call, not by pressing
+  through them (`tour4` presses through the Ascendancy tab and the bench).
+- Recipes are learned where they are found; there is no recipe item to carry or trade.
+- Posters are drawn by the UI; the GDD's painterly poster renders from 3D scenes are not generated yet.
+- The Khan has no boss: a rare and its pack guard the way on to al-Muizz.
+- Possessed objects are rigid meshes that sway; they do not deform.

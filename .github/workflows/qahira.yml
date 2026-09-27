@@ -10,6 +10,9 @@ on:
     paths:
       - 'qahira/**'
       - '.github/workflows/qahira.yml'
+  schedule:
+    - cron: '17 3 * * *'   # nightly: the bot plays the whole of Act I
+  workflow_dispatch:
 
 defaults:
   run:
@@ -62,6 +65,9 @@ jobs:
           for bot in walk fight zone sorcerer sky title; do
             ./build/linux/qhost build/Qahira.qpk --headless --bot "$bot"
           done
+      - name: Act I, played through by the bot (a fresh Warrior)
+        timeout-minutes: 40
+        run: ./build/linux/qhost build/Qahira.qpk --headless --bot act1 2>&1 | grep -E "^act1|TEST"; test ${PIPESTATUS[0]} -eq 0
       - uses: actions/upload-artifact@v4
         if: always()
         with:

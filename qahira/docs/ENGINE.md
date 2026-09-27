@@ -110,13 +110,33 @@ by 0–3 quarter turns counter-clockwise, matches: end, straight, corner, tee or
 court and landmark have their own tiles. A unit test generates 300 zones and checks that every opening is mutual,
 every cell is reachable from the gate, and the court and landmark are dead ends.
 
-**Areas.** `Areas` owns the current area (the hub, the necropolis, or the Slice 1 street, kept as a combat range)
+**The campaign (`game/acts.*`).** Each zone is a `ZoneDef` row: its region's tiles, area level, grid size and
+branches, music and ambience, weighted spawns and an elite, its boss and the banner when it falls, the zone its far
+court leads to, what its landmark holds (a cache, the bench, or the old cinema's posters), an optional side zone, and
+whether it is a trial with a toll. Act I runs Downtown (2) → the Metro (4) → Khan el-Khalili (5) → al-Muizz (7,
+with the Bab Zuweila trial at 8 off its far court) → the City of the Dead (10) → the Mokattam cliffs (12). The
+table is append-only: waypoints are stored by index.
+
+- **Waypoints** stand at every zone's entrance. Touching one (or arriving) records it; a waypoint, or the rooftop
+  stair, opens the list of zones you can travel to. Killing a boss also records the waypoint of the zone it leads to.
+- **The way on:** when a boss falls, its court opens a *Next* gate to the next zone, a *Gate* to a side zone, or an
+  exit home at the act's end.
+- **Trials:** entering one moves the equipment in its toll slot (Bab Zuweila takes the amulet) into `Hero::sealed`.
+  Leaving the zone by any means gives it back (to its slot, the bags, or the slot again if the bags are full).
+- **Quests** are bits in `Hero::quests`; some grant passive points (`quest_passive_points`) or ascendancy points.
+- **Regions (`tools/art/env/kit.py`, `regions.py`):** every region shares one cell kit (end, straight, corner, tee,
+  cross in two variants; entrance, arena, landmark) built from lane and block rectangles, so any cell joins any other.
+  A unit test builds twenty layouts per zone from the generated tiles and walks from the entrance to every cell on the
+  nav grid.
+
+**Areas.** `Areas` owns the current area (the hub, a campaign zone, or the Slice 1 street, kept as a combat range)
 and one **zone instance**:
 - **Leaving by portal** snapshots the instance's live monsters (reset to idle), loot and interactables.
 - **Returning** by the stair or a portal restores them, so the streets are as you left them.
 - **The instance ends** when you take the exit portal after the boss.
 
-The zone's level is the hero's level + 1, clamped to 2–8.
+A zone's monster level is its `ZoneDef` area level. XP from a kill grows 30% per area level and falls off once the
+hero is more than two levels above the area.
 
 **Interactables** (stair, portal, vendor, exit, chest) are plain data in the `World`. South uses the nearest one in
 reach when no enemy is within 6 m. The app turns the result into a fade-out → travel → fade-in, or it opens the
@@ -128,8 +148,22 @@ vendor or the chest.
   jewellery 1×1). New items go to the first space scanning columns left to right, then rows, as in PoE.
 - **Equipment:** nine slots. An empty `Item` has the base `kNoItem`, and its `b()` returns a harmless placeholder.
   Equipping swaps the old piece into the new one's spot, or anywhere else it fits, or refuses.
-- **Currency:** five crafting currencies with PoE rules (transmute, augment, alteration, alchemy, regal) share
-  `roll_affix`, which respects prefix/suffix limits: magic 1+1, rare 3+3. Dinars pay the vendor.
+- **Currency:** PoE's rules under street names, sharing `roll_affix` (prefix/suffix limits: magic 1+1, rare 3+3):
+  - Blue Bead, Pinch of Salt, Coffee Grounds, Saffron Thread, Gilded Piastre (transmute, augment, alteration,
+    alchemy, regal); Khamsa (exalt), Bakhoor Ash (annul then exalt), Broken Tea Glass (annul), Drop of Attar (divine,
+    uniques included) and the Ifrit's Ember (corrupt: unchanged, an implicit, one mod ×1.3, or remade as a rare; either
+    way it is sealed);
+  - **Spice Blends** add a mod from one family (fire, cold, lightning, life, caster, physical attack); a full magic
+    item becomes rare to make room;
+  - **Coffee-Cup Omens** are read from the purse, not used on an item, and bend the next craft: the Bird (a suffix),
+    the Fish (a prefix), the Closed Door (Glass and Ash spare bench mods), the Crescent (the Ember cannot remake it);
+  - currencies have a minimum area level, so the rarer ones arrive over the act. Dinars pay the vendor and the bench.
+- **The Coppersmith's Bench (`game/crafting.*`):** Usta Hassan's recipes add one exact mod (the middle of a tier) for
+  dinars; an item carries one bench mod (`AF_CRAFTED`), and it can be taken off. Three recipes come with the bench;
+  each Act I zone's cache and boss teaches another (sixteen in all).
+- **Uniques and Poster Scraps (`game/uniques.*`):** twenty uniques, each the prop of an invented golden-age Egyptian
+  film. Their mods use the generic affixes (`AE_GENERIC`: one stat, kind and tag set; they never roll on drops).
+  Scraps drop from bosses, rares and the Downtown billboard; the fourth scrap of a poster gives you its unique.
 - **Loot filter:** four presets. A hidden item is not drawn, labelled or selectable; currency and dinars always
   show, and you pick them up by walking over them.
 - **Menu:** paused, controller-first.
@@ -138,17 +172,23 @@ vendor or the chest.
   - Item cards show ±DPS against what you wear, with the equipped piece beside them.
   - Icons are vector silhouettes per slot, tinted by rarity, so no textures are needed.
 
-## The boss (`World::boss_step`)
+## Bosses (`BossDef`, `World::boss_step`)
 
-Umm al-Ghūla has her own state machine instead of the generic chase-and-strike:
-- **Combo:** a two-hit claw combo with a 70° cone telegraph.
-- **Leap:** a leap-slam at range. She travels along a curve during the airborne frames, and her landing is
-  telegraphed and clamped to 9 m of her court.
-- **Summon:** at 55% life she summons five ghouls.
-- **Wail:** in phase 2, a 7.5 m wail that leaves her stunned and Broken.
+Every boss is a row of moves (`boss_def`): a kind, the clip it plays, a cooldown, a range band, a damage multiplier
+and the phase it unlocks in; a phase-2 threshold and banner; what it summons and how many; its court's leash; its
+haste in phase 2; its bolt colour. The move kinds:
+- **Combo:** a two-hit strike (`hit`, `hit2`) with a cone telegraph.
+- **Leap:** a telegraphed leap-slam along a curve, its landing clamped to the court.
+- **Summon** and **Wail** (a stun-and-Break roar), usually from phase 2.
+- **Charge:** a telegraphed line dash (the Iron Microbus). **Nova:** a ring around it. **Volley:** a fan of five bolts.
+- **Blink:** it vanishes and steps out beside you. **Pools:** three burning pools under and around you.
 
-Every strike resolves on its clip event, as the hero's skills do. She is leashed to her court: once engaged she
-follows up to 26 m, and if the hero goes further, or dies, she walks home, heals and resets her phase.
+Strikes resolve on clip events; a **rigid** monster (a possessed object: one static mesh) uses fixed timings instead.
+Six bosses use it: Umm al-Ghūla, the Iron Microbus, the Si'lah of Sadat Station, al-Nasnas al-Kabir, the Ifrit of Bab
+Zuweila and the Qutrub of the Quarries. Bosses are leashed to their court and heal when the hero escapes or dies.
+
+Ordinary monsters now path on the nav grid (A*, refreshed every 0.6–0.9 s); leapers telegraph a landing circle, and
+the dish's beam telegraphs its line.
 
 ## Gameplay (`game/world.*`, `game/stats.*`, `game/items.*`)
 
@@ -246,11 +286,30 @@ A 32-voice software mixer at 48 kHz stereo. It has linear-interpolated resamplin
 panning, two crossfading music beds and two ambience beds, and a soft limiter. Sounds are 16-bit mono WAVs from the
 pack, all synthesised by `tools/audio/synth.py` (see ASSETS.md). `qhost --wav out.wav` records the mix for checks.
 
+## Ascendancy (`game/asc.*`)
+
+Each class's inner sky: thirteen nodes, six minor→notable pairs round a start. The Trials of Ascendancy give two points
+each (Bab Zuweila is Trial I). Notables carry mods and rules (`AscRule`, alongside the tree's keystones):
+- **Ironclad** (Warrior): Endurance Charges (gained on Break or from warcries; each is 4% less physical damage taken
+  and +4% elemental resistances; they fall off after 10 s), no knockback, armour against elemental hits, slams that
+  punish Broken enemies, life regeneration per charge.
+- **Stormbinder** (Sorcerer): spell crits always Shock, chilled and frozen enemies take more damage, more Ignite
+  damage, spell crit, Hirz, and chains.
+
+A node needs its parent; a refund costs a Rosewater Vial.
+
+## The Journal and the codex
+
+The menu's Journal has three sections: quests (done or not, and their rewards), the codex (an entry the first time you
+meet each monster family and each mechanic: waypoints, the trial, the bench, Blends, Omens, the Ember, posters and the
+ascendancy), and the posters (every film, the scraps you hold, and the poster drawn with its missing quarters torn).
+New entries, learned recipes and finished posters show as toasts in the field.
+
 ## Saves
 
 There are two kinds:
 
-- **Save states (`retro_serialize`, version 6).** A versioned byte stream (`core/serial.hpp`, `game/save.cpp`) of
+- **Save states (`retro_serialize`, version 7).** A versioned byte stream (`core/serial.hpp`, `game/save.cpp`) of
   the whole simulation:
   - every actor, including life, Break, AI state, boss phase and home, animation clip, time and fired events;
   - projectiles, ground effects, and ground loot (items, currency, dinars);
@@ -262,9 +321,12 @@ There are two kinds:
   On load, the level geometry and NPCs are rebuilt from the saved area and layout. Particles and floating text are
   cosmetic and aren't saved. RetroArch's save states and auto-resume therefore work anywhere, including mid-boss.
   The bots check this by saving, changing the state, restoring, and comparing.
-- **The character file (`qahira_<slot>.character` in the frontend's save directory, version 3).** It holds level, XP,
+- **The character file (`qahira_<slot>.character` in the frontend's save directory, version 4).** It holds level, XP,
   kills, dinars, currency, the class and its stars, the plan, Talismans, the bars, Wafq, Blank Talismans, the filter
-  preset, equipment and the inventory, with its own magic and version. Versions 1 and 2 still load. It is written to
+  preset, equipment and the inventory, with its own magic and version. Version 4 adds Act I: waypoints, quests, the
+  trial's sealed item, recipes, the codex, read Omens, ascendancy nodes and Poster Scraps; its items carry corruption,
+  their unique and each mod's bench/implicit flag (item format 2). Versions 1–3 still load (a unit test reads a
+  hand-written version 3 file). It is written to
   a temporary file and renamed, when you arrive in the hub, close the menu, level up, kill the boss, or quit. An
   unreadable file is kept as `.bad` and a fresh character starts. Bots never touch it.
 

@@ -9,6 +9,11 @@ from qart.geom import Part, TAU
 from env.necro import dome
 
 
+# The shader multiplies emission by 18 into the bloom: at 1.0 a lamp is a white blot, and these streets are full of
+# lamps, tubes and neon. Every region's glow goes through this.
+EMIT = 0.3
+
+
 class Paint:
     """Parts batched by material: one model item per colour and finish, however many boxes share it."""
 
@@ -23,7 +28,7 @@ class Paint:
 
     def flush(self):
         for (color, rough, metal, emit, flat), p in self.parts.items():
-            self.m.add(p, color, rough=rough, metal=metal, emit=emit, flat=flat)
+            self.m.add(p, color, rough=rough, metal=metal, emit=emit * EMIT, flat=flat)
         self.parts = {}
 
 

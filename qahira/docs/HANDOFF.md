@@ -10,8 +10,11 @@ already has, what's left, and what's worth knowing before you change anything.
   Slice 3 was finished after the handoff: the Stars screen, the Sorcerer, Talismans and Wafq, ailments, "Why?", the
   title screen, the build simulator and CI. The parked `qahira-slice3-wip` branch was never pushed; its two pieces
   (a stats preview and a QR encoder) were written again (`summarize` in `game/world.cpp`, `ui/qr.*`).
-- **The head is green on Linux and in CI** (`.github/workflows/qahira.yml`): the tree validator, shaders, 22 unit
-  tests, the build simulator, and the `walk`, `fight`, `zone`, `sorcerer`, `sky` and `title` bots.
+- **Slice 4 (Act I) is done too:** six regions, seven zones, the Bab Zuweila trial, two ascendancies, the bench,
+  Blends, Omens, twenty uniques with Poster Scraps, and the Journal. See its SLICES.md entry for what is left over.
+- **The head is green on Linux and in CI** (`.github/workflows/qahira.yml`): the tree validator, shaders, 32 unit
+  tests, the build simulator, and the `walk`, `fight`, `zone`, `sorcerer`, `sky`, `title` and `act1` bots. `act1`
+  also runs nightly.
 - **Linux:** everything builds and runs there. Blender runs as the `bpy` module (`pip install bpy==5.0.1` into a
   Python 3.11); `tools/pack.py` finds Blender's fonts in the Mac app or the module. Screenshots need a GL context:
   run `qhost --hidden` under Xvfb.
@@ -75,10 +78,16 @@ already has, what's left, and what's worth knowing before you change anything.
   - `Ui::text` returns the text's width, not its end x.
 - **Aiming:** skills aim where the stick points, not where the body faces. Before that fix, a dodge left the hero
   swinging at air.
-- **The boss** is leashed to her court (17 m before she engages, 26 m after). When the hero escapes or dies, she
-  walks home and heals.
-- **Navigation:** `Level::find_path` runs A* on a nav grid rasterised from the colliders. Only the bots use it;
-  monsters still chase in straight lines.
+- **Bosses** are rows in `boss_def` (world.cpp) and are leashed to their court. When the hero escapes or dies, they
+  walk home and heal. A rigid boss (a possessed object with no skeleton) resolves its moves on fixed timings.
+- **Navigation:** `Level::find_path` runs A* on a nav grid rasterised from the colliders. Monsters and the bots both
+  use it.
+- **Tables that characters store by index** (append only): item bases, affixes (the generic `g_*` ones come after the
+  rolled ones), skills, monsters, zones, quests' bits, recipes, codex entries, uniques, ascendancy nodes, currencies.
+- **A new zone** is a `ZoneDef` row plus a region in `tools/art/env/regions.py` (or an existing tileset). Run
+  `qtests`: it walks every zone and checks every spawn can be reached.
+- **Balance knobs:** XP per area level (`World::kill`), monster rows (`monster_defs`), boss move damage (`BossDef`), and
+  the `act1` bot's death count and final level, which CI prints.
 - **Tests and the tree:** `qtests` reads the generated tree via `QAHIRA_SOURCE_DIR`, so run `tools/tree/build_tree.py`
   (or `build_all.sh`) first. The "data/tree.json missing" line in the test output is harmless: the save test runs
   without a pack.

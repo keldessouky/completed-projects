@@ -121,7 +121,7 @@ void Menu::bench_render(const World& w, const Item*& tip, float& tip_y, std::str
 
 // ================================================================ the Ascendancy tab
 namespace {
-constexpr float AX = PX + PW / 2, AY = PY + 458, AU = 76;   // the inner sky's centre and scale
+constexpr float AX = PX + PW / 2, AY = PY + 492, AU = 72;   // the inner sky's centre and scale
 vec2 node_screen(const AscNode& n) { return {AX + n.pos.x * AU, AY - n.pos.y * AU}; }
 bool has_child(const Ascendancy& a, uint32_t held, int node) {
     for (size_t i = 1; i < a.nodes.size(); i++) if (a.nodes[i].parent == node && (held >> i & 1)) return true;
