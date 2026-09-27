@@ -14,10 +14,25 @@ Work proceeds in vertical slices ([slice plan](../_bmad-output/planning-artifact
 
 | Slice | State |
 |---|---|
-| 0 · First Light | **In progress.** Engine, renderer, libretro core, dev host, asset pipeline and the Warrior are done. Still to do: the generated street tile, a test in RetroArch on the Mac, device checks on the RP6. |
+| 0 · First Light | **Done** (device checks pending). The Warrior on a generated Cairo street. Details: [slice log](docs/SLICES.md) |
 | 1–11 | Not started |
 
+## Docs
+
+- [Engine](docs/ENGINE.md): layers, the frame, renderer, animation, UI, levels, save states
+- [Assets](docs/ASSETS.md): the Blender generators, rig and IK, skinning, file formats
+- [Running on the RP6](docs/RP6.md): install, launch, adb workflow, device checklist
+- [Slice log](docs/SLICES.md): what each slice delivered and how it was verified
+
 ## Build
+
+Everything, including art, pack, both cores and the tests:
+
+```bash
+tools/build_all.sh
+```
+
+That gives you `build/Qahira.qpk` and `build/qahira_libretro_android.so`. Individual steps are below.
 
 Requirements (all free, from Homebrew): `cmake ninja sdl2 woff2 glslang`, the `android-ndk` cask, and Blender 5.x.
 
