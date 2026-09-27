@@ -401,3 +401,96 @@ what each slice actually delivered and how it was verified.
 - Omens cannot yet be pressed into charts (GDD §10).
 - Sites use Act I's regions and bosses; each later act adds its own.
 - The map is drawn by the UI; al-Idrisi's own linework (the climes' bands, his mountains and rivers) is not traced.
+
+## Slice 6 · The Nile to Luxor
+
+*One act, one class, two ascendancies, its piece of the sky, and one endgame piece.*
+
+**Delivered**
+- **The Ranger**, a third class (`game/classes.*`, `tools/art/characters/ranger.py`):
+  - a tracker from the oases of the Western Desert: a hooded cloak the colour of the dunes, a leather jerkin, an indigo
+    scarf over the mouth, a falconer's gauntlet and a quiver of reed arrows; 13.4k triangles and twelve clips on the
+    shared rig, including a side-on draw-and-loose (`shoot`) and a high loose for the rain (`shoot_up`);
+  - a recurve bow of horn and mulberry held in the left hand, and a reed arrow for the projectiles;
+  - **bows** (four bases, level 1 to 18) and evasion armour (six bases), with rolled evasion, projectile, poison and
+    bow-crit mods; **bow skills need a bow** (the Talisman card says so, and the hero says "Needs a bow");
+  - **four Talismans:** *Split Arrow* (a fan of three), *Falcon's Mark* (the enemy's next three attack hits are
+    Critical Strikes), *Rain of Arrows* (three volleys on the spot) and *Scorpion's Kiss* (a heavy arrow, 60% to Poison);
+  - **evasion** (a chance to take no damage from a hit, against the monsters' accuracy, which grows with the area;
+    capped at 75%; pools and blasts cannot be evaded), **poison** (stacks: each poisoning hit adds its own, chaos over
+    two seconds) and **Frenzy Charges** (4% more damage and speed each; a Marked enemy's death gives one).
+- **The Ranger's sky** (`tools/tree/build_tree.py`): the Ecliptic closed into a ring, Sagittarius, Lepus and Pegasus,
+  and the keystone *al-Balda, Point Blank* (projectile attacks deal up to 40% more close in, and less far away).
+  171 stars now; the first 131 kept their ids (a test pins them).
+- **Two ascendancies for the Ranger**, and a choice (`game/asc.*`, `game/menu_act1.cpp`): at the First Trial a class
+  with two shows both, side by side with their notables, and the character takes one for good.
+  - **Marksman:** marks that last longer and cover more hits, Marked enemies take more damage, the long shot, crits
+    that grant Frenzy, a Mark that passes on at a death, and an extra projectile.
+  - **Outrider:** speed, poisons that hit harder and last longer, a waterskin flask that refills itself, evasion,
+    Frenzy on kill, and poisons that spread when their bearer dies.
+- **Act II, the Nile to Luxor** (`game/acts.cpp`), levels 14 to 25, six zones on five new regions
+  (`tools/art/env/regions2.py`):
+  - **the River Road** (the Nile bank: towpaths of silt, feluccas at their moorings, cane and date palms, a waterwheel);
+  - **Kafr al-Nakhl** (a village of Upper Egypt: mud brick and whitewash, blue doors, pigeon towers, a sycamore in the
+    square);
+  - **the Ibrahimiya Canal**, and **El Naddaha, the Caller**: the woman in the canal who calls you by name. Her Call
+    draws you to her; she opens pools of black water under you, sinks and rises beside you, and brings marids;
+  - **Karnak, the Hypostyle Hall** (papyrus columns in rows, fallen drums, an obelisk) and **the Ram of the Avenue**, a
+    possessed ram-headed sphinx that charges down its avenue and wakes the statues;
+  - **the Valley of the Kings** (pale cliffs in strata, tomb doors, the diggers' lamps and baskets);
+  - **the Deep Tomb** (painted corridors under a ceiling of yellow stars on blue) and **the Marid of the Deep Tomb**.
+    When it dies, one coil of something vast slides through the pit beyond the burial hall. Act II is over.
+  - New monsters: the River Marid and the Marid Caller (cold water, pools), Possessed Statues (black granite kings) and
+    Tomb Ghouls. Four new pieces of music (the Sa'idi rhythm of the south; slower below ground) and three ambiences
+    (the river at night, wind through the columns, the tomb).
+  - Three quests (+1 passive star each); the Mokattam's far court now leads on to the River Road.
+- **The Marid Rifts**, the endgame piece: once Act II is over, a chart may hold a tear in the air. Walk up to it and it
+  opens for twenty seconds, widening while marids come through; what dies in it leaves **Marid Splinters**. Fifty fuse
+  into a **Rift Seal**, which opens **the Rift Lord's court** from the chart table (West). The Rift Lord always drops a
+  unique.
+- **The codex** gains the marids, El Naddaha, the statues and tomb ghouls, marks/poison/Frenzy, evasion, and the rifts.
+- **The HUD:** Frenzy Charges beside the Endurance Charges, icons for the four new Talismans, a Mark's sigil on its
+  bearer, poisoned enemies tinged green, the rift's panel and the rain's landing ring. Staves and bows have their own
+  inventory icons.
+- **Saves:** the character file v6 (the ascendancy chosen; v1–v5 still load) and save states v9 (poison, marks, Frenzy,
+  arrows, the rift).
+- **Fixes along the way:**
+  - the Map of al-Idrisi read the stick as one of four directions, so a site that lay diagonally could not be reached
+    (the Ranger's `charts` run found al-Wahat unreachable from al-Iskandariya); the cursor now follows the stick's own
+    direction within a 55° cone;
+  - the HUD and the build simulator counted all three of Split Arrow's projectiles as one target's damage; DPS is now
+    one projectile's, as in PoE, and the Talisman card says "each";
+  - the build simulator's outlier rule now also asks that the outlier beat the Recommended Path by 5% (a random Warrior
+    build 4% above the path, in a crowd with a small spread, had flagged);
+  - a rare's name took its second word from one list of maul words, so a bow could be a "Hammer"; bows, staves and
+    gear now have their own words (drawn with the same two rolls, so no item changes its mods);
+  - an item's tooltip compared DPS "with Crushing Blow" whatever your main skill was; it now names yours, and a weapon
+    that cannot use your main skill (a maul for a bow skill) shows the loss.
+
+**Verified**
+
+| Check | Result |
+|---|---|
+| Unit tests (`qtests`) | pass, 43 cases (6 new: the Ranger with a bow and without one; evasion against deeper monsters and its cap; poison stacks, a Mark's crits and the Frenzy at its death; two ascendancies, the choice and character file v6; Act II's road; rift currency never drops at random) |
+| `act2` bot (the exit): a character as Act I leaves one plays Act II through, River Road to the Deep Tomb | pass: the Warrior in 11.4 minutes (level 13 to 23, 0 deaths, 311 kills), the Sorcerer in 7.4 (0 deaths), the Ranger in 6.4 (0 deaths) |
+| `rifts` bot (the endgame piece): after Act II, a chart with a rift; its splinters make a seal; the seal opens the Rift Lord's court; the Rift Lord dies | pass: 18 splinters from one rift made the seal; the Rift Lord died 3.5 minutes in, 1 death |
+| `act1` as the Warrior, the Sorcerer and the Ranger | pass: the Warrior in 10.4 minutes (0 deaths), the Sorcerer in 9.6 (0), the Ranger in 15.5 (1) |
+| `charts` (Warrior and Ranger), `zone` (Warrior, Sorcerer, Ranger), `walk`, `fight`, `sky`, `title` | pass |
+| Tree validator | pass: 171 stars; the Ranger reaches its keystones in 9/18/19 points; its Recommended Path takes 23 |
+| Build simulator | 0 flags; the Ranger's Recommended Path at level 30: 316 DPS against a crowd of 235 +/- 46 (the Warrior's 332, the Sorcerer's 193) |
+| `qchartsim` | 0 flags (unchanged: median 10 runs to the Fourth Clime) |
+
+| | |
+|---|---|
+| ![Choosing the Ranger's ascendancy: the Marksman or the Outrider, and the other's stars stay dark](img/slice6-ascend.jpg) | ![The River Road: fields of flooded basins and the felucca moored on the bank](img/slice6-river.jpg) |
+| ![Kafr al-Nakhl: mud-brick lanes and the ghouls of the City of the Dead](img/slice6-village.jpg) | ![The Ibrahimiya Canal: el-Naddaha calls, and the Ranger fights her brood in the circle of her song](img/slice6-naddaha.jpg) |
+| ![The Deep Tomb: the Marid of the Deep Tomb and its possessed statues](img/slice6-tomb.jpg) | ![A Marid Rift opens in the Deep Tomb's charted twin](img/slice6-rift.jpg) |
+
+**Known gaps (carried forward)**
+- The Ranger's bowstring does not draw back (the bow is one rigid mesh), and loosed arrows are not seen on the string.
+- Mārid Rifts have no Astrolabe nodes of their own yet, and the Rift Lord's court is one room on the tomb's tiles.
+- Act II has no side zone or second trial (Trial II comes with Act III).
+- Audio is stored as 16-bit WAV: the pack is now 110 MB, 65 MB of it music and ambience. A compressed format is due.
+- The Beastmaster (the Ranger's third, companion ascendancy) is not in the launch set (GDD §4).
+- Act II may be too gentle: every class's bot plays it through with no deaths (the bot starts with a rare in every
+  slot). Its tuning waits for the on-device feel review.

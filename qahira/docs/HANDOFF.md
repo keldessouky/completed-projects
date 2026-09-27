@@ -10,13 +10,16 @@ already has, what's left, and what's worth knowing before you change anything.
   Slice 3 was finished after the handoff: the Stars screen, the Sorcerer, Talismans and Wafq, ailments, "Why?", the
   title screen, the build simulator and CI. The parked `qahira-slice3-wip` branch was never pushed; its two pieces
   (a stats preview and a QR encoder) were written again (`summarize` in `game/world.cpp`, `ui/qr.*`).
+- **Slice 6 (the Nile to Luxor) is done:** the Ranger and her sky, Marksman and Outrider (the first class with a
+  choice of two), Act II's six zones on five regions with El Naddaha, the Ram of the Avenue and the Deep Tomb, and the
+  Marid Rifts. The `act2` and `rifts` bots run in CI.
 - **Slice 5 (the First Chart) is done:** the Map of al-Idrisi, charts of four Climes, the Haboob, the Astrolabe,
   `qchartsim` and the `charts` bot (nightly in CI).
 - **Slice 4 (Act I) is done too:** six regions, seven zones, the Bab Zuweila trial, two ascendancies, the bench,
   Blends, Omens, twenty uniques with Poster Scraps, and the Journal. See its SLICES.md entry for what is left over.
-- **The head is green on Linux and in CI** (`.github/workflows/qahira.yml`): the tree validator, shaders, 36 unit
-  tests, the build and chart simulators, and the `walk`, `fight`, `zone`, `sorcerer`, `sky`, `title` and `act1` bots.
-  `act1` also runs nightly, with `charts`.
+- **The head is green on Linux and in CI** (`.github/workflows/qahira.yml`): the tree validator, shaders, 43 unit
+  tests, the build and chart simulators, and the `walk`, `fight`, `zone` (and as the Ranger), `sorcerer`, `sky`,
+  `title`, `rifts`, `act1` and `act2` bots. Nightly adds `charts` and `act2` as the Ranger.
 - **Linux:** everything builds and runs there. Blender runs as the `bpy` module (`pip install bpy==5.0.1` into a
   Python 3.11); `tools/pack.py` finds Blender's fonts in the Mac app or the module. Screenshots need a GL context:
   run `qhost --hidden` under Xvfb.
@@ -85,11 +88,17 @@ already has, what's left, and what's worth knowing before you change anything.
 - **Navigation:** `Level::find_path` runs A* on a nav grid rasterised from the colliders. Monsters and the bots both
   use it.
 - **Tables that characters store by index** (append only): item bases, affixes (the generic `g_*` ones come after the
-  rolled ones), skills, monsters, zones, quests' bits, recipes, codex entries, uniques, ascendancy nodes, currencies.
-- **A new zone** is a `ZoneDef` row plus a region in `tools/art/env/regions.py` (or an existing tileset). Run
+  rolled ones), skills, monsters, zones, quests' bits, recipes, codex entries, uniques, ascendancy nodes and
+  ascendancies (characters store the one chosen), currencies, sites, Astrolabe nodes, and the tree's star ids.
+- **A new zone** is a `ZoneDef` row plus a region in `tools/art/env/regions.py` or `regions2.py` (or an existing tileset). Run
   `qtests`: it walks every zone and checks every spawn can be reached.
 - **Chart balance:** the drop rules are in `game/atlas.cpp`; change them, then run `qchartsim`, which reads the same
   functions. A site's roads are its `links`; a dead end strands players (the simulation found one at Ayla).
+- **Any bot as any class:** `QAHIRA_CLASS=ranger` (or sorcerer, warrior). `QAHIRA_ACT2_AT=karnak` starts the `act2` bot
+  at one zone with what comes before it done, for work on that zone.
+- **Landmark and arena set pieces** go where the cell's way in is not: a landmark opens to the north, so its pieces
+  stand in the south half; an arena opens to the south. Leave no slot between a piece and the court's wall that a
+  pilot can squeeze into (the Ram's court had one). `qtests` walks every zone and finds unreachable courts.
 - **Balance knobs:** XP per area level (`World::kill`), monster rows (`monster_defs`), boss move damage (`BossDef`), and
   the `act1` bot's death count and final level, which CI prints.
 - **Tests and the tree:** `qtests` reads the generated tree via `QAHIRA_SOURCE_DIR`, so run `tools/tree/build_tree.py`

@@ -177,6 +177,51 @@ landmark) with their lights, colliders and named points. `env/regions.py` has th
 Bosses are these creatures scaled and tinted (the Si'lah of Sadat Station, al-Nasnas al-Kabir, the Qutrub of the
 Quarries) or their own (the Iron Microbus, the Ifrit of Bab Zuweila).
 
+## The Ranger (Slice 6)
+
+`characters/ranger.py`, relative to the rig's joints (1.80 m): a hood that leaves the eyes open, an indigo scarf over
+the mouth and nose with a tail over the shoulder, a laced leather jerkin over a sand tunic, a short cloak the colour of
+the dunes, a falconer's gauntlet with brass bands on the left forearm and a bracer on the right, wrapped shins, a belt
+with a pouch and a knife, and a quiver of seven reed arrows across the back. Her bow (`build_bow`) is a recurve of
+mulberry with horn on the belly, a leather grip and brass nocks; it is held in the left hand, the string towards her.
+`build_arrow` is the loosed arrow the projectiles draw. Her clips turn her side-on to shoot (`shoot`: nock, draw to the
+cheek, loose, follow through; `shoot_up` for the rain) and carry the bow low otherwise; `cast` throws the gauntlet out
+as if sending a falcon; `cast_ground`, `swing` (a backhand with the bow), `slam`, `warcry`, `dodge`, `hit`, `death`.
+
+## Act II's regions (Slice 6)
+
+`env/regions2.py`, on the same cell kit (65 tiles, about 50 s):
+- **The Nile bank:** blocks are either the river (dark water a hand below the bank, moonlight on the ripples, a silt
+  lip, reeds at the lane's edge, and in the wider ones a felucca at her mooring with her sail furled on the long yard
+  and a lamp at the mast) or the bank (cane and clover, date palms, a mud wall on the lane side). A stone landing
+  stair; a sluice on the canal with its iron wheel; a saqiya waterwheel with its ring of pots.
+- **A village of Upper Egypt:** mud brick and whitewash with parapets, blue doors and small lit windows, palm fronds
+  and firewood on the roofs, whitewashed pigeon towers studded with clay pots; mastaba benches and water jars; a gate
+  of palm trunk; the square round a great sycamore fig hung with lamps; the headman's domed guest house.
+- **Karnak:** papyrus columns on a grid, with painted bands and open capitals, some roofed with fallen stone beams;
+  low screen walls carved in bands, with column drums fallen before them; a pylon's two towers at the way in; the
+  avenue of ram-headed sphinxes in the court; an obelisk with an electrum-capped pyramidion.
+- **The Valley of the Kings:** cliffs in pale strata, each course set back; tomb doors with lintels, some lit by the
+  diggers' bulbs; rubber baskets and ladders; the guards' ticket kiosk and a rope line; a tomb's forecourt with work
+  lamps; a stair going down under a lintel.
+- **The Deep Tomb:** corridors of painted plaster in registers of red, ochre and blue with figures in procession, a
+  ceiling of yellow stars on blue at the rock's edge, a boardwalk over the old floor; the burial hall with square
+  pillars, a granite sarcophagus and a black pit beyond (its `coils` point); a side chamber of gilded chests.
+
+## Act II's creatures (Slice 6)
+
+`characters/nile.py`:
+- **the River Marid:** a body of black water with a sheen, webbed fingers, a long fish-like head with pale eyes, weed
+  hanging from its crown and shoulders, streaks of foam, and below the waist a column of river water pinched in the
+  middle and splashing out at its foot. It floats; its death falls back into the water. (The Marid Caller and the two
+  marid bosses are it, scaled and tinted.)
+- **El Naddaha:** a tall pale woman in a wet gown falling heavy to the water, wide sleeves, black hair to her knees
+  with strands across her face, a necklace of river shells, standing on a disc of black water ringed with foam. Her
+  Call opens her arms wide and reaches for you; her death sinks her, standing, into the canal.
+- static meshes: a **possessed statue** (a striding king in black granite, the striped headcloth in gold, lit cracks);
+  **the Ram of the Avenue** (a ram-headed sphinx with curled horns and a little king between its paws); and **one coil
+  of the serpent**, 16 m of black scales with a sheen and pale belly plates.
+
 ## Props
 
 `props/props.py`:
@@ -226,6 +271,11 @@ Quarries) or their own (the Iron Microbus, the Ifrit of Bab Zuweila).
     fire hit, a lightning crack, ice crystallising, a glyph like a struck bowl, and the falling star's whistle and
     impact.
   - Also level-up (a Hijaz run on the oud) and UI ticks.
+
+Act II (Slice 6) adds `mus_nile` (rast, ney, the Sa'idi rhythm of Upper Egypt), `mus_village` (bayati, qanun,
+Sa'idi), `mus_karnak` (nahawand, a slow ney) and `mus_tomb` (saba, a slow oud), and three ambiences: `amb_river`
+(water lapping, frogs in the cane, crickets, a mooring rope creaking), `amb_temple` (a deep wind between columns, sand
+hissing, an owl, stone grinding somewhere) and `amb_tomb` (the rock's low drone, sand trickling, a long exhale).
 
 ## Formats (little-endian)
 

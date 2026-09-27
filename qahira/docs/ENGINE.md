@@ -240,7 +240,7 @@ doing every five seconds.
 ## Classes, skills and supports (`game/classes.*`, `game/skills.*`)
 
 - **Classes** are a table: base attributes, life, mana, Hirz, armour, the starting weapon, four starting Talismans, the
-  model. The class also sets the start in the sky. The Warrior and the Sorcerer are playable.
+  model. The class also sets the start in the sky. The Warrior, the Sorcerer and the Ranger are playable.
 - **A Talisman** is a skill (a row in `skill_defs`) with a level, 2-5 Wafq slots and an attribute requirement
   (8 + 3.4 per level of its attribute). Spells scale their base damage by 12% a level, attacks their effectiveness by
   4%. The hero carries any number of Talismans; two bars of five point at them (hold L2 for the second).
@@ -254,6 +254,16 @@ doing every five seconds.
 - **Ailments** on monsters: Ignite (90% of the fire hit per second for 4 s), Chill (30% slower, scaled by Freeze
   modifiers), Freeze (a meter filled by cold damage over life; full, they stop for 1.6 s, bosses 0.8 s) and Shock (20%
   more damage taken for 4 s, scaled by Shock effect). Chill slows the monster's whole step, animation included.
+- **The Ranger's rules (Slice 6):**
+  - *Bow skills* carry `T_BOW` and need a bow in hand (`SkillCtx::needs_bow`); a bow is drawn in the left hand
+    (`weapon_L`). Physical attack projectiles fly as arrows.
+  - *Evasion:* `World::evade_chance` sets the Evasion Rating against the monsters' accuracy (18 + 8 per area level),
+    PoE's shape, capped at 75%. `damage_hero` rolls it for hits; pools, novas and the storm pass `evadable = false`.
+  - *Poison:* each poisoning hit adds a stack (up to six) of 25% of its physical and chaos damage per second for 2 s.
+  - *Marks:* the marked enemy's next attack hits (3 + `S_MARK`) are Critical Strikes, for 8 s.
+  - *Frenzy Charges:* 4% more damage and speed each (3 + `S_FRENZY`), gained when a Marked enemy dies (and from the
+    ascendancies), and lost ten seconds after the last.
+  - *DPS* shown anywhere is one target's: one projectile of a fan.
 - `World::hit_enemy` is the one place a hero hit lands: mitigation, keystones, crit text, leech, ailments, Break and
   knockback. Projectiles, glyph pulses and falling stars carry a `HeroHit` (the worked-out hit and chances) so a save
   state restores them exactly.
@@ -296,6 +306,12 @@ each (Bab Zuweila is Trial I). Notables carry mods and rules (`AscRule`, alongsi
 - **Stormbinder** (Sorcerer): spell crits always Shock, chilled and frozen enemies take more damage, more Ignite
   damage, spell crit, Hirz, and chains.
 
+- **Marksman** and **Outrider** (Ranger, Slice 6): the first a class with two. A class with two shows both side by
+  side in the Ascendancy tab and the character chooses one at the First Trial, for good (`Hero::ascendancy`, an index
+  into `ascendancies()`; `ascendancy_of(cls, chosen)` falls back to a class's only one). Their rules: marks that last
+  longer and hurt more, the long shot, Frenzy on crit or kill, a Mark or poisons passing on at a death, poisons that
+  hit harder, a flask that refills itself.
+
 A node needs its parent; a refund costs a Rosewater Vial.
 
 ## The Journal and the codex
@@ -330,11 +346,24 @@ drawn with south at the top, so east is on the left), with the eclipse's path as
   generated tiles, charts drawn by the game's rules. It flags a stall rate over 5%, a median over 45 runs to finish a
   Fourth Clime site, or under 8, and writes `build/chartsim_report.md`.
 
+## Act II and the Marid Rifts
+
+- **Act II** is six `ZoneDef`s of act 2 (levels 14 to 25) on five regions (`tools/art/env/regions2.py`); the Mokattam's
+  far court leads on to the first. Zones with no quest of their own open their way on from the start.
+- **Bosses:** El Naddaha's Wail is a *Call* (`BossDef::call`): it draws the hero to her instead of throwing them
+  back. Cold bosses' pools are black water (`GroundFx::Water`), which bites with cold. The Ram of the Avenue is a
+  rigid boss (a static mesh) that charges. When the Deep Tomb's marid dies (`Q_ACT2`), a coil of the serpent slides
+  through the pit beyond the burial hall (`World::coil_t`, drawn by the view).
+- **Marid Rifts** (`World::rift`, `rift_step`): after `Q_ACT2`, 35% of charts arm one at a random cell. Within 7 m and
+  in sight of the hero it opens for 20 s, its radius growing from 2 to 8.5 m while packs come through (up to 44
+  monsters, flagged `Actor::rift`). Rift monsters drop Marid Splinters (`CUR_SPLINTER`); fifty fuse into a Rift Seal
+  when picked up, and West at the chart table spends one on the Rift Lord's court (`rift_court`, act 0).
+
 ## Saves
 
 There are two kinds:
 
-- **Save states (`retro_serialize`, version 8).** A versioned byte stream (`core/serial.hpp`, `game/save.cpp`) of
+- **Save states (`retro_serialize`, version 9).** A versioned byte stream (`core/serial.hpp`, `game/save.cpp`) of
   the whole simulation:
   - every actor, including life, Break, AI state, boss phase and home, animation clip, time and fired events;
   - projectiles, ground effects, and ground loot (items, currency, dinars);
@@ -346,12 +375,12 @@ There are two kinds:
   On load, the level geometry and NPCs are rebuilt from the saved area and layout. Particles and floating text are
   cosmetic and aren't saved. RetroArch's save states and auto-resume therefore work anywhere, including mid-boss.
   The bots check this by saving, changing the state, restoring, and comparing.
-- **The character file (`qahira_<slot>.character` in the frontend's save directory, version 5).** It holds level, XP,
+- **The character file (`qahira_<slot>.character` in the frontend's save directory, version 6).** It holds level, XP,
   kills, dinars, currency, the class and its stars, the plan, Talismans, the bars, Wafq, Blank Talismans, the filter
   preset, equipment and the inventory, with its own magic and version. Version 4 adds Act I: waypoints, quests, the
   trial's sealed item, recipes, the codex, read Omens, ascendancy nodes and Poster Scraps; its items carry corruption,
   their unique and each mod's bench/implicit flag (item format 2). Version 5 adds the map: sites revealed and
-  finished, and the Astrolabe. Versions 1–4 still load (a unit test reads a hand-written version 3 file). It is written to
+  finished, and the Astrolabe. Version 6 adds the ascendancy chosen. Versions 1–5 still load (a unit test reads a hand-written version 3 file). It is written to
   a temporary file and renamed, when you arrive in the hub, close the menu, level up, kill the boss, or quit. An
   unreadable file is kept as `.bad` and a fresh character starts. Bots never touch it.
 

@@ -42,7 +42,8 @@ echo "== build simulator"
 echo "== chart simulation"
 ./build/mac/qchartsim
 echo "== bot tests"
-for bot in walk fight zone sorcerer sky title act1 charts; do ./build/mac/qhost build/Qahira.qpk --headless --bot "$bot"; done
+for bot in walk fight zone sorcerer sky title act1 charts act2 rifts; do ./build/mac/qhost build/Qahira.qpk --headless --bot "$bot"; done
+QAHIRA_CLASS=ranger ./build/mac/qhost build/Qahira.qpk --headless --bot zone
 echo "== screenshot"
 ./build/mac/qhost build/Qahira.qpk --hidden --frames 90 --shot build/screenshot.png
 echo "done: build/Qahira.qpk + build/qahira_libretro_android.so"
