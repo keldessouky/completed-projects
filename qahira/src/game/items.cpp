@@ -64,12 +64,44 @@ const std::vector<AffixDef>& affix_defs() {
     return a;
 }
 
-const ItemBase& Item::b() const { return item_bases()[base]; }
+const ItemBase& Item::b() const {
+    static const ItemBase none{"none", "Nothing", Slot::Count, 0, 0, 0, 0, 0, 0, 0, nullptr};
+    return base < item_bases().size() ? item_bases()[base] : none;
+}
 
 static const char* kRareA[] = {"Dusk", "Grave", "Brass", "Cinder", "Kohl", "Tomb", "Sable", "Ember", "Mokattam", "Qarafa",
                                "Night", "Ash", "Lantern", "Salt", "Jackal", "Eclipse"};
 static const char* kRareB[] = {"Breaker", "Knell", "Hammer", "Crusher", "Maw", "Toll", "Verdict", "Weight", "Oath",
                                "Mourning", "Ward", "Hold", "Grip", "Step", "Veil", "Knot"};
+
+std::string rare_name(Rng& rng) { return std::string(kRareA[rng.next() % 16]) + " " + kRareB[rng.next() % 16]; }
+
+bool roll_affix(Item& it, Rng& rng) {
+    if (it.rarity != Rarity::Magic && it.rarity != Rarity::Rare) return false;
+    int limit = it.rarity == Rarity::Magic ? 1 : 3;
+    int pre = 0, suf = 0;
+    auto& defs = affix_defs();
+    for (auto& a : it.affixes) (defs[a.def].prefix ? pre : suf)++;
+    const ItemBase& b = it.b();
+    for (int tries = 0; tries < 80; tries++) {
+        int d = rng.irange(0, int(defs.size()) - 1);
+        const AffixDef& ad = defs[size_t(d)];
+        if (!(ad.slots & SB(b.slot))) continue;
+        if (ad.prefix ? pre >= limit : suf >= limit) continue;
+        bool dup = false;
+        for (auto& a : it.affixes) if (a.def == d) dup = true;
+        if (dup || it.ilvl < ad.tier_levels[0]) continue;
+        int top = 0;
+        for (int t = 0; t < 3; t++) if (it.ilvl >= ad.tier_levels[t]) top = t;
+        int tier = rng.chance(0.55f) ? top : rng.irange(0, top);
+        Affix af{uint16_t(d), uint8_t(tier), 0, 0};
+        af.v1 = std::round(rng.range(ad.lo[tier], ad.hi[tier]));
+        af.v2 = std::round(rng.range(ad.lo2[tier], ad.hi2[tier]));
+        it.affixes.push_back(af);
+        return true;
+    }
+    return false;
+}
 
 Item make_item(int base, Rarity r, int ilvl, Rng& rng) {
     Item it;
@@ -77,30 +109,29 @@ Item make_item(int base, Rarity r, int ilvl, Rng& rng) {
     it.rarity = r;
     it.ilvl = uint8_t(std::max(1, std::min(255, ilvl)));
     it.seed = rng.next();
-    const ItemBase& b = it.b();
     int want = r == Rarity::Magic ? rng.irange(1, 2) : r == Rarity::Rare ? rng.irange(3, 6) : 0;
-    int pre = 0, suf = 0;
-    int maxp = r == Rarity::Magic ? 1 : 3, maxs = maxp;
-    auto& defs = affix_defs();
-    for (int tries = 0; tries < 60 && int(it.affixes.size()) < want; tries++) {
-        int d = rng.irange(0, int(defs.size()) - 1);
-        const AffixDef& ad = defs[size_t(d)];
-        if (!(ad.slots & SB(b.slot))) continue;
-        if (ad.prefix ? pre >= maxp : suf >= maxs) continue;
-        bool dup = false;
-        for (auto& a : it.affixes) if (a.def == d) dup = true;
-        if (dup || ilvl < ad.tier_levels[0]) continue;
-        int top = 0;
-        for (int t = 0; t < 3; t++) if (ilvl >= ad.tier_levels[t]) top = t;
-        int tier = rng.chance(0.55f) ? top : rng.irange(0, top);
-        Affix af{uint16_t(d), uint8_t(tier), 0, 0};
-        af.v1 = std::round(rng.range(ad.lo[tier], ad.hi[tier]));
-        af.v2 = std::round(rng.range(ad.lo2[tier], ad.hi2[tier]));
-        it.affixes.push_back(af);
-        (ad.prefix ? pre : suf)++;
-    }
-    if (r == Rarity::Rare) it.name = std::string(kRareA[rng.next() % 16]) + " " + kRareB[rng.next() % 16];
+    while (int(it.affixes.size()) < want && roll_affix(it, rng)) {}
+    if (r == Rarity::Rare) it.name = rare_name(rng);
     return it;
+}
+
+void grid_size(const Item& it, int& w, int& h) {
+    switch (it.b().slot) {
+        case Slot::Weapon: w = 2; h = 4; break;
+        case Slot::Body: w = 2; h = 3; break;
+        case Slot::Helmet: case Slot::Gloves: case Slot::Boots: w = 2; h = 2; break;
+        case Slot::Belt: w = 2; h = 1; break;
+        default: w = 1; h = 1; break;
+    }
+}
+
+int sell_price(const Item& it) {
+    switch (it.rarity) {
+        case Rarity::Magic: return 3 + it.ilvl / 3;
+        case Rarity::Rare: return 9 + it.ilvl / 2 + int(it.affixes.size());
+        case Rarity::Unique: return 25 + it.ilvl;
+        default: return 1;
+    }
 }
 
 Item random_drop(int area_level, float rare_chance, float magic_chance, Rng& rng, Slot only) {

@@ -46,14 +46,17 @@ struct Affix {
     float v1, v2;
 };
 
+static constexpr uint16_t kNoItem = 0xFFFF;
+
 struct Item {
-    uint16_t base = 0;
+    uint16_t base = kNoItem;
     Rarity rarity = Rarity::Normal;
     uint8_t ilvl = 1;
     std::vector<Affix> affixes;
     std::string name;       // rare / unique name; magic and normal names are built from affixes
     uint32_t seed = 0;
-    const ItemBase& b() const;
+    bool empty() const { return base == kNoItem; }
+    const ItemBase& b() const;                // a placeholder base (slot Count) when empty
     std::string display_name() const;
     std::vector<std::string> lines() const;   // stat block lines for the tooltip
     WeaponStats weapon() const;               // local mods applied
@@ -65,6 +68,10 @@ const std::vector<AffixDef>& affix_defs();
 int find_base(const char* id);
 
 Item make_item(int base, Rarity r, int ilvl, Rng& rng);
+bool roll_affix(Item& it, Rng& rng);          // adds one affix within the rarity's prefix/suffix limits
+std::string rare_name(Rng& rng);
+void grid_size(const Item& it, int& w, int& h);  // inventory cells: a maul is 2x4, a ring 1x1
+int sell_price(const Item& it);               // in dinars
 Item random_drop(int area_level, float rare_chance, float magic_chance, Rng& rng, Slot only = Slot::Count);
 uint32_t rarity_color(Rarity r);
 
