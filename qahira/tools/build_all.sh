@@ -22,6 +22,8 @@ cmake -S . -B build/android -G Ninja -DCMAKE_BUILD_TYPE=Release \
   -DCMAKE_TOOLCHAIN_FILE="$NDK/build/cmake/android.toolchain.cmake" -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-29 >/dev/null
 cmake --build build/android
 "$NDK"/toolchains/llvm/prebuilt/*/bin/llvm-strip -o build/qahira_libretro_android.so build/android/qahira_libretro_android.so
+echo "== unit tests"
+./build/mac/qtests
 echo "== bot tests"
 for bot in walk; do ./build/mac/qhost build/Qahira.qpk --headless --bot "$bot"; done
 echo "== screenshot"
