@@ -1,0 +1,379 @@
+"""Synthesises every sound in the game from code: sound effects, the ambience, and music in the maqamat.
+
+Run with any Python that has numpy (Blender's bundled one works):
+    /Applications/Blender.app/Contents/Resources/5.2/python/bin/python3.13 tools/audio/synth.py
+Writes 16-bit mono WAV files into assets/generated/audio/.
+
+Instruments are modal/physical approximations: the oud and qanun are sums of decaying, slightly inharmonic
+partials excited by a pluck and coloured by a body impulse response; the ney is a breathy sine with vibrato;
+the darbuka's dum is a pitch-dropping membrane and its tek a band of noise.
+"""
+import os
+import sys
+import wave
+import numpy as np
+
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+OUT = os.path.join(ROOT, 'assets', 'generated', 'audio')
+SR = 48000
+rng = np.random.default_rng(1)
+
+
+# ------------------------------------------------------------------ primitives
+def t_axis(dur, sr=SR):
+    return np.arange(int(dur * sr)) / sr
+
+
+def env_adsr(n, a, d, s, r, sr=SR):
+    e = np.ones(n) * s
+    ia, idd, ir = int(a * sr), int(d * sr), int(r * sr)
+    ia = max(ia, 1)
+    e[:ia] = np.linspace(0, 1, ia)
+    e[ia:ia + idd] = np.linspace(1, s, len(e[ia:ia + idd]))
+    if ir > 0:
+        e[-ir:] *= np.linspace(1, 0, ir)
+    return e
+
+
+def fft_filter(x, lo, hi, sr=SR, soft=0.15):
+    """Band-pass with soft edges in the frequency domain."""
+    n = len(x)
+    X = np.fft.rfft(x)
+    f = np.fft.rfftfreq(n, 1 / sr)
+    g = np.ones_like(f)
+    if lo > 0:
+        g *= 1 / (1 + np.exp(-(f - lo) / (lo * soft + 1)))
+    if hi < sr / 2:
+        g *= 1 / (1 + np.exp((f - hi) / (hi * soft + 1)))
+    return np.fft.irfft(X * g, n)
+
+
+def conv(x, ir):
+    n = len(x) + len(ir) - 1
+    N = 1 << (n - 1).bit_length()
+    y = np.fft.irfft(np.fft.rfft(x, N) * np.fft.rfft(ir, N), N)[:n]
+    return y
+
+
+def reverb_ir(dur=1.8, sr=SR, bright=0.35):
+    t = t_axis(dur, sr)
+    n = rng.standard_normal(len(t)) * np.exp(-t * 6.9 / dur)
+    n = fft_filter(n, 120, 6000 * bright + 1500, sr)
+    n[: int(0.012 * sr)] *= np.linspace(0, 1, int(0.012 * sr))
+    return n / np.max(np.abs(n)) * 0.12
+
+
+def norm(x, peak=0.9):
+    m = np.max(np.abs(x))
+    return x if m < 1e-9 else x / m * peak
+
+
+def write(name, x, sr=SR):
+    os.makedirs(OUT, exist_ok=True)
+    x = np.clip(x, -1, 1)
+    with wave.open(os.path.join(OUT, name + '.wav'), 'wb') as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(sr)
+        w.writeframes((x * 32767).astype('<i2').tobytes())
+    print('AUDIO %-12s %.2fs' % (name, len(x) / sr))
+
+
+def noise(n):
+    return rng.standard_normal(n)
+
+
+# ------------------------------------------------------------------ instruments
+BODY_IR = None
+
+
+def body_ir(sr):
+    global BODY_IR
+    if BODY_IR is None or BODY_IR[0] != sr:
+        t = t_axis(0.12, sr)
+        ir = np.zeros_like(t)
+        for f, d, a in ((105, 18, 1.0), (205, 25, 0.8), (440, 35, 0.5), (980, 60, 0.35), (2200, 90, 0.2)):
+            ir += a * np.sin(2 * np.pi * f * t) * np.exp(-t * d)
+        ir[0] += 3.0
+        BODY_IR = (sr, ir / np.sum(np.abs(ir)) * 8)
+    return BODY_IR[1]
+
+
+def pluck(freq, dur, sr, bright=1.0, inharm=0.0004, pos=0.18, decay=1.6):
+    t = t_axis(dur, sr)
+    y = np.zeros_like(t)
+    for n in range(1, 16):
+        fn = freq * n * np.sqrt(1 + inharm * n * n)
+        if fn > sr / 2 - 500:
+            break
+        amp = abs(np.sin(np.pi * n * pos)) / n ** (1.25 - 0.25 * bright)
+        y += amp * np.sin(2 * np.pi * fn * t + rng.uniform(0, 6)) * np.exp(-t * decay * (1 + 0.35 * (n - 1) ** 1.2))
+    click = noise(int(0.004 * sr)) * np.linspace(1, 0, int(0.004 * sr)) * 0.3
+    y[: len(click)] += click
+    return y
+
+
+def oud(freq, dur, sr, vel=1.0):
+    y = pluck(freq, dur, sr, bright=0.8, decay=1.9)
+    y = conv(y, body_ir(sr))[: len(y)]
+    return y * vel
+
+
+def qanun(freq, dur, sr, vel=1.0):
+    y = pluck(freq, dur, sr, bright=1.3, decay=1.2, pos=0.12, inharm=0.0002)
+    return y * vel * 0.7
+
+
+def ney(freq, dur, sr, vel=1.0):
+    t = t_axis(dur, sr)
+    vib = 1 + 0.006 * np.sin(2 * np.pi * 5.2 * t) * np.clip(t / 0.4, 0, 1)
+    ph = 2 * np.pi * np.cumsum(freq * vib) / sr
+    y = np.sin(ph) + 0.25 * np.sin(2 * ph) + 0.08 * np.sin(3 * ph)
+    breath = fft_filter(noise(len(t)), freq * 0.8, freq * 4, sr) * 0.35
+    e = env_adsr(len(t), 0.12, 0.2, 0.8, min(0.25, dur * 0.4), sr)
+    return (y * 0.6 + breath) * e * vel
+
+
+def dum(sr, vel=1.0):
+    t = t_axis(0.45, sr)
+    f = 85 + 110 * np.exp(-t * 35)
+    y = np.sin(2 * np.pi * np.cumsum(f) / sr) * np.exp(-t * 7)
+    y += fft_filter(noise(len(t)), 60, 400, sr) * np.exp(-t * 40) * 0.4
+    return y * vel
+
+
+def tek(sr, vel=1.0, hi=True):
+    t = t_axis(0.12, sr)
+    y = fft_filter(noise(len(t)), 2500 if hi else 700, 9000 if hi else 3500, sr) * np.exp(-t * (55 if hi else 30))
+    y += np.sin(2 * np.pi * (420 if hi else 260) * t) * np.exp(-t * 60) * 0.5
+    return y * vel
+
+
+def riq(sr, vel=1.0):
+    t = t_axis(0.18, sr)
+    y = fft_filter(noise(len(t)), 5000, 12000, sr) * np.exp(-t * 22)
+    return y * vel * 0.6
+
+
+def place(buf, x, at, gain=1.0):
+    i = int(at)
+    if i >= len(buf):
+        return
+    n = min(len(x), len(buf) - i)
+    buf[i:i + n] += x[:n] * gain
+
+
+# ------------------------------------------------------------------ maqamat
+def maqam(name, tonic):
+    """Scale degrees in cents from the tonic; quarter tones where the maqam has them."""
+    cents = {
+        'hijaz': [0, 90, 390, 500, 700, 800, 1000, 1200],
+        'rast': [0, 200, 350, 500, 700, 900, 1050, 1200],
+        'bayati': [0, 150, 300, 500, 700, 800, 1000, 1200],
+        'saba': [0, 150, 300, 400, 600, 700, 1000, 1200],
+        'kurd': [0, 100, 300, 500, 700, 800, 1000, 1200],
+    }[name]
+    return [tonic * 2 ** (c / 1200) for c in cents]
+
+
+def compose(name, maq, tonic, bpm, bars, seed, sr=32000, melody_inst='oud'):
+    r = np.random.default_rng(seed)
+    beat = 60 / bpm
+    total = bars * 4 * beat
+    n = int(total * sr)
+    mel = np.zeros(n)
+    perc = np.zeros(n)
+    drone = np.zeros(n)
+    scale = maqam(maq, tonic)
+    # drone: low tonic and fifth on the oud every two bars, and a soft ney pad
+    for b in range(0, bars, 2):
+        at = b * 4 * beat * sr
+        place(drone, oud(tonic / 2, 4 * beat * 2, sr, 0.5), at)
+        place(drone, oud(tonic / 2 * 1.5, 4 * beat * 2, sr, 0.25), at + beat * sr * 2)
+    # maqsum: dum tek . tek dum . tek .
+    pattern = [('D', 0.0), ('T', 0.5), ('T', 1.5), ('D', 2.0), ('T', 3.0)]
+    for b in range(bars):
+        for kind, off in pattern:
+            at = (b * 4 + off) * beat * sr
+            if kind == 'D':
+                place(perc, dum(sr, 0.9), at)
+            else:
+                place(perc, tek(sr, 0.5), at)
+        for k in range(8):
+            if r.random() < 0.55:
+                place(perc, riq(sr, 0.25 + 0.15 * r.random()), (b * 4 + k * 0.5 + 0.25) * beat * sr)
+        if b % 4 == 3:  # fill
+            for k in range(4):
+                place(perc, tek(sr, 0.4, hi=bool(k % 2)), (b * 4 + 3 + k * 0.25) * beat * sr)
+    # melody: phrases that climb and fall through the jins and cadence on the tonic, fourth or fifth
+    idx = 0
+    t = 0.0
+    phrase_end = 4 * beat * 2
+    inst = oud if melody_inst == 'oud' else qanun
+    while t < total - beat:
+        if t >= phrase_end:
+            target = r.choice([0, 3, 4, 7])
+            while idx != target:
+                idx += 1 if target > idx else -1
+                place(mel, inst(scale[idx], beat * 1.5, sr, 0.7), t * sr)
+                t += beat / 2
+            place(mel, inst(scale[idx], beat * 3, sr, 0.9), t * sr)
+            t += beat * r.choice([2, 3])
+            phrase_end = t + 4 * beat * r.choice([1, 2])
+            continue
+        step = r.choice([-2, -1, -1, 1, 1, 2, 0], p=[0.08, 0.26, 0.1, 0.26, 0.12, 0.08, 0.1])
+        idx = int(np.clip(idx + step, 0, 7))
+        dur = r.choice([0.25, 0.5, 0.5, 1.0, 1.5]) * beat
+        vel = 0.55 + 0.35 * r.random()
+        place(mel, inst(scale[idx], max(dur * 2, 0.5), sr, vel), t * sr)
+        if dur <= 0.25 * beat and r.random() < 0.5:  # tremolo on short notes, as on a qanun
+            place(mel, inst(scale[idx], 0.4, sr, vel * 0.6), (t + dur / 2) * sr)
+        t += dur
+    # a ney line in the second half, an octave up, slow
+    for b in range(bars // 2, bars, 2):
+        deg = int(r.choice([0, 2, 3, 4, 5]))
+        place(mel, ney(scale[deg] * 2, 4 * beat * 1.8, sr, 0.35), b * 4 * beat * sr)
+    mix = mel * 0.55 + perc * 0.45 + drone * 0.35
+    rev = conv(mix, reverb_ir(2.2, sr, 0.3))[:n]
+    mix = mix * 0.8 + rev * 0.6
+    # loop seam: crossfade the tail into the head
+    fade = int(0.5 * sr)
+    mix[:fade] = mix[:fade] * np.linspace(0, 1, fade) + mix[-fade:] * np.linspace(1, 0, fade)
+    mix = mix[:n - fade]
+    write(name, norm(mix, 0.75), sr)
+
+
+# ------------------------------------------------------------------ sound effects
+def sfx():
+    s = SR
+    # whoosh of a heavy swing
+    t = t_axis(0.35)
+    sweep = np.exp(-((t - 0.15) / 0.08) ** 2)
+    x = noise(len(t))
+    x = fft_filter(x, 300, 2500) * sweep
+    write('swing', norm(x, 0.6))
+    # heavy impact: low thump, crunch
+    t = t_axis(0.5)
+    thump = np.sin(2 * np.pi * np.cumsum(60 + 90 * np.exp(-t * 30)) / s) * np.exp(-t * 9)
+    crunch = fft_filter(noise(len(t)), 800, 5000) * np.exp(-t * 25)
+    write('impact', norm(thump + crunch * 0.5, 0.85))
+    # slam: bigger thump, debris, rumble
+    t = t_axis(1.2)
+    thump = np.sin(2 * np.pi * np.cumsum(45 + 80 * np.exp(-t * 20)) / s) * np.exp(-t * 5)
+    debris = fft_filter(noise(len(t)), 1500, 7000) * (np.exp(-t * 6) * (rng.random(len(t)) < 0.02) * 6 + np.exp(-t * 18))
+    rumble = fft_filter(noise(len(t)), 30, 180) * np.exp(-t * 3) * 1.5
+    x = thump * 1.2 + debris * 0.4 + rumble
+    x = x + conv(x, reverb_ir(0.8))[:len(x)] * 0.5
+    write('slam', norm(x, 0.9))
+    # aftershock: rolling eruption
+    t = t_axis(1.6)
+    x = fft_filter(noise(len(t)), 25, 260) * (1 - np.exp(-t * 12)) * np.exp(-t * 2.2) * 2
+    for k in range(6):
+        place(x, fft_filter(noise(int(0.2 * s)), 900, 6000) * np.exp(-t_axis(0.2) * 20) * 0.5, (0.05 + k * 0.12) * s)
+    write('aftershock', norm(x, 0.9))
+    # crit: bright metallic ring
+    t = t_axis(0.7)
+    x = sum(np.sin(2 * np.pi * f * t) * np.exp(-t * d) * a for f, d, a in ((1240, 7, 1), (1985, 9, 0.6), (3110, 12, 0.4), (4720, 16, 0.25)))
+    write('crit', norm(x, 0.45))
+    # flesh hit
+    t = t_axis(0.22)
+    x = np.sin(2 * np.pi * np.cumsum(140 * np.exp(-t * 8) + 60) / s) * np.exp(-t * 25) + fft_filter(noise(len(t)), 400, 2500) * np.exp(-t * 40) * 0.6
+    write('hit', norm(x, 0.6))
+    # hero takes a hit: cloth and a dull knock
+    t = t_axis(0.3)
+    x = np.sin(2 * np.pi * np.cumsum(90 + 40 * np.exp(-t * 20)) / s) * np.exp(-t * 14) + fft_filter(noise(len(t)), 200, 1400) * np.exp(-t * 20) * 0.5
+    write('hero_hit', norm(x, 0.7))
+    # ghoul hiss
+    t = t_axis(0.8)
+    x = fft_filter(noise(len(t)), 2500, 7000) * env_adsr(len(t), 0.05, 0.2, 0.6, 0.4)
+    x *= 1 + 0.5 * np.sin(2 * np.pi * 14 * t)
+    write('ghoul_hiss', norm(x, 0.35))
+    # ghoul crumbles to grave dust: granular crackle decaying
+    t = t_axis(1.3)
+    grains = (rng.random(len(t)) < 0.004 * np.exp(-t * 2.5)).astype(float)
+    x = conv(grains, fft_filter(noise(int(0.01 * s)), 1500, 8000))[:len(t)] * 1.5
+    x += fft_filter(noise(len(t)), 200, 1500) * np.exp(-t * 4) * 0.4
+    write('ghoul_die', norm(x, 0.55))
+    # bile spit and splash
+    t = t_axis(0.35)
+    f = 900 * np.exp(-t * 6) + 250
+    x = fft_filter(noise(len(t)), 500, 3000) * np.exp(-t * 10) + np.sin(2 * np.pi * np.cumsum(f) / s) * np.exp(-t * 14) * 0.4
+    write('spit', norm(x, 0.5))
+    t = t_axis(0.5)
+    x = fft_filter(noise(len(t)), 600, 4000) * np.exp(-t * 9) * (1 + 0.8 * np.sin(2 * np.pi * 30 * t))
+    write('splash', norm(x, 0.5))
+    # warcry: a growling brass-like roar
+    t = t_axis(1.0)
+    f0 = 95 + 25 * np.sin(np.pi * np.clip(t / 0.9, 0, 1))
+    ph = 2 * np.pi * np.cumsum(f0) / s
+    saw = sum(np.sin(k * ph) / k for k in range(1, 30))
+    x = fft_filter(saw, 150, 1800) * env_adsr(len(t), 0.06, 0.2, 0.85, 0.35)
+    x += fft_filter(noise(len(t)), 300, 2500) * env_adsr(len(t), 0.02, 0.2, 0.3, 0.3) * 0.4
+    x = x + conv(x, reverb_ir(1.0))[:len(x)] * 0.6
+    write('warcry', norm(x, 0.8))
+    # dodge
+    t = t_axis(0.3)
+    x = fft_filter(noise(len(t)), 250, 1500) * np.exp(-((t - 0.1) / 0.07) ** 2)
+    write('dodge', norm(x, 0.45))
+    # pickup: brass chime
+    t = t_axis(0.9)
+    x = sum(np.sin(2 * np.pi * f * t) * np.exp(-t * d) for f, d in ((880, 5), (1320, 6), (2210, 9)))
+    x[int(0.08 * s):] += sum(np.sin(2 * np.pi * f * t[: len(t) - int(0.08 * s)]) * np.exp(-t[: len(t) - int(0.08 * s)] * d) for f, d in ((1175, 5), (1760, 7)))
+    write('pickup', norm(x, 0.4))
+    # drink
+    t = t_axis(0.6)
+    x = np.zeros(len(t))
+    for k in range(4):
+        tt = t_axis(0.12)
+        g = np.sin(2 * np.pi * np.cumsum(300 + 400 * tt / 0.12) / s) * np.exp(-tt * 25)
+        place(x, g, (0.05 + k * 0.12) * s, 0.6)
+    write('drink', norm(x, 0.5))
+    # break: a crack and a low boom
+    t = t_axis(0.8)
+    x = fft_filter(noise(len(t)), 2000, 9000) * np.exp(-t * 35) + np.sin(2 * np.pi * np.cumsum(70 + 60 * np.exp(-t * 10)) / s) * np.exp(-t * 5)
+    write('break', norm(x, 0.75))
+    # level up: an ascending Hijaz run on the oud with shimmer
+    x = np.zeros(int(2.2 * s))
+    for k, f in enumerate(maqam('hijaz', 293.66)):
+        place(x, oud(f, 1.2, s, 0.8), k * 0.09 * s)
+    shimmer = sum(np.sin(2 * np.pi * f * t_axis(2.2)) for f in (1174.7, 1760, 2349)) * np.exp(-t_axis(2.2) * 2) * 0.15
+    write('levelup', norm(x + shimmer, 0.6))
+    # UI tick
+    t = t_axis(0.06)
+    write('ui_move', norm(np.sin(2 * np.pi * 1800 * t) * np.exp(-t * 80), 0.25))
+    t = t_axis(0.15)
+    write('ui_select', norm(np.sin(2 * np.pi * 1200 * t) * np.exp(-t * 30) + np.sin(2 * np.pi * 1800 * t) * np.exp(-t * 40) * 0.5, 0.35))
+
+
+def ambience(name, dur=40.0, sr=32000):
+    """Cairo at night from a side street: traffic hum, distant horns, a dog, murmur."""
+    t = t_axis(dur, sr)
+    hum = fft_filter(noise(len(t)), 40, 400, sr) * (0.6 + 0.2 * np.sin(2 * np.pi * t / 13))
+    air = fft_filter(noise(len(t)), 1500, 6000, sr) * 0.05
+    x = hum + air
+    r = np.random.default_rng(5)
+    for k in range(10):  # distant car horns, two-tone, heavily filtered
+        at = r.uniform(0, dur - 1.5)
+        hd = r.uniform(0.15, 0.6)
+        tt = t_axis(hd, sr)
+        f = r.choice([370, 410, 440, 466])
+        horn = (np.sign(np.sin(2 * np.pi * f * tt)) + np.sign(np.sin(2 * np.pi * f * 1.26 * tt))) * env_adsr(len(tt), 0.01, 0.05, 0.9, 0.05, sr)
+        horn = fft_filter(horn, 300, 1500, sr) * r.uniform(0.04, 0.1)
+        place(x, horn, at * sr)
+        if r.random() < 0.5:
+            place(x, horn * 0.8, (at + hd + 0.12) * sr)
+    x = x + conv(x, reverb_ir(2.5, sr, 0.2))[:len(x)] * 0.8
+    fade = int(1.0 * sr)
+    x[:fade] = x[:fade] * np.linspace(0, 1, fade) + x[-fade:] * np.linspace(1, 0, fade)
+    x = x[:len(x) - fade]
+    write(name, norm(x, 0.5), sr)
+
+
+if __name__ == '__main__':
+    only = sys.argv[1:] or ['sfx', 'music', 'ambience']
+    if 'sfx' in only:
+        sfx()
+    if 'ambience' in only:
+        ambience('amb_street')
+    if 'music' in only:
+        compose('mus_hijaz', 'hijaz', 146.83, 96, 24, seed=11)

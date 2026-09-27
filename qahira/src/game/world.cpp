@@ -387,8 +387,8 @@ void World::resolve_skill(Actor& h) {
                 emit(Ev::Crit, e.pos);
             }
             vec3 hp = vec3(e.pos, 1.0f * e.scale);
-            burst(hp, 10, vec4(1.f, 0.75f, 0.45f, 1), vec4(0.9f, 0.3f, 0.1f, 0), 5.f, 0.12f, 0.35f, true, -9.f);
-            burst(hp, 6, vec4(0.25f, 0.2f, 0.22f, 0.9f), vec4(0.2f, 0.18f, 0.2f, 0), 2.5f, 0.3f, 0.6f, false, -4.f, 1);
+            burst(hp, 7, vec4(1.f, 0.7f, 0.4f, 0.8f), vec4(0.9f, 0.3f, 0.1f, 0), 5.f, 0.08f, 0.3f, true, -9.f);
+            burst(hp, 3, vec4(0.2f, 0.17f, 0.18f, 0.55f), vec4(0.15f, 0.13f, 0.14f, 0), 2.f, 0.22f, 0.5f, false, -4.f, 1);
             if (e.life <= 0) { kill(e); continue; }
             e.break_meter += res.total / e.life_max * 100.f * 1.7f * brk;
             if (e.break_meter >= 100.f) {

@@ -10,6 +10,7 @@
 #include "game/view.hpp"
 #include "game/save.hpp"
 #include "game/bots.hpp"
+#include "audio/audio.hpp"
 #include <cstdlib>
 #include <cstring>
 #include <string>
@@ -30,6 +31,7 @@ struct State {
     float wave_t = 0;
     float rumble_strong = 0, rumble_weak = 0;
     Bot bot;
+    Rng sfx_rng{77};
 };
 
 State* S = nullptr;
@@ -38,10 +40,11 @@ State* S = nullptr;
 void spawn_encounter(World& w) {
     int g = find_monster("ghoul"), b = find_monster("ghoul_bruiser"), s = find_monster("ghoul_spitter");
     auto pack = [&](vec2 c, int ghouls, int spitters, int bruisers, bool rare) {
-        for (int i = 0; i < ghouls; i++) w.spawn_monster(g, c + vec2{w.rng.range(-2.5f, 2.5f), w.rng.range(-1.5f, 1.5f)}, Rarity::Normal, w.area_level);
-        for (int i = 0; i < spitters; i++) w.spawn_monster(s, c + vec2{w.rng.range(-2.5f, 2.5f), w.rng.range(1.5f, 3.f)}, Rarity::Normal, w.area_level);
-        for (int i = 0; i < bruisers; i++) w.spawn_monster(b, c + vec2{w.rng.range(-1.5f, 1.5f), 2.f}, Rarity::Normal, w.area_level);
-        if (rare) w.spawn_monster(b, c + vec2{0, 3.f}, Rarity::Rare, w.area_level);
+        auto at = [&](vec2 p) { return w.level.resolve(p, 0.6f); };
+        for (int i = 0; i < ghouls; i++) w.spawn_monster(g, at(c + vec2{w.rng.range(-1.8f, 1.8f), w.rng.range(-1.5f, 1.5f)}), Rarity::Normal, w.area_level);
+        for (int i = 0; i < spitters; i++) w.spawn_monster(s, at(c + vec2{w.rng.range(-1.5f, 1.5f), w.rng.range(2.f, 3.5f)}), Rarity::Normal, w.area_level);
+        for (int i = 0; i < bruisers; i++) w.spawn_monster(b, at(c + vec2{w.rng.range(-1.f, 1.f), 2.f}), Rarity::Normal, w.area_level);
+        if (rare) w.spawn_monster(b, at(c + vec2{0, 3.f}), Rarity::Rare, w.area_level);
     };
     pack({0, 8}, 5, 0, 0, false);
     pack({0, 28}, 4, 2, 0, false);
@@ -51,8 +54,8 @@ void spawn_encounter(World& w) {
 void setup_world(World& w) {
     w.level.clear();
     w.level.add_tile("street_a", {0, 0});
-    w.level.add_tile("street_b", {0, 24});
-    w.level.add_tile("street_c", {0, 48});
+    w.level.add_tile("souq_a", {0, 24});
+    w.level.add_tile("souq_b", {0, 48});
     w.reset_hero();
     w.actors[0].pos = {0, -9};
     w.actors[0].facing = kPi / 2;
@@ -74,9 +77,40 @@ void respawn_hero(World& w) {
     S->view.follow(w, 1, true);
 }
 
+void play_event_sounds(const World& w) {
+    Audio& a = audio();
+    Rng& r = S->sfx_rng;
+    vec2 hp = w.actors[0].pos;
+    for (const Event& e : w.events) {
+        float pan = clampf((e.pos.x - hp.x) / 9.f, -1, 1) * 0.7f;
+        float near = 1.f / (1.f + length(e.pos - hp) * 0.06f);
+        auto pv = [&](float c) { return c * r.range(0.93f, 1.07f); };
+        switch (e.type) {
+            case Ev::Swing: a.play("swing", 0.45f, 0, pv(e.mag > 1 ? 0.8f : 1.f)); break;
+            case Ev::Impact: if (e.mag > 0) a.play("impact", 0.75f, pan, pv(1)); break;
+            case Ev::SlamImpact: a.play("slam", 0.9f * std::min(1.f, e.mag) * near, pan, pv(1)); break;
+            case Ev::Aftershock: a.play("aftershock", 0.95f, 0, pv(1)); break;
+            case Ev::EnemyHit: a.play("hit", 0.35f * near, pan, pv(1)); break;
+            case Ev::EnemyDie: a.play("ghoul_die", 0.55f * near, pan, pv(e.mag > 1.2f ? 0.75f : 1.f)); break;
+            case Ev::HeroHit: a.play("hero_hit", 0.7f, 0, pv(1)); break;
+            case Ev::Warcry: a.play("warcry", 0.85f, 0, 1); break;
+            case Ev::Dodge: a.play("dodge", 0.5f, 0, pv(1)); break;
+            case Ev::Spit: a.play("spit", 0.45f * near, pan, pv(1)); break;
+            case Ev::Splash: a.play("splash", 0.35f * near, pan, pv(1)); break;
+            case Ev::Pickup: a.play("pickup", 0.5f, 0, 1); break;
+            case Ev::Drink: a.play("drink", 0.6f, 0, 1); break;
+            case Ev::Crit: a.play("crit", 0.35f, pan, pv(1)); break;
+            case Ev::Break: a.play("break", 0.7f, pan, pv(1)); break;
+            case Ev::LevelUp: a.play("levelup", 0.6f, 0, 1); break;
+            case Ev::HeroDie: a.play("slam", 0.8f, 0, 0.6f); break;
+        }
+    }
+}
+
 void presentation_events() {
     World& w = S->world;
     S->view.on_events(w);
+    play_event_sounds(w);
     for (const Event& e : w.events) {
         switch (e.type) {
             case Ev::SlamImpact: S->rumble_strong = std::max(S->rumble_strong, 0.7f * e.mag); break;
@@ -99,6 +133,9 @@ bool app_init(const char* pack_path, Platform* plat) {
     setup_world(S->world);
     S->view.follow(S->world, 1, true);
     if (const char* b = getenv("QAHIRA_BOT")) S->bot.start(b);
+    audio().init();
+    audio().music("mus_hijaz", 0.5f, 3.f);
+    audio().ambience("amb_street", 0.5f, 2.f);
     return true;
 }
 
@@ -168,7 +205,7 @@ void app_render(GLuint fbo, int w, int h) {
     u.end(fbo, w, h);
 }
 
-void app_audio(int16_t* stereo, int frames) { memset(stereo, 0, size_t(frames) * 4); }
+void app_audio(int16_t* stereo, int frames) { audio().mix(stereo, frames); }
 
 // ---- save states
 static const uint32_t kStateVersion = 3;

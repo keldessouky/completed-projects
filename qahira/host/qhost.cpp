@@ -45,6 +45,8 @@ static int16_t g_trig[2];
 static int g_ptr_x = 0, g_ptr_y = 0;
 static bool g_ptr_down = false;
 static std::string g_save_dir = "build/saves";
+static FILE* g_wav = nullptr;
+static uint32_t g_wav_frames = 0;
 static const int W = 1920, H = 1080;
 
 static void core_log(enum retro_log_level, const char* fmt, ...) {
@@ -83,6 +85,7 @@ static bool env(unsigned cmd, void* data) {
 static void video(const void*, unsigned, unsigned, size_t) {}
 static void audio1(int16_t, int16_t) {}
 static size_t audio_batch(const int16_t* d, size_t frames) {
+    if (g_wav) { fwrite(d, 4, frames, g_wav); g_wav_frames += uint32_t(frames); }
     if (g_audio && SDL_GetQueuedAudioSize(g_audio) < 48000 * 4 / 5) SDL_QueueAudio(g_audio, d, Uint32(frames * 4));
     return frames;
 }
@@ -200,6 +203,7 @@ int main(int argc, char** argv) {
         else if (a == "--shot" && i + 1 < argc) shot = argv[++i];
         else if (a == "--shot-every" && i + 1 < argc) shot_every = atoi(argv[++i]);
         else if (a == "--bot" && i + 1 < argc) setenv("QAHIRA_BOT", argv[++i], 1);
+        else if (a == "--wav" && i + 1 < argc) { g_wav = fopen(argv[++i], "wb"); uint8_t hdr[44] = {}; fwrite(hdr, 1, 44, g_wav); }
         else if (a == "--opt" && i + 1 < argc) {
             std::string kv = argv[++i];
             size_t eq = kv.find('=');
@@ -290,5 +294,15 @@ int main(int argc, char** argv) {
         if (frames > 0 && frame >= frames) quit = true;
     }
     retro_unload_game();
+    if (g_wav) {  // patch the RIFF header now that the length is known
+        uint32_t data = g_wav_frames * 4, riff = 36 + data, fmt_len = 16, rate = 48000, byte_rate = 48000 * 4;
+        uint16_t pcm = 1, ch = 2, align = 4, bits = 16;
+        fseek(g_wav, 0, SEEK_SET);
+        fwrite("RIFF", 1, 4, g_wav); fwrite(&riff, 4, 1, g_wav); fwrite("WAVEfmt ", 1, 8, g_wav);
+        fwrite(&fmt_len, 4, 1, g_wav); fwrite(&pcm, 2, 1, g_wav); fwrite(&ch, 2, 1, g_wav); fwrite(&rate, 4, 1, g_wav);
+        fwrite(&byte_rate, 4, 1, g_wav); fwrite(&align, 2, 1, g_wav); fwrite(&bits, 2, 1, g_wav);
+        fwrite("data", 1, 4, g_wav); fwrite(&data, 4, 1, g_wav);
+        fclose(g_wav);
+    }
     return 0;
 }
