@@ -1,0 +1,218 @@
+// libretro entry points: this is what RetroArch loads on the RP6.
+#include "libretro.h"
+#include "platform/app_api.hpp"
+#include "core/log.hpp"
+#include <cstring>
+#include <string>
+#include <vector>
+
+using namespace q;
+
+static retro_environment_t env_cb;
+static retro_video_refresh_t video_cb;
+static retro_audio_sample_t audio_cb;
+static retro_audio_sample_batch_t audio_batch_cb;
+static retro_input_poll_t poll_cb;
+static retro_input_state_t state_cb;
+static retro_log_printf_t log_cb;
+static retro_hw_render_callback hw;
+static retro_rumble_interface rumble_if;
+static bool have_rumble = false;
+static bool gpu_ready = false;
+static bool loaded = false;
+static uint32_t prev_buttons = 0;
+static Platform plat;
+static const int kW = 1920, kH = 1080;
+
+static void log_sink(LogLevel l, const char* msg) {
+    if (log_cb) {
+        retro_log_level lv = l == LogLevel::Error ? RETRO_LOG_ERROR : l == LogLevel::Warn ? RETRO_LOG_WARN : RETRO_LOG_INFO;
+        log_cb(lv, "[qahira] %s\n", msg);
+    } else {
+        fprintf(stderr, "[qahira] %s\n", msg);
+    }
+}
+
+static void do_rumble(int strong, int weak) {
+    if (!have_rumble) return;
+    rumble_if.set_rumble_state(0, RETRO_RUMBLE_STRONG, uint16_t(strong));
+    rumble_if.set_rumble_state(0, RETRO_RUMBLE_WEAK, uint16_t(weak));
+}
+
+static void context_reset() {
+    gpu_ready = true;
+    app_gpu_init();
+}
+
+static void context_destroy() {
+    app_gpu_lost();
+    gpu_ready = false;
+}
+
+RETRO_API void retro_set_environment(retro_environment_t cb) {
+    env_cb = cb;
+    retro_log_callback logging;
+    if (cb(RETRO_ENVIRONMENT_GET_LOG_INTERFACE, &logging)) log_cb = logging.log;
+    set_log_sink(log_sink);
+    bool no_game = false;
+    cb(RETRO_ENVIRONMENT_SET_SUPPORT_NO_GAME, &no_game);
+    static const retro_controller_description pads[] = {{"RetroPad", RETRO_DEVICE_JOYPAD}};
+    static const retro_controller_info ports[] = {{pads, 1}, {nullptr, 0}};
+    cb(RETRO_ENVIRONMENT_SET_CONTROLLER_INFO, (void*)ports);
+    static retro_input_descriptor desc[] = {
+        {0, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_LEFT, RETRO_DEVICE_ID_ANALOG_X, "Move"},
+        {0, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_RIGHT, RETRO_DEVICE_ID_ANALOG_X, "Aim"},
+        {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_B, "Skill 1 / Interact"},
+        {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_A, "Dodge / Back"},
+        {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_Y, "Skill 2"},
+        {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_X, "Skill 3"},
+        {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_R, "Skill 4"},
+        {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_R2, "Skill 5 (analog)"},
+        {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_L2, "Second skill bar"},
+        {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_L, "Swap weapons"},
+        {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_L3, "Life flask (M1)"},
+        {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_R3, "Mana flask (M2)"},
+        {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_START, "Menu"},
+        {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_SELECT, "Target lock"},
+        {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_UP, "Portal"},
+        {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_LEFT, "Pick up"},
+        {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_RIGHT, "Loot labels"},
+        {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_DOWN, "Map"},
+        {0, 0, 0, 0, nullptr},
+    };
+    cb(RETRO_ENVIRONMENT_SET_INPUT_DESCRIPTORS, desc);
+}
+
+RETRO_API void retro_set_video_refresh(retro_video_refresh_t cb) { video_cb = cb; }
+RETRO_API void retro_set_audio_sample(retro_audio_sample_t cb) { audio_cb = cb; }
+RETRO_API void retro_set_audio_sample_batch(retro_audio_sample_batch_t cb) { audio_batch_cb = cb; }
+RETRO_API void retro_set_input_poll(retro_input_poll_t cb) { poll_cb = cb; }
+RETRO_API void retro_set_input_state(retro_input_state_t cb) { state_cb = cb; }
+
+RETRO_API void retro_init(void) {}
+RETRO_API void retro_deinit(void) {}
+RETRO_API unsigned retro_api_version(void) { return RETRO_API_VERSION; }
+
+RETRO_API void retro_get_system_info(retro_system_info* info) {
+    memset(info, 0, sizeof(*info));
+    info->library_name = "Qahira";
+    info->library_version = "0.1.0";
+    info->valid_extensions = "qpk";
+    info->need_fullpath = true;
+    info->block_extract = true;
+}
+
+RETRO_API void retro_get_system_av_info(retro_system_av_info* info) {
+    info->geometry.base_width = kW;
+    info->geometry.base_height = kH;
+    info->geometry.max_width = kW;
+    info->geometry.max_height = kH;
+    info->geometry.aspect_ratio = 16.f / 9.f;
+    info->timing.fps = 60.0;
+    info->timing.sample_rate = 48000.0;
+}
+
+RETRO_API void retro_set_controller_port_device(unsigned, unsigned) {}
+RETRO_API void retro_reset(void) {}
+
+RETRO_API bool retro_load_game(const retro_game_info* game) {
+    if (!game || !game->path) return false;
+    retro_pixel_format fmt = RETRO_PIXEL_FORMAT_XRGB8888;
+    env_cb(RETRO_ENVIRONMENT_SET_PIXEL_FORMAT, &fmt);
+    memset(&hw, 0, sizeof(hw));
+#if defined(__ANDROID__)
+    hw.context_type = RETRO_HW_CONTEXT_OPENGLES_VERSION;
+    hw.version_major = 3;
+    hw.version_minor = 2;
+#else
+    hw.context_type = RETRO_HW_CONTEXT_OPENGL_CORE;
+    hw.version_major = 3;
+    hw.version_minor = 3;
+#endif
+    hw.context_reset = context_reset;
+    hw.context_destroy = context_destroy;
+    hw.depth = true;
+    hw.stencil = false;
+    hw.bottom_left_origin = true;
+    plat.has_gpu = env_cb(RETRO_ENVIRONMENT_SET_HW_RENDER, &hw);
+    if (!plat.has_gpu) QWARN("no hardware context: running without video (headless)");
+    have_rumble = env_cb(RETRO_ENVIRONMENT_GET_RUMBLE_INTERFACE, &rumble_if);
+    plat.rumble = do_rumble;
+    const char* dir = nullptr;
+    if (env_cb(RETRO_ENVIRONMENT_GET_SAVE_DIRECTORY, &dir) && dir) plat.save_dir = dir;
+    else plat.save_dir = ".";
+    loaded = app_init(game->path, &plat);
+    return loaded;
+}
+
+RETRO_API bool retro_load_game_special(unsigned, const retro_game_info*, size_t) { return false; }
+
+RETRO_API void retro_unload_game(void) {
+    if (loaded) app_shutdown();
+    loaded = false;
+}
+
+RETRO_API unsigned retro_get_region(void) { return RETRO_REGION_NTSC; }
+
+static float axis(int16_t v) { return v < 0 ? v / 32768.f : v / 32767.f; }
+
+static vec2 stick(unsigned index) {
+    vec2 v{axis(state_cb(0, RETRO_DEVICE_ANALOG, index, RETRO_DEVICE_ID_ANALOG_X)),
+           -axis(state_cb(0, RETRO_DEVICE_ANALOG, index, RETRO_DEVICE_ID_ANALOG_Y))};
+    float l = length(v);
+    const float dz = 0.15f;
+    if (l < dz) return {0, 0};
+    float k = std::min(1.f, (l - dz) / (1 - dz));
+    return v / l * k;
+}
+
+RETRO_API void retro_run(void) {
+    poll_cb();
+    Input in;
+    static const unsigned map[BTN_COUNT] = {
+        RETRO_DEVICE_ID_JOYPAD_B, RETRO_DEVICE_ID_JOYPAD_A, RETRO_DEVICE_ID_JOYPAD_Y, RETRO_DEVICE_ID_JOYPAD_X,
+        RETRO_DEVICE_ID_JOYPAD_L, RETRO_DEVICE_ID_JOYPAD_R, RETRO_DEVICE_ID_JOYPAD_L2, RETRO_DEVICE_ID_JOYPAD_R2,
+        RETRO_DEVICE_ID_JOYPAD_L3, RETRO_DEVICE_ID_JOYPAD_R3, RETRO_DEVICE_ID_JOYPAD_SELECT, RETRO_DEVICE_ID_JOYPAD_START,
+        RETRO_DEVICE_ID_JOYPAD_UP, RETRO_DEVICE_ID_JOYPAD_DOWN, RETRO_DEVICE_ID_JOYPAD_LEFT, RETRO_DEVICE_ID_JOYPAD_RIGHT};
+    for (int b = 0; b < BTN_COUNT; b++)
+        if (state_cb(0, RETRO_DEVICE_JOYPAD, 0, map[b])) in.down |= 1u << b;
+    in.lstick = stick(RETRO_DEVICE_INDEX_ANALOG_LEFT);
+    in.rstick = stick(RETRO_DEVICE_INDEX_ANALOG_RIGHT);
+    in.l2 = state_cb(0, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_BUTTON, RETRO_DEVICE_ID_JOYPAD_L2) / 32767.f;
+    in.r2 = state_cb(0, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_BUTTON, RETRO_DEVICE_ID_JOYPAD_R2) / 32767.f;
+    if (in.l2 <= 0 && in.held(BTN_L2)) in.l2 = 1;
+    if (in.r2 <= 0 && in.held(BTN_R2)) in.r2 = 1;
+    if (in.l2 > 0.25f) in.down |= 1u << BTN_L2;
+    if (in.r2 > 0.25f) in.down |= 1u << BTN_R2;
+    static bool was_touching = false;
+    in.touching = state_cb(0, RETRO_DEVICE_POINTER, 0, RETRO_DEVICE_ID_POINTER_PRESSED) != 0;
+    if (in.touching) {
+        in.touch = {(state_cb(0, RETRO_DEVICE_POINTER, 0, RETRO_DEVICE_ID_POINTER_X) + 0x7fff) / float(0xfffe) * kW,
+                    (state_cb(0, RETRO_DEVICE_POINTER, 0, RETRO_DEVICE_ID_POINTER_Y) + 0x7fff) / float(0xfffe) * kH};
+    }
+    in.tapped = was_touching && !in.touching;
+    was_touching = in.touching;
+    in.update_edges(prev_buttons);
+    prev_buttons = in.down;
+
+    app_update(in, 1.f / 60.f);
+
+    if (gpu_ready) {
+        app_render(GLuint(hw.get_current_framebuffer()), kW, kH);
+        video_cb(RETRO_HW_FRAME_BUFFER_VALID, kW, kH, 0);
+    } else if (video_cb) {
+        video_cb(nullptr, kW, kH, 0);
+    }
+
+    static int16_t audio[800 * 2];
+    app_audio(audio, 800);
+    if (audio_batch_cb) audio_batch_cb(audio, 800);
+}
+
+RETRO_API size_t retro_serialize_size(void) { return app_serialize_size(); }
+RETRO_API bool retro_serialize(void* data, size_t size) { return app_serialize(data, size); }
+RETRO_API bool retro_unserialize(const void* data, size_t size) { return app_unserialize(data, size); }
+RETRO_API void retro_cheat_reset(void) {}
+RETRO_API void retro_cheat_set(unsigned, bool, const char*) {}
+RETRO_API void* retro_get_memory_data(unsigned) { return nullptr; }
+RETRO_API size_t retro_get_memory_size(unsigned) { return 0; }
