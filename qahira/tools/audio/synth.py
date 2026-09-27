@@ -172,6 +172,7 @@ def maqam(name, tonic):
         'bayati': [0, 150, 300, 500, 700, 800, 1000, 1200],
         'saba': [0, 150, 300, 400, 600, 700, 1000, 1200],
         'kurd': [0, 100, 300, 500, 700, 800, 1000, 1200],
+        'nahawand': [0, 200, 300, 500, 700, 800, 1100, 1200],
     }[name]
     return [tonic * 2 ** (c / 1200) for c in cents]
 
@@ -620,6 +621,80 @@ def ambience_cliffs(name, dur=40.0, sr=32000):
     write(name, norm(x, 0.45), sr)
 
 
+def _loop_fade(x, sr):
+    fade = int(1.0 * sr)
+    x[:fade] = x[:fade] * np.linspace(0, 1, fade) + x[-fade:] * np.linspace(1, 0, fade)
+    return x[:len(x) - fade]
+
+
+def ambience_river(name, dur=40.0, sr=32000):
+    """The Nile at night: water lapping on the bank, frogs in the cane, crickets, a rope creaking on a mooring post."""
+    t = t_axis(dur, sr)
+    r = np.random.default_rng(29)
+    lap = fft_filter(noise(len(t)), 80, 900, sr) * (0.5 + 0.5 * np.sin(2 * np.pi * t / 3.1) ** 2) * 0.5
+    crick = np.sin(2 * np.pi * 4300 * t) * (np.sin(2 * np.pi * 18 * t) > 0.6) * (np.sin(2 * np.pi * t / 1.7) > -0.2) * 0.006
+    x = lap + crick
+    for k in range(int(dur * 1.2)):   # frogs: short croaks, a low buzz with a falling edge
+        at = r.uniform(0, dur - 0.4)
+        tt = t_axis(r.uniform(0.12, 0.25), sr)
+        f0 = r.uniform(180, 320)
+        cro = np.sign(np.sin(2 * np.pi * f0 * tt)) * np.exp(-tt * 14) * (1 - np.exp(-tt * 200))
+        place(x, fft_filter(cro, 150, 1400, sr) * r.uniform(0.02, 0.05), at * sr)
+    for at in (6.0, 19.0, 33.0):   # a mooring rope creaks as the felucca rolls
+        tt = t_axis(0.8, sr)
+        f = 140 + 60 * np.sin(np.pi * tt / 0.8)
+        cr = np.sign(np.sin(2 * np.pi * np.cumsum(f) / sr)) * np.sin(np.pi * tt / 0.8) ** 2
+        place(x, fft_filter(cr, 300, 2400, sr) * 0.025, at * sr)
+    x = x + conv(x, reverb_ir(2.0, sr, 0.3))[:len(x)] * 0.4
+    write(name, norm(_loop_fade(x, sr), 0.45), sr)
+
+
+def ambience_temple(name, dur=40.0, sr=32000):
+    """Karnak and the Valley: a deep wind moving between stone columns, sand hissing across paving, an owl, far stone."""
+    t = t_axis(dur, sr)
+    r = np.random.default_rng(37)
+    gust = 0.5 + 0.3 * np.sin(2 * np.pi * t / 9.3) + 0.2 * np.sin(2 * np.pi * t / 3.7 + 2)
+    wind = fft_filter(noise(len(t)), 60, 700, sr) * gust
+    moan = np.sin(2 * np.pi * np.cumsum(96 + 12 * np.sin(2 * np.pi * t / 6)) / sr) * np.clip(gust - 0.55, 0, 1) * 0.08
+    hiss = fft_filter(noise(len(t)), 3000, 9000, sr) * np.clip(gust - 0.5, 0, 1) * 0.12
+    x = wind * 0.6 + moan + hiss
+    for at in (8.0, 26.0):   # an owl, twice
+        for j, d in enumerate((0.0, 0.5, 0.75)):
+            tt = t_axis(0.35, sr)
+            f = 420 - 60 * tt / 0.35
+            place(x, np.sin(2 * np.pi * np.cumsum(f) / sr) * np.sin(np.pi * tt / 0.35) ** 2 * 0.03, (at + d) * sr)
+    for at in (15.0, 34.0):   # stone grinding on stone, somewhere in the dark
+        tt = t_axis(1.6, sr)
+        place(x, fft_filter(noise(len(tt)), 40, 400, sr) * np.sin(np.pi * tt / 1.6) ** 2 * 0.35, at * sr)
+    x = x + conv(x, reverb_ir(4.0, sr, 0.15))[:len(x)] * 0.8
+    write(name, norm(_loop_fade(x, sr), 0.45), sr)
+
+
+def ambience_tomb(name, dur=40.0, sr=32000):
+    """Under the Valley: nearly nothing. A low drone of the rock, sand trickling, a breath that is not yours."""
+    t = t_axis(dur, sr)
+    r = np.random.default_rng(41)
+    drone = fft_filter(noise(len(t)), 20, 90, sr) * 0.6 + np.sin(2 * np.pi * 55 * t) * 0.01
+    x = drone
+    for k in range(int(dur * 0.5)):   # sand trickling from a crack
+        at = r.uniform(0, dur - 2)
+        tt = t_axis(r.uniform(0.6, 1.8), sr)
+        place(x, fft_filter(noise(len(tt)), 2000, 7000, sr) * np.sin(np.pi * tt / tt[-1]) ** 2 * r.uniform(0.02, 0.05), at * sr)
+    for at in (12.0, 29.0):   # a long exhale, from the direction of the pit
+        tt = t_axis(3.0, sr)
+        place(x, fft_filter(noise(len(tt)), 150, 900, sr) * np.sin(np.pi * tt / 3.0) ** 3 * 0.25, at * sr)
+    x = x + conv(x, reverb_ir(5.0, sr, 0.08))[:len(x)] * 1.0
+    write(name, norm(_loop_fade(x, sr), 0.4), sr)
+
+
+def music_act2():
+    """Act II, Upper Egypt: the Sa'idi rhythm of the south, and slower music below ground."""
+    compose('mus_nile', 'rast', 130.81, 96, 24, seed=71, melody_inst='ney', rhythm='saidi')
+    compose('mus_village', 'bayati', 146.83, 112, 24, seed=73, melody_inst='qanun', rhythm='saidi', riq_p=0.7)
+    compose('mus_karnak', 'nahawand', 110.0, 70, 16, seed=79, melody_inst='ney', rhythm='wahda', riq_p=0.15)
+    compose('mus_tomb', 'saba', 110.0, 64, 16, seed=83, melody_inst='oud', rhythm='wahda', riq_p=0.1, intensity=0.8)
+
+
 def music_act1():
     """Act I: one piece per region, each in its own maqam and rhythm."""
     compose('mus_downtown', 'rast', 146.83, 108, 24, seed=41, melody_inst='qanun', rhythm='baladi')
@@ -647,6 +722,12 @@ if __name__ == '__main__':
         ambience_metro('amb_metro')
         ambience_cliffs('amb_cliffs')
         music_act1()
+    if 'act2' in only or 'ambience' in only:
+        ambience_river('amb_river')
+        ambience_temple('amb_temple')
+        ambience_tomb('amb_tomb')
+    if 'act2' in only or 'music' in only:
+        music_act2()
     if 'music' in only:
         compose('mus_hijaz', 'hijaz', 146.83, 96, 24, seed=11)
         compose('mus_saba', 'saba', 130.81, 72, 20, seed=23, melody_inst='qanun')

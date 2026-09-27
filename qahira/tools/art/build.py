@@ -13,14 +13,15 @@ import qart.geom as geom
 geom.scene = bpy.context.scene
 
 from qart import rig, preview
-from characters import warrior, ghoul, npc, ghoula, sorcerer, jinn
-from env import street, souq, necro, rooftop, kit, regions
+from characters import warrior, ghoul, npc, ghoula, sorcerer, jinn, ranger, nile
+from env import street, souq, necro, rooftop, kit, regions, regions2
 from props import props
 
 args = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
 PREVIEW = '--preview' in args
 ONLY = next((a.split('=', 1)[1].split(',') for a in args if a.startswith('only=')), None)
 REGION_NAMES = ('downtown', 'metro', 'khan', 'muizz', 'mokattam', 'gate')
+REGION2_NAMES = ('nile', 'village', 'karnak', 'valley', 'tomb')
 ROOT = os.path.abspath(os.path.join(HERE, '..', '..'))
 OUT = os.path.join(ROOT, 'assets', 'generated')
 PREV = os.path.join(ROOT, 'build', 'preview')
@@ -31,6 +32,8 @@ os.makedirs(PREV, exist_ok=True)
 
 def want(name):
     if name == 'act1' and ONLY is not None and any(r in ONLY for r in REGION_NAMES):
+        return True
+    if name == 'act2' and ONLY is not None and any(r in ONLY for r in REGION2_NAMES):
         return True
     return ONLY is None or name in ONLY
 
@@ -51,6 +54,15 @@ if want('sorcerer'):
     staff = sorcerer.build_staff().export(os.path.join(OUT, 'meshes', 'staff.qmesh'), skinned=False)
     if PREVIEW:
         preview.sheet(os.path.join(PREV, 'sorcerer_anims.png'), J, body, sorcerer.CLIPS, weapon=staff)
+if want('ranger'):
+    J = ranger.skeleton()
+    rig.write_skeleton(os.path.join(OUT, 'skel', 'ranger.qskel'), J)
+    rig.bake(J, ranger.CLIPS, os.path.join(OUT, 'anim', 'ranger.qanim'))
+    body = ranger.build(J).export(os.path.join(OUT, 'meshes', 'ranger.qmesh'))
+    bow = ranger.build_bow().export(os.path.join(OUT, 'meshes', 'bow.qmesh'), skinned=False)
+    ranger.build_arrow().export(os.path.join(OUT, 'meshes', 'arrow.qmesh'), skinned=False)
+    if PREVIEW:
+        preview.sheet(os.path.join(PREV, 'ranger_anims.png'), J, body, ranger.CLIPS, weapon=bow, weapon_bone='weapon_L')
 if want('ghoul'):
     J = ghoul.skeleton()
     rig.write_skeleton(os.path.join(OUT, 'skel', 'ghoul.qskel'), J)
@@ -67,7 +79,7 @@ if want('ghoula'):
     if PREVIEW:
         preview.sheet(os.path.join(PREV, 'ghoula_anims.png'), J, body, ghoula.CLIPS)
 
-for nm, skel, build, clips in jinn.CREATURES:
+for nm, skel, build, clips in jinn.CREATURES + nile.CREATURES:
     if want(nm) or want('creatures'):
         J = skel()
         rig.write_skeleton(os.path.join(OUT, 'skel', nm + '.qskel'), J)
@@ -75,7 +87,7 @@ for nm, skel, build, clips in jinn.CREATURES:
         body = build(J).export(os.path.join(OUT, 'meshes', nm + '.qmesh'))
         if PREVIEW:
             preview.sheet(os.path.join(PREV, nm + '_anims.png'), J, body, clips)
-for nm, build in jinn.STATICS:
+for nm, build in jinn.STATICS + nile.STATICS:
     if want(nm) or want('creatures'):
         build().export(os.path.join(OUT, 'meshes', nm + '.qmesh'), skinned=False)
 
@@ -98,6 +110,12 @@ if want('act1'):
     os.makedirs(tiles, exist_ok=True)
     for R in regions.REGIONS:
         if ONLY is None or 'act1' in ONLY or R.NAME in ONLY:
+            kit.export_region(R, os.path.join(OUT, 'meshes'), tiles)
+if want('act2'):
+    tiles = os.path.join(OUT, 'tiles')
+    os.makedirs(tiles, exist_ok=True)
+    for R in regions2.REGIONS:
+        if ONLY is None or 'act2' in ONLY or R.NAME in ONLY:
             kit.export_region(R, os.path.join(OUT, 'meshes'), tiles)
 if want('hub'):
     tiles = os.path.join(OUT, 'tiles')
