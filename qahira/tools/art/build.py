@@ -40,7 +40,7 @@ if want('warrior'):
     if PREVIEW:
         preview.sheet(os.path.join(PREV, 'warrior_anims.png'), J, body, warrior.CLIPS, weapon=maul)
 if want('street'):
-    tiles = os.path.join(ROOT, 'data', 'tiles')
+    tiles = os.path.join(OUT, 'tiles')
     os.makedirs(tiles, exist_ok=True)
     for i, nm in enumerate(('street_a', 'street_b', 'street_c')):
         street.export(nm, seed=11 + i * 7, mesh_dir=os.path.join(OUT, 'meshes'), data_dir=tiles)

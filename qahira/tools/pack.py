@@ -29,6 +29,10 @@ def collect():
         if os.path.isdir(d):
             for f in sorted(os.listdir(d)):
                 entries.append((sub + '/' + f, os.path.join(d, f)))
+    tiles = os.path.join(gen, 'tiles')
+    if os.path.isdir(tiles):
+        for f in sorted(os.listdir(tiles)):
+            entries.append(('data/tiles/' + f, os.path.join(tiles, f)))
     data = os.path.join(ROOT, 'data')
     for dirpath, _, files in os.walk(data):
         for f in sorted(files):
