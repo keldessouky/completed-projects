@@ -14,6 +14,7 @@ geom.scene = bpy.context.scene
 
 from qart import rig, preview
 from characters import warrior
+from env import street
 
 args = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
 PREVIEW = '--preview' in args
@@ -38,4 +39,9 @@ if want('warrior'):
     maul = warrior.build_maul().export(os.path.join(OUT, 'meshes', 'maul.qmesh'), skinned=False)
     if PREVIEW:
         preview.sheet(os.path.join(PREV, 'warrior_anims.png'), J, body, warrior.CLIPS, weapon=maul)
+if want('street'):
+    tiles = os.path.join(ROOT, 'data', 'tiles')
+    os.makedirs(tiles, exist_ok=True)
+    for i, nm in enumerate(('street_a', 'street_b', 'street_c')):
+        street.export(nm, seed=11 + i * 7, mesh_dir=os.path.join(OUT, 'meshes'), data_dir=tiles)
 print('BUILD DONE')

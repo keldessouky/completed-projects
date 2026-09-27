@@ -17,6 +17,7 @@ struct Json {
     static Json parse(const std::string& text, std::string* err = nullptr);
     const Json& operator[](const char* key) const;
     const Json& operator[](size_t i) const { static Json nil; return i < arr.size() ? arr[i] : nil; }
+    const Json& operator[](int i) const { return (*this)[size_t(i < 0 ? 0 : i)]; }
     bool has(const char* key) const;
     size_t size() const { return type == Array ? arr.size() : obj.size(); }
     bool is_null() const { return type == Null; }
