@@ -28,6 +28,7 @@ struct Menu {
     static constexpr int kTakeOff = 1000;
     // the Ascendancy tab and the Journal
     int asc_cursor = 1;
+    int asc_choice = 0;            // a class with two ascendancies: the one looked at before choosing
     int journal_section = 0;     // quests, codex, posters
     int journal_row = 0;
     int filter_cursor = 0;

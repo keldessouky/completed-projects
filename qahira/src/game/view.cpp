@@ -7,6 +7,8 @@
 
 namespace q {
 
+static const char* weapon_mesh(uint8_t wkind) { return wkind == WK_STAFF ? "staff" : wkind == WK_BOW ? "bow" : "maul"; }
+
 void View::follow(const World& w, float dt, bool snap) {
     const Actor& h = w.actors[0];
     vec2 tp = h.pos + h.vel * 0.15f;
@@ -121,15 +123,24 @@ void View::draw_actor(Renderer& r, World& w, Actor& a, int index) {
     else if (a.chill_t > 0) in.tint = vec4(lerp(a.tint, vec3{0.7f, 0.85f, 1.1f}, 0.35f), 1);
     if (a.shock_t > 0 && std::sin(w.time * 40.f + a.id) > 0.3f) in.rim = vec4(hex_lin(0xA8B8FF), 1.3f);
     if (a.ignite_t > 0) in.extra.y = 0.25f + 0.1f * std::sin(w.time * 17.f + a.id);
+    bool poisoned = false;
+    for (float pt : a.poison_t) poisoned = poisoned || pt > 0;
+    if (poisoned) in.tint = vec4(lerp(vec3(in.tint.x, in.tint.y, in.tint.z), vec3{0.55f, 0.9f, 0.35f}, 0.3f), 1);
     r.draw(m.body, in);
+    if (a.mark_t > 0 && a.alive()) {   // a Falcon's Mark: a turning sigil at the feet and a bright point overhead
+        float t = w.time * 1.5f;
+        r.ground(vec3(a.pos, 0.03f), 0.9f * a.scale + a.radius * 0.4f, vec4(1.f, 0.82f, 0.4f, 0.55f), {1, 0.06f, 0, 2}, Blend::Additive, t);
+        r.billboard(vec3(a.pos, 2.3f * a.scale + 0.2f * std::sin(t * 2.f)), 0.3f, vec4(1.f, 0.85f, 0.5f, 0.9f), {0, 1.5f, 0, 4});
+    }
     if (index == 0 && m.weapon_bone >= 0) {
         Instance wpn;
-        wpn.model = pose_.model[size_t(m.weapon_bone)];
+        bool bow = w.hero.weapon().b().wkind == WK_BOW;   // a bow is held in the left hand
+        wpn.model = pose_.model[size_t(bow && m.weapon_bone_l >= 0 ? m.weapon_bone_l : m.weapon_bone)];
         wpn.rim = in.rim;
         wpn.extra = {-1, 0, a.hit_flash * 0.5f, 0};
         uint32_t rc = rarity_color(w.hero.weapon().rarity);
         if (w.hero.weapon().rarity != Rarity::Normal) wpn.rim = vec4(hex_lin(rc), 0.6f);
-        r.draw(assets().mesh(w.hero.weapon().b().wkind == WK_STAFF ? "staff" : "maul"), wpn);
+        r.draw(assets().mesh(weapon_mesh(w.hero.weapon().b().wkind)), wpn);
         vec3 hip = pose_.model[size_t(m.pelvis)].translation();
         r.light(hip + vec3{0, 0, 0.3f}, 6.5f, hex_lin(0xFFB04A) * 14.f);
     }
@@ -215,6 +226,19 @@ void View::render_world(Renderer& r, World& w) {
             r.billboard(p, 0.9f, vec4(1.f, 0.85f, 0.5f, 1), {0, 1.5f, 0, 4});
             r.billboard(p + vec3{-0.6f, 0.4f, 2.4f} * 0.5f, 0.6f, vec4(1.f, 0.5f, 0.2f, 0.6f), {0, 1.5f, 0, 4});
             r.light(p, 8.f, hex_lin(0xFFB060) * 20.f);
+        } else if (g.kind == GroundFx::Rain) {
+            // where the volleys land: a dusty ring, a thud of light on each volley
+            float in_a = smoothstep(0.f, 0.1f, g.t) * (1.f - smoothstep(g.life - 0.2f, g.life, g.t));
+            float beat = std::exp(-8.f * std::fmod(g.t, 0.3f));
+            r.ground(vec3(g.pos, 0.02f), g.radius, vec4(0.9f, 0.75f, 0.5f, 0.45f * in_a), {1, 0.05f, 0, 1.5f}, Blend::Additive);
+            r.ground(vec3(g.pos, 0.01f), g.radius, vec4(0.5f, 0.42f, 0.3f, 0.35f * in_a * beat), {0, 1.2f, 0, 1}, Blend::Alpha);
+        } else if (g.kind == GroundFx::Water) {
+            // a pool of the canal's black water opening under you, rimmed with foam
+            float in_a = smoothstep(0.f, 0.3f, g.t) * (1.f - smoothstep(g.life - 0.6f, g.life, g.t));
+            float warn = g.t < g.pulse - 0.4f ? 0.5f + 0.5f * std::sin(g.t * 20.f) : 1.f;
+            r.ground(vec3(g.pos, 0.02f), g.radius, vec4(0.05f, 0.12f, 0.16f, 0.8f * in_a), {0, 1.2f, 0, 1}, Blend::Alpha);
+            r.ground(vec3(g.pos, 0.03f), g.radius, vec4(0.55f, 0.85f, 1.f, 0.55f * in_a * warn), {1, 0.07f, 0, 2}, Blend::Additive, w.time * 0.7f);
+            r.light(vec3(g.pos, 0.6f), g.radius * 2.5f, hex_lin(0x5FB8E0) * 5.f * in_a);
         } else if (g.kind == GroundFx::Fire) {
             float in_a = smoothstep(0.f, 0.3f, g.t) * (1.f - smoothstep(g.life - 0.6f, g.life, g.t));
             r.ground(vec3(g.pos, 0.02f), g.radius, vec4(1.f, 0.35f, 0.08f, 0.55f * in_a), {0, 1.2f, 0, 2}, Blend::Additive);
@@ -245,7 +269,40 @@ void View::render_world(Renderer& r, World& w) {
             r.light(p1, 5.f, hex_lin(0x9FB8FF) * 14.f * a);
         }
     }
+    if (w.rift.armed && !w.rift.closed) {   // a Marid Rift: a seam of river light, and when open, its widening ring
+        const Rift& rf = w.rift;
+        float k = rf.open ? 1.f : 0.35f;
+        for (int i = 0; i < 7; i++) {
+            float z = 0.3f + i * 0.4f;
+            float wob = 0.12f * std::sin(w.time * 5.f + i * 1.3f);
+            r.billboard(vec3(rf.pos + vec2{wob, 0}, z), (0.5f - std::fabs(i - 3) * 0.08f) * (0.6f + 0.8f * k), vec4(0.5f, 0.9f, 1.f, 0.8f * k),
+                        {0, 1.5f, 0, 4}, Blend::Additive);
+        }
+        r.light(vec3(rf.pos, 1.4f), rf.open ? rf.radius * 1.5f : 4.f, hex_lin(0x5FC8E8) * (rf.open ? 14.f : 5.f));
+        if (rf.open) {
+            r.ground(vec3(rf.pos, 0.03f), rf.radius, vec4(0.4f, 0.8f, 1.f, 0.55f), {1, 0.04f, 0, 2}, Blend::Additive, w.time * 0.4f);
+            r.ground(vec3(rf.pos, 0.02f), rf.radius, vec4(0.05f, 0.2f, 0.3f, 0.35f), {0, 1.2f, 0, 1}, Blend::Alpha);
+        }
+    }
+    if (w.coil_t >= 0 && w.coil_t < 14.f) {   // Act II's end: a coil of the serpent rises through the pit and slides away
+        float k = w.coil_t / 14.f;
+        float rise = std::sin(k * kPi);
+        vec2 at = w.coil_at + w.coil_dir * (-16.f + 32.f * k);
+        Instance in;
+        in.model = mat4::translate(vec3(at, -2.4f + 2.0f * rise)) * mat4::rot_z(angle_of(w.coil_dir));
+        in.rim = vec4(hex_lin(0x6A5AA0), 0.5f * rise);
+        r.draw(assets().mesh("coil"), in);
+    }
     for (auto& p : w.projectiles) {
+        if (p.arrow) {   // a reed arrow along its flight, with a faint streak behind
+            Instance in;
+            in.model = mat4::translate(vec3(p.pos, p.z)) * mat4::rot_z(angle_of(p.vel) - kPi / 2);
+            in.rim = vec4(p.color, 0.8f);
+            r.draw(assets().mesh("arrow"), in);
+            vec2 back = p.pos - normalize(p.vel) * 0.5f;
+            r.billboard(vec3(back, p.z), 0.18f, vec4(p.color, 0.5f), {0, 1.5f, 0, 4}, Blend::Additive);
+            continue;
+        }
         r.billboard(vec3(p.pos, p.z), 0.35f, vec4(p.color, 1), {0, 1.5f, 0, 4});
         r.light(vec3(p.pos, p.z), 4.f, p.color * 8.f);
     }
@@ -299,7 +356,7 @@ void View::render_world(Renderer& r, World& w) {
         Slot sl = g.item.b().slot;
         if (sl == Slot::Weapon) {
             in.model = mat4::translate(vec3(g.pos, z + 0.1f)) * mat4::rotate(quat::axis_angle({0, 1, 0}, kPi / 2)) * mat4::rot_z(spin);
-            r.draw(assets().mesh(g.item.b().wkind == WK_STAFF ? "staff" : "maul"), in);
+            r.draw(assets().mesh(weapon_mesh(g.item.b().wkind)), in);
         } else {
             bool jewel = sl == Slot::Amulet || sl == Slot::Ring;
             in.model = mat4::translate(vec3(g.pos, z)) * mat4::rot_z(spin) * mat4::scale(jewel ? vec3{1.6f, 1.6f, 1.6f} : vec3{1, 1, 1});
@@ -394,6 +451,42 @@ void draw_skill_icon(float cx, float cy, float s, int glyph, bool ready) {
                        cy + s * 0.1f + std::sin(a1) * s * 0.22f, s * 0.05f, c);
             }
             break;
+        case 8:  // split arrow: three arrows fanning out
+            for (int i = -1; i <= 1; i++) {
+                float a = radians(-45 + i * 22.f), ca = std::cos(a), sa = std::sin(a);
+                float x0 = cx - s * 0.3f, y0 = cy + s * 0.3f, x1 = x0 + ca * s * 0.66f, y1 = y0 + sa * s * 0.66f;
+                u.line(x0, y0, x1, y1, s * 0.045f, c);
+                u.line(x1, y1, x1 - std::cos(a - 0.5f) * s * 0.14f, y1 - std::sin(a - 0.5f) * s * 0.14f, s * 0.045f, c);
+                u.line(x1, y1, x1 - std::cos(a + 0.5f) * s * 0.14f, y1 - std::sin(a + 0.5f) * s * 0.14f, s * 0.045f, c);
+            }
+            break;
+        case 9:  // falcon's mark: a ring with sights, and the falcon's eye
+            u.ring(cx, cy, s * 0.34f, s * 0.29f, c);
+            for (int i = 0; i < 4; i++) {
+                float a = i * kPi / 2;
+                u.line(cx + std::cos(a) * s * 0.2f, cy + std::sin(a) * s * 0.2f, cx + std::cos(a) * s * 0.42f, cy + std::sin(a) * s * 0.42f, s * 0.05f, c);
+            }
+            u.disc(cx, cy, s * 0.1f, c);
+            break;
+        case 10:  // rain of arrows: shafts falling in a slant
+            for (int i = 0; i < 5; i++) {
+                float x = cx - s * 0.3f + i * s * 0.15f, y = cy - s * 0.3f + (i % 2) * s * 0.14f;
+                u.line(x, y, x - s * 0.06f, y + s * 0.4f, s * 0.04f, c);
+                u.line(x - s * 0.06f, y + s * 0.4f, x - s * 0.12f, y + s * 0.3f, s * 0.04f, c);
+                u.line(x - s * 0.06f, y + s * 0.4f, x + s * 0.02f, y + s * 0.31f, s * 0.04f, c);
+            }
+            break;
+        case 11: {  // scorpion sting: the tail curled over, a drop at its point
+            float px = cx - s * 0.28f, py = cy + s * 0.3f;
+            for (int i = 1; i <= 8; i++) {
+                float a = radians(180 + i * 25.f), x = cx + std::cos(a) * s * 0.26f, y = cy + s * 0.04f + std::sin(a) * s * 0.3f;
+                u.line(px, py, x, y, s * (0.1f - i * 0.007f), c);
+                px = x; py = y;
+            }
+            u.line(px, py, px - s * 0.05f, py + s * 0.14f, s * 0.05f, c);
+            u.disc(px - s * 0.06f, py + s * 0.24f, s * 0.06f, Rgba::hex(0x8FD14F).alpha(ready ? 1.f : 0.5f));
+            break;
+        }
         default: break;
     }
 }
@@ -546,6 +639,19 @@ void View::render_hud(World& w, const Input& in, const Areas& areas) {
             u.text(x - 150, y + 66, dy < 0 ? "the storm is south of you" : "the storm is north of you", 20, pal::dim, Align::Center);
         }
     }
+    // a Marid Rift: its time left, and what has died in it
+    if (w.rift.open || (w.rift.armed && !w.rift.closed && length(w.rift.pos - h.pos) < 22.f)) {
+        const Rift& rf = w.rift;
+        float x = 1880, y = w.haboob.active ? 190 : 90;
+        u.frame(x - 300, y, 300, 64, pal::panel.alpha(0.85f), rf.open ? Rgba::hex(0x5FC8E8) : pal::line, 10, 2);
+        u.text(x - 286, y + 6, rf.open ? "MARID RIFT" : "A RIFT, CLOSED", 24, Rgba::hex(0x8FDFF0), Align::Left, 1.f);
+        char b[32];
+        snprintf(b, sizeof b, "%d", rf.kills);
+        if (rf.open) u.text(x - 16, y + 6, b, 24, pal::bone, Align::Right, 1.f);
+        float k = rf.open ? 1.f - rf.t / Rift::kLife : 1.f;
+        u.rect(x - 286, y + 42, 272, 8, pal::night.alpha(0.8f), 4);
+        u.rect(x - 286, y + 42, 272 * k, 8, Rgba::hex(0x5FC8E8), 4);
+    }
     // floating texts
     for (auto& t : w.texts) {
         vec2 p = to_ui(cam, t.pos);
@@ -642,7 +748,13 @@ void View::render_hud(World& w, const Input& in, const Areas& areas) {
         u.disc(x, y, 9, Rgba::hex(0xE8703A).alpha(k));
         u.disc(x - 3, y - 3, 3, Rgba::hex(0xFFE0C0).alpha(k));
     }
-    // skill bar
+    // Frenzy Charges (the Ranger's): small green studs beside them, dimming as they run out
+    for (int i = 0; i < H.frenzy; i++) {
+        float x = 330 + (H.endurance + i) * 30 + (H.endurance ? 12 : 0), y = 900, k = clampf(H.frenzy_t / 3.f, 0.35f, 1.f);
+        u.disc(x, y, 12, pal::night.alpha(0.8f));
+        u.disc(x, y, 9, Rgba::hex(0x6FCF5A).alpha(k));
+        u.disc(x - 3, y - 3, 3, Rgba::hex(0xE0FFD0).alpha(k));
+    }
     // skill bar: bar one, or bar two while L2 is held (a small strip shows the other)
     static const int btn[5] = {BTN_SOUTH, BTN_WEST, BTN_NORTH, BTN_R1, BTN_R2};
     const int bar = in.held(BTN_L2) ? 5 : 0;

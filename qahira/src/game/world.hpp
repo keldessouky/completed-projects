@@ -66,6 +66,7 @@ struct BossDef {
     float court;           // how far from home she may chase before walking back
     float haste2;          // speed in phase 2
     vec3 bolt;             // colour of Volley's projectiles
+    bool call = false;     // her Wail is a Call: it pulls you in, not away (El Naddaha)
 };
 const BossDef* boss_def(int monster_def);
 CharacterModel monster_model(int monster_def);   // a rigid monster's has a mesh name and no skeleton
@@ -111,6 +112,10 @@ struct Actor {
     float chill_t = 0, chill = 0;  // slowed by `chill` (0..1)
     float freeze_meter = 0, frozen_t = 0;
     float shock_t = 0, shock = 0;  // takes `shock` percent more damage
+    float poison[6] = {}, poison_t[6] = {};   // poison stacks: damage per second, seconds left (Slice 6)
+    float mark_t = 0;              // Marked (a Ranger's mark): the next hits are critical strikes
+    int mark_hits = 0;
+    bool rift = false;             // came through a Marid Rift: it leaves splinters
     Animator anim;
     CharacterModel model;
     bool alive() const { return act != Act::Dead; }
@@ -120,6 +125,7 @@ struct Actor {
 struct HeroHit {
     HitDamage hit;
     float ignite = 0, shock = 0, shock_effect = 1, freeze = 1, brk = 1;
+    float poison = 0, poison_mult = 1;   // chance to Poison (0..1), and its damage
     int16_t talisman = -1;
 };
 
@@ -130,12 +136,14 @@ struct Projectile {
     float dmg_min = 0, dmg_max = 0;
     int dmg_type = DT_CHAOS;
     vec3 color{0.4f, 1.f, 0.3f};
+    bool arrow = false;            // drawn as an arrow along its flight, not a ball of light
     HeroHit hh;                    // the hero's bolts
     uint32_t owner = 0;
 };
 
 struct GroundFx {
-    enum Kind : uint8_t { Crack, Telegraph, Ring, Glyph, Meteor, Bolt, Fire, Line } kind = Crack;   // Fire: a hazard; Line: a telegraphed strip
+    enum Kind : uint8_t { Crack, Telegraph, Ring, Glyph, Meteor, Bolt, Fire, Line, Rain, Water } kind = Crack;   // Fire: a hazard; Line: a
+    // telegraphed strip; Rain: a Rain of Arrows (volleys on its pulses); Water: a cold hazard (Act II's pools)
     vec2 pos;
     float radius = 1, t = 0, life = 6, angle = 0, half = 0.6f;
     uint32_t owner = 0;
@@ -157,6 +165,16 @@ struct Haboob {
     float meter = 0;
     float spawn_t = 3.f;
     bool inside(vec2 p) const { return active && p.y <= front && p.y >= front - depth && p.x >= x0 && p.x <= x1; }
+};
+
+// A Marid Rift (Slice 6, charts after Act II): a tear in the air at one of the site's cells. Walk up to it and it
+// opens, widening for a while and letting marids through; what dies in it leaves Marid Splinters.
+struct Rift {
+    bool armed = false, open = false, closed = false;
+    vec2 pos;
+    float t = 0, radius = 2.f, spawn_t = 0;
+    int kills = 0, spawned = 0;
+    static constexpr float kLife = 20.f;
 };
 
 struct Particle {
@@ -238,11 +256,14 @@ struct Hero {
     uint8_t scraps[kMaxUniques] = {};   // Poster Scraps held, per unique
     uint64_t codex = 0;            // codex entries you have seen
     uint32_t asc = 0;              // ascendancy nodes held (bits, game/asc.hpp)
+    int8_t ascendancy = -1;        // the one chosen (an index into ascendancies()); -1 before the choice, or a class with one
     // Slice 5: the Map of al-Idrisi
     uint32_t sites_revealed = 0;   // sites you can run a chart on (bits, game/atlas.hpp)
     uint32_t sites_done = 0;       // sites finished: each gives an Astrolabe point
     uint32_t astro = 0;            // Astrolabe nodes held
     int astro_points() const { return std::max(0, q::astro_points(sites_done) - __builtin_popcount(astro)); }
+    int frenzy = 0;                // Frenzy Charges (Slice 6): 4% more damage and speed each
+    float frenzy_t = 0;
     int endurance = 0;             // Endurance Charges (Ironclad)
     float endurance_t = 0;         // seconds until they fall off
     int asc_points() const;        // from trials, minus nodes held
@@ -308,6 +329,9 @@ public:
     float shake = 0;
     int area_level = 1;
     bool boss_killed = false;
+    Rift rift;
+    float coil_t = -1;             // Act II's end: a coil of the serpent passing through the pit (seconds in; -1 none)
+    vec2 coil_at, coil_dir;
     // a chart run: its tier and mods, the Astrolabe it was opened under, and its Haboob
     bool in_chart = false;
     int chart_site = -1;
@@ -344,6 +368,10 @@ public:
     bool learn_recipe(int r);                 // true if it was new (a banner says so)
     void meet_codex(const char* id);          // the first time: an entry and a toast
     void gain_endurance(int n);
+    void gain_frenzy(int n);
+    void rift_step(float dt);
+    int frenzy_max() const { return 3 + int(hero.stats.sum(S_FRENZY).flat); }
+    float evade_chance() const;   // against this area's monsters
     void haboob_step(float dt);
     void haboob_reward();
     int endurance_max() const { return kEnduranceMax + ((hero.keystones & KS_FOUNDRY) ? 1 : 0); }
@@ -351,6 +379,9 @@ public:
 
     void emit(Ev t, vec2 p, float mag = 1, int def = -1) { events.push_back({t, p, mag, def}); }
     void burst(vec3 p, int n, vec4 c0, vec4 c1, float speed, float size, float life, bool additive, float gravity = -6.f, uint8_t shape = 0);
+
+    // one hit on an enemy: mitigation, ailments, Break, knockback, leech, death. Returns the damage dealt.
+    float hit_enemy(Actor& e, const HeroHit& hh, vec2 from, float knock, float extra_more = 1.f);
 
 private:
     void hero_step(const Input& in, float dt);
@@ -360,13 +391,12 @@ private:
     void anim_step(Actor& a, float dt);
     void start_skill(int slot, vec2 stick);
     void resolve_skill(Actor& h);
-    // one hit on an enemy: mitigation, ailments, Break, knockback, leech, death. Returns the damage dealt.
-    float hit_enemy(Actor& e, const HeroHit& hh, vec2 from, float knock, float extra_more = 1.f);
     void glyph_pulse(GroundFx& g);
     void star_fall(GroundFx& g);
     bool in_glyph(vec2 p) const;
     void ailments_step(Actor& m, float dt);
-    void damage_hero(float lo, float hi, int type, vec2 from, float break_amt, uint32_t attacker = 0);
+    // evadable: an attack (melee, arrows, bile) that Evasion can avoid; spells, novas and burning ground cannot be
+    void damage_hero(float lo, float hi, int type, vec2 from, float break_amt, uint32_t attacker = 0, bool evadable = true);
     void kill(Actor& e);
     void monster_attack(Actor& m);
     void drop_loot(const Actor& e);

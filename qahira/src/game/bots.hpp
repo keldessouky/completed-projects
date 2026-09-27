@@ -8,6 +8,9 @@
 //          trial and the bench included, spending its stars and ascendancy points and wearing what it finds
 //   charts Slice 5's exit: a level-14 character, as Act I leaves one, runs charts at the Map of al-Idrisi (through the
 //          map screen) until it has finished a site of the Fourth Clime, spending Astrolabe points on the way
+//   act2   Slice 6's exit: a character as Act I leaves one plays Act II through, the River Road to the Deep Tomb
+//   rifts  Slice 6's endgame piece: after Act II, a chart with a Marid Rift; its splinters make a Rift Seal, and the
+//          seal opens the Rift Lord's court at the chart table, where the Rift Lord dies
 //   tour   not a test: a scripted visit of every screen for screenshots (it gives itself gear)
 #pragma once
 #include "game/areas.hpp"
@@ -72,6 +75,9 @@ private:
     void tour5(World& w, Areas& a, Input& in, uint64_t frame);
     void charts(World& w, Menu& m, Areas& a, Input& in, uint64_t frame);
     void tour6(World& w, Areas& a, Input& in, uint64_t frame);
+    void rifts(World& w, Menu& m, Areas& a, Input& in, uint64_t frame);
+    void tour7(World& w, Menu& m, Areas& a, Input& in, uint64_t frame);
+    int rift_stage_ = 0, rift_splinters0_ = 0;
     // charts scenario
     int chart_runs_ = 0, chart_target_ = -1, map_presses_ = 0, best_tier_done_ = 0, haboobs_seen_ = 0;
     uint32_t run_seed_ = 0;

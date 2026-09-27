@@ -17,6 +17,7 @@ struct ClassDef {
     const char* kit[4];         // starting Talismans, in bar order
     const char* blurb;
     bool playable;              // arrives in this build
+    float evasion = 0;          // base Evasion Rating
 };
 
 const std::vector<ClassDef>& class_defs();

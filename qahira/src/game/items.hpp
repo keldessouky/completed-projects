@@ -9,7 +9,7 @@ namespace q {
 enum class Rarity : uint8_t { Normal, Magic, Rare, Unique };
 enum class Slot : uint8_t { Weapon, Helmet, Body, Gloves, Boots, Belt, Amulet, Ring, Chart, Count };   // Chart: a map item
 
-enum WeaponKind : uint8_t { WK_NONE, WK_MAUL, WK_STAFF };
+enum WeaponKind : uint8_t { WK_NONE, WK_MAUL, WK_STAFF, WK_BOW };
 
 struct ItemBase {
     const char* id;
@@ -36,9 +36,11 @@ enum AffixEffect : uint8_t {
     // Slice 4: bench, corruption and unique mods that map straight onto one stat (AffixDef::gstat/gkind/gtags)
     AE_GENERIC, AE_ALL_RES, AE_ALL_ATTR,
     AE_CHART,   // a chart's mod: it changes the site it is run on (game/atlas.cpp reads it by id)
+    // Slice 6: evasion armour
+    AE_LOCAL_EVASION_ADD, AE_LOCAL_EVASION_INC,
 };
 // AffixDef::need: which bases in a slot can roll it (0: any)
-enum AffixNeed : uint8_t { NEED_ARMOUR = 1, NEED_ES = 2, NEED_MAUL = 4, NEED_STAFF = 8 };
+enum AffixNeed : uint8_t { NEED_ARMOUR = 1, NEED_ES = 2, NEED_MAUL = 4, NEED_STAFF = 8, NEED_EVASION = 16, NEED_BOW = 32 };
 
 struct AffixDef {
     const char* id;
@@ -86,6 +88,7 @@ struct Item {
     std::vector<std::string> lines() const;   // stat block lines for the tooltip
     WeaponStats weapon() const;               // local mods applied
     float local_es() const;                   // Hirz on an armour piece, local mods applied
+    float local_evasion() const;              // evasion on an armour piece, local mods applied
     void add_global_mods(Stats& s, uint16_t source) const;
 };
 

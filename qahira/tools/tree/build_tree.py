@@ -316,11 +316,78 @@ for title, star, flag, ang, text, anchor in KEYSTONES:
     chain(anchor, k, 1, LIFE if flag == 'follower' else SPELL, const='the Lunar Mansions')
     keystones.append(k)
 
+# ================================================================ Slice 6: the Ranger's sky
+# Everything below is appended after the Slice 3 stars, so their ids (which characters store) never move.
+PROJ = [inc('damage', 10, 'projectile')]
+EVASION = [inc('evasion', 12)]
+DEX = [flat('dex', 10)]
+IMPLEMENTED.add('ranger')
+nodes[starts['ranger']]['text'] = ['Dexterity', '']
+before = len(nodes)
+chain(pole, starts['ranger'], 3, EVASION)
+spokes['ranger'] = list(range(before, len(nodes)))
+
+# the Ecliptic closes: on from 50 degrees round through the Shadow's and the Ranger's skies to 260
+ring = [ecl[-1]]
+for ang in [x * 10.0 for x in range(4, -10, -1)]:   # 40 .. -90 (= 270)
+    x, y = polar(ang, R_ECLIPTIC)
+    a360 = ang % 360
+    if 300 <= a360 < 360:
+        mods = [flat('dex', 10)]
+    elif a360 < 60:
+        mods = [flat('dex', 5), flat('int', 5)]
+    else:
+        mods = [flat('str', 5), flat('dex', 5)]
+    ring.append(node('attr', x, y, mods, const='The Ecliptic'))
+    link(ring[-2], ring[-1])
+link(ring[-1], ecl[0])
+ecl.extend(ring[1:])
+
+chain(starts['ranger'], ecliptic_at(330), 1, EVASION)
+for side, mods in ((-1, PROJ), (1, EVASION)):
+    x, y = polar(330 + side * 13, R_START + 60)
+    s_ = node('minor', x, y, mods)
+    link(starts['ranger'], s_)
+    link(s_, ecliptic_at(330 + side * 20))
+
+sagittarius = constellation('al-Rami', 'Sagittarius, the Archer', 330, 680, 0, 80, [
+    ('kau', 'notable', 0, 0, 'Kaus Australis', 'al-Qaws, the Bow', [inc('damage', 30, 'projectile')], ''),
+    ('kam', 'minor', 0.9, 0.3, 'Kaus Media', '', PROJ, ''),
+    ('kbo', 'minor', -0.2, -1.0, 'Kaus Borealis', '', PROJ, ''),
+    ('phi', 'minor', -0.7, 0.8, '', '', EVASION, ''),
+    ('asc', 'notable', -1.3, 1.5, 'Ascella', 'al-Zuba, the Claw', [inc('crit_chance', 40, 'projectile'), flat('crit_multi', 10, 'projectile')], ''),
+    ('nun', 'notable', 1.2, 1.5, 'Nunki', "al-Na'aim, the Ostriches", [inc('attack_speed', 8), inc('move_speed', 6)], ''),
+    ('tau', 'minor', 1.9, 2.4, 'Tau', '', PROJ, ''),
+], [('kau', 'kam'), ('kau', 'kbo'), ('kau', 'phi'), ('phi', 'asc'), ('kam', 'nun'), ('nun', 'tau')], [('kbo', ecliptic_at(330))])
+
+lepus = constellation('al-Arnab', 'Lepus, the Hare', 298, 610, 0, 72, [
+    ('arn', 'notable', 0, 0, 'Arneb', 'al-Arnab, the Hare', [inc('move_speed', 10), inc('evasion', 30)], ''),
+    ('nih', 'notable', 1.2, 1.2, 'Nihal', 'al-Nihal, the Thirst-Quenchers', [inc('flask', 30), flat('life_regen', 2)], ''),
+    ('m1', 'minor', -1.1, 0.5, '', '', EVASION, ''),
+    ('m2', 'minor', 0.6, -0.8, '', '', DEX, ''),
+], [('arn', 'm1'), ('arn', 'm2'), ('arn', 'nih')], [('m2', ecliptic_at(300))])
+
+pegasus = constellation('al-Faras al-Azam', 'Pegasus, the Great Horse', 358, 700, 0, 80, [
+    ('mar', 'notable', 0, 0, 'Markab', 'Markab al-Faras, the Saddle', [inc('evasion', 40), flat('life', 15)], ''),
+    ('alg', 'minor', 1.1, -0.4, 'Algenib', '', PROJ, ''),
+    ('hom', 'minor', -0.9, 0.5, 'Homam', '', EVASION, ''),
+    ('eni', 'notable', -1.3, 1.5, 'Enif', 'Anf al-Faras, the Nose', [inc('proj_speed', 20), inc('damage', 15, 'projectile')], ''),
+    ('sch', 'notable', 1.3, 1.2, 'Scheat', "Sa'd al-Matar, the Rain's Luck", [flat('poison', 20), inc('poison_damage', 25)], ''),
+], [('mar', 'alg'), ('mar', 'hom'), ('hom', 'eni'), ('alg', 'sch')], [('alg', ecliptic_at(350))])
+
+x, y = polar(322, R_RIM)
+k = node('keystone', x, y, name='al-Balda, Point Blank', star='the 21st lunar mansion', flag='point_blank',
+         text=['Projectile attacks deal up to 40% more damage to enemies near you', 'and up to 30% less to enemies far away'],
+         const='the Lunar Mansions')
+chain(sagittarius['asc'], k, 1, PROJ, const='the Lunar Mansions')
+keystones.append(k)
+
 # ---------------------------------------------------------------- Recommended Paths (GDD §13)
 # the notables and keystones a new player aims for, in order; the tree screen can plan them in one press
 RECOMMENDED = {
     'warrior': [orion['rig'], orion['sai'], leo['reg'], orion['bet'], orion['bel'], taurus['zet'], taurus['nat'], keystones[0]],
     'sorcerer': [corona['alp'], lyra['veg'], scorpius['ant'], scorpius['sha'], perseus['mir'], perseus['alg'], cygnus['den']],
+    'ranger': [sagittarius['kau'], lepus['arn'], sagittarius['asc'], pegasus['mar'], pegasus['eni'], sagittarius['nun'], keystones[2]],
 }
 
 # ---------------------------------------------------------------- text for every node
@@ -331,9 +398,10 @@ NAMES = {'life': 'maximum Life', 'mana': 'maximum Mana', 'es': 'maximum Hirz', '
          'cast_speed': 'Cast Speed', 'crit_chance': 'Critical Strike Chance', 'crit_multi': 'Critical Strike Multiplier',
          'area': 'Area of Effect', 'break': 'Break buildup', 'warcry': 'Warcry effect', 'es_recharge': 'Hirz recharge rate',
          'freeze': 'Freeze buildup', 'shock': 'Effect of Shock', 'chains': 'Chain', 'damage_taken': 'damage taken',
-         'move_speed': 'Movement Speed', 'life_leech': 'Life'}
+         'move_speed': 'Movement Speed', 'life_leech': 'Life', 'poison': 'chance to Poison', 'poison_damage': 'Poison damage',
+         'proj_speed': 'Projectile Speed', 'flask': 'Flask Recovery', 'mark': 'Mark effect'}
 TAGW = {'melee': 'Melee', 'physical': 'Physical', 'slam': 'Slam', 'spell': 'Spell', 'lightning': 'Lightning', 'cold': 'Cold',
-        'fire': 'Fire', 'elemental': 'Elemental', 'attack': 'Attack', 'area': 'Area'}
+        'fire': 'Fire', 'elemental': 'Elemental', 'attack': 'Attack', 'area': 'Area', 'projectile': 'Projectile', 'bow': 'Bow'}
 
 
 def mod_text(m):

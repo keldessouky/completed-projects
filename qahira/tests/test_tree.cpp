@@ -1,5 +1,6 @@
 // The Book of Fixed Stars: loading, PoE allocation rules, keystones and build codes, on the generated tree.
 #include "tests/check.hpp"
+#include <algorithm>
 #include "game/tree.hpp"
 #include "tests/fixture.hpp"
 
@@ -16,7 +17,7 @@ TEST(tree_loads_with_class_starts_and_keystones) {
     CHECK(tree().class_start("warrior") >= 0 && tree().class_start("sorcerer") >= 0);
     int ks = 0;
     for (auto& s : tree().stars) if (s.kind == StarKind::Keystone) { ks++; CHECK(s.keystone != 0); }
-    CHECK(ks == 2);
+    CHECK(ks >= 3);
 }
 
 TEST(allocation_follows_the_connections) {
@@ -68,4 +69,24 @@ TEST(build_codes_round_trip_and_reject_damage) {
     bad[5] = bad[5] == 'A' ? 'B' : 'A';
     CHECK(!parse_build_code(bad, b));
     CHECK(!parse_build_code("hello", b));
+}
+
+TEST(stars_from_earlier_slices_never_move) {
+    // characters store stars by id: every slice appends to the sky, and these must stay where Slice 3 put them
+    CHECK(load_generated_tree());
+    const PassiveTree& T = tree();
+    struct Pin { int id; const char* name; float x, y; };
+    const Pin pins[] = {{0, "The Pole", 0, 0}, {51, "Qalb al-Asad, the Lion's Heart", -376.2f, -517.8f},
+                        {59, "Yad al-Jawza, the Hand", -759.6f, -327.3f}, {64, "Rijl al-Jabbar, the Giant's Foot", -490.4f, -356.2f},
+                        {100, "", 170.6f, 587.3f}, {127, "al-Dabaran, the Follower", -902.1f, -328.3f}, {130, "", -127.6f, 894.4f}};
+    for (auto& p : pins) {
+        CHECK(p.id < int(T.stars.size()));
+        if (p.id >= int(T.stars.size())) continue;
+        const Star& s = T.stars[size_t(p.id)];
+        CHECK(s.name == p.name);
+        CHECK_NEAR(s.pos.x, p.x, 0.05);
+        CHECK_NEAR(s.pos.y, p.y, 0.05);
+    }
+    CHECK(T.class_start("ranger") >= 0 && std::find(T.implemented.begin(), T.implemented.end(), "ranger") != T.implemented.end());
+    CHECK(T.recommended_for("ranger") && !T.recommended_for("ranger")->empty());
 }

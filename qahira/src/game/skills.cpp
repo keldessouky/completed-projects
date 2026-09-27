@@ -34,6 +34,20 @@ const std::vector<SkillDef>& skill_defs() {
         s = add({"falling_star", "Falling Star", "Call a star down on the target. Chilled or Frozen enemies take 60% more damage, "
                  "and a Frost Glyph it lands in bursts.",
                  T_SPELL | T_AREA | T_FIRE, "cast_ground", 0, 20, 30, DT_FIRE, 16, 2.5f, Shape::Meteor, 9.f, 2.6f, 0, 1.5f, 7, ATTR_INT, "sorcerer"});
+        // ---- the Ranger's kit (Slice 6): mark the strongest, then rain on the rest; poison what will not die
+        s = add({"split_arrow", "Split Arrow", "Loose a fan of three arrows.",
+                 T_ATTACK | T_PROJECTILE | T_BOW, "shoot", 0.82f, 0, 0, DT_PHYS, 0, 0, Shape::Projectile, 13.f, 0.3f, 0, 0.7f, 8, ATTR_DEX, "ranger"});
+        s->projectiles = 3;
+        s->proj_speed = 24.f;
+        s = add({"falcons_mark", "Falcon's Mark", "Mark the enemy you aim at for 8 s. Its next 3 hits from your attacks are Critical Strikes.",
+                 T_MARK | T_DURATION, "cast", 0, 0, 0, DT_PHYS, 6, 3.f, Shape::Mark, 14.f, 0, 0, 0.f, 9, ATTR_DEX, "ranger"});
+        s = add({"rain_of_arrows", "Rain of Arrows", "Arrows fall on the spot you aim at, in three volleys.",
+                 T_ATTACK | T_PROJECTILE | T_AREA | T_BOW, "shoot_up", 0.6f, 0, 0, DT_PHYS, 9, 0, Shape::Rain, 11.f, 2.8f, 0, 0.6f, 10, ATTR_DEX, "ranger"});
+        s = add({"scorpion_sting", "Scorpion Sting", "A heavy arrow that pierces and has a 60% chance to Poison, which deals Chaos "
+                 "damage over time and stacks.",
+                 T_ATTACK | T_PROJECTILE | T_CHAOS | T_BOW, "shoot", 1.35f, 0, 0, DT_PHYS, 7, 1.2f, Shape::Projectile, 15.f, 0.35f, 0, 1.0f, 11, ATTR_DEX, "ranger"});
+        s->proj_speed = 30.f;
+        s->poison = 60;
         return v;
     }();
     return d;
@@ -171,8 +185,15 @@ SkillCtx skill_ctx(const Talisman& t, const Stats& hero, const WeaponStats& w) {
     c.shock = clampf(d.shock / 100.f * c.shock_effect, 0.f, 1.f);
     c.freeze = s.sum(S_FREEZE, d.tags).apply(1.f);
     c.break_mult = d.break_mult * s.sum(S_BREAK, d.tags).apply(1.f);
+    StatSum po = s.sum(S_POISON, d.tags);
+    c.poison = clampf((d.poison + po.flat) * (1.f + po.inc / 100.f) * po.more / 100.f, 0.f, 1.f);
+    c.poison_mult = s.sum(S_POISON_DAMAGE, d.tags).apply(1.f) * s.sum(S_DAMAGE, d.tags | T_CHAOS).apply(1.f);
+    StatSum mk = s.sum(S_MARK, d.tags);
+    c.mark_hits = 3 + int(mk.flat);
+    c.mark_duration = 8.f * (1.f + mk.inc / 100.f);
     static const Stat attr_stat[3] = {S_STR, S_DEX, S_INT};
-    c.usable = hero.value(attr_stat[d.attr]) >= float(skill_requirement(d, t.level));
+    c.needs_bow = (d.tags & T_BOW) && !(w.tags & T_BOW);
+    c.usable = hero.value(attr_stat[d.attr]) >= float(skill_requirement(d, t.level)) && !c.needs_bow;
     return c;
 }
 

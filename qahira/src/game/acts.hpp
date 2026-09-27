@@ -1,7 +1,8 @@
 // The campaign's zones (GDD §9): each is a generated grid of one region's cells, with its level, its monsters, its
 // landmark, and what waits at its far end (a boss, a trial gate, the way on). Act I runs
 //   Downtown -> the Metro -> Khan el-Khalili -> al-Muizz Street (-> the Bab Zuweila trial) -> the City of the Dead
-//   -> the Mokattam cliffs
+//   -> the Mokattam cliffs, and Act II
+//   the River Road -> Kafr al-Nakhl -> the Ibrahimiya Canal -> Karnak -> the Valley of the Kings -> the Deep Tomb
 // and each zone's far court leads on to the next. Waypoints at the zone entrances carry you back to any you have seen.
 #pragma once
 #include <cstdint>
@@ -42,6 +43,7 @@ const ZoneDef& zone_def(int i);
 enum Quest : uint32_t {
     Q_MICROBUS = 1u << 0, Q_SILAH = 1u << 1, Q_NASNAS = 1u << 2, Q_TRIAL1 = 1u << 3, Q_GHULA = 1u << 4, Q_QUTRUB = 1u << 5,
     Q_BENCH = 1u << 6, Q_ACT1 = 1u << 7,
+    Q_NADDAHA = 1u << 8, Q_RAM = 1u << 9, Q_MARID = 1u << 10, Q_ACT2 = 1u << 11,   // Act II
 };
 struct QuestDef { uint32_t bit; const char* title; const char* text; int passive_points; int asc_points; };
 const std::vector<QuestDef>& quest_defs();

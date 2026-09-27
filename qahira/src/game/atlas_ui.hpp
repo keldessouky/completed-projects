@@ -21,6 +21,7 @@ struct MapScreen {
     int astro_cursor = 0;
     int go_site = -1;              // set when a chart is chosen: the app consumes it and sets out
     int go_chart = -1;             // the inventory index of that chart
+    bool go_rift = false;          // a Rift Seal spent: the app sets out for the Rift Lord's court
     std::string msg;
     float msg_t = 0;
 

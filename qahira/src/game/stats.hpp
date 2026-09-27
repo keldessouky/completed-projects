@@ -16,7 +16,7 @@ enum Tag : uint32_t {
     T_SLAM = 1u << 5, T_STRIKE = 1u << 6, T_WARCRY = 1u << 7, T_DURATION = 1u << 8, T_MINION = 1u << 9,
     T_PHYSICAL = 1u << 10, T_FIRE = 1u << 11, T_COLD = 1u << 12, T_LIGHTNING = 1u << 13, T_CHAOS = 1u << 14,
     T_ELEMENTAL = 1u << 15, T_TWO_HAND = 1u << 16, T_MACE = 1u << 17, T_AILMENT = 1u << 18, T_CHANNEL = 1u << 19,
-    T_CHAINING = 1u << 20, T_STAFF = 1u << 21, T_GLYPH = 1u << 22,
+    T_CHAINING = 1u << 20, T_STAFF = 1u << 21, T_GLYPH = 1u << 22, T_BOW = 1u << 23, T_MARK = 1u << 24,
 };
 
 enum DamageType { DT_PHYS, DT_FIRE, DT_COLD, DT_LIGHTNING, DT_CHAOS, DT_COUNT };
@@ -41,6 +41,11 @@ enum Stat : uint16_t {
     S_GAIN_FIRE,              // gain % of damage as extra Fire (pipeline step 3)
     S_IGNITE,                 // chance to Ignite, percent
     S_SKILL_LEVEL,            // + levels of every Talisman
+    // Slice 6: the Ranger
+    S_POISON,                 // chance to Poison, percent
+    S_POISON_DAMAGE,          // poison's damage (inc/more)
+    S_MARK,                   // hits a Mark guarantees as crits (flat), and its duration (inc)
+    S_FRENZY,                 // maximum Frenzy Charges (flat)
     S_COUNT
 };
 const char* stat_name(Stat s);

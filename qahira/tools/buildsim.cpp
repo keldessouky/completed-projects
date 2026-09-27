@@ -121,7 +121,7 @@ int main(int argc, char** argv) {
     std::ostringstream out;
     out << "# Build simulator\n\nEach row: the class's Recommended Path against " << kRandom << " random builds, each on the same "
         << kGear << " sets of level-appropriate rare gear (median of the gear sets). Flagged: a Recommended Path more than 2 sd below "
-        << "the crowd; any build more than 4 sd above it; a random build 50% ahead of the Recommended Path on DPS and EHP at once; a "
+        << "the crowd; any build more than 4 sd above it and 5% above the Recommended Path; a random build 50% ahead of the Recommended Path on DPS and EHP at once; a "
         << "Recommended Path that weakens as it levels. DPS is the first damaging skill's; EHP is life and Hirz "
         << "through armour and resistances.\n\n| Class | Level | Recommended DPS | Crowd DPS (mean +/- sd) | Recommended EHP | Crowd EHP | Flags |\n"
         << "|---|---|---|---|---|---|---|\n";
@@ -158,8 +158,11 @@ int main(int argc, char** argv) {
             auto flag = [&](const std::string& m) { fl += (fl.empty() ? "" : "; ") + m; flags.push_back(std::string(cd.name) + " level " + std::to_string(band) + ": " + m); };
             if (rec.dps < dm - 2 * ds) flag("Recommended DPS is more than 2 sd below the crowd");
             if (rec.ehp < em - 2 * es) flag("Recommended EHP is more than 2 sd below the crowd");
-            if (best_dps > dm + 4 * ds + 1e-3f && ds > 0.02f * dm) flag("a random build's DPS is more than 4 sd above the crowd");
-            if (best_ehp > em + 4 * es + 1e-3f && es > 0.02f * em) flag("a random build's EHP is more than 4 sd above the crowd");
+            // an outlier is a problem when it also beats the curated path: a corner of the sky that is simply better
+            if (best_dps > dm + 4 * ds + 1e-3f && ds > 0.02f * dm && best_dps > rec.dps * 1.05f)
+                flag("a random build's DPS is more than 4 sd above the crowd, and 5% above the Recommended Path");
+            if (best_ehp > em + 4 * es + 1e-3f && es > 0.02f * em && best_ehp > rec.ehp * 1.05f)
+                flag("a random build's EHP is more than 4 sd above the crowd, and 5% above the Recommended Path");
             for (auto& s : all)
                 if (s.dps > rec.dps * 1.5f && s.ehp > rec.ehp * 1.5f) { flag("a random build beats the Recommended Path by 50% on DPS and EHP"); break; }
             if (rec.dps < last_dps) flag("the Recommended Path got weaker since the last band");

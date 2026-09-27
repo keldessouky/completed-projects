@@ -29,7 +29,7 @@ namespace q {
 
 namespace {
 
-enum class Travel : uint8_t { None, ZoneEntrance, ZonePortal, HubPortal, HubExit, Chart };
+enum class Travel : uint8_t { None, ZoneEntrance, ZonePortal, HubPortal, HubExit, Chart, Rift };
 
 // the waypoint list: the hub and every zone whose waypoint you have touched
 using Waypoints = WaypointList;
@@ -171,6 +171,10 @@ void do_travel(Travel t) {
             S->chart_item = Item{};
             save_character();
             break;
+        case Travel::Rift:
+            A.enter_rift_court(w);
+            save_character();
+            break;
         default: return;
     }
     arrived();
@@ -285,6 +289,9 @@ uint32_t boss_quest(const ZoneDef& zd) {
     if (id == "bab_zuweila") return Q_TRIAL1;
     if (id == "necropolis") return Q_GHULA;
     if (id == "mokattam") return Q_QUTRUB | Q_ACT1;
+    if (id == "canal") return Q_NADDAHA;
+    if (id == "karnak") return Q_RAM;
+    if (id == "tomb") return Q_MARID | Q_ACT2;
     return 0;
 }
 
@@ -311,7 +318,7 @@ void boss_state(World& w) {
             int shown = __builtin_popcount(H.sites_revealed & ~before);
             if (shown) w.notices.push_back("The map grows: " + std::to_string(shown) + (shown == 1 ? " new site" : " new sites"));
         }
-        S->view.banner = std::string(site >= 0 ? sites()[size_t(site)].name : zd->name) + " is charted";
+        S->view.banner = site >= 0 ? std::string(sites()[size_t(site)].name) + " is charted" : std::string(zd->boss_line);
         S->view.banner_sub = fresh ? "An Astrolabe point, and the road on is drawn" : "A portal home opens";
         S->view.banner_t = 5.f;
         if (fresh) w.meet_codex("astrolabe");
@@ -347,7 +354,20 @@ void boss_state(World& w) {
             }
             w.notices.push_back("Four charts of the First Clime: run them at the table on the roof");
         }
-        S->view.banner_t = 5.f;
+        if (fresh & Q_ACT2) {
+            S->view.banner = "Act II is over";
+            S->view.banner_sub = "Under the kings, something vast turns in its sleep. The river's jinn were running from it.";
+            // the glimpse: one coil of it slides through the pit beyond the burial hall
+            const ZoneLayout& L = S->areas.zone.layout;
+            const ZoneCell& c = L.cells[size_t(L.arena)];
+            vec2 open = (c.mask & DIR_N) ? vec2{0, 1} : (c.mask & DIR_E) ? vec2{1, 0} : (c.mask & DIR_W) ? vec2{-1, 0} : vec2{0, -1};
+            w.coil_at = L.center(c) - open * 6.3f;
+            w.coil_dir = vec2{-open.y, open.x};
+            w.coil_t = 0;
+            w.shake = std::max(w.shake, 0.8f);
+            w.emit(Ev::BossWail, w.coil_at, 3.f);
+        }
+        S->view.banner_t = fresh & Q_ACT2 ? 9.f : 5.f;
         save_character();
     }
 }
@@ -566,6 +586,7 @@ void app_update(const Input& in_raw, float dt) {
             }
             S->map.go_site = S->map.go_chart = -1;
         }
+        if (S->map.go_rift) { S->map.go_rift = false; begin_travel(Travel::Rift); }
         if (!S->map.open) save_character();
         S->view.follow(w, dt);
         return;
@@ -677,8 +698,8 @@ void app_render(GLuint fbo, int w, int h) {
 void app_audio(int16_t* stereo, int frames) { audio().mix(stereo, frames); }
 
 // ---- save states
-static const uint32_t kStateVersion = 8;  // 5: passives, Hirz, keystone state; 6: Talismans, ailments, glyphs; 7: Act I;
-                                          // 8: chart runs and the Haboob
+static const uint32_t kStateVersion = 9;  // 5: passives, Hirz, keystone state; 6: Talismans, ailments, glyphs; 7: Act I;
+                                          // 8: chart runs and the Haboob; 9: poison, marks, Frenzy, arrows
 
 static ByteWriter save_state() {
     ByteWriter w;

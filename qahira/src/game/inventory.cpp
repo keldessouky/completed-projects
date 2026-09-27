@@ -57,6 +57,8 @@ const CurrencyDef& currency_def(int c) {
         {"omen_fish", "Omen: the Fish in the Cup", "Read it: your next Khamsa or Blend adds a prefix", 0x6A4A2A, 2, 90, 5},
         {"omen_door", "Omen: the Closed Door", "Read it: your next Glass or Ash spares bench modifiers", 0x6A4A2A, 2, 90, 5},
         {"omen_crescent", "Omen: the Crescent", "Read it: your next Ember cannot unmake an item", 0x6A4A2A, 2, 110, 6},
+        {"marid_splinter", "Marid Splinter", "Fifty fuse into a Rift Seal", 0x5FC8E8, 0, 0, 999},
+        {"rift_seal", "Rift Seal", "Opens the Rift Lord's court, at the chart table", 0x2E8AB8, 0, 0, 999},
     };
     return d[c >= 0 && c < CUR_COUNT ? c : 0];
 }

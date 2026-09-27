@@ -25,7 +25,8 @@ const char* stat_name(Stat s) {
         "Damage", "Added Damage", "Added Damage", "Attack Speed", "Cast Speed", "Critical Strike Chance",
         "Critical Strike Multiplier", "Area of Effect", "Movement Speed", "Break", "Cooldown Recovery", "Mana Cost",
         "Damage Taken", "Flask Recovery", "Accuracy", "Hirz", "Hirz Recharge", "Freeze Buildup", "Shock Effect", "Chains",
-        "Projectile Speed", "Warcry Effect", "Projectiles", "Damage Gained as Fire", "Chance to Ignite", "Talisman Level"};
+        "Projectile Speed", "Warcry Effect", "Projectiles", "Damage Gained as Fire", "Chance to Ignite", "Talisman Level",
+        "Chance to Poison", "Poison Damage", "Mark Effect", "Maximum Frenzy Charges"};
     return s < S_COUNT ? n[s] : "?";
 }
 
@@ -41,6 +42,7 @@ bool stat_from_key(const std::string& k, Stat& out) {
         {"flask", S_FLASK_RECOVERY}, {"accuracy", S_ACCURACY}, {"es", S_ES}, {"es_recharge", S_ES_RECHARGE},
         {"freeze", S_FREEZE}, {"shock", S_SHOCK}, {"chains", S_CHAINS}, {"proj_speed", S_PROJ_SPEED}, {"warcry", S_WARCRY},
         {"projectiles", S_PROJECTILES}, {"gain_fire", S_GAIN_FIRE}, {"ignite", S_IGNITE}, {"skill_level", S_SKILL_LEVEL},
+        {"poison", S_POISON}, {"poison_damage", S_POISON_DAMAGE}, {"mark", S_MARK}, {"frenzy", S_FRENZY},
     };
     for (auto& e : t) if (k == e.key) { out = e.s; return true; }
     return false;
@@ -52,7 +54,7 @@ bool tag_from_key(const std::string& k, uint32_t& out) {
         {"slam", T_SLAM}, {"strike", T_STRIKE}, {"warcry", T_WARCRY}, {"duration", T_DURATION}, {"minion", T_MINION},
         {"physical", T_PHYSICAL}, {"fire", T_FIRE}, {"cold", T_COLD}, {"lightning", T_LIGHTNING}, {"chaos", T_CHAOS},
         {"elemental", T_ELEMENTAL}, {"two_hand", T_TWO_HAND}, {"mace", T_MACE}, {"ailment", T_AILMENT}, {"channel", T_CHANNEL},
-        {"chaining", T_CHAINING}, {"staff", T_STAFF}, {"glyph", T_GLYPH},
+        {"chaining", T_CHAINING}, {"staff", T_STAFF}, {"glyph", T_GLYPH}, {"bow", T_BOW}, {"mark", T_MARK},
     };
     for (auto& e : t) if (k == e.key) { out = e.t; return true; }
     return false;

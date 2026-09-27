@@ -56,31 +56,43 @@ void MapScreen::update(World& w, const Input& in, float dt) {
     msg_t = std::max(0.f, msg_t - dt);
     if (!open) return;
     Hero& H = w.hero;
-    int dir = -1;
-    if (in.held(BTN_UP) || in.lstick.y > 0.6f) dir = D_UP;
-    else if (in.held(BTN_DOWN) || in.lstick.y < -0.6f) dir = D_DOWN;
-    else if (in.held(BTN_LEFT) || in.lstick.x < -0.6f) dir = D_LEFT;
-    else if (in.held(BTN_RIGHT) || in.lstick.x > 0.6f) dir = D_RIGHT;
+    // the push: the stick's own direction (so a diagonal reaches a site that lies diagonally), or the D-pad's
+    vec2 push{0, 0};
+    if (length(in.lstick) > 0.6f) push = normalize(vec2{in.lstick.x, -in.lstick.y});   // screen space: up is -y
+    else if (in.held(BTN_UP)) push = {0, -1};
+    else if (in.held(BTN_DOWN)) push = {0, 1};
+    else if (in.held(BTN_LEFT)) push = {-1, 0};
+    else if (in.held(BTN_RIGHT)) push = {1, 0};
+    int dir = length(push) > 0 ? int(std::lround((angle_of(push) + kPi) / (kTau / 8))) % 8 : -1;   // one of eight, for the repeat
     int step = -1;
     if (dir < 0) last_dir_ = -1;
     else if (dir != last_dir_) { last_dir_ = dir; repeat_t_ = 0.3f; step = dir; }
     else if ((repeat_t_ -= dt) <= 0) { repeat_t_ = 0.12f; step = dir; }
+    // the four-way step for the lists (the chart picker) reads the dominant axis
+    const int step4 = step < 0 ? -1 : std::fabs(push.x) > std::fabs(push.y) ? (push.x < 0 ? D_LEFT : D_RIGHT) : (push.y < 0 ? D_UP : D_DOWN);
     if (in.hit(BTN_EAST)) {
         if (picking) picking = false;
         else hide();
         return;
     }
     if (!picking && (in.hit(BTN_L1) || in.hit(BTN_R1))) { view ^= 1; w.emit(Ev::Craft, w.actors[0].pos, 0); return; }
+    if (!picking && view == 0 && in.hit(BTN_WEST)) {   // a Rift Seal: the Rift Lord's court
+        if (w.hero.currency[CUR_RIFT_SEAL] <= 0) { say("A Rift Seal opens the Rift Lord's court: fifty Marid Splinters make one"); return; }
+        w.hero.currency[CUR_RIFT_SEAL]--;
+        go_rift = true;
+        open = false;
+        return;
+    }
     // the nearest candidate in the push direction (screen space: up is up)
     auto nearest = [&](vec2 from, int n, auto pos, auto ok) {
-        vec2 want{step == D_LEFT ? -1.f : step == D_RIGHT ? 1.f : 0.f, step == D_UP ? -1.f : step == D_DOWN ? 1.f : 0.f};
+        vec2 want = push;
         int best = -1;
         float bs = 1e9f;
         for (int i = 0; i < n; i++) {
             if (!ok(i)) continue;
             vec2 d = pos(i) - from;
             float along = dot(d, want);
-            if (along <= 4) continue;
+            if (along <= 4 || along < 0.57f * length(d)) continue;   // ahead, within about 55 degrees of the push
             float score = along + std::fabs(dot(d, vec2{want.y, -want.x})) * 1.8f;
             if (score < bs) { bs = score; best = i; }
         }
@@ -107,8 +119,8 @@ void MapScreen::update(World& w, const Input& in, float dt) {
     }
     if (picking) {
         int n = int(picks.size());
-        if (step == D_UP) pick = (pick + n - 1) % n;
-        if (step == D_DOWN) pick = (pick + 1) % n;
+        if (step4 == D_UP) pick = (pick + n - 1) % n;
+        if (step4 == D_DOWN) pick = (pick + 1) % n;
         if (in.hit(BTN_SOUTH) && n > 0) { go_site = cursor; go_chart = picks[size_t(pick)]; picking = false; open = false; }
         return;
     }
@@ -270,7 +282,10 @@ void MapScreen::render(const World& w) const {
                 }
             }
         }
-        legend(IX + 24, 986, {{BTN_SOUTH, picking ? "Set out" : "Choose a chart"}, {BTN_R1, "Astrolabe"}, {BTN_EAST, picking ? "Back" : "Close"}});
+        if (!picking && H.currency[CUR_RIFT_SEAL] > 0)
+            legend(IX + 24, 986, {{BTN_SOUTH, "Choose a chart"}, {BTN_WEST, "Rift Seal"}, {BTN_R1, "Astrolabe"}, {BTN_EAST, "Close"}});
+        else
+            legend(IX + 24, 986, {{BTN_SOUTH, picking ? "Set out" : "Choose a chart"}, {BTN_R1, "Astrolabe"}, {BTN_EAST, picking ? "Back" : "Close"}});
     } else {
         // the Astrolabe: a rete of four pointers over the plate; nodes along them
         auto& nodes = astro_nodes();

@@ -1,6 +1,7 @@
 #include "game/items.hpp"
 #include "game/uniques.hpp"
 #include <algorithm>
+#include <array>
 #include <cstdio>
 #include <cstdlib>
 
@@ -46,6 +47,18 @@ const std::vector<ItemBase>& item_bases() {
         {"chart_clime_2", "Chart of the Second Clime", Slot::Chart, 15, 0, 0, 0, 0, 0, 0, nullptr, 0, WK_NONE},
         {"chart_clime_3", "Chart of the Third Clime", Slot::Chart, 16, 0, 0, 0, 0, 0, 0, nullptr, 0, WK_NONE},
         {"chart_clime_4", "Chart of the Fourth Clime", Slot::Chart, 17, 0, 0, 0, 0, 0, 0, nullptr, 0, WK_NONE},
+        // Slice 6, the Ranger: bows and evasion armour
+        {"reed_bow", "Reed Bow", Slot::Weapon, 1, 5, 11, 1.45f, 6, 0, 0, nullptr, 0, WK_BOW},
+        {"acacia_bow", "Acacia Bow", Slot::Weapon, 5, 8, 17, 1.4f, 6.5f, 0, 0, nullptr, 0, WK_BOW},
+        {"horn_bow", "Horn Bow", Slot::Weapon, 11, 13, 27, 1.35f, 7, 0, 0, "10% increased Projectile Speed", 0, WK_BOW},
+        {"composite_bow", "Composite Bow", Slot::Weapon, 18, 19, 41, 1.4f, 7, 0, 0, "10% increased Projectile Speed", 0, WK_BOW},
+        {"leather_hood", "Leather Hood", Slot::Helmet, 1, 0, 0, 0, 0, 0, 14, nullptr, 0, WK_NONE},
+        {"hunters_jerkin", "Hunter's Jerkin", Slot::Body, 1, 0, 0, 0, 0, 0, 32, nullptr, 0, WK_NONE},
+        {"suede_gloves", "Suede Gloves", Slot::Gloves, 1, 0, 0, 0, 0, 0, 9, nullptr, 0, WK_NONE},
+        {"sand_striders", "Sand Striders", Slot::Boots, 1, 0, 0, 0, 0, 0, 11, nullptr, 0, WK_NONE},
+        {"falconers_hood", "Falconer's Hood", Slot::Helmet, 9, 0, 0, 0, 0, 0, 38, nullptr, 0, WK_NONE},
+        {"desert_coat", "Desert Coat", Slot::Body, 10, 0, 0, 0, 0, 0, 84, nullptr, 0, WK_NONE},
+        {"jade_ring", "Jade Ring", Slot::Ring, 3, 0, 0, 0, 0, 0, 0, "+12 to Dexterity"},
     };
     return b;
 }
@@ -168,10 +181,35 @@ const std::vector<AffixDef>& affix_defs() {
         {"cm_rarity", false, "of Plenty", AE_CHART, CH, {14, 15, 16}, {10, 15, 20}, {14, 19, 25}, {0, 0, 0}, {0, 0, 0}, "%d%% increased Rarity of Items found"},
         {"cm_sand", false, "of Sand", AE_CHART, CH, {14, 15, 16}, {35, 50, 70}, {49, 69, 100}, {0, 0, 0}, {0, 0, 0}, "+%d%% chance of a Haboob"},
     };
+    // Slice 6: evasion, projectiles, poison (rolled; append only, after the chart mods)
+    static const std::vector<AffixDef> r = [&] {
+        std::vector<AffixDef> v = {
+            {"ev_add", true, "Swift", AE_LOCAL_EVASION_ADD, ARMOUR_SLOTS, {1, 7, 15}, {8, 20, 36}, {19, 35, 60}, {0, 0, 0}, {0, 0, 0}, "+%d to Evasion Rating", NEED_EVASION},
+            {"ev_inc", true, "Nimble", AE_LOCAL_EVASION_INC, ARMOUR_SLOTS, {1, 8, 16}, {15, 27, 40}, {26, 39, 60}, {0, 0, 0}, {0, 0, 0}, "%d%% increased Evasion Rating", NEED_EVASION},
+        };
+        auto gen = [&](const char* id, bool pre, const char* name, uint32_t slots, std::array<float, 6> v6, const char* fmt, Stat st,
+                       ModKind k, uint32_t tags, uint8_t need) {
+            AffixDef d{id, pre, name, AE_GENERIC, slots, {1, 8, 16}, {v6[0], v6[2], v6[4]}, {v6[1], v6[3], v6[5]}, {0, 0, 0}, {0, 0, 0}, fmt, need};
+            d.gstat = st;
+            d.gkind = k;
+            d.gtags = tags;
+            v.push_back(d);
+        };
+        gen("proj_dmg", true, "Fletched", SB(Slot::Weapon) | SB(Slot::Amulet) | SB(Slot::Gloves), {12, 21, 22, 31, 32, 45},
+            "%d%% increased Projectile Damage", S_DAMAGE, MK_INC, T_PROJECTILE, 0);
+        gen("poison_chance", false, "of Venom", SB(Slot::Weapon) | SB(Slot::Gloves) | SB(Slot::Ring), {8, 12, 13, 18, 19, 25},
+            "%d%% chance to Poison on Hit", S_POISON, MK_FLAT, 0, 0);
+        gen("proj_speed", false, "of the Falcon's Flight", SB(Slot::Weapon) | SB(Slot::Gloves), {10, 15, 16, 22, 23, 30},
+            "%d%% increased Projectile Speed", S_PROJ_SPEED, MK_INC, 0, NEED_BOW);
+        gen("bow_crit", false, "of the Hawk", SB(Slot::Weapon), {10, 20, 21, 30, 31, 40},
+            "%d%% increased Critical Strike Chance with Bows", S_CRIT_CHANCE, MK_INC, T_BOW, NEED_BOW);
+        return v;
+    }();
     static const std::vector<AffixDef> all = [&] {
         std::vector<AffixDef> v = a;
         v.insert(v.end(), g.begin(), g.end());
         v.insert(v.end(), c.begin(), c.end());
+        v.insert(v.end(), r.begin(), r.end());
         return v;
     }();
     return all;
@@ -181,12 +219,13 @@ const std::vector<AffixDef>& affix_defs() {
 static bool fits_need(const AffixDef& ad, const ItemBase& b) {
     if (!ad.need) return true;
     if (ARMOUR_SLOTS & SB(b.slot)) {
-        if (!(ad.need & (NEED_ARMOUR | NEED_ES))) return true;
-        return ((ad.need & NEED_ARMOUR) && b.armour > 0) || ((ad.need & NEED_ES) && b.es > 0);
+        if (!(ad.need & (NEED_ARMOUR | NEED_ES | NEED_EVASION))) return true;
+        return ((ad.need & NEED_ARMOUR) && b.armour > 0) || ((ad.need & NEED_ES) && b.es > 0) || ((ad.need & NEED_EVASION) && b.evasion > 0);
     }
     if (b.slot == Slot::Weapon) {
-        if (!(ad.need & (NEED_MAUL | NEED_STAFF))) return true;
-        return ((ad.need & NEED_MAUL) && b.wkind == WK_MAUL) || ((ad.need & NEED_STAFF) && b.wkind == WK_STAFF);
+        if (!(ad.need & (NEED_MAUL | NEED_STAFF | NEED_BOW))) return true;
+        return ((ad.need & NEED_MAUL) && b.wkind == WK_MAUL) || ((ad.need & NEED_STAFF) && b.wkind == WK_STAFF) ||
+               ((ad.need & NEED_BOW) && b.wkind == WK_BOW);
     }
     return true;
 }
@@ -331,9 +370,21 @@ WeaponStats Item::weapon() const {
     w.phys_max = std::round((bb.phys_max + add_hi) * (1 + inc / 100.f));
     w.aps = bb.aps * (1 + speed / 100.f);
     w.crit = bb.crit * (1 + crit / 100.f);
-    w.tags = T_TWO_HAND | (bb.wkind == WK_STAFF ? T_STAFF : T_MACE);
+    w.tags = T_TWO_HAND | (bb.wkind == WK_STAFF ? T_STAFF : bb.wkind == WK_BOW ? T_BOW | T_PROJECTILE : T_MACE);
+    if (bb.wkind == WK_BOW) w.range = 12.f;
     w.valid = true;
     return w;
+}
+
+float Item::local_evasion() const {
+    const ItemBase& bb = b();
+    float add = 0, inc = 0;
+    for (auto& a : affixes) {
+        auto e = affix_defs()[a.def].effect;
+        if (e == AE_LOCAL_EVASION_ADD) add += a.v1;
+        if (e == AE_LOCAL_EVASION_INC) inc += a.v1;
+    }
+    return (bb.evasion + add) * (1 + inc / 100.f);
 }
 
 float Item::local_es() const {
@@ -386,6 +437,7 @@ void Item::add_global_mods(Stats& s, uint16_t src) const {
         }
     }
     if (bb.es > 0) s.add(S_ES, MK_FLAT, local_es(), 0, src);
+    if (bb.evasion > 0) s.add(S_EVASION, MK_FLAT, local_evasion(), 0, src);
     if (bb.armour > 0 || armour_add > 0) s.add(S_ARMOUR, MK_FLAT, (bb.armour + armour_add) * (1 + armour_inc / 100.f), 0, src);
     if (bb.implicit) {
         std::string imp = bb.implicit;
@@ -395,6 +447,8 @@ void Item::add_global_mods(Stats& s, uint16_t src) const {
         if (imp.find("Cold Resistance") != std::string::npos) s.add(S_COLD_RES, MK_FLAT, 14, 0, src);
         if (imp.find("maximum Hirz") != std::string::npos) s.add(S_ES, MK_FLAT, 20, 0, src);
         if (imp.find("Spell Damage") != std::string::npos) s.add(S_DAMAGE, MK_INC, float(atoi(bb.implicit)), T_SPELL, src);
+        if (imp.find("Projectile Speed") != std::string::npos) s.add(S_PROJ_SPEED, MK_INC, 10, 0, src);
+        if (imp.find("to Dexterity") != std::string::npos) s.add(S_DEX, MK_FLAT, 12, 0, src);
     }
 }
 
@@ -404,7 +458,7 @@ std::vector<std::string> Item::lines() const {
     char buf[160];
     if (bb.slot == Slot::Weapon) {
         WeaponStats w = weapon();
-        out.push_back(bb.wkind == WK_STAFF ? "Staff" : "Two-Handed Mace");
+        out.push_back(bb.wkind == WK_STAFF ? "Staff" : bb.wkind == WK_BOW ? "Bow" : "Two-Handed Mace");
         snprintf(buf, sizeof buf, "Physical Damage: %d-%d", int(w.phys_min), int(w.phys_max));
         out.push_back(buf);
         if (w.add_max[DT_FIRE] > 0) { snprintf(buf, sizeof buf, "Fire Damage: %d-%d", int(w.add_min[DT_FIRE]), int(w.add_max[DT_FIRE])); out.push_back(buf); }
@@ -423,6 +477,9 @@ std::vector<std::string> Item::lines() const {
         out.push_back(buf);
     } else if (bb.es > 0) {
         snprintf(buf, sizeof buf, "Hirz: %d", int(local_es()));
+        out.push_back(buf);
+    } else if (bb.evasion > 0) {
+        snprintf(buf, sizeof buf, "Evasion Rating: %d", int(local_evasion()));
         out.push_back(buf);
     } else if (bb.slot == Slot::Chart) {
         snprintf(buf, sizeof buf, "Clime %d chart: Area Level %d", bb.level - 13, bb.level);

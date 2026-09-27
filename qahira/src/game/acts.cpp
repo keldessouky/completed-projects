@@ -27,7 +27,7 @@ const std::vector<ZoneDef>& zone_defs() {
          "ifrit_zuweila", "The ifrit of Bab Zuweila is bound again", "", "cache", "", true, 6 /* EQ_AMULET */, {1.2f, 0.8f, 0.7f}},
         {"mokattam", "The Mokattam Cliffs", "Above the city, the quarries howl", "mokattam", 1, 12, 4, 5, 3,
          "mus_mokattam", "amb_cliffs", {{"qutrub", 6}, {"ghoul", 5}, {"ghoul_spitter", 2}}, "qutrub",
-         "qutrub_alpha", "The Qutrub of the Quarries is dead. Act I is over", "", "cache", "", false, -1, {0.9f, 0.95f, 1.1f}},
+         "qutrub_alpha", "The Qutrub of the Quarries is dead. Act I is over", "nile_bank", "cache", "", false, -1, {0.9f, 0.95f, 1.1f}},
         // Slice 5: the sites of the Map of al-Idrisi (act 0: the endgame; no waypoints; the chart sets the level)
 #define SITE(id, name, sub, tiles, tier, w, h, br, mus, amb, s1, w1, s2, w2, s3, w3, elite, boss, tint)                          \
         {"site_" id, name, sub, tiles, 0, 13 + tier, w, h, br, mus, amb, {{s1, w1}, {s2, w2}, {s3, w3}}, elite, boss,       \
@@ -65,6 +65,29 @@ const std::vector<ZoneDef>& zone_defs() {
         SITE("sabta", "Sabta", "The strait, and the edge of the known sea", "gate", 4, 3, 6, 2, "mus_trial", "amb_cliffs",
              "qutrub", 5, "sand_jinn", 4, "nasnas", 3, "qutrub", "qutrub_alpha", SITE_TINT(0.95f, 0.95f, 1.1f)),
 #undef SITE
+        // Act II (Slice 6): the Nile to Luxor
+        {"nile_bank", "The River Road", "The feluccas rot at their moorings, and the river is listening", "nile", 2, 14, 3, 6, 2,
+         "mus_nile", "amb_river", {{"marid", 6}, {"ghoul", 4}, {"sand_jinn", 2}}, "marid",
+         "", "", "village", "poster", "", false, -1, {0.85f, 0.95f, 1.12f}},
+        {"village", "Kafr al-Nakhl", "A village of palms, and every door shut against the river", "village", 2, 16, 4, 5, 3,
+         "mus_village", "amb_cliffs", {{"silah", 4}, {"qutrub", 3}, {"marid", 3}, {"nasnas", 3}}, "silah",
+         "", "", "canal", "cache", "", false, -1, {1.05f, 0.95f, 0.9f}},
+        {"canal", "The Ibrahimiya Canal", "Someone is calling your name from the water", "nile", 2, 18, 3, 6, 2,
+         "mus_nile", "amb_river", {{"marid", 6}, {"marid_caller", 3}, {"silah", 2}}, "marid_caller",
+         "naddaha", "El Naddaha sinks, and the canal is only water again", "karnak", "cache", "", false, -1, {0.8f, 0.95f, 1.15f}},
+        {"karnak", "Karnak, the Hypostyle Hall", "A forest of stone, and the statues have turned their heads", "karnak", 2, 21, 4, 5, 3,
+         "mus_karnak", "amb_temple", {{"timthal", 4}, {"sand_jinn", 4}, {"marid_caller", 3}}, "timthal",
+         "ram_sphinx", "The Ram of the Avenue lies down again", "valley", "poster", "", false, -1, {1.05f, 0.95f, 0.95f}},
+        {"valley", "The Valley of the Kings", "The diggers left their lamps burning when they ran", "valley", 2, 23, 4, 6, 3,
+         "mus_karnak", "amb_temple", {{"tomb_ghoul", 6}, {"sand_jinn", 3}, {"timthal", 2}, {"qutrub", 2}}, "timthal",
+         "", "", "tomb", "cache", "", false, -1, {1.1f, 1.0f, 0.9f}},
+        {"tomb", "The Deep Tomb", "Below the painted stars, something older than the kings", "tomb", 2, 25, 3, 6, 2,
+         "mus_tomb", "amb_tomb", {{"tomb_ghoul", 5}, {"marid", 4}, {"timthal", 2}}, "marid",
+         "marid_tomb", "The marid is still. Below it, something vast turns over", "", "cache", "", false, -1, {0.9f, 0.9f, 1.1f}},
+        // the endgame's Marid Rifts: a Rift Seal opens the Rift Lord's court (act 0, like a site, at the Fourth Clime's level)
+        {"rift_court", "The Rift Lord's Court", "Water stands up in the dark like walls", "tomb", 0, 18, 2, 4, 1,
+         "mus_tomb", "amb_river", {{"marid", 5}, {"marid_caller", 3}, {"tomb_ghoul", 2}}, "marid",
+         "rift_lord", "The Rift Lord is unmade, and the court drains away", "", "cache", "", false, -1, {0.7f, 0.9f, 1.2f}},
     };
     return d;
 }
@@ -86,6 +109,9 @@ const std::vector<QuestDef>& quest_defs() {
         {Q_TRIAL1, "The First Trial", "Pay the toll at Bab Zuweila and bind its ifrit.", 0, 2},
         {Q_GHULA, "Mother of the Ghouls", "Lay Umm al-Ghula to rest in the City of the Dead.", 1, 0},
         {Q_QUTRUB, "The Quarries", "Kill the Qutrub of the Quarries on the Mokattam cliffs.", 1, 0},
+        {Q_NADDAHA, "The Caller", "Something in the Ibrahimiya Canal calls the villagers by name. Silence it.", 1, 0},
+        {Q_RAM, "The Avenue of Rams", "The statues of Karnak have woken. Lay the Ram of the Avenue down.", 1, 0},
+        {Q_MARID, "The Deep Tomb", "Follow the river's jinn under the Valley of the Kings, to the tomb that has no king.", 1, 0},
     };
     return d;
 }

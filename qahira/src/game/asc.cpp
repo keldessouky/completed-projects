@@ -51,6 +51,53 @@ const std::vector<Ascendancy>& ascendancies() {
              {"Conductor", true, 11, {-2.8f, -2.2f}, {M(S_CHAINS, MK_FLAT, 1), M(S_DAMAGE, MK_INC, 15, T_LIGHTNING)}, 0,
               {"Skills Chain +1 time", "15% increased Lightning Damage"}},
          }},
+        // ---- Slice 6: the Ranger's two
+        {"marksman", "Marksman", "ranger", "Marks, sure shots and the long draw: every arrow finds the one it was meant for", 0xE8C860,
+         {
+             {"Marksman", false, -1, {0, 0}, {}, 0, {}},
+             {"Fletcher's Eye", false, 0, {-1.6f, 1.0f}, {M(S_CRIT_CHANCE, MK_INC, 15, T_PROJECTILE)}, 0,
+              {"15% increased Critical Strike Chance with Projectiles"}},
+             {"Hawk's Gaze", true, 1, {-2.8f, 2.2f}, {M(S_MARK, MK_FLAT, 2), M(S_MARK, MK_INC, 50)}, KS_HAWK,
+              {"Your Marks make 2 more hits Critical Strikes and last 50% longer", "Marked enemies take 10% increased Damage"}},
+             {"Steady Draw", false, 0, {0, 1.4f}, {M(S_DAMAGE, MK_INC, 10, T_PROJECTILE)}, 0, {"10% increased Projectile Damage"}},
+             {"The Long Shot", true, 3, {0, 2.9f}, {}, KS_LONG_SHOT,
+              {"Projectile Attacks deal up to 30% more Damage", "the further away the enemy they hit"}},
+             {"Sure Hand", false, 0, {1.6f, 1.0f}, {M(S_CRIT_MULTI, MK_FLAT, 20, T_PROJECTILE)}, 0,
+              {"+20% to Critical Strike Multiplier with Projectiles"}},
+             {"Heart-Seeker", true, 5, {2.8f, 2.2f}, {M(S_CRIT_CHANCE, MK_FLAT, 1.5f, T_PROJECTILE), M(S_CRIT_MULTI, MK_FLAT, 30, T_PROJECTILE)}, 0,
+              {"+1.5% to Critical Strike Chance with Projectiles", "+30% to Critical Strike Multiplier with Projectiles"}},
+             {"Quick Nock", false, 0, {1.6f, -1.0f}, {M(S_ATTACK_SPEED, MK_INC, 6)}, 0, {"6% increased Attack Speed"}},
+             {"Frenzied Aim", true, 7, {2.8f, -2.2f}, {M(S_FRENZY, MK_FLAT, 1)}, KS_CRIT_FRENZY,
+              {"Critical Strikes have a 30% chance to grant a Frenzy Charge", "+1 to maximum Frenzy Charges"}},
+             {"Watchful", false, 0, {0, -1.4f}, {M(S_EVASION, MK_FLAT, 40)}, 0, {"+40 to Evasion Rating"}},
+             {"Falcon's Ward", true, 9, {0, -2.9f}, {M(S_MARK, MK_INC, 25)}, KS_MARK_SPREAD,
+              {"When a Marked enemy dies, its Mark passes to the nearest enemy", "25% increased Mark Duration"}},
+             {"Fletching", false, 0, {-1.6f, -1.0f}, {M(S_PROJ_SPEED, MK_INC, 10)}, 0, {"10% increased Projectile Speed"}},
+             {"Split the Reed", true, 11, {-2.8f, -2.2f}, {M(S_PROJECTILES, MK_FLAT, 1), M(S_PROJ_SPEED, MK_INC, 10)}, 0,
+              {"Skills fire an additional Projectile", "10% increased Projectile Speed"}},
+         }},
+        {"outrider", "Outrider", "ranger", "Speed, venom and a full waterskin: the one who reaches the next well first", 0x8FD14F,
+         {
+             {"Outrider", false, -1, {0, 0}, {}, 0, {}},
+             {"Light Step", false, 0, {-1.6f, 1.0f}, {M(S_MOVE_SPEED, MK_INC, 5)}, 0, {"5% increased Movement Speed"}},
+             {"Desert Wind", true, 1, {-2.8f, 2.2f}, {M(S_MOVE_SPEED, MK_INC, 8), M(S_ATTACK_SPEED, MK_INC, 8)}, 0,
+              {"8% increased Movement Speed", "8% increased Attack Speed"}},
+             {"Venom", false, 0, {0, 1.4f}, {M(S_POISON, MK_FLAT, 10)}, 0, {"+10% chance to Poison on Hit"}},
+             {"Scorpion's Kiss", true, 3, {0, 2.9f}, {M(S_POISON, MK_FLAT, 10)}, KS_VIPER,
+              {"Poisons you inflict deal 40% more Damage and last 1 second longer", "+10% chance to Poison on Hit"}},
+             {"Waterskin", false, 0, {1.6f, 1.0f}, {M(S_FLASK_RECOVERY, MK_INC, 20)}, 0, {"20% increased Flask Recovery"}},
+             {"Qirba of Plenty", true, 5, {2.8f, 2.2f}, {M(S_FLASK_RECOVERY, MK_INC, 20)}, KS_QIRBA,
+              {"Your Flask refills a quarter-charge every 2 seconds", "20% increased Flask Recovery"}},
+             {"Sand Walker", false, 0, {1.6f, -1.0f}, {M(S_EVASION, MK_INC, 15)}, 0, {"15% increased Evasion Rating"}},
+             {"Mirage", true, 7, {2.8f, -2.2f}, {M(S_EVASION, MK_INC, 30), M(S_DEX, MK_FLAT, 10)}, 0,
+              {"30% increased Evasion Rating", "+10 to Dexterity"}},
+             {"Hunter's Pace", false, 0, {0, -1.4f}, {M(S_FRENZY, MK_FLAT, 1)}, 0, {"+1 to maximum Frenzy Charges"}},
+             {"Running Fire", true, 9, {0, -2.9f}, {}, KS_KILL_FRENZY,
+              {"Kills have a 35% chance to grant a Frenzy Charge"}},
+             {"Adder", false, 0, {-1.6f, -1.0f}, {M(S_POISON_DAMAGE, MK_INC, 15)}, 0, {"15% increased Poison Damage"}},
+             {"Plague Road", true, 11, {-2.8f, -2.2f}, {M(S_POISON_DAMAGE, MK_INC, 15)}, KS_PLAGUE,
+              {"When a Poisoned enemy dies, its Poisons spread to enemies nearby", "15% increased Poison Damage"}},
+         }},
     };
     return a;
 }
@@ -58,6 +105,20 @@ const std::vector<Ascendancy>& ascendancies() {
 const Ascendancy* ascendancy_for(const std::string& cls) {
     for (auto& a : ascendancies()) if (cls == a.cls) return &a;
     return nullptr;
+}
+
+std::vector<int> ascendancies_of(const std::string& cls) {
+    std::vector<int> v;
+    auto& a = ascendancies();
+    for (size_t i = 0; i < a.size(); i++) if (cls == a[i].cls) v.push_back(int(i));
+    return v;
+}
+
+const Ascendancy* ascendancy_of(const std::string& cls, int chosen) {
+    auto& a = ascendancies();
+    if (chosen >= 0 && chosen < int(a.size()) && cls == a[size_t(chosen)].cls) return &a[size_t(chosen)];
+    std::vector<int> v = ascendancies_of(cls);
+    return v.size() == 1 ? &a[size_t(v[0])] : nullptr;
 }
 
 int find_ascendancy(const std::string& id) {

@@ -40,7 +40,8 @@ struct Areas {
     void enter_hub(World& w, Arrival how);
     void enter_zone(World& w, int def, Arrival how);   // def -1: the kept instance
     void enter_chart(World& w, int site, const Item& chart);   // a chart consumed at the table: a fresh site
-    void arm_haboob(World& w);                 // this site gets a Haboob (its bounds from the layout)
+    void arm_haboob(World& w);
+    void enter_rift_court(World& w);   // a Rift Seal spent: the Rift Lord's court                 // this site gets a Haboob (its bounds from the layout)
     void enter_street(World& w);
     void leave_zone(World& w);                 // snapshot the live zone into the instance
     void close_zone(World& w);                 // the instance is finished or abandoned (a trial's toll comes back)

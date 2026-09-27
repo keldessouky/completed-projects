@@ -19,6 +19,8 @@ enum class Shape : uint8_t {
     Glyph,      // an inscription on the ground that lasts
     Meteor,     // a delayed strike at a target point
     Nova,       // a ring out from the hero
+    Mark,       // Slice 6: mark the enemy aimed at; its next hits are critical strikes
+    Rain,       // Slice 6: volleys of arrows on a spot
 };
 
 enum Attr : uint8_t { ATTR_STR, ATTR_DEX, ATTR_INT };
@@ -46,6 +48,7 @@ struct SkillDef {
     int chains = 0;
     float ignite = 0, shock = 0;  // base chance to Ignite / Shock, percent
     float duration = 0;           // glyphs
+    float poison = 0;             // base chance to Poison, percent
 };
 const std::vector<SkillDef>& skill_defs();
 int find_skill(const char* id);
@@ -80,6 +83,7 @@ struct Talisman {
 // shape's numbers after area, projectile and chain modifiers.
 struct SkillCtx {
     const SkillDef* def = nullptr;
+    bool needs_bow = false;   // a bow skill, and no bow in hand
     int level = 1;
     Stats stats;            // hero stats + Wafq mods (sourced SRC_WAFQ + id)
     SkillStats ss;
@@ -90,6 +94,9 @@ struct SkillCtx {
     int projectiles = 1, chains = 0;
     float proj_speed = 0;
     float ignite = 0, shock = 0;   // chances, 0..1
+    float poison = 0, poison_mult = 1;
+    int mark_hits = 3;
+    float mark_duration = 8;
     float freeze = 1, shock_effect = 1, break_mult = 1;
     bool usable = true;     // attribute requirement met
 };

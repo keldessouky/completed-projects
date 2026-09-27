@@ -1,5 +1,6 @@
 // Ascendancy (GDD §5.3): each class's inner sky. The Trials of Ascendancy give its points (two per trial); a node is
-// taken when its parent is held. Slice 4 brings one per class: the Warrior's Ironclad and the Sorcerer's Stormbinder.
+// taken when its parent is held. Slice 4 brought one per class (the Warrior's Ironclad, the Sorcerer's Stormbinder);
+// from Slice 6 a class can have two, and the character chooses one at the First Trial (Hero::ascendancy).
 #pragma once
 #include "core/math.hpp"
 #include "game/stats.hpp"
@@ -19,6 +20,15 @@ enum AscRule : uint32_t {
     KS_BIND_COLD = 1u << 14,   // chilled and frozen enemies take more damage
     KS_STORM_EYE = 1u << 15,   // spell crits always Shock
     KS_WEAVER = 1u << 16,      // more Ignite damage
+    // Slice 6: the Ranger's Marksman and Outrider
+    KS_HAWK = 1u << 17,        // Marked enemies take more damage
+    KS_LONG_SHOT = 1u << 18,   // projectile attacks: more damage the further the target
+    KS_CRIT_FRENZY = 1u << 19, // critical strikes can grant Frenzy Charges
+    KS_MARK_SPREAD = 1u << 20, // a Mark passes on when its bearer dies
+    KS_VIPER = 1u << 21,       // poisons deal more and last longer
+    KS_QIRBA = 1u << 22,       // flasks refill over time
+    KS_KILL_FRENZY = 1u << 23, // kills can grant Frenzy Charges
+    KS_PLAGUE = 1u << 24,      // a poisoned enemy's death spreads its poisons
 };
 
 struct AscNode {
@@ -41,7 +51,10 @@ struct Ascendancy {
 };
 
 const std::vector<Ascendancy>& ascendancies();
-const Ascendancy* ascendancy_for(const std::string& cls);   // the class's (Slice 4: one each)
+const Ascendancy* ascendancy_for(const std::string& cls);   // the class's first
+std::vector<int> ascendancies_of(const std::string& cls);    // every ascendancy the class can take
+// the character's: the one chosen, or the class's only one; null while a class with two has not chosen
+const Ascendancy* ascendancy_of(const std::string& cls, int chosen);
 int find_ascendancy(const std::string& id);
 bool asc_can_take(const Ascendancy& a, uint32_t held, int node);
 void asc_apply(const Ascendancy& a, uint32_t held, Stats& s, uint32_t& rules);   // mods sourced SRC_ASC + node

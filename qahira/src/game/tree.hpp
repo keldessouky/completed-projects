@@ -12,7 +12,7 @@ namespace q {
 enum class StarKind : uint8_t { Minor, Attr, Notable, Keystone, Start, Pole };
 
 // keystone rules the simulation has to know about
-enum Keystone : uint32_t { KS_FOLLOWER = 1u << 0, KS_OVERLOAD = 1u << 1 };
+enum Keystone : uint32_t { KS_FOLLOWER = 1u << 0, KS_OVERLOAD = 1u << 1, KS_POINT_BLANK = 1u << 2 };
 
 struct Star {
     int id = 0;

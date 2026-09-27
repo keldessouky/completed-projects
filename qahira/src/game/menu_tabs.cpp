@@ -53,7 +53,7 @@ std::string source_name(const Hero& H, uint16_t src) {
     if (src == SRC_ATTRIBUTES) return "Attributes";
     if (src >= SRC_WAFQ && src < int(SRC_WAFQ) + int(WQ_COUNT)) return wafq_def(src - SRC_WAFQ).name;
     if (src > SRC_ASC && src < SRC_WAFQ)
-        if (const Ascendancy* a = ascendancy_for(H.passives.cls); a && src - SRC_ASC < int(a->nodes.size()))
+        if (const Ascendancy* a = ascendancy_of(H.passives.cls, H.ascendancy); a && src - SRC_ASC < int(a->nodes.size()))
             return std::string(a->nodes[size_t(src - SRC_ASC)].name) + " (" + a->name + ")";
     if (src >= SRC_STAR) {
         const PassiveTree& T = tree();
@@ -336,7 +336,8 @@ void Menu::tal_render(const World& w) const {
     int req = skill_requirement(d, t->level);
     static const Stat attr_stat[3] = {S_STR, S_DEX, S_INT};
     snprintf(b, sizeof b, "%d %s (you have %d)", req, attr_name(d.attr), int(H.stats.value(attr_stat[d.attr])));
-    if (req > 0) row("Requires", b, c.usable ? pal::good : pal::bad);
+    if (req > 0) row("Requires", b, H.stats.value(attr_stat[d.attr]) >= float(req) ? pal::good : pal::bad);
+    if (d.tags & T_BOW) row("Weapon", "a Bow", c.needs_bow ? pal::bad : pal::good);
     snprintf(b, sizeof b, "%.0f", c.mana);
     row("Mana cost", b);
     if (c.cooldown > 0) { snprintf(b, sizeof b, "%.1f s", c.cooldown); row("Cooldown", b); }
@@ -352,8 +353,8 @@ void Menu::tal_render(const World& w) const {
         row((d.tags & T_SPELL) ? "Casts" : "Attacks", b);
         snprintf(b, sizeof b, "%.1f%%", c.hit.crit_chance * 100);
         row("Critical strike chance", b);
-        snprintf(b, sizeof b, "%.1f", c.hit.dps() * std::max(1, c.projectiles));
-        row("Damage per second", b, pal::amber);
+        snprintf(b, sizeof b, "%.1f", c.hit.dps());
+        row(c.projectiles > 1 ? "Damage per second (each)" : "Damage per second", b, pal::amber);
     }
     if (c.projectiles > 1) row("Projectiles", std::to_string(c.projectiles));
     if (c.chains > 0) row("Chains", std::to_string(c.chains));
@@ -418,7 +419,7 @@ void Menu::char_render(const World& w) const {
         const SheetRow& row = kRows[r];
         std::string v;
         switch (row.kind) {
-            case 2: snprintf(b, sizeof b, "%.1f  (%s)", mc.def ? mc.hit.dps() * std::max(1, mc.projectiles) : 0.f, mc.def ? mc.def->name : "-"); v = b; break;
+            case 2: snprintf(b, sizeof b, "%.1f  (%s)", mc.def ? mc.hit.dps() : 0.f, mc.def ? mc.def->name : "-"); v = b; break;
             case 4: snprintf(b, sizeof b, "%.2f", mc.def ? mc.hit.speed : 0.f); v = b; break;
             case 5: snprintf(b, sizeof b, "%.1f%%", mc.def ? mc.hit.crit_chance * 100 : 0.f); v = b; break;
             case 3: {
@@ -487,7 +488,7 @@ void Menu::char_render(const World& w) const {
         lines.push_back({"6 Crit", b});
         snprintf(b, sizeof b, "%.2f per second", mc.hit.speed);
         lines.push_back({"Speed", b});
-        snprintf(b, sizeof b, "%.1f average hit, %.1f per second", mc.hit.average(), mc.hit.dps() * std::max(1, mc.projectiles));
+        snprintf(b, sizeof b, "%.1f average hit, %.1f per second%s", mc.hit.average(), mc.hit.dps(), mc.projectiles > 1 ? " (each projectile)" : "");
         lines.push_back({"Result", b});
     } else if (row.kind == 4) {
         add_mods(mc.def && (mc.def->tags & T_SPELL) ? S_CAST_SPEED : S_ATTACK_SPEED, mc.def ? mc.def->tags : 0, false);

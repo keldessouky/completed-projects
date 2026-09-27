@@ -28,6 +28,15 @@ const std::vector<MonsterDef>& monster_defs() {
             {"qutrub_alpha", "The Qutrub of the Quarries", "qutrub", 1.55f, {0.85f, 0.8f, 0.75f}, 980, 5.0f, 0.9f, AttackKind::Boss, 3.2f, 1.1f, 15, 22, DT_PHYS, 90, 600, 0},
             // Slice 5: the Haboob's own
             {"sand_jinn", "Sand Jinn", "sand", 1.0f, {1, 1, 1}, 42, 5.0f, 0.45f, AttackKind::Claw, 1.6f, 1.2f, 6, 11, DT_PHYS, 10, 16, 0},
+            // Act II (Slice 6): the Nile to Luxor
+            {"marid", "River Marid", "marid", 1.0f, {1, 1, 1}, 60, 4.4f, 0.5f, AttackKind::Claw, 1.8f, 1.3f, 8, 13, DT_COLD, 10, 22, 0},
+            {"marid_caller", "Marid Caller", "marid", 0.88f, {0.75f, 0.95f, 1.15f}, 44, 3.6f, 0.45f, AttackKind::Spit, 10.f, 2.2f, 7, 12, DT_COLD, 5, 22, 7.f},
+            {"timthal", "Possessed Statue", "timthal", 1.0f, {1, 1, 1}, 120, 2.6f, 0.6f, AttackKind::Slam, 2.4f, 2.6f, 14, 21, DT_PHYS, 220, 40, 0},
+            {"tomb_ghoul", "Tomb Ghoul", "ghoul", 1.1f, {0.9f, 0.82f, 0.62f}, 52, 4.6f, 0.45f, AttackKind::Claw, 1.6f, 1.2f, 8, 13, DT_PHYS, 20, 20, 0},
+            {"naddaha", "El Naddaha, the Caller", "naddaha", 1.0f, {1, 1, 1}, 820, 3.4f, 0.8f, AttackKind::Boss, 3.0f, 1.4f, 13, 19, DT_COLD, 80, 900, 0},
+            {"ram_sphinx", "The Ram of the Avenue", "ram", 1.0f, {1, 1, 1}, 1000, 3.0f, 1.6f, AttackKind::Boss, 3.6f, 1.6f, 16, 24, DT_PHYS, 300, 1100, 0},
+            {"marid_tomb", "The Marid of the Deep Tomb", "marid", 1.7f, {0.7f, 0.82f, 1.2f}, 1100, 4.0f, 1.0f, AttackKind::Boss, 3.2f, 1.3f, 17, 26, DT_COLD, 120, 1400, 0},
+            {"rift_lord", "The Rift Lord", "marid", 2.0f, {0.45f, 0.95f, 1.15f}, 1250, 4.2f, 1.1f, AttackKind::Boss, 3.4f, 1.2f, 18, 27, DT_COLD, 140, 1600, 0},
         };
         auto set = [&](const char* id, bool rigid, const char* fam, const char* voice = "ghoul") {
             for (auto& m : v) if (std::string(m.id) == id) { m.rigid = rigid; m.family = fam; m.voice = voice; }
@@ -47,6 +56,11 @@ const std::vector<MonsterDef>& monster_defs() {
         set("qutrub_alpha", false, "Qutrub, the grave wolves", "howl");
         set("ifrit_zuweila", false, "Ifrit, the fire jinn", "fire");
         set("sand_jinn", false, "Sand jinn of the Haboob", "whisper");
+        for (const char* g : {"marid", "marid_caller", "marid_tomb", "rift_lord"}) set(g, false, "Marids of the river", "whisper");
+        set("naddaha", false, "El Naddaha, the Caller", "whisper");
+        set("timthal", true, "Possessed statues", "metal");
+        set("ram_sphinx", true, "Possessed statues", "metal");
+        set("tomb_ghoul", false, "Ghouls of the tombs");
         codex("Ghouls", "ghouls");
         codex("Possessed", "possessed");
         codex("Si'lah", "silah");
@@ -54,6 +68,10 @@ const std::vector<MonsterDef>& monster_defs() {
         codex("Qutrub", "qutrub");
         codex("Ifrit", "ifrit");
         codex("Sand jinn", "sand_jinn");
+        codex("Marids", "marid");
+        codex("El Naddaha", "naddaha");
+        codex("Possessed statues", "statues");
+        codex("Ghouls of the tombs", "tomb_ghouls");
         return v;
     }();
     return d;
@@ -91,6 +109,26 @@ const BossDef* boss_def(int monster) {
          {{MoveKind::Summon, "summon", 1e9f, 0, 99, 0, 1}, {MoveKind::Wail, "wail", 10.f, 0, 99, 0, 1},
           {MoveKind::Leap, "leap", 3.5f, 4.f, 25, 1.5f, 0}, {MoveKind::Combo, "combo", 1.1f, 0, 3.4f, 1.f, 0}},
          0.55f, "THE PACK ANSWERS", "qutrub", 3, 10.f, 1.3f, {0.7f, 0.7f, 0.7f}},
+        // Act II
+        {"naddaha",
+         {{MoveKind::Summon, "summon", 1e9f, 0, 99, 0, 1}, {MoveKind::Wail, "wail", 9.f, 0, 99, 0, 0},
+          {MoveKind::Pools, "cast", 8.f, 0, 30, 0.5f, 1}, {MoveKind::Blink, "cast", 7.f, 5.f, 30, 0, 0},
+          {MoveKind::Volley, "cast", 4.5f, 4.f, 30, 0.7f, 0}, {MoveKind::Combo, "combo", 1.3f, 0, 3.2f, 1.f, 0}},
+         0.5f, "SHE CALLS YOU BY YOUR MOTHER'S VOICE", "marid", 3, 11.f, 1.2f, {0.55f, 0.85f, 1.f}, true},
+        {"ram_sphinx",
+         {{MoveKind::Summon, "", 1e9f, 0, 99, 0, 1}, {MoveKind::Nova, "", 6.5f, 0, 5.5f, 1.2f, 0},
+          {MoveKind::Charge, "", 4.0f, 3.5f, 30, 1.6f, 0}, {MoveKind::Combo, "", 1.6f, 0, 3.6f, 1.f, 0}},
+         0.5f, "THE AVENUE WAKES", "timthal", 3, 11.f, 1.25f, {0.55f, 0.85f, 1.f}},
+        {"marid_tomb",
+         {{MoveKind::Summon, "summon", 1e9f, 0, 99, 0, 1}, {MoveKind::Pools, "cast", 8.f, 0, 30, 0.55f, 1},
+          {MoveKind::Nova, "slam", 7.f, 0, 5.f, 1.3f, 0}, {MoveKind::Volley, "cast", 4.f, 4.f, 30, 0.8f, 0},
+          {MoveKind::Combo, "combo", 1.2f, 0, 3.6f, 1.f, 0}},
+         0.5f, "THE DEEP WATER RISES", "marid", 4, 11.f, 1.25f, {0.5f, 0.8f, 1.f}},
+        {"rift_lord",
+         {{MoveKind::Summon, "summon", 1e9f, 0, 99, 0, 1}, {MoveKind::Pools, "cast", 7.f, 0, 30, 0.55f, 0},
+          {MoveKind::Blink, "cast", 6.5f, 5.f, 30, 0, 1}, {MoveKind::Nova, "slam", 6.5f, 0, 5.5f, 1.3f, 0},
+          {MoveKind::Volley, "cast", 3.5f, 4.f, 30, 0.8f, 0}, {MoveKind::Combo, "combo", 1.1f, 0, 3.8f, 1.f, 0}},
+         0.5f, "THE RIFT OPENS WIDER", "marid_caller", 4, 11.f, 1.3f, {0.45f, 0.9f, 1.f}},
     };
     if (monster < 0 || monster >= int(monster_defs().size())) return nullptr;
     const char* id = monster_defs()[size_t(monster)].id;
@@ -125,6 +163,7 @@ void apply_class_base(Hero& H, const std::string& cls) {
     b.add(S_MANA_REGEN, MK_FLAT, 2.5f, 0, SRC_CLASS);
     if (c.armour > 0) b.add(S_ARMOUR, MK_FLAT, c.armour, 0, SRC_CLASS);
     if (c.es > 0) b.add(S_ES, MK_FLAT, c.es, 0, SRC_CLASS);
+    if (c.evasion > 0) b.add(S_EVASION, MK_FLAT, c.evasion, 0, SRC_CLASS);
     g_hero_model = c.model;
 }
 
@@ -172,7 +211,7 @@ void compute_hero_stats(Hero& H) {
         if (!H.equip[e].empty()) H.equip[e].add_global_mods(H.stats, uint16_t(1 + e));
     H.passives.apply(H.stats);
     H.keystones = H.passives.keystones();
-    if (const Ascendancy* a = ascendancy_for(H.passives.cls)) asc_apply(*a, H.asc, H.stats, H.keystones);
+    if (const Ascendancy* a = ascendancy_of(H.passives.cls, H.ascendancy)) asc_apply(*a, H.asc, H.stats, H.keystones);
     // attributes: Strength gives life and melee damage, Dexterity evasion, Intelligence mana and Hirz
     float str = H.stats.value(S_STR), dex = H.stats.value(S_DEX), in = H.stats.value(S_INT);
     H.stats.add(S_LIFE, MK_FLAT, str * 0.5f, 0, SRC_ATTRIBUTES);
@@ -199,7 +238,7 @@ HeroSummary summarize(const Hero& hero) {
         const Talisman* t = H.slot_talisman(slot);
         if (!t || (t->def().tags & (T_ATTACK | T_SPELL)) == 0) continue;
         SkillCtx c = skill_ctx(*t, H.stats, H.weapon().weapon());
-        s.dps = c.hit.dps() * float(std::max(1, c.projectiles));
+        s.dps = c.hit.dps();   // against one target: one projectile of a fan (PoE's convention)
         s.skill = c.def->name;
         break;
     }
@@ -331,11 +370,12 @@ void World::step(const Input& in, float dt) {
     used_interact = -1;
     time += dt;
     fx_step(dt);
+    if (coil_t >= 0 && (coil_t += dt) > 14.f) coil_t = -1;
     if (hitstop > 0) { hitstop -= dt; return; }
     hero_step(in, dt);
     for (size_t i = 1; i < actors.size(); i++) monster_step(actors[i], dt);
     separate();
-    if (in_chart) haboob_step(dt);
+    if (in_chart) { haboob_step(dt); rift_step(dt); }
     // projectiles: the monsters' bile and the hero's bolts
     Actor& h = actors[0];
     for (auto& p : projectiles) {
@@ -371,10 +411,27 @@ void World::step(const Input& in, float dt) {
         g.t += dt;
         if (g.kind == GroundFx::Glyph && g.t >= g.pulse && g.t < g.life) { g.pulse += 1.f; glyph_pulse(ground[i]); }
         if (g.kind == GroundFx::Meteor && g.t >= g.life) star_fall(ground[i]);
-        if (g.kind == GroundFx::Fire && g.t >= g.pulse && g.t < g.life) {   // a burning pool: it bites twice a second
+        if (g.kind == GroundFx::Rain && g.t >= g.pulse && g.t < g.life) {   // a volley lands
+            g.pulse += 0.3f;
+            HeroHit hh = g.hh;
+            for (size_t k = 1; k < actors.size(); k++) {
+                Actor& e = actors[k];
+                if (e.alive() && length(e.pos - g.pos) < g.radius + e.radius) hit_enemy(e, hh, g.pos, 0.4f);
+            }
+            for (int a = 0; a < 10; a++) {   // the arrows, falling
+                vec2 p = g.pos + rotate(vec2{fx_rng.range(0.f, g.radius), 0}, fx_rng.range(0.f, kTau));
+                Particle q{vec3(p, 4.f), vec3(0.3f, 0.2f, -22.f), 0.18f, 0.18f, 0.05f, 0.05f, 0, 0, vec4(0.85f, 0.75f, 0.55f, 1),
+                           vec4(0.7f, 0.6f, 0.4f, 0.6f), 0, false};
+                particles.push_back(q);
+            }
+            burst(vec3(g.pos, 0.1f), 12, vec4(0.6f, 0.52f, 0.4f, 0.7f), vec4(0.5f, 0.44f, 0.36f, 0), 2.5f, 0.2f, 0.5f, false, -3.f, 1);
+            emit(Ev::Impact, g.pos, 0.6f);
+        }
+        if ((g.kind == GroundFx::Fire || g.kind == GroundFx::Water) && g.t >= g.pulse && g.t < g.life) {   // a hazard: it bites twice a second
             g.pulse += 0.5f;
+            const int dt_ = g.kind == GroundFx::Water ? DT_COLD : DT_FIRE;
             if (h.alive() && length(h.pos - g.pos) < g.radius + h.radius * 0.5f)
-                damage_hero(g.hh.hit.min[DT_FIRE] * 0.4f, g.hh.hit.max[DT_FIRE] * 0.4f, DT_FIRE, g.pos, 0, g.owner);
+                damage_hero(g.hh.hit.min[size_t(dt_)] * 0.4f, g.hh.hit.max[size_t(dt_)] * 0.4f, dt_, g.pos, 0, g.owner, false);
         }
     }
     ground.erase(std::remove_if(ground.begin(), ground.end(), [](const GroundFx& g) { return g.t >= g.life; }), ground.end());
@@ -430,6 +487,11 @@ void World::step(const Input& in, float dt) {
                     }
                 } else {
                     hero.currency[g.currency] += g.amount;
+                    if (g.currency == CUR_SPLINTER && hero.currency[CUR_SPLINTER] >= kSplintersPerSeal) {
+                        hero.currency[CUR_SPLINTER] -= kSplintersPerSeal;
+                        hero.currency[CUR_RIFT_SEAL]++;
+                        notices.push_back("Fifty splinters fuse into a Rift Seal: open the Rift Lord's court at the chart table");
+                    }
                     texts.push_back({vec3(g.pos, 1.2f), currency_def(g.currency).name, currency_def(g.currency).color, 0, 30});
                     emit(Ev::Currency, g.pos);
                     int c = g.currency;
@@ -576,6 +638,56 @@ void World::haboob_step(float dt) {
     if (hb.front - hb.depth > hb.y1) { hb.active = false; hb.passed = true; haboob_reward(); }
 }
 
+void World::rift_step(float dt) {
+    Rift& rf = rift;
+    if (!rf.armed || rf.closed) return;
+    Actor& h = actors[0];
+    if (!rf.open) {
+        if (fx_rng.chance(0.3f))   // closed, it glimmers: a thin vertical seam of river light
+            particles.push_back(Particle{vec3(rf.pos, fx_rng.range(0.3f, 2.6f)), vec3(0, 0, 0.6f), 0.8f, 0.8f, 0.12f, 0.02f, 0, 0,
+                                         vec4(0.5f, 0.9f, 1.f, 0.9f), vec4(0.2f, 0.5f, 0.8f, 0), 0, true});
+        if (!h.alive() || length(h.pos - rf.pos) > 7.f || !level.line_clear(h.pos, rf.pos, 0.3f)) return;
+        rf.open = true;
+        meet_codex("rifts");
+        notices.push_back("A MARID RIFT tears open: kill what comes through");
+        emit(Ev::BossWail, rf.pos, 0.7f);
+        shake = std::max(shake, 0.4f);
+    }
+    rf.t += dt;
+    rf.radius = 2.f + 6.5f * smoothstep(0.f, 10.f, rf.t);
+    if (rf.t >= Rift::kLife) {
+        rf.open = false;
+        rf.closed = true;
+        char b[80];
+        snprintf(b, sizeof b, "The rift closes (%d of the marids' dead)", rf.kills);
+        notices.push_back(b);
+        emit(Ev::Portal, rf.pos, 1.f);
+        return;
+    }
+    for (int k = 0; k < 3; k++) {   // the rift's edge, drawn in spray
+        vec2 p = rf.pos + rotate(vec2{rf.radius, 0}, fx_rng.range(0.f, kTau));
+        particles.push_back(Particle{vec3(p, 0.2f), vec3(0, 0, fx_rng.range(1.f, 3.f)), 0.7f, 0.7f, 0.18f, 0.05f, 0, 2.f,
+                                     vec4(0.55f, 0.9f, 1.f, 0.8f), vec4(0.2f, 0.5f, 0.8f, 0), 0, true});
+    }
+    if ((rf.spawn_t -= dt) > 0 || rf.spawned >= 44) return;
+    rf.spawn_t = rng.range(1.1f, 1.6f);
+    static const char* kinds[] = {"marid", "marid", "marid", "marid_caller", "tomb_ghoul"};
+    int n = rng.irange(2, 3);
+    for (int i = 0; i < n; i++) {
+        vec2 at = rf.pos;
+        for (int t = 0; t < 8; t++) {
+            vec2 c = level.resolve(rf.pos + rotate(vec2{rf.radius * rng.range(0.4f, 0.95f), 0}, rng.range(0.f, kTau)), 0.5f);
+            if (level.line_clear(rf.pos, c, 0.5f)) { at = c; break; }
+        }
+        Rarity r = rng.chance(0.03f) ? Rarity::Rare : rng.chance(0.12f) ? Rarity::Magic : Rarity::Normal;
+        Actor& m = spawn_monster(find_monster(kinds[rng.irange(0, 4)]), at, r, area_level);
+        m.ai_state = 1;
+        m.rift = true;
+        rf.spawned++;
+        burst(vec3(m.pos, 0.8f), 18, vec4(0.5f, 0.85f, 1.f, 0.9f), vec4(0.2f, 0.4f, 0.7f, 0), 3.f, 0.25f, 0.7f, true, 1.f);
+    }
+}
+
 void World::haboob_reward() {
     Haboob& hb = haboob;
     Actor& h = actors[0];
@@ -594,6 +706,13 @@ void World::haboob_reward() {
     snprintf(b, sizeof b, "The Haboob passes (%d), and leaves %d currency behind", int(hb.meter), currency);
     notices.push_back(b);
     emit(Ev::Pickup, at, 2.f);
+}
+
+void World::gain_frenzy(int n) {
+    int before = hero.frenzy;
+    hero.frenzy = std::min(frenzy_max(), hero.frenzy + n);
+    hero.frenzy_t = 10.f;
+    if (hero.frenzy > before) texts.push_back({vec3(actors[0].pos, 2.8f), "FRENZY", 0x7AD890, 0, 28});
 }
 
 void World::gain_endurance(int n) {
@@ -667,7 +786,8 @@ void World::start_skill(int slot, vec2 stick) {
     const SkillDef& sk = *c.def;
     if (!c.usable) {
         if (hero.cooldowns[slot] <= 0) {
-            texts.push_back({vec3(h.pos, 2.4f), "Not enough " + std::string(sk.attr == ATTR_STR ? "Strength" : sk.attr == ATTR_DEX ? "Dexterity" : "Intelligence"),
+            texts.push_back({vec3(h.pos, 2.4f), c.needs_bow ? std::string("Needs a bow")
+                             : "Not enough " + std::string(sk.attr == ATTR_STR ? "Strength" : sk.attr == ATTR_DEX ? "Dexterity" : "Intelligence"),
                              0xE0B0A0, 0, 30});
             hero.cooldowns[slot] = 1.f;
         }
@@ -699,7 +819,7 @@ void World::start_skill(int slot, vec2 stick) {
     }
     if (best) h.target = best->pos;
     // a Warrior's clip set has no cast, a Sorcerer's no slam: fall back to the nearest gesture
-    float spd = clampf(c.speed, 0.5f, 2.5f);
+    float spd = clampf(c.speed * (1.f + 0.04f * float(hero.frenzy)), 0.5f, 2.8f);
     if (!h.anim.play(sk.clip, 0.06f, true, spd)) {
         const char* alt = (sk.tags & T_SPELL) ? (sk.shape == Shape::Glyph || sk.shape == Shape::Meteor ? "slam" : "swing")
                                               : (sk.shape == Shape::Warcry ? "cast_ground" : sk.tags & T_SLAM ? "cast_ground" : "cast");
@@ -725,11 +845,13 @@ void World::hero_step(const Input& in, float dt) {
     if (H.es_wait > 0) H.es_wait -= dt;
     else if (H.es < H.es_max) H.es = std::min(H.es_max, H.es + H.es_max * 0.2f * (1 + H.stats.sum(S_ES_RECHARGE).inc / 100.f) * dt);
     h.life = std::min(h.life_max, h.life + H.stats.value(S_LIFE_REGEN) * dt);
-    // Endurance Charges fall off ten seconds after the last one was gained
+    // Endurance and Frenzy Charges fall off ten seconds after the last one was gained
     if (H.endurance > 0 && (H.endurance_t -= dt) <= 0) H.endurance = 0;
+    if (H.frenzy > 0 && (H.frenzy_t -= dt) <= 0) H.frenzy = 0;
     if ((H.keystones & KS_OATH) && H.endurance > 0) h.life = std::min(h.life_max, h.life + h.life_max * 0.006f * H.endurance * dt);
+    if (H.keystones & KS_QIRBA) H.flask = std::min(H.flask_max, H.flask + 0.125f * dt);   // Qirba of Plenty
     if (H.flask_heal_t > 0) {
-        float rate = h.life_max * 0.5f / 1.5f;
+        float rate = h.life_max * 0.5f / 1.5f * (1.f + H.stats.sum(S_FLASK_RECOVERY).inc / 100.f);
         h.life = std::min(h.life_max, h.life + rate * dt);
         H.flask_heal_t -= dt;
     }
@@ -805,13 +927,23 @@ float World::hit_enemy(Actor& e, const HeroHit& hh, vec2 from, float knock, floa
     if (H.keystones & KS_FOLLOWER) k *= e.id == H.last_attacker ? 1.4f : 0.8f;   // al-Dabaran
     uint32_t sk_tags = hh.talisman >= 0 && hh.talisman < int(H.talismans.size()) ? H.talismans[size_t(hh.talisman)].def().tags : 0;
     if ((H.keystones & KS_FOUNDRY) && (sk_tags & T_SLAM) && e.broken_t > 0) k *= 1.25f;   // Hammer of the Foundry
+    k *= 1.f + 0.04f * float(H.frenzy);                                                    // Frenzy Charges
+    if ((H.keystones & KS_POINT_BLANK) && (sk_tags & T_PROJECTILE) && (sk_tags & T_ATTACK)) {   // al-Balda: near, more; far, less
+        float d = length(e.pos - h.pos);
+        k *= d <= 3.5f ? 1.4f : d >= 10.f ? 0.7f : 1.4f - 0.7f * (d - 3.5f) / 6.5f;
+    }
+    if ((H.keystones & KS_LONG_SHOT) && (sk_tags & T_PROJECTILE) && (sk_tags & T_ATTACK))   // The Long Shot
+        k *= 1.f + 0.3f * clampf((length(e.pos - h.pos) - 3.f) / 9.f, 0.f, 1.f);
+    if (e.mark_t > 0 && e.mark_hits > 0 && (sk_tags & T_ATTACK)) { he.crit_chance = 1.f; e.mark_hits--; }   // Marked: a sure crit
     for (int t = 0; t < DT_COUNT; t++) { he.min[size_t(t)] *= k; he.max[size_t(t)] *= k; }
     Defences def;
     def.armour = e.armour;
     def.damage_taken_inc = (e.broken_t > 0 ? 50.f : 0.f) + (e.shock_t > 0 ? e.shock : 0.f);
     if ((H.keystones & KS_BIND_COLD) && (e.chill_t > 0 || e.frozen_t > 0)) def.damage_taken_inc += 15.f;   // Binding Cold
+    if ((H.keystones & KS_HAWK) && e.mark_t > 0) def.damage_taken_inc += 10.f;                              // Hawk's Gaze
     HitResult res = roll_hit(he, def, rng);
     if (res.crit && (H.keystones & KS_OVERLOAD)) H.overload_t = 6.f;
+    if (res.crit && (H.keystones & KS_CRIT_FRENZY) && rng.chance(0.3f)) gain_frenzy(1);                    // Frenzied Aim
     e.life -= res.total;
     e.hit_flash = 1.f;
     vec2 d = e.pos - from;
@@ -846,6 +978,15 @@ float World::hit_enemy(Actor& e, const HeroHit& hh, vec2 from, float knock, floa
             emit(Ev::Frozen, e.pos);
             texts.push_back({vec3(e.pos, 2.4f), "FROZEN", 0x9FD8FF, 0, 34});
         }
+    }
+    // poison: a stack of chaos over two seconds, from the physical and chaos damage of the hit
+    float pc = res.by_type[DT_PHYS] + res.by_type[DT_CHAOS];
+    if (pc > 0 && hh.poison > 0 && rng.chance(hh.poison)) {
+        int slot = 0;
+        for (int i = 1; i < 6; i++) if (e.poison_t[i] < e.poison_t[slot]) slot = i;
+        const bool viper = H.keystones & KS_VIPER;   // Scorpion's Kiss
+        e.poison[slot] = pc * 0.25f * hh.poison_mult * (viper ? 1.4f : 1.f);
+        e.poison_t[slot] = viper ? 3.f : 2.f;
     }
     bool storm_eye = (H.keystones & KS_STORM_EYE) && res.crit && (sk_tags & T_SPELL);   // Eye of the Storm
     if ((light > 0 && hh.shock > 0 && rng.chance(hh.shock)) || storm_eye) {
@@ -924,6 +1065,8 @@ void World::resolve_skill(Actor& h) {
     hh.shock_effect = c.shock_effect;
     hh.freeze = c.freeze;
     hh.brk = c.break_mult;
+    hh.poison = c.poison;
+    hh.poison_mult = c.poison_mult;
     hh.talisman = H.bar[h.skill];
     float more = 1.f;
     H.rally_hit = false;
@@ -1042,7 +1185,9 @@ void World::resolve_skill(Actor& h) {
                 p.radius = sk.radius;
                 p.life = sk.range / std::max(1.f, c.proj_speed);
                 p.team = TEAM_HERO;
-                p.color = sk.base_type == DT_COLD ? vec3{0.5f, 0.8f, 1.f} : sk.base_type == DT_LIGHTNING ? vec3{0.7f, 0.8f, 1.f} : vec3{1.f, 0.55f, 0.2f};
+                p.arrow = (sk.tags & T_ATTACK) && sk.base_type == DT_PHYS;
+                p.color = sk.base_type == DT_COLD ? vec3{0.5f, 0.8f, 1.f} : sk.base_type == DT_LIGHTNING ? vec3{0.7f, 0.8f, 1.f}
+                        : p.arrow ? (sk.poison > 0 ? vec3{0.55f, 0.9f, 0.3f} : vec3{1.f, 0.85f, 0.6f}) : vec3{1.f, 0.55f, 0.2f};
                 p.hh = hh;
                 projectiles.push_back(p);
             }
@@ -1102,6 +1247,38 @@ void World::resolve_skill(Actor& h) {
             emit(Ev::Glyph, g.pos, 1.f);
             break;
         }
+        case Shape::Mark: {   // the enemy aimed at (or the nearest in front): its next attack hits are sure crits
+            Actor* best = nullptr;
+            float bd = 1e9f;
+            for (size_t i = 1; i < actors.size(); i++) {
+                Actor& e = actors[i];
+                vec2 d = e.pos - h.pos;
+                float dist = length(d);
+                if (!e.alive() || dist > sk.range + e.radius) continue;
+                float score = dist + std::fabs(wrap_angle(angle_of(d) - h.facing)) * 6.f - (e.rarity >= Rarity::Rare ? 4.f : 0.f);
+                if (score < bd) { bd = score; best = &e; }
+            }
+            if (best) {
+                best->mark_t = c.mark_duration;
+                best->mark_hits = c.mark_hits;
+                texts.push_back({vec3(best->pos, 2.6f), "MARKED", 0xE8C860, 0, 30});
+                meet_codex("marks");
+                burst(vec3(best->pos, 1.8f * best->scale), 14, vec4(1.f, 0.85f, 0.4f, 1), vec4(1.f, 0.6f, 0.2f, 0), 3.f, 0.1f, 0.5f, true, 0.f);
+                emit(Ev::Glyph, best->pos, 0.5f);
+            }
+            break;
+        }
+        case Shape::Rain: {   // three volleys on the spot, each hitting everything under it
+            GroundFx g;
+            g.kind = GroundFx::Rain;
+            g.pos = level.resolve(h.target, 0.2f);
+            g.radius = sk.radius * area;
+            g.life = 1.05f;
+            g.pulse = 0.3f;
+            g.hh = hh;
+            ground.push_back(g);
+            break;
+        }
         case Shape::Meteor: {
             GroundFx g;
             g.kind = GroundFx::Meteor;
@@ -1125,6 +1302,16 @@ void World::ailments_step(Actor& m, float dt) {
             burst(vec3(m.pos, 0.8f * m.scale), 1, vec4(1.f, 0.55f, 0.15f, 0.9f), vec4(0.8f, 0.2f, 0.05f, 0), 1.2f, 0.14f, 0.5f, true, 2.f);
         if (m.life <= 0 && m.alive()) kill(m);
     }
+    float pd = 0;
+    for (int i = 0; i < 6; i++)
+        if (m.poison_t[i] > 0) { m.poison_t[i] -= dt; pd += m.poison[i]; }
+    if (pd > 0) {
+        m.life -= pd * dt;
+        if (fx_rng.chance(0.3f))
+            burst(vec3(m.pos, 0.9f * m.scale), 1, vec4(0.45f, 0.9f, 0.3f, 0.9f), vec4(0.2f, 0.5f, 0.1f, 0), 0.8f, 0.12f, 0.6f, true, 1.f);
+        if (m.life <= 0 && m.alive()) kill(m);
+    }
+    if (m.mark_t > 0 && ((m.mark_t -= dt) <= 0 || m.mark_hits <= 0)) { m.mark_t = 0; m.mark_hits = 0; }
     if (m.chill_t > 0 && (m.chill_t -= dt) <= 0) m.chill = 0;
     if (m.shock_t > 0 && (m.shock_t -= dt) <= 0) m.shock = 0;
     if (m.frozen_t > 0) m.frozen_t -= dt;
@@ -1150,6 +1337,34 @@ void World::kill(Actor& e) {
     }
     hero.xp += xp;
     hero.kills++;
+    if (e.rift) {   // the rift's dead leave splinters
+        rift.kills++;
+        int n = e.rarity == Rarity::Rare ? 8 : e.rarity == Rarity::Magic ? 3 : rng.chance(0.6f) ? 1 : 0;
+        if (n) drop_currency(level.resolve(e.pos, 0.3f), CUR_SPLINTER, n);
+    }
+    // the Ranger's charges and what passes on at a death: a Mark (Falcon's Ward), poisons (Plague Road)
+    if (e.mark_t > 0) gain_frenzy(1);
+    if ((hero.keystones & KS_KILL_FRENZY) && rng.chance(0.35f)) gain_frenzy(1);
+    bool poisoned = false;
+    for (float pt : e.poison_t) poisoned = poisoned || pt > 0;
+    if ((e.mark_t > 0 && (hero.keystones & KS_MARK_SPREAD)) || (poisoned && (hero.keystones & KS_PLAGUE))) {
+        Actor* near = nullptr;
+        float nd = 6.f;
+        for (size_t i = 1; i < actors.size(); i++) {
+            Actor& o = actors[i];
+            if (&o == &e || !o.alive()) continue;
+            float d = length(o.pos - e.pos);
+            if (poisoned && (hero.keystones & KS_PLAGUE) && d < 3.5f)
+                for (int k = 0; k < 6; k++) if (e.poison_t[k] > o.poison_t[k]) { o.poison[k] = e.poison[k]; o.poison_t[k] = e.poison_t[k]; }
+            if (d < nd) { nd = d; near = &o; }
+        }
+        if (near && e.mark_t > 0 && (hero.keystones & KS_MARK_SPREAD)) {
+            near->mark_t = std::max(near->mark_t, e.mark_t);
+            near->mark_hits = std::max(near->mark_hits, std::max(1, e.mark_hits));
+            texts.push_back({vec3(near->pos, 2.6f), "MARKED", 0xE8C860, 0, 30});
+        }
+        if (poisoned && (hero.keystones & KS_PLAGUE)) burst(vec3(e.pos, 0.6f), 16, vec4(0.45f, 0.9f, 0.3f, 0.9f), vec4(0.2f, 0.5f, 0.1f, 0), 4.f, 0.15f, 0.6f, true, 0.f);
+    }
     hero.flask = std::min(hero.flask_max, hero.flask + 0.25f);
     for (size_t i = 0; i < 4; i++) if (e.mods[i] == MM_VAMPIRIC) {}
     // level up
@@ -1192,7 +1407,10 @@ void World::drop_loot(const Actor& e) {
                 loot.push_back(g);
             }
         if (int u = random_unique(area_level + 2, rng); u >= 0) drop_special(e.pos + vec2{0, 1.8f}, GroundItem::Scrap, u);
-        if (rng.chance(0.08f)) if (int u = random_unique(area_level + 2, rng); u >= 0) {
+        const bool lord = std::string(monster_defs()[size_t(e.def)].id) == "rift_lord";   // the Rift Lord: a unique, always
+        if (lord)
+            for (int k = 0; k < 3; k++) drop_currency(e.pos + rotate(vec2{3.0f, 0}, 0.8f + k * 0.7f), roll_currency(rng, area_level + 4), 1);
+        if (rng.chance(lord ? 1.f : 0.08f)) if (int u = random_unique(area_level + 2, rng); u >= 0) {
             GroundItem g;
             g.item = make_unique(u, area_level + 2, rng);
             g.pos = level.resolve(e.pos + vec2{0, 2.6f}, 0.3f);
@@ -1250,9 +1468,22 @@ void World::drop_loot(const Actor& e) {
     loot.push_back(g);
 }
 
-void World::damage_hero(float lo, float hi, int type, vec2 from, float break_amt, uint32_t attacker) {
+float World::evade_chance() const {
+    // PoE's shape: evasion against the monsters' accuracy, which grows with the area; never more than 75%
+    float e = std::max(0.f, hero.stats.value(S_EVASION)), acc = 18.f + 8.f * float(area_level);
+    float k = std::pow(e / 4.f, 0.9f);
+    return clampf(k / (acc + k), 0.f, 0.75f);
+}
+
+void World::damage_hero(float lo, float hi, int type, vec2 from, float break_amt, uint32_t attacker, bool evadable) {
     Actor& h = actors[0];
     if (!h.alive()) return;
+    if (evadable && rng.chance(evade_chance())) {
+        texts.push_back({vec3(h.pos, 2.2f), "EVADED", 0xB8D8A0, 0, 28});
+        meet_codex("evasion");
+        emit(Ev::Dodge, h.pos);
+        return;
+    }
     HitDamage hd;
     hd.min[size_t(type)] = lo;
     hd.max[size_t(type)] = hi;
@@ -1520,7 +1751,13 @@ void World::boss_strike(Actor& m, const char* ev) {
             shake = std::max(shake, 0.7f);
             break;
         case MoveKind::Wail: {
-            if (length(h.pos - m.pos) <= 7.5f) damage_hero(h.life_max * 0.28f, h.life_max * 0.34f, DT_CHAOS, m.pos, 40, m.id);
+            if (bd->call) {   // the Call: it does not hurt much, but it draws you to her
+                if (length(h.pos - m.pos) <= 9.f) {
+                    damage_hero(h.life_max * 0.1f, h.life_max * 0.14f, DT_CHAOS, h.pos * 2.f - m.pos, 0, m.id, false);
+                    h.knock += normalize(m.pos - h.pos) * std::min(22.f, length(m.pos - h.pos) * 3.f);
+                    texts.push_back({vec3(h.pos, 2.4f), "YOUR NAME", 0x9FF0FF, 0, 32});
+                }
+            } else if (length(h.pos - m.pos) <= 7.5f) damage_hero(h.life_max * 0.28f, h.life_max * 0.34f, DT_CHAOS, m.pos, 40, m.id);
             GroundFx g;
             g.kind = GroundFx::Ring;
             g.pos = m.pos;
@@ -1533,7 +1770,7 @@ void World::boss_strike(Actor& m, const char* ev) {
         }
         case MoveKind::Nova: {
             float r = mv.max_range;
-            if (length(h.pos - m.pos) <= r + h.radius) damage_hero(lo, hi, d.dmg_type, m.pos, 30, m.id);
+            if (length(h.pos - m.pos) <= r + h.radius) damage_hero(lo, hi, d.dmg_type, m.pos, 30, m.id, false);
             GroundFx g;
             g.kind = GroundFx::Ring;
             g.pos = m.pos;
@@ -1580,17 +1817,17 @@ void World::boss_strike(Actor& m, const char* ev) {
         case MoveKind::Pools:
             for (int i = 0; i < 3; i++) {
                 GroundFx g;
-                g.kind = GroundFx::Fire;
+                g.kind = d.dmg_type == DT_COLD ? GroundFx::Water : GroundFx::Fire;
                 g.pos = level.resolve(h.pos + rotate(vec2{i == 0 ? 0.f : 2.4f, 0}, i * 2.1f + rng.range(0, 1)), 0.2f);
                 g.radius = 1.5f;
                 g.life = 4.5f;
                 g.pulse = 0.9f;   // a moment to step out before it bites
                 g.owner = m.id;
-                g.hh.hit.min[DT_FIRE] = lo;
-                g.hh.hit.max[DT_FIRE] = hi;
+                g.hh.hit.min[size_t(d.dmg_type)] = lo;
+                g.hh.hit.max[size_t(d.dmg_type)] = hi;
                 ground.push_back(g);
             }
-            emit(Ev::FireHit, h.pos);
+            emit(d.dmg_type == DT_COLD ? Ev::Splash : Ev::FireHit, h.pos);
             break;
         case MoveKind::Charge: break;   // resolved while it travels (boss_step)
         case MoveKind::Blink: break;

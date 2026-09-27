@@ -27,6 +27,7 @@ static void clear_transient(World& w) {
     w.npcs.clear();
     w.loot.clear();
     w.boss_killed = false;
+    w.coil_t = -1;
 }
 
 const char* Areas::name() const {
@@ -250,7 +251,27 @@ void Areas::enter_chart(World& w, int site, const Item& chart) {
     w.chart_site = site;
     // the Haboob, if the chart has one: it rises in the south of the site after a while
     if (w.rng.chance(haboob_chance(w.chart))) arm_haboob(w);
+    // a Marid Rift, once Act II is behind you: in one of the site's cells, away from the way in and the master's court
+    if ((w.hero.quests & Q_ACT2) && w.rng.chance(0.35f)) {
+        std::vector<int> cells;
+        for (size_t i = 0; i < zone.layout.cells.size(); i++)
+            if (zone.layout.cells[i].kind == ZoneCell::Normal) cells.push_back(int(i));
+        if (!cells.empty()) {
+            w.rift = Rift{};
+            w.rift.armed = true;
+            w.rift.pos = zone.layout.center(zone.layout.cells[size_t(cells[size_t(w.rng.irange(0, int(cells.size()) - 1))])]);
+        }
+    }
     w.meet_codex("charts");
+}
+
+void Areas::enter_rift_court(World& w) {
+    close_zone(w);
+    w.chart = ChartRun{};
+    w.chart.tier = kChartTiers;
+    w.chart.astro = w.hero.astro;
+    enter_zone(w, find_zone("rift_court"), Arrival::Entrance);
+    w.chart_site = -1;
 }
 
 void Areas::arm_haboob(World& w) {
@@ -299,6 +320,7 @@ void Areas::close_zone(World& w) {
     zone = ZoneInstance{};
     w.chart_site = -1;
     w.haboob = Haboob{};
+    w.rift = Rift{};
 }
 
 void Areas::cast_portal(World& w) {

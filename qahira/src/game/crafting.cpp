@@ -128,6 +128,27 @@ const std::vector<CodexEntry>& codex_entries() {
         {"astrolabe", CX_MECHANIC, "The Astrolabe",
          "Every site you finish gives a point for the Astrolabe, the map's own tree: more charts, higher Climes, deeper storms."},
         {"sand_jinn", CX_MONSTER, "Sand jinn of the Haboob", "They ride the storm wall and fall apart into sand when it has passed."},
+        // Slice 6: the Ranger, and Act II
+        {"marid", CX_MONSTER, "Marids of the river",
+         "The strongest of the jinn, and the Nile's are the oldest. Their water is cold: keep your cold resistance up, and step out "
+         "of the pools they open under you."},
+        {"naddaha", CX_MONSTER, "El Naddaha, the Caller",
+         "The woman in the canal who calls men by name in the voice of someone they love. When she calls, you go to her: be ready "
+         "to roll away when you arrive."},
+        {"statues", CX_MONSTER, "Possessed statues",
+         "Karnak's kings and rams with a marid inside. Slow, heavy, and armoured: their slams are drawn on the ground first."},
+        {"tomb_ghouls", CX_MONSTER, "Ghouls of the tombs",
+         "The Valley's own grave-eaters, pale with the dust of the kings."},
+        {"marks", CX_MECHANIC, "Marks, poison and Frenzy",
+         "A Mark makes your next hits on its bearer Critical Strikes; when a Marked enemy dies you gain a Frenzy Charge, 4% more "
+         "damage and speed each. Poison stacks: every poisoning hit adds its own."},
+        {"rifts", CX_MECHANIC, "Marid Rifts",
+         "After Act II, a chart may hold a tear in the air. Walk up to it and it opens, widening for twenty seconds while the "
+         "river's marids come through. What dies in it leaves Marid Splinters; fifty make a Rift Seal, which opens the Rift "
+         "Lord's court at the chart table."},
+        {"evasion", CX_MECHANIC, "Evasion",
+         "Evasion Rating gives a chance to take no damage at all from a hit, up to 75%. Deeper areas' monsters are more accurate. "
+         "Pools and blasts cannot be evaded."},
     };
     return c;
 }

@@ -54,6 +54,21 @@ void draw_currency_icon(float cx, float cy, float s, int c, float alpha) {
         u.disc(cx - s * 0.08f, cy - s * 0.22f, s * 0.07f, Rgba::hex(0xFFFFFF).alpha(0.4f * alpha));
         return;
     }
+    if (c == CUR_SPLINTER) {   // a sliver of river-glass
+        u.line(cx - s * 0.18f, cy + s * 0.28f, cx + s * 0.16f, cy - s * 0.3f, s * 0.16f, col);
+        u.line(cx - s * 0.12f, cy + s * 0.18f, cx + s * 0.1f, cy - s * 0.2f, s * 0.05f, Rgba::hex(0xFFFFFF).alpha(0.6f * alpha));
+        return;
+    }
+    if (c == CUR_RIFT_SEAL) {   // a round seal with the river's three waves on it
+        u.disc(cx, cy, s * 0.36f, col);
+        u.ring(cx, cy, s * 0.36f, s * 0.3f, Rgba::hex(0x8FDFF0).alpha(alpha));
+        for (int k = -1; k <= 1; k++)
+            for (int i = 0; i < 4; i++) {
+                float x0 = cx - s * 0.2f + i * s * 0.1f, y0 = cy + k * s * 0.1f + (i % 2 ? -1.f : 1.f) * s * 0.025f;
+                u.line(x0, y0, x0 + s * 0.1f, cy + k * s * 0.1f + (i % 2 ? 1.f : -1.f) * s * 0.025f, s * 0.03f, Rgba::hex(0xD8F8FF).alpha(alpha));
+            }
+        return;
+    }
     u.disc(cx, cy + s * 0.04f, s * 0.36f, Rgba::hex(0x000000).alpha(0.35f * alpha));
     u.disc(cx, cy, s * 0.32f, col);
     u.disc(cx - s * 0.1f, cy - s * 0.1f, s * 0.09f, Rgba::hex(0xFFFFFF).alpha(0.7f * alpha));
@@ -66,7 +81,23 @@ void draw_item_icon(float x, float y, float w, float h, const Item& it, float al
     Rgba d = c.mix(pal::night, 0.45f);
     float cx = x + w / 2, cy = y + h / 2, s = std::min(w, h);
     switch (it.b().slot) {
-        case Slot::Weapon: {  // a maul: long haft, heavy head
+        case Slot::Weapon: {  // a maul: long haft, heavy head (a staff: a ring for a head; a bow: a curve and its string)
+            if (it.b().wkind == WK_BOW) {
+                float px = cx + w * 0.12f;
+                for (int i = 0; i < 10; i++) {
+                    float a0 = -kPi / 2 + kPi * i / 10.f, a1 = -kPi / 2 + kPi * (i + 1) / 10.f;
+                    u.line(px - std::cos(a0) * w * 0.3f, cy + std::sin(a0) * h * 0.4f, px - std::cos(a1) * w * 0.3f, cy + std::sin(a1) * h * 0.4f, s * 0.07f, c);
+                }
+                u.line(px, cy - h * 0.4f, px, cy + h * 0.4f, s * 0.02f, Rgba::hex(0xE8DCC0).alpha(alpha));
+                u.line(cx - w * 0.3f, cy, px + w * 0.14f, cy, s * 0.025f, d);
+                break;
+            }
+            if (it.b().wkind == WK_STAFF) {
+                u.line(cx - w * 0.14f, y + h * 0.92f, cx + w * 0.1f, y + h * 0.26f, s * 0.07f, d);
+                u.ring(cx + w * 0.14f, y + h * 0.18f, s * 0.14f, s * 0.1f, c);
+                u.disc(cx + w * 0.14f, y + h * 0.18f, s * 0.05f, c);
+                break;
+            }
             u.line(cx - w * 0.18f, y + h * 0.9f, cx + w * 0.08f, y + h * 0.22f, s * 0.09f, d);
             u.line(cx - w * 0.32f, y + h * 0.2f, cx + w * 0.38f, y + h * 0.28f, s * 0.26f, c);
             u.line(cx - w * 0.3f, y + h * 0.2f, cx + w * 0.36f, y + h * 0.28f, s * 0.08f, d);

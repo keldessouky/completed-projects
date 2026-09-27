@@ -131,8 +131,22 @@ bool has_child(const Ascendancy& a, uint32_t held, int node) {
 
 void Menu::asc_update(World& w, const Input& in, int dir) {
     Hero& H = w.hero;
-    const Ascendancy* a = ascendancy_for(H.passives.cls);
-    if (!a) return;
+    const Ascendancy* a = ascendancy_of(H.passives.cls, H.ascendancy);
+    if (!a) {   // two to choose from: Left and Right look, South chooses (at the First Trial, and for good)
+        std::vector<int> ch = ascendancies_of(H.passives.cls);
+        if (ch.size() < 2) return;
+        if (dir == D_LEFT || dir == D_RIGHT) { asc_choice = (asc_choice + (dir == D_RIGHT ? 1 : int(ch.size()) - 1)) % int(ch.size()); w.emit(Ev::Craft, w.actors[0].pos, 0); }
+        asc_choice = std::clamp(asc_choice, 0, int(ch.size()) - 1);
+        if (in.hit(BTN_SOUTH)) {
+            if (!(H.quests & Q_TRIAL1)) { say("Pass the First Trial at Bab Zuweila to choose"); return; }
+            H.ascendancy = int8_t(ch[size_t(asc_choice)]);
+            asc_cursor = 1;
+            w.recompute_hero();
+            say(std::string("You ascend as the ") + ascendancies()[size_t(H.ascendancy)].name);
+            w.emit(Ev::LevelUp, w.actors[0].pos);
+        }
+        return;
+    }
     int n = int(a->nodes.size());
     asc_cursor = std::clamp(asc_cursor, 0, n - 1);
     if (dir >= 0) {
@@ -172,7 +186,35 @@ void Menu::asc_update(World& w, const Input& in, int dir) {
 void Menu::asc_render(const World& w) const {
     Ui& u = ui();
     const Hero& H = w.hero;
-    const Ascendancy* a = ascendancy_for(H.passives.cls);
+    const Ascendancy* a = ascendancy_of(H.passives.cls, H.ascendancy);
+    std::vector<int> ch = ascendancies_of(H.passives.cls);
+    if (!a && ch.size() >= 2) {   // the choice: a card for each, their notables listed
+        u.text(PX + PW / 2, PY + 96, "Choose your ascendancy", 40, pal::amber, Align::Center, 1.2f, true);
+        const char* sub = H.quests & Q_TRIAL1 ? "One, and for good: the other's stars will stay dark" : "Pass the First Trial at Bab Zuweila to choose";
+        u.text(PX + PW / 2, PY + 150, sub, 24, H.quests & Q_TRIAL1 ? pal::soft : pal::dim, Align::Center);
+        float cw = (PW - 100) / float(ch.size()), cy = PY + 200;
+        for (size_t k = 0; k < ch.size(); k++) {
+            const Ascendancy& c = ascendancies()[size_t(ch[k])];
+            Rgba col = Rgba::hex(c.color);
+            bool on = int(k) == asc_choice;
+            float cx = PX + 40 + k * (cw + 20);
+            u.frame(cx, cy, cw, 700, on ? pal::panel2 : pal::panel, on ? col : pal::line, 14, on ? 3 : 2);
+            u.text(cx + cw / 2, cy + 24, c.name, 38, col, Align::Center, 1.f, true);
+            float y = cy + 80;
+            y += u.wrap(cx + 24, y, cw - 48, c.blurb, 21, pal::soft, 1.25f) + 18;
+            for (size_t i = 1; i < c.nodes.size(); i++) {
+                const AscNode& nd = c.nodes[i];
+                if (!nd.notable) continue;
+                u.disc(cx + 34, y + 14, 9, col.alpha(on ? 1.f : 0.5f));
+                u.text(cx + 54, y, nd.name, 25, on ? pal::bone : pal::dim, Align::Left, 0.8f);
+                y += 32;
+                if (!nd.text.empty()) y += u.wrap(cx + 54, y, cw - 78, nd.text[0], 18, pal::magic.alpha(on ? 1.f : 0.6f), 1.2f);
+                y += 10;
+            }
+        }
+        legend(PX + 30, PY + PH - 58, {{BTN_LEFT, "Look"}, {BTN_SOUTH, "Choose"}, {BTN_EAST, "Close"}});
+        return;
+    }
     if (!a) { u.text(PX + PW / 2, PY + 300, "No ascendancy for this class yet", 30, pal::dim, Align::Center); return; }
     Rgba col = Rgba::hex(a->color);
     u.text(PX + PW / 2, PY + 96, a->name, 44, col, Align::Center, 1.2f, true);

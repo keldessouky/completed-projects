@@ -22,7 +22,10 @@ enum Currency : uint8_t { CUR_BEAD, CUR_SALT, CUR_GROUNDS, CUR_SAFFRON, CUR_PIAS
                           CUR_BLEND_EMBERS, CUR_BLEND_FROST, CUR_BLEND_STORM, CUR_BLEND_OASIS, CUR_BLEND_SCRIBE, CUR_BLEND_HAMMER,
                           // Coffee-Cup Omens: read one to bend your next craft
                           CUR_OMEN_BIRD, CUR_OMEN_FISH, CUR_OMEN_DOOR, CUR_OMEN_CRESCENT,
+                          // Slice 6: the Marid Rifts (they never drop at random)
+                          CUR_SPLINTER, CUR_RIFT_SEAL,
                           CUR_COUNT };
+constexpr int kSplintersPerSeal = 50;
 constexpr int kFirstBlend = CUR_BLEND_EMBERS, kLastBlend = CUR_BLEND_HAMMER;
 constexpr int kFirstOmen = CUR_OMEN_BIRD, kLastOmen = CUR_OMEN_CRESCENT;
 inline bool is_omen(int c) { return c >= kFirstOmen && c <= kLastOmen; }
