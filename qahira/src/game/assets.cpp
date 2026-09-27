@@ -40,6 +40,7 @@ const AnimSet* Assets::anims(const std::string& name) {
 
 CharacterModel Assets::character(const std::string& name) {
     CharacterModel c;
+    c.name = name;
     c.skel = skeleton(name);
     c.anims = anims(name);
     if (c.skel) {

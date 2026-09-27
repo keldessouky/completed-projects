@@ -9,6 +9,7 @@
 namespace q {
 
 struct CharacterModel {
+    std::string name;
     GpuMesh* body = nullptr;
     const Skeleton* skel = nullptr;
     const AnimSet* anims = nullptr;

@@ -1,0 +1,206 @@
+// The simulation: actors (hero and monsters), skills, projectiles, ground effects, loot, particles.
+// Fixed 60 Hz steps; everything here is plain data so save states can serialise it.
+#pragma once
+#include "game/animator.hpp"
+#include "game/assets.hpp"
+#include "game/items.hpp"
+#include "game/level.hpp"
+#include "game/stats.hpp"
+#include "platform/input.hpp"
+#include <string>
+#include <vector>
+
+namespace q {
+
+enum Team : uint8_t { TEAM_HERO, TEAM_ENEMY };
+enum class Act : uint8_t { Idle, Skill, Dodge, Hit, Stun, Dead };
+
+// ---- skills --------------------------------------------------------------
+enum class Shape : uint8_t { Cone, Circle, Detonate, Warcry, Projectile };
+
+struct SkillDef {
+    const char* id;
+    const char* name;
+    const char* desc;
+    uint32_t tags;
+    const char* clip;
+    float effectiveness;
+    float mana;
+    float cooldown;
+    Shape shape;
+    float range, radius, angle;   // cone: range + half angle (rad); circle: centre distance + radius
+    float break_mult;
+    uint8_t glyph;                // icon index for the HUD
+};
+const std::vector<SkillDef>& skill_defs();
+int find_skill(const char* id);
+
+// ---- monsters ------------------------------------------------------------
+enum class AttackKind : uint8_t { Claw, Slam, Spit };
+struct MonsterDef {
+    const char* id;
+    const char* name;
+    const char* model;
+    float scale;
+    vec3 tint;
+    float life, speed, radius;
+    AttackKind attack;
+    float attack_range, attack_cd;
+    float dmg_min, dmg_max;
+    int dmg_type;
+    float armour;
+    float xp;
+    float keep_distance;  // ranged: preferred distance from the hero
+};
+const std::vector<MonsterDef>& monster_defs();
+int find_monster(const char* id);
+
+enum MonsterMod : uint8_t { MM_HASTED, MM_ARMOURED, MM_FRENZIED, MM_VAMPIRIC, MM_COUNT };
+const char* monster_mod_name(int m);
+
+struct Actor {
+    uint32_t id = 0;
+    Team team = TEAM_ENEMY;
+    int def = -1;                  // monster def, -1 for the hero
+    Rarity rarity = Rarity::Normal;
+    std::string name;
+    uint8_t mods[4] = {255, 255, 255, 255};
+    vec2 pos, vel, knock;
+    float facing = 0;
+    float radius = 0.45f;
+    float scale = 1;
+    vec3 tint{1, 1, 1};
+    float life = 1, life_max = 1, mana = 0, mana_max = 0;
+    float armour = 0;
+    float speed = 5;
+    float dmg_mult = 1, speed_mult = 1;
+    Act act = Act::Idle;
+    float act_t = 0;
+    int skill = -1;                // skill being used
+    bool struck = false;           // the skill's hit event has fired
+    float break_meter = 0, broken_t = 0, stun_t = 0;
+    float hit_flash = 0;
+    float dead_t = 0;
+    float attack_cd = 0;
+    float ai_t = 0;
+    int ai_state = 0;
+    vec2 ai_dir;
+    Animator anim;
+    CharacterModel model;
+    bool alive() const { return act != Act::Dead; }
+};
+
+struct Projectile {
+    vec2 pos, vel;
+    float z = 1.1f, radius = 0.3f, life = 1.5f;
+    Team team = TEAM_ENEMY;
+    float dmg_min = 0, dmg_max = 0;
+    int dmg_type = DT_CHAOS;
+    vec3 color{0.4f, 1.f, 0.3f};
+};
+
+struct GroundFx {
+    enum Kind : uint8_t { Crack, Telegraph, Ring } kind = Crack;
+    vec2 pos;
+    float radius = 1, t = 0, life = 6, angle = 0, half = 0.6f;
+    uint32_t owner = 0;
+    uint32_t seed = 0;
+};
+
+struct Particle {
+    vec3 pos, vel;
+    float life, max_life, size0, size1, gravity, drag;
+    vec4 c0, c1;
+    uint8_t shape;
+    bool additive;
+};
+
+struct FloatText {
+    vec3 pos;
+    std::string text;
+    uint32_t color;
+    float t = 0, size = 40;
+};
+
+struct GroundItem {
+    Item item;
+    vec2 pos;
+    float t = 0;
+    uint32_t id = 0;
+};
+
+// Events the presentation layer (audio, rumble, HUD) consumes after each step.
+enum class Ev : uint8_t { Swing, Impact, SlamImpact, EnemyHit, EnemyDie, HeroHit, Warcry, Dodge, Spit, Splash, Pickup,
+                          Drink, Crit, Break, LevelUp, HeroDie, Aftershock };
+struct Event { Ev type; vec2 pos; float mag; };
+
+struct Hero {
+    Stats base;                    // class base stats
+    Stats stats;                   // base + items + buffs (rebuilt when anything changes)
+    Item weapon;
+    std::vector<Item> gear;        // non-weapon equipment, by slot
+    int skills[5] = {0, 1, 2, 3, -1};
+    float cooldowns[8] = {};
+    int level = 1;
+    float xp = 0;
+    int rally = 0;                 // Rallying Shout charges
+    int combo = 0;                 // consecutive Crushing Blow hits
+    float flask = 3, flask_max = 3;
+    float flask_heal_t = 0;
+    float regen_acc = 0;
+    int kills = 0;
+};
+
+class World {
+public:
+    Level level;
+    std::vector<Actor> actors;     // [0] is always the hero
+    std::vector<Projectile> projectiles;
+    std::vector<GroundFx> ground;
+    std::vector<Particle> particles;
+    std::vector<FloatText> texts;
+    std::vector<GroundItem> loot;
+    std::vector<Event> events;
+    Hero hero;
+    Rng rng{1234};
+    Rng fx_rng{99};
+    uint32_t next_id = 1;
+    float time = 0;
+    float hitstop = 0;
+    float shake = 0;
+    int area_level = 1;
+    int selected_loot = -1;
+
+    Actor& hero_actor() { return actors[0]; }
+    void reset_hero();
+    void recompute_hero();
+    Actor& spawn_monster(int def, vec2 pos, Rarity rarity = Rarity::Normal, int level = 1);
+    void step(const Input& in, float dt);
+
+    // queries used by the HUD and tests
+    int enemies_alive() const;
+    const Actor* focus_enemy() const;      // rare/unique being fought, for the target frame
+    float skill_cost(int slot) const;
+    float hero_dps(const Item& weapon) const;
+    WeaponStats hero_weapon() const { return hero.weapon.weapon(); }
+
+    void emit(Ev t, vec2 p, float mag = 1) { events.push_back({t, p, mag}); }
+    void burst(vec3 p, int n, vec4 c0, vec4 c1, float speed, float size, float life, bool additive, float gravity = -6.f, uint8_t shape = 0);
+
+private:
+    void hero_step(const Input& in, float dt);
+    void monster_step(Actor& m, float dt);
+    void anim_step(Actor& a, float dt);
+    void start_skill(int slot);
+    void resolve_skill(Actor& h);
+    void damage_enemy(Actor& e, const SkillDef& sk, float extra_more, float break_mult, vec2 from);
+    void damage_hero(float lo, float hi, int type, vec2 from, float break_amt);
+    void kill(Actor& e);
+    void monster_attack(Actor& m);
+    void drop_loot(const Actor& e);
+    void separate();
+    void fx_step(float dt);
+    vec2 aim_assist(vec2 dir, float range, float cone);
+};
+
+}  // namespace q
