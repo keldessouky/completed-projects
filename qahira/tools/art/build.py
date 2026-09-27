@@ -14,7 +14,7 @@ geom.scene = bpy.context.scene
 
 from qart import rig, preview
 from characters import warrior, ghoul
-from env import street
+from env import street, souq
 
 args = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
 PREVIEW = '--preview' in args
@@ -52,4 +52,9 @@ if want('street'):
     os.makedirs(tiles, exist_ok=True)
     for i, nm in enumerate(('street_a', 'street_b', 'street_c')):
         street.export(nm, seed=11 + i * 7, mesh_dir=os.path.join(OUT, 'meshes'), data_dir=tiles)
+if want('souq'):
+    tiles = os.path.join(OUT, 'tiles')
+    os.makedirs(tiles, exist_ok=True)
+    for i, nm in enumerate(('souq_a', 'souq_b', 'souq_c')):
+        souq.export(nm, seed=5 + i * 13, mesh_dir=os.path.join(OUT, 'meshes'), data_dir=tiles)
 print('BUILD DONE')
