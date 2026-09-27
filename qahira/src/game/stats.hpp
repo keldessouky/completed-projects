@@ -33,9 +33,15 @@ enum Stat : uint16_t {
     S_ATTACK_SPEED, S_CAST_SPEED, S_CRIT_CHANCE, S_CRIT_MULTI,
     S_AREA, S_MOVE_SPEED, S_BREAK, S_COOLDOWN_RECOVERY, S_MANA_COST, S_DAMAGE_TAKEN,
     S_FLASK_RECOVERY, S_ACCURACY,
+    S_ES, S_ES_RECHARGE,      // Hirz: the energy shield analog (GDD §8)
+    S_FREEZE, S_SHOCK,        // freeze buildup, effect of shock
+    S_CHAINS, S_PROJ_SPEED, S_WARCRY,
     S_COUNT
 };
 const char* stat_name(Stat s);
+// Data files (the passive tree) name stats and tags by key: "life", "crit_chance"; "melee", "spell".
+bool stat_from_key(const std::string& key, Stat& out);
+bool tag_from_key(const std::string& key, uint32_t& out);
 
 enum ModKind : uint8_t { MK_FLAT, MK_INC, MK_MORE };
 

@@ -48,8 +48,10 @@ const char* monster_mod_name(int m) {
 }
 
 // ============================================================ hero
-void World::reset_hero() {
+void World::reset_hero(const std::string& cls) {
     hero = Hero{};
+    tree().load();
+    hero.passives.reset(cls);
     Stats& b = hero.base;
     b.add(S_STR, MK_FLAT, 32);
     b.add(S_DEX, MK_FLAT, 14);
@@ -79,6 +81,8 @@ void World::recompute_hero() {
     H.stats.add(S_MANA, MK_FLAT, 6.f * (H.level - 1));
     for (int e = 0; e < EQ_COUNT; e++)
         if (!H.equip[e].empty()) H.equip[e].add_global_mods(H.stats, uint16_t(1 + e));
+    H.passives.apply(H.stats);
+    H.keystones = H.passives.keystones();
     // attributes: Strength gives life and melee damage, Intelligence mana
     float str = H.stats.value(S_STR), in = H.stats.value(S_INT);
     H.stats.add(S_LIFE, MK_FLAT, str * 0.5f, 0, 90);
@@ -89,6 +93,9 @@ void World::recompute_hero() {
     a.life_max = std::round(H.stats.value(S_LIFE));
     a.mana_max = std::round(H.stats.value(S_MANA));
     a.armour = H.stats.value(S_ARMOUR);
+    float old_es = H.es_max;
+    H.es_max = std::round(std::max(0.f, H.stats.value(S_ES)));
+    H.es = old_es > 0 ? std::min(H.es_max, H.es * H.es_max / old_es) : H.es_max;
     a.speed = 5.2f * (1 + H.stats.sum(S_MOVE_SPEED).inc / 100.f);
     if (old_max > 0 && old_max != a.life_max) a.life = std::min(a.life_max, a.life * a.life_max / old_max);
     a.mana = std::min(a.mana, a.mana_max);
@@ -197,7 +204,7 @@ void World::step(const Input& in, float dt) {
             particles.push_back(q);
         }
         if (p.team == TEAM_ENEMY && h.alive() && length(p.pos - h.pos) < p.radius + h.radius) {
-            damage_hero(p.dmg_min, p.dmg_max, p.dmg_type, p.pos - p.vel, 8);
+            damage_hero(p.dmg_min, p.dmg_max, p.dmg_type, p.pos - p.vel, 8, p.owner);
             p.life = 0;
         }
         if (level.blocked(p.pos, 0.05f)) p.life = 0;
@@ -387,7 +394,11 @@ void World::hero_step(const Input& in, float dt) {
         return;
     }
     // regeneration and flask
-    h.mana = std::min(h.mana_max, h.mana + (H.stats.value(S_MANA_REGEN) + h.mana_max * 0.03f) * dt);
+    h.mana = std::min(h.mana_max, h.mana + H.stats.value(S_MANA_REGEN, h.mana_max * 0.03f) * dt);
+    // Hirz recharges after two seconds without taking damage
+    H.overload_t = std::max(0.f, H.overload_t - dt);
+    if (H.es_wait > 0) H.es_wait -= dt;
+    else if (H.es < H.es_max) H.es = std::min(H.es_max, H.es + H.es_max * 0.2f * (1 + H.stats.sum(S_ES_RECHARGE).inc / 100.f) * dt);
     h.life = std::min(h.life_max, h.life + H.stats.value(S_LIFE_REGEN) * dt);
     if (H.flask_heal_t > 0) {
         float rate = h.life_max * 0.5f / 1.5f;
@@ -462,7 +473,13 @@ void World::resolve_skill(Actor& h) {
     ss.break_mult = sk.break_mult;
     HitDamage hd = compute_hit(H.stats, hero_weapon(), ss);
     float more = 1.f;
-    if (H.rally > 0 && (sk.tags & T_ATTACK)) { more = 1.4f; H.rally--; }
+    if (H.rally > 0 && (sk.tags & T_ATTACK)) { more = 1.f + 0.4f * (1 + H.stats.sum(S_WARCRY).inc / 100.f); H.rally--; }
+    if ((H.keystones & KS_OVERLOAD) != 0) {
+        hd.crit_multi = 1.f;                                   // al-Simak: crits deal no extra damage...
+        if (H.overload_t > 0)                                  // ...but charge your elements
+            for (int t = DT_FIRE; t <= DT_LIGHTNING; t++) { hd.min[size_t(t)] *= 1.4f; hd.max[size_t(t)] *= 1.4f; }
+    }
+    const float area = std::sqrt(std::max(0.2f, 1.f + H.stats.sum(S_AREA, sk.tags).inc / 100.f));  // area scales radius by its root
     for (int t = 0; t < DT_COUNT; t++) { hd.min[size_t(t)] *= more; hd.max[size_t(t)] *= more; }
     float brk = sk.break_mult * (1 + H.stats.sum(S_BREAK).inc / 100.f) * (more > 1 ? 1.5f : 1.f);
     int hits = 0;
@@ -478,7 +495,13 @@ void World::resolve_skill(Actor& h) {
             Defences def;
             def.armour = e.armour;
             if (e.broken_t > 0) def.damage_taken_inc = 50;
-            HitResult res = roll_hit(hd, def, rng);
+            HitDamage he = hd;
+            if (H.keystones & KS_FOLLOWER) {                    // al-Dabaran
+                float k = e.id == H.last_attacker ? 1.4f : 0.8f;
+                for (int t = 0; t < DT_COUNT; t++) { he.min[size_t(t)] *= k; he.max[size_t(t)] *= k; }
+            }
+            HitResult res = roll_hit(he, def, rng);
+            if (res.crit && (H.keystones & KS_OVERLOAD)) H.overload_t = 6.f;
             e.life -= res.total;
             e.hit_flash = 1.f;
             e.knock += normalize(d) * (sk.tags & T_SLAM ? 4.f : 2.5f);
@@ -514,7 +537,7 @@ void World::resolve_skill(Actor& h) {
     };
     switch (sk.shape) {
         case Shape::Cone: {
-            hit_all(h.pos, sk.range, true, sk.angle);
+            hit_all(h.pos, sk.range * area, true, sk.angle);
             if (hits > 0) {
                 H.combo++;
                 if (H.combo % 3 == 0) {
@@ -534,7 +557,7 @@ void World::resolve_skill(Actor& h) {
         }
         case Shape::Circle: {
             vec2 c = h.pos + dir * sk.range;
-            hit_all(c, sk.radius, false, 0);
+            hit_all(c, sk.radius * area, false, 0);
             for (int k = -1; k <= 1; k++) {
                 GroundFx g;
                 g.kind = GroundFx::Crack;
@@ -555,7 +578,7 @@ void World::resolve_skill(Actor& h) {
             int n = 0;
             for (auto& g : ground) {
                 if (g.kind != GroundFx::Crack || length(g.pos - h.pos) > sk.range) continue;
-                hit_all(g.pos, sk.radius, false, 0);
+                hit_all(g.pos, sk.radius * area, false, 0);
                 burst(vec3(g.pos, 0.1f), 22, vec4(1.f, 0.62f, 0.25f, 1), vec4(0.8f, 0.2f, 0.05f, 0), 7.f, 0.16f, 0.7f, true, -10.f);
                 burst(vec3(g.pos, 0.1f), 14, vec4(0.6f, 0.52f, 0.45f, 0.9f), vec4(0.4f, 0.35f, 0.3f, 0), 4.f, 0.4f, 0.9f, false, -5.f, 1);
                 g.t = g.life;
@@ -573,7 +596,7 @@ void World::resolve_skill(Actor& h) {
         case Shape::Warcry: {
             for (size_t i = 1; i < actors.size(); i++) {
                 Actor& e = actors[i];
-                if (!e.alive() || length(e.pos - h.pos) > sk.radius + e.radius) continue;
+                if (!e.alive() || length(e.pos - h.pos) > sk.radius * area + e.radius) continue;
                 e.break_meter += 35.f * (e.rarity >= Rarity::Rare ? 0.6f : 1.f);
                 if (e.break_meter >= 100.f) {
                     e.break_meter = 0; e.stun_t = 1.4f; e.broken_t = 3; e.act = Act::Stun;
@@ -581,11 +604,11 @@ void World::resolve_skill(Actor& h) {
                     emit(Ev::Break, e.pos);
                 }
             }
-            H.rally = 3;
+            H.rally = 3 + int(H.stats.sum(S_WARCRY).flat);
             GroundFx g;
             g.kind = GroundFx::Ring;
             g.pos = h.pos;
-            g.radius = sk.radius;
+            g.radius = sk.radius * area;
             g.life = 0.6f;
             ground.push_back(g);
             emit(Ev::Warcry, h.pos);
@@ -659,7 +682,7 @@ void World::drop_loot(const Actor& e) {
     loot.push_back(g);
 }
 
-void World::damage_hero(float lo, float hi, int type, vec2 from, float break_amt) {
+void World::damage_hero(float lo, float hi, int type, vec2 from, float break_amt, uint32_t attacker) {
     Actor& h = actors[0];
     if (!h.alive()) return;
     HitDamage hd;
@@ -667,7 +690,12 @@ void World::damage_hero(float lo, float hi, int type, vec2 from, float break_amt
     hd.max[size_t(type)] = hi;
     Defences def = defences_of(hero.stats);
     HitResult r = roll_hit(hd, def, rng);
-    h.life -= r.total;
+    if (attacker) hero.last_attacker = attacker;
+    float taken = r.total;
+    float soak = std::min(hero.es, taken);                     // Hirz takes the hit first
+    hero.es -= soak;
+    hero.es_wait = 2.f;
+    h.life -= taken - soak;
     h.hit_flash = 0.6f;
     h.knock += normalize(h.pos - from) * 1.5f;
     emit(Ev::HeroHit, h.pos, r.total / std::max(1.f, h.life_max));
@@ -694,12 +722,12 @@ void World::monster_attack(Actor& m) {
             vec2 dd = h.pos - m.pos;
             float dist = length(dd);
             if (dist <= d.attack_range * m.scale + h.radius + 0.2f && std::fabs(wrap_angle(angle_of(dd) - m.facing)) < radians(75))
-                damage_hero(lo, hi, d.dmg_type, m.pos, 10);
+                damage_hero(lo, hi, d.dmg_type, m.pos, 10, m.id);
             break;
         }
         case AttackKind::Slam: {
             vec2 c = m.pos + fwd * 1.3f * m.scale;
-            if (length(h.pos - c) <= 1.7f * m.scale + h.radius) damage_hero(lo, hi, d.dmg_type, c, 30);
+            if (length(h.pos - c) <= 1.7f * m.scale + h.radius) damage_hero(lo, hi, d.dmg_type, c, 30, m.id);
             burst(vec3(c, 0.1f), 18, vec4(0.5f, 0.45f, 0.42f, 0.9f), vec4(0.3f, 0.28f, 0.26f, 0), 4.f, 0.35f, 0.8f, false, -5.f, 1);
             emit(Ev::SlamImpact, c, 0.8f);
             shake = std::max(shake, 0.35f);
@@ -714,6 +742,7 @@ void World::monster_attack(Actor& m) {
             p.dmg_min = lo;
             p.dmg_max = hi;
             p.dmg_type = d.dmg_type;
+            p.owner = m.id;
             projectiles.push_back(p);
             emit(Ev::Spit, m.pos);
             break;
@@ -813,16 +842,16 @@ void World::boss_strike(Actor& m, const char* ev) {
     if (m.skill == 0) {  // claw combo
         vec2 dd = h.pos - m.pos;
         if (length(dd) <= d.attack_range + h.radius && std::fabs(wrap_angle(angle_of(dd) - m.facing)) < radians(70))
-            damage_hero(lo, hi, DT_PHYS, m.pos, 12);
+            damage_hero(lo, hi, DT_PHYS, m.pos, 12, m.id);
         (void)ev;
     } else if (m.skill == 1) {  // leap landing
-        if (length(h.pos - m.target) <= 2.7f + h.radius) damage_hero(lo * 1.6f, hi * 1.6f, DT_PHYS, m.target, 25);
+        if (length(h.pos - m.target) <= 2.7f + h.radius) damage_hero(lo * 1.6f, hi * 1.6f, DT_PHYS, m.target, 25, m.id);
         burst(vec3(m.target, 0.1f), 30, vec4(0.45f, 0.4f, 0.36f, 0.8f), vec4(0.3f, 0.27f, 0.25f, 0), 6.f, 0.35f, 1.0f, false, -6.f, 1);
         emit(Ev::SlamImpact, m.target, 1.2f);
         emit(Ev::BossLeap, m.target);
         shake = std::max(shake, 0.7f);
     } else if (m.skill == 2) {  // wail
-        if (length(h.pos - m.pos) <= 7.5f) damage_hero(h.life_max * 0.28f, h.life_max * 0.34f, DT_CHAOS, m.pos, 40);
+        if (length(h.pos - m.pos) <= 7.5f) damage_hero(h.life_max * 0.28f, h.life_max * 0.34f, DT_CHAOS, m.pos, 40, m.id);
         GroundFx g;
         g.kind = GroundFx::Ring;
         g.pos = m.pos;

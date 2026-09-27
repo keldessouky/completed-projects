@@ -375,7 +375,7 @@ void app_render(GLuint fbo, int w, int h) {
 void app_audio(int16_t* stereo, int frames) { audio().mix(stereo, frames); }
 
 // ---- save states
-static const uint32_t kStateVersion = 4;
+static const uint32_t kStateVersion = 5;  // 5: passives, Hirz, keystone state
 
 static ByteWriter save_state() {
     ByteWriter w;

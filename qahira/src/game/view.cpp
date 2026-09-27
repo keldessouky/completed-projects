@@ -242,7 +242,7 @@ void draw_button_glyph(float cx, float cy, float s, int b) {
     }
     const char* t = b == BTN_R1 ? "R1" : b == BTN_R2 ? "R2" : b == BTN_L1 ? "L1" : b == BTN_L2 ? "L2" : b == BTN_L3 ? "M1" :
                     b == BTN_R3 ? "M2" : b == BTN_LEFT ? "\xE2\x86\x90" : b == BTN_UP ? "\xE2\x86\x91" : b == BTN_RIGHT ? "\xE2\x86\x92" :
-                    b == BTN_DOWN ? "\xE2\x86\x93" : "?";
+                    b == BTN_DOWN ? "\xE2\x86\x93" : b == BTN_SELECT ? "SEL" : "?";
     u.text(cx, cy - s * 0.32f, t, s * 0.5f, pal::bone, Align::Center, 1);
 }
 
@@ -474,8 +474,18 @@ void View::render_hud(World& w, const Input& in, const Areas& areas) {
     }
     // orbs
     char buf[64];
-    snprintf(buf, sizeof buf, "%d", int(std::ceil(h.life)));
+    if (H.es_max > 0) snprintf(buf, sizeof buf, "%d+%d", int(std::ceil(h.life)), int(std::ceil(H.es)));
+    else snprintf(buf, sizeof buf, "%d", int(std::ceil(h.life)));
     orb(170, 900, 110, shown_life, Rgba::hex(0xA3202A), Rgba::hex(0xFF6040), buf);
+    if (H.es_max > 0) {  // Hirz: a pale ring round the life orb
+        float k = H.es / H.es_max;
+        for (int i = 0; i < 48; i++) {
+            if (i >= int(k * 48 + 0.5f)) break;
+            float a0 = kPi / 2 + kTau * i / 48.f, a1 = kPi / 2 + kTau * (i + 1) / 48.f;
+            u.line(170 + std::cos(a0) * 124, 900 + std::sin(a0) * 124, 170 + std::cos(a1) * 124, 900 + std::sin(a1) * 124, 9,
+                   Rgba::hex(0xBFE6FF).alpha(0.85f));
+        }
+    }
     snprintf(buf, sizeof buf, "%d", int(h.mana));
     orb(1750, 900, 110, shown_mana, Rgba::hex(0x1F4FA8), Rgba::hex(0x60A0FF), buf);
     // flask pips beside the life orb
@@ -516,6 +526,13 @@ void View::render_hud(World& w, const Input& in, const Areas& areas) {
     u.rect(300, 1068, 1320 * std::min(1.f, H.xp / need), 6, pal::brass, 3);
     snprintf(buf, sizeof buf, "Level %d", H.level);
     u.text(290, 1052, buf, 24, pal::soft, Align::Right);
+    if (H.passive_points() > 0) {
+        snprintf(buf, sizeof buf, "%d star%s to place", H.passive_points(), H.passive_points() == 1 ? "" : "s");
+        float tw = u.text_width(buf, 24) + 70;
+        u.frame(1620 - tw, 1000, tw, 44, pal::panel.alpha(0.9f), pal::brass, 10, 2);
+        draw_button_glyph(1620 - tw + 28, 1022, 34, BTN_SELECT);
+        u.text(1620 - tw + 52, 1008, buf, 24, pal::rare, Align::Left, 0.6f);
+    }
     // banner (level up)
     if (banner_t > 0) {
         float a = std::min(1.f, banner_t / 0.4f);

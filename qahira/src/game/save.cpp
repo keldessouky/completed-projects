@@ -85,7 +85,7 @@ GroundItem read_ground_item(ByteReader& r) {
 
 // ---- the character: what persists between sessions
 static const uint32_t kCharMagic = 0x31484351;  // "QCH1"
-static const uint32_t kCharVersion = 1;
+static const uint32_t kCharVersion = 2;   // 2: the class and its stars
 
 void write_character(ByteWriter& w, const Hero& H) {
     w.put(kCharMagic);
@@ -93,6 +93,10 @@ void write_character(ByteWriter& w, const Hero& H) {
     w.put(H.level); w.put(H.xp); w.put(H.kills); w.put(H.gold); w.put(H.filter);
     w.bytes(H.currency, sizeof H.currency);
     w.bytes(H.skills, sizeof H.skills);
+    w.str(H.passives.cls);
+    std::vector<int> held = H.passives.held();
+    w.put(uint16_t(held.size()));
+    for (int id : held) w.put(uint16_t(id));
     w.put(uint8_t(EQ_COUNT));
     for (auto& e : H.equip) write_item(w, e);
     w.put(uint16_t(H.inv.items.size()));
@@ -100,10 +104,24 @@ void write_character(ByteWriter& w, const Hero& H) {
 }
 
 bool read_character(ByteReader& r, Hero& H) {
-    if (r.get<uint32_t>() != kCharMagic || r.get<uint32_t>() != kCharVersion) return false;
+    if (r.get<uint32_t>() != kCharMagic) return false;
+    uint32_t version = r.get<uint32_t>();
+    if (version < 1 || version > kCharVersion) return false;
     r.get(H.level); r.get(H.xp); r.get(H.kills); r.get(H.gold); r.get(H.filter);
     r.bytes(H.currency, sizeof H.currency);
     r.bytes(H.skills, sizeof H.skills);
+    tree().load();
+    if (version >= 2) {
+        std::string cls = r.str();
+        H.passives.reset(cls.empty() ? "warrior" : cls);
+        uint16_t n = r.get<uint16_t>();
+        for (uint16_t i = 0; i < n && r.ok; i++) {
+            uint16_t id = r.get<uint16_t>();
+            if (id < H.passives.taken.size()) H.passives.taken[id] = 1;
+        }
+    } else {
+        H.passives.reset("warrior");   // Slice 2 characters were all Warriors, with no stars yet
+    }
     uint8_t ne = r.get<uint8_t>();
     if (ne != EQ_COUNT) return false;
     for (auto& e : H.equip) e = read_item(r);
@@ -126,6 +144,7 @@ void write_world(ByteWriter& w, const World& W) {
     const Hero& H = W.hero;
     write_character(w, H);
     w.put(H.rally); w.put(H.combo); w.put(H.flask); w.put(H.flask_heal_t);
+    w.put(H.es); w.put(H.es_wait); w.put(H.overload_t); w.put(H.last_attacker);
     w.bytes(H.cooldowns, sizeof H.cooldowns);
     w.put(uint32_t(W.actors.size()));
     for (const Actor& a : W.actors) write_actor(w, a);
@@ -143,6 +162,8 @@ bool read_world(ByteReader& r, World& W) {
     Hero& H = W.hero;
     if (!read_character(r, H)) return false;
     r.get(H.rally); r.get(H.combo); r.get(H.flask); r.get(H.flask_heal_t);
+    float es = r.get<float>();
+    r.get(H.es_wait); r.get(H.overload_t); r.get(H.last_attacker);
     r.bytes(H.cooldowns, sizeof H.cooldowns);
     uint32_t na = r.get<uint32_t>();
     if (!r.ok || na == 0 || na > 4096) return false;
@@ -166,6 +187,7 @@ bool read_world(ByteReader& r, World& W) {
     W.texts.clear();
     W.events.clear();
     W.recompute_hero();
+    H.es = std::min(es, H.es_max);
     return r.ok;
 }
 

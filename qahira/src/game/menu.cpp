@@ -520,8 +520,9 @@ void Menu::render(const World& w) const {
             u.text(PX + PW - 60, y, v, 28, pal::bone, Align::Right, 0.6f);
             y += 38;
         };
-        u.text(x, y, "The Warrior", 44, pal::amber, Align::Left, 1.4f, true);
-        snprintf(b, sizeof b, "Level %d  \xC2\xB7  %d ghouls laid to rest", H.level, H.kills);
+        u.text(x, y, H.passives.cls == "sorcerer" ? "The Sorcerer" : "The Warrior", 44, pal::amber, Align::Left, 1.4f, true);
+        snprintf(b, sizeof b, "Level %d  \xC2\xB7  %d stars placed, %d to place  \xC2\xB7  %d ghouls laid to rest", H.level,
+                 H.passives.spent(), H.passive_points(), H.kills);
         u.text(x, y + 56, b, 26, pal::soft);
         y += 110;
         head("OFFENCE");
@@ -540,6 +541,10 @@ void Menu::render(const World& w) const {
         row("Maximum life", b);
         snprintf(b, sizeof b, "%d", int(h.mana_max));
         row("Maximum mana", b);
+        if (H.es_max > 0) {
+            snprintf(b, sizeof b, "%d", int(H.es_max));
+            row("Maximum Hirz (energy shield)", b);
+        }
         snprintf(b, sizeof b, "%d  (%d%% vs a 40 hit)", int(h.armour), int(armour_reduction(h.armour, 40) * 100));
         row("Armour", b);
         Defences d = defences_of(s);

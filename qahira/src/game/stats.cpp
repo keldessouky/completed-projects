@@ -24,8 +24,36 @@ const char* stat_name(Stat s) {
         "Armour", "Evasion", "Block", "Fire Resistance", "Cold Resistance", "Lightning Resistance", "Chaos Resistance",
         "Damage", "Added Damage", "Added Damage", "Attack Speed", "Cast Speed", "Critical Strike Chance",
         "Critical Strike Multiplier", "Area of Effect", "Movement Speed", "Break", "Cooldown Recovery", "Mana Cost",
-        "Damage Taken", "Flask Recovery", "Accuracy"};
+        "Damage Taken", "Flask Recovery", "Accuracy", "Hirz", "Hirz Recharge", "Freeze Buildup", "Shock Effect", "Chains",
+        "Projectile Speed", "Warcry Effect"};
     return s < S_COUNT ? n[s] : "?";
+}
+
+bool stat_from_key(const std::string& k, Stat& out) {
+    static const struct { const char* key; Stat s; } t[] = {
+        {"str", S_STR}, {"dex", S_DEX}, {"int", S_INT}, {"life", S_LIFE}, {"mana", S_MANA}, {"life_regen", S_LIFE_REGEN},
+        {"mana_regen", S_MANA_REGEN}, {"life_leech", S_LIFE_LEECH}, {"armour", S_ARMOUR}, {"evasion", S_EVASION},
+        {"block", S_BLOCK}, {"fire_res", S_FIRE_RES}, {"cold_res", S_COLD_RES}, {"lightning_res", S_LIGHTNING_RES},
+        {"chaos_res", S_CHAOS_RES}, {"damage", S_DAMAGE}, {"added_min", S_ADDED_MIN}, {"added_max", S_ADDED_MAX},
+        {"attack_speed", S_ATTACK_SPEED}, {"cast_speed", S_CAST_SPEED}, {"crit_chance", S_CRIT_CHANCE},
+        {"crit_multi", S_CRIT_MULTI}, {"area", S_AREA}, {"move_speed", S_MOVE_SPEED}, {"break", S_BREAK},
+        {"cooldown", S_COOLDOWN_RECOVERY}, {"mana_cost", S_MANA_COST}, {"damage_taken", S_DAMAGE_TAKEN},
+        {"flask", S_FLASK_RECOVERY}, {"accuracy", S_ACCURACY}, {"es", S_ES}, {"es_recharge", S_ES_RECHARGE},
+        {"freeze", S_FREEZE}, {"shock", S_SHOCK}, {"chains", S_CHAINS}, {"proj_speed", S_PROJ_SPEED}, {"warcry", S_WARCRY},
+    };
+    for (auto& e : t) if (k == e.key) { out = e.s; return true; }
+    return false;
+}
+
+bool tag_from_key(const std::string& k, uint32_t& out) {
+    static const struct { const char* key; uint32_t t; } t[] = {
+        {"attack", T_ATTACK}, {"spell", T_SPELL}, {"melee", T_MELEE}, {"area", T_AREA}, {"projectile", T_PROJECTILE},
+        {"slam", T_SLAM}, {"strike", T_STRIKE}, {"warcry", T_WARCRY}, {"duration", T_DURATION}, {"minion", T_MINION},
+        {"physical", T_PHYSICAL}, {"fire", T_FIRE}, {"cold", T_COLD}, {"lightning", T_LIGHTNING}, {"chaos", T_CHAOS},
+        {"elemental", T_ELEMENTAL}, {"two_hand", T_TWO_HAND}, {"mace", T_MACE}, {"ailment", T_AILMENT}, {"channel", T_CHANNEL},
+    };
+    for (auto& e : t) if (k == e.key) { out = e.t; return true; }
+    return false;
 }
 
 void Stats::remove_source(uint16_t src) {

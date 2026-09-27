@@ -7,6 +7,7 @@
 #include "game/items.hpp"
 #include "game/level.hpp"
 #include "game/stats.hpp"
+#include "game/tree.hpp"
 #include "platform/input.hpp"
 #include <string>
 #include <vector>
@@ -102,6 +103,7 @@ struct Projectile {
     float dmg_min = 0, dmg_max = 0;
     int dmg_type = DT_CHAOS;
     vec3 color{0.4f, 1.f, 0.3f};
+    uint32_t owner = 0;
 };
 
 struct GroundFx {
@@ -170,6 +172,13 @@ struct Hero {
     int currency[CUR_COUNT] = {};
     int gold = 0;                  // dinars
     uint8_t filter = FILTER_STANDARD;
+    Allocation passives;           // the class, and its stars in the Book of Fixed Stars
+    uint32_t keystones = 0;
+    float es = 0, es_max = 0;      // Hirz, the energy shield
+    float es_wait = 0;             // seconds until Hirz starts to recharge
+    float overload_t = 0;          // al-Simak: elemental damage after a crit
+    uint32_t last_attacker = 0;    // al-Dabaran: the last enemy that hit you
+    int passive_points() const { return std::max(0, level - 1 - passives.spent()); }
     Item& weapon() { return equip[EQ_WEAPON]; }
     const Item& weapon() const { return equip[EQ_WEAPON]; }
     int skills[5] = {0, 1, 2, 3, -1};
@@ -209,7 +218,7 @@ public:
     int selected_loot = -1;
 
     Actor& hero_actor() { return actors[0]; }
-    void reset_hero();
+    void reset_hero(const std::string& cls = "warrior");
     void recompute_hero();
     Actor& spawn_monster(int def, vec2 pos, Rarity rarity = Rarity::Normal, int level = 1);
     void step(const Input& in, float dt);
@@ -243,7 +252,7 @@ private:
     void start_skill(int slot, vec2 stick);
     void resolve_skill(Actor& h);
     void damage_enemy(Actor& e, const SkillDef& sk, float extra_more, float break_mult, vec2 from);
-    void damage_hero(float lo, float hi, int type, vec2 from, float break_amt);
+    void damage_hero(float lo, float hi, int type, vec2 from, float break_amt, uint32_t attacker = 0);
     void kill(Actor& e);
     void monster_attack(Actor& m);
     void drop_loot(const Actor& e);
