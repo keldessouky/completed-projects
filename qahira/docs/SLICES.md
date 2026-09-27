@@ -32,3 +32,47 @@ what each slice actually delivered and how it was verified.
 | Render check: screenshot at frame 90 | pass (build/screenshot.png) |
 | RetroArch on macOS | blocked by a RetroArch macOS driver bug (see ENGINE.md); qhost covers the same API |
 | On-device checks (RP6) | pending, see [RP6.md](RP6.md) |
+
+## Slice 1 · One Fight
+
+**Delivered**
+- **Stat engine:** the modifier engine and the damage pipeline (GDD §8), with golden unit tests in `qtests`.
+- **Ghouls:** generated with eight clips, as three kinds:
+  - a swarmer that claws;
+  - a Grave Bruiser that does a telegraphed two-armed slam;
+  - a Bile Spitter that kites and leads its shots.
+
+  Rares roll two mods, a generated name and a gold rim.
+- **Warrior kit:**
+  - **Crushing Blow:** every third hit in a row cracks the ground.
+  - **Earthshatter:** a slam that leaves three cracks.
+  - **Rallying Shout:** builds Break in nearby enemies and gives 40% more damage on the next three hits.
+  - **Aftershock:** detonates every crack in range.
+  - **Dodge roll**, and a **life flask** on the rear button (M1 → L3).
+- **Break:** hits fill a meter; when it's full the target is stunned, then takes 50% more damage.
+- **Hit feel:** hit-stop, camera shake, knockback, hit flashes and rumble.
+- **Items:**
+  - item bases and tiered affixes, with generated rare names;
+  - drops and loot beams;
+  - a tooltip that shows the DPS change against the equipped weapon;
+  - equip with the D-pad.
+- **XP and levels.** Death shows "You fell in the long night" and lets you rise again at the start.
+- **HUD:** life and mana orbs, a skill bar with position-based button glyphs, a rare target frame with mods and a
+  Break meter, crit numbers, loot labels.
+- **Location:** a generated Khan el-Khalili souq with lamps, lantern racks, spice sacks, brass trays and mashrabiya.
+  The fight runs from the street into the souq.
+- **Sound:** all synthesised; 19 effects, Cairo night ambience, and a maqam Hijaz loop on oud, qanun, ney, darbuka
+  and riq. A 32-voice mixer in the core.
+- **Save states:** the whole world state.
+
+**Verified**
+
+| Check | Result |
+|---|---|
+| Unit tests (`qtests`) | pass, 6 golden cases |
+| `fight` bot: clears all 18 ghouls including the rare, equips its rare drop, round-trips a save state mid-fight | pass (level 3, 0 deaths) |
+| `walk` bot | pass |
+| Audio capture during the fight (`--wav`) | peak 0.78, RMS −21 dBFS, no clipping |
+| Shaders as GLSL ES 3.00 | pass |
+| Android core builds | pass |
+| On-device feel review | pending (RP6) |

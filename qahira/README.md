@@ -15,7 +15,8 @@ Work proceeds in vertical slices ([slice plan](../_bmad-output/planning-artifact
 | Slice | State |
 |---|---|
 | 0 · First Light | **Done** (device checks pending). The Warrior on a generated Cairo street. Details: [slice log](docs/SLICES.md) |
-| 1–11 | Not started |
+| 1 · One Fight | **Done**. The Warrior against ghouls from the street into the Khan el-Khalili souq, with skills, Break, loot, a HUD and synthesised sound. See the [slice log](docs/SLICES.md). |
+| 2–11 | Not started |
 
 ## Docs
 
@@ -57,7 +58,8 @@ cmake --build build/android                # -> qahira_libretro_android.so
 ## Tests
 
 ```bash
-./build/mac/qhost build/Qahira.qpk --headless --bot walk                         # headless bot scenario
+./build/mac/qtests                                                               # stat engine golden tests
+./build/mac/qhost build/Qahira.qpk --headless --bot fight                        # plays the whole fight
 ./build/mac/qhost build/Qahira.qpk --hidden --frames 90 --shot build/shot.png    # render check
 python3 tools/check_shaders.py                                                   # all shaders as GLSL ES 3.00
 ```
@@ -65,7 +67,10 @@ python3 tools/check_shaders.py                                                  
 ## Dev host controls
 
 - **Move:** WASD
-- **Face buttons:** J (south), K (east / dodge), U (west), I (north)
+- **Skills:** J (south) Crushing Blow, U (west) Earthshatter, I (north) Rallying Shout, L (R1) Aftershock
+- **Dodge:** K (east)
+- **Life flask:** 1 (L3 / M1)
+- **Pick up or equip:** ← (D-pad left)
 - **Shoulders:** E = L1, L = R1, Q = L2, O = R2
 - **Menu:** Enter = Start, Tab = Select
 - **Save states:** F5 save, F9 load

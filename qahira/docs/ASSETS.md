@@ -11,7 +11,9 @@ tools/art/qart/model.py       Model: collects parts -> LOD -> baked AO -> skin w
 tools/art/qart/rig.py         the shared humanoid rig, FK, two-bone IK, keyframe helpers, clip baking
 tools/art/qart/preview.py     contact sheets of every clip (numpy skinning + Workbench) -> build/preview/
 tools/art/characters/         characters and their clips (warrior.py)
-tools/art/env/                level tiles (street.py)
+tools/art/characters/ghoul.py  ghouls: a hunched, long-armed variant of the shared rig
+tools/art/env/                level tiles: street.py (downtown), souq.py (Khan el-Khalili)
+tools/audio/synth.py          every sound: effects, ambience, music in the maqamat
 tools/pack.py                 builds build/Qahira.qpk
 ```
 
@@ -56,6 +58,33 @@ check a clip.
 Each seed gives a different street. The JSON sidecar lists the colliders (building volumes, lamp posts, crates) and
 the lights (neon, lamps, festival strings).
 
+## Souq alleys
+
+`env/souq.py` builds 11 × 24 m alleys:
+- irregular flagstones, worn darker down the middle;
+- stone shopfronts with two-centred (Mamluk) pointed arches opening onto warm-lit shop interiors;
+- carved frieze bands and mashrabiya balconies with a lamp-lit lattice;
+- at the shop mouths: stacked brass trays, spice sacks with heaped colours, or a lantern-seller's rack of glowing
+  fawanees;
+- khayamiya panels, brass lanterns on brackets, and a spanning stone arch at the north end.
+
+## Audio
+
+`tools/audio/synth.py` runs under any Python with numpy (Blender's bundled one works) and writes 16-bit mono WAVs.
+- **Instruments:**
+  - The **oud** and **qanun** are modal models: sums of decaying, slightly inharmonic partials, excited by a pluck
+    and convolved with a body impulse response. Higher partials decay faster.
+  - The **ney** is a breathy sine with delayed vibrato.
+  - The **darbuka's** *dum* is a pitch-dropping membrane, and its *tek* is a band of noise.
+  - The **riq's** jingles are high noise bursts.
+- **Music** is composed procedurally in a named maqam, with the scales in cents, so quarter tones are exact:
+  Hijaz, Rast, Bayati, Saba and Kurd. Each piece has a drone, a maqsum rhythm with fills, phrases that cadence on
+  the tonic, fourth or fifth, and a slow ney line. It's reverberated by convolution and crossfaded at the seam so it
+  loops cleanly. `mus_hijaz` is 60 s at 96 bpm.
+- **Ambience:** `amb_street` is Cairo at night: traffic hum, air, and distant two-tone car horns.
+- **Effects:** 19 of them, including swings, slams, the aftershock, impacts, crit ring, ghoul hiss and crumble, bile,
+  warcry, dodge, pickup, flask, Break, level-up (a Hijaz run on the oud) and UI ticks.
+
 ## Formats (little-endian)
 
 | File | Layout |
@@ -65,6 +94,7 @@ the lights (neon, lamps, festival strings).
 | `.qskel` | `"QSKL"`, u32 version, u32 bone count; per bone {char name[32], i32 parent, f32 t[3], f32 r[4], f32 s[3], f32 inverse bind[16] column-major} |
 | `.qanim` | `"QANM"`, u32 version, u32 clip count, u32 bone count; per clip {char name[32], f32 fps, u32 frames, u32 flags (1 = loop), u32 event count, events {char name[16], f32 time}, frames × bones × {f32 t[3], f32 r[4]}} |
 | `data/tiles/*.json` | `{size: [w, l], street, lights: [{p, r, c}], colliders: [[cx, cy, hx, hy]]}` |
+| `audio/*.wav` | RIFF WAVE, PCM 16-bit mono (effects 48 kHz, music and ambience 32 kHz) |
 
 Fonts: Inter and Noto Sans Arabic (SIL OFL) are converted from the WOFF2 copies that ship inside Blender with
 Google's `woff2_decompress`.

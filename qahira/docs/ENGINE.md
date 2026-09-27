@@ -90,12 +90,58 @@ A level is a set of placed tiles. Each tile has two parts, both generated in Ble
 Characters collide as circles against the boxes, pushed out along the shortest axis. Lights within 28 m of the
 player are submitted each frame, with a slight neon flicker.
 
+## Gameplay (`game/world.*`, `game/stats.*`, `game/items.*`)
+
+The `World` is plain data, stepped at a fixed 60 Hz:
+- `actors[0]` is the hero; the rest are monsters.
+- It also holds projectiles, ground effects (cracks, telegraphs, rings), loot on the ground, and particles.
+
+**Stats.** Every number comes from the modifier engine (see GDD §8). A mod is (stat, flat / increased / more,
+value, required tags); a query context picks up every mod whose tags it carries. `compute_hit` runs the pipeline
+in this order: base → added → increased (summed) → more (each multiplied) → crit. `roll_hit` then applies armour
+(A/(A+10D), capped at 90%) and resistances (capped at 75%). The golden tests are in `tests/test_stats.cpp`.
+
+**Skills.** Skills are table rows (`skill_defs`): tags, clip, effectiveness, mana cost, cooldown, and shape (cone,
+circle, detonate, warcry). A skill resolves on its clip's `hit` event, so animation and damage never drift apart.
+Attack speed scales the clip. Aim assist bends the swing towards the best target in a 40° cone.
+
+**Monsters.** Each monster runs a small state machine: idle → chase → windup (a ground telegraph sized to the
+attack) → strike on the clip event → recover. Spitters keep their distance and lead the hero with bile. Rares
+roll two mods (Hasted, Armoured, Frenzied, Vampiric), get a gold rim, and drop a rare weapon.
+
+**Break.** Hits fill a Break meter in proportion to damage over maximum life. When it's full, the target is stunned
+for 1.4 s and then takes 50% more damage for 3 s. Rallying Shout and slams build Break faster.
+
+**Items.** A base plus affixes, where each affix is a tier gated by item level with rolled values:
+- Local mods (added or increased physical, attack speed, crit, armour) fold into the item itself.
+- Every other mod becomes a global modifier on the hero.
+- Tooltip text is generated from the structured mods.
+- The tooltip shows the DPS change against the equipped weapon.
+
+**Events.** The simulation never calls presentation code. It appends `Event`s (Swing, SlamImpact, EnemyDie, Break,
+LevelUp and so on) that the app turns into sound, rumble and light flashes after each step.
+
+**Bots (`game/bots.*`).** A bot drives the game through the same `Input` a player produces. `walk` and `fight` run
+in `tools/build_all.sh`; `fight` must clear the whole encounter, including the rare, without dying repeatedly, and
+round-trip a save state mid-fight.
+
+## Audio (`audio/`)
+
+A 32-voice software mixer at 48 kHz stereo. It has linear-interpolated resampling (for pitch variation), constant-power
+panning, two crossfading music beds and two ambience beds, and a soft limiter. Sounds are 16-bit mono WAVs from the
+pack, all synthesised by `tools/audio/synth.py` (see ASSETS.md). `qhost --wav out.wav` records the mix for checks.
+
 ## Save states
 
-`retro_serialize` writes a versioned byte stream (`core/serial.hpp`) of the simulation state: position, velocity,
-facing, the current clip and its time, the fired-event mask, sim time, and the camera. RetroArch's save states and
-auto-resume therefore work anywhere, including mid-fight. The `walk` bot checks this by saving, moving the
-player, restoring, and comparing.
+`retro_serialize` writes a versioned byte stream (`core/serial.hpp`, `game/save.cpp`) of the whole simulation:
+- every actor, including life, Break, AI state, animation clip, time and fired events;
+- projectiles, ground effects, and loot with the full item data;
+- the hero's level, XP, equipment, cooldowns and flask;
+- the RNG state and the camera.
+
+Particles and floating text are cosmetic and aren't saved. RetroArch's save states and
+auto-resume therefore work anywhere, including mid-fight. The `walk` and `fight` bots check this by saving,
+changing the state, restoring, and comparing.
 
 ## Known platform notes
 
