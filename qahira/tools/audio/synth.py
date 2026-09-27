@@ -176,7 +176,7 @@ def maqam(name, tonic):
     return [tonic * 2 ** (c / 1200) for c in cents]
 
 
-def compose(name, maq, tonic, bpm, bars, seed, sr=32000, melody_inst='oud'):
+def compose(name, maq, tonic, bpm, bars, seed, sr=32000, melody_inst='oud', intensity=1.0):
     r = np.random.default_rng(seed)
     beat = 60 / bpm
     total = bars * 4 * beat
@@ -202,6 +202,11 @@ def compose(name, maq, tonic, bpm, bars, seed, sr=32000, melody_inst='oud'):
         for k in range(8):
             if r.random() < 0.55:
                 place(perc, riq(sr, 0.25 + 0.15 * r.random()), (b * 4 + k * 0.5 + 0.25) * beat * sr)
+        if intensity > 1.0:  # the boss: doubled dums and a driving riq
+            for off in (1.0, 2.5, 3.5):
+                place(perc, dum(sr, 0.6 * (intensity - 0.4)), (b * 4 + off) * beat * sr)
+            for k in range(16):
+                place(perc, riq(sr, 0.18 + 0.1 * (k % 4 == 0)), (b * 4 + k * 0.25) * beat * sr)
         if b % 4 == 3:  # fill
             for k in range(4):
                 place(perc, tek(sr, 0.4, hi=bool(k % 2)), (b * 4 + 3 + k * 0.25) * beat * sr)
@@ -345,6 +350,94 @@ def sfx():
     write('ui_select', norm(np.sin(2 * np.pi * 1200 * t) * np.exp(-t * 30) + np.sin(2 * np.pi * 1800 * t) * np.exp(-t * 40) * 0.5, 0.35))
 
 
+def sfx_slice2():
+    s = SR
+    r = np.random.default_rng(21)
+    # portal: a rising, breathy shimmer
+    t = t_axis(1.4)
+    f = 300 + 900 * t / 1.4
+    tone = sum(np.sin(2 * np.pi * np.cumsum(f * k) / s) / k for k in (1, 1.5, 2.01, 3.02))
+    air = fft_filter(noise(len(t)), 800, 7000) * 0.5
+    x = (tone * 0.4 + air) * env_adsr(len(t), 0.3, 0.3, 0.7, 0.6)
+    write('portal', norm(x + conv(x, reverb_ir(1.5, s, 0.5))[:len(x)] * 0.6, 0.6))
+    # dinars: a handful of small coin clinks
+    x = np.zeros(int(0.5 * s))
+    for k in range(5):
+        tt = t_axis(0.25)
+        f0 = r.uniform(3200, 5200)
+        clink = sum(np.sin(2 * np.pi * f0 * m * tt) * np.exp(-tt * (30 + 10 * m)) for m in (1, 1.47, 2.09)) * 0.3
+        place(x, clink, (0.02 + k * r.uniform(0.04, 0.08)) * s)
+    write('gold', norm(x, 0.45))
+    # currency: a glass bead's clear ding
+    t = t_axis(0.9)
+    x = sum(np.sin(2 * np.pi * f * t) * np.exp(-t * d) for f, d in ((1568, 5), (2350, 7), (3920, 10))) * 0.3
+    write('currency', norm(x + conv(x, reverb_ir(1.2, s, 0.6))[:len(x)] * 0.4, 0.5))
+    # craft: a bright, short chime with a touch of sparkle
+    t = t_axis(0.6)
+    x = np.sin(2 * np.pi * 1318.5 * t) * np.exp(-t * 9) + np.sin(2 * np.pi * 1975.5 * t) * np.exp(-t * 12) * 0.6
+    x += fft_filter(noise(len(t)), 5000, 11000) * np.exp(-t * 20) * 0.3
+    write('craft', norm(x, 0.5))
+    # sell: coins into a palm
+    x = np.zeros(int(0.6 * s))
+    for k in range(8):
+        tt = t_axis(0.2)
+        f0 = r.uniform(2600, 4600)
+        place(x, np.sin(2 * np.pi * f0 * tt) * np.exp(-tt * 40) * 0.25, (k * 0.035 + r.uniform(0, 0.02)) * s)
+    write('sell', norm(x, 0.45))
+    # inventory full: a dull wooden knock
+    t = t_axis(0.25)
+    x = np.sin(2 * np.pi * np.cumsum(180 - 60 * t) / s) * np.exp(-t * 25) + fft_filter(noise(len(t)), 200, 1200) * np.exp(-t * 40) * 0.4
+    write('inv_full', norm(x, 0.45))
+    # chest: a wooden creak and a warm chime
+    t = t_axis(1.1)
+    creak = np.sin(2 * np.pi * np.cumsum(120 + 60 * np.sin(2 * np.pi * 7 * t)) / s) * np.sign(np.sin(2 * np.pi * 31 * t)) * env_adsr(len(t), 0.05, 0.2, 0.5, 0.3)
+    creak = fft_filter(creak, 200, 2500) * 0.4
+    chime = np.zeros(len(t))
+    for k, f in enumerate((587.3, 740, 880, 1174.7)):
+        place(chime, np.sin(2 * np.pi * f * t_axis(0.7)) * np.exp(-t_axis(0.7) * 5) * 0.25, (0.45 + k * 0.06) * s)
+    write('chest', norm(creak + chime, 0.55))
+    # the wail: a screeching, wavering howl with formants
+    t = t_axis(1.8)
+    f = 520 + 180 * np.sin(2 * np.pi * 5.5 * t) + 300 * t
+    voice = np.sign(np.sin(2 * np.pi * np.cumsum(f) / s)) * 0.5 + fft_filter(noise(len(t)), 1800, 5000) * 0.6
+    voice = fft_filter(voice, 700, 4200) * env_adsr(len(t), 0.25, 0.3, 0.8, 0.5)
+    write('boss_wail', norm(voice + conv(voice, reverb_ir(2.0, s, 0.4))[:len(voice)] * 0.7, 0.7))
+    # the leap: a rushing whoosh upward
+    t = t_axis(0.7)
+    x = fft_filter(noise(len(t)), 300, 3000) * np.sin(np.pi * t / 0.7) ** 2
+    write('boss_leap', norm(x, 0.55))
+    # summon: ground rumbling open
+    t = t_axis(1.6)
+    x = fft_filter(noise(len(t)), 30, 220) * env_adsr(len(t), 0.4, 0.4, 0.8, 0.6) + fft_filter(noise(len(t)), 1500, 5000) * np.exp(-((t - 1.0) * 6) ** 2) * 0.3
+    write('summon', norm(x, 0.75))
+
+
+def ambience_necro(name, dur=40.0, sr=32000):
+    """The Qarafa at night: wind between tomb walls, crickets, a far dog, the city a murmur away."""
+    t = t_axis(dur, sr)
+    r = np.random.default_rng(9)
+    wind = fft_filter(noise(len(t)), 150, 900, sr) * (0.5 + 0.35 * np.sin(2 * np.pi * t / 9) + 0.15 * np.sin(2 * np.pi * t / 3.7))
+    city = fft_filter(noise(len(t)), 40, 220, sr) * 0.25
+    x = wind * 0.6 + city
+    for k in range(int(dur * 2)):  # crickets: short chirp trains
+        at = r.uniform(0, dur - 0.5)
+        f = r.uniform(3900, 4600)
+        tt = t_axis(0.18, sr)
+        chirp = np.sin(2 * np.pi * f * tt) * (np.sin(2 * np.pi * 45 * tt) > 0) * np.exp(-tt * 8) * r.uniform(0.01, 0.03)
+        place(x, chirp, at * sr)
+    for k in range(3):  # a far dog
+        at = r.uniform(2, dur - 3)
+        for j in range(r.integers(2, 4)):
+            tt = t_axis(0.22, sr)
+            bark = fft_filter(np.sign(np.sin(2 * np.pi * np.cumsum(420 - 200 * tt) / sr)) + noise(len(tt)) * 0.5, 300, 1400, sr)
+            place(x, bark * np.exp(-tt * 12) * 0.05, (at + j * 0.35) * sr)
+    x = x + conv(x, reverb_ir(3.0, sr, 0.15))[:len(x)] * 0.6
+    fade = int(1.0 * sr)
+    x[:fade] = x[:fade] * np.linspace(0, 1, fade) + x[-fade:] * np.linspace(1, 0, fade)
+    x = x[:len(x) - fade]
+    write(name, norm(x, 0.45), sr)
+
+
 def ambience(name, dur=40.0, sr=32000):
     """Cairo at night from a side street: traffic hum, distant horns, a dog, murmur."""
     t = t_axis(dur, sr)
@@ -373,7 +466,11 @@ if __name__ == '__main__':
     only = sys.argv[1:] or ['sfx', 'music', 'ambience']
     if 'sfx' in only:
         sfx()
+        sfx_slice2()
     if 'ambience' in only:
         ambience('amb_street')
+        ambience_necro('amb_necro')
     if 'music' in only:
         compose('mus_hijaz', 'hijaz', 146.83, 96, 24, seed=11)
+        compose('mus_saba', 'saba', 130.81, 72, 20, seed=23, melody_inst='qanun')
+        compose('mus_boss', 'kurd', 146.83, 128, 32, seed=31, intensity=1.6)
