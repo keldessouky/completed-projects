@@ -13,8 +13,9 @@ import qart.geom as geom
 geom.scene = bpy.context.scene
 
 from qart import rig, preview
-from characters import warrior, ghoul
-from env import street, souq
+from characters import warrior, ghoul, npc, ghoula
+from env import street, souq, necro, rooftop
+from props import props
 
 args = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
 PREVIEW = '--preview' in args
@@ -47,6 +48,14 @@ if want('ghoul'):
     if PREVIEW:
         preview.sheet(os.path.join(PREV, 'ghoul_anims.png'), J, body, ghoul.CLIPS)
 
+if want('ghoula'):
+    J = ghoula.skeleton()
+    rig.write_skeleton(os.path.join(OUT, 'skel', 'ghoula.qskel'), J)
+    rig.bake(J, ghoula.CLIPS, os.path.join(OUT, 'anim', 'ghoula.qanim'))
+    body = ghoula.build(J).export(os.path.join(OUT, 'meshes', 'ghoula.qmesh'))
+    if PREVIEW:
+        preview.sheet(os.path.join(PREV, 'ghoula_anims.png'), J, body, ghoula.CLIPS)
+
 if want('street'):
     tiles = os.path.join(OUT, 'tiles')
     os.makedirs(tiles, exist_ok=True)
@@ -57,4 +66,21 @@ if want('souq'):
     os.makedirs(tiles, exist_ok=True)
     for i, nm in enumerate(('souq_a', 'souq_b', 'souq_c')):
         souq.export(nm, seed=5 + i * 13, mesh_dir=os.path.join(OUT, 'meshes'), data_dir=tiles)
+if want('necro'):
+    tiles = os.path.join(OUT, 'tiles')
+    os.makedirs(tiles, exist_ok=True)
+    necro.export_all(os.path.join(OUT, 'meshes'), tiles)
+if want('hub'):
+    tiles = os.path.join(OUT, 'tiles')
+    os.makedirs(tiles, exist_ok=True)
+    rooftop.export(os.path.join(OUT, 'meshes'), tiles)
+    J = npc.keeper_skeleton()
+    rig.write_skeleton(os.path.join(OUT, 'skel', 'keeper.qskel'), J)
+    rig.bake(J, npc.KEEPER_CLIPS, os.path.join(OUT, 'anim', 'keeper.qanim'))
+    kb = npc.keeper(J).export(os.path.join(OUT, 'meshes', 'keeper.qmesh'))
+    if PREVIEW:
+        preview.sheet(os.path.join(PREV, 'keeper_anims.png'), J, kb, npc.KEEPER_CLIPS)
+    npc.cat().export(os.path.join(OUT, 'meshes', 'cat.qmesh'), skinned=False)
+if want('props'):
+    props.export_all(os.path.join(OUT, 'meshes'))
 print('BUILD DONE')
