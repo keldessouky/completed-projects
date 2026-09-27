@@ -19,7 +19,7 @@ Work proceeds in vertical slices ([slice plan](../_bmad-output/planning-artifact
 | 0 · First Light | **Done** (device checks pending). The Warrior on a generated Cairo street. Details: [slice log](docs/SLICES.md) |
 | 1 · One Fight | **Done**. The Warrior against ghouls from the street into the Khan el-Khalili souq, with skills, Break, loot, a HUD and synthesised sound. See the [slice log](docs/SLICES.md). |
 | 2 · One Zone | **Done**. From the rooftop ahwa down into a generated City of the Dead, through the boss Umm al-Ghūla, and home, with the inventory, five crafting currencies, a loot filter, the vendor, portals, the map and a character file. See the [slice log](docs/SLICES.md). |
-| 3 · One Sky | **In progress**, handed off. The passive tree's layout, validator and runtime are in; the tree screen, the Sorcerer and the rest are not. See the [handoff notes](docs/HANDOFF.md). |
+| 3 · One Sky | **Done**. The Book of Fixed Stars on the sticks (magnet cursor, planner, search, respec, build codes with QR), the Sorcerer with four Talismans, six Wafq supports drawn as magic squares, elemental ailments, "Why?" on every number, a title screen, and the build simulator in CI. See the [slice log](docs/SLICES.md). |
 | 4–11 | Not started |
 
 ## Docs
@@ -42,6 +42,8 @@ tools/build_all.sh
 That gives you `build/Qahira.qpk` and `build/qahira_libretro_android.so`. Individual steps are below.
 
 Requirements (all free, from Homebrew): `cmake ninja sdl2 woff2 glslang`, the `android-ndk` cask, and Blender 5.x.
+On Linux (and in CI): `apt install cmake ninja-build libsdl2-dev libgl-dev glslang-tools woff2`, and Blender as a
+Python module (`pip install bpy==5.0.1` into a Python 3.11), then `BLENDER_PY=path/to/python tools/build_all.sh`.
 
 ```bash
 /Applications/Blender.app/Contents/MacOS/Blender -b --factory-startup -P tools/art/build.py -- --preview
@@ -64,10 +66,15 @@ cmake --build build/android                # -> qahira_libretro_android.so
 ## Tests
 
 ```bash
-./build/mac/qtests                                                               # stats, items, zones, nav, saves
+./build/mac/qtests                                                               # stats, items, zones, nav, saves, skills, tree
+./build/mac/qbuildsim                                                            # Recommended Paths against random builds
 ./build/mac/qhost build/Qahira.qpk --headless --bot fight                        # plays the Slice 1 fight
 ./build/mac/qhost build/Qahira.qpk --headless --bot zone                         # hub -> zone -> boss -> hub
+./build/mac/qhost build/Qahira.qpk --headless --bot sorcerer                     # the same, as the Sorcerer
+./build/mac/qhost build/Qahira.qpk --headless --bot sky                          # 30 stars planned on the sticks
+./build/mac/qhost build/Qahira.qpk --headless --bot title                        # the title screen and its slots
 ./build/mac/qhost build/Qahira.qpk --hidden --bot tour --shot-every 30           # screenshots of every screen
+./build/mac/qhost build/Qahira.qpk --hidden --bot tour3 --shot-every 30          # ... and Slice 3's
 ./build/mac/qhost build/Qahira.qpk --hidden --frames 90 --shot build/shot.png    # render check
 python3 tools/check_shaders.py                                                   # all shaders as GLSL ES 3.00
 ```
@@ -75,7 +82,9 @@ python3 tools/check_shaders.py                                                  
 ## Dev host controls
 
 - **Move:** WASD
-- **Skills:** J (south) Crushing Blow, U (west) Earthshatter, I (north) Rallying Shout, L (R1) Aftershock
+- **Skills:** J (south), U (west), I (north), L (R1), O (R2); hold Q (L2) for the second bar. The Warrior starts with
+  Crushing Blow, Earthshatter, Rallying Shout and Aftershock; the Sorcerer with Ember Bolt, Arc, Frost Glyph and
+  Falling Star
 - **Dodge:** K (east)
 - **Use / talk / travel:** J (south), when no enemy is close
 - **Life flask:** 1 (L3 / M1)
@@ -83,8 +92,9 @@ python3 tools/check_shaders.py                                                  
 - **Portal:** ↑ (D-pad up, in a zone)
 - **Map:** ↓ (D-pad down, in a zone)
 - **Loot filter preset:** → (D-pad right)
-- **Menu (inventory, character, loot filter):** Enter = Start. Inside it, L1/R1 (E/L) switch tabs, J equips or
-  uses, I drops, and K backs out.
+- **Menu (inventory, Talismans, character, loot filter):** Enter = Start. Inside it, L1/R1 (E/L) switch tabs, J equips
+  or uses, I drops (and shows "Why?" on the Character tab), and K backs out.
+- **The Book of Fixed Stars:** hold Tab (Select). Tap Tab in the field to place the next planned star.
 - **Shoulders:** E = L1, L = R1, Q = L2, O = R2; Tab = Select
 - **Save states:** F5 save, F9 load
 - **Screenshot:** F12
@@ -105,6 +115,8 @@ Gamepads work through SDL.
 | `tools/art` | Blender generators: shared rig with IK, model exporter, characters, props |
 | `tools/pack.py` | Builds the content pack |
 | `tools/check_shaders.py` | Validates shaders with glslang |
+| `tools/tree/build_tree.py` | Lays out and validates the passive tree |
+| `tools/buildsim.cpp` | The build simulator (`qbuildsim`) |
 | `third_party` | libretro.h (MIT) and stb_truetype / stb_image_write (public domain) |
 
 Fonts are Inter and Noto Sans Arabic (SIL OFL), converted from the copies that ship with Blender.

@@ -14,6 +14,7 @@ tools/art/characters/         characters and their clips (warrior.py)
 tools/art/characters/ghoul.py  ghouls: a hunched, long-armed variant of the shared rig
 tools/art/characters/ghoula.py Umm al-Ghula, the Slice 2 boss (built on the ghoul)
 tools/art/characters/npc.py    the hub's people: Amm Sayed the ahwa keeper, and a street cat
+tools/art/characters/sorcerer.py the Sorcerer, her astrolabe staff, and her clips
 tools/art/env/                level tiles: street.py (downtown), souq.py (Khan el-Khalili),
                               necro.py (the City of the Dead), rooftop.py (the hub)
 tools/art/props/props.py       the Lamplighter's cache (closed and open) and the ground-loot meshes
@@ -110,6 +111,23 @@ It exports the `spawn`, `stair`, `vendor` (where a customer stands), `keeper` an
   idle, run, combo (`hit`, `hit2`), leap (`hit` on landing, with the root lifted 2.2 m mid-air), wail, summon,
   hit, stagger, death.
 
+## The Sorcerer
+
+`characters/sorcerer.py` builds her relative to the rig's joints (1.74 m), so the same code fits any height:
+- a long plum coat, open at the front over a sand tunic, with wide cuffs and a darker lapel;
+- a turquoise head wrap in three parts: a cap over the crown, a band round the sides and back that leaves the face open,
+  and a drape over the shoulders;
+- round brass glasses with lenses, a satchel with star charts, its strap swept round the body, and a star pendant;
+- the Warrior's boots (`warrior.boot` is joint-relative).
+
+Her staff (`build_staff`) is ashwood with a leather grip, brass caps, and an astrolabe for a head: the mater (an
+outer ring), a crossbar, three rete pointers, a finial, and a lamp of turquoise light in the middle.
+
+Her clips hold the staff in the right hand through IK (`hold_staff`), with the left hand free or on the haft
+(`two_hands`): idle, run, cast (the lamp thrust forward), cast_ground (the staff raised and brought down), swing,
+slam, warcry, dodge, hit and death. The Warrior gained `cast` (the maul on the shoulder, the free hand thrust out) and
+`cast_ground`, so any class can use any Talisman.
+
 ## Props
 
 `props/props.py`:
@@ -119,7 +137,8 @@ It exports the `spawn`, `stair`, `vendor` (where a customer stands), `keeper` an
   - a cloth bundle tied with cord (armour),
   - a brass ring with a blue bead (jewellery),
   - a spill of dinars,
-  - a glass bead on a thread (currency, tinted per kind in the engine).
+  - a glass bead on a thread (currency, tinted per kind in the engine);
+  - a clay tablet with a carved grid (a Wafq in turquoise, a Blank Talisman in brass).
 
 ## Audio
 
@@ -139,11 +158,14 @@ It exports the `spawn`, `stair`, `vendor` (where a customer stands), `keeper` an
 - **Ambience:**
   - `amb_street` is Cairo at night: traffic hum, air, and distant two-tone car horns.
   - `amb_necro` is the Qarafa: wind between the walls, cricket chirps, a far dog, and the city a murmur away.
-- **Effects:** 29 of them.
+- **Effects:** 37 of them.
   - Combat: swings, slams, the aftershock, impacts, crit ring, ghoul hiss and crumble, bile, warcry, dodge, Break.
   - Items and the hub: pickup, flask, the portal's shimmer, a handful of dinars, a currency bead's ding, the craft
     chime, the sell, the inventory-full knock, the cache's creak.
   - The boss: her wail, her leap, and the summoning's rumble.
+  - The Sorcerer's spells: three casts (a breathy fire rush, glassy falling partials, a lightning buzz and snap), a
+    fire hit, a lightning crack, ice crystallising, a glyph like a struck bowl, and the falling star's whistle and
+    impact.
   - Also level-up (a Hijaz run on the oud) and UI ticks.
 
 ## Formats (little-endian)

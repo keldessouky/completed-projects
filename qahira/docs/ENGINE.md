@@ -183,15 +183,62 @@ LevelUp and so on) that the app turns into sound, rumble and light flashes after
 
 **Bots (`game/bots.*`).** A bot drives the game through the same `Input` a player produces, menus included: it
 opens the inventory with Start and walks the cursor with the D-pad to equip or sell. It moves along nav-grid paths
-and dodges out of telegraphs. Three bots run in `tools/build_all.sh`:
+and dodges out of telegraphs. The Sorcerer's pilot keeps its distance, lays a glyph under a pack, chains Arc into
+crowds and calls the star down on anything chilled. These bots run in `tools/build_all.sh` and CI:
 - `walk` moves on the rooftop and round-trips a save state.
 - `fight` clears the Slice 1 street, including the rare, and equips upgrades through the inventory.
 - `zone` is the Slice 2 exit test: hub → zone → a portal round trip, checking the zone is unchanged → the cache →
   the boss, with a save state mid-fight → the exit portal → the vendor, checking the arithmetic → a character file
-  round trip.
+  round trip. `sorcerer` runs the same as the Sorcerer.
+- `sky` is the Slice 3 exit test: 30 stars planned on the sticks and placed in under two minutes, a paid respec, and a
+  build code round trip.
+- `title` makes a character from the title screen, deletes it, and makes another.
 
-`tour` is not a test; it poses every screen for screenshots. Set `QAHIRA_BOT_TRACE=1` to print what a bot is
+`tour` and `tour3` are not tests; they pose every screen for screenshots. Set `QAHIRA_BOT_TRACE=1` to print what a bot is
 doing every five seconds.
+
+## Classes, skills and supports (`game/classes.*`, `game/skills.*`)
+
+- **Classes** are a table: base attributes, life, mana, Hirz, armour, the starting weapon, four starting Talismans, the
+  model. The class also sets the start in the sky. The Warrior and the Sorcerer are playable.
+- **A Talisman** is a skill (a row in `skill_defs`) with a level, 2-5 Wafq slots and an attribute requirement
+  (8 + 3.4 per level of its attribute). Spells scale their base damage by 12% a level, attacks their effectiveness by
+  4%. The hero carries any number of Talismans; two bars of five point at them (hold L2 for the second).
+- **Shapes:** cone, circle, detonate and warcry (the Warrior's), and projectile, chain, glyph and meteor (the
+  Sorcerer's). A skill resolves on its clip's `hit` event. Ground-targeted spells land on the enemy they were aimed at,
+  or short of full reach; the right stick overrides the aim.
+- **A Wafq** (support) adds modifiers to a copy of the hero's stats for that one skill, sourced `SRC_WAFQ + id`, and
+  multiplies the mana cost. `skill_ctx` works a Talisman out once: stats, the hit, mana, cooldown, speed, area,
+  projectiles, chains and ailment chances. The HUD, the Talismans tab, the tree's stat delta, the build simulator and
+  the cast all use it, so they cannot disagree.
+- **Ailments** on monsters: Ignite (90% of the fire hit per second for 4 s), Chill (30% slower, scaled by Freeze
+  modifiers), Freeze (a meter filled by cold damage over life; full, they stop for 1.6 s, bosses 0.8 s) and Shock (20%
+  more damage taken for 4 s, scaled by Shock effect). Chill slows the monster's whole step, animation included.
+- `World::hit_enemy` is the one place a hero hit lands: mitigation, keystones, crit text, leech, ailments, Break and
+  knockback. Projectiles, glyph pulses and falling stars carry a `HeroHit` (the worked-out hit and chances) so a save
+  state restores them exactly.
+
+## The Book of Fixed Stars (`game/tree.*`, `game/sky.*`)
+
+- `tools/tree/build_tree.py` lays the tree out and validates it; `data/tree.json` holds the stars, edges,
+  constellations and each class's Recommended Path.
+- An `Allocation` follows PoE's rules. Held stars' mods join the hero's stats (`SRC_STAR + id`).
+- The screen stages changes in a copy of the allocation; Start applies them (and charges for refunds after level 20).
+  The plan is a list of stars in an order that can be taken, kept in the character file.
+- The stat delta compares two `HeroSummary`s (`summarize`), computed without touching the live hero.
+- Build codes: `Q1<class>-<held stars as base-32 bits>-<checksum>`. `ui/qr.*` draws them as QR codes.
+
+## The menu's Talismans and Character tabs (`game/menu_tabs.cpp`)
+
+- **Talismans:** rows for the ten bar slots and the Blank Talismans; columns for the Wafq slots and the Stylus "+".
+  South opens a picker: a Talisman for a slot, a Wafq for a slot, or a skill to carve a Blank into.
+- **Character:** a cursor over every number. "Why?" lists the modifiers behind it with their sources; the main
+  skill's DPS is laid out as the pipeline (base, added, gain as extra, increased, more, crit, speed).
+
+## The title screen (`game/title.*`)
+
+Four slots (`qahira_1.character` ... `qahira_4.character`; a Slice 2 `qahira.character` becomes slot 1). A new
+character picks a class. Bots skip the title, except the `title` bot, which uses its own save folder.
 
 ## Audio (`audio/`)
 
@@ -203,7 +250,7 @@ pack, all synthesised by `tools/audio/synth.py` (see ASSETS.md). `qhost --wav ou
 
 There are two kinds:
 
-- **Save states (`retro_serialize`, version 4).** A versioned byte stream (`core/serial.hpp`, `game/save.cpp`) of
+- **Save states (`retro_serialize`, version 6).** A versioned byte stream (`core/serial.hpp`, `game/save.cpp`) of
   the whole simulation:
   - every actor, including life, Break, AI state, boss phase and home, animation clip, time and fired events;
   - projectiles, ground effects, and ground loot (items, currency, dinars);
@@ -215,8 +262,9 @@ There are two kinds:
   On load, the level geometry and NPCs are rebuilt from the saved area and layout. Particles and floating text are
   cosmetic and aren't saved. RetroArch's save states and auto-resume therefore work anywhere, including mid-boss.
   The bots check this by saving, changing the state, restoring, and comparing.
-- **The character file (`qahira.character` in the frontend's save directory).** It holds level, XP, kills, dinars,
-  currency, skills, the filter preset, equipment and the inventory, with its own magic and version. It is written to
+- **The character file (`qahira_<slot>.character` in the frontend's save directory, version 3).** It holds level, XP,
+  kills, dinars, currency, the class and its stars, the plan, Talismans, the bars, Wafq, Blank Talismans, the filter
+  preset, equipment and the inventory, with its own magic and version. Versions 1 and 2 still load. It is written to
   a temporary file and renamed, when you arrive in the hub, close the menu, level up, kill the boss, or quit. An
   unreadable file is kept as `.bad` and a fresh character starts. Bots never touch it.
 

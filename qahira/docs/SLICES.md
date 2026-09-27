@@ -170,9 +170,90 @@ what each slice actually delivered and how it was verified.
 - Items still have no unique bases. Uniques come with the Act I content in Slice 4.
 - The boss tuning comes from the bot, which is a middling player. It needs a human pass on the device.
 
-## Slice 3 · One Sky (in progress)
+## Slice 3 · One Sky
 
-Handed off on 2026-09-27. The passive tree's layout tool and validator, and its runtime (allocation rules,
-keystones, Hirz, build codes and the character file v2), are committed and tested. The tree screen, the Sorcerer,
-the Wafq supports, the DPS breakdown, the build simulator and the exit bot are still to do. The details are in the
-[handoff notes](HANDOFF.md).
+*The Book of Fixed Stars, first draft, with a second class.*
+
+**Delivered**
+- **The passive tree, v1** (`tools/tree/build_tree.py`, `game/tree.*`):
+  - 131 stars laid out as the real sky: the Pole, Draco round it, the Ecliptic, eleven constellations drawn from their
+    star patterns with Arabic star names as notables, and two lunar-mansion keystones (al-Dabaran, al-Simak);
+  - the validator (reach, keystone distance, spacing, no crossing edges, notable power bands, stat hoarding) fails the
+    build, and now also checks each class's **Recommended Path** (the Warrior's takes 21 points, the Sorcerer's 24);
+  - PoE's allocation rules, keystones, Hirz (energy shield) and checksummed build codes.
+- **The Stars screen** (`game/sky.*`), on hold of Select, with the world paused:
+  - a magnetised stick cursor that jumps to the nearest star in the push direction, and D-pad walking along edges;
+  - right stick to pan, L2/R2 through three zooms, L1/R1 between planned notables;
+  - South previews the cheapest path with its cost and a stat delta (DPS of the main skill, life, Hirz, mana, armour,
+    EHP, resistances, attributes), and again to stage it. Start applies, East cancels;
+  - **the planner**: West plans a path in turquoise ghost stars, and West on a planned star cuts the plan there. In the
+    field a tap of Select places the next planned star (the HUD names it), so a level-up is one press;
+  - **search** by keyword chips (Life, Hirz, Fire, Spell, Keystone ...): matching stars glow;
+  - **respec**: South on a held star stages a refund if the rest stays connected. It is free before level 20; after,
+    each refund costs a Rosewater Vial and 5 dinars per level;
+  - **build codes** as text and a **QR code** (`ui/qr.*`: byte mode, level M, versions 1-10, mask by penalty); import
+    a code with an on-screen keyboard (it becomes a plan), or plan the class's Recommended Path in one press;
+  - **touch**: tap a star to aim at it, tap again to act; drag to pan.
+- **The Sorcerer**, a second class (`game/classes.*`):
+  - generated on the shared rig (`tools/art/characters/sorcerer.py`): an astronomer in a long plum coat and a turquoise
+    head wrap, round brass glasses, a satchel of star charts; 10.9k triangles and ten clips;
+  - her staff: ashwood with a brass astrolabe head (mater, rete and pointers) and a lamp of turquoise light;
+  - **four Talismans**, set up and pay off: *Ember Bolt* (fire projectile, can Ignite), *Arc* (lightning that chains
+    three times, can Shock), *Frost Glyph* (a glyph that Chills and pulses cold; spells cast inside it deal 30% more),
+    and *Falling Star* (a delayed impact: 60% more to Chilled or Frozen enemies, and a glyph it lands in bursts for three
+    pulses at once);
+  - Intelligence, Hirz and spell damage on staves and on new armour bases; eight new sounds for the spells.
+- **Talismans and Wafq** (`game/skills.*`), PoE2's gem model:
+  - a Talisman has a level, an attribute requirement and 2-5 Wafq slots; two bars of five (hold L2 for the second);
+  - **six Wafq**, each drawn as its real magic square, the planetary squares of the old books: Saturn (30% more
+    damage), Jupiter (gain 25% as extra Fire), Mars (20% more speed), the Sun (area), Venus (+2 projectiles or chains,
+    20% less damage) and Mercury (more Break, Freeze, Shock and Ignite). A Wafq that does not fit a Talisman does
+    nothing, and each sits in one Talisman at a time;
+  - Blank Talismans and Wafq drop; a Blank carves any Talisman at its level, or raises one you have; the Brass Stylus
+    adds a slot. Any class can use any Talisman: the Warrior got cast clips, the Sorcerer staff swings and slams.
+- **Elemental ailments** on monsters: Ignite (fire over time), Chill (slow), Freeze (a buildup to a full stop) and
+  Shock (they take more damage), with frost, flicker and ember visuals.
+- **Why?** (`game/menu_tabs.cpp`): the Character tab puts a cursor on every number; North shows every modifier behind
+  it and where it came from (an item, a star, a Wafq, the class, the level, attributes). The main skill's DPS is shown
+  as the GDD §8 pipeline, step by step.
+- **The title screen** (`game/title.*`): the black sun over a skyline of domes and minarets, four character slots (the
+  Slice 2 save becomes slot 1), a class choice for a new character, and delete on two presses.
+- **The build simulator** (`tools/buildsim.cpp`, `qbuildsim`): for each class at levels 10, 20 and 30, the Recommended
+  Path against 200 random builds on the same six sets of rare gear. It flags a Recommended Path more than 2 sd below
+  the crowd, any build more than 4 sd above it, a random build 50% ahead on DPS and EHP at once, and a path that weakens
+  as it levels, and writes `build/buildsim_report.md`.
+- **CI** (`.github/workflows/qahira.yml`, Linux): Blender art under the `bpy` module (cached on the generators' hash),
+  the tree and its validator, the pack, the shaders, the build, the unit tests, the build simulator and six bots.
+- **Linux builds:** the dev host, core, tests and bots build and run on Linux (software GL under Xvfb for screenshots).
+- **Saves:** the character file v3 (Talismans, bars, Wafq, Blanks, the plan, a currency count; v1 and v2 files still
+  load) and save states v6 (ailments, glyphs, hero bolts).
+
+**Verified**
+
+| Check | Result |
+|---|---|
+| Unit tests (`qtests`) | pass, 22 cases (6 new: every Wafq is a magic square and orders 3-9 are too; Wafq change the numbers as stated; any class can use any skill; plans follow the tree and place one star per press; character file v3; QR finders, timing and format) |
+| QR codes decode | the encoder's output for 10- to 210-character strings (versions 1, 4, 6, 8, 10) decodes in zbar |
+| Tree validator | pass: 131 stars; keystones in 8/17 (Warrior) and 9/18 (Sorcerer) points; Recommended Paths reachable |
+| Build simulator | 0 flags; e.g. the Sorcerer's Recommended Path at level 30: 193 DPS against a crowd of 162 +/- 28 |
+| `sky` bot (the exit): a level-31 Sorcerer opens the sky with Select, plans 30 stars with the stick magnet (the D-pad along edges when the magnet misses), places them one Select at a time, pays for a refund at level 31, and round-trips the build code | pass: 30 stars in 3.3 s of game time (rule: under 2 minutes) |
+| `sorcerer` bot: the Slice 2 zone run as a Sorcerer, casting only through the controller | pass: 161 s, level 4, 64 kills, 0 deaths, save state mid-boss |
+| `title` bot: a new Sorcerer from the title by button presses, her file, a delete on two presses, a new Warrior | pass |
+| `walk`, `fight` and `zone` bots (the Warrior) | pass |
+| Shaders as GLSL ES 3.00 | pass |
+| On-device feel review | pending (RP6) |
+
+| | |
+|---|---|
+| ![The Book of Fixed Stars, with a Sorcerer's stars and her plan](img/slice3-sky.jpg) | ![The build code and its QR](img/slice3-code.jpg) |
+| ![Talismans, their Wafq and a Blank](img/slice3-talismans.jpg) | ![The Wafq of Saturn, as its magic square](img/slice3-wafq.jpg) |
+| ![Why? The hit, step by step](img/slice3-why.jpg) | ![The title screen](img/slice3-title.jpg) |
+| ![Ember Bolts, three at a time](img/slice3-bolts.jpg) | ![A Frost Glyph under a chilled pack](img/slice3-glyph.jpg) |
+
+**Known gaps (carried forward)**
+- The tree has no Masteries or attribute-choice stars yet, and no saved loadouts; they widen with the sky in later
+  slices.
+- Each class has one body type.
+- The Stars screen's constellations are drawn as their star lines only; al-Sufi's figure drawings are not generated
+  yet.
+- Monsters still chase in straight lines.
