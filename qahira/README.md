@@ -8,6 +8,8 @@ ends. The design docs are in [`_bmad-output/planning-artifacts/qahira`](../_bmad
 The game ships as a **libretro core** plus a content file. Drop `Qahira.qpk` into your roms folder and launch it
 through RetroArch. Every asset (meshes, animations, fonts, sound) is generated from scripts in this repo using free tools.
 
+![Umm al-Ghula in the City of the Dead](docs/img/slice2-boss.jpg)
+
 ## Status
 
 Work proceeds in vertical slices ([slice plan](../_bmad-output/planning-artifacts/qahira/slices.md)).
@@ -16,11 +18,13 @@ Work proceeds in vertical slices ([slice plan](../_bmad-output/planning-artifact
 |---|---|
 | 0 · First Light | **Done** (device checks pending). The Warrior on a generated Cairo street. Details: [slice log](docs/SLICES.md) |
 | 1 · One Fight | **Done**. The Warrior against ghouls from the street into the Khan el-Khalili souq, with skills, Break, loot, a HUD and synthesised sound. See the [slice log](docs/SLICES.md). |
-| 2–11 | Not started |
+| 2 · One Zone | **Done**. From the rooftop ahwa down into a generated City of the Dead, through the boss Umm al-Ghūla, and home, with the inventory, five crafting currencies, a loot filter, the vendor, portals, the map and a character file. See the [slice log](docs/SLICES.md). |
+| 3–11 | Not started |
 
 ## Docs
 
-- [Engine](docs/ENGINE.md): layers, the frame, renderer, animation, UI, levels, save states
+- [Engine](docs/ENGINE.md): layers, the frame, renderer, animation, UI, levels and navigation, zones and areas,
+  belongings and the menu, the boss, saves
 - [Assets](docs/ASSETS.md): the Blender generators, rig and IK, skinning, file formats
 - [Running on the RP6](docs/RP6.md): install, launch, adb workflow, device checklist
 - [Slice log](docs/SLICES.md): what each slice delivered and how it was verified
@@ -58,8 +62,10 @@ cmake --build build/android                # -> qahira_libretro_android.so
 ## Tests
 
 ```bash
-./build/mac/qtests                                                               # stat engine golden tests
-./build/mac/qhost build/Qahira.qpk --headless --bot fight                        # plays the whole fight
+./build/mac/qtests                                                               # stats, items, zones, nav, saves
+./build/mac/qhost build/Qahira.qpk --headless --bot fight                        # plays the Slice 1 fight
+./build/mac/qhost build/Qahira.qpk --headless --bot zone                         # hub -> zone -> boss -> hub
+./build/mac/qhost build/Qahira.qpk --hidden --bot tour --shot-every 30           # screenshots of every screen
 ./build/mac/qhost build/Qahira.qpk --hidden --frames 90 --shot build/shot.png    # render check
 python3 tools/check_shaders.py                                                   # all shaders as GLSL ES 3.00
 ```
@@ -69,10 +75,15 @@ python3 tools/check_shaders.py                                                  
 - **Move:** WASD
 - **Skills:** J (south) Crushing Blow, U (west) Earthshatter, I (north) Rallying Shout, L (R1) Aftershock
 - **Dodge:** K (east)
+- **Use / talk / travel:** J (south), when no enemy is close
 - **Life flask:** 1 (L3 / M1)
-- **Pick up or equip:** ← (D-pad left)
-- **Shoulders:** E = L1, L = R1, Q = L2, O = R2
-- **Menu:** Enter = Start, Tab = Select
+- **Pick up:** ← (D-pad left), or J when it's calm
+- **Portal:** ↑ (D-pad up, in a zone)
+- **Map:** ↓ (D-pad down, in a zone)
+- **Loot filter preset:** → (D-pad right)
+- **Menu (inventory, character, loot filter):** Enter = Start. Inside it, L1/R1 (E/L) switch tabs, J equips or
+  uses, I drops, and K backs out.
+- **Shoulders:** E = L1, L = R1, Q = L2, O = R2; Tab = Select
 - **Save states:** F5 save, F9 load
 - **Screenshot:** F12
 

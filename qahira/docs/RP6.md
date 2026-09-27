@@ -28,6 +28,9 @@ Both come out of `tools/build_all.sh` in `build/`.
   with the Qahira core.
 - **Suspend anywhere:** RetroArch save states capture the whole simulation. Turning on *Auto Save State* and
   *Auto Load State* resumes mid-fight after sleep.
+- **Your character** is kept in `qahira.character` in RetroArch's save directory (by default
+  `RetroArch/saves/`). It's written when you get home, close the menu, level up or quit. Back it up by copying
+  that file.
 
 ## Development over USB
 

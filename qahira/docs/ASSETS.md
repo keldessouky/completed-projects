@@ -12,7 +12,11 @@ tools/art/qart/rig.py         the shared humanoid rig, FK, two-bone IK, keyframe
 tools/art/qart/preview.py     contact sheets of every clip (numpy skinning + Workbench) -> build/preview/
 tools/art/characters/         characters and their clips (warrior.py)
 tools/art/characters/ghoul.py  ghouls: a hunched, long-armed variant of the shared rig
-tools/art/env/                level tiles: street.py (downtown), souq.py (Khan el-Khalili)
+tools/art/characters/ghoula.py Umm al-Ghula, the Slice 2 boss (built on the ghoul)
+tools/art/characters/npc.py    the hub's people: Amm Sayed the ahwa keeper, and a street cat
+tools/art/env/                level tiles: street.py (downtown), souq.py (Khan el-Khalili),
+                              necro.py (the City of the Dead), rooftop.py (the hub)
+tools/art/props/props.py       the Lamplighter's cache (closed and open) and the ground-loot meshes
 tools/audio/synth.py          every sound: effects, ambience, music in the maqamat
 tools/pack.py                 builds build/Qahira.qpk
 ```
@@ -68,6 +72,55 @@ the lights (neon, lamps, festival strings).
   fawanees;
 - khayamiya panels, brass lanterns on brackets, and a spanning stone arch at the north end.
 
+## The City of the Dead
+
+`env/necro.py` builds 16 m grid cells for the zone generator. Each cell is dusty lanes (5.4 m wide) between walled
+tomb compounds:
+- crenellated walls around each compound, with a domed tomb, cenotaphs and sometimes a gilded finial inside;
+- doorways onto the lanes, some faintly lit, because families live here;
+- lanterns on posts at the junctions, dead palms, rubble.
+
+Cells come in five canonical opening shapes (end N, straight N+S, corner N+E, tee N+E+S, cross), in two variants
+each, and the engine rotates them. Three special cells:
+- **the entrance:** a gate on the south edge;
+- **the boss court:** a 13 m open court before the great tomb of Umm al-Ghūla, with a ring of broken cenotaphs and
+  two braziers burning magenta;
+- **the landmark:** an open court around a qubba (a domed canopy on four columns, with a stepped entablature and a
+  ribbed dome) over an old cenotaph, a sabil basin with a little water left in it, and warm hanging lamps. Its
+  `chest` point places the Lamplighter's cache.
+
+Seeds come from `zlib.crc32` of the tile name, so rebuilds are identical.
+
+## The rooftop hub
+
+`env/rooftop.py` builds an ahwa (coffee house) on a rooftop above the Qarafa:
+- tiles and parapets, and strings of festival lights;
+- tables and chairs, shisha pipes, and the brass-topped counter with a kettle and tea glasses;
+- the stairwell down.
+
+It exports the `spawn`, `stair`, `vendor` (where a customer stands), `keeper` and `cat` points.
+
+## Hub characters and the boss
+
+- **Amm Sayed** (`npc.py`), the ahwa keeper, on the shared rig: a galabeya (a closed loft, so the voxel remesh keeps
+  it), a dark vest, a towel over the shoulder, a moustache, and sandals. His idle clip wipes a glass.
+- **The cat** is a static mesh with green eyes. The engine gives it a slow breath.
+- **Umm al-Ghūla** (`ghoula.py`) is the ghoul body on a taller, more hunched skeleton (2.45 m, hunch 0.62). She adds
+  long black hair, a tattered shroud in strips, a necklace of bones and great talons (7.1k triangles). Her clips:
+  idle, run, combo (`hit`, `hit2`), leap (`hit` on landing, with the root lifted 2.2 m mid-air), wail, summon,
+  hit, stagger, death.
+
+## Props
+
+`props/props.py`:
+- the cache, closed and open: a barrel-vaulted wooden chest with brass bands. The open lid rotates on the hinge,
+  and a warm glow shows inside;
+- the ground loot, drawn instead of a maul for everything:
+  - a cloth bundle tied with cord (armour),
+  - a brass ring with a blue bead (jewellery),
+  - a spill of dinars,
+  - a glass bead on a thread (currency, tinted per kind in the engine).
+
 ## Audio
 
 `tools/audio/synth.py` runs under any Python with numpy (Blender's bundled one works) and writes 16-bit mono WAVs.
@@ -81,9 +134,17 @@ the lights (neon, lamps, festival strings).
   Hijaz, Rast, Bayati, Saba and Kurd. Each piece has a drone, a maqsum rhythm with fills, phrases that cadence on
   the tonic, fourth or fifth, and a slow ney line. It's reverberated by convolution and crossfaded at the seam so it
   loops cleanly. `mus_hijaz` is 60 s at 96 bpm.
-- **Ambience:** `amb_street` is Cairo at night: traffic hum, air, and distant two-tone car horns.
-- **Effects:** 19 of them, including swings, slams, the aftershock, impacts, crit ring, ghoul hiss and crumble, bile,
-  warcry, dodge, pickup, flask, Break, level-up (a Hijaz run on the oud) and UI ticks.
+  `mus_saba` (the necropolis) is slower, at 72 bpm, with the qanun leading. `mus_boss` is in Kurd at 128 bpm, with
+  doubled dums and a driving riq.
+- **Ambience:**
+  - `amb_street` is Cairo at night: traffic hum, air, and distant two-tone car horns.
+  - `amb_necro` is the Qarafa: wind between the walls, cricket chirps, a far dog, and the city a murmur away.
+- **Effects:** 29 of them.
+  - Combat: swings, slams, the aftershock, impacts, crit ring, ghoul hiss and crumble, bile, warcry, dodge, Break.
+  - Items and the hub: pickup, flask, the portal's shimmer, a handful of dinars, a currency bead's ding, the craft
+    chime, the sell, the inventory-full knock, the cache's creak.
+  - The boss: her wail, her leap, and the summoning's rumble.
+  - Also level-up (a Hijaz run on the oud) and UI ticks.
 
 ## Formats (little-endian)
 
@@ -93,7 +154,7 @@ the lights (neon, lamps, festival strings).
 | `.qmesh` | `"QMSH"`, u32 version, u32 flags (1 = skinned), u32 vertex count, u32 index count, f32 bmin[3], f32 bmax[3]; vertices {f32 pos[3], f32 normal[3], u8 rgb+AO[4], u8 rough/metal/emit/flags[4], [u8 bones[4], u8 weights[4]]}; u32 indices |
 | `.qskel` | `"QSKL"`, u32 version, u32 bone count; per bone {char name[32], i32 parent, f32 t[3], f32 r[4], f32 s[3], f32 inverse bind[16] column-major} |
 | `.qanim` | `"QANM"`, u32 version, u32 clip count, u32 bone count; per clip {char name[32], f32 fps, u32 frames, u32 flags (1 = loop), u32 event count, events {char name[16], f32 time}, frames × bones × {f32 t[3], f32 r[4]}} |
-| `data/tiles/*.json` | `{size: [w, l], street, lights: [{p, r, c}], colliders: [[cx, cy, hx, hy]]}` |
+| `data/tiles/*.json` | `{size: [w, l], lights: [{p, r, c}], colliders: [[cx, cy, hx, hy]], points: {name: [x, y]}}` (necropolis cells add `mask` and `kind`) |
 | `audio/*.wav` | RIFF WAVE, PCM 16-bit mono (effects 48 kHz, music and ambience 32 kHz) |
 
 Fonts: Inter and Noto Sans Arabic (SIL OFL) are converted from the WOFF2 copies that ship inside Blender with
