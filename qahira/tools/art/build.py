@@ -13,13 +13,14 @@ import qart.geom as geom
 geom.scene = bpy.context.scene
 
 from qart import rig, preview
-from characters import warrior, ghoul, npc, ghoula, sorcerer
-from env import street, souq, necro, rooftop
+from characters import warrior, ghoul, npc, ghoula, sorcerer, jinn
+from env import street, souq, necro, rooftop, kit, regions
 from props import props
 
 args = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
 PREVIEW = '--preview' in args
 ONLY = next((a.split('=', 1)[1].split(',') for a in args if a.startswith('only=')), None)
+REGION_NAMES = ('downtown', 'metro', 'khan', 'muizz', 'mokattam', 'gate')
 ROOT = os.path.abspath(os.path.join(HERE, '..', '..'))
 OUT = os.path.join(ROOT, 'assets', 'generated')
 PREV = os.path.join(ROOT, 'build', 'preview')
@@ -29,6 +30,8 @@ os.makedirs(PREV, exist_ok=True)
 
 
 def want(name):
+    if name == 'act1' and ONLY is not None and any(r in ONLY for r in REGION_NAMES):
+        return True
     return ONLY is None or name in ONLY
 
 
@@ -64,6 +67,18 @@ if want('ghoula'):
     if PREVIEW:
         preview.sheet(os.path.join(PREV, 'ghoula_anims.png'), J, body, ghoula.CLIPS)
 
+for nm, skel, build, clips in jinn.CREATURES:
+    if want(nm) or want('creatures'):
+        J = skel()
+        rig.write_skeleton(os.path.join(OUT, 'skel', nm + '.qskel'), J)
+        rig.bake(J, clips, os.path.join(OUT, 'anim', nm + '.qanim'))
+        body = build(J).export(os.path.join(OUT, 'meshes', nm + '.qmesh'))
+        if PREVIEW:
+            preview.sheet(os.path.join(PREV, nm + '_anims.png'), J, body, clips)
+for nm, build in jinn.STATICS:
+    if want(nm) or want('creatures'):
+        build().export(os.path.join(OUT, 'meshes', nm + '.qmesh'), skinned=False)
+
 if want('street'):
     tiles = os.path.join(OUT, 'tiles')
     os.makedirs(tiles, exist_ok=True)
@@ -78,6 +93,12 @@ if want('necro'):
     tiles = os.path.join(OUT, 'tiles')
     os.makedirs(tiles, exist_ok=True)
     necro.export_all(os.path.join(OUT, 'meshes'), tiles)
+if want('act1'):
+    tiles = os.path.join(OUT, 'tiles')
+    os.makedirs(tiles, exist_ok=True)
+    for R in regions.REGIONS:
+        if ONLY is None or 'act1' in ONLY or R.NAME in ONLY:
+            kit.export_region(R, os.path.join(OUT, 'meshes'), tiles)
 if want('hub'):
     tiles = os.path.join(OUT, 'tiles')
     os.makedirs(tiles, exist_ok=True)

@@ -176,7 +176,16 @@ def maqam(name, tonic):
     return [tonic * 2 ** (c / 1200) for c in cents]
 
 
-def compose(name, maq, tonic, bpm, bars, seed, sr=32000, melody_inst='oud', intensity=1.0):
+RHYTHMS = {   # (stroke, beat within the 4/4 bar)
+    'maqsum': [('D', 0.0), ('T', 0.5), ('T', 1.5), ('D', 2.0), ('T', 3.0)],
+    'baladi': [('D', 0.0), ('D', 0.5), ('T', 1.5), ('D', 2.0), ('T', 3.0)],
+    'saidi': [('D', 0.0), ('T', 0.5), ('D', 1.5), ('D', 2.0), ('T', 3.0)],
+    'ayyub': [('D', 0.0), ('T', 0.75), ('D', 1.0), ('T', 1.5), ('D', 2.0), ('T', 2.75), ('D', 3.0), ('T', 3.5)],
+    'wahda': [('D', 0.0), ('T', 2.0), ('T', 3.0)],
+}
+
+
+def compose(name, maq, tonic, bpm, bars, seed, sr=32000, melody_inst='oud', intensity=1.0, rhythm='maqsum', riq_p=0.55):
     r = np.random.default_rng(seed)
     beat = 60 / bpm
     total = bars * 4 * beat
@@ -190,8 +199,8 @@ def compose(name, maq, tonic, bpm, bars, seed, sr=32000, melody_inst='oud', inte
         at = b * 4 * beat * sr
         place(drone, oud(tonic / 2, 4 * beat * 2, sr, 0.5), at)
         place(drone, oud(tonic / 2 * 1.5, 4 * beat * 2, sr, 0.25), at + beat * sr * 2)
-    # maqsum: dum tek . tek dum . tek .
-    pattern = [('D', 0.0), ('T', 0.5), ('T', 1.5), ('D', 2.0), ('T', 3.0)]
+    # the rhythm (maqsum by default: dum tek . tek dum . tek .)
+    pattern = RHYTHMS[rhythm]
     for b in range(bars):
         for kind, off in pattern:
             at = (b * 4 + off) * beat * sr
@@ -200,7 +209,7 @@ def compose(name, maq, tonic, bpm, bars, seed, sr=32000, melody_inst='oud', inte
             else:
                 place(perc, tek(sr, 0.5), at)
         for k in range(8):
-            if r.random() < 0.55:
+            if r.random() < riq_p:
                 place(perc, riq(sr, 0.25 + 0.15 * r.random()), (b * 4 + k * 0.5 + 0.25) * beat * sr)
         if intensity > 1.0:  # the boss: doubled dums and a driving riq
             for off in (1.0, 2.5, 3.5):
@@ -214,7 +223,7 @@ def compose(name, maq, tonic, bpm, bars, seed, sr=32000, melody_inst='oud', inte
     idx = 0
     t = 0.0
     phrase_end = 4 * beat * 2
-    inst = oud if melody_inst == 'oud' else qanun
+    inst = {'oud': oud, 'qanun': qanun, 'ney': ney}[melody_inst]
     while t < total - beat:
         if t >= phrase_end:
             target = r.choice([0, 3, 4, 7])
@@ -512,16 +521,134 @@ def ambience(name, dur=40.0, sr=32000):
     write(name, norm(x, 0.5), sr)
 
 
+def sfx_slice4():
+    """Act I's voices: what each kind of thing sounds like when it dies."""
+    s = SR
+    r = np.random.default_rng(44)
+    # spark: a short crackle of arcing current and a falling hum
+    t = t_axis(0.7)
+    crack = np.zeros(len(t))
+    for k in range(14):
+        tt = t_axis(0.02)
+        place(crack, fft_filter(noise(len(tt)), 2000, 9000) * np.exp(-tt * 200) * r.uniform(0.3, 1.0), r.uniform(0, 0.35) * s)
+    hum = np.sign(np.sin(2 * np.pi * np.cumsum(120 - 80 * t) / s)) * np.exp(-t * 5) * 0.25
+    write('spark_die', norm(crack + fft_filter(hum, 60, 1200), 0.6))
+    # metal: a crumpling bang, glass, and a long groan of sheet steel
+    t = t_axis(1.6)
+    bang = fft_filter(noise(len(t)), 60, 900) * np.exp(-t * 9)
+    groan = np.sin(2 * np.pi * np.cumsum(90 + 30 * np.sin(2 * np.pi * 3 * t)) / s) * env_adsr(len(t), 0.1, 0.3, 0.6, 0.8) * 0.35
+    glass = np.zeros(len(t))
+    for k in range(10):
+        tt = t_axis(0.12)
+        place(glass, np.sin(2 * np.pi * r.uniform(3000, 6500) * tt) * np.exp(-tt * 40) * 0.25, r.uniform(0.05, 0.5) * s)
+    x = bang + fft_filter(groan, 50, 800) + glass
+    write('metal_die', norm(x + conv(x, reverb_ir(1.4, s, 0.3))[:len(x)] * 0.4, 0.7))
+    # whisper: a breathy exhalation that falls apart into many voices
+    t = t_axis(1.2)
+    x = np.zeros(len(t))
+    for k in range(5):
+        f_lo = r.uniform(900, 1400)
+        br = fft_filter(noise(len(t)), f_lo, f_lo * 2.5) * env_adsr(len(t), 0.05 + 0.05 * k, 0.3, 0.5, 0.6)
+        place(x, br * 0.3, k * 0.04 * s)
+    write('whisper_die', norm(x + conv(x, reverb_ir(1.8, s, 0.5))[:len(x)] * 0.6, 0.5))
+    # howl: a dog's yelp turning into a long falling howl
+    t = t_axis(1.1)
+    f = 700 * np.exp(-t * 1.2) + 220
+    v = np.sin(2 * np.pi * np.cumsum(f) / s) + 0.4 * np.sin(4 * np.pi * np.cumsum(f) / s) + fft_filter(noise(len(t)), 500, 3000) * 0.2
+    write('howl_die', norm(fft_filter(v, 150, 3500) * env_adsr(len(t), 0.01, 0.2, 0.6, 0.6), 0.6))
+    # fire: a roar collapsing into crackling embers
+    t = t_axis(1.8)
+    roar = fft_filter(noise(len(t)), 80, 1200) * env_adsr(len(t), 0.02, 0.4, 0.4, 1.0)
+    embers = np.zeros(len(t))
+    for k in range(30):
+        tt = t_axis(0.015)
+        place(embers, fft_filter(noise(len(tt)), 2500, 8000) * np.exp(-tt * 300) * r.uniform(0.2, 0.6), r.uniform(0.2, 1.7) * s)
+    x = roar + embers
+    write('fire_die', norm(x + conv(x, reverb_ir(1.5, s, 0.3))[:len(x)] * 0.4, 0.7))
+
+
+def ambience_metro(name, dur=40.0, sr=32000):
+    """Under Tahrir: the tunnel's low roar, a buzzing tube light, water dripping, a train that never arrives."""
+    t = t_axis(dur, sr)
+    r = np.random.default_rng(17)
+    roar = fft_filter(noise(len(t)), 25, 180, sr) * (0.7 + 0.3 * np.sin(2 * np.pi * t / 11))
+    buzz = (np.sin(2 * np.pi * 100 * t) + 0.5 * np.sin(2 * np.pi * 200 * t) + 0.25 * np.sign(np.sin(2 * np.pi * 50 * t))) * 0.012
+    buzz *= 0.6 + 0.4 * (np.sin(2 * np.pi * t / 5.3) > -0.7)   # the tube flickers
+    x = roar * 0.7 + buzz
+    for k in range(int(dur * 0.9)):   # drips, each one a short falling tone
+        at = r.uniform(0, dur - 0.3)
+        tt = t_axis(0.12, sr)
+        f0 = r.uniform(900, 1600)
+        drip = np.sin(2 * np.pi * np.cumsum(f0 * (1 + 0.8 * np.exp(-tt * 40))) / sr) * np.exp(-tt * 35) * r.uniform(0.03, 0.07)
+        place(x, drip, at * sr)
+    for at in (9.0, 27.0):   # a far train: a swell of rumble and rail squeal, then nothing
+        tt = t_axis(7.0, sr)
+        sw = np.sin(np.pi * tt / 7.0) ** 2
+        rum = fft_filter(noise(len(tt)), 30, 300, sr) * sw * 0.9
+        sq = np.sin(2 * np.pi * np.cumsum(2400 + 300 * np.sin(2 * np.pi * tt * 0.7)) / sr) * sw ** 3 * 0.02
+        place(x, rum + sq, at * sr)
+    x = x + conv(x, reverb_ir(3.5, sr, 0.1))[:len(x)] * 0.9
+    fade = int(1.0 * sr)
+    x[:fade] = x[:fade] * np.linspace(0, 1, fade) + x[-fade:] * np.linspace(1, 0, fade)
+    x = x[:len(x) - fade]
+    write(name, norm(x, 0.45), sr)
+
+
+def ambience_cliffs(name, dur=40.0, sr=32000):
+    """The Mokattam quarries: high wind over the cut stone, pebbles falling, the city far below, a howl."""
+    t = t_axis(dur, sr)
+    r = np.random.default_rng(23)
+    gust = 0.45 + 0.35 * np.sin(2 * np.pi * t / 7.1) + 0.2 * np.sin(2 * np.pi * t / 2.3 + 1)
+    wind = fft_filter(noise(len(t)), 250, 2200, sr) * gust
+    whistle = np.sin(2 * np.pi * np.cumsum(620 + 90 * np.sin(2 * np.pi * t / 5)) / sr) * np.clip(gust - 0.6, 0, 1) * 0.04
+    city = fft_filter(noise(len(t)), 30, 160, sr) * 0.3
+    x = wind * 0.55 + whistle + city
+    for k in range(int(dur * 0.4)):   # pebbles skittering down the quarry face
+        at = r.uniform(0, dur - 1)
+        for j in range(r.integers(3, 7)):
+            tt = t_axis(0.03, sr)
+            place(x, fft_filter(noise(len(tt)), 1500, 6000, sr) * np.exp(-tt * 120) * r.uniform(0.05, 0.12), (at + j * r.uniform(0.05, 0.14)) * sr)
+    for at in (13.0, 31.0):   # something howls on the far ridge
+        tt = t_axis(2.2, sr)
+        f = 330 + 140 * np.sin(np.pi * tt / 2.2) ** 0.7
+        howl = np.sin(2 * np.pi * np.cumsum(f) / sr) + 0.3 * np.sin(4 * np.pi * np.cumsum(f) / sr)
+        place(x, fft_filter(howl, 200, 1600, sr) * np.sin(np.pi * tt / 2.2) ** 2 * 0.05, at * sr)
+    x = x + conv(x, reverb_ir(2.5, sr, 0.25))[:len(x)] * 0.6
+    fade = int(1.0 * sr)
+    x[:fade] = x[:fade] * np.linspace(0, 1, fade) + x[-fade:] * np.linspace(1, 0, fade)
+    x = x[:len(x) - fade]
+    write(name, norm(x, 0.45), sr)
+
+
+def music_act1():
+    """Act I: one piece per region, each in its own maqam and rhythm."""
+    compose('mus_downtown', 'rast', 146.83, 108, 24, seed=41, melody_inst='qanun', rhythm='baladi')
+    compose('mus_metro', 'kurd', 110.0, 76, 16, seed=43, melody_inst='ney', rhythm='wahda', riq_p=0.2)
+    compose('mus_khan', 'bayati', 146.83, 100, 24, seed=47, rhythm='maqsum')
+    compose('mus_muizz', 'hijaz', 130.81, 90, 20, seed=53, melody_inst='qanun', rhythm='saidi')
+    compose('mus_mokattam', 'saba', 146.83, 118, 24, seed=59, rhythm='saidi', intensity=1.2)
+    compose('mus_trial', 'hijaz', 146.83, 136, 32, seed=61, rhythm='ayyub', intensity=1.5)
+
+
 if __name__ == '__main__':
     only = sys.argv[1:] or ['sfx', 'music', 'ambience']
     if 'sfx' in only:
         sfx()
         sfx_slice2()
         sfx_slice3()
+        sfx_slice4()
     if 'ambience' in only:
         ambience('amb_street')
         ambience_necro('amb_necro')
+        ambience_metro('amb_metro')
+        ambience_cliffs('amb_cliffs')
+    if 'act1' in only:
+        sfx_slice4()
+        ambience_metro('amb_metro')
+        ambience_cliffs('amb_cliffs')
+        music_act1()
     if 'music' in only:
         compose('mus_hijaz', 'hijaz', 146.83, 96, 24, seed=11)
         compose('mus_saba', 'saba', 130.81, 72, 20, seed=23, melody_inst='qanun')
         compose('mus_boss', 'kurd', 146.83, 128, 32, seed=31, intensity=1.6)
+        music_act1()

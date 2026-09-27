@@ -14,8 +14,9 @@ def keeper_skeleton():
     return rig.humanoid(height=1.72, shoulder=0.2, arm_drop=62.0)
 
 
-def keeper(J):
-    m = Model('keeper', J)
+def keeper(J, col=None, name='keeper'):
+    C = col or COL
+    m = Model(name, J)
     H = lambda b: J[b][0]
     T_ = lambda b: J[b][1]
     # galabeya: one long robe from the shoulders to the ankles
@@ -27,15 +28,15 @@ def keeper(J):
         sh, el, wr = H('upperarm_' + s), H('forearm_' + s), H('hand_' + s)
         r.capsule(sh, el, 0.07, 0.065, seg=12)
         r.capsule(el, wr, 0.065, 0.075, seg=12)
-    m.add(r, COL['robe'], rough=0.9, bones=['pelvis', 'spine', 'chest', 'thigh_L', 'thigh_R', 'calf_L', 'calf_R', 'clavicle_L',
+    m.add(r, C['robe'], rough=0.9, bones=['pelvis', 'spine', 'chest', 'thigh_L', 'thigh_R', 'calf_L', 'calf_R', 'clavicle_L',
                                              'clavicle_R', 'upperarm_L', 'upperarm_R', 'forearm_L', 'forearm_R'], sigma=0.12,
           voxel=0.012, smooth=3, tris=1400)
     v = Part()
     v.loft([(1.12, 0, 0.0, 0.215, 0.165), (1.3, 0, 0.012, 0.225, 0.17), (1.46, 0, 0.02, 0.225, 0.155)], seg=24, a0=-60, a1=240, caps=False)
-    m.add(v, COL['vest'], rough=0.8, bones=['spine', 'chest'], sigma=0.12, solidify=0.01, recalc=False)
+    m.add(v, C['vest'], rough=0.8, bones=['spine', 'chest'], sigma=0.12, solidify=0.01, recalc=False)
     tw = Part()
     tw.sweep([V((0.12, 0.06, 1.53)), V((0.18, -0.05, 1.5)), V((0.2, -0.13, 1.35)), V((0.21, -0.14, 1.2))], (0.008, 0.07), seg=6, hint=V((1, -0.3, 0)))
-    m.add(tw, COL['towel'], rough=0.95, bone='chest')
+    m.add(tw, C['towel'], rough=0.95, bone='chest')
     h = Part()
     h.sphere((0, 0.008, 1.61), (0.085, 0.1, 0.11), seg=24)
     h.capsule((0, 0.01, 1.45), (0, 0, 1.56), 0.055, seg=10)
@@ -45,16 +46,16 @@ def keeper(J):
     for s in 'LR':
         wr, ht = H('hand_' + s), T_('hand_' + s)
         h.capsule(wr, ht, 0.04, 0.035, seg=8)
-    m.add(h, COL['skin'], rough=0.55, bones=['head', 'neck', 'hand_L', 'hand_R'], sigma=0.07, voxel=0.006, smooth=2, tris=700)
+    m.add(h, C['skin'], rough=0.55, bones=['head', 'neck', 'hand_L', 'hand_R'], sigma=0.07, voxel=0.006, smooth=2, tris=700)
     hr = Part()
     hr.sphere((0, 0.02, 1.64), (0.088, 0.1, 0.1), seg=16)
     hr.capsule((-0.035, -0.095, 1.585), (0.035, -0.095, 1.585), 0.012, seg=6)  # moustache
-    m.add(hr, COL['hair'], rough=0.85, bones=['head'], sigma=0.1, voxel=0.006, smooth=1, tris=300)
+    m.add(hr, C['hair'], rough=0.85, bones=['head'], sigma=0.1, voxel=0.006, smooth=1, tris=300)
     for s in 'LR':
         sd = Part()
         an, to = H('foot_' + s), T_('foot_' + s)
         sd.capsule(an + V((0, 0.03, -0.06)), to, 0.045, 0.035, seg=8)
-        m.add(sd, COL['sandal'], rough=0.7, bones=['foot_' + s], sigma=0.05)
+        m.add(sd, C['sandal'], rough=0.7, bones=['foot_' + s], sigma=0.05)
     return m
 
 
