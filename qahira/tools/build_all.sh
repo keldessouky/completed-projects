@@ -39,8 +39,10 @@ echo "== unit tests"
 ./build/mac/qtests
 echo "== build simulator"
 ./build/mac/qbuildsim
+echo "== chart simulation"
+./build/mac/qchartsim
 echo "== bot tests"
-for bot in walk fight zone sorcerer sky title act1; do ./build/mac/qhost build/Qahira.qpk --headless --bot "$bot"; done
+for bot in walk fight zone sorcerer sky title act1 charts; do ./build/mac/qhost build/Qahira.qpk --headless --bot "$bot"; done
 echo "== screenshot"
 ./build/mac/qhost build/Qahira.qpk --hidden --frames 90 --shot build/screenshot.png
 echo "done: build/Qahira.qpk + build/qahira_libretro_android.so"

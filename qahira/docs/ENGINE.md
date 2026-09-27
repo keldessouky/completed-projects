@@ -135,7 +135,7 @@ and one **zone instance**:
 - **Returning** by the stair or a portal restores them, so the streets are as you left them.
 - **The instance ends** when you take the exit portal after the boss.
 
-A zone's monster level is its `ZoneDef` area level. XP from a kill grows 30% per area level and falls off once the
+Each zone's `env_tint` colours the fog and the ambient light. A zone's monster level is its `ZoneDef` area level. XP from a kill grows 30% per area level and falls off once the
 hero is more than two levels above the area.
 
 **Interactables** (stair, portal, vendor, exit, chest) are plain data in the `World`. South uses the nearest one in
@@ -305,11 +305,36 @@ meet each monster family and each mechanic: waypoints, the trial, the bench, Ble
 ascendancy), and the posters (every film, the scraps you hold, and the poster drawn with its missing quarters torn).
 New entries, learned recipes and finished posters show as toasts in the field.
 
+## The Map of al-Idrisi (`game/atlas.*`, `game/atlas_ui.*`)
+
+The endgame's first piece. After Act I a chart table stands on the rooftop; it opens al-Idrisi's world map (1154,
+drawn with south at the top, so east is on the left), with the eclipse's path as a dark band across it.
+- **Sites:** sixteen cities on four Climes (tiers), each a `ZoneDef` of act 0 (no waypoint; the area level comes from
+  the Clime, 14 to 17) on an Act I region's tiles, with its own spawns and a master (an Act I boss). The First Clime is
+  revealed when Act I ends; finishing a site reveals the sites its roads lead to. A test walks the roads from the First
+  Clime to every site.
+- **Charts** are items (`Slot::Chart`, one base per Clime) with their own mods (`AE_CHART`, read back by
+  `chart_mods`): more monster life or damage, more monsters, more magic and rare packs, fire on their hits, less
+  maximum resistance, faster monsters, more rarity, a likelier Haboob. Every mod is also 8% more items. The crafting
+  currencies work on charts as on gear.
+- **A run** (`Areas::enter_chart`): the chosen chart is spent, the site generated at its Clime's level, the chart's
+  mods applied to every monster it spawns, and a Haboob rolled. The site's master drops charts; so do rares and, rarely,
+  anything else. The drop rules (`chart_drop_chance`, `roll_chart_tier`, `boss_chart_drops`) are shared with the
+  simulation.
+- **The Haboob:** a band of sand 16 m deep rolls north across the site in about two minutes. Inside it the fog closes
+  in and turns to sand, sand jinn arrive in packs (always in sight of you), and a meter fills with time and kills. When
+  the storm has passed it leaves currency, dinars and, after a long stay, a chart.
+- **The Astrolabe:** twenty nodes on four pointers of an astrolabe's rete (charts, the storm, riches, the road); one
+  point per site finished.
+- **`qchartsim`:** 600 simulated players from the end of Act I, each run's kills counted from the real spawner over the
+  generated tiles, charts drawn by the game's rules. It flags a stall rate over 5%, a median over 45 runs to finish a
+  Fourth Clime site, or under 8, and writes `build/chartsim_report.md`.
+
 ## Saves
 
 There are two kinds:
 
-- **Save states (`retro_serialize`, version 7).** A versioned byte stream (`core/serial.hpp`, `game/save.cpp`) of
+- **Save states (`retro_serialize`, version 8).** A versioned byte stream (`core/serial.hpp`, `game/save.cpp`) of
   the whole simulation:
   - every actor, including life, Break, AI state, boss phase and home, animation clip, time and fired events;
   - projectiles, ground effects, and ground loot (items, currency, dinars);
@@ -321,12 +346,12 @@ There are two kinds:
   On load, the level geometry and NPCs are rebuilt from the saved area and layout. Particles and floating text are
   cosmetic and aren't saved. RetroArch's save states and auto-resume therefore work anywhere, including mid-boss.
   The bots check this by saving, changing the state, restoring, and comparing.
-- **The character file (`qahira_<slot>.character` in the frontend's save directory, version 4).** It holds level, XP,
+- **The character file (`qahira_<slot>.character` in the frontend's save directory, version 5).** It holds level, XP,
   kills, dinars, currency, the class and its stars, the plan, Talismans, the bars, Wafq, Blank Talismans, the filter
   preset, equipment and the inventory, with its own magic and version. Version 4 adds Act I: waypoints, quests, the
   trial's sealed item, recipes, the codex, read Omens, ascendancy nodes and Poster Scraps; its items carry corruption,
-  their unique and each mod's bench/implicit flag (item format 2). Versions 1–3 still load (a unit test reads a
-  hand-written version 3 file). It is written to
+  their unique and each mod's bench/implicit flag (item format 2). Version 5 adds the map: sites revealed and
+  finished, and the Astrolabe. Versions 1–4 still load (a unit test reads a hand-written version 3 file). It is written to
   a temporary file and renamed, when you arrive in the hub, close the menu, level up, kill the boss, or quit. An
   unreadable file is kept as `.bad` and a fresh character starts. Bots never touch it.
 

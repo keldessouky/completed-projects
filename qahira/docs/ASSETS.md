@@ -170,6 +170,10 @@ landmark) with their lights, colliders and named points. `env/regions.py` has th
 - **Usta Hassan the coppersmith** (the keeper's body, recoloured, with a leather apron, a white cap and a copper
   hammer), whose idle is a steady hammering with a pause to look at the work.
 
+- **the Sand Jinn** (Slice 5, the Haboob's own): a lean figure of blown sand that thins below the waist into a turning
+  column, a head wrapped and swept back into a plume, ribbons of sand wound round it, pale glowing eyes; it floats, and
+  its death pours it away into the ground.
+
 Bosses are these creatures scaled and tinted (the Si'lah of Sadat Station, al-Nasnas al-Kabir, the Qutrub of the
 Quarries) or their own (the Iron Microbus, the Ifrit of Bab Zuweila).
 

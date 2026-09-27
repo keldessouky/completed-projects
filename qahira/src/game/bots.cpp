@@ -1303,9 +1303,8 @@ void Bot::tour6(World& w, Areas& a, Input& in, uint64_t frame) {
         }
         uint64_t t = frame - stage_frame;
         const Haboob& hb = w.haboob;
-        if (hb.active && !hb.inside(h.pos) && t < 900) {
-            h.pos = w.level.resolve(vec2{h.pos.x, hb.front - hb.depth * 0.4f}, h.radius);   // into the storm, for the pictures
-        }
+        if (hb.active && !hb.inside(h.pos) && t < 900)   // the storm to the hero, for the pictures
+            w.haboob.front = std::min(hb.y1, h.pos.y + hb.depth * 0.4f);
         combat(w, in, frame, 9.f);
         if (t > 900) { pass("tour6 done"); return; }
     }

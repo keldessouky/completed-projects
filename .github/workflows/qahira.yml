@@ -60,6 +60,8 @@ jobs:
         run: ./build/linux/qtests
       - name: Build simulator
         run: ./build/linux/qbuildsim
+      - name: Chart simulation (tier progression on the Map of al-Idrisi)
+        run: ./build/linux/qchartsim
       - name: Bots
         run: |
           for bot in walk fight zone sorcerer sky title; do
@@ -68,11 +70,16 @@ jobs:
       - name: Act I, played through by the bot (a fresh Warrior)
         timeout-minutes: 40
         run: ./build/linux/qhost build/Qahira.qpk --headless --bot act1 2>&1 | grep -E "^act1|TEST"; test ${PIPESTATUS[0]} -eq 0
+      - name: Charts to the Fourth Clime, played by the bot (nightly and on demand)
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        timeout-minutes: 60
+        run: ./build/linux/qhost build/Qahira.qpk --headless --bot charts 2>&1 | grep -E "^charts|TEST"; test ${PIPESTATUS[0]} -eq 0
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: qahira-reports
           path: |
             qahira/build/tree_report.md
+            qahira/build/chartsim_report.md
             qahira/build/tree_preview.png
             qahira/build/buildsim_report.md

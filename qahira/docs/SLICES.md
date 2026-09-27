@@ -339,3 +339,62 @@ what each slice actually delivered and how it was verified.
 - Posters are drawn by the UI; the GDD's painterly poster renders from 3D scenes are not generated yet.
 - The Khan has no boss: a rare and its pack guard the way on to al-Muizz.
 - Possessed objects are rigid meshes that sway; they do not deform.
+
+## Slice 5 · The First Chart
+
+*The endgame loop, proven early on Act I's tilesets.*
+
+**Delivered**
+- **The Map of al-Idrisi** (`game/atlas.*`, `game/atlas_ui.*`): after Act I a chart table stands on the rooftop. It
+  opens al-Idrisi's round world as he drew it for King Roger in 1154, south at the top and so east on the left, with
+  the Sea of the Rum across it, the Nile running up the page, and the eclipse's path as a dark band. Sixteen sites on
+  four Climes, from al-Iskandariya and Qus to Tunis, Balarm and Sabta, each with a line from the map's margin and its
+  master. The stick's magnet walks the cursor between sites; South picks a chart; L1/R1 turns to the Astrolabe.
+- **Charts** of the First to Fourth Climes (map items, area levels 14 to 17), with nine chart mods: more life, more
+  damage, more monsters, more magic and rare packs, fire on their hits, less maximum resistance, faster monsters, more
+  rarity, a likelier Haboob. Each mod also means 8% more items. The street currencies work on charts too.
+- **Chart runs:** the chart is spent, the site generated at its Clime's level with its mods on every monster; its
+  master always drops charts, rares sometimes do, and finishing a site reveals the sites its roads lead to and gives an
+  Astrolabe point. Act I's end gives four charts and reveals the First Clime.
+- **The Haboob**, the first mechanic: a wall of sand rolls north across the site in about two minutes. Inside it the
+  fog closes in and turns to sand, sand jinn ride in with it, and a meter fills with time and kills; when it has passed
+  it leaves currency, dinars and, after a long stay, a chart. A HUD panel shows the storm and its meter, and which way
+  it is when you are out of it.
+- **The Astrolabe**, the atlas tree: twenty nodes on four pointers of an astrolabe's rete (Suhail for charts, al-Simak
+  for the storm, al-Shi'ra for riches, al-Nasr for the road).
+- **The Sand Jinn**, generated on the shared rig: a figure of blown sand over a turning column.
+- **`qchartsim`**, the simulation half of the exit: 600 players from the end of Act I, each run's kills counted from
+  the real spawner over the generated tiles, charts drawn by the game's own rules. It found a dead end (two Second Clime
+  sites led only to Ayla, which led nowhere), and the first drop rules, which were far too generous.
+- **Zones take their tint:** each zone's `env_tint` now colours its fog and ambient light (it was defined in Slice 4
+  but never applied).
+- **Saves:** the character file v5 (sites revealed and finished, the Astrolabe; v1–v4 still load) and save states v8
+  (the chart run and its Haboob).
+- **Fixes the new bots found in older code:** an arrival spot beside a portal could be a pocket between two blocks
+  (the hero now arrives on the portal when there is no clear line to the spot); the Iron Microbus was too hard for the
+  game's first boss; two drops on one spot could hold a pilot forever; a pilot wedged on a corner now sidesteps. And
+  every zone's arrival spot stood just north of the entrance cell's southern block, which hid the hero from the camera;
+  the hero now arrives past the cell's centre, on the open side.
+
+**Verified**
+
+| Check | Result |
+|---|---|
+| Unit tests (`qtests`) | pass, 36 cases (4 new: every site reachable from the First Clime along roads that never lead down a Clime; charts roll and read back only chart mods, gear never does, and currency works on charts; the Astrolabe's parents and the drop rules; character file v5) |
+| `charts` bot (the exit): a level-14 character as Act I leaves one runs charts through the map screen, choosing sites and charts with the stick, until it finishes a Fourth Clime site | pass (Warrior): Fas after 13 runs, 10 sites, 9 Astrolabe nodes, 6 Haboobs, 0 deaths |
+| `charts` as a Sorcerer | pass: Tunis after 10 runs, 4 Haboobs, 0 deaths |
+| `qchartsim` (the exit's simulation) | 0 flags: median 10 runs to finish a Fourth Clime site, 90th percentile 16, 0.5% of players run out of charts; charts gained per run 1.6 (First Clime) to 2.1 (Third) |
+| `act1` (Warrior and Sorcerer), `zone`, `sorcerer`, `walk`, `fight`, `sky`, `title` | pass |
+| Build simulator, tree validator, shaders | pass |
+
+| | |
+|---|---|
+| ![The Map of al-Idrisi, south at the top, a First Clime site under the cursor](img/slice5-map.jpg) | ![The Astrolabe: two nodes set on the charts pointer, one on the storm's](img/slice5-astrolabe.jpg) |
+| ![Arriving at Barqa, a Second Clime site on al-Muizz's tiles](img/slice5-barqa.jpg) | ![In the Haboob: the sand jinn ride in with the storm](img/slice5-haboob.jpg) |
+
+**Known gaps (carried forward)**
+- Four Climes of seven; charts to the Sixteenth tier, and the pinnacles, come in Slice 9.
+- One mechanic (the Haboob); Mārid Rifts, Excavations and Zar Nights arrive in Slices 6–8.
+- Omens cannot yet be pressed into charts (GDD §10).
+- Sites use Act I's regions and bosses; each later act adds its own.
+- The map is drawn by the UI; al-Idrisi's own linework (the climes' bands, his mountains and rivers) is not traced.

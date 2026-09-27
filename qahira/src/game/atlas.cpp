@@ -9,10 +9,10 @@ int chart_area_level(int tier) { return 13 + std::clamp(tier, 1, 16); }
 const std::vector<Site>& sites() {
     static const std::vector<Site> s = {
         // the First Clime
-        {"iskandariya", "al-Iskandariya", "The lighthouse city, where the sea wind never rests", 1, 29.9f, 31.2f, -0.30f, 0.27f, "site_iskandariya",
+        {"iskandariya", "al-Iskandariya", "The lighthouse city, where the sea wind never rests", 1, 29.9f, 31.2f, -0.20f, 0.25f, "site_iskandariya",
          {"wahat", "barqa"}},
-        {"dimyat", "Dimyat", "The river's mouth, and its chains across the water", 1, 31.8f, 31.4f, -0.45f, 0.29f, "site_dimyat", {"tur"}},
-        {"tinnis", "Tinnis", "An island of weavers in the lake", 1, 32.4f, 31.1f, -0.58f, 0.25f, "site_tinnis", {"tur"}},
+        {"dimyat", "Dimyat", "The river's mouth, and its chains across the water", 1, 31.8f, 31.4f, -0.40f, 0.31f, "site_dimyat", {"tur"}},
+        {"tinnis", "Tinnis", "An island of weavers in the lake", 1, 32.4f, 31.1f, -0.60f, 0.27f, "site_tinnis", {"tur"}},
         {"qus", "Qus", "Where the pilgrims' road leaves the Nile", 1, 32.8f, 25.9f, -0.50f, -0.28f, "site_qus", {"aswan", "wahat"}},
         // the Second
         {"aswan", "Aswan", "The first cataract, and the granite of the kings", 2, 32.9f, 24.1f, -0.52f, -0.50f, "site_aswan", {"ayla"}},

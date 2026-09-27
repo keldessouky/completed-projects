@@ -155,7 +155,7 @@ void MapScreen::render(const World& w) const {
     sea({{-0.2f, 0.45f}, {-0.28f, 0.56f}}, 34, water);                                   // the Aegean
     sea({{-0.63f, 0.18f}, {-0.7f, -0.05f}, {-0.78f, -0.3f}, {-0.86f, -0.55f}}, 26, water); // the Sea of Qulzum, up the page
     sea({{-0.74f, 0.05f}, {-0.79f, -0.1f}}, 12, water);                                   // the gulf of Ayla
-    sea({{-0.45f, 0.33f}, {-0.45f, 0.14f}, {-0.47f, -0.08f}, {-0.5f, -0.3f}, {-0.52f, -0.52f}, {-0.48f, -0.78f}}, 8,
+    sea({{-0.42f, 0.33f}, {-0.46f, 0.18f}, {-0.47f, 0.10f}, {-0.47f, -0.08f}, {-0.5f, -0.3f}, {-0.52f, -0.52f}, {-0.48f, -0.78f}}, 8,
         Rgba::hex(0x4A7AAA));                                                              // the Nile, running up to the south
     // the eclipse's path: a dark band across the world
     for (int k = -3; k <= 3; k++) {
@@ -165,7 +165,7 @@ void MapScreen::render(const World& w) const {
     u.text(MX, MY - MR - 58, "SOUTH", 22, pal::dim, Align::Center, 1.f);
     u.text(MX, MY + MR + 26, "NORTH", 22, pal::dim, Align::Center, 1.f);
     // Cairo: the rooftop
-    vec2 cairo = disc_pt(-0.45f, 0.14f);
+    vec2 cairo = disc_pt(-0.47f, 0.10f);
     u.disc(cairo.x, cairo.y, 10, pal::amber);
     u.ring(cairo.x, cairo.y, 18, 15, pal::amber.alpha(0.6f));
     u.text(cairo.x + 16, cairo.y + 6, "Misr", 20, pal::night, Align::Left, 1.f);
@@ -201,13 +201,13 @@ void MapScreen::render(const World& w) const {
     float y = 60;
     u.text(IX + IW / 2, y, view == 0 ? "The Map of al-Idrisi" : "The Astrolabe", 38, pal::amber, Align::Center, 1.2f, true);
     y += 54;
-    u.text(IX + IW / 2, y, "Drawn for King Roger of Sicily, 1154, with south at the top", 20, pal::dim, Align::Center);
+    u.text(IX + IW / 2, y, view == 0 ? "Drawn for King Roger of Sicily, 1154, with south at the top" : "Its rete turns one pointer for every site you finish", 20, pal::dim, Align::Center);
     y += 50;
     // your charts, by Clime
     for (int t = 1; t <= kChartTiers; t++) {
         int n = 0;
         for (auto& e : H.inv.items) if (chart_tier(e.item) == t) n++;
-        float x = IX + 40 + (t - 1) * 130;
+        float x = IX + 40 + (t - 1) * 92;
         u.disc(x + 14, y + 16, 11, tier_color(t));
         u.text(x + 32, y + 2, std::to_string(n), 30, pal::bone, Align::Left, 1.f);
     }

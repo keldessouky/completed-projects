@@ -163,9 +163,11 @@ static vec2 entrance_dir(const ZoneCell& e) {
     return (e.mask & DIR_N) ? vec2{0, 1} : (e.mask & DIR_E) ? vec2{1, 0} : (e.mask & DIR_W) ? vec2{-1, 0} : vec2{0, -1};
 }
 
+// just past the cell's centre, towards its open side: behind the centre stands the cell's block, which would hide
+// the hero from the camera
 static vec2 entrance_spot(const ZoneLayout& z) {
     const ZoneCell& e = z.cells[size_t(z.entrance)];
-    return z.center(e) - entrance_dir(e) * 3.f;
+    return z.center(e) + entrance_dir(e) * 1.5f;
 }
 
 void Areas::enter_zone(World& w, int def, Arrival how) {
