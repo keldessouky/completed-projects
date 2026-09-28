@@ -473,6 +473,43 @@ k = node('keystone', x, y, name='al-Sharatan, the Two Signs', star='the 1st luna
 chain(andromeda['mir'], k, 1, CHAOS, const='the Lunar Mansions')
 keystones.append(k)
 
+# ================================================================ Slice 9: the Templar's sky
+# At 11 o'clock, beyond Aquila, between the Sorcerer's Lyra and the Warrior's Taurus. Appended, so every earlier id stays put.
+FIRE = [inc('damage', 12, 'fire')]
+TOTEM = [inc('damage', 12, 'totem')]
+BLOCK = [flat('block', 3)]
+AURA = [inc('aura', 6)]
+IMPLEMENTED.add('templar')
+nodes[starts['templar']]['text'] = ['Strength and Intelligence', '']
+for side, mods in ((-1, FIRE), (1, BLOCK)):
+    x, y = polar(150 + side * 13, R_START + 60)
+    s_ = node('minor', x, y, mods)
+    link(starts['templar'], s_)
+    link(s_, ecliptic_at(150 + side * 20))
+
+hercules = constellation('al-Jathi', 'Hercules, the Kneeler', 171, 770, 0, 50, [
+    ('ras', 'notable', 0, 0, 'Rasalgethi', 'Ras al-Jathi, the Kneeler\'s Head', [inc('damage', 25, 'fire'), flat('ignite', 10)], ''),
+    ('kor', 'notable', 1.4, 2.1, 'Kornephoros', 'the Club-Bearer', [inc('damage', 20, 'attack elemental'), inc('area', 6)], ''),
+    ('h1', 'minor', -1.2, -0.4, '', '', [flat('str', 10)], ''),
+    ('h2', 'minor', 1.2, -0.7, '', '', ELE_ATTACK, ''),
+    ('h3', 'minor', 0.2, 1.2, '', '', [flat('str', 5), flat('int', 5)], ''),
+], [('ras', 'h1'), ('ras', 'h2'), ('ras', 'h3'), ('h3', 'kor')], [('h1', aquila['del'])], fill=0)
+
+bootes = constellation('al-Awwa', 'Bootes, the Herdsman', 153, 900, 0, 44, [
+    ('arc', 'notable', 0, 0, 'Arcturus', 'al-Simak al-Ramih, the Lance-Bearer', [flat('block', 8), inc('armour', 15), inc('es', 8)], ''),
+    ('izr', 'notable', 2.3, 1.0, 'Izar', 'al-Mi\'zar, the Wrap', [inc('aura', 15), flat('life_regen', 4)], ''),
+    ('mph', 'notable', -2.3, 1.0, 'Muphrid', 'Mufrid al-Ramih, the Lancer\'s Lone Star', [flat('totems', 1), inc('damage', 25, 'totem')], ''),
+    ('b1', 'minor', 0.0, -1.2, '', '', BLOCK, ''),
+    ('b2', 'minor', 1.2, 0.3, '', '', AURA, ''),
+    ('b3', 'minor', -1.2, 0.4, '', '', TOTEM, ''),
+], [('arc', 'b1'), ('arc', 'b2'), ('b2', 'izr'), ('arc', 'b3'), ('b3', 'mph')], [('b1', hercules['kor'])], fill=0)
+
+x, y = polar(166, R_RIM)
+k = node('keystone', x, y, name='al-Iklil, the Crown', star='the 17th lunar mansion', flag='all_fire',
+         text=['All of your damage is converted to Fire', 'Your hits deal 15% less damage'], const='the Lunar Mansions')
+chain(hercules['kor'], k, 1, FIRE, const='the Lunar Mansions')
+keystones.append(k)
+
 # ---------------------------------------------------------------- Recommended Paths (GDD §13)
 # the notables and keystones a new player aims for, in order; the tree screen can plan them in one press
 RECOMMENDED = {
@@ -481,6 +518,7 @@ RECOMMENDED = {
     'ranger': [sagittarius['kau'], lepus['arn'], sagittarius['asc'], pegasus['mar'], pegasus['eni'], sagittarius['nun'], keystones[2]],
     'mercenary': [hydra['alf'], carina['can'], hydra['unk'], crater['alk'], carina['avi'], keystones[3]],
     'shadow': [andromeda['alp'], andromeda['mir'], andromeda['alm'], cassiopeia['sch'], cassiopeia['ruc'], cassiopeia['caph']],
+    'templar': [hercules['ras'], hercules['kor'], bootes['arc'], bootes['izr'], bootes['mph']],
 }
 
 # ---------------------------------------------------------------- text for every node
@@ -494,11 +532,12 @@ NAMES = {'life': 'maximum Life', 'mana': 'maximum Mana', 'es': 'maximum Hirz', '
          'move_speed': 'Movement Speed', 'life_leech': 'Life', 'poison': 'chance to Poison', 'poison_damage': 'Poison damage',
          'proj_speed': 'Projectile Speed', 'flask': 'Flask Recovery', 'mark': 'Mark effect',
          'bleed': 'chance to cause Bleeding', 'bleed_damage': 'Bleeding damage', 'pierce': 'Pierce',
-         'power': 'maximum Power Charges', 'traps': 'Traps', 'wither': 'Wither effect'}
+         'power': 'maximum Power Charges', 'traps': 'Traps', 'wither': 'Wither effect', 'block': 'chance to Block', 'ignite': 'chance to Ignite',
+         'totems': 'Totems', 'aura': 'Aura effect', 'embers': 'Burning Ground effect'}
 TAGW = {'melee': 'Melee', 'physical': 'Physical', 'slam': 'Slam', 'spell': 'Spell', 'lightning': 'Lightning', 'cold': 'Cold',
         'fire': 'Fire', 'elemental': 'Elemental', 'attack': 'Attack', 'area': 'Area', 'projectile': 'Projectile', 'bow': 'Bow',
         'sword': 'Sword', 'crossbow': 'Crossbow', 'grenade': 'Grenade', 'dagger': 'Dagger', 'qstaff': 'Quarterstaff',
-        'trap': 'Trap', 'chaos': 'Chaos'}
+        'trap': 'Trap', 'chaos': 'Chaos', 'totem': 'Totem'}
 
 
 def mod_text(m):
@@ -520,6 +559,12 @@ def mod_text(m):
         return '%+d to maximum Power Charges' % v
     if stat == 'bleed' and kind == 'flat':
         return '%d%% chance to cause Bleeding' % v
+    if stat == 'ignite' and kind == 'flat':
+        return '%d%% chance to Ignite' % v
+    if stat == 'block' and kind == 'flat':
+        return '%d%% chance to Block' % v
+    if stat == 'totems' and kind == 'flat':
+        return '%+d Totem%s out at once' % (v, '' if v == 1 else 's')
     if stat == 'life_leech':
         return 'Gain %d Life per enemy hit' % v
     if stat == 'warcry' and kind == 'flat':

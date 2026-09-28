@@ -311,6 +311,33 @@ bool Bot::combat(World& w, Input& in, uint64_t frame, float reach) {
         else if (ready(0)) press(in, BTN_SOUTH);                                                                               // Crescent Cut
         return true;
     }
+    if (w.hero.passives.cls == "templar") {   // the beacon up, a brazier by the tough or a crowd, a slam into a pack, the burning strike
+        auto ready = [&](int slot) {
+            SkillCtx c = w.slot_ctx(slot);
+            return c.def && w.hero.cooldowns[slot] <= 0 && h.mana >= c.mana && c.usable;
+        };
+        const float dist = length(d);
+        const bool tough = target->rarity >= Rarity::Rare;
+        int crowd = 0, totems = 0;
+        for (size_t i = 1; i < w.actors.size(); i++)
+            if (w.actors[i].alive() && length(w.actors[i].pos - target->pos) < 3.f) crowd++;
+        for (auto& g : w.ground) totems += g.kind == GroundFx::Totem && g.t < g.life;
+        if (getenv("QAHIRA_BOT_TRACE") && frame % 120 == 0)
+            fprintf(stderr, "templar: %s dist %.1f life %.0f/%.0f act %d clear %d crowd %d totems %d mana %.0f aura %d\n", target->name.c_str(), dist,
+                    target->life, target->life_max, int(target->act), int(w.level.line_clear(h.pos, target->pos, 0.2f)), crowd, totems, h.mana,
+                    int(w.hero.aura));
+        if (frame % 2) return true;
+        in.rstick = normalize(d);
+        if (!w.hero.aura && ready(1)) { press(in, BTN_WEST); return true; }                                              // the Beacon
+        if (ready(2) && totems == 0 && (tough || crowd >= 3) && dist < 7.f) { press(in, BTN_NORTH); return true; }       // Signal Fire
+        if (dist > range) { chase(w, in, *target); return true; }
+        in.lstick = normalize(d) * 0.3f;
+        if (ready(3) && (crowd >= 3 || tough)) press(in, BTN_R1);   // Brazier Slam
+        else if (ready(0)) press(in, BTN_SOUTH);                    // Ember Strike
+        else if (ready(3)) press(in, BTN_R1);
+        else if (ready(2) && totems == 0) press(in, BTN_NORTH);     // (a strike he has not the Strength for: the brazier fights)
+        return true;
+    }
     if (w.hero.passives.cls == "shadow") {   // Black Sand on the tough, a snare on a crowd, the staff when surrounded, the knife
         auto ready = [&](int slot) {
             SkillCtx c = w.slot_ctx(slot);
@@ -1373,9 +1400,9 @@ void Bot::prepare(World& w) {
         for (int k = 0; k < 4; k++) H.inv.add(make_chart(1, r, 0.25f, 0.f));
     // what a player carries out of Act I: level-appropriate rares in every slot
     const bool caster = H.passives.cls == "sorcerer", ranger = H.passives.cls == "ranger", merc = H.passives.cls == "mercenary",
-               shadow = H.passives.cls == "shadow";
+               shadow = H.passives.cls == "shadow", templar = H.passives.cls == "templar";
     // armour of the class's defence: Hirz for the Sorcerer, evasion for the Ranger, armour for the Warrior, both for the Mercenary,
-    // evasion and Hirz for the Shadow
+    // evasion and Hirz for the Shadow, armour and Hirz for the Templar
     auto best = [&](Slot slot, bool, int wk) {
         int b = -1;
         for (size_t i = 0; i < item_bases().size(); i++) {
@@ -1383,8 +1410,9 @@ void Bot::prepare(World& w) {
             if (ib.slot != slot || ib.level > gear) continue;
             if (slot == Slot::Weapon && ib.wkind != wk) continue;
             if (slot == Slot::Helmet || slot == Slot::Body || slot == Slot::Gloves || slot == Slot::Boots) {
-                int kind = ib.es > 0 && ib.evasion > 0 ? 4 : ib.es > 0 ? 1 : ib.evasion > 0 && ib.armour > 0 ? 3 : ib.evasion > 0 ? 2 : 0;
-                if (kind != (caster ? 1 : ranger ? 2 : merc ? 3 : shadow ? 4 : 0)) continue;
+                int kind = ib.es > 0 && ib.evasion > 0 ? 4 : ib.es > 0 && ib.armour > 0 ? 5 : ib.es > 0 ? 1
+                         : ib.evasion > 0 && ib.armour > 0 ? 3 : ib.evasion > 0 ? 2 : 0;
+                if (kind != (caster ? 1 : ranger ? 2 : merc ? 3 : shadow ? 4 : templar ? 5 : 0)) continue;
             }
             if (b < 0 || ib.level >= item_bases()[size_t(b)].level) b = int(i);
         }
@@ -1395,7 +1423,7 @@ void Bot::prepare(World& w) {
     for (int e = 0; e < EQ_COUNT; e++) {
         if (e == EQ_WEAPON2 && !merc && !shadow) continue;
         const int wk = e == EQ_WEAPON2 ? (shadow ? WK_QSTAFF : WK_CROSSBOW) : caster ? WK_STAFF : ranger ? WK_BOW : merc ? WK_SWORD
-                     : shadow ? WK_DAGGER : WK_MAUL;
+                     : shadow ? WK_DAGGER : templar ? WK_SCEPTRE : WK_MAUL;
         if (int b = best(slots[e], caster, wk); b >= 0) H.equip[e] = make_item(b, Rarity::Rare, gear, r);
     }
     for (auto& t : H.talismans) t.level = uint8_t(gear == 14 ? 10 : gear == 24 ? 14 : 18);

@@ -329,7 +329,7 @@ void World::recompute_hero() {
     Actor& a = actors[0];
     float old_max = a.life_max;
     a.life_max = std::round(H.stats.value(S_LIFE));
-    a.mana_max = std::round(H.stats.value(S_MANA) * (H.aura ? 0.75f : 1.f));   // the Beacon reserves a quarter
+    a.mana_max = std::round(H.stats.value(S_MANA) * (H.aura && !(H.keystones & KS_AURA_FREE) ? 0.75f : 1.f));   // the Beacon reserves a quarter
     a.armour = H.stats.value(S_ARMOUR);
     float old_es = H.es_max;
     H.es_max = std::round(std::max(0.f, H.stats.value(S_ES)));
@@ -1330,7 +1330,12 @@ float World::hit_enemy(Actor& e, const HeroHit& hh, vec2 from, float knock, floa
         for (auto [rule, dt] : {std::pair{KS_STAFF_STORM, DT_LIGHTNING}, std::pair{KS_CHARGE_COLD, DT_COLD}})
             if (H.keystones & rule) { he.min[size_t(dt)] += he.min[DT_PHYS] * per; he.max[size_t(dt)] += he.max[DT_PHYS] * per; }
     }
-    if (H.keystones & KS_AGONY) k *= 0.7f;                                                                    // al-Sharatan: hits deal less...
+    if (H.keystones & KS_AGONY) k *= 0.7f;
+    if (H.keystones & KS_ALL_FIRE) {   // al-Iklil: every kind of damage turned to fire, and a little less of it
+        k *= 0.85f;
+        for (int t = 0; t < DT_COUNT; t++)
+            if (t != DT_FIRE) { he.min[DT_FIRE] += he.min[size_t(t)]; he.max[DT_FIRE] += he.max[size_t(t)]; he.min[size_t(t)] = he.max[size_t(t)] = 0; }
+    }                                                                    // al-Sharatan: hits deal less...
     for (int t = 0; t < DT_COUNT; t++) { he.min[size_t(t)] *= k; he.max[size_t(t)] *= k; }
     Defences def;
     def.armour = e.armour;
@@ -1338,6 +1343,9 @@ float World::hit_enemy(Actor& e, const HeroHit& hh, vec2 from, float knock, floa
     if ((H.keystones & KS_BIND_COLD) && (e.chill_t > 0 || e.frozen_t > 0)) def.damage_taken_inc += 15.f;   // Binding Cold
     if ((H.keystones & KS_HAWK) && e.mark_t > 0) def.damage_taken_inc += 10.f;                              // Hawk's Gaze
     if ((H.keystones & KS_OPEN_WOUNDS) && e.bleed_t > 0) def.damage_taken_inc += 12.f;                      // Open Wounds
+    if (H.keystones & KS_EMBER_FIRE)                                                                         // Burning Earth
+        for (const GroundFx& g : ground)
+            if (g.kind == GroundFx::Embers && g.t < g.life && length(e.pos - g.pos) <= g.radius + e.radius) { def.damage_taken_inc += 20.f; break; }
     HitResult res = roll_hit(he, def, rng);
     if (e.wither > 0 && res.by_type[DT_CHAOS] > 0) {   // Withered: more chaos damage taken
         float extra = res.by_type[DT_CHAOS] * 0.06f * float(e.wither);
@@ -1853,6 +1861,16 @@ void World::resolve_skill(Actor& h) {
             g.hh = hh;
             g.half = c.proj_speed;
             ground.push_back(g);
+            if (H.keystones & KS_TOTEM_EMBERS) {   // Signal Beacons: the ground burns round the brazier while it stands
+                GroundFx e = g;
+                e.kind = GroundFx::Embers;
+                e.radius = 2.4f * area;
+                e.pulse = 0.5f;
+                for (int t = 0; t < DT_COUNT; t++) { e.hh.hit.min[size_t(t)] *= t == DT_FIRE ? 0.3f : 0.f; e.hh.hit.max[size_t(t)] *= t == DT_FIRE ? 0.3f : 0.f; }
+                e.hh.hit.crit_chance = 0;
+                e.hh.ignite = 0;
+                ground.push_back(e);
+            }
             burst(vec3(g.pos, 0.2f), 18, vec4(0.6f, 0.5f, 0.4f, 0.8f), vec4(0.4f, 0.35f, 0.3f, 0), 3.f, 0.3f, 0.6f, false, -3.f, 1);
             emit(Ev::TotemSet, g.pos);
             break;
@@ -2138,6 +2156,7 @@ void World::damage_hero(float lo, float hi, int type, vec2 from, float break_amt
     if (evadable && rng.chance(std::min(0.75f, hero.stats.value(S_BLOCK) / 100.f))) {   // Block: the whole hit, turned aside
         texts.push_back({vec3(h.pos, 2.2f), "BLOCKED", 0xD8C890, 0, 28});
         emit(Ev::Block, h.pos);
+        if (hero.keystones & KS_BLOCK_RECOVER) h.life = std::min(h.life_max, h.life + h.life_max * 0.02f);   // Turned Aside
         return;
     }
     HitDamage hd;

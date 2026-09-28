@@ -43,6 +43,11 @@ enum AscRule : uint64_t {
     KS_STAFF_STORM = 1ull << 34,   // quarterstaff hits gain lightning for each Power Charge
     KS_CHARGE_COLD = 1ull << 35,   // quarterstaff hits gain cold for each Power Charge
     KS_VEIL = 1ull << 36,          // Hirz recharges sooner, and kills restore some of it
+    // Slice 9: the Templar's Zealot and Warden
+    KS_EMBER_FIRE = 1ull << 37,    // enemies on your burning ground take more damage
+    KS_TOTEM_EMBERS = 1ull << 38,  // Signal Fire leaves burning ground under it
+    KS_BLOCK_RECOVER = 1ull << 39, // a Block recovers life
+    KS_AURA_FREE = 1ull << 40,     // the Beacon reserves no mana
 };
 
 struct AscNode {

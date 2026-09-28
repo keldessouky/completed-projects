@@ -397,6 +397,7 @@ public:
     void recompute_hero();
     Actor& spawn_monster(int def, vec2 pos, Rarity rarity = Rarity::Normal, int level = 1);
     void kill(Actor& e);
+    void damage_hero(float lo, float hi, int type, vec2 from, float break_amt, uint32_t attacker = 0, bool evadable = true);
     void step(const Input& in, float dt);
 
     // queries used by the HUD and tests
@@ -462,7 +463,6 @@ private:
     void sword_cut(Actor& h, const SkillDef& sk, HeroHit hh, float area, vec2 dir);
     bool in_glyph(vec2 p) const;
     // evadable: an attack (melee, arrows, bile) that Evasion can avoid; spells, novas and burning ground cannot be
-    void damage_hero(float lo, float hi, int type, vec2 from, float break_amt, uint32_t attacker = 0, bool evadable = true);
     void monster_attack(Actor& m);
     void drop_loot(const Actor& e);
     void separate();
