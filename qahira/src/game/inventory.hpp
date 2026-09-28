@@ -7,7 +7,10 @@
 
 namespace q {
 
-enum EquipSlot : uint8_t { EQ_WEAPON, EQ_HELMET, EQ_BODY, EQ_GLOVES, EQ_BOOTS, EQ_BELT, EQ_AMULET, EQ_RING1, EQ_RING2, EQ_COUNT };
+enum EquipSlot : uint8_t { EQ_WEAPON, EQ_HELMET, EQ_BODY, EQ_GLOVES, EQ_BOOTS, EQ_BELT, EQ_AMULET, EQ_RING1, EQ_RING2,
+                          EQ_WEAPON2,   // Slice 7: the weapon on the back; a skill that needs it swaps it into hand
+                          EQ_COUNT };
+constexpr int kEquipV6 = 9;   // slots a character file before v7 stored
 const char* equip_slot_name(int e);
 bool slot_accepts(int e, const Item& it);
 int equip_slot_for(const Item& it, const Item* equipped);   // prefers an empty ring slot
@@ -24,6 +27,8 @@ enum Currency : uint8_t { CUR_BEAD, CUR_SALT, CUR_GROUNDS, CUR_SAFFRON, CUR_PIAS
                           CUR_OMEN_BIRD, CUR_OMEN_FISH, CUR_OMEN_DOOR, CUR_OMEN_CRESCENT,
                           // Slice 6: the Marid Rifts (they never drop at random)
                           CUR_SPLINTER, CUR_RIFT_SEAL,
+                          // Slice 7: Excavations (dug up, never dropped; bartered with the antiquities dealer)
+                          CUR_RELIC,
                           CUR_COUNT };
 constexpr int kSplintersPerSeal = 50;
 constexpr int kFirstBlend = CUR_BLEND_EMBERS, kLastBlend = CUR_BLEND_HAMMER;

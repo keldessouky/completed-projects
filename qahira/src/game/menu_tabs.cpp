@@ -337,7 +337,7 @@ void Menu::tal_render(const World& w) const {
     static const Stat attr_stat[3] = {S_STR, S_DEX, S_INT};
     snprintf(b, sizeof b, "%d %s (you have %d)", req, attr_name(d.attr), int(H.stats.value(attr_stat[d.attr])));
     if (req > 0) row("Requires", b, H.stats.value(attr_stat[d.attr]) >= float(req) ? pal::good : pal::bad);
-    if (d.tags & T_BOW) row("Weapon", "a Bow", c.needs_bow ? pal::bad : pal::good);
+    if (skill_weapon_need(d)) row("Weapon", c.weapon_needed, c.needs_weapon ? pal::bad : pal::good);
     snprintf(b, sizeof b, "%.0f", c.mana);
     row("Mana cost", b);
     if (c.cooldown > 0) { snprintf(b, sizeof b, "%.1f s", c.cooldown); row("Cooldown", b); }

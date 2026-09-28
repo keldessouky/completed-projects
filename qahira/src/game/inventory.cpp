@@ -5,7 +5,8 @@
 namespace q {
 
 const char* equip_slot_name(int e) {
-    static const char* n[EQ_COUNT] = {"Weapon", "Helmet", "Body Armour", "Gloves", "Boots", "Belt", "Amulet", "Ring", "Ring"};
+    static const char* n[EQ_COUNT] = {"Weapon", "Helmet", "Body Armour", "Gloves", "Boots", "Belt", "Amulet", "Ring", "Ring",
+                                        "Weapon Swap"};
     return e >= 0 && e < EQ_COUNT ? n[e] : "";
 }
 
@@ -13,7 +14,7 @@ bool slot_accepts(int e, const Item& it) {
     if (it.empty()) return false;
     Slot s = it.b().slot;
     switch (e) {
-        case EQ_WEAPON: return s == Slot::Weapon;
+        case EQ_WEAPON: case EQ_WEAPON2: return s == Slot::Weapon;
         case EQ_HELMET: return s == Slot::Helmet;
         case EQ_BODY: return s == Slot::Body;
         case EQ_GLOVES: return s == Slot::Gloves;
@@ -28,6 +29,10 @@ bool slot_accepts(int e, const Item& it) {
 int equip_slot_for(const Item& it, const Item* equipped) {
     if (it.empty()) return -1;
     if (it.b().slot == Slot::Ring) return equipped && !equipped[EQ_RING1].empty() && equipped[EQ_RING2].empty() ? EQ_RING2 : EQ_RING1;
+    // a weapon of the kind on the back (and not the kind in hand) replaces the one on the back
+    if (it.b().slot == Slot::Weapon && equipped && !equipped[EQ_WEAPON2].empty() && it.b().wkind == equipped[EQ_WEAPON2].b().wkind &&
+        it.b().wkind != equipped[EQ_WEAPON].b().wkind)
+        return EQ_WEAPON2;
     for (int e = 0; e < EQ_COUNT; e++) if (slot_accepts(e, it)) return e;
     return -1;
 }
@@ -59,6 +64,7 @@ const CurrencyDef& currency_def(int c) {
         {"omen_crescent", "Omen: the Crescent", "Read it: your next Ember cannot unmake an item", 0x6A4A2A, 2, 110, 6},
         {"marid_splinter", "Marid Splinter", "Fifty fuse into a Rift Seal", 0x5FC8E8, 0, 0, 999},
         {"rift_seal", "Rift Seal", "Opens the Rift Lord's court, at the chart table", 0x2E8AB8, 0, 0, 999},
+        {"relic", "Relic", "Dug up in the Excavations. Amm Ramadan barters for them", 0x3AA8A0, 0, 0, 999},
     };
     return d[c >= 0 && c < CUR_COUNT ? c : 0];
 }

@@ -10,7 +10,7 @@
 namespace q {
 
 // the rules the simulation has to know about (Hero::keystones, alongside the tree's)
-enum AscRule : uint32_t {
+enum AscRule : uint64_t {
     KS_ENDURANCE = 1u << 8,    // gain an Endurance Charge on Break
     KS_UNSHAKEN = 1u << 9,     // no knockback; less damage taken at max charges
     KS_FOUNDRY = 1u << 10,     // slams: more damage to Broken enemies, +1 max charge
@@ -29,6 +29,14 @@ enum AscRule : uint32_t {
     KS_QIRBA = 1u << 22,       // flasks refill over time
     KS_KILL_FRENZY = 1u << 23, // kills can grant Frenzy Charges
     KS_PLAGUE = 1u << 24,      // a poisoned enemy's death spreads its poisons
+    // Slice 7: the Mercenary's Duelist and Demolitionist
+    KS_RIPOSTE = 1ull << 25,   // taking a hit readies Riposte
+    KS_OPEN_WOUNDS = 1ull << 26,   // Bleeding enemies take more damage
+    KS_SINGLE = 1ull << 27,    // more damage to Rare and Unique enemies
+    KS_BLOOD_KILL = 1ull << 28,    // killing a Bleeding enemy recovers life
+    KS_CRESCENT = 1ull << 29,  // every second Crescent Cut in a row is a crescent
+    KS_TWO_POTS = 1ull << 30,  // Naffata throws a second pot
+    KS_CHAIN_BURST = 1ull << 31,   // enemies killed by grenades burst
 };
 
 struct AscNode {
@@ -37,7 +45,7 @@ struct AscNode {
     int parent;                // -1: the start
     vec2 pos;                  // layout, in node units around the start
     std::vector<Mod> mods;
-    uint32_t rule = 0;
+    uint64_t rule = 0;
     std::vector<const char*> text;
 };
 
@@ -57,7 +65,7 @@ std::vector<int> ascendancies_of(const std::string& cls);    // every ascendancy
 const Ascendancy* ascendancy_of(const std::string& cls, int chosen);
 int find_ascendancy(const std::string& id);
 bool asc_can_take(const Ascendancy& a, uint32_t held, int node);
-void asc_apply(const Ascendancy& a, uint32_t held, Stats& s, uint32_t& rules);   // mods sourced SRC_ASC + node
+void asc_apply(const Ascendancy& a, uint32_t held, Stats& s, uint64_t& rules);   // mods sourced SRC_ASC + node
 int asc_spent(uint32_t held);
 constexpr uint16_t SRC_ASC = 500;
 constexpr int kEnduranceMax = 3;

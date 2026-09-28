@@ -18,6 +18,7 @@ struct ClassDef {
     const char* blurb;
     bool playable;              // arrives in this build
     float evasion = 0;          // base Evasion Rating
+    const char* weapon2 = nullptr;   // starting weapon on the back (the Mercenary's crossbow)
 };
 
 const std::vector<ClassDef>& class_defs();

@@ -121,7 +121,7 @@ TEST(ascendancy_nodes_need_their_parent) {
     CHECK(asc_can_take(*a, 0, 1) && !asc_can_take(*a, 0, 2));
     CHECK(asc_can_take(*a, 1u << 1, 2));
     Stats s;
-    uint32_t rules = 0;
+    uint64_t rules = 0;
     asc_apply(*a, (1u << 1) | (1u << 2), s, rules);
     CHECK((rules & KS_ENDURANCE) && s.sum(S_ARMOUR).inc == 15);
     CHECK(ascendancy_for("sorcerer") && asc_spent((1u << 1) | (1u << 2)) == 2);
@@ -172,8 +172,8 @@ TEST(a_version_3_character_still_loads) {
     w.put(uint8_t(0));                       // Wafq
     w.put(uint16_t(0));                      // Blanks
     w.put(uint16_t(0));                      // plan
-    w.put(uint8_t(EQ_COUNT));
-    for (int e = 0; e < EQ_COUNT; e++) {
+    w.put(uint8_t(kEquipV6));                // nine slots: no weapon swap before v7
+    for (int e = 0; e < kEquipV6; e++) {
         w.put(uint16_t(e == 0 ? find_base("worn_maul") : kNoItem));
         w.put(uint8_t(e == 0 ? 1 : 0)); w.put(uint8_t(5)); w.put(uint32_t(99)); w.str("");
         w.put(uint8_t(e == 0 ? 1 : 0));

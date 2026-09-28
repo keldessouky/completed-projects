@@ -149,6 +149,27 @@ const std::vector<CodexEntry>& codex_entries() {
         {"evasion", CX_MECHANIC, "Evasion",
          "Evasion Rating gives a chance to take no damage at all from a hit, up to 75%. Deeper areas' monsters are more accurate. "
          "Pools and blasts cannot be evaded."},
+        // Slice 7: the Mercenary, and Act III
+        {"bleeding", CX_MECHANIC, "Bleeding and the weapon swap",
+         "A Bleeding enemy loses 70% of the hit's physical damage over five seconds; a stronger bleed replaces a weaker. The "
+         "Mercenary carries a second weapon on the back: a skill that needs it swaps it into hand, and the one before goes back."},
+        {"hyenas", CX_MONSTER, "al-Dab', the hyenas",
+         "The old stories say a hyena's gaze bewitches a traveller, who follows it laughing into its den. When she stares, you go "
+         "to her: be ready to roll away when you arrive."},
+        {"salt_jinn", CX_MONSTER, "Salt jinn of the White Desert",
+         "Jinn of the dry sea bed, crusted white. Their armour is thick; break it with heavy hits."},
+        {"desert_ghouls", CX_MONSTER, "Ghouls of the sands",
+         "The ghoul was a creature of the desert before it came to the cities: it calls to travellers from the dark and waits."},
+        {"wraith", CX_MONSTER, "Sand shades",
+         "Hooded shapes of blown sand with two points of light inside. They throw burning sand from afar: keep your fire "
+         "resistance up."},
+        {"mamluk", CX_MONSTER, "The armour of Bab al-Futuh",
+         "The gate's jinn wear the armour of the soldiers who once held it. Nothing is inside; the armour is very hard to hurt."},
+        {"res_penalty", CX_MECHANIC, "The eclipse and your resistances",
+         "Past Act III the eclipse weighs on everything: all your resistances are 30% lower. Keep them up with gear and the sky."},
+        {"excavations", CX_MECHANIC, "Excavations",
+         "After Act III, a chart may hold a buried chamber. Set charges along the line to it and fire them; guardians climb out "
+         "of the dust. What you dig up is traded with Amm Ramadan, the antiquities dealer, for what he keeps under the counter."},
     };
     return c;
 }

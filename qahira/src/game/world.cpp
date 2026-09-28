@@ -37,6 +37,15 @@ const std::vector<MonsterDef>& monster_defs() {
             {"ram_sphinx", "The Ram of the Avenue", "ram", 1.0f, {1, 1, 1}, 1000, 3.0f, 1.6f, AttackKind::Boss, 3.6f, 1.6f, 16, 24, DT_PHYS, 300, 1100, 0},
             {"marid_tomb", "The Marid of the Deep Tomb", "marid", 1.7f, {0.7f, 0.82f, 1.2f}, 1100, 4.0f, 1.0f, AttackKind::Boss, 3.2f, 1.3f, 17, 26, DT_COLD, 120, 1400, 0},
             {"rift_lord", "The Rift Lord", "marid", 2.0f, {0.45f, 0.95f, 1.15f}, 1250, 4.2f, 1.1f, AttackKind::Boss, 3.4f, 1.2f, 18, 27, DT_COLD, 140, 1600, 0},
+            // Act III (Slice 7): the Western Desert
+            {"hyena", "Dab'", "qutrub", 0.95f, {1.3f, 1.08f, 0.72f}, 64, 5.4f, 0.5f, AttackKind::Leap, 7.0f, 2.6f, 9, 15, DT_PHYS, 25, 26, 0},
+            {"salt_jinn", "Salt Jinn", "sand", 1.05f, {1.55f, 1.5f, 1.45f}, 58, 4.6f, 0.45f, AttackKind::Claw, 1.7f, 1.2f, 8, 13, DT_PHYS, 40, 22, 0},
+            {"desert_ghoul", "Ghoul of the Sands", "ghoul", 1.05f, {1.18f, 1.0f, 0.74f}, 56, 4.8f, 0.45f, AttackKind::Claw, 1.6f, 1.2f, 8, 13, DT_PHYS, 15, 20, 0},
+            {"sand_shade", "Sand Shade", "wraith", 0.5f, {1.1f, 1.02f, 0.9f}, 42, 3.8f, 0.45f, AttackKind::Spit, 10.f, 2.2f, 7, 12, DT_FIRE, 5, 24, 7.f},
+            {"iron_guard", "Empty Armour", "mamluk", 0.62f, {0.85f, 0.88f, 0.95f}, 110, 3.0f, 0.55f, AttackKind::Slam, 2.3f, 2.4f, 13, 20, DT_PHYS, 220, 38, 0},
+            {"dab_a", "Umm al-Dab', the Hyena of the Sand Sea", "qutrub", 1.8f, {1.35f, 1.1f, 0.7f}, 1150, 5.0f, 1.0f, AttackKind::Boss, 3.2f, 1.2f, 18, 27, DT_PHYS, 100, 1500, 0},
+            {"iron_mamluk", "The Iron Mamluk", "mamluk", 1.0f, {1, 1, 1}, 1300, 3.2f, 1.0f, AttackKind::Boss, 3.4f, 1.5f, 19, 29, DT_PHYS, 350, 1700, 0},
+            {"sand_wraith", "The Sand-Wraith of Siwa", "wraith", 1.0f, {1, 1, 1}, 1400, 3.8f, 1.0f, AttackKind::Boss, 3.4f, 1.3f, 20, 30, DT_FIRE, 120, 1900, 0},
         };
         auto set = [&](const char* id, bool rigid, const char* fam, const char* voice = "ghoul") {
             for (auto& m : v) if (std::string(m.id) == id) { m.rigid = rigid; m.family = fam; m.voice = voice; }
@@ -61,6 +70,14 @@ const std::vector<MonsterDef>& monster_defs() {
         set("timthal", true, "Possessed statues", "metal");
         set("ram_sphinx", true, "Possessed statues", "metal");
         set("tomb_ghoul", false, "Ghouls of the tombs");
+        set("hyena", false, "al-Dab', the hyenas", "howl");
+        set("dab_a", false, "al-Dab', the hyenas", "howl");
+        set("salt_jinn", false, "Salt jinn of the White Desert", "whisper");
+        set("desert_ghoul", false, "Ghouls of the sands");
+        set("sand_shade", false, "Sand shades", "whisper");
+        set("sand_wraith", false, "Sand shades", "whisper");
+        set("iron_guard", false, "The armour of Bab al-Futuh", "metal");
+        set("iron_mamluk", false, "The armour of Bab al-Futuh", "metal");
         codex("Ghouls", "ghouls");
         codex("Possessed", "possessed");
         codex("Si'lah", "silah");
@@ -72,6 +89,11 @@ const std::vector<MonsterDef>& monster_defs() {
         codex("El Naddaha", "naddaha");
         codex("Possessed statues", "statues");
         codex("Ghouls of the tombs", "tomb_ghouls");
+        codex("al-Dab'", "hyenas");
+        codex("Salt jinn", "salt_jinn");
+        codex("Ghouls of the sands", "desert_ghouls");
+        codex("Sand shades", "wraith");
+        codex("The armour of Bab al-Futuh", "mamluk");
         return v;
     }();
     return d;
@@ -129,6 +151,20 @@ const BossDef* boss_def(int monster) {
           {MoveKind::Blink, "cast", 6.5f, 5.f, 30, 0, 1}, {MoveKind::Nova, "slam", 6.5f, 0, 5.5f, 1.3f, 0},
           {MoveKind::Volley, "cast", 3.5f, 4.f, 30, 0.8f, 0}, {MoveKind::Combo, "combo", 1.1f, 0, 3.8f, 1.f, 0}},
          0.5f, "THE RIFT OPENS WIDER", "marid_caller", 4, 11.f, 1.3f, {0.45f, 0.9f, 1.f}},
+        // Act III: the hyena's gaze draws you to her (a Call), the Mamluk's mace, the wraith's burning sand
+        {"dab_a",
+         {{MoveKind::Summon, "summon", 1e9f, 0, 99, 0, 1}, {MoveKind::Wail, "wail", 9.5f, 0, 99, 0, 0},
+          {MoveKind::Leap, "leap", 3.8f, 4.f, 25, 1.5f, 0}, {MoveKind::Combo, "combo", 1.1f, 0, 3.4f, 1.f, 0}},
+         0.55f, "THE PACK LAUGHS WITH HER", "hyena", 4, 11.f, 1.3f, {0.9f, 0.8f, 0.5f}, true},
+        {"iron_mamluk",
+         {{MoveKind::Summon, "summon", 1e9f, 0, 99, 0, 1}, {MoveKind::Nova, "slam", 6.5f, 0, 5.5f, 1.3f, 0},
+          {MoveKind::Leap, "leap", 4.5f, 4.5f, 25, 1.5f, 1}, {MoveKind::Combo, "combo", 1.4f, 0, 3.6f, 1.f, 0}},
+         0.5f, "THE GATE'S GARRISON STANDS TO", "iron_guard", 3, 11.f, 1.25f, {0.6f, 0.75f, 1.f}},
+        {"sand_wraith",
+         {{MoveKind::Summon, "summon", 1e9f, 0, 99, 0, 1}, {MoveKind::Pools, "cast", 7.5f, 0, 30, 0.55f, 0},
+          {MoveKind::Blink, "cast", 6.5f, 5.f, 30, 0, 1}, {MoveKind::Wail, "wail", 10.f, 0, 99, 0, 1},
+          {MoveKind::Volley, "cast", 3.8f, 4.f, 30, 0.8f, 0}, {MoveKind::Combo, "combo", 1.2f, 0, 3.8f, 1.f, 0}},
+         0.5f, "THE WIND ANSWERS IT", "sand_shade", 4, 11.f, 1.3f, {1.f, 0.75f, 0.4f}},
     };
     if (monster < 0 || monster >= int(monster_defs().size())) return nullptr;
     const char* id = monster_defs()[size_t(monster)].id;
@@ -189,6 +225,7 @@ void World::reset_hero(const std::string& cls) {
     hero.passives.reset(c.id);
     apply_class_base(hero, c.id);
     hero.weapon() = make_item(find_base(c.weapon), Rarity::Normal, 1, rng);
+    if (c.weapon2) hero.equip[EQ_WEAPON2] = make_item(find_base(c.weapon2), Rarity::Normal, 1, rng);
     give_class_kit(hero);
     Actor h;
     h.id = next_id++;
@@ -207,8 +244,8 @@ void compute_hero_stats(Hero& H) {
     H.stats = H.base;
     H.stats.add(S_LIFE, MK_FLAT, 12.f * (H.level - 1), 0, SRC_LEVEL);
     H.stats.add(S_MANA, MK_FLAT, 6.f * (H.level - 1), 0, SRC_LEVEL);
-    for (int e = 0; e < EQ_COUNT; e++)
-        if (!H.equip[e].empty()) H.equip[e].add_global_mods(H.stats, uint16_t(1 + e));
+    for (int e = 0; e < EQ_COUNT; e++)   // the weapon on the back (EQ_WEAPON2) gives nothing until it is in hand
+        if (!H.equip[e].empty() && e != EQ_WEAPON2) H.equip[e].add_global_mods(H.stats, uint16_t(1 + e));
     H.passives.apply(H.stats);
     H.keystones = H.passives.keystones();
     if (const Ascendancy* a = ascendancy_of(H.passives.cls, H.ascendancy)) asc_apply(*a, H.asc, H.stats, H.keystones);
@@ -229,7 +266,7 @@ HeroSummary summarize(const Hero& hero) {
     s.mana = std::round(H.stats.value(S_MANA));
     s.es = std::round(std::max(0.f, H.stats.value(S_ES)));
     s.armour = H.stats.value(S_ARMOUR);
-    Defences d = defences_of(H.stats);
+    Defences d = defences_of(H.stats, act_res_penalty(H.quests));   // the sheet shows what the act has taken
     for (int t = 0; t < DT_COUNT; t++) s.res[size_t(t)] = std::min(d.res[size_t(t)], d.max_res);
     s.str = H.stats.value(S_STR);
     s.dex = H.stats.value(S_DEX);
@@ -237,7 +274,7 @@ HeroSummary summarize(const Hero& hero) {
     for (int slot = 0; slot < 10; slot++) {
         const Talisman* t = H.slot_talisman(slot);
         if (!t || (t->def().tags & (T_ATTACK | T_SPELL)) == 0) continue;
-        SkillCtx c = skill_ctx(*t, H.stats, H.weapon().weapon());
+        SkillCtx c = hero_skill_ctx(H, *t);
         s.dps = c.hit.dps();   // against one target: one projectile of a fan (PoE's convention)
         s.skill = c.def->name;
         break;
@@ -266,6 +303,20 @@ void World::recompute_hero() {
     a.mana = std::min(a.mana, a.mana_max);
 }
 
+SkillCtx hero_skill_ctx(const Hero& H, const Talisman& t, const Item* weapon) {
+    const Item& w = weapon ? *weapon : H.weapon();
+    Stats s = H.stats;
+    if (weapon) { s.remove_source(1 + EQ_WEAPON); weapon->add_global_mods(s, 1 + EQ_WEAPON); }
+    SkillCtx c = skill_ctx(t, s, w.weapon());
+    const Item& back = H.equip[EQ_WEAPON2];
+    if (!weapon && c.needs_weapon && !back.empty() && (back.weapon().tags & skill_weapon_need(t.def()))) {
+        s.remove_source(1 + EQ_WEAPON);   // rated with the weapon it would swap into hand
+        back.add_global_mods(s, 1 + EQ_WEAPON);
+        c = skill_ctx(t, s, back.weapon());
+    }
+    return c;
+}
+
 SkillCtx World::slot_ctx(int slot) const {
     const Talisman* t = hero.slot_talisman(slot);
     return t ? skill_ctx(*t, hero.stats, hero_weapon()) : SkillCtx{};
@@ -281,14 +332,19 @@ int World::main_slot() const {
     return -1;
 }
 
-float World::hero_dps(const Item& weapon) const {
-    int slot = main_slot();
-    const Talisman* t = hero.slot_talisman(slot);
-    if (!t) return 0;
-    Stats s = hero.stats;
-    s.remove_source(1);
-    weapon.add_global_mods(s, 1);
-    SkillCtx c = skill_ctx(*t, s, weapon.weapon());
+float World::hero_dps(const Item& weapon, const char** skill) const {
+    // the first damaging skill this weapon can use: a Mercenary's crossbow is rated by Quarrel, the sword by Crescent Cut
+    const Talisman* first = nullptr;
+    for (int slot = 0; slot < 10; slot++) {
+        const Talisman* t = hero.slot_talisman(slot);
+        if (!t || !(t->def().tags & (T_ATTACK | T_SPELL))) continue;
+        if (!first) first = t;
+        const uint32_t need = skill_weapon_need(t->def());
+        if (!need || (weapon.weapon().tags & need)) { first = t; break; }
+    }
+    if (!first) return 0;
+    if (skill) *skill = first->def().name;
+    SkillCtx c = hero_skill_ctx(hero, *first, &weapon);
     return c.usable ? c.hit.dps() : 0.f;   // one target's, as everywhere; a bow skill with a maul does nothing
 }
 
@@ -375,7 +431,7 @@ void World::step(const Input& in, float dt) {
     hero_step(in, dt);
     for (size_t i = 1; i < actors.size(); i++) monster_step(actors[i], dt);
     separate();
-    if (in_chart) { haboob_step(dt); rift_step(dt); }
+    if (in_chart) { haboob_step(dt); rift_step(dt); dig_step(dt); }
     // projectiles: the monsters' bile and the hero's bolts
     Actor& h = actors[0];
     for (auto& p : projectiles) {
@@ -393,8 +449,14 @@ void World::step(const Input& in, float dt) {
             for (size_t i = 1; i < actors.size(); i++) {
                 Actor& e = actors[i];
                 if (!e.alive() || length(e.pos - p.pos) > p.radius + e.radius) continue;
+                if (std::find(std::begin(p.pierced), std::end(p.pierced), e.id) != std::end(p.pierced)) continue;
                 hit_enemy(e, p.hh, p.pos - normalize(p.vel), 1.5f);
                 emit(Ev::FireHit, p.pos);
+                if (p.pierce > 0) {   // it passes through, and never strikes the same one twice
+                    for (auto& id : p.pierced) if (!id) { id = e.id; break; }
+                    p.pierce--;
+                    continue;
+                }
                 p.life = 0;
                 break;
             }
@@ -411,6 +473,7 @@ void World::step(const Input& in, float dt) {
         g.t += dt;
         if (g.kind == GroundFx::Glyph && g.t >= g.pulse && g.t < g.life) { g.pulse += 1.f; glyph_pulse(ground[i]); }
         if (g.kind == GroundFx::Meteor && g.t >= g.life) star_fall(ground[i]);
+        if (g.kind == GroundFx::Grenade && g.t >= g.life) grenade_burst(ground[i]);
         if (g.kind == GroundFx::Rain && g.t >= g.pulse && g.t < g.life) {   // a volley lands
             g.pulse += 0.3f;
             HeroHit hh = g.hh;
@@ -554,6 +617,14 @@ bool World::unequip(int slot) {
     return true;
 }
 
+bool World::swap_weapons() {
+    if (hero.equip[EQ_WEAPON2].empty()) return false;
+    std::swap(hero.equip[EQ_WEAPON], hero.equip[EQ_WEAPON2]);
+    recompute_hero();
+    emit(Ev::WeaponSwap, actors[0].pos);
+    return true;
+}
+
 void World::drop_from_inventory(int i) {
     if (i < 0 || i >= int(hero.inv.items.size())) return;
     GroundItem g;
@@ -688,6 +759,119 @@ void World::rift_step(float dt) {
     }
 }
 
+// ---- Excavations
+void World::dig_step(float dt) {
+    Dig& d = dig;
+    if (!d.armed || d.searched) return;
+    if (!d.fired) {   // the unset charges' scrapes glint
+        for (int i = 0; i < Dig::kCharges; i++)
+            if (!(d.set >> i & 1) && fx_rng.chance(0.08f))
+                particles.push_back(Particle{vec3(d.spots[i] + vec2{fx_rng.range(-0.3f, 0.3f), fx_rng.range(-0.3f, 0.3f)}, 0.1f),
+                                             vec3(0, 0, 1.2f), 0.6f, 0.6f, 0.08f, 0.02f, 0, 0, vec4(1.f, 0.85f, 0.5f, 0.9f),
+                                             vec4(1.f, 0.6f, 0.2f, 0), 0, true});
+        return;
+    }
+    d.t += dt;
+    for (int i = 0; i < Dig::kCharges; i++) {   // down the line, one after another
+        if ((d.blown >> i & 1) || d.t < Dig::blow_at(i)) continue;
+        d.blown |= uint8_t(1u << i);
+        const vec2 p = d.spots[i];
+        for (size_t k = 1; k < actors.size(); k++) {
+            Actor& e = actors[k];
+            if (!e.alive() || length(e.pos - p) > 2.6f + e.radius) continue;
+            e.life -= e.life_max * (e.rarity >= Rarity::Rare ? 0.08f : 0.35f);
+            e.hit_flash = 1.f;
+            e.knock += normalize(e.pos - p + vec2{0.01f, 0}) * 4.f;
+            if (e.life <= 0) kill(e);
+        }
+        burst(vec3(p, 0.3f), 30, vec4(1.f, 0.75f, 0.35f, 1), vec4(0.9f, 0.3f, 0.05f, 0), 7.f, 0.16f, 0.6f, true, -6.f);
+        burst(vec3(p, 0.2f), 26, vec4(0.78f, 0.68f, 0.5f, 0.9f), vec4(0.6f, 0.52f, 0.4f, 0), 5.f, 0.5f, 1.4f, false, -3.f, 1);
+        emit(Ev::StarFall, p, 0.6f);
+        shake = std::max(shake, 0.55f);
+    }
+    if (!d.opened && d.t >= Dig::open_at()) {   // the last charge takes the sand off the doorway: its guardians climb out
+        d.opened = true;
+        burst(vec3(d.chamber, 0.5f), 60, vec4(0.85f, 0.75f, 0.55f, 1), vec4(0.6f, 0.52f, 0.4f, 0), 6.f, 0.7f, 2.0f, false, -2.f, 1);
+        emit(Ev::BossWail, d.chamber, 0.8f);
+        shake = std::max(shake, 0.8f);
+        notices.push_back("The buried chamber is open, and its guardians climb out of the dust");
+        int z = chart_site >= 0 ? find_zone(sites()[size_t(chart_site)].zone) : -1;
+        const char* kind = z >= 0 && zone_def(z).spawns[0].monster ? zone_def(z).spawns[0].monster : "desert_ghoul";
+        for (int k = 0; k < 6; k++) {
+            vec2 at = level.resolve(d.chamber + rotate(vec2{k == 0 ? 0.8f : 2.4f, 0}, float(k) * 1.1f), 0.5f);
+            Actor& m = spawn_monster(find_monster(k == 0 ? "iron_guard" : k < 3 ? "desert_ghoul" : kind), at,
+                                     k == 0 ? Rarity::Rare : k == 1 ? Rarity::Magic : Rarity::Normal, area_level);
+            m.ai_state = 1;
+            m.dig = true;
+            burst(vec3(m.pos, 0.6f), 16, vec4(0.8f, 0.7f, 0.5f, 0.9f), vec4(0.6f, 0.5f, 0.4f, 0), 3.f, 0.35f, 0.8f, false, 1.f, 1);
+        }
+    }
+    if (d.opened && !d.searchable) {
+        bool left = false;
+        for (size_t k = 1; k < actors.size(); k++) left = left || (actors[k].dig && actors[k].alive());
+        if (!left) {
+            d.searchable = true;
+            interacts.push_back({Interactable::Chamber, d.chamber + vec2{0, -1.2f}, 2.0f, "Search the buried chamber"});
+            notices.push_back("The guardians are dust: search the chamber");
+        }
+    }
+}
+
+void World::dig_use(int i) {
+    if (i < 0 || i >= int(interacts.size())) return;
+    Interactable& it = interacts[size_t(i)];
+    Dig& d = dig;
+    switch (it.kind) {
+        case Interactable::Charge:
+            if (it.spent || it.target < 0 || it.target >= Dig::kCharges) return;
+            d.set |= uint8_t(1u << it.target);
+            it.spent = true;
+            it.label.clear();
+            emit(Ev::Craft, it.pos, 1.f);
+            meet_codex("excavations");
+            if (d.all_set()) {
+                notices.push_back("Every charge is set: fire them from the stake");
+                for (auto& o : interacts) if (o.kind == Interactable::Detonator) o.label = "Fire the charges";
+            } else {
+                notices.push_back("Charge set (" + std::to_string(d.count_set()) + " of " + std::to_string(Dig::kCharges) + ")");
+            }
+            break;
+        case Interactable::Detonator:
+            if (it.spent) return;
+            if (!d.all_set()) {
+                notices.push_back("Set every charge along the line first (" + std::to_string(d.count_set()) + " of " +
+                                  std::to_string(Dig::kCharges) + ")");
+                return;
+            }
+            d.fired = true;
+            d.t = 0;
+            it.spent = true;
+            it.label.clear();
+            emit(Ev::WeaponSwap, it.pos);
+            break;
+        case Interactable::Chamber: {
+            if (it.spent) return;
+            it.spent = true;
+            it.label.clear();
+            d.searched = true;
+            const int relics = rng.irange(3, 5) + (chart.tier >= 3 ? 1 : 0);
+            drop_currency(d.chamber + vec2{0.6f, -1.8f}, CUR_RELIC, relics);
+            for (int k = 0; k < 2; k++) {
+                GroundItem g;
+                g.item = random_drop(area_level + 2, k == 0 ? 1.f : 0.3f, 0.6f, rng);
+                g.pos = level.resolve(d.chamber + rotate(vec2{2.f, 0}, -1.2f - k * 0.9f), 0.3f);
+                g.id = next_id++;
+                loot.push_back(g);
+            }
+            drop_gold(d.chamber + vec2{-1.f, -1.6f}, 20 + area_level * 3);
+            notices.push_back(std::to_string(relics) + " relics: Amm Ramadan will want to see these");
+            emit(Ev::Pickup, it.pos, 2.f);
+            break;
+        }
+        default: break;
+    }
+}
+
 void World::haboob_reward() {
     Haboob& hb = haboob;
     Actor& h = actors[0];
@@ -784,9 +968,15 @@ void World::start_skill(int slot, vec2 stick) {
     if (!t) return;
     SkillCtx c = slot_ctx(slot);
     const SkillDef& sk = *c.def;
+    // a skill that needs the other weapon swaps it into hand (the Mercenary's sword and crossbow)
+    if (c.needs_weapon && hero.cooldowns[slot] <= 0 && !hero.equip[EQ_WEAPON2].empty() &&
+        (hero.equip[EQ_WEAPON2].weapon().tags & skill_weapon_need(sk))) {
+        swap_weapons();
+        c = slot_ctx(slot);
+    }
     if (!c.usable) {
         if (hero.cooldowns[slot] <= 0) {
-            texts.push_back({vec3(h.pos, 2.4f), c.needs_bow ? std::string("Needs a bow")
+            texts.push_back({vec3(h.pos, 2.4f), c.needs_weapon ? std::string("Needs ") + c.weapon_needed
                              : "Not enough " + std::string(sk.attr == ATTR_STR ? "Strength" : sk.attr == ATTR_DEX ? "Dexterity" : "Intelligence"),
                              0xE0B0A0, 0, 30});
             hero.cooldowns[slot] = 1.f;
@@ -800,6 +990,7 @@ void World::start_skill(int slot, vec2 stick) {
     h.act_t = 0;
     h.skill = slot;
     h.struck = false;
+    h.struck2 = false;
     // aim where the stick points (after a dodge the body still faces the roll), else where we face
     vec2 dir = length(stick) > 0.25f ? normalize(stick) : from_angle(h.facing);
     float reach = sk.shape == Shape::Circle ? sk.range + sk.radius : sk.shape == Shape::Cone ? sk.range : sk.range;
@@ -826,7 +1017,7 @@ void World::start_skill(int slot, vec2 stick) {
         h.anim.play(alt, 0.06f, true, spd);
     }
     if (sk.tags & T_SPELL) emit(Ev::Cast, h.pos, float(sk.base_type));
-    else emit(Ev::Swing, h.pos, sk.tags & T_SLAM ? 1.5f : 1.f);
+    else emit(Ev::Swing, h.pos, sk.tags & T_CROSSBOW ? 3.f : sk.tags & T_SLAM ? 1.5f : 1.f);
 }
 
 void World::hero_step(const Input& in, float dt) {
@@ -902,6 +1093,7 @@ void World::hero_step(const Input& in, float dt) {
         const Talisman* t = H.slot_talisman(h.skill);
         const char* ev = t && t->def().shape == Shape::Warcry ? "cry" : "hit";
         if (!h.struck && (h.anim.event(ev) || h.anim.event("hit") || h.anim.event("cry"))) { h.struck = true; resolve_skill(h); }
+        if (h.struck && !h.struck2 && h.anim.event("hit2")) { h.struck2 = true; resolve_skill(h); }   // Riposte's second thrust
         if (!t || h.anim.done() || h.anim.progress() > 0.92f) h.act = Act::Idle;
 
     } else if (h.act == Act::Hit) {
@@ -935,12 +1127,14 @@ float World::hit_enemy(Actor& e, const HeroHit& hh, vec2 from, float knock, floa
     if ((H.keystones & KS_LONG_SHOT) && (sk_tags & T_PROJECTILE) && (sk_tags & T_ATTACK))   // The Long Shot
         k *= 1.f + 0.3f * clampf((length(e.pos - h.pos) - 3.f) / 9.f, 0.f, 1.f);
     if (e.mark_t > 0 && e.mark_hits > 0 && (sk_tags & T_ATTACK)) { he.crit_chance = 1.f; e.mark_hits--; }   // Marked: a sure crit
+    if ((H.keystones & KS_SINGLE) && e.rarity >= Rarity::Rare) k *= 1.25f;                                   // Single Combat
     for (int t = 0; t < DT_COUNT; t++) { he.min[size_t(t)] *= k; he.max[size_t(t)] *= k; }
     Defences def;
     def.armour = e.armour;
     def.damage_taken_inc = (e.broken_t > 0 ? 50.f : 0.f) + (e.shock_t > 0 ? e.shock : 0.f);
     if ((H.keystones & KS_BIND_COLD) && (e.chill_t > 0 || e.frozen_t > 0)) def.damage_taken_inc += 15.f;   // Binding Cold
     if ((H.keystones & KS_HAWK) && e.mark_t > 0) def.damage_taken_inc += 10.f;                              // Hawk's Gaze
+    if ((H.keystones & KS_OPEN_WOUNDS) && e.bleed_t > 0) def.damage_taken_inc += 12.f;                      // Open Wounds
     HitResult res = roll_hit(he, def, rng);
     if (res.crit && (H.keystones & KS_OVERLOAD)) H.overload_t = 6.f;
     if (res.crit && (H.keystones & KS_CRIT_FRENZY) && rng.chance(0.3f)) gain_frenzy(1);                    // Frenzied Aim
@@ -959,7 +1153,22 @@ float World::hit_enemy(Actor& e, const HeroHit& hh, vec2 from, float knock, floa
     vec3 hp = vec3(e.pos, 1.0f * e.scale);
     burst(hp, 7, vec4(1.f, 0.7f, 0.4f, 0.8f), vec4(0.9f, 0.3f, 0.1f, 0), 5.f, 0.08f, 0.3f, true, -9.f);
     burst(hp, 3, vec4(0.2f, 0.17f, 0.18f, 0.55f), vec4(0.15f, 0.13f, 0.14f, 0), 2.f, 0.22f, 0.5f, false, -4.f, 1);
-    if (e.life <= 0) { kill(e); return res.total; }
+    if (e.life <= 0) {
+        if ((H.keystones & KS_CHAIN_BURST) && (sk_tags & T_GRENADE)) {   // Chain Reaction: it bursts into those near it
+            const float blast = e.life_max * 0.15f;
+            for (size_t i = 1; i < actors.size(); i++) {
+                Actor& o = actors[i];
+                if (&o == &e || !o.alive() || length(o.pos - e.pos) > 2.5f + o.radius) continue;
+                o.life -= blast;
+                o.hit_flash = 1.f;
+                if (o.life <= 0) kill(o);
+            }
+            burst(vec3(e.pos, 0.6f), 24, vec4(1.f, 0.65f, 0.25f, 1), vec4(0.9f, 0.2f, 0.05f, 0), 6.f, 0.14f, 0.5f, true, -6.f);
+            emit(Ev::StarFall, e.pos, 0.5f);
+        }
+        kill(e);
+        return res.total;
+    }
     const bool unique = e.rarity == Rarity::Unique;
     // ailments: fire can Ignite, cold always Chills and builds Freeze, lightning can Shock
     float fire = res.by_type[DT_FIRE], cold = res.by_type[DT_COLD], light = res.by_type[DT_LIGHTNING];
@@ -987,6 +1196,14 @@ float World::hit_enemy(Actor& e, const HeroHit& hh, vec2 from, float knock, floa
         const bool viper = H.keystones & KS_VIPER;   // Scorpion's Kiss
         e.poison[slot] = pc * 0.25f * hh.poison_mult * (viper ? 1.4f : 1.f);
         e.poison_t[slot] = viper ? 3.f : 2.f;
+    }
+    // bleeding: 70% of the hit's physical damage over five seconds; a stronger one replaces a weaker
+    float ph = res.by_type[DT_PHYS];
+    if (ph > 0 && hh.bleed > 0 && rng.chance(hh.bleed)) {
+        float dps = ph * 0.7f / 5.f * hh.bleed_mult;
+        if (dps >= e.bleed_dps || e.bleed_t <= 0) e.bleed_dps = dps;
+        if (e.bleed_t <= 0) emit(Ev::Bleed, e.pos);
+        e.bleed_t = 5.f;
     }
     bool storm_eye = (H.keystones & KS_STORM_EYE) && res.crit && (sk_tags & T_SPELL);   // Eye of the Storm
     if ((light > 0 && hh.shock > 0 && rng.chance(hh.shock)) || storm_eye) {
@@ -1052,6 +1269,87 @@ void World::star_fall(GroundFx& g) {
     shake = std::max(shake, 0.55f);
 }
 
+void World::grenade_burst(GroundFx& g) {
+    for (size_t i = 1; i < actors.size(); i++) {
+        Actor& e = actors[i];
+        if (e.alive() && length(e.pos - g.pos) <= g.radius + e.radius) hit_enemy(e, g.hh, g.pos, 3.f);
+    }
+    burst(vec3(g.pos, 0.3f), 30, vec4(1.f, 0.72f, 0.3f, 1), vec4(0.9f, 0.25f, 0.05f, 0), 7.f, 0.16f, 0.6f, true, -6.f);
+    burst(vec3(g.pos, 0.2f), 16, vec4(0.25f, 0.2f, 0.18f, 0.8f), vec4(0.15f, 0.12f, 0.1f, 0), 3.f, 0.45f, 1.1f, false, 1.5f, 1);
+    burst(vec3(g.pos, 0.1f), 10, vec4(0.66f, 0.45f, 0.3f, 1), vec4(0.5f, 0.35f, 0.22f, 0), 5.f, 0.06f, 0.6f, false, -14.f);   // clay
+    GroundFx r;
+    r.kind = GroundFx::Ring;
+    r.pos = g.pos;
+    r.radius = g.radius;
+    r.life = 0.35f;
+    ground.push_back(r);
+    emit(Ev::StarFall, g.pos, 0.6f);
+    hitstop = std::max(hitstop, 0.03f);
+    shake = std::max(shake, 0.35f);
+    g.t = g.life + 1;
+}
+
+// The Mercenary's sword skills. Crescent Cut: an arc that builds a combo, every third cut a crescent (wider, 60% more
+// damage, always Bleeding). Riposte: two thrusts at one enemy, 80% more against the Bleeding, the second bursting it.
+void World::sword_cut(Actor& h, const SkillDef& sk, HeroHit hh, float area, vec2 dir) {
+    Hero& H = hero;
+    const bool riposte = std::string(sk.id) == "riposte";
+    const bool crescent = !riposte && (H.combo + 1) % ((H.keystones & KS_CRESCENT) ? 2 : 3) == 0;
+    if (crescent) {
+        for (int t = 0; t < DT_COUNT; t++) { hh.hit.min[size_t(t)] *= 1.6f; hh.hit.max[size_t(t)] *= 1.6f; }
+        hh.bleed = 1.f;
+    }
+    const float range = sk.range * area * (crescent ? 1.25f : 1.f), half = crescent ? sk.angle * 1.45f : sk.angle;
+    Actor* one = nullptr;   // Riposte's: the nearest in front
+    float bd = 1e9f;
+    int hits = 0;
+    for (size_t i = 1; i < actors.size(); i++) {
+        Actor& e = actors[i];
+        if (!e.alive()) continue;
+        vec2 d = e.pos - h.pos;
+        float dist = length(d);
+        if (dist > range + e.radius || (dist > 0.3f && std::fabs(wrap_angle(angle_of(d) - h.facing)) > half)) continue;
+        if (riposte) { if (dist < bd) { bd = dist; one = &e; } continue; }
+        hit_enemy(e, hh, h.pos, crescent ? 3.5f : 2.f);
+        hits++;
+    }
+    if (one) {
+        const bool bleeding = one->bleed_t > 0;
+        const vec2 at = one->pos;
+        hit_enemy(*one, hh, h.pos, 1.5f, bleeding ? 1.8f : 1.f);
+        hits++;
+        if (h.struck2 && bleeding && one->alive() && one->bleed_t > 0) {   // the second thrust opens the wound
+            float rest = one->bleed_dps * one->bleed_t;
+            one->bleed_t = 0;
+            one->bleed_dps = 0;
+            one->life -= rest;
+            one->hit_flash = 1.f;
+            char b[32];
+            snprintf(b, sizeof b, "%d", int(rest));
+            texts.push_back({vec3(at, 2.3f), b, 0xD0342C, 0, 44});
+            burst(vec3(at, 1.0f * one->scale), 18, vec4(0.7f, 0.06f, 0.05f, 1), vec4(0.4f, 0.02f, 0.02f, 0), 4.f, 0.1f, 0.6f, false, -9.f);
+            emit(Ev::Bleed, at, 2.f);
+            if (one->life <= 0 && one->alive()) kill(*one);
+        }
+    }
+    if (!riposte) {
+        if (hits > 0) H.combo++;
+        else H.combo = 0;
+        if (crescent && hits > 0) {
+            GroundFx g;
+            g.kind = GroundFx::Ring;   // the crescent's sweep
+            g.pos = h.pos;
+            g.radius = range;
+            g.life = 0.25f;
+            g.angle = h.facing;
+            g.half = half;
+            ground.push_back(g);
+        }
+    }
+    emit(Ev::Impact, h.pos + dir * 1.4f, float(hits));
+    hitstop = hits ? (crescent ? 0.06f : 0.035f) : 0.f;
+}
+
 void World::resolve_skill(Actor& h) {
     SkillCtx c = slot_ctx(h.skill);
     if (!c.def) return;
@@ -1067,10 +1365,13 @@ void World::resolve_skill(Actor& h) {
     hh.brk = c.break_mult;
     hh.poison = c.poison;
     hh.poison_mult = c.poison_mult;
+    hh.bleed = c.bleed;
+    hh.bleed_mult = c.bleed_mult;
+    if (H.keystones & KS_BRAND) { hh.bleed = 1.f; hh.bleed_mult *= 0.7f; }   // al-Han'a: every hit brands
     hh.talisman = H.bar[h.skill];
     float more = 1.f;
     H.rally_hit = false;
-    if (H.rally > 0 && (sk.tags & T_ATTACK)) { more = 1.f + 0.4f * (1 + H.stats.sum(S_WARCRY).inc / 100.f); H.rally--; H.rally_hit = true; }
+    if (H.rally > 0 && (sk.tags & T_ATTACK) && !h.struck2) { more = 1.f + 0.4f * (1 + H.stats.sum(S_WARCRY).inc / 100.f); H.rally--; H.rally_hit = true; }
     if ((sk.tags & T_SPELL) && in_glyph(h.pos)) more *= 1.3f;   // a spell cast inside a glyph is empowered
     if ((H.keystones & KS_OVERLOAD) != 0) {
         hh.hit.crit_multi = 1.f;                                   // al-Simak: crits deal no extra damage...
@@ -1094,6 +1395,7 @@ void World::resolve_skill(Actor& h) {
     };
     switch (sk.shape) {
         case Shape::Cone: {
+            if (sk.tags & T_SWORD) { sword_cut(h, sk, hh, area, dir); break; }
             hit_all(h.pos, sk.range * area, true, sk.angle);
             if (hits > 0) {
                 H.combo++;
@@ -1189,6 +1491,7 @@ void World::resolve_skill(Actor& h) {
                 p.color = sk.base_type == DT_COLD ? vec3{0.5f, 0.8f, 1.f} : sk.base_type == DT_LIGHTNING ? vec3{0.7f, 0.8f, 1.f}
                         : p.arrow ? (sk.poison > 0 ? vec3{0.55f, 0.9f, 0.3f} : vec3{1.f, 0.85f, 0.6f}) : vec3{1.f, 0.55f, 0.2f};
                 p.hh = hh;
+                p.pierce = int8_t(std::clamp(c.pierce, 0, 4));
                 projectiles.push_back(p);
             }
             break;
@@ -1279,6 +1582,25 @@ void World::resolve_skill(Actor& h) {
             ground.push_back(g);
             break;
         }
+        case Shape::Grenade: {   // the pot flies in an arc, then bursts where it lands (World::grenade_burst)
+            GroundFx g;
+            g.kind = GroundFx::Grenade;
+            g.pos = level.resolve(h.target, 0.2f);
+            g.pos2 = h.pos + dir * 0.4f;
+            g.radius = sk.radius * area;
+            g.life = clampf(length(g.pos - g.pos2) / 14.f, 0.25f, 0.7f);
+            g.seed = rng.next();
+            g.hh = hh;
+            ground.push_back(g);
+            if (H.keystones & KS_TWO_POTS) {   // Double Charge: a second pot beside the first
+                GroundFx g2 = g;
+                g2.pos = level.resolve(g.pos + rotate(dir, kPi / 2) * (rng.chance(0.5f) ? 2.4f : -2.4f), 0.2f);
+                g2.life = g.life + 0.12f;
+                g2.seed = rng.next();
+                ground.push_back(g2);
+            }
+            break;
+        }
         case Shape::Meteor: {
             GroundFx g;
             g.kind = GroundFx::Meteor;
@@ -1311,6 +1633,14 @@ void World::ailments_step(Actor& m, float dt) {
             burst(vec3(m.pos, 0.9f * m.scale), 1, vec4(0.45f, 0.9f, 0.3f, 0.9f), vec4(0.2f, 0.5f, 0.1f, 0), 0.8f, 0.12f, 0.6f, true, 1.f);
         if (m.life <= 0 && m.alive()) kill(m);
     }
+    if (m.bleed_t > 0) {
+        m.bleed_t -= dt;
+        m.life -= m.bleed_dps * dt;
+        if (fx_rng.chance(0.35f))
+            burst(vec3(m.pos, 0.9f * m.scale), 1, vec4(0.62f, 0.05f, 0.05f, 0.95f), vec4(0.35f, 0.02f, 0.02f, 0), 1.0f, 0.09f, 0.6f, false, -6.f);
+        if (m.bleed_t <= 0) m.bleed_dps = 0;
+        if (m.life <= 0 && m.alive()) kill(m);
+    }
     if (m.mark_t > 0 && ((m.mark_t -= dt) <= 0 || m.mark_hits <= 0)) { m.mark_t = 0; m.mark_hits = 0; }
     if (m.chill_t > 0 && (m.chill_t -= dt) <= 0) m.chill = 0;
     if (m.shock_t > 0 && (m.shock_t -= dt) <= 0) m.shock = 0;
@@ -1323,6 +1653,9 @@ void World::kill(Actor& e) {
     e.life = 0;
     e.dead_t = 0;
     e.anim.play("death", 0.05f, true);
+    if ((hero.keystones & KS_BLOOD_KILL) && e.bleed_t > 0 && actors[0].alive())   // Second Wind
+        actors[0].life = std::min(actors[0].life_max, actors[0].life + actors[0].life_max * 0.03f);
+    e.bleed_t = 0;
     const MonsterDef& d = monster_defs()[size_t(e.def)];
     float xp = d.xp * (e.rarity == Rarity::Rare ? 6.f : e.rarity == Rarity::Magic ? 2.f : 1.f);
     xp *= 1.f + 0.3f * float(area_level - 1);                  // deeper areas are worth more
@@ -1491,7 +1824,7 @@ void World::damage_hero(float lo, float hi, int type, vec2 from, float break_amt
         hd.min[DT_FIRE] += lo * chart.mods.extra_fire / 100.f;
         hd.max[DT_FIRE] += hi * chart.mods.extra_fire / 100.f;
     }
-    Defences def = defences_of(hero.stats, in_chart ? -chart.mods.hero_res : 0.f);
+    Defences def = defences_of(hero.stats, act_res_penalty(hero.quests) + (in_chart ? -chart.mods.hero_res : 0.f));
     const int ec = hero.endurance;
     for (int t : {DT_FIRE, DT_COLD, DT_LIGHTNING}) def.res[size_t(t)] += 4.f * ec;   // Endurance Charges
     HitResult r = roll_hit(hd, def, rng);
@@ -1514,6 +1847,9 @@ void World::damage_hero(float lo, float hi, int type, vec2 from, float break_amt
     emit(Ev::HeroHit, h.pos, r.total / std::max(1.f, h.life_max));
     shake = std::max(shake, 0.25f);
     (void)break_amt;
+    if ((hero.keystones & KS_RIPOSTE) && attacker)   // The Answer: a hit taken readies Riposte
+        for (int sl = 0; sl < 10; sl++)
+            if (const Talisman* t = hero.slot_talisman(sl); t && std::string(t->def().id) == "riposte") hero.cooldowns[sl] = 0;
     if (h.life <= 0) {
         h.life = 0;
         h.act = Act::Dead;
@@ -1577,6 +1913,8 @@ void World::monster_attack(Actor& m) {
             p.dmg_min = lo;
             p.dmg_max = hi;
             p.dmg_type = d.dmg_type;
+            if (d.dmg_type == DT_COLD) p.color = {0.5f, 0.8f, 1.f};
+            else if (d.dmg_type == DT_FIRE) p.color = {1.f, 0.6f, 0.25f};
             p.owner = m.id;
             projectiles.push_back(p);
             emit(Ev::Spit, m.pos);

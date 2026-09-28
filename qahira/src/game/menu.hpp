@@ -14,6 +14,7 @@ enum class Region : uint8_t { Grid, Equip, Purse, Stock, Bench };
 struct Menu {
     bool open = false;
     bool vendor = false;
+    bool dealer = false;          // the vendor is Amm Ramadan, the antiquities dealer (Excavations): relics, not dinars
     bool bench = false;           // opened at the Coppersmith's Bench
     MenuTab tab = MenuTab::Inventory;
     Region region = Region::Grid;
@@ -46,6 +47,9 @@ struct Menu {
 
     void show(World& w, bool at_vendor);
     void show_bench(World& w);
+    void show_dealer(World& w);
+    void restock_dealer(World& w);
+    static int relic_price(const Item& it);
     void hide();
     void restock(World& w);
     void update(World& w, const Input& in, float dt);

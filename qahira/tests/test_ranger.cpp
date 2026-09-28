@@ -21,8 +21,8 @@ TEST(the_ranger_is_playable_with_a_bow_and_bow_skills_need_one) {
     Rng r(1);
     w.hero.weapon() = make_item(find_base("worn_maul"), Rarity::Normal, 1, r);
     w.recompute_hero();
-    CHECK(!w.slot_ctx(0).usable && w.slot_ctx(0).needs_bow);
-    CHECK(w.slot_ctx(1).usable && !w.slot_ctx(1).needs_bow);
+    CHECK(!w.slot_ctx(0).usable && w.slot_ctx(0).needs_weapon);
+    CHECK(w.slot_ctx(1).usable && !w.slot_ctx(1).needs_weapon);
 }
 
 TEST(evasion_falls_off_against_deeper_monsters_and_is_capped) {
@@ -81,7 +81,7 @@ TEST(a_class_with_two_ascendancies_chooses_and_keeps_its_choice) {
     const Ascendancy* out = ascendancy_of("ranger", find_ascendancy("outrider"));
     CHECK(out && out->nodes.size() == 13 && ascendancy_of("ranger", find_ascendancy("marksman"))->nodes.size() == 13);
     Stats s;
-    uint32_t rules = 0;
+    uint64_t rules = 0;
     asc_apply(*out, (1u << 3) | (1u << 4), s, rules);   // Venom, then Scorpion's Kiss
     CHECK((rules & KS_VIPER) && s.sum(S_POISON).flat == 20);
     // the choice is in the character file (v6)

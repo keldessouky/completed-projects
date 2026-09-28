@@ -175,6 +175,32 @@ void Menu::show(World& w, bool at_vendor) {
     last_dir_ = -1;
 }
 
+void Menu::show_dealer(World& w) {
+    show(w, true);
+    dealer = true;
+    restock_dealer(w);
+}
+
+// Amm Ramadan's back room: a couple of uniques, rares a little above your level, and charts of the highest Clime
+void Menu::restock_dealer(World& w) {
+    stock.items.clear();
+    Rng& r = w.rng;
+    const int lvl = std::max(1, w.hero.level) + 2;
+    for (int i = 0; i < 2; i++) stock.add(make_unique(r.irange(0, int(unique_defs().size()) - 1), lvl, r));
+    for (int i = 0; i < 5; i++) {
+        Item it = random_drop(lvl, 1.f, 0.f, r, i == 0 ? Slot::Weapon : Slot::Count);
+        if (it.b().slot == Slot::Chart) it = random_drop(lvl, 1.f, 0.f, r, Slot::Weapon);
+        stock.add(it);
+    }
+    for (int i = 0; i < 2; i++) stock.add(make_chart(kChartTiers, r, 0.5f, 0.3f));
+}
+
+int Menu::relic_price(const Item& it) {
+    if (it.rarity == Rarity::Unique) return 12;
+    if (it.b().slot == Slot::Chart) return 3;
+    return it.rarity == Rarity::Rare ? 4 : 2;
+}
+
 void Menu::show_bench(World& w) {
     show(w, false);
     bench = true;
@@ -186,6 +212,7 @@ void Menu::show_bench(World& w) {
 void Menu::hide() {
     open = false;
     vendor = false;
+    dealer = false;
     bench = false;
     held = -1;
     held_recipe = -1;
@@ -357,6 +384,7 @@ void Menu::act_south(World& w) {
                 if (held >= 0 && H.currency[held] <= 0) held = -1;
                 return;
             }
+            if (vendor && dealer) { say("Amm Ramadan sells, he does not buy"); return; }
             if (vendor) {
                 int price = sell_price(H.inv.items[size_t(i)].item);
                 H.inv.take(i);
@@ -379,8 +407,10 @@ void Menu::act_south(World& w) {
             if (!H.equip[eq].empty() && !w.unequip(eq)) say("Your inventory is full");
             return;
         case Region::Purse:
+            if (vendor && dealer) { say("Amm Ramadan sells, he does not buy"); return; }
             if (vendor) {
                 const CurrencyDef& d = currency_def(purse);
+                if (d.price <= 0) { say("Amm Sayed has none of those"); return; }
                 if (H.gold < d.price) { say("Not enough dinars"); return; }
                 H.gold -= d.price;
                 H.currency[purse]++;
@@ -405,6 +435,16 @@ void Menu::act_south(World& w) {
             int i = hovered_stock();
             if (i < 0) return;
             const Item& it = stock.items[size_t(i)].item;
+            if (dealer) {   // the antiquities dealer takes relics
+                int price = relic_price(it);
+                if (H.currency[CUR_RELIC] < price) { say("Not enough relics"); return; }
+                if (!H.inv.add(it)) { say("Your inventory is full"); return; }
+                H.currency[CUR_RELIC] -= price;
+                stock.take(i);
+                say("Bartered for " + std::to_string(price) + " relics");
+                w.emit(Ev::Sell, w.actors[0].pos);
+                return;
+            }
             int price = buy_price(it);
             if (H.gold < price) { say("Not enough dinars"); return; }
             if (!H.inv.add(it)) { say("Your inventory is full"); return; }
@@ -537,8 +577,11 @@ void Menu::render(const World& w) const {
                 sy += 70;
             };
             stat("LEVEL", std::to_string(H.level), pal::amber);
-            snprintf(b, sizeof b, "%.1f", w.hero_dps(H.weapon()));
-            stat("CRUSHING BLOW", std::string(b) + " DPS", pal::bone);
+            HeroSummary sum = summarize(H);
+            std::string sk = sum.skill.empty() ? std::string("DAMAGE") : sum.skill;
+            for (auto& ch : sk) ch = char(std::toupper(static_cast<unsigned char>(ch)));
+            snprintf(b, sizeof b, "%.1f", sum.dps);
+            stat(sk.c_str(), std::string(b) + " DPS", pal::bone);
             snprintf(b, sizeof b, "%d", int(w.actors[0].life_max));
             stat("LIFE", b, Rgba::hex(0xE06050));
             snprintf(b, sizeof b, "%d", int(w.actors[0].armour));
@@ -586,14 +629,17 @@ void Menu::render(const World& w) const {
         // the vendor's wares
         if (vendor) {
             u.frame(VX, VY, VW, 446, pal::panel.alpha(0.96f), pal::line, 16, 2);
-            u.text(VX + VW / 2, VY + 22, "Amm Sayed's Wares", 38, pal::amber, Align::Center, 1.2f, true);
-            u.text(VX + VW / 2, VY + 70, "Tools of the trade, and a glass of tea on the house", 22, pal::dim, Align::Center);
+            u.text(VX + VW / 2, VY + 22, dealer ? "Amm Ramadan's Antiquities" : "Amm Sayed's Wares", 38, pal::amber, Align::Center, 1.2f, true);
+            u.text(VX + VW / 2, VY + 70, dealer ? "What the sand gave back. He takes relics, not money" : "Tools of the trade, and a glass of tea on the house",
+                   22, pal::dim, Align::Center);
             grid_cells(SX, SY, stock, region == Region::Stock, cx, cy, false);
             if (int i = hovered_stock(); i >= 0) {
                 tip = &stock.items[size_t(i)].item;
                 int slot = equip_slot_for(*tip, H.equip);
                 if (slot >= 0 && !H.equip[slot].empty()) compare = &H.equip[slot];
-                footer = "Buy for " + std::to_string(buy_price(*tip)) + " dinars";
+                footer = dealer ? "Barter for " + std::to_string(relic_price(*tip)) + " relics (you have " +
+                                      std::to_string(H.currency[CUR_RELIC]) + ")"
+                                : "Buy for " + std::to_string(buy_price(*tip)) + " dinars";
             }
             tip_y = 540;
         }

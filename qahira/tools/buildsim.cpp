@@ -39,8 +39,10 @@ void gear_up(Hero& h, int level, uint32_t seed) {
     struct { int eq; Slot slot; } slots[] = {{EQ_WEAPON, Slot::Weapon}, {EQ_HELMET, Slot::Helmet}, {EQ_BODY, Slot::Body},
                                              {EQ_GLOVES, Slot::Gloves}, {EQ_BOOTS, Slot::Boots}, {EQ_BELT, Slot::Belt},
                                              {EQ_AMULET, Slot::Amulet}, {EQ_RING1, Slot::Ring}, {EQ_RING2, Slot::Ring}};
+    const int cw = find_base(class_def(h.passives.cls).weapon);
+    const int wkind = cw >= 0 ? item_bases()[size_t(cw)].wkind : WK_MAUL;   // the class's own kind of weapon
     for (auto& s : slots) {
-        int b = best_base(s.slot, caster, caster ? WK_STAFF : WK_MAUL);
+        int b = best_base(s.slot, caster, wkind);
         if (b < 0 && s.slot != Slot::Weapon) b = best_base(s.slot, !caster, 0);
         if (b < 0) continue;
         h.equip[s.eq] = make_item(b, Rarity::Rare, level, rng);

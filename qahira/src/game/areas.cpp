@@ -77,6 +77,16 @@ static void hub_static(World& w) {
         smith.anim.play("idle", 0);
         w.npcs.push_back(smith);
     }
+    if (w.hero.quests & Q_ACT3) {   // Amm Ramadan came up from Siwa with a sack of what he calls antiquities
+        Npc dealer;
+        dealer.model = "dealer";
+        dealer.pos = w.level.point("spawn") + vec2{-4.6f, -2.2f};
+        dealer.facing = kPi * 0.2f;
+        dealer.cm = assets().character("dealer");
+        dealer.anim.bind(dealer.cm.skel, dealer.cm.anims);
+        dealer.anim.play("idle", 0);
+        w.npcs.push_back(dealer);
+    }
 }
 
 static vec2 hub_portal_pos(const World& w) { return w.level.point("spawn") + vec2{2.6f, 1.6f}; }
@@ -91,6 +101,8 @@ void Areas::enter_hub(World& w, Arrival how) {
     w.interacts.push_back({Interactable::Vendor, vendor, 2.0f, "Trade with Amm Sayed"});
     if (w.hero.quests & Q_BENCH)
         w.interacts.push_back({Interactable::Bench, w.level.point("spawn") + vec2{-4.2f, 3.6f}, 1.9f, "Usta Hassan's bench"});
+    if (w.hero.quests & Q_ACT3)
+        w.interacts.push_back({Interactable::Dealer, w.level.point("spawn") + vec2{-3.8f, -1.6f}, 1.9f, "Barter with Amm Ramadan"});
     if (w.hero.quests & Q_ACT1)   // the chart table: al-Idrisi's map, spread out under the lights
         w.interacts.push_back({Interactable::ChartTable, w.level.point("spawn") + vec2{4.6f, 3.8f}, 1.9f, "The Map of al-Idrisi"});
     w.in_chart = false;
@@ -231,7 +243,7 @@ void Areas::enter_zone(World& w, int def, Arrival how) {
         w.in_chart = zd.act == 0;
     }
     if (zone_def(zone.def).act > 0) {
-        w.hero.waypoints |= 1u << zone.def;
+        w.hero.waypoints |= 1ull << zone.def;
         w.meet_codex("waypoints");
     }
     if (zone_def(zone.def).trial) w.meet_codex("trial");
@@ -262,7 +274,53 @@ void Areas::enter_chart(World& w, int site, const Item& chart) {
             w.rift.pos = zone.layout.center(zone.layout.cells[size_t(cells[size_t(w.rng.irange(0, int(cells.size()) - 1))])]);
         }
     }
+    // an Excavation, once Act III is behind you: a stake near the way in, and a buried chamber further on
+    if ((w.hero.quests & Q_ACT3) && w.rng.chance(0.35f)) arm_dig(w);
     w.meet_codex("charts");
+}
+
+bool Areas::arm_dig(World& w) {
+    const ZoneLayout& L = zone.layout;
+    const vec2 in = L.center(L.cells[size_t(L.entrance)]);
+    std::vector<int> cells;
+    for (size_t i = 0; i < L.cells.size(); i++) if (L.cells[i].kind == ZoneCell::Normal) cells.push_back(int(i));
+    if (cells.size() < 2) return false;
+    // the stake in the ordinary cell nearest the way in; the chamber in the one two or three cells on from it
+    std::sort(cells.begin(), cells.end(), [&](int a, int b) { return length(L.center(L.cells[size_t(a)]) - in) < length(L.center(L.cells[size_t(b)]) - in); });
+    const vec2 stake = L.center(L.cells[size_t(cells[0])]);
+    int far = cells.back();
+    for (int c : cells) {
+        float d = length(L.center(L.cells[size_t(c)]) - stake);
+        if (d > 20.f && d < 40.f) { far = c; break; }
+    }
+    const vec2 chamber = L.center(L.cells[size_t(far)]);
+    std::vector<vec2> path;
+    if (!w.level.find_path(stake, chamber, 0.6f, path) || path.empty()) return false;
+    path.insert(path.begin(), stake);
+    float total = 0;
+    for (size_t i = 1; i < path.size(); i++) total += length(path[i] - path[i - 1]);
+    if (total < 10.f) return false;
+    Dig& d = w.dig;
+    d = Dig{};
+    d.armed = true;
+    d.stake = w.level.resolve(stake + vec2{1.6f, 0.4f}, 0.8f);
+    d.chamber = chamber;
+    for (int k = 0; k < Dig::kCharges; k++) {   // evenly down the line, the last a few metres short of the chamber
+        float want = total * (0.18f + 0.64f * float(k) / float(Dig::kCharges - 1)), run = 0;
+        vec2 at = path.back();
+        for (size_t i = 1; i < path.size(); i++) {
+            float seg = length(path[i] - path[i - 1]);
+            if (run + seg >= want) { at = path[i - 1] + (path[i] - path[i - 1]) * ((want - run) / std::max(1e-3f, seg)); break; }
+            run += seg;
+        }
+        d.spots[k] = w.level.resolve(at, 0.5f);
+        Interactable ch{Interactable::Charge, d.spots[k], 1.6f, "Set a charge"};
+        ch.target = int16_t(k);
+        w.interacts.push_back(ch);
+    }
+    w.interacts.push_back({Interactable::Detonator, d.stake, 1.8f, "The surveyor's stake: set the charges down the line"});
+    w.notices.push_back("A surveyor's stake: something is buried here");
+    return true;
 }
 
 void Areas::enter_rift_court(World& w) {
@@ -321,6 +379,7 @@ void Areas::close_zone(World& w) {
     w.chart_site = -1;
     w.haboob = Haboob{};
     w.rift = Rift{};
+    w.dig = Dig{};
 }
 
 void Areas::cast_portal(World& w) {

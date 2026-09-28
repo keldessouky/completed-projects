@@ -382,12 +382,59 @@ k = node('keystone', x, y, name='al-Balda, Point Blank', star='the 21st lunar ma
 chain(sagittarius['asc'], k, 1, PROJ, const='the Lunar Mansions')
 keystones.append(k)
 
+# ================================================================ Slice 7: the Mercenary's sky
+# At 6 o'clock, between the Warrior's Great Dog and the Ranger's Hare. Appended, so every earlier id stays put.
+SWORD = [inc('damage', 10, 'sword')]
+BLEED = [flat('bleed', 5)]
+GRENADE = [inc('damage', 12, 'grenade')]
+BOLT = [inc('damage', 12, 'crossbow')]
+HYBRID = [inc('armour', 8), inc('evasion', 8)]
+IMPLEMENTED.add('mercenary')
+nodes[starts['mercenary']]['text'] = ['Strength and Dexterity', '']
+before = len(nodes)
+chain(pole, starts['mercenary'], 3, LIFE)
+spokes['mercenary'] = list(range(before, len(nodes)))
+chain(starts['mercenary'], ecliptic_at(270), 1, HYBRID)
+for side, mods in ((-1, SWORD), (1, HYBRID)):
+    x, y = polar(270 + side * 13, R_START + 60)
+    s_ = node('minor', x, y, mods)
+    link(starts['mercenary'], s_)
+    link(s_, ecliptic_at(270 + side * 20))
+
+hydra = constellation('al-Shuja', 'Hydra, the Serpent', 271, 600, 0, 64, [
+    ('alf', 'notable', 0, 0, 'Alphard', 'al-Fard, the Solitary One', [inc('damage', 30, 'sword')], ''),
+    ('m1', 'minor', -1.0, -0.6, '', '', SWORD, ''),
+    ('m2', 'minor', 1.0, -0.6, '', '', BLEED, ''),
+    ('m3', 'minor', 0.9, 0.9, '', '', LIFE_PCT, ''),
+    ('unk', 'notable', 0.4, 2.0, 'Minchir', 'Minkhar al-Shuja, the Serpent\'s Nostril', [flat('bleed', 15), inc('bleed_damage', 25)], ''),
+], [('alf', 'm1'), ('alf', 'm2'), ('alf', 'm3'), ('m3', 'unk')], [('m1', ecliptic_at(260)), ('m2', ecliptic_at(280))], fill=0)
+
+crater = constellation('al-Batiya', 'Crater, the Jar', 262, 790, 0, 58, [
+    ('alk', 'notable', 0, 0, 'Alkes', 'al-Kas, the Cup', [inc('damage', 30, 'grenade'), inc('area', 6)], ''),
+    ('g1', 'minor', 0.9, -0.9, '', '', GRENADE, ''),
+    ('g2', 'minor', -1.0, 0.6, '', '', GRENADE, ''),
+], [('alk', 'g1'), ('alk', 'g2')], [('g1', hydra['m1'])], fill=0)
+
+carina = constellation('al-Safina', 'Carina, the Keel', 283, 790, 0, 58, [
+    ('can', 'notable', 0, 0, 'Canopus', 'Suhayl, the Star of the South', [inc('armour', 16), inc('evasion', 16), inc('life', 8)], ''),
+    ('avi', 'notable', 1.3, 1.1, 'Avior', 'Qalb al-Safina, the Keel\'s Heart', [inc('damage', 25, 'crossbow'), flat('pierce', 1)], ''),
+    ('c1', 'minor', -0.3, -1.2, '', '', LIFE_PCT, ''),
+    ('c2', 'minor', 1.2, -0.3, '', '', BOLT, ''),
+], [('can', 'c1'), ('can', 'c2'), ('c2', 'avi')], [('c1', hydra['m3'])], fill=0)
+
+x, y = polar(272, R_RIM)
+k = node('keystone', x, y, name="al-Han'a, the Brand", star='the 6th lunar mansion', flag='brand',
+         text=['Your hits always cause Bleeding', 'Bleeding you cause deals 30% less damage'], const='the Lunar Mansions')
+chain(hydra['unk'], k, 1, BLEED, const='the Lunar Mansions')
+keystones.append(k)
+
 # ---------------------------------------------------------------- Recommended Paths (GDD §13)
 # the notables and keystones a new player aims for, in order; the tree screen can plan them in one press
 RECOMMENDED = {
     'warrior': [orion['rig'], orion['sai'], leo['reg'], orion['bet'], orion['bel'], taurus['zet'], taurus['nat'], keystones[0]],
     'sorcerer': [corona['alp'], lyra['veg'], scorpius['ant'], scorpius['sha'], perseus['mir'], perseus['alg'], cygnus['den']],
     'ranger': [sagittarius['kau'], lepus['arn'], sagittarius['asc'], pegasus['mar'], pegasus['eni'], sagittarius['nun'], keystones[2]],
+    'mercenary': [hydra['alf'], carina['can'], hydra['unk'], crater['alk'], carina['avi'], keystones[3]],
 }
 
 # ---------------------------------------------------------------- text for every node
@@ -399,9 +446,11 @@ NAMES = {'life': 'maximum Life', 'mana': 'maximum Mana', 'es': 'maximum Hirz', '
          'area': 'Area of Effect', 'break': 'Break buildup', 'warcry': 'Warcry effect', 'es_recharge': 'Hirz recharge rate',
          'freeze': 'Freeze buildup', 'shock': 'Effect of Shock', 'chains': 'Chain', 'damage_taken': 'damage taken',
          'move_speed': 'Movement Speed', 'life_leech': 'Life', 'poison': 'chance to Poison', 'poison_damage': 'Poison damage',
-         'proj_speed': 'Projectile Speed', 'flask': 'Flask Recovery', 'mark': 'Mark effect'}
+         'proj_speed': 'Projectile Speed', 'flask': 'Flask Recovery', 'mark': 'Mark effect',
+         'bleed': 'chance to cause Bleeding', 'bleed_damage': 'Bleeding damage', 'pierce': 'Pierce'}
 TAGW = {'melee': 'Melee', 'physical': 'Physical', 'slam': 'Slam', 'spell': 'Spell', 'lightning': 'Lightning', 'cold': 'Cold',
-        'fire': 'Fire', 'elemental': 'Elemental', 'attack': 'Attack', 'area': 'Area', 'projectile': 'Projectile', 'bow': 'Bow'}
+        'fire': 'Fire', 'elemental': 'Elemental', 'attack': 'Attack', 'area': 'Area', 'projectile': 'Projectile', 'bow': 'Bow',
+        'sword': 'Sword', 'crossbow': 'Crossbow', 'grenade': 'Grenade'}
 
 
 def mod_text(m):
@@ -415,6 +464,10 @@ def mod_text(m):
         what = NAMES[stat]
     if stat == 'chains':
         return 'Arc chains %+d more time%s' % (v, '' if v == 1 else 's')
+    if stat == 'pierce':
+        return 'Projectiles Pierce %+d more enem%s' % (v, 'y' if v == 1 else 'ies')
+    if stat == 'bleed' and kind == 'flat':
+        return '%d%% chance to cause Bleeding' % v
     if stat == 'life_leech':
         return 'Gain %d Life per enemy hit' % v
     if stat == 'warcry' and kind == 'flat':
@@ -537,7 +590,7 @@ WEIGHT = {('damage', 'inc'): 1.0, ('life', 'flat'): 0.5, ('life', 'inc'): 2.5, (
           ('break', 'inc'): 0.8, ('warcry', 'inc'): 0.6, ('warcry', 'flat'): 12.0, ('shock', 'inc'): 0.4, ('freeze', 'inc'): 0.4,
           ('chains', 'flat'): 20.0, ('str', 'flat'): 0.8, ('int', 'flat'): 0.8, ('mana_regen', 'inc'): 0.5,
           ('es_recharge', 'inc'): 0.4, ('life_regen', 'flat'): 4.0, ('area', 'inc'): 1.0, ('damage_taken', 'inc'): -2.5,
-          ('life_leech', 'flat'): 6.0, ('mana', 'flat'): 0.4}
+          ('life_leech', 'flat'): 6.0, ('mana', 'flat'): 0.4, ('pierce', 'flat'): 12.0, ('evasion', 'inc'): 0.8}
 for n in nodes:
     if n['kind'] != 'notable':
         continue

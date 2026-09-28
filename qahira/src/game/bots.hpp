@@ -11,6 +11,10 @@
 //   act2   Slice 6's exit: a character as Act I leaves one plays Act II through, the River Road to the Deep Tomb
 //   rifts  Slice 6's endgame piece: after Act II, a chart with a Marid Rift; its splinters make a Rift Seal, and the
 //          seal opens the Rift Lord's court at the chart table, where the Rift Lord dies
+//   act3   Slice 7's exit: a character as Act II leaves one plays Act III through, the White Desert to the Hill of the
+//          Oracle, Trial II at Bab al-Futuh included
+//   digs   Slice 7's endgame piece: after Act III, a chart with an Excavation: every charge set, fired from the stake,
+//          the chamber's guardians killed, the chamber searched, and its relics bartered with Amm Ramadan
 //   tour   not a test: a scripted visit of every screen for screenshots (it gives itself gear)
 #pragma once
 #include "game/areas.hpp"
@@ -78,6 +82,9 @@ private:
     void rifts(World& w, Menu& m, Areas& a, Input& in, uint64_t frame);
     void tour7(World& w, Menu& m, Areas& a, Input& in, uint64_t frame);
     int rift_stage_ = 0, rift_splinters0_ = 0;
+    void digs(World& w, Menu& m, Areas& a, Input& in, uint64_t frame);
+    void tour8(World& w, Menu& m, Areas& a, Input& in, uint64_t frame);
+    int dig_stage_ = 0, dig_relics_ = 0;
     // charts scenario
     int chart_runs_ = 0, chart_target_ = -1, map_presses_ = 0, best_tier_done_ = 0, haboobs_seen_ = 0;
     uint32_t run_seed_ = 0;

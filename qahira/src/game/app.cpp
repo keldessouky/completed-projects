@@ -198,7 +198,7 @@ void play_event_sounds(const World& w) {
         float near = 1.f / (1.f + length(e.pos - hp) * 0.06f);
         auto pv = [&](float c) { return c * r.range(0.93f, 1.07f); };
         switch (e.type) {
-            case Ev::Swing: a.play("swing", 0.45f, 0, pv(e.mag > 1 ? 0.8f : 1.f)); break;
+            case Ev::Swing: e.mag > 2.5f ? a.play("crossbow", 0.55f, 0, pv(1)) : a.play("swing", 0.45f, 0, pv(e.mag > 1 ? 0.8f : 1.f)); break;
             case Ev::Impact: if (e.mag > 0) a.play("impact", 0.75f, pan, pv(1)); break;
             case Ev::SlamImpact: a.play("slam", 0.9f * std::min(1.f, e.mag) * near, pan, pv(1)); break;
             case Ev::Aftershock: a.play("aftershock", 0.95f, 0, pv(1)); break;
@@ -233,7 +233,9 @@ void play_event_sounds(const World& w) {
             case Ev::FireHit: a.play("fire_hit", 0.5f * near, pan, pv(1)); break;
             case Ev::ColdHit: a.play("frozen", 0.4f * near, pan, pv(1.2f)); break;
             case Ev::LightningHit: a.play("lightning_hit", 0.45f * near, pan, pv(1)); break;
-            case Ev::StarFall: a.play("star_fall", 0.9f, pan, pv(1)); break;
+            case Ev::StarFall: e.mag < 1 ? a.play("naffata", 0.8f, pan, pv(1)) : a.play("star_fall", 0.9f, pan, pv(1)); break;
+            case Ev::WeaponSwap: a.play("weapon_swap", 0.5f, 0, pv(1)); break;
+            case Ev::Bleed: a.play("bleed", e.mag > 1.5f ? 0.7f : 0.35f * near, pan, pv(e.mag > 1.5f ? 0.8f : 1.f)); break;
             case Ev::Frozen: a.play("frozen", 0.6f * near, pan, pv(1)); break;
             case Ev::Glyph: a.play("glyph", e.mag > 1.5f ? 0.8f : e.mag > 0.8f ? 0.55f : 0.25f, pan, e.mag > 1.5f ? 0.8f : pv(1)); break;
         }
@@ -292,6 +294,9 @@ uint32_t boss_quest(const ZoneDef& zd) {
     if (id == "canal") return Q_NADDAHA;
     if (id == "karnak") return Q_RAM;
     if (id == "tomb") return Q_MARID | Q_ACT2;
+    if (id == "sand_sea") return Q_DABA;
+    if (id == "bab_futuh") return Q_TRIAL2;
+    if (id == "oracle") return Q_WRAITH | Q_ACT3;
     return 0;
 }
 
@@ -331,12 +336,13 @@ void boss_state(World& w) {
         w.hero.quests |= q;
         w.learn_recipe(recipe_for_zone(zd->id, true));
         for (const char* z : {zd->next, zd->side})   // the way on stays open: its waypoint is yours
-            if (int n = find_zone(z); n >= 0) w.hero.waypoints |= 1u << n;
+            if (int n = find_zone(z); n >= 0) w.hero.waypoints |= 1ull << n;
         if (fresh & Q_TRIAL1) w.meet_codex("ascendancy");
         S->view.banner = zd->boss_line;
         int next = find_zone(zd->next);
         S->view.banner_sub = next >= 0 ? std::string("The way on to ") + zone_def(next).name + " is open" : "A portal home opens";
         if (fresh & Q_TRIAL1) S->view.banner_sub = "The trial is passed: two ascendancy points. Your amulet is returned when you leave";
+        if (fresh & Q_TRIAL2) S->view.banner_sub = "The Second Trial is passed: two more ascendancy points. Your body armour is returned when you leave";
         for (auto& qd : quest_defs())
             if ((fresh & qd.bit) && qd.passive_points) S->view.banner_sub += "  \xC2\xB7  +1 passive star";
         if (fresh & Q_ACT1) {
@@ -367,7 +373,12 @@ void boss_state(World& w) {
             w.shake = std::max(w.shake, 0.8f);
             w.emit(Ev::BossWail, w.coil_at, 3.f);
         }
-        S->view.banner_t = fresh & Q_ACT2 ? 9.f : 5.f;
+        if (fresh & Q_ACT3) {
+            S->view.banner = "Act III is over";
+            S->view.banner_sub = "The desert's jinn were fleeing west, to the sea. All your resistances are 30% lower from here on.";
+            w.meet_codex("res_penalty");
+        }
+        S->view.banner_t = fresh & (Q_ACT2 | Q_ACT3) ? 9.f : 5.f;
         save_character();
     }
 }
@@ -409,12 +420,17 @@ void waypoints_render() {
     const Waypoints& W = S->wp;
     if (!W.open) return;
     Ui& u = ui();
-    float bw = 760, bh = 150 + W.items.size() * 64.f, x = 960 - bw / 2, y = 540 - bh / 2;
+    // at most twelve rows at a time: the window scrolls with the cursor
+    const int n = int(W.items.size()), rows = std::min(n, 12);
+    const int first = std::clamp(W.cursor - rows / 2, 0, std::max(0, n - rows));
+    float bw = 760, bh = 150 + rows * 64.f, x = 960 - bw / 2, y = 540 - bh / 2;
     u.rect(0, 0, 1920, 1080, pal::night.alpha(0.5f));
     u.frame(x, y, bw, bh, pal::panel.alpha(0.97f), pal::turquoise, 16, 2);
     u.text(960, y + 22, "Waypoints", 40, pal::turquoise, Align::Center, 1.2f, true);
-    for (size_t i = 0; i < W.items.size(); i++) {
-        float yy = y + 96 + i * 64;
+    if (first > 0) u.text(960, y + 70, "\xE2\x96\xB2", 20, pal::dim, Align::Center);
+    if (first + rows < n) u.text(960, y + bh - 34, "\xE2\x96\xBC", 20, pal::dim, Align::Center);
+    for (size_t i = size_t(first); i < size_t(first + rows); i++) {
+        float yy = y + 96 + (i - size_t(first)) * 64;
         bool cur = int(i) == W.cursor;
         if (cur) u.frame(x + 30, yy - 6, bw - 60, 56, pal::dusk, pal::amber, 10, 2);
         int z = W.items[i];
@@ -638,11 +654,13 @@ void app_update(const Input& in_raw, float dt) {
             case Interactable::Exit: begin_travel(Travel::HubExit); break;
             case Interactable::Next: case Interactable::Gate: begin_travel(Travel::ZoneEntrance, it.target); break;
             case Interactable::Bench: w.hero.quests |= Q_BENCH; w.hero.recipes |= kStarterRecipes; w.meet_codex("bench");
-                if (const ZoneDef* zd = S->areas.def()) if (int n = find_zone(zd->next); n >= 0) w.hero.waypoints |= 1u << n;
+                if (const ZoneDef* zd = S->areas.def()) if (int n = find_zone(zd->next); n >= 0) w.hero.waypoints |= 1ull << n;
                 M.show_bench(w); audio().play("craft", 0.5f, 0, 1); break;
             case Interactable::Vendor: M.show(w, true); audio().play("ui_select", 0.4f, 0, 1); break;
             case Interactable::ChartTable: S->map.show(w); w.meet_codex("charts"); audio().play("portal", 0.4f, 0, 0.8f); break;
             case Interactable::Chest: A.open_chest(w, w.used_interact); break;
+            case Interactable::Charge: case Interactable::Detonator: case Interactable::Chamber: w.dig_use(w.used_interact); break;
+            case Interactable::Dealer: M.show_dealer(w); w.meet_codex("excavations"); audio().play("ui_select", 0.4f, 0, 1); break;
         }
     }
     A.reveal(w);
@@ -698,8 +716,9 @@ void app_render(GLuint fbo, int w, int h) {
 void app_audio(int16_t* stereo, int frames) { audio().mix(stereo, frames); }
 
 // ---- save states
-static const uint32_t kStateVersion = 9;  // 5: passives, Hirz, keystone state; 6: Talismans, ailments, glyphs; 7: Act I;
-                                          // 8: chart runs and the Haboob; 9: poison, marks, Frenzy, arrows
+static const uint32_t kStateVersion = 10;  // 5: passives, Hirz, keystone state; 6: Talismans, ailments, glyphs; 7: Act I;
+                                           // 8: chart runs and the Haboob; 9: poison, marks, Frenzy, arrows;
+                                           // 10: bleeding, piercing bolts, grenades, the weapon swap
 
 static ByteWriter save_state() {
     ByteWriter w;

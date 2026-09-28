@@ -98,6 +98,52 @@ const std::vector<Ascendancy>& ascendancies() {
              {"Plague Road", true, 11, {-2.8f, -2.2f}, {M(S_POISON_DAMAGE, MK_INC, 15)}, KS_PLAGUE,
               {"When a Poisoned enemy dies, its Poisons spread to enemies nearby", "15% increased Poison Damage"}},
          }},
+        // ---- Slice 7: the Mercenary's two
+        {"duelist", "Duelist", "mercenary", "One opponent at a time: a guard, an answer, and the wound left open", 0xC8423A,
+         {
+             {"Duelist", false, -1, {0, 0}, {}, 0, {}},
+             {"Measured Step", false, 0, {-1.6f, 1.0f}, {M(S_ATTACK_SPEED, MK_INC, 6, T_SWORD)}, 0, {"6% increased Attack Speed with Swords"}},
+             {"The Answer", true, 1, {-2.8f, 2.2f}, {M(S_DAMAGE, MK_INC, 15, T_SWORD)}, KS_RIPOSTE,
+              {"When an enemy's Hit lands on you, Riposte is ready at once", "15% increased Damage with Swords"}},
+             {"Blood-Letting", false, 0, {0, 1.4f}, {M(S_BLEED, MK_FLAT, 10)}, 0, {"+10% chance to cause Bleeding"}},
+             {"Open Wounds", true, 3, {0, 2.9f}, {M(S_BLEED_DAMAGE, MK_INC, 20)}, KS_OPEN_WOUNDS,
+              {"Bleeding enemies take 12% increased Damage from your Hits", "20% increased Bleeding Damage"}},
+             {"Guard", false, 0, {1.6f, 1.0f}, {M(S_ARMOUR, MK_FLAT, 30), M(S_EVASION, MK_FLAT, 30)}, 0,
+              {"+30 to Armour", "+30 to Evasion Rating"}},
+             {"Single Combat", true, 5, {2.8f, 2.2f}, {}, KS_SINGLE, {"Your Hits deal 25% more Damage to Rare and Unique enemies"}},
+             {"Keen Edge", false, 0, {1.6f, -1.0f}, {M(S_CRIT_CHANCE, MK_INC, 15, T_SWORD)}, 0,
+              {"15% increased Critical Strike Chance with Swords"}},
+             {"Fencer's Poise", true, 7, {2.8f, -2.2f}, {M(S_CRIT_CHANCE, MK_FLAT, 1.5f, T_SWORD), M(S_CRIT_MULTI, MK_FLAT, 25, T_SWORD)}, 0,
+              {"+1.5% to Critical Strike Chance with Swords", "+25% to Critical Strike Multiplier with Swords"}},
+             {"Scarred", false, 0, {0, -1.4f}, {M(S_LIFE, MK_FLAT, 20)}, 0, {"+20 to maximum Life"}},
+             {"Second Wind", true, 9, {0, -2.9f}, {M(S_LIFE, MK_INC, 5)}, KS_BLOOD_KILL,
+              {"Recover 3% of maximum Life when you kill a Bleeding enemy", "5% increased maximum Life"}},
+             {"Footwork", false, 0, {-1.6f, -1.0f}, {M(S_MOVE_SPEED, MK_INC, 5)}, 0, {"5% increased Movement Speed"}},
+             {"Crescent Moon", true, 11, {-2.8f, -2.2f}, {}, KS_CRESCENT, {"Every second Crescent Cut in a row is a crescent"}},
+         }},
+        {"demolitionist", "Demolitionist", "mercenary", "Naphtha, heavy bolts and a steady hand with a fuse: the crowd is the target", 0xE07A2A,
+         {
+             {"Demolitionist", false, -1, {0, 0}, {}, 0, {}},
+             {"Naphtha", false, 0, {-1.6f, 1.0f}, {M(S_DAMAGE, MK_INC, 10, T_GRENADE)}, 0, {"10% increased Grenade Damage"}},
+             {"Double Charge", true, 1, {-2.8f, 2.2f}, {}, KS_TWO_POTS, {"Naffata throws a second pot beside the first"}},
+             {"Wide Burst", false, 0, {0, 1.4f}, {M(S_AREA, MK_INC, 8)}, 0, {"8% increased Area of Effect"}},
+             {"Clinging Fire", true, 3, {0, 2.9f}, {M(S_IGNITE, MK_FLAT, 30, T_GRENADE), M(S_AREA, MK_INC, 10, T_GRENADE)}, 0,
+              {"+30% chance to Ignite with Grenades", "10% increased Area of Effect of Grenades"}},
+             {"Bolt Case", false, 0, {1.6f, 1.0f}, {M(S_DAMAGE, MK_INC, 12, T_CROSSBOW)}, 0, {"12% increased Damage with Crossbows"}},
+             {"Heavy Quarrels", true, 5, {2.8f, 2.2f}, {M(S_PIERCE, MK_FLAT, 1), M(S_DAMAGE, MK_INC, 20, T_CROSSBOW)}, 0,
+              {"Projectiles Pierce 1 more enemy", "20% increased Damage with Crossbows"}},
+             {"Sapper's Hands", false, 0, {1.6f, -1.0f}, {M(S_ATTACK_SPEED, MK_INC, 6)}, 0, {"6% increased Attack Speed"}},
+             {"Chain Reaction", true, 7, {2.8f, -2.2f}, {}, KS_CHAIN_BURST,
+              {"Enemies killed by your Grenades burst, dealing 15% of their", "maximum Life as Fire Damage to enemies nearby"}},
+             {"Leather Apron", false, 0, {0, -1.4f}, {M(S_LIFE, MK_FLAT, 15), M(S_FIRE_RES, MK_FLAT, 10)}, 0,
+              {"+15 to maximum Life", "+10% to Fire Resistance"}},
+             {"Blast Shield", true, 9, {0, -2.9f}, {M(S_FIRE_RES, MK_FLAT, 20), M(S_ARMOUR, MK_INC, 25)}, 0,
+              {"+20% to Fire Resistance", "25% increased Armour"}},
+             {"Quick Fuse", false, 0, {-1.6f, -1.0f}, {M(S_COOLDOWN_RECOVERY, MK_INC, 15, T_GRENADE)}, 0,
+              {"15% increased Cooldown Recovery Rate of Grenades"}},
+             {"Bandolier", true, 11, {-2.8f, -2.2f}, {M(S_COOLDOWN_RECOVERY, MK_INC, 30, T_GRENADE), M(S_DAMAGE, MK_MORE, 15, T_GRENADE)}, 0,
+              {"30% increased Cooldown Recovery Rate of Grenades", "Grenades deal 15% more Damage"}},
+         }},
     };
     return a;
 }
@@ -133,7 +179,7 @@ bool asc_can_take(const Ascendancy& a, uint32_t held, int node) {
     return p == 0 || (p > 0 && (held >> p & 1));
 }
 
-void asc_apply(const Ascendancy& a, uint32_t held, Stats& s, uint32_t& rules) {
+void asc_apply(const Ascendancy& a, uint32_t held, Stats& s, uint64_t& rules) {
     for (size_t i = 1; i < a.nodes.size(); i++) {
         if (!(held >> i & 1)) continue;
         for (Mod m : a.nodes[i].mods) { m.source = uint16_t(SRC_ASC + i); s.add(m); }

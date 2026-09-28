@@ -48,6 +48,24 @@ const std::vector<SkillDef>& skill_defs() {
                  T_ATTACK | T_PROJECTILE | T_CHAOS | T_BOW, "shoot", 1.35f, 0, 0, DT_PHYS, 7, 1.2f, Shape::Projectile, 15.f, 0.35f, 0, 1.0f, 11, ATTR_DEX, "ranger"});
         s->proj_speed = 30.f;
         s->poison = 60;
+        s->pierce = 1;   // its card always said it pierces; from Slice 7, projectiles can
+        // ---- the Mercenary's kit (Slice 7): cut them bleeding, finish the bleeding; a crossbow and a pot of naphtha for the rest
+        s = add({"crescent_cut", "Crescent Cut", "Cut in an arc with a sword. Hits build a combo: every third cut in a row is a "
+                 "crescent that deals 60% more damage and always causes Bleeding.",
+                 T_ATTACK | T_MELEE | T_STRIKE | T_SWORD, "swing", 1.1f, 0, 0, DT_PHYS, 0, 0, Shape::Cone, 2.4f, 0, 1.1f, 0.9f, 12, ATTR_STR, "mercenary"});
+        s->bleed = 20;
+        s = add({"riposte", "Riposte", "Two quick thrusts at one enemy. Against a Bleeding enemy they deal 80% more damage, and "
+                 "the second makes its Bleeding burst: all the damage it had left, at once.",
+                 T_ATTACK | T_MELEE | T_STRIKE | T_SWORD, "combo", 0.85f, 0, 0, DT_PHYS, 5, 1.5f, Shape::Cone, 2.6f, 0, 0.45f, 1.1f, 13, ATTR_DEX, "mercenary"});
+        s = add({"naffata", "Naffata", "Throw a clay pot of naphtha. It bursts where it lands, burning everything near it, and can "
+                 "Ignite.",
+                 T_GRENADE | T_AREA | T_FIRE | T_PROJECTILE, "throw", 0, 14, 22, DT_FIRE, 9, 2.0f, Shape::Grenade, 10.f, 2.6f, 0, 1.2f, 14, ATTR_STR, "mercenary"});
+        s->ignite = 30;
+        s = add({"quarrel", "Quarrel", "Loose a heavy crossbow bolt that pierces two enemies. It can cause Bleeding.",
+                 T_ATTACK | T_PROJECTILE | T_CROSSBOW, "shoot", 1.3f, 0, 0, DT_PHYS, 4, 0, Shape::Projectile, 15.f, 0.35f, 0, 1.2f, 15, ATTR_DEX, "mercenary"});
+        s->proj_speed = 34.f;
+        s->pierce = 2;
+        s->bleed = 25;
         return v;
     }();
     return d;
@@ -57,6 +75,12 @@ int find_skill(const char* id) {
     auto& d = skill_defs();
     for (size_t i = 0; i < d.size(); i++) if (std::string(d[i].id) == id) return int(i);
     return -1;
+}
+
+uint32_t skill_weapon_need(const SkillDef& d) { return d.tags & (T_BOW | T_SWORD | T_CROSSBOW); }
+
+const char* weapon_need_name(uint32_t need) {
+    return need & T_BOW ? "a bow" : need & T_SWORD ? "a sword" : need & T_CROSSBOW ? "a crossbow" : "";
 }
 
 int skill_requirement(const SkillDef&, int level) { return level <= 1 ? 0 : int(8 + 3.4f * level); }
@@ -191,9 +215,15 @@ SkillCtx skill_ctx(const Talisman& t, const Stats& hero, const WeaponStats& w) {
     StatSum mk = s.sum(S_MARK, d.tags);
     c.mark_hits = 3 + int(mk.flat);
     c.mark_duration = 8.f * (1.f + mk.inc / 100.f);
+    StatSum bl = s.sum(S_BLEED, d.tags);
+    c.bleed = clampf((d.bleed + bl.flat) * (1.f + bl.inc / 100.f) * bl.more / 100.f, 0.f, 1.f);
+    c.bleed_mult = s.sum(S_BLEED_DAMAGE, d.tags).apply(1.f);   // the hit it comes from already carries the damage mods
+    c.pierce = d.pierce + int(s.sum(S_PIERCE, d.tags).flat);
     static const Stat attr_stat[3] = {S_STR, S_DEX, S_INT};
-    c.needs_bow = (d.tags & T_BOW) && !(w.tags & T_BOW);
-    c.usable = hero.value(attr_stat[d.attr]) >= float(skill_requirement(d, t.level)) && !c.needs_bow;
+    const uint32_t need = skill_weapon_need(d);
+    c.needs_weapon = need && !(w.tags & need);
+    c.weapon_needed = weapon_need_name(need);
+    c.usable = hero.value(attr_stat[d.attr]) >= float(skill_requirement(d, t.level)) && !c.needs_weapon;
     return c;
 }
 

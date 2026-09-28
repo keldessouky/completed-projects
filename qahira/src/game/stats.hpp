@@ -17,6 +17,7 @@ enum Tag : uint32_t {
     T_PHYSICAL = 1u << 10, T_FIRE = 1u << 11, T_COLD = 1u << 12, T_LIGHTNING = 1u << 13, T_CHAOS = 1u << 14,
     T_ELEMENTAL = 1u << 15, T_TWO_HAND = 1u << 16, T_MACE = 1u << 17, T_AILMENT = 1u << 18, T_CHANNEL = 1u << 19,
     T_CHAINING = 1u << 20, T_STAFF = 1u << 21, T_GLYPH = 1u << 22, T_BOW = 1u << 23, T_MARK = 1u << 24,
+    T_SWORD = 1u << 25, T_CROSSBOW = 1u << 26, T_GRENADE = 1u << 27,   // Slice 7: the Mercenary
 };
 
 enum DamageType { DT_PHYS, DT_FIRE, DT_COLD, DT_LIGHTNING, DT_CHAOS, DT_COUNT };
@@ -46,6 +47,10 @@ enum Stat : uint16_t {
     S_POISON_DAMAGE,          // poison's damage (inc/more)
     S_MARK,                   // hits a Mark guarantees as crits (flat), and its duration (inc)
     S_FRENZY,                 // maximum Frenzy Charges (flat)
+    // Slice 7: the Mercenary
+    S_BLEED,                  // chance to cause Bleeding, percent
+    S_BLEED_DAMAGE,           // bleeding's damage (inc/more)
+    S_PIERCE,                 // projectiles pierce this many more enemies
     S_COUNT
 };
 const char* stat_name(Stat s);

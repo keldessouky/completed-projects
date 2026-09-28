@@ -95,6 +95,7 @@ struct Actor {
     float act_t = 0;
     int skill = -1;                // skill being used
     bool struck = false;           // the skill's hit event has fired
+    bool struck2 = false;          // ...and its second (a two-hit clip: Riposte)
     float break_meter = 0, broken_t = 0, stun_t = 0;
     float hit_flash = 0;
     float dead_t = 0;
@@ -115,7 +116,9 @@ struct Actor {
     float poison[6] = {}, poison_t[6] = {};   // poison stacks: damage per second, seconds left (Slice 6)
     float mark_t = 0;              // Marked (a Ranger's mark): the next hits are critical strikes
     int mark_hits = 0;
+    float bleed_t = 0, bleed_dps = 0;   // Bleeding (Slice 7): physical damage over time; the strongest one holds
     bool rift = false;             // came through a Marid Rift: it leaves splinters
+    bool dig = false;              // a buried chamber's guardian (Excavations)
     Animator anim;
     CharacterModel model;
     bool alive() const { return act != Act::Dead; }
@@ -126,6 +129,7 @@ struct HeroHit {
     HitDamage hit;
     float ignite = 0, shock = 0, shock_effect = 1, freeze = 1, brk = 1;
     float poison = 0, poison_mult = 1;   // chance to Poison (0..1), and its damage
+    float bleed = 0, bleed_mult = 1;     // chance to cause Bleeding (0..1), and its damage
     int16_t talisman = -1;
 };
 
@@ -139,11 +143,14 @@ struct Projectile {
     bool arrow = false;            // drawn as an arrow along its flight, not a ball of light
     HeroHit hh;                    // the hero's bolts
     uint32_t owner = 0;
+    int8_t pierce = 0;             // enemies it may still pass through
+    uint32_t pierced[4] = {};      // the ones it has (never hit twice)
 };
 
 struct GroundFx {
-    enum Kind : uint8_t { Crack, Telegraph, Ring, Glyph, Meteor, Bolt, Fire, Line, Rain, Water } kind = Crack;   // Fire: a hazard; Line: a
-    // telegraphed strip; Rain: a Rain of Arrows (volleys on its pulses); Water: a cold hazard (Act II's pools)
+    enum Kind : uint8_t { Crack, Telegraph, Ring, Glyph, Meteor, Bolt, Fire, Line, Rain, Water, Grenade } kind = Crack;   // Fire: a hazard; Line: a
+    // telegraphed strip; Rain: a Rain of Arrows (volleys on its pulses); Water: a cold hazard (Act II's pools);
+    // Grenade: a pot in flight from pos2 to pos, bursting when it lands (Slice 7)
     vec2 pos;
     float radius = 1, t = 0, life = 6, angle = 0, half = 0.6f;
     uint32_t owner = 0;
@@ -177,6 +184,22 @@ struct Rift {
     static constexpr float kLife = 20.f;
 };
 
+// An Excavation (Slice 7, charts after Act III): a line of charges from a surveyor's stake to a buried chamber. Set each
+// charge along the line, fire them from the stake, and the chamber is blown open with its guardians inside; kill them and
+// search it for relics, which Amm Ramadan barters for.
+struct Dig {
+    static constexpr int kCharges = 4;
+    bool armed = false, fired = false, opened = false, searchable = false, searched = false;
+    vec2 stake, chamber;
+    vec2 spots[kCharges];
+    uint8_t set = 0, blown = 0;    // charges set, charges gone off (bits)
+    float t = 0;                   // seconds since firing
+    bool all_set() const { return set == (1u << kCharges) - 1; }
+    int count_set() const { return __builtin_popcount(set); }
+    static float blow_at(int i) { return 0.5f + 0.35f * float(i); }
+    static float open_at() { return blow_at(kCharges) + 0.35f; }
+};
+
 struct Particle {
     vec3 pos, vel;
     float life, max_life, size0, size1, gravity, drag;
@@ -204,7 +227,8 @@ struct GroundItem {
 };
 
 struct Interactable {
-    enum Kind : uint8_t { Stair, Portal, Vendor, Exit, Chest, Waypoint, Next, Bench, Gate, ChartTable } kind;
+    enum Kind : uint8_t { Stair, Portal, Vendor, Exit, Chest, Waypoint, Next, Bench, Gate, ChartTable,
+                          Charge, Detonator, Chamber, Dealer } kind;   // Slice 7: an Excavation's, and Amm Ramadan
     // Next: the way on to zone `target`; Gate: a side zone (a trial); Waypoint: the waypoint list; Bench: the Coppersmith
     vec2 pos;
     float radius = 1.8f;
@@ -228,7 +252,7 @@ struct Npc {
 enum class Ev : uint8_t { Swing, Impact, SlamImpact, EnemyHit, EnemyDie, HeroHit, Warcry, Dodge, Spit, Splash, Pickup,
                           Drink, Crit, Break, LevelUp, HeroDie, Aftershock, Portal, Gold, Currency, BossDie, BossWail,
                           BossLeap, Summon, Craft, Sell, InvFull, Cast, FireHit, ColdHit, LightningHit, StarFall, Frozen,
-                          Glyph };
+                          Glyph, WeaponSwap, Bleed };
 struct Event { Ev type; vec2 pos; float mag; int def = -1; };   // def: the monster, for its voice
 
 struct Hero {
@@ -241,12 +265,12 @@ struct Hero {
     uint8_t filter = FILTER_STANDARD;
     Allocation passives;           // the class, and its stars in the Book of Fixed Stars
     std::vector<uint16_t> plan;    // planned stars, in the order they can be taken
-    uint32_t keystones = 0;
+    uint64_t keystones = 0;
     float es = 0, es_max = 0;      // Hirz, the energy shield
     float es_wait = 0;             // seconds until Hirz starts to recharge
     float overload_t = 0;          // al-Simak: elemental damage after a crit
     uint32_t last_attacker = 0;    // al-Dabaran: the last enemy that hit you
-    uint32_t waypoints = 0;        // zones whose waypoint you have touched (bit = zone index)
+    uint64_t waypoints = 0;        // zones whose waypoint you have touched (bit = zone index)
     uint32_t quests = 0;           // Quest bits (game/acts.hpp)
     Item sealed;                   // what a trial's gatekeeper holds as the toll
     int8_t sealed_slot = -1;
@@ -306,6 +330,9 @@ void apply_class_base(Hero& h, const std::string& cls);   // the class's base st
 void give_class_kit(Hero& h);                             // the class's starting Talismans on bar one
 const char* hero_model();                                 // the current hero's model name            // base + level + gear + stars + attributes -> h.stats
 HeroSummary summarize(const Hero& h);
+// A Talisman worked out with the weapon it will be used with: `weapon` if given (a comparison), else the one in hand, or
+// the one on the back when the skill needs it and using the skill would swap it into hand.
+SkillCtx hero_skill_ctx(const Hero& h, const Talisman& t, const Item* weapon = nullptr);
 
 class World {
 public:
@@ -330,6 +357,7 @@ public:
     int area_level = 1;
     bool boss_killed = false;
     Rift rift;
+    Dig dig;                       // an Excavation in this chart (Slice 7)
     float coil_t = -1;             // Act II's end: a coil of the serpent passing through the pit (seconds in; -1 none)
     vec2 coil_at, coil_dir;
     // a chart run: its tier and mods, the Astrolabe it was opened under, and its Haboob
@@ -350,7 +378,8 @@ public:
     const Actor* focus_enemy() const;      // rare/unique being fought, for the target frame
     float skill_cost(int slot) const;
     SkillCtx slot_ctx(int slot) const;                // the Talisman on a bar slot, worked out
-    float hero_dps(const Item& weapon) const;        // the main (first damaging) skill's DPS with this weapon
+    // the DPS of the first damaging skill this weapon can use (its name in `skill`), with this weapon
+    float hero_dps(const Item& weapon, const char** skill = nullptr) const;
     int main_slot() const;
     WeaponStats hero_weapon() const { return hero.weapon().weapon(); }
     bool loot_visible(const GroundItem& g) const { return g.kind != GroundItem::Gear || filter_shows(hero.filter, g.item); }
@@ -359,6 +388,7 @@ public:
     bool pick_up(int loot_index);
     bool equip_from_inventory(int inv_index);
     bool unequip(int slot);
+    bool swap_weapons();                 // the weapon in hand for the one on the back (Slice 7)
     void drop_from_inventory(int inv_index);
     bool craft(int currency, Item& target, std::string* why);
     void drop_currency(vec2 at, int currency, int amount);
@@ -370,6 +400,8 @@ public:
     void gain_endurance(int n);
     void gain_frenzy(int n);
     void rift_step(float dt);
+    void dig_step(float dt);
+    void dig_use(int interact);          // a charge set, the charges fired, the chamber searched
     int frenzy_max() const { return 3 + int(hero.stats.sum(S_FRENZY).flat); }
     float evade_chance() const;   // against this area's monsters
     void haboob_step(float dt);
@@ -382,6 +414,9 @@ public:
 
     // one hit on an enemy: mitigation, ailments, Break, knockback, leech, death. Returns the damage dealt.
     float hit_enemy(Actor& e, const HeroHit& hh, vec2 from, float knock, float extra_more = 1.f);
+    void start_skill(int slot, vec2 stick);   // what a bar button does (a weapon swap first, if the skill needs it)
+    void resolve_skill(Actor& h);             // the skill's hit, when its clip reaches it
+    void ailments_step(Actor& m, float dt);
 
 private:
     void hero_step(const Input& in, float dt);
@@ -389,12 +424,11 @@ private:
     void boss_step(Actor& m, float dt);
     void boss_strike(Actor& m, const char* ev);
     void anim_step(Actor& a, float dt);
-    void start_skill(int slot, vec2 stick);
-    void resolve_skill(Actor& h);
     void glyph_pulse(GroundFx& g);
     void star_fall(GroundFx& g);
+    void grenade_burst(GroundFx& g);
+    void sword_cut(Actor& h, const SkillDef& sk, HeroHit hh, float area, vec2 dir);
     bool in_glyph(vec2 p) const;
-    void ailments_step(Actor& m, float dt);
     // evadable: an attack (melee, arrows, bile) that Evasion can avoid; spells, novas and burning ground cannot be
     void damage_hero(float lo, float hi, int type, vec2 from, float break_amt, uint32_t attacker = 0, bool evadable = true);
     void kill(Actor& e);

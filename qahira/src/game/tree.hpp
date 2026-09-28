@@ -12,7 +12,7 @@ namespace q {
 enum class StarKind : uint8_t { Minor, Attr, Notable, Keystone, Start, Pole };
 
 // keystone rules the simulation has to know about
-enum Keystone : uint32_t { KS_FOLLOWER = 1u << 0, KS_OVERLOAD = 1u << 1, KS_POINT_BLANK = 1u << 2 };
+enum Keystone : uint64_t { KS_FOLLOWER = 1u << 0, KS_OVERLOAD = 1u << 1, KS_POINT_BLANK = 1u << 2, KS_BRAND = 1u << 3 };
 
 struct Star {
     int id = 0;
@@ -21,7 +21,7 @@ struct Star {
     std::string name, star, constellation, cls;
     std::vector<Mod> mods;
     std::vector<std::string> text;
-    uint32_t keystone = 0;
+    uint64_t keystone = 0;
     std::vector<int> adj;
 };
 
@@ -64,7 +64,7 @@ struct Allocation {
     // the cheapest set of stars to take to reach `target`, in allocation order (empty if unreachable or held)
     std::vector<int> path_to(int target) const;
     void apply(Stats& s) const;             // every held star's mods, sourced 1000 + star id
-    uint32_t keystones() const;
+    uint64_t keystones() const;
     std::vector<int> held() const;
 };
 

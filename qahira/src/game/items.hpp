@@ -9,7 +9,7 @@ namespace q {
 enum class Rarity : uint8_t { Normal, Magic, Rare, Unique };
 enum class Slot : uint8_t { Weapon, Helmet, Body, Gloves, Boots, Belt, Amulet, Ring, Chart, Count };   // Chart: a map item
 
-enum WeaponKind : uint8_t { WK_NONE, WK_MAUL, WK_STAFF, WK_BOW };
+enum WeaponKind : uint8_t { WK_NONE, WK_MAUL, WK_STAFF, WK_BOW, WK_SWORD, WK_CROSSBOW };
 
 struct ItemBase {
     const char* id;
@@ -40,7 +40,8 @@ enum AffixEffect : uint8_t {
     AE_LOCAL_EVASION_ADD, AE_LOCAL_EVASION_INC,
 };
 // AffixDef::need: which bases in a slot can roll it (0: any)
-enum AffixNeed : uint8_t { NEED_ARMOUR = 1, NEED_ES = 2, NEED_MAUL = 4, NEED_STAFF = 8, NEED_EVASION = 16, NEED_BOW = 32 };
+enum AffixNeed : uint8_t { NEED_ARMOUR = 1, NEED_ES = 2, NEED_MAUL = 4, NEED_STAFF = 8, NEED_EVASION = 16, NEED_BOW = 32, NEED_SWORD = 64,
+                           NEED_CROSSBOW = 128 };
 
 struct AffixDef {
     const char* id;

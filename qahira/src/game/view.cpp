@@ -7,7 +7,9 @@
 
 namespace q {
 
-static const char* weapon_mesh(uint8_t wkind) { return wkind == WK_STAFF ? "staff" : wkind == WK_BOW ? "bow" : "maul"; }
+static const char* weapon_mesh(uint8_t wkind) {
+    return wkind == WK_STAFF ? "staff" : wkind == WK_BOW ? "bow" : wkind == WK_SWORD ? "sword" : wkind == WK_CROSSBOW ? "crossbow" : "maul";
+}
 
 void View::follow(const World& w, float dt, bool snap) {
     const Actor& h = w.actors[0];
@@ -126,6 +128,7 @@ void View::draw_actor(Renderer& r, World& w, Actor& a, int index) {
     bool poisoned = false;
     for (float pt : a.poison_t) poisoned = poisoned || pt > 0;
     if (poisoned) in.tint = vec4(lerp(vec3(in.tint.x, in.tint.y, in.tint.z), vec3{0.55f, 0.9f, 0.35f}, 0.3f), 1);
+    if (a.bleed_t > 0 && a.alive()) in.rim = vec4(hex_lin(0xB0201A), 0.9f + 0.3f * std::sin(w.time * 6.f + a.id));   // Bleeding
     r.draw(m.body, in);
     if (a.mark_t > 0 && a.alive()) {   // a Falcon's Mark: a turning sigil at the feet and a bright point overhead
         float t = w.time * 1.5f;
@@ -226,6 +229,15 @@ void View::render_world(Renderer& r, World& w) {
             r.billboard(p, 0.9f, vec4(1.f, 0.85f, 0.5f, 1), {0, 1.5f, 0, 4});
             r.billboard(p + vec3{-0.6f, 0.4f, 2.4f} * 0.5f, 0.6f, vec4(1.f, 0.5f, 0.2f, 0.6f), {0, 1.5f, 0, 4});
             r.light(p, 8.f, hex_lin(0xFFB060) * 20.f);
+        } else if (g.kind == GroundFx::Grenade) {
+            // a pot of naphtha in flight, its wick burning, and where it will land
+            vec3 p = vec3(lerp(g.pos2, g.pos, k), 1.4f * (1.f - k) + 3.2f * k * (1.f - k) + 0.1f);
+            Instance pot;
+            pot.model = mat4::translate(p) * mat4::rot_z(w.time * 3.f) * mat4::rotate(quat::axis_angle({1, 0, 0}, w.time * 9.f + float(g.seed % 7)));
+            pot.extra = {-1, 0, 0, 0};
+            r.draw(assets().mesh("grenade"), pot);
+            r.light(p, 3.f, hex_lin(0xFFA040) * 6.f);
+            r.ground(vec3(g.pos, 0.02f), g.radius, vec4(1.f, 0.5f, 0.15f, 0.2f + 0.35f * k), {2, 0.05f, 0, 1}, Blend::Additive);
         } else if (g.kind == GroundFx::Rain) {
             // where the volleys land: a dusty ring, a thud of light on each volley
             float in_a = smoothstep(0.f, 0.1f, g.t) * (1.f - smoothstep(g.life - 0.2f, g.life, g.t));
@@ -282,6 +294,46 @@ void View::render_world(Renderer& r, World& w) {
         if (rf.open) {
             r.ground(vec3(rf.pos, 0.03f), rf.radius, vec4(0.4f, 0.8f, 1.f, 0.55f), {1, 0.04f, 0, 2}, Blend::Additive, w.time * 0.4f);
             r.ground(vec3(rf.pos, 0.02f), rf.radius, vec4(0.05f, 0.2f, 0.3f, 0.35f), {0, 1.2f, 0, 1}, Blend::Alpha);
+        }
+    }
+    if (w.dig.armed) {   // an Excavation: the stake, the charges down the line and their wire, and the chamber once it is open
+        const Dig& d = w.dig;
+        Instance in;
+        in.extra = {-1, 0, 0, 0};
+        in.model = mat4::translate(vec3(d.stake, 0)) * mat4::rot_z(0.4f);
+        in.rim = vec4(hex_lin(0xF2A541), d.fired ? 0.f : 0.35f);
+        r.draw(assets().mesh("dig_stake"), in);
+        vec2 prev = d.stake;
+        for (int i = 0; i < Dig::kCharges; i++) {
+            const vec2 p = d.spots[i];
+            const bool set = d.set >> i & 1, blown = d.blown >> i & 1;
+            if (set && !blown) {
+                in.model = mat4::translate(vec3(p, 0)) * mat4::rot_z(float(i) * 1.7f);
+                in.rim = vec4(hex_lin(0xE05030), 0.3f + 0.3f * std::sin(w.time * 6.f + i));
+                r.draw(assets().mesh("dig_charge"), in);
+            } else if (!set) {   // where a charge goes: a scrape in the sand, ringed
+                r.ground(vec3(p, 0.02f), 0.9f + 0.06f * std::sin(w.time * 3.f + i), vec4(hex_lin(0xF2A541), 0.55f), {1, 0.08f, 0, 2},
+                         Blend::Additive, w.time * 0.5f);
+                r.ground(vec3(p, 0.01f), 0.6f, vec4(0.3f, 0.24f, 0.16f, 0.5f), {0, 1.5f, 0, 1}, Blend::Alpha);
+            } else {
+                r.ground(vec3(p, 0.01f), 1.6f, vec4(0.05f, 0.04f, 0.03f, 0.75f), {5, float(i) * 0.37f, 0, 1}, Blend::Alpha, float(i));
+            }
+            if (set && (!d.fired || !blown)) {   // the wire back towards the stake: dashes on the sand
+                vec2 a = prev, b = p;
+                int n = int(length(b - a) / 0.8f);
+                for (int k = 0; k < n; k += 2)
+                    r.ground(vec3(lerp(a, b, (k + 0.5f) / float(n)), 0.02f), 0.12f, vec4(0.08f, 0.07f, 0.06f, 0.8f), {0, 1.5f, 0, 1}, Blend::Alpha);
+            }
+            prev = p;
+        }
+        if (d.opened) {
+            vec2 to = normalize(d.stake - d.chamber + vec2{0.001f, 0});
+            in.model = mat4::translate(vec3(d.chamber, 0)) * mat4::rot_z(angle_of(to) + kPi / 2);
+            in.rim = vec4(hex_lin(0xF2A541), d.searchable && !d.searched ? 0.5f : 0.1f);
+            r.draw(assets().mesh("dig_chamber"), in);
+            r.light(vec3(d.chamber, 1.2f), 6.f, hex_lin(0xFFB050) * (d.searched ? 3.f : 8.f));
+        } else {   // before: a low mound with the lintel's corner showing
+            r.ground(vec3(d.chamber, 0.02f), 2.4f, vec4(0.55f, 0.45f, 0.3f, 0.35f), {0, 1.2f, 0, 1}, Blend::Alpha);
         }
     }
     if (w.coil_t >= 0 && w.coil_t < 14.f) {   // Act II's end: a coil of the serpent rises through the pit and slides away
@@ -344,7 +396,7 @@ void View::render_world(Renderer& r, World& w) {
             in.model = mat4::translate(vec3(g.pos, z)) * mat4::rot_z(spin) * mat4::scale({1.4f, 1.4f, 1.4f});
             in.tint = vec4(c, 1);
             in.rim = vec4(c, 0.9f);
-            r.draw(assets().mesh("loot_bead"), in);
+            r.draw(assets().mesh(g.currency == CUR_RELIC ? "loot_relic" : "loot_bead"), in);
             r.ground(vec3(g.pos, 0), 0.45f, vec4(c, 0.55f * pulse), {0, 2, 0, 2}, Blend::Additive);
             if (g.currency >= CUR_SAFFRON) r.beam(vec3(g.pos, 0), 4.f, 0.25f, vec4(c, 0.6f * pulse));
             continue;
@@ -487,6 +539,34 @@ void draw_skill_icon(float cx, float cy, float s, int glyph, bool ready) {
             u.disc(px - s * 0.06f, py + s * 0.24f, s * 0.06f, Rgba::hex(0x8FD14F).alpha(ready ? 1.f : 0.5f));
             break;
         }
+        case 12: {  // crescent cut: a thick crescent sweep, a drop falling from its tip
+            for (int i = 0; i < 10; i++) {
+                float a0 = radians(150 + i * 20.f), a1 = radians(150 + (i + 1) * 20.f), w0 = std::sin(kPi * (i + 0.5f) / 10.f);
+                u.line(cx + std::cos(a0) * s * 0.32f, cy + std::sin(a0) * s * 0.32f, cx + std::cos(a1) * s * 0.32f, cy + std::sin(a1) * s * 0.32f,
+                       s * (0.03f + 0.1f * w0), c);
+            }
+            u.disc(cx + s * 0.3f, cy + s * 0.3f, s * 0.06f, Rgba::hex(0xC0302A).alpha(ready ? 1.f : 0.5f));
+            break;
+        }
+        case 13:  // riposte: two thrusts to one point, and the wound between them
+            u.line(cx - s * 0.36f, cy + s * 0.2f, cx + s * 0.22f, cy - s * 0.08f, s * 0.06f, c);
+            u.line(cx - s * 0.3f, cy - s * 0.3f, cx + s * 0.22f, cy - s * 0.02f, s * 0.06f, c);
+            u.line(cx - s * 0.26f, cy + s * 0.1f, cx - s * 0.2f, cy + s * 0.3f, s * 0.05f, c);   // the guard
+            u.disc(cx + s * 0.28f, cy - s * 0.05f, s * 0.09f, Rgba::hex(0xC0302A).alpha(ready ? 1.f : 0.5f));
+            break;
+        case 14:  // naffata: a round-bellied pot with a burning wick
+            u.disc(cx, cy + s * 0.1f, s * 0.24f, c);
+            u.rect(cx - s * 0.07f, cy - s * 0.2f, s * 0.14f, s * 0.12f, c);
+            u.line(cx + s * 0.02f, cy - s * 0.2f, cx + s * 0.1f, cy - s * 0.32f, s * 0.04f, c);
+            u.disc(cx + s * 0.13f, cy - s * 0.37f, s * 0.07f, Rgba::hex(0xFFA040).alpha(ready ? 1.f : 0.5f));
+            break;
+        case 15:  // quarrel: a heavy bolt through two enemies
+            u.ring(cx - s * 0.08f, cy + s * 0.08f, s * 0.13f, s * 0.09f, c.alpha(0.6f));
+            u.ring(cx + s * 0.14f, cy - s * 0.14f, s * 0.13f, s * 0.09f, c.alpha(0.6f));
+            u.line(cx - s * 0.38f, cy + s * 0.38f, cx + s * 0.34f, cy - s * 0.34f, s * 0.07f, c);
+            u.line(cx + s * 0.36f, cy - s * 0.36f, cx + s * 0.2f, cy - s * 0.32f, s * 0.06f, c);
+            u.line(cx + s * 0.36f, cy - s * 0.36f, cx + s * 0.32f, cy - s * 0.2f, s * 0.06f, c);
+            break;
         default: break;
     }
 }
@@ -535,10 +615,10 @@ float draw_item_card(float x, float y, float bw, const Item& it, const World& wo
         cy += lh;
     }
     if (delta) {
-        float d = world.hero_dps(it) - world.hero_dps(*compare);
+        const char* with = "your skill";
+        float d = world.hero_dps(it, &with) - world.hero_dps(*compare);
         char b[64];
-        const Talisman* mt = world.hero.slot_talisman(world.main_slot());
-        snprintf(b, sizeof b, "%+.1f DPS with %s", d, mt ? mt->def().name : "your skill");
+        snprintf(b, sizeof b, "%+.1f DPS with %s", d, with);
         u.text(x + bw / 2, cy + 6, b, 30, d >= 0 ? pal::good : pal::bad, Align::Center, 1);
         cy += 44;
     }
@@ -639,6 +719,21 @@ void View::render_hud(World& w, const Input& in, const Areas& areas) {
             float dy = h.pos.y > hb.front ? -1.f : 1.f;
             u.text(x - 150, y + 66, dy < 0 ? "the storm is south of you" : "the storm is north of you", 20, pal::dim, Align::Center);
         }
+    }
+    // an Excavation: charges set, then the guardians
+    if (w.dig.armed && !w.dig.searched && (w.dig.fired || length(w.dig.stake - h.pos) < 24.f || w.dig.set)) {
+        const Dig& d = w.dig;
+        float x = 1880, y = (w.haboob.active ? 190 : 90) + (w.rift.open ? 100 : 0);
+        u.frame(x - 300, y, 300, 64, pal::panel.alpha(0.85f), Rgba::hex(0xE0A040), 10, 2);
+        int left = 0;
+        for (size_t i = 1; i < w.actors.size(); i++) left += w.actors[i].dig && w.actors[i].alive();
+        char b[64];
+        if (!d.fired) snprintf(b, sizeof b, "CHARGES %d / %d", d.count_set(), Dig::kCharges);
+        else if (!d.opened) snprintf(b, sizeof b, "FIRE IN THE HOLE");
+        else if (!d.searchable) snprintf(b, sizeof b, "GUARDIANS %d", left);
+        else snprintf(b, sizeof b, "SEARCH THE CHAMBER");
+        u.text(x - 286, y + 6, "EXCAVATION", 24, Rgba::hex(0xF0C070), Align::Left, 1.f);
+        u.text(x - 286, y + 34, b, 20, pal::bone, Align::Left, 0.8f);
     }
     // a Marid Rift: its time left, and what has died in it
     if (w.rift.open || (w.rift.armed && !w.rift.closed && length(w.rift.pos - h.pos) < 22.f)) {
@@ -767,7 +862,9 @@ void View::render_hud(World& w, const Input& in, const Areas& areas) {
         u.frame(x + 4, y, 108, 108, pal::panel.alpha(0.92f), bar ? pal::turquoise.alpha(0.7f) : pal::line, 14, 2);
         if (t) {
             SkillCtx c = w.slot_ctx(slot);
-            bool ready = H.cooldowns[slot] <= 0 && h.mana >= c.mana && c.usable;
+            // a skill for the weapon on the back is ready too: using it swaps that weapon into hand
+            const bool swap = c.needs_weapon && (H.equip[EQ_WEAPON2].weapon().tags & skill_weapon_need(t->def()));
+            bool ready = H.cooldowns[slot] <= 0 && h.mana >= c.mana && (c.usable || swap);
             draw_skill_icon(x + 58, y + 50, 84, t->def().glyph, ready);
             if (H.cooldowns[slot] > 0 && c.cooldown > 0) {
                 float k = std::min(1.f, H.cooldowns[slot] / c.cooldown);

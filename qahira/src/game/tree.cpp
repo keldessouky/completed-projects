@@ -57,6 +57,7 @@ bool PassiveTree::load_json(const std::string& text) {
         if (flag == "follower") s.keystone = KS_FOLLOWER;
         if (flag == "overload") s.keystone = KS_OVERLOAD;
         if (flag == "point_blank") s.keystone = KS_POINT_BLANK;
+        if (flag == "brand") s.keystone = KS_BRAND;
         if (s.id != int(stars.size())) { QERR("tree.json: ids out of order"); return false; }
         stars.push_back(std::move(s));
     }
@@ -170,8 +171,8 @@ void Allocation::apply(Stats& s) const {
             for (const Mod& m : T.stars[i].mods) s.add(m);
 }
 
-uint32_t Allocation::keystones() const {
-    uint32_t k = 0;
+uint64_t Allocation::keystones() const {
+    uint64_t k = 0;
     const PassiveTree& T = tree();
     for (size_t i = 0; i < taken.size() && i < T.stars.size(); i++)
         if (taken[i]) k |= T.stars[i].keystone;

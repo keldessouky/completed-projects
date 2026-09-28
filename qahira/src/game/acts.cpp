@@ -83,11 +83,30 @@ const std::vector<ZoneDef>& zone_defs() {
          "", "", "tomb", "cache", "", false, -1, {1.1f, 1.0f, 0.9f}},
         {"tomb", "The Deep Tomb", "Below the painted stars, something older than the kings", "tomb", 2, 25, 3, 6, 2,
          "mus_tomb", "amb_tomb", {{"tomb_ghoul", 5}, {"marid", 4}, {"timthal", 2}}, "marid",
-         "marid_tomb", "The marid is still. Below it, something vast turns over", "", "cache", "", false, -1, {0.9f, 0.9f, 1.1f}},
+         "marid_tomb", "The marid is still. Below it, something vast turns over", "farafra", "cache", "", false, -1, {0.9f, 0.9f, 1.1f}},
         // the endgame's Marid Rifts: a Rift Seal opens the Rift Lord's court (act 0, like a site, at the Fourth Clime's level)
         {"rift_court", "The Rift Lord's Court", "Water stands up in the dark like walls", "tomb", 0, 18, 2, 4, 1,
          "mus_tomb", "amb_river", {{"marid", 5}, {"marid_caller", 3}, {"tomb_ghoul", 2}}, "marid",
          "rift_lord", "The Rift Lord is unmade, and the court drains away", "", "cache", "", false, -1, {0.7f, 0.9f, 1.2f}},
+        // Act III (Slice 7): the Western Desert
+        {"farafra", "The White Desert", "Chalk towers in the moonlight, and the salt remembers the sea", "white", 3, 26, 4, 5, 3,
+         "mus_desert", "amb_desert", {{"salt_jinn", 6}, {"desert_ghoul", 4}, {"hyena", 2}}, "salt_jinn",
+         "", "", "sand_sea", "poster", "", false, -1, {0.95f, 1.0f, 1.12f}},
+        {"sand_sea", "The Great Sand Sea", "The dunes sing at night. Something laughs back", "dunes", 3, 28, 3, 6, 2,
+         "mus_desert", "amb_desert", {{"hyena", 5}, {"desert_ghoul", 4}, {"sand_jinn", 3}, {"sand_shade", 2}}, "hyena",
+         "dab_a", "The hyena's eyes go dark, and you are your own again", "siwa", "cache", "", false, -1, {1.15f, 0.98f, 0.82f}},
+        {"siwa", "Siwa", "The springs still run under the palms; nobody draws from them", "siwa", 3, 30, 4, 5, 3,
+         "mus_siwa", "amb_desert", {{"desert_ghoul", 5}, {"sand_shade", 3}, {"salt_jinn", 3}}, "sand_shade",
+         "", "", "shali", "cache", "bab_futuh", false, -1, {1.0f, 1.05f, 0.95f}},
+        {"bab_futuh", "Bab al-Futuh", "The Second Trial. The gate of Conquests stands in the sand, and takes your body armour", "futuh", 3,
+         32, 1, 5, 0, "mus_trial", "amb_desert", {{"iron_guard", 4}, {"salt_jinn", 3}, {"sand_jinn", 3}}, "iron_guard",
+         "iron_mamluk", "The Iron Mamluk kneels, and the gate is only stone", "", "cache", "", true, 2 /* EQ_BODY */, {1.15f, 0.9f, 0.8f}},
+        {"shali", "Shali", "The old town of salt and mud, melting in a rain that never came", "siwa", 3, 33, 4, 6, 3,
+         "mus_siwa", "amb_desert", {{"desert_ghoul", 5}, {"hyena", 3}, {"sand_shade", 3}, {"salt_jinn", 2}}, "hyena",
+         "", "", "oracle", "poster", "", false, -1, {1.1f, 0.92f, 0.85f}},
+        {"oracle", "The Hill of the Oracle", "The oracle answered kings here. Tonight the wind answers", "siwa", 3, 35, 3, 6, 2,
+         "mus_desert", "amb_desert", {{"sand_shade", 4}, {"desert_ghoul", 4}, {"salt_jinn", 3}, {"iron_guard", 1}}, "sand_shade",
+         "sand_wraith", "The Sand-Wraith scatters on the wind. Act III is over", "", "cache", "", false, -1, {0.85f, 0.9f, 1.15f}},
     };
     return d;
 }
@@ -112,6 +131,9 @@ const std::vector<QuestDef>& quest_defs() {
         {Q_NADDAHA, "The Caller", "Something in the Ibrahimiya Canal calls the villagers by name. Silence it.", 1, 0},
         {Q_RAM, "The Avenue of Rams", "The statues of Karnak have woken. Lay the Ram of the Avenue down.", 1, 0},
         {Q_MARID, "The Deep Tomb", "Follow the river's jinn under the Valley of the Kings, to the tomb that has no king.", 1, 0},
+        {Q_DABA, "The Hyena's Gaze", "Travellers on the Sand Sea walk off after something that laughs. Find it before you follow.", 1, 0},
+        {Q_TRIAL2, "The Second Trial", "Pay the toll at Bab al-Futuh and bring its Iron Mamluk to its knees.", 0, 2},
+        {Q_WRAITH, "The Oracle's Silence", "Climb the hill at Siwa where the oracle spoke, and silence what speaks there now.", 1, 0},
     };
     return d;
 }
