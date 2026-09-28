@@ -90,7 +90,7 @@ private:
     void tour8(World& w, Menu& m, Areas& a, Input& in, uint64_t frame);
     void tour9(World& w, Menu& m, Areas& a, Input& in, uint64_t frame);
     int dig_stage_ = 0, dig_relics_ = 0;
-    bool recovering_ = false;    // backed off from a boss, too hurt to trade and the flask dry, until life comes back
+    bool recovering_ = false;    // backed off from a site's master until life comes back (see combat)
     // charts scenario
     int chart_runs_ = 0, chart_target_ = -1, map_presses_ = 0, best_tier_done_ = 0, haboobs_seen_ = 0;
     uint32_t run_seed_ = 0;

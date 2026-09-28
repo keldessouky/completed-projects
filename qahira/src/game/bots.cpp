@@ -215,8 +215,8 @@ bool Bot::caster_combat(World& w, Input& in, uint64_t frame, float reach) {
 bool Bot::combat(World& w, Input& in, uint64_t frame, float reach) {
     if (w.hero.passives.cls == "sorcerer" || w.hero.passives.cls == "ranger") return caster_combat(w, in, frame, reach);
     Actor& h = w.actors[0];
-    {   // too hurt to trade with a boss and nothing left in the flask: back off out of its reach and let life come back
-        const Actor* boss = nullptr;
+    if (w.chart_site >= 0) {   // a site's master, too hurt to trade and the flask dry: back off out of its reach until life comes back
+        const Actor* boss = nullptr;   // (a chart's level-14 master is the one fight where dodging forever at half life stalls a run)
         for (size_t i = 1; i < w.actors.size(); i++)
             if (w.actors[i].rarity == Rarity::Unique && w.actors[i].alive() && length(w.actors[i].pos - h.pos) < 16.f) boss = &w.actors[i];
         if (!boss || h.life > h.life_max * 0.9f) recovering_ = false;
