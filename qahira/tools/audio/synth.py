@@ -808,6 +808,40 @@ def sfx_slice9():
     write('totem_plant', norm(x, 0.6))
 
 
+def music_act5():
+    """Act V, the Atlas and the Strait: the lanes of Fes and Chefchaouen on the ney in kurd, unhurried; the night market
+    driving on the qanun and the drums; and the Strait, slow and wide, for the sea walls."""
+    compose('mus_atlas', 'kurd', 146.83, 84, 16, seed=111, melody_inst='ney', rhythm='wahda', riq_p=0.2)
+    compose('mus_jemaa', 'rast', 146.83, 120, 24, seed=113, melody_inst='qanun', rhythm='maqsum', riq_p=0.85, intensity=1.2)
+    compose('mus_strait', 'nahawand', 146.83, 70, 16, seed=117, melody_inst='oud', rhythm='wahda', riq_p=0.1)
+
+
+def ambience_market(name, dur=40.0, sr=32000):
+    """Jemaa el-Fnaa after the crowd has gone: the grills still crackling, smoke hissing off the coals, a far drum."""
+    t = t_axis(dur, sr)
+    r = np.random.default_rng(43)
+    crackle = fft_filter(noise(len(t)), 2500, 9000, sr) * (r.random(len(t)) > 0.992) * 0.9
+    sizzle = fft_filter(noise(len(t)), 3000, 8000, sr) * (0.5 + 0.5 * np.sin(2 * np.pi * t / 5.3) ** 2) * 0.05
+    low = fft_filter(noise(len(t)), 60, 300, sr) * 0.12
+    x = crackle + sizzle + low
+    for k in range(int(dur / 2.4)):   # a far drum, now and then
+        at = k * 2.4 + r.uniform(0, 0.3)
+        place(x, dum(sr, 0.18), at * sr)
+    x = x + conv(x, reverb_ir(1.6, sr, 0.3))[:len(x)] * 0.3
+    write(name, norm(_loop_fade(x, sr), 0.42), sr)
+
+
+def ambience_sea(name, dur=40.0, sr=32000):
+    """The sea walls over the Strait at night: surf breaking on the rocks below, drawing back over shingle, the wind."""
+    t = t_axis(dur, sr)
+    swell = np.clip(np.sin(2 * np.pi * t / 7.3), 0, 1) ** 3 + 0.6 * np.clip(np.sin(2 * np.pi * t / 5.1 + 1.3), 0, 1) ** 3
+    surf = fft_filter(noise(len(t)), 120, 2400, sr) * swell * 0.7
+    drag = fft_filter(noise(len(t)), 2000, 7000, sr) * np.clip(np.sin(2 * np.pi * t / 7.3 - 1.2), 0, 1) ** 2 * 0.12
+    wind = fft_filter(noise(len(t)), 80, 600, sr) * 0.18
+    x = surf + drag + wind
+    write(name, norm(_loop_fade(x, sr), 0.45), sr)
+
+
 def music_act4():
     """Act IV, the Maghreb coast: the salt flats slow and wide on the ney, the medina busier on the qanun; and the Zar:
     drums first, the ayyub rhythm driving, a melody that circles."""
@@ -900,6 +934,11 @@ if __name__ == '__main__':
         ambience_salt('amb_salt')
     if 'act4' in only or 'music' in only:
         music_act4()
+    if 'act5' in only or 'music' in only:
+        music_act5()
+    if 'act5' in only or 'ambience' in only:
+        ambience_market('amb_market')
+        ambience_sea('amb_sea')
     if 'act3' in only or 'ambience' in only:
         ambience_desert('amb_desert')
     if 'act3' in only or 'music' in only:

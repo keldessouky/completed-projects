@@ -131,3 +131,23 @@ TEST(zar_nights_come_after_act_four_only) {
     }
     CHECK(armed_before == 0 && armed_after > 2 && armed_after < 16);
 }
+
+TEST(act_five_runs_from_fes_to_the_strait_with_trial_three) {
+    const char* road[] = {"fes", "fes_bali", "chaouen", "jemaa", "tangier", "strait"};
+    int last = 45;
+    for (size_t i = 0; i < 6; i++) {
+        int z = find_zone(road[i]);
+        CHECK(z >= 0 && z < 64);
+        const ZoneDef& d = zone_def(z);
+        CHECK(d.act == 5 && d.level > last && d.level <= 56);
+        last = d.level;
+        if (i + 1 < 6) CHECK(std::string(d.next) == road[i + 1]);
+        if (*d.boss) CHECK(boss_def(find_monster(d.boss)) != nullptr);
+        for (auto& s : d.spawns) if (s.monster) CHECK(std::string(monster_defs()[size_t(find_monster(s.monster))].id) == s.monster);
+    }
+    CHECK(std::string(zone_def(find_zone("sebkha")).next) == "fes");   // Act IV leads on to it
+    const ZoneDef& trial = zone_def(find_zone("bab_nasr"));
+    CHECK(trial.trial && trial.toll_slot == EQ_GLOVES && std::string(zone_def(find_zone("jemaa")).side) == "bab_nasr");
+    CHECK(std::string(zone_def(find_zone("strait")).boss) == "qandisha");
+    CHECK(quest_asc_points(Q_TRIAL1 | Q_TRIAL2 | Q_TRIAL3) == 6 && quest_passive_points(Q_PRESSER | Q_SMOKE | Q_QANDISHA) == 3);
+}

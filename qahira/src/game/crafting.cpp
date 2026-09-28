@@ -176,6 +176,20 @@ const std::vector<CodexEntry>& codex_entries() {
         {"mirage", CX_MONSTER, "Mirages",
          "Sarab: the jinn of the heat-shimmer, who shows travellers water on the horizon and walks them out onto the salt. They "
          "throw lightning from afar and are gone when you reach them."},
+        // Slice 9: the Templar, and Act V
+        {"auras", CX_MECHANIC, "The Beacon, totems and burning ground",
+         "The Beacon is an aura: held up, it reserves a quarter of your Mana for as long as it stays up. A totem stands where "
+         "you plant it and fights for you. Burning ground hurts what stands on it and mends you. Block turns a hit aside whole."},
+        {"dye_ghouls", CX_MONSTER, "The dyers' ghouls",
+         "Ghouls that came up out of the tanneries' pits, stained with every dye. They do not like the lime."},
+        {"smoke", CX_MONSTER, "Jinn of the smoke",
+         "The night market's grills never quite go out. The jinn in their smoke throw fire from afar, and Dukhan leads them."},
+        {"presser", CX_MONSTER, "Bu Ghettat, the Presser",
+         "The one who sits on a sleeper's chest in the night, so heavy the sleeper cannot move or breathe. In Chefchaouen it "
+         "sat on the whole city."},
+        {"qandisha", CX_MONSTER, "Aisha Qandisha",
+         "The lady of the springs and rivers in the Moroccan stories: beautiful, with a goat's hooves under her dress, who draws "
+         "men to the water. When she calls, you go to her: be ready to roll away when you arrive."},
         {"zar", CX_MECHANIC, "Zar Nights",
          "After Act IV, a chart may hold a drum circle. Sit down at the drum and the Zar begins: the site's creatures come to the "
          "drums, every death near the circle feeds the rhythm, and the rhythm runs down on its own. Each time it fills, the circle "

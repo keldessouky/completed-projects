@@ -14,6 +14,8 @@
 //   act3   Slice 7's exit: a character as Act II leaves one plays Act III through, the White Desert to the Hill of the
 //          Oracle, Trial II at Bab al-Futuh included
 //   act4   Slice 8's exit: a character as Act III leaves one plays Act IV through, Ghadames to the Sebkha of Sijoumi
+//   act5   Slice 9's exit: a character as Act IV leaves one plays Act V through, Fes to the sea walls of the Strait, Trial III
+//          at Bab al-Nasr included
 //   digs   Slice 7's endgame piece: after Act III, a chart with an Excavation: every charge set, fired from the stake,
 //          the chamber's guardians killed, the chamber searched, and its relics bartered with Amm Ramadan
 //   zar    Slice 8's endgame piece: after Act IV, a chart with a Zar Night: the drum sat at, the circle held against what

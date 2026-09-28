@@ -125,7 +125,30 @@ const std::vector<ZoneDef>& zone_defs() {
          "", "", "sebkha", "poster", "", false, -1, {1.08f, 0.9f, 0.9f}},
         {"sebkha", "The Sebkha of Sijoumi", "The salt lake under the city, where the flamingos will not land", "chott", 4, 46, 3, 6, 2,
          "mus_maghreb", "amb_salt", {{"salt_ghoul", 6}, {"mirage", 3}, {"salt_jinn", 2}}, "salt_ghoul",
-         "ghula_salt", "The Ghula of the Salt crumbles into brine. Act IV is over", "", "cache", "", false, -1, {0.95f, 1.0f, 1.15f}},
+         "ghula_salt", "The Ghula of the Salt crumbles into brine. Act IV is over", "fes", "cache", "", false, -1, {0.95f, 1.0f, 1.15f}},
+        // Act V (Slice 9): the Atlas and the Strait
+        {"fes", "The Tanneries of Fes", "The dye pits steam in the dark, and the hides on the roofs are moving", "fes", 5, 46, 4, 5, 3,
+         "mus_atlas", "amb_street", {{"dye_ghoul", 5}, {"blue_nasnas", 3}, {"desert_ghoul", 2}}, "dye_ghoul",
+         "", "", "fes_bali", "poster", "", false, -1, {1.1f, 0.96f, 0.86f}},
+        {"fes_bali", "Fes el-Bali", "Nine thousand lanes, and every door bolted from the inside", "fes", 5, 48, 3, 6, 3,
+         "mus_atlas", "amb_street", {{"dye_ghoul", 4}, {"blue_nasnas", 4}, {"smoke_jinn", 2}}, "dye_ghoul",
+         "", "", "chaouen", "cache", "", false, -1, {1.05f, 0.95f, 0.9f}},
+        {"chaouen", "Chefchaouen, the Blue City", "Every wall is blue, and everyone in it is asleep, and choking", "chaouen", 5, 50, 4, 5, 3,
+         "mus_atlas", "amb_street", {{"blue_nasnas", 5}, {"dye_ghoul", 3}, {"sea_marid", 2}}, "blue_nasnas",
+         "bu_ghettat", "Bu Ghettat lets go, and the Blue City breathes", "jemaa", "cache", "", false, -1, {0.85f, 0.95f, 1.2f}},
+        {"jemaa", "Jemaa el-Fnaa at Night", "The grills are still burning, and there is no one at them", "jemaa", 5, 52, 4, 6, 3,
+         "mus_jemaa", "amb_market", {{"smoke_jinn", 5}, {"dye_ghoul", 3}, {"blue_nasnas", 3}}, "smoke_jinn",
+         "dukhan", "Dukhan blows away on the night wind", "tangier", "poster", "bab_nasr", false, -1, {1.15f, 0.9f, 0.8f}},
+        {"bab_nasr", "Bab al-Nasr", "The Third Trial. The Gate of Victory stands in the square, and takes your gloves", "futuh", 5,
+         53, 1, 5, 0, "mus_trial", "amb_market", {{"nasr_guard", 4}, {"smoke_jinn", 3}, {"dye_ghoul", 3}}, "nasr_guard",
+         "bronze_mamluk", "The Bronze Mamluk kneels, and the gate is only stone", "", "cache", "", true, 3 /* EQ_GLOVES */,
+         {1.2f, 0.95f, 0.75f}},
+        {"tangier", "The Kasbah of Tangier", "White walls over the Strait, and the sea is calling someone by name", "tangier", 5, 54, 4, 5, 3,
+         "mus_strait", "amb_sea", {{"sea_marid", 5}, {"blue_nasnas", 3}, {"smoke_jinn", 2}}, "sea_marid",
+         "", "", "strait", "cache", "", false, -1, {0.9f, 0.98f, 1.15f}},
+        {"strait", "The Sea Walls of the Strait", "The rocks below the walls, and a woman standing in the surf", "tangier", 5, 56, 3, 6, 2,
+         "mus_strait", "amb_sea", {{"sea_marid", 5}, {"nasr_guard", 1}, {"blue_nasnas", 3}}, "sea_marid",
+         "qandisha", "Aisha Qandisha goes down into the sea. Act V is over", "", "cache", "", false, -1, {0.82f, 0.95f, 1.2f}},
     };
     return d;
 }
@@ -156,6 +179,11 @@ const std::vector<QuestDef>& quest_defs() {
         {Q_SARAB, "The Mirage", "Travellers on the Chott walk out toward water that is not there. Find what shows it to them.", 1, 0},
         {Q_DOOR, "The Iron Door", "A door of the Tunis medina has torn itself from its wall. Put it down.", 1, 0},
         {Q_SALT, "The Ghula of the Salt", "Something crusted white has risen from the sebkha under the city. Lay it to rest.", 1, 0},
+        {Q_PRESSER, "The Presser", "In Chefchaouen the sleepers wake choking. Find what sits on their chests.", 1, 0},
+        {Q_TRIAL3, "The Third Trial", "Pay the toll at Bab al-Nasr and bring its Bronze Mamluk to its knees.", 0, 2},
+        {Q_SMOKE, "The Smoke of the Stalls", "The night market's fires burn with a will of their own. Put out the one that leads them.", 1, 0},
+        {Q_QANDISHA, "Aisha Qandisha", "Sailors on the Strait walk into the sea after a woman on the rocks. Meet her before the next one does.",
+         1, 0},
     };
     return d;
 }

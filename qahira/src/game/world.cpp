@@ -53,6 +53,16 @@ const std::vector<MonsterDef>& monster_defs() {
             {"sarab", "Sarab, the Mirage", "ifrit", 1.1f, {0.72f, 0.95f, 1.35f}, 1500, 3.8f, 1.0f, AttackKind::Boss, 3.4f, 1.3f, 21, 31, DT_LIGHTNING, 100, 2100, 0},
             {"iron_door", "The Iron Door of the Souq", "iron_door", 1.0f, {1, 1, 1}, 1650, 2.8f, 1.5f, AttackKind::Boss, 3.6f, 1.6f, 22, 33, DT_PHYS, 380, 2300, 0},
             {"ghula_salt", "The Ghula of the Salt", "ghoula", 1.45f, {1.55f, 1.5f, 1.45f}, 1850, 4.0f, 0.95f, AttackKind::Boss, 3.3f, 1.4f, 23, 35, DT_PHYS, 160, 2600, 0},
+            // Act V (Slice 9): the Atlas and the Strait
+            {"dye_ghoul", "Dyer's Ghoul", "ghoul", 1.08f, {1.35f, 0.7f, 0.55f}, 66, 4.8f, 0.45f, AttackKind::Claw, 1.6f, 1.2f, 10, 15, DT_PHYS, 30, 28, 0},
+            {"blue_nasnas", "Nasnas of the Blue Lanes", "nasnas", 1.0f, {0.65f, 0.85f, 1.35f}, 42, 5.4f, 0.4f, AttackKind::Claw, 1.4f, 1.0f, 7, 12, DT_PHYS, 10, 26, 0},
+            {"smoke_jinn", "Smoke Jinn", "sand", 0.95f, {0.55f, 0.55f, 0.6f}, 50, 4.2f, 0.45f, AttackKind::Spit, 10.f, 2.2f, 9, 14, DT_FIRE, 5, 28, 7.f},
+            {"sea_marid", "Marid of the Strait", "marid", 1.05f, {0.5f, 0.72f, 1.15f}, 72, 4.6f, 0.5f, AttackKind::Claw, 1.8f, 1.3f, 11, 17, DT_COLD, 25, 30, 0},
+            {"nasr_guard", "Bronze Armour", "mamluk", 0.62f, {1.2f, 0.85f, 0.55f}, 124, 3.0f, 0.55f, AttackKind::Slam, 2.3f, 2.4f, 15, 23, DT_PHYS, 250, 42, 0},
+            {"bu_ghettat", "Bu Ghettat, the Presser", "wraith", 1.15f, {0.45f, 0.5f, 0.95f}, 1950, 3.8f, 1.0f, AttackKind::Boss, 3.4f, 1.3f, 24, 35, DT_CHAOS, 120, 2900, 0},
+            {"dukhan", "Dukhan, the Smoke of the Stalls", "ifrit", 1.1f, {0.62f, 0.6f, 0.64f}, 2100, 3.8f, 1.0f, AttackKind::Boss, 3.4f, 1.3f, 25, 37, DT_FIRE, 110, 3100, 0},
+            {"bronze_mamluk", "The Bronze Mamluk of Bab al-Nasr", "mamluk", 1.05f, {1.25f, 0.85f, 0.5f}, 2200, 3.2f, 1.0f, AttackKind::Boss, 3.4f, 1.5f, 26, 38, DT_PHYS, 420, 3200, 0},
+            {"qandisha", "Aisha Qandisha", "qandisha", 1.0f, {1, 1, 1}, 2500, 4.2f, 0.9f, AttackKind::Boss, 3.2f, 1.3f, 27, 40, DT_COLD, 130, 3600, 0},
         };
         auto set = [&](const char* id, bool rigid, const char* fam, const char* voice = "ghoul") {
             for (auto& m : v) if (std::string(m.id) == id) { m.rigid = rigid; m.family = fam; m.voice = voice; }
@@ -91,6 +101,15 @@ const std::vector<MonsterDef>& monster_defs() {
         set("sarab", false, "Mirages", "fire");
         set("souq_silah", false, "Si'lah, the shape-shifters", "whisper");
         set("iron_door", true, "The Iron Door", "metal");
+        set("dye_ghoul", false, "The dyers' ghouls");
+        set("blue_nasnas", false, "Nasnas, the half-men");
+        set("smoke_jinn", false, "Jinn of the smoke", "fire");
+        set("dukhan", false, "Jinn of the smoke", "fire");
+        set("sea_marid", false, "Marids of the river", "whisper");
+        set("nasr_guard", false, "The armour of Bab al-Futuh", "metal");
+        set("bronze_mamluk", false, "The armour of Bab al-Futuh", "metal");
+        set("bu_ghettat", false, "Bu Ghettat, the Presser", "whisper");
+        set("qandisha", false, "Aisha Qandisha", "whisper");
         codex("Ghouls", "ghouls");
         codex("Possessed", "possessed");
         codex("Si'lah", "silah");
@@ -110,6 +129,10 @@ const std::vector<MonsterDef>& monster_defs() {
         codex("Ghouls of the salt", "salt_ghouls");
         codex("Mirages", "mirage");
         codex("The Iron Door", "iron_door");
+        codex("The dyers' ghouls", "dye_ghouls");
+        codex("Jinn of the smoke", "smoke");
+        codex("Bu Ghettat", "presser");
+        codex("Aisha Qandisha", "qandisha");
         return v;
     }();
     return d;
@@ -196,6 +219,27 @@ const BossDef* boss_def(int monster) {
           {MoveKind::Pools, "cast", 7.5f, 0, 30, 0.55f, 0}, {MoveKind::Leap, "leap", 4.f, 4.5f, 25, 1.5f, 0},
           {MoveKind::Combo, "combo", 1.2f, 0, 3.6f, 1.f, 0}},
          0.5f, "THE SALT RISES WITH HER", "salt_ghoul", 5, 11.f, 1.3f, {0.95f, 0.95f, 1.f}},
+        // Act V: the Presser sits on you (pools of dark), the smoke throws fire, the Bronze Mamluk, and Aisha Qandisha's
+        // call to the water
+        {"bu_ghettat",
+         {{MoveKind::Summon, "summon", 1e9f, 0, 99, 0, 1}, {MoveKind::Pools, "cast", 6.5f, 0, 30, 0.6f, 0},
+          {MoveKind::Blink, "cast", 6.f, 5.f, 30, 0, 0}, {MoveKind::Wail, "wail", 9.5f, 0, 99, 0, 1},
+          {MoveKind::Combo, "combo", 1.2f, 0, 3.8f, 1.f, 0}},
+         0.5f, "THE SLEEPERS STOP BREATHING", "blue_nasnas", 5, 11.f, 1.3f, {0.5f, 0.55f, 1.f}},
+        {"dukhan",
+         {{MoveKind::Summon, "summon", 1e9f, 0, 99, 0, 1}, {MoveKind::Nova, "wail", 7.f, 0, 6.f, 1.3f, 0},
+          {MoveKind::Pools, "cast", 8.f, 0, 30, 0.5f, 1}, {MoveKind::Volley, "cast", 3.6f, 5.f, 30, 0.8f, 0},
+          {MoveKind::Combo, "combo", 1.3f, 0, 3.8f, 1.f, 0}},
+         0.5f, "EVERY GRILL IN THE SQUARE FLARES", "smoke_jinn", 4, 11.f, 1.3f, {1.f, 0.55f, 0.25f}},
+        {"bronze_mamluk",
+         {{MoveKind::Summon, "summon", 1e9f, 0, 99, 0, 1}, {MoveKind::Nova, "slam", 6.f, 0, 5.5f, 1.3f, 0},
+          {MoveKind::Leap, "leap", 4.2f, 4.5f, 25, 1.5f, 1}, {MoveKind::Combo, "combo", 1.3f, 0, 3.6f, 1.f, 0}},
+         0.5f, "THE GATE OF VICTORY STANDS TO", "nasr_guard", 3, 11.f, 1.25f, {1.f, 0.75f, 0.4f}},
+        {"qandisha",
+         {{MoveKind::Summon, "summon", 1e9f, 0, 99, 0, 1}, {MoveKind::Wail, "wail", 8.5f, 0, 99, 0, 0},
+          {MoveKind::Pools, "cast", 7.f, 0, 30, 0.55f, 0}, {MoveKind::Blink, "cast", 6.f, 5.f, 30, 0, 1},
+          {MoveKind::Volley, "cast", 3.6f, 5.f, 30, 0.75f, 0}, {MoveKind::Combo, "combo", 1.2f, 0, 3.6f, 1.f, 0}},
+         0.5f, "THE SEA CALLS YOU IN HER VOICE", "sea_marid", 4, 11.f, 1.3f, {0.5f, 0.8f, 1.f}, true},
     };
     if (monster < 0 || monster >= int(monster_defs().size())) return nullptr;
     const char* id = monster_defs()[size_t(monster)].id;
@@ -1840,6 +1884,7 @@ void World::resolve_skill(Actor& h) {
                 texts.push_back({vec3(h.pos, 2.6f), "BEACON", 0xE8B04A, 0, 30});
             }
             emit(Ev::AuraOn, h.pos, H.aura ? 1.f : 0.f);
+            meet_codex("auras");
             break;
         }
         case Shape::Totem: {   // a signal brazier planted where you aim; the oldest goes when there are too many

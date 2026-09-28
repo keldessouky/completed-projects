@@ -13,8 +13,8 @@ import qart.geom as geom
 geom.scene = bpy.context.scene
 
 from qart import rig, preview
-from characters import warrior, ghoul, npc, ghoula, sorcerer, jinn, ranger, nile, mercenary, desert, shadow, maghreb, templar
-from env import street, souq, necro, rooftop, kit, regions, regions2, regions3, regions4
+from characters import warrior, ghoul, npc, ghoula, sorcerer, jinn, ranger, nile, mercenary, desert, shadow, maghreb, templar, atlas
+from env import street, souq, necro, rooftop, kit, regions, regions2, regions3, regions4, regions5
 from props import props, dig
 
 args = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
@@ -24,6 +24,7 @@ REGION_NAMES = ('downtown', 'metro', 'khan', 'muizz', 'mokattam', 'gate')
 REGION2_NAMES = ('nile', 'village', 'karnak', 'valley', 'tomb')
 REGION3_NAMES = ('white', 'siwa', 'dunes', 'futuh')
 REGION4_NAMES = ('ghadames', 'chott', 'tozeur', 'medina')
+REGION5_NAMES = ('fes', 'chaouen', 'jemaa', 'tangier')
 ROOT = os.path.abspath(os.path.join(HERE, '..', '..'))
 OUT = os.path.join(ROOT, 'assets', 'generated')
 PREV = os.path.join(ROOT, 'build', 'preview')
@@ -40,6 +41,8 @@ def want(name):
     if name == 'act3' and ONLY is not None and any(r in ONLY for r in REGION3_NAMES):
         return True
     if name == 'act4' and ONLY is not None and any(r in ONLY for r in REGION4_NAMES):
+        return True
+    if name == 'act5' and ONLY is not None and any(r in ONLY for r in REGION5_NAMES):
         return True
     return ONLY is None or name in ONLY
 
@@ -115,7 +118,7 @@ if want('ghoula'):
     if PREVIEW:
         preview.sheet(os.path.join(PREV, 'ghoula_anims.png'), J, body, ghoula.CLIPS)
 
-for nm, skel, build, clips in jinn.CREATURES + nile.CREATURES + desert.CREATURES + maghreb.CREATURES:
+for nm, skel, build, clips in jinn.CREATURES + nile.CREATURES + desert.CREATURES + maghreb.CREATURES + atlas.CREATURES:
     if want(nm) or want('creatures'):
         J = skel()
         rig.write_skeleton(os.path.join(OUT, 'skel', nm + '.qskel'), J)
@@ -123,7 +126,7 @@ for nm, skel, build, clips in jinn.CREATURES + nile.CREATURES + desert.CREATURES
         body = build(J).export(os.path.join(OUT, 'meshes', nm + '.qmesh'))
         if PREVIEW:
             preview.sheet(os.path.join(PREV, nm + '_anims.png'), J, body, clips)
-for nm, build in jinn.STATICS + nile.STATICS + desert.STATICS + maghreb.STATICS:
+for nm, build in jinn.STATICS + nile.STATICS + desert.STATICS + maghreb.STATICS + atlas.STATICS:
     if want(nm) or want('creatures'):
         build().export(os.path.join(OUT, 'meshes', nm + '.qmesh'), skinned=False)
 
@@ -164,6 +167,12 @@ if want('act4'):
     os.makedirs(tiles, exist_ok=True)
     for R in regions4.REGIONS:
         if ONLY is None or 'act4' in ONLY or R.NAME in ONLY:
+            kit.export_region(R, os.path.join(OUT, 'meshes'), tiles)
+if want('act5'):
+    tiles = os.path.join(OUT, 'tiles')
+    os.makedirs(tiles, exist_ok=True)
+    for R in regions5.REGIONS:
+        if ONLY is None or 'act5' in ONLY or R.NAME in ONLY:
             kit.export_region(R, os.path.join(OUT, 'meshes'), tiles)
 if want('hub'):
     tiles = os.path.join(OUT, 'tiles')

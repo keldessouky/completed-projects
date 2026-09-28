@@ -47,6 +47,7 @@ enum Quest : uint32_t {
     Q_NADDAHA = 1u << 8, Q_RAM = 1u << 9, Q_MARID = 1u << 10, Q_ACT2 = 1u << 11,   // Act II
     Q_DABA = 1u << 12, Q_TRIAL2 = 1u << 13, Q_WRAITH = 1u << 14, Q_ACT3 = 1u << 15,  // Act III
     Q_SARAB = 1u << 16, Q_DOOR = 1u << 17, Q_SALT = 1u << 18, Q_ACT4 = 1u << 19,    // Act IV
+    Q_PRESSER = 1u << 20, Q_TRIAL3 = 1u << 21, Q_SMOKE = 1u << 22, Q_QANDISHA = 1u << 23, Q_ACT5 = 1u << 24,   // Act V
 };
 // All resistances fall as the campaign goes on (GDD §9): -30% once Act III is over.
 inline float act_res_penalty(uint32_t quests) { return (quests & Q_ACT3) ? 30.f : 0.f; }

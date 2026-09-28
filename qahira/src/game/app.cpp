@@ -311,6 +311,10 @@ uint32_t boss_quest(const ZoneDef& zd) {
     if (id == "chott") return Q_SARAB;
     if (id == "medina") return Q_DOOR;
     if (id == "sebkha") return Q_SALT | Q_ACT4;
+    if (id == "chaouen") return Q_PRESSER;
+    if (id == "bab_nasr") return Q_TRIAL3;
+    if (id == "jemaa") return Q_SMOKE;
+    if (id == "strait") return Q_QANDISHA | Q_ACT5;
     return 0;
 }
 
@@ -400,7 +404,11 @@ void boss_state(World& w) {
             S->view.banner_sub = "In the medina the drums have started. The Zar Nights come to the charts: keep the circle playing.";
             w.meet_codex("zar");
         }
-        S->view.banner_t = fresh & (Q_ACT2 | Q_ACT3 | Q_ACT4) ? 9.f : 5.f;
+        if (fresh & Q_ACT5) {
+            S->view.banner = "Act V is over";
+            S->view.banner_sub = "The Strait is quiet. On the Map of al-Idrisi the far Climes open: charts to the Sixteenth tier.";
+        }
+        S->view.banner_t = fresh & (Q_ACT2 | Q_ACT3 | Q_ACT4 | Q_ACT5) ? 9.f : 5.f;
         save_character();
     }
 }
