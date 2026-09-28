@@ -695,6 +695,64 @@ def music_act2():
     compose('mus_tomb', 'saba', 110.0, 64, 16, seed=83, melody_inst='oud', rhythm='wahda', riq_p=0.1, intensity=0.8)
 
 
+def sfx_slice7():
+    """The Mercenary: a pot of naphtha bursting, the crossbow's loose, a weapon swapped, and a wound opening."""
+    s = SR
+    r = np.random.default_rng(71)
+    # naffata: clay shattering, a soft whoomp as the naphtha catches, then a roar that crackles away
+    t = t_axis(1.1)
+    shatter = np.zeros(len(t))
+    for k in range(9):
+        tt = t_axis(0.05)
+        place(shatter, fft_filter(noise(len(tt)), 1800, 7000) * np.exp(-tt * 90) * r.uniform(0.4, 1.0), r.uniform(0, 0.06) * s)
+    whoomp = np.sin(2 * np.pi * np.cumsum(90 - 50 * t) / s) * np.exp(-t * 7) * 0.9
+    roar = fft_filter(noise(len(t)), 250, 2200) * env_adsr(len(t), 0.03, 0.2, 0.5, 0.7) * 0.7
+    crackle = fft_filter(noise(len(t)), 2500, 8000) * (r.random(len(t)) > 0.99) * 2.5 * np.exp(-t * 2)
+    x = shatter + whoomp + roar + crackle
+    write('naffata', norm(x + conv(x, reverb_ir(1.2, s, 0.3))[:len(x)] * 0.35, 0.75))
+    # crossbow: the latch, the prod's twang and the bolt's hiss
+    t = t_axis(0.45)
+    latch = fft_filter(noise(len(t)), 1500, 6000) * np.exp(-t * 120)
+    twang = sum(np.sin(2 * np.pi * f0 * t) * np.exp(-t * d) for f0, d in ((196, 14), (392, 18), (587, 24))) * 0.5
+    hiss = fft_filter(noise(len(t)), 3000, 9000) * np.exp(-t * 10) * 0.3
+    write('crossbow', norm(latch + fft_filter(twang, 100, 4000) + hiss, 0.55))
+    # weapon swap: leather slide and a metal click
+    t = t_axis(0.35)
+    slide = fft_filter(noise(len(t)), 700, 3500) * env_adsr(len(t), 0.02, 0.08, 0.4, 0.1) * 0.5
+    click = np.zeros(len(t))
+    tt = t_axis(0.04)
+    place(click, (np.sin(2 * np.pi * 2800 * tt) + np.sin(2 * np.pi * 4100 * tt)) * np.exp(-tt * 140), 0.2 * s)
+    write('weapon_swap', norm(slide + click * 0.6, 0.4))
+    # bleed: a short wet spatter
+    t = t_axis(0.3)
+    wet = fft_filter(noise(len(t)), 400, 2500) * np.exp(-t * 22) * (1 + 0.6 * np.sin(2 * np.pi * 38 * t))
+    drip = np.sin(2 * np.pi * np.cumsum(900 - 700 * t) / s) * np.exp(-t * 30) * 0.3
+    write('bleed', norm(wet + drip, 0.45))
+
+
+def ambience_desert(name, dur=40.0, sr=32000):
+    """The Western Desert: wind over open sand, grains hissing off a crest, and now and then a dune singing: a low hum
+    that swells and fades (the booming sands of the Sand Sea)."""
+    t = t_axis(dur, sr)
+    gust = 0.5 + 0.3 * np.sin(2 * np.pi * t / 8.3) + 0.2 * np.sin(2 * np.pi * t / 3.1 + 0.7)
+    wind = fft_filter(noise(len(t)), 150, 1600, sr) * gust
+    hiss = fft_filter(noise(len(t)), 4000, 11000, sr) * np.clip(gust - 0.55, 0, 1) * 0.2
+    x = wind * 0.55 + hiss
+    for at, f0 in ((5.0, 92.0), (21.0, 104.0), (31.0, 88.0)):   # a dune sings
+        tt = t_axis(6.0, sr)
+        f = f0 * (1 + 0.01 * np.sin(2 * np.pi * 0.7 * tt))
+        hum = np.sin(2 * np.pi * np.cumsum(f) / sr) + 0.4 * np.sin(4 * np.pi * np.cumsum(f) / sr) + 0.2 * np.sin(6 * np.pi * np.cumsum(f) / sr)
+        place(x, hum * np.sin(np.pi * tt / 6.0) ** 2 * 0.06, at * sr)
+    x = x + conv(x, reverb_ir(3.0, sr, 0.2))[:len(x)] * 0.5
+    write(name, norm(_loop_fade(x, sr), 0.45), sr)
+
+
+def music_act3():
+    """Act III, the Western Desert: open and slow on the sand, brighter in Siwa's gardens."""
+    compose('mus_desert', 'saba', 110.0, 72, 16, seed=89, melody_inst='ney', rhythm='wahda', riq_p=0.15)
+    compose('mus_siwa', 'rast', 146.83, 104, 24, seed=97, melody_inst='qanun', rhythm='maqsum', riq_p=0.6)
+
+
 def music_act1():
     """Act I: one piece per region, each in its own maqam and rhythm."""
     compose('mus_downtown', 'rast', 146.83, 108, 24, seed=41, melody_inst='qanun', rhythm='baladi')
@@ -712,6 +770,7 @@ if __name__ == '__main__':
         sfx_slice2()
         sfx_slice3()
         sfx_slice4()
+        sfx_slice7()
     if 'ambience' in only:
         ambience('amb_street')
         ambience_necro('amb_necro')
@@ -728,6 +787,12 @@ if __name__ == '__main__':
         ambience_tomb('amb_tomb')
     if 'act2' in only or 'music' in only:
         music_act2()
+    if 'act3' in only:
+        sfx_slice7()
+    if 'act3' in only or 'ambience' in only:
+        ambience_desert('amb_desert')
+    if 'act3' in only or 'music' in only:
+        music_act3()
     if 'music' in only:
         compose('mus_hijaz', 'hijaz', 146.83, 96, 24, seed=11)
         compose('mus_saba', 'saba', 130.81, 72, 20, seed=23, melody_inst='qanun')

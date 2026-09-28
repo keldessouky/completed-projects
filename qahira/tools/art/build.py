@@ -13,15 +13,16 @@ import qart.geom as geom
 geom.scene = bpy.context.scene
 
 from qart import rig, preview
-from characters import warrior, ghoul, npc, ghoula, sorcerer, jinn, ranger, nile
-from env import street, souq, necro, rooftop, kit, regions, regions2
-from props import props
+from characters import warrior, ghoul, npc, ghoula, sorcerer, jinn, ranger, nile, mercenary, desert
+from env import street, souq, necro, rooftop, kit, regions, regions2, regions3
+from props import props, dig
 
 args = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
 PREVIEW = '--preview' in args
 ONLY = next((a.split('=', 1)[1].split(',') for a in args if a.startswith('only=')), None)
 REGION_NAMES = ('downtown', 'metro', 'khan', 'muizz', 'mokattam', 'gate')
 REGION2_NAMES = ('nile', 'village', 'karnak', 'valley', 'tomb')
+REGION3_NAMES = ('white', 'siwa', 'dunes', 'futuh')
 ROOT = os.path.abspath(os.path.join(HERE, '..', '..'))
 OUT = os.path.join(ROOT, 'assets', 'generated')
 PREV = os.path.join(ROOT, 'build', 'preview')
@@ -34,6 +35,8 @@ def want(name):
     if name == 'act1' and ONLY is not None and any(r in ONLY for r in REGION_NAMES):
         return True
     if name == 'act2' and ONLY is not None and any(r in ONLY for r in REGION2_NAMES):
+        return True
+    if name == 'act3' and ONLY is not None and any(r in ONLY for r in REGION3_NAMES):
         return True
     return ONLY is None or name in ONLY
 
@@ -63,6 +66,16 @@ if want('ranger'):
     ranger.build_arrow().export(os.path.join(OUT, 'meshes', 'arrow.qmesh'), skinned=False)
     if PREVIEW:
         preview.sheet(os.path.join(PREV, 'ranger_anims.png'), J, body, ranger.CLIPS, weapon=bow, weapon_bone='weapon_L')
+if want('mercenary'):
+    J = mercenary.skeleton()
+    rig.write_skeleton(os.path.join(OUT, 'skel', 'mercenary.qskel'), J)
+    rig.bake(J, mercenary.CLIPS, os.path.join(OUT, 'anim', 'mercenary.qanim'))
+    body = mercenary.build(J).export(os.path.join(OUT, 'meshes', 'mercenary.qmesh'))
+    sword = mercenary.build_sword().export(os.path.join(OUT, 'meshes', 'sword.qmesh'), skinned=False)
+    mercenary.build_crossbow().export(os.path.join(OUT, 'meshes', 'crossbow.qmesh'), skinned=False)
+    mercenary.build_grenade().export(os.path.join(OUT, 'meshes', 'grenade.qmesh'), skinned=False)
+    if PREVIEW:
+        preview.sheet(os.path.join(PREV, 'mercenary_anims.png'), J, body, mercenary.CLIPS, weapon=sword)
 if want('ghoul'):
     J = ghoul.skeleton()
     rig.write_skeleton(os.path.join(OUT, 'skel', 'ghoul.qskel'), J)
@@ -79,7 +92,7 @@ if want('ghoula'):
     if PREVIEW:
         preview.sheet(os.path.join(PREV, 'ghoula_anims.png'), J, body, ghoula.CLIPS)
 
-for nm, skel, build, clips in jinn.CREATURES + nile.CREATURES:
+for nm, skel, build, clips in jinn.CREATURES + nile.CREATURES + desert.CREATURES:
     if want(nm) or want('creatures'):
         J = skel()
         rig.write_skeleton(os.path.join(OUT, 'skel', nm + '.qskel'), J)
@@ -87,7 +100,7 @@ for nm, skel, build, clips in jinn.CREATURES + nile.CREATURES:
         body = build(J).export(os.path.join(OUT, 'meshes', nm + '.qmesh'))
         if PREVIEW:
             preview.sheet(os.path.join(PREV, nm + '_anims.png'), J, body, clips)
-for nm, build in jinn.STATICS + nile.STATICS:
+for nm, build in jinn.STATICS + nile.STATICS + desert.STATICS:
     if want(nm) or want('creatures'):
         build().export(os.path.join(OUT, 'meshes', nm + '.qmesh'), skinned=False)
 
@@ -117,6 +130,12 @@ if want('act2'):
     for R in regions2.REGIONS:
         if ONLY is None or 'act2' in ONLY or R.NAME in ONLY:
             kit.export_region(R, os.path.join(OUT, 'meshes'), tiles)
+if want('act3'):
+    tiles = os.path.join(OUT, 'tiles')
+    os.makedirs(tiles, exist_ok=True)
+    for R in regions3.REGIONS:
+        if ONLY is None or 'act3' in ONLY or R.NAME in ONLY:
+            kit.export_region(R, os.path.join(OUT, 'meshes'), tiles)
 if want('hub'):
     tiles = os.path.join(OUT, 'tiles')
     os.makedirs(tiles, exist_ok=True)
@@ -130,4 +149,6 @@ if want('hub'):
     npc.cat().export(os.path.join(OUT, 'meshes', 'cat.qmesh'), skinned=False)
 if want('props'):
     props.export_all(os.path.join(OUT, 'meshes'))
+if want('props') or want('dig'):
+    dig.export_all(os.path.join(OUT, 'meshes'))
 print('BUILD DONE')
