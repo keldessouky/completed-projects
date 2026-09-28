@@ -25,6 +25,11 @@ const std::vector<ClassDef>& class_defs() {
          {"viper_kiss", "snare_of_sparks", "black_sand", "whirling_staff"},
          "A dagger in hand and a quarterstaff on the back. Poison the one in front, snare the crowd, wither what is left.",
          true, 30, "ash_staff"},
+        // Slice 10: the Wanderer begins at the Pole, a little of every road, once a character has finished the campaign
+        {"wanderer", "The Wanderer", "wanderer", "travellers_staff", "All three", 20, 20, 20, 60, 50, 10, 30,
+         {"whirling_staff", "arc", "rallying_shout", "falcons_mark"},
+         "A courier of the long roads, with a staff and a little of every trade: a spell, a shout, a mark, and the staff to "
+         "finish it. Begins at the Pole of the sky, with a road to every class.", true, 30},
     };
     return d;
 }

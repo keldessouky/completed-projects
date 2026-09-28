@@ -82,7 +82,7 @@ const std::vector<SkillDef>& skill_defs() {
         s->proj_speed = 18.f;
         s = add({"whirling_staff", "Whirling Staff", "Whirl a quarterstaff round you, striking everything near. Its Critical Strikes "
                  "grant a Power Charge: 40% increased Critical Strike Chance each.",
-                 T_ATTACK | T_MELEE | T_AREA | T_QSTAFF, "spin", 0.95f, 0, 0, DT_PHYS, 5, 0, Shape::Spin, 0, 2.9f, 0, 1.0f, 19, ATTR_DEX, "shadow"});
+                 T_ATTACK | T_MELEE | T_AREA | T_QSTAFF, "spin", 1.15f, 0, 0, DT_PHYS, 5, 0, Shape::Spin, 0, 2.9f, 0, 1.0f, 19, ATTR_DEX, "shadow"});
         // ---- the Templar's kit (Slice 9): a burning strike, the beacon held up, a signal brazier planted, and a slam
         // that leaves the ground burning
         s = add({"ember_strike", "Ember Strike", "Strike with a mace or sceptre wreathed in fire: 60% of its physical damage is "

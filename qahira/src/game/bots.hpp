@@ -90,6 +90,7 @@ private:
     void rifts(World& w, Menu& m, Areas& a, Input& in, uint64_t frame);
     void king(World& w, Menu& m, Areas& a, Input& in, uint64_t frame);
     int king_stage_ = 0;
+    uint64_t mark_frame_ = 0;   // the Wanderer's last Mark
     void tour7(World& w, Menu& m, Areas& a, Input& in, uint64_t frame);
     int rift_stage_ = 0, rift_splinters0_ = 0;
     void digs(World& w, Menu& m, Areas& a, Input& in, uint64_t frame);

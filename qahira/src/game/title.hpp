@@ -6,6 +6,8 @@
 
 namespace q {
 
+struct ClassDef;
+
 struct Title {
     static constexpr int kSlots = 4;
     struct Slot { bool exists = false; std::string cls; int level = 0, kills = 0; };
@@ -13,6 +15,8 @@ struct Title {
     int cursor = 0;
     bool picking = false;          // choosing a class for a new character
     int cls_cursor = 0;
+    bool wanderer_unlocked = false;   // a character in some slot has finished the campaign
+    bool pickable(const ClassDef& c) const;
     int delete_armed = -1;         // North once arms a delete, twice confirms
     Slot slots[kSlots];
     float t = 0;

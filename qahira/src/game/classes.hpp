@@ -23,5 +23,6 @@ struct ClassDef {
 
 const std::vector<ClassDef>& class_defs();
 const ClassDef& class_def(const std::string& id);   // the Warrior if unknown
+constexpr const char* kUnlockedClass = "wanderer"; // chosen only once a character has finished the campaign (Q_ACT6)
 
 }  // namespace q

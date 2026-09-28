@@ -117,11 +117,14 @@ def draco_arc(a_spoke, b_spoke, a_ang, b_ang, notable):
             n = node('minor', x, y, [inc('damage', 6)] if i % 2 else LIFE, const='al-Tinnin')
         link(prev, n)
         prev = n
+        if i == 2:
+            mid = n
     link(prev, b)
+    return mid
 
 
-draco_arc('sorcerer', 'templar', 90, 150, ('Thuban', 'al-Thuban, the Old Pole Star', [inc('damage', 15), inc('life', 4)]))
-draco_arc('templar', 'warrior', 150, 210, ('Eltanin', 'al-Tinnin, the Dragon\'s Eye',
+thuban = draco_arc('sorcerer', 'templar', 90, 150, ('Thuban', 'al-Thuban, the Old Pole Star', [inc('damage', 15), inc('life', 4)]))
+eltanin = draco_arc('templar', 'warrior', 150, 210, ('Eltanin', 'al-Tinnin, the Dragon\'s Eye',
                                            [inc('attack_speed', 5), inc('cast_speed', 5), flat('life', 10)]))
 
 # ---------------------------------------------------------------- the Ecliptic, from the Warrior round to the Sorcerer
@@ -510,6 +513,12 @@ k = node('keystone', x, y, name='al-Iklil, the Crown', star='the 17th lunar mans
 chain(hercules['kor'], k, 1, FIRE, const='the Lunar Mansions')
 keystones.append(k)
 
+# ---------------------------------------------------------------- the Wanderer (Slice 10): he begins at the Pole itself,
+# with the six spokes out to every class's ground; no region of his own, as the Scion has none
+IMPLEMENTED.add('wanderer')
+starts['wanderer'] = pole
+nodes[pole]['text'] = ['+5 to all Attributes', 'The Wanderer begins here']
+
 # ---------------------------------------------------------------- Recommended Paths (GDD §13)
 # the notables and keystones a new player aims for, in order; the tree screen can plan them in one press
 RECOMMENDED = {
@@ -519,6 +528,8 @@ RECOMMENDED = {
     'mercenary': [hydra['alf'], carina['can'], hydra['unk'], crater['alk'], carina['avi'], keystones[3]],
     'shadow': [andromeda['alp'], andromeda['mir'], andromeda['alm'], cassiopeia['sch'], cassiopeia['ruc'], cassiopeia['caph']],
     'templar': [hercules['ras'], hercules['kor'], bootes['arc'], bootes['izr'], bootes['mph']],
+    # the Wanderer's staff first (the quarterstaff's Cassiopeia), then the Dragon round the Pole
+    'wanderer': [cassiopeia['sch'], thuban, cassiopeia['ruc'], eltanin, andromeda['alm']],
 }
 
 # ---------------------------------------------------------------- text for every node
@@ -607,7 +618,7 @@ def dist_from(start):
     while q:
         c = q.popleft()
         for n in adj[c]:
-            if n in d or (nodes[n]['kind'] == 'start' and n != start):
+            if n in d or (nodes[n]['kind'] == 'start' and n != start and start != pole):   # (the Wanderer walks through)
                 continue
             d[n] = d[c] + 1
             q.append(n)
@@ -638,7 +649,7 @@ for cid, targets in RECOMMENDED.items():
         while q:
             c = q.popleft()
             for n in adj[c]:
-                if n in d or (nodes[n]['kind'] == 'start' and n != starts[cid]):
+                if n in d or (nodes[n]['kind'] == 'start' and n != starts[cid] and cid != 'wanderer'):
                     continue
                 d[n] = d[c] + 1
                 prev[n] = c

@@ -167,7 +167,11 @@ void Menu::asc_update(World& w, const Input& in, int dir) {
     if (in.hit(BTN_SOUTH)) {
         if (H.asc >> asc_cursor & 1) { say("You hold this already"); return; }
         if (H.asc_points() <= 0) { say(H.quests & Q_TRIAL1 ? "No ascendancy points left" : "Pass the First Trial at Bab Zuweila to ascend"); return; }
-        if (!asc_can_take(*a, H.asc, asc_cursor)) { say("Take the node before it first"); return; }
+        if (!asc_can_take(*a, H.asc, asc_cursor)) {
+            say(a->nodes[size_t(asc_cursor)].notable && asc_notables(*a, H.asc) >= a->max_notables ? "Three Fragments are all the road allows"
+                                                                                                     : "Take the node before it first");
+            return;
+        }
         H.asc |= 1u << asc_cursor;
         w.recompute_hero();
         say(std::string("Ascended: ") + a->nodes[size_t(asc_cursor)].name);

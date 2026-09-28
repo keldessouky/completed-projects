@@ -116,6 +116,11 @@ const std::vector<ItemBase>& item_bases() {
         {"chart_clime_14", "Chart of the Fourteenth Reach", Slot::Chart, 63, 0, 0, 0, 0, 0, 0, nullptr, 0, WK_NONE},
         {"chart_clime_15", "Chart of the Fifteenth Reach", Slot::Chart, 64, 0, 0, 0, 0, 0, 0, nullptr, 0, WK_NONE},
         {"chart_clime_16", "Chart of the Sixteenth Reach", Slot::Chart, 65, 0, 0, 0, 0, 0, 0, nullptr, 0, WK_NONE},
+        // Slice 10: the Wanderer's staff, walked with on every road
+        {"travellers_staff", "Traveller's Staff", Slot::Weapon, 1, 12, 23, 1.3f, 7, 0, 0, "+10 to all Attributes", 0, WK_QSTAFF},
+        {"acacia_staff", "Acacia Quarterstaff", Slot::Weapon, 6, 14, 29, 1.25f, 7, 0, 0, nullptr, 0, WK_QSTAFF},
+        {"brass_bound_staff", "Brass-Bound Quarterstaff", Slot::Weapon, 18, 25, 50, 1.22f, 7.5f, 0, 0, "+10 to all Attributes", 0, WK_QSTAFF},
+        {"tamarisk_staff", "Tamarisk Quarterstaff", Slot::Weapon, 34, 42, 84, 1.22f, 8, 0, 0, "+14% to Cold Resistance", 0, WK_QSTAFF},
     };
     return b;
 }

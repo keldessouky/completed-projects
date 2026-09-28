@@ -71,6 +71,7 @@ jobs:
           QAHIRA_CLASS=mercenary ./build/linux/qhost build/Qahira.qpk --headless --bot zone
           QAHIRA_CLASS=shadow ./build/linux/qhost build/Qahira.qpk --headless --bot zone
           QAHIRA_CLASS=templar ./build/linux/qhost build/Qahira.qpk --headless --bot zone
+          QAHIRA_CLASS=wanderer ./build/linux/qhost build/Qahira.qpk --headless --bot zone
       - name: Act I, played through by the bot (a fresh Warrior)
         timeout-minutes: 40
         run: ./build/linux/qhost build/Qahira.qpk --headless --bot act1 2>&1 | grep -E "^act1|TEST"; test ${PIPESTATUS[0]} -eq 0
@@ -94,6 +95,10 @@ jobs:
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         timeout-minutes: 60
         run: ./build/linux/qhost build/Qahira.qpk --headless --bot reaches 2>&1 | grep -E "^charts|TEST"; test ${PIPESTATUS[0]} -eq 0
+      - name: Act I as the Wanderer (nightly and on demand)
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        timeout-minutes: 40
+        run: QAHIRA_CLASS=wanderer ./build/linux/qhost build/Qahira.qpk --headless --bot act1 2>&1 | grep -E "^act1|TEST"; test ${PIPESTATUS[0]} -eq 0
       - name: Act IV as the Shadow (nightly and on demand)
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         timeout-minutes: 40

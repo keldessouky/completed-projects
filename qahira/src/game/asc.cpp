@@ -238,6 +238,31 @@ const std::vector<Ascendancy>& ascendancies() {
              {"Watch Fire", true, 11, {-2.8f, -2.2f}, {M(S_TOTEMS, MK_FLAT, 1), M(S_DAMAGE, MK_INC, 20, T_TOTEM)}, 0,
               {"+1 Totem out at once", "20% increased Totem Damage"}},
          }},
+        // ---- Slice 10: the Wanderer's Fragments: one notable from each of six other ascendancies, and three of them
+        // may be held (GDD §4: "one notable from each of three other ascendancies")
+        {"fragments", "Fragments", "wanderer", "Pieces of every road: three notables, each from another's ascendancy", 0xE8E0D0,
+         {
+             {"Fragments", false, -1, {0, 0}, {}, 0, {}},
+             {"The Ironclad's Road", false, 0, {-1.6f, 1.0f}, {M(S_STR, MK_FLAT, 10)}, 0, {"+10 to Strength"}},
+             {"Riveted Skin", true, 1, {-2.8f, 2.2f}, {}, KS_ENDURANCE,
+              {"From the Ironclad:", "Gain an Endurance Charge when you Break an enemy", "Each Endurance Charge: 4% less Physical Damage taken",
+               "and +4% to Elemental Resistances"}},
+             {"The Stormbinder's Road", false, 0, {0, 1.4f}, {M(S_INT, MK_FLAT, 10)}, 0, {"+10 to Intelligence"}},
+             {"Eye of the Storm", true, 3, {0, 2.9f}, {M(S_SHOCK, MK_INC, 25)}, KS_STORM_EYE,
+              {"From the Stormbinder:", "Critical Strikes with Spells always Shock", "25% increased Effect of Shock"}},
+             {"The Warden's Road", false, 0, {1.6f, 1.0f}, {M(S_LIFE, MK_FLAT, 20)}, 0, {"+20 to maximum Life"}},
+             {"Turned Aside", true, 5, {2.8f, 2.2f}, {M(S_BLOCK, MK_FLAT, 6)}, KS_BLOCK_RECOVER,
+              {"From the Warden:", "Recover 2% of your maximum Life when you Block", "+6% chance to Block"}},
+             {"The Nightblade's Road", false, 0, {1.6f, -1.0f}, {M(S_DEX, MK_FLAT, 10)}, 0, {"+10 to Dexterity"}},
+             {"Unseen Blade", true, 7, {2.8f, -2.2f}, {}, KS_LOW_CRIT,
+              {"From the Nightblade:", "Your Hits against enemies below 35% of their Life are Critical Strikes"}},
+             {"The Outrider's Road", false, 0, {0, -1.4f}, {M(S_MOVE_SPEED, MK_INC, 4)}, 0, {"4% increased Movement Speed"}},
+             {"Running Fire", true, 9, {0, -2.9f}, {}, KS_KILL_FRENZY,
+              {"From the Outrider:", "Kills have a 35% chance to grant a Frenzy Charge"}},
+             {"The Duelist's Road", false, 0, {-1.6f, -1.0f}, {M(S_LIFE, MK_INC, 5)}, 0, {"5% increased maximum Life"}},
+             {"Single Combat", true, 11, {-2.8f, -2.2f}, {}, KS_SINGLE,
+              {"From the Duelist:", "Your Hits deal 25% more Damage to Rare and Unique enemies"}},
+         }, 3},
     };
     return a;
 }
@@ -267,8 +292,15 @@ int find_ascendancy(const std::string& id) {
     return -1;
 }
 
+int asc_notables(const Ascendancy& a, uint32_t held) {
+    int n = 0;
+    for (size_t i = 1; i < a.nodes.size(); i++) n += (held >> i & 1) && a.nodes[i].notable;
+    return n;
+}
+
 bool asc_can_take(const Ascendancy& a, uint32_t held, int node) {
     if (node <= 0 || node >= int(a.nodes.size()) || (held >> node & 1)) return false;
+    if (a.nodes[size_t(node)].notable && asc_notables(a, held) >= a.max_notables) return false;
     int p = a.nodes[size_t(node)].parent;
     return p == 0 || (p > 0 && (held >> p & 1));
 }

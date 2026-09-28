@@ -13,7 +13,7 @@ import qart.geom as geom
 geom.scene = bpy.context.scene
 
 from qart import rig, preview
-from characters import warrior, ghoul, npc, ghoula, sorcerer, jinn, ranger, nile, mercenary, desert, shadow, maghreb, templar, atlas
+from characters import warrior, ghoul, npc, ghoula, sorcerer, jinn, ranger, nile, mercenary, desert, shadow, maghreb, templar, atlas, wanderer
 from env import street, souq, necro, rooftop, kit, regions, regions2, regions3, regions4, regions5
 from props import props, dig
 
@@ -82,6 +82,14 @@ if want('mercenary'):
     mercenary.build_grenade().export(os.path.join(OUT, 'meshes', 'grenade.qmesh'), skinned=False)
     if PREVIEW:
         preview.sheet(os.path.join(PREV, 'mercenary_anims.png'), J, body, mercenary.CLIPS, weapon=sword)
+if want('wanderer'):
+    J = wanderer.skeleton()
+    rig.write_skeleton(os.path.join(OUT, 'skel', 'wanderer.qskel'), J)
+    rig.bake(J, wanderer.CLIPS, os.path.join(OUT, 'anim', 'wanderer.qanim'))
+    body = wanderer.build(J).export(os.path.join(OUT, 'meshes', 'wanderer.qmesh'))
+    if PREVIEW:
+        preview.sheet(os.path.join(PREV, 'wanderer_anims.png'), J, body, wanderer.CLIPS,
+                      weapon=shadow.build_qstaff().export(os.path.join(OUT, 'meshes', 'qstaff.qmesh'), skinned=False))
 if want('shadow'):
     J = shadow.skeleton()
     rig.write_skeleton(os.path.join(OUT, 'skel', 'shadow.qskel'), J)

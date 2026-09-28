@@ -48,9 +48,11 @@ enum Quest : uint32_t {
     Q_DABA = 1u << 12, Q_TRIAL2 = 1u << 13, Q_WRAITH = 1u << 14, Q_ACT3 = 1u << 15,  // Act III
     Q_SARAB = 1u << 16, Q_DOOR = 1u << 17, Q_SALT = 1u << 18, Q_ACT4 = 1u << 19,    // Act IV
     Q_PRESSER = 1u << 20, Q_TRIAL3 = 1u << 21, Q_SMOKE = 1u << 22, Q_QANDISHA = 1u << 23, Q_ACT5 = 1u << 24,   // Act V
+    Q_DUWAIS = 1u << 25, Q_SHIQQ = 1u << 26, Q_HATIF = 1u << 27, Q_HORSEMAN = 1u << 28, Q_ACT6 = 1u << 29,     // Act VI (Apep)
+    Q_TRIAL4 = 1u << 30,                                                                                     // the Gate of Iram
 };
-// All resistances fall as the campaign goes on (GDD §9): -30% once Act III is over.
-inline float act_res_penalty(uint32_t quests) { return (quests & Q_ACT3) ? 30.f : 0.f; }
+// All resistances fall as the campaign goes on (GDD §9): -30% once Act III is over, -60% once Act VI is.
+inline float act_res_penalty(uint32_t quests) { return (quests & Q_ACT6) ? 60.f : (quests & Q_ACT3) ? 30.f : 0.f; }
 struct QuestDef { uint32_t bit; const char* title; const char* text; int passive_points; int asc_points; };
 const std::vector<QuestDef>& quest_defs();
 int quest_passive_points(uint32_t quests);

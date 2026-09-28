@@ -90,7 +90,7 @@ bool PassiveTree::load_json(const std::string& text) {
 }
 
 int PassiveTree::class_start(const std::string& cls) const {
-    for (auto& s : stars) if (s.kind == StarKind::Start && s.cls == cls) return s.id;
+    for (auto& s : stars) if ((s.kind == StarKind::Start || s.kind == StarKind::Pole) && s.cls == cls) return s.id;   // (the Wanderer's is the Pole)
     return -1;
 }
 
@@ -106,14 +106,14 @@ int Allocation::spent() const {
     return n;
 }
 
-static bool passable(const Star& s, const std::string& cls) { return s.kind != StarKind::Start || s.cls == cls; }
+static bool passable(const Star& s, const std::string& cls) { return s.kind != StarKind::Start || s.cls == cls || cls == "wanderer"; }
 
 bool Allocation::can_take(int id) const {
     const PassiveTree& T = tree();
     if (id < 0 || id >= int(T.stars.size()) || has(id)) return false;
     const Star& s = T.stars[size_t(id)];
-    if (s.kind == StarKind::Start) return false;
     int start = T.class_start(cls);
+    if (id == start || (s.kind == StarKind::Start && cls != "wanderer")) return false;   // the Wanderer walks through the others' starts
     for (int n : s.adj)
         if (n == start || has(n)) return true;
     return false;
@@ -141,7 +141,7 @@ std::vector<int> Allocation::path_to(int target) const {
     const PassiveTree& T = tree();
     std::vector<int> out;
     if (target < 0 || target >= int(T.stars.size()) || has(target)) return out;
-    if (!passable(T.stars[size_t(target)], cls) || T.stars[size_t(target)].kind == StarKind::Start) return out;
+    if (!passable(T.stars[size_t(target)], cls) || (T.stars[size_t(target)].kind == StarKind::Start && cls != "wanderer")) return out;
     // breadth-first from everything we hold (and the start): the first time we reach the target is the cheapest
     std::vector<int> prev(T.stars.size(), -2);
     std::deque<int> q;

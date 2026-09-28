@@ -67,6 +67,7 @@ struct Ascendancy {
     const char* blurb;
     uint32_t color;
     std::vector<AscNode> nodes;   // append only: characters store held nodes as bits
+    int max_notables = 99;        // the Wanderer's Fragments: three of the six, and no more
 };
 
 const std::vector<Ascendancy>& ascendancies();
@@ -76,6 +77,7 @@ std::vector<int> ascendancies_of(const std::string& cls);    // every ascendancy
 const Ascendancy* ascendancy_of(const std::string& cls, int chosen);
 int find_ascendancy(const std::string& id);
 bool asc_can_take(const Ascendancy& a, uint32_t held, int node);
+int asc_notables(const Ascendancy& a, uint32_t held);   // notables held
 void asc_apply(const Ascendancy& a, uint32_t held, Stats& s, uint64_t& rules);   // mods sourced SRC_ASC + node
 int asc_spent(uint32_t held);
 constexpr uint16_t SRC_ASC = 500;

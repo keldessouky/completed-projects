@@ -343,6 +343,36 @@ bool Bot::combat(World& w, Input& in, uint64_t frame, float reach) {
         else if (ready(2) && totems == 0) press(in, BTN_NORTH);     // (a strike he has not the Strength for: the brazier fights)
         return true;
     }
+    if (w.hero.passives.cls == "wanderer") {   // a Mark on the tough, a shout into the crowd, Arc at range, the staff up close
+        auto ready = [&](int slot) {
+            SkillCtx c = w.slot_ctx(slot);
+            return c.def && w.hero.cooldowns[slot] <= 0 && h.mana >= c.mana && c.usable;
+        };
+        const float dist = length(d);
+        const bool tough = target->rarity >= Rarity::Rare;
+        int crowd = 0;
+        for (size_t i = 1; i < w.actors.size(); i++)
+            if (w.actors[i].alive() && length(w.actors[i].pos - target->pos) < 3.f) crowd++;
+        const bool clear = w.level.line_clear(h.pos, target->pos, 0.2f);
+        if (frame % 2) return true;
+        in.rstick = normalize(d);
+        if (ready(2) && (crowd >= 3 || tough) && dist < 5.f) { press(in, BTN_NORTH); return true; }                 // Rallying Shout
+        if (ready(3) && tough && target->mark_t <= 0 && dist < 13.f && clear && frame - mark_frame_ > 480) {           // Falcon's Mark
+            mark_frame_ = frame;   // (once in eight seconds: its three crits are spent in a moment, and every cast is a swing lost)
+            press(in, BTN_R1);
+            return true;
+        }
+        if (dist > range) {
+            const bool ranged = target->def >= 0 && monster_defs()[size_t(target->def)].keep_distance > 0;
+            if (ready(1) && dist < 10.f && clear && (ranged || crowd >= 3)) { press(in, BTN_WEST); return true; }   // Arc
+            chase(w, in, *target);
+            return true;
+        }
+        in.lstick = normalize(d) * 0.3f;
+        if (ready(0)) press(in, BTN_SOUTH);        // Whirling Staff
+        else if (ready(1)) press(in, BTN_WEST);
+        return true;
+    }
     if (w.hero.passives.cls == "shadow") {   // Black Sand on the tough, a snare on a crowd, the staff when surrounded, the knife
         auto ready = [&](int slot) {
             SkillCtx c = w.slot_ctx(slot);
@@ -1432,7 +1462,7 @@ void Bot::prepare(World& w) {
         for (int k = 0; k < 4; k++) H.inv.add(make_chart(1, r, 0.25f, 0.f));
     // what a player carries out of Act I: level-appropriate rares in every slot
     const bool caster = H.passives.cls == "sorcerer", ranger = H.passives.cls == "ranger", merc = H.passives.cls == "mercenary",
-               shadow = H.passives.cls == "shadow", templar = H.passives.cls == "templar";
+               shadow = H.passives.cls == "shadow", templar = H.passives.cls == "templar", wanderer = H.passives.cls == "wanderer";
     // armour of the class's defence: Hirz for the Sorcerer, evasion for the Ranger, armour for the Warrior, both for the Mercenary,
     // evasion and Hirz for the Shadow, armour and Hirz for the Templar
     auto best = [&](Slot slot, bool, int wk) {
@@ -1444,7 +1474,7 @@ void Bot::prepare(World& w) {
             if (slot == Slot::Helmet || slot == Slot::Body || slot == Slot::Gloves || slot == Slot::Boots) {
                 int kind = ib.es > 0 && ib.evasion > 0 ? 4 : ib.es > 0 && ib.armour > 0 ? 5 : ib.es > 0 ? 1
                          : ib.evasion > 0 && ib.armour > 0 ? 3 : ib.evasion > 0 ? 2 : 0;
-                if (kind != (caster ? 1 : ranger ? 2 : merc ? 3 : shadow ? 4 : templar ? 5 : 0)) continue;
+                if (kind != (caster ? 1 : ranger ? 2 : merc || wanderer ? 3 : shadow ? 4 : templar ? 5 : 0)) continue;
             }
             if (b < 0 || ib.level >= item_bases()[size_t(b)].level) b = int(i);
         }
@@ -1455,7 +1485,7 @@ void Bot::prepare(World& w) {
     for (int e = 0; e < EQ_COUNT; e++) {
         if (e == EQ_WEAPON2 && !merc && !shadow) continue;
         const int wk = e == EQ_WEAPON2 ? (shadow ? WK_QSTAFF : WK_CROSSBOW) : caster ? WK_STAFF : ranger ? WK_BOW : merc ? WK_SWORD
-                     : shadow ? WK_DAGGER : templar ? WK_SCEPTRE : WK_MAUL;
+                     : shadow ? WK_DAGGER : templar ? WK_SCEPTRE : wanderer ? WK_QSTAFF : WK_MAUL;
         if (int b = best(slots[e], caster, wk); b >= 0) H.equip[e] = make_item(b, Rarity::Rare, gear, r);
     }
     for (auto& t : H.talismans) t.level = uint8_t(gear == 14 ? 10 : gear == 24 ? 14 : gear == 32 ? 18 : 20);

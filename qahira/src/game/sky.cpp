@@ -157,7 +157,7 @@ void Sky::act_south(World& w) {
     const PassiveTree& T = tree();
     if (cursor < 0) return;
     const Star& s = T.stars[size_t(cursor)];
-    if (s.kind == StarKind::Start) { say("Your class starts here"); return; }
+    if (cursor == T.class_start(H.passives.cls) || (s.kind == StarKind::Start && H.passives.cls != "wanderer")) { say("Your class starts here"); return; }
     if (staged.has(cursor)) {
         // a refund (of a held star) or an unstaging (of a staged one): only if the rest stays connected
         if (!staged.can_refund(cursor)) { say("Other stars hang from this one: refund those first"); return; }
@@ -406,8 +406,9 @@ void Sky::render(const World& w) const {
         vec2 a = to_screen(T.stars[size_t(e.first)].pos), b = to_screen(T.stars[size_t(e.second)].pos);
         if (std::max(a.x, b.x) < -20 || std::min(a.x, b.x) > 1940 || std::max(a.y, b.y) < -20 || std::min(a.y, b.y) > 1100) continue;
         int sa = state_of(e.first), sb = state_of(e.second);
-        bool sa_on = sa == 2 || sa == 3 || T.stars[size_t(e.first)].kind == StarKind::Start && T.stars[size_t(e.first)].cls == H.passives.cls;
-        bool sb_on = sb == 2 || sb == 3 || T.stars[size_t(e.second)].kind == StarKind::Start && T.stars[size_t(e.second)].cls == H.passives.cls;
+        const int mine = T.class_start(H.passives.cls);   // (the Wanderer's is the Pole)
+        bool sa_on = sa == 2 || sa == 3 || e.first == mine;
+        bool sb_on = sb == 2 || sb == 3 || e.second == mine;
         Rgba c = pal::line.alpha(0.7f);
         float wd = 2.f;
         if (sa_on && sb_on) { c = (sa == 2 || sb == 2) ? pal::amber : pal::brass; wd = 5.f; }
@@ -442,7 +443,7 @@ void Sky::render(const World& w) const {
             default: u.disc(p.x, p.y, rad * 0.85f, core.alpha(0.28f)); break;
         }
         if (s.kind == StarKind::Keystone) u.ring(p.x, p.y, rad + 6 * z, rad + 2 * z, pal::magenta.alpha(0.7f));
-        if (s.kind == StarKind::Start && s.cls == H.passives.cls) u.ring(p.x, p.y, rad + 8, rad + 3, pal::turquoise);
+        if (s.cls == H.passives.cls && (s.kind == StarKind::Start || s.kind == StarKind::Pole)) u.ring(p.x, p.y, rad + 8, rad + 3, pal::turquoise);
         if (planned(H, int(i)) && st <= 1) u.ring(p.x, p.y, rad + 5, rad + 1.5f, pal::turquoise.alpha(0.9f));
         if (in_path(int(i))) u.ring(p.x, p.y, rad + 6, rad + 2, pal::amber.alpha(0.8f));
         if (zoom >= 0.9f && (s.kind == StarKind::Notable || s.kind == StarKind::Keystone))
@@ -516,7 +517,8 @@ void Sky::render(const World& w) const {
         for (auto& l : lines) { u.text(x + cw / 2, cy, l, 27, pal::magic, Align::Center); cy += 36; }
         std::string status;
         int st = state_of(cursor);
-        if (s.kind == StarKind::Start) status = "Class start";
+        if (cursor == T.class_start(H.passives.cls)) status = "Your start";
+        else if (s.kind == StarKind::Start && H.passives.cls != "wanderer") status = "Class start";
         else if (st == 3) status = "Held";
         else if (st == 2) status = "Staged";
         else if (st == 4) status = "Staged refund";
