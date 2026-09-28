@@ -1,0 +1,6 @@
+# build outputs (regenerate with tools/build_all.sh)
+build/
+# generated game assets: rebuilt from tools/art by Blender (see docs/ASSETS.md)
+assets/generated/
+*.blend1
+__pycache__/

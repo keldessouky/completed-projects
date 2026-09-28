@@ -1,0 +1,509 @@
+# Engine
+
+A purpose-built C++20 engine, "Mashrabiya", shipped as a **libretro core**. It targets one device: the Retroid
+Pocket 6, with its Adreno 740 and a 1080p 120 Hz AMOLED, running GLES 3.2 through RetroArch for Android. The same
+code builds for macOS (GL 4.1 core) for development.
+
+## Layers
+
+```
+platform/libretro_core.cpp   retro_* entry points: HW context, RetroPad -> Input, fixed-step loop, save states
+platform/app_api.hpp         the only interface between libretro and the game (app_init, app_update, app_render, ...)
+game/                        the game (the app_* functions live in game/app.cpp)
+ui/                          SDF text + shapes in a 1920x1080 logical space
+gfx/                         GL wrappers, renderer, meshes, shaders
+anim/                        skeletons, sampled clips, poses
+core/                        math, pack reader, JSON, byte streams, logging
+host/qhost.cpp               SDL2 libretro frontend for the Mac (window or headless); links the core directly
+```
+
+The game never calls libretro or SDL. `qhost` implements the same frontend contract as RetroArch:
+- `SET_HW_RENDER` hands the core a GL context and framebuffer.
+- Input arrives through `input_state`.
+- The core's audio output is queued to SDL.
+
+So what runs in qhost is what runs on the device, except for the GL flavour.
+
+## Frame
+
+`retro_run` does four things, in order:
+1. It polls the RetroPad. The analog triggers and pointer (touch) come from their dedicated libretro indices.
+   Face buttons are named by position (south, east, west, north), because the RP6 can swap its labels.
+2. It calls `app_update(input, 1/60)`. This is one fixed simulation step, so the simulation is deterministic, bot
+   runs replay exactly, and save states are just the sim state.
+3. It calls `app_render(fbo, 1920, 1080)`, rendering into the framebuffer the frontend provides.
+4. It hands 800 stereo samples (48 kHz / 60) to the frontend.
+
+## Renderer (`gfx/renderer.*`)
+
+It's a forward renderer that bins lights into screen tiles, because the city at night is lit by dozens of small
+lights (neon, lanterns, lamps).
+
+1. **Tiling (CPU):** each point light's bounding box is projected to the screen and binned into a 16×9 tile grid.
+   The per-tile light lists go into an `R8UI` texture (a count plus 31 indices per tile). Up to 64 lights per frame
+   go in a UBO.
+2. **Scene pass:** draws into an `RGBA16F` target at 0.75× scale (1440×810) with depth.
+   - Meshes are batched by type and drawn with `glDrawElementsInstanced`.
+   - Per-instance data holds the model matrix, a tint, the skinning-palette offset, a hit flash, a dissolve amount
+     and a rim light.
+3. **Skinning:** on the GPU. Bone matrices (3×4) for every animated instance are packed into one `RGBA32F` texture
+   each frame, and each instance carries its palette offset. That's one draw call per mesh type however many
+   monsters share it.
+4. **Shading:**
+   - GGX specular with Lambert diffuse.
+   - Hemisphere ambient, weighted by the baked per-vertex AO.
+   - A low violet "sun" (dusk light) plus the tile's point lights.
+   - Rim light: amber for the player, magenta for enemies.
+   - Emissive materials, and distance fog.
+5. **World sprites:** soft discs, rings, sectors and glows (for decals, telegraphs, particles), in an alpha pass
+   and an additive pass.
+6. **Bloom:** a 13-tap downsample chain (six levels) with a soft threshold, then a tent-filter upsample.
+7. **Composite:** into the frontend's framebuffer at 1920×1080. Scene plus bloom, then exposure, the ACES filmic
+   curve, lift/gain/saturation grading, vignette, sRGB conversion, and dithering.
+8. **UI:** drawn on top at native resolution (see below).
+
+Every shader is written in the common subset of GLSL ES 3.00 and GLSL 3.30. `tools/check_shaders.py` compiles all
+of them as ES 3.00 with Khronos' `glslangValidator`, which is how the RP6 path is checked without the device.
+
+## Animation (`anim/`, `game/animator.hpp`)
+
+- Skeletons share one humanoid layout of 22 bones (`tools/art/qart/rig.py`). Every bone's bind frame is
+  axis-aligned with the character (Z up, facing −Y), so clip data is plain local rotations, and any skeleton with
+  the same bone names can play the same clips.
+- Clips are sampled at 30 fps, with linear/nlerp blending between frames and named events (e.g. `hit` at the
+  impact frame).
+- `Animator` crossfades between clips and fires each event once per play.
+
+## UI (`ui/`)
+
+- Text uses signed-distance-field glyphs rendered by stb_truetype at startup (Inter, OFL). The same atlas draws any
+  size crisply; bold is a threshold shift, and outlines come from the distance field.
+- Shapes are analytic in the fragment shader: rounded rectangles and rings (for the orbs).
+- Clipping uses scissor markers inside the vertex stream, so everything draws in submission order.
+
+## Levels (`game/level.*`)
+
+A level is a set of placed tiles. Each tile has two parts, both generated in Blender:
+- a static mesh, and
+- a JSON sidecar listing its colliders (axis-aligned boxes), light sources, and named points (`spawn`, `stair`,
+  `keeper`, `chest`, ...).
+
+Tiles can be placed rotated by quarter turns; colliders, lights and points rotate with them. Characters collide as
+circles against the boxes, pushed out along the shortest axis. Tiles more than about 30 m from the camera's focus
+are not drawn, and lights within 28 m of the player are submitted each frame, with a slight flicker.
+
+**Navigation.** `Level::find_path` runs A* over a 0.5 m grid rasterised from the colliders, grown by the walker's
+radius. It is built on first use and rebuilt whenever tiles change. Moves are 8-connected, with no corner cutting.
+The result is string-pulled along grid line-of-sight into a few straight legs. The bots use it today. Monsters
+will switch to it when they get smarter pursuit.
+
+## Zones and areas (`game/zone.*`, `game/areas.*`)
+
+**Generation.** A zone is a grid of 16 m cells:
+1. A biased random walk goes from a gate on the bottom row towards the top, mostly north with some east/west
+   drift; its last cell becomes the boss court.
+2. Side branches of 1–2 cells grow off the main path, never off the gate or the court.
+3. The deepest branch dead end becomes the landmark.
+
+Each cell stores an opening mask (N=1 E=2 S=4 W=8). `build_zone_level` picks the canonical tile whose mask, rotated
+by 0–3 quarter turns counter-clockwise, matches: end, straight, corner, tee or cross, in two variants. The gate,
+court and landmark have their own tiles. A unit test generates 300 zones and checks that every opening is mutual,
+every cell is reachable from the gate, and the court and landmark are dead ends.
+
+**The campaign (`game/acts.*`).** Each zone is a `ZoneDef` row: its region's tiles, area level, grid size and
+branches, music and ambience, weighted spawns and an elite, its boss and the banner when it falls, the zone its far
+court leads to, what its landmark holds (a cache, the bench, or the old cinema's posters), an optional side zone, and
+whether it is a trial with a toll. Act I runs Downtown (2) → the Metro (4) → Khan el-Khalili (5) → al-Muizz (7,
+with the Bab Zuweila trial at 8 off its far court) → the City of the Dead (10) → the Mokattam cliffs (12). The
+table is append-only: waypoints are stored by index.
+
+- **Waypoints** stand at every zone's entrance. Touching one (or arriving) records it; a waypoint, or the rooftop
+  stair, opens the list of zones you can travel to. Killing a boss also records the waypoint of the zone it leads to.
+- **The way on:** when a boss falls, its court opens a *Next* gate to the next zone, a *Gate* to a side zone, or an
+  exit home at the act's end.
+- **Trials:** entering one moves the equipment in its toll slot (Bab Zuweila takes the amulet) into `Hero::sealed`.
+  Leaving the zone by any means gives it back (to its slot, the bags, or the slot again if the bags are full).
+- **Quests** are bits in `Hero::quests`; some grant passive points (`quest_passive_points`) or ascendancy points.
+- **Regions (`tools/art/env/kit.py`, `regions.py`):** every region shares one cell kit (end, straight, corner, tee,
+  cross in two variants; entrance, arena, landmark) built from lane and block rectangles, so any cell joins any other.
+  A unit test builds twenty layouts per zone from the generated tiles and walks from the entrance to every cell on the
+  nav grid.
+
+**Areas.** `Areas` owns the current area (the hub, a campaign zone, or the Slice 1 street, kept as a combat range)
+and one **zone instance**:
+- **Leaving by portal** snapshots the instance's live monsters (reset to idle), loot and interactables.
+- **Returning** by the stair or a portal restores them, so the streets are as you left them.
+- **The instance ends** when you take the exit portal after the boss.
+
+Each zone's `env_tint` colours the fog and the ambient light. A zone's monster level is its `ZoneDef` area level. XP from a kill grows 30% per area level and falls off once the
+hero is more than two levels above the area.
+
+**Interactables** (stair, portal, vendor, exit, chest) are plain data in the `World`. South uses the nearest one in
+reach when no enemy is within 6 m. The app turns the result into a fade-out → travel → fade-in, or it opens the
+vendor or the chest.
+
+## Belongings, the menu and the vendor (`game/inventory.*`, `game/menu.*`)
+
+- **Inventory:** 12×5 cells. Item sizes come from the slot (maul 2×4, body 2×3, helmet/gloves/boots 2×2, belt 2×1,
+  jewellery 1×1). New items go to the first space scanning columns left to right, then rows, as in PoE.
+- **Equipment:** nine slots. An empty `Item` has the base `kNoItem`, and its `b()` returns a harmless placeholder.
+  Equipping swaps the old piece into the new one's spot, or anywhere else it fits, or refuses.
+- **Currency:** PoE's rules under street names, sharing `roll_affix` (prefix/suffix limits: magic 1+1, rare 3+3):
+  - Blue Bead, Pinch of Salt, Coffee Grounds, Saffron Thread, Gilded Piastre (transmute, augment, alteration,
+    alchemy, regal); Khamsa (exalt), Bakhoor Ash (annul then exalt), Broken Tea Glass (annul), Drop of Attar (divine,
+    uniques included) and the Ifrit's Ember (corrupt: unchanged, an implicit, one mod ×1.3, or remade as a rare; either
+    way it is sealed);
+  - **Spice Blends** add a mod from one family (fire, cold, lightning, life, caster, physical attack); a full magic
+    item becomes rare to make room;
+  - **Coffee-Cup Omens** are read from the purse, not used on an item, and bend the next craft: the Bird (a suffix),
+    the Fish (a prefix), the Closed Door (Glass and Ash spare bench mods), the Crescent (the Ember cannot remake it);
+  - currencies have a minimum area level, so the rarer ones arrive over the act. Dinars pay the vendor and the bench.
+- **The Coppersmith's Bench (`game/crafting.*`):** Usta Hassan's recipes add one exact mod (the middle of a tier) for
+  dinars; an item carries one bench mod (`AF_CRAFTED`), and it can be taken off. Three recipes come with the bench;
+  each Act I zone's cache and boss teaches another (sixteen in all).
+- **Uniques and Poster Scraps (`game/uniques.*`):** twenty uniques, each the prop of an invented golden-age Egyptian
+  film. Their mods use the generic affixes (`AE_GENERIC`: one stat, kind and tag set; they never roll on drops).
+  Scraps drop from bosses, rares and the Downtown billboard; the fourth scrap of a poster gives you its unique.
+- **Loot filter:** four presets. A hidden item is not drawn, labelled or selectable; currency and dinars always
+  show, and you pick them up by walking over them.
+- **Menu:** paused, controller-first.
+  - The cursor walks cells and hops over whole items.
+  - Up from the grid goes to the paper doll, down to the purse, and left to the vendor's wares.
+  - Item cards show ±DPS against what you wear, with the equipped piece beside them.
+  - Icons are vector silhouettes per slot, tinted by rarity, so no textures are needed.
+
+## Bosses (`BossDef`, `World::boss_step`)
+
+Every boss is a row of moves (`boss_def`): a kind, the clip it plays, a cooldown, a range band, a damage multiplier
+and the phase it unlocks in; a phase-2 threshold and banner; what it summons and how many; its court's leash; its
+haste in phase 2; its bolt colour. The move kinds:
+- **Combo:** a two-hit strike (`hit`, `hit2`) with a cone telegraph.
+- **Leap:** a telegraphed leap-slam along a curve, its landing clamped to the court.
+- **Summon** and **Wail** (a stun-and-Break roar), usually from phase 2.
+- **Charge:** a telegraphed line dash (the Iron Microbus). **Nova:** a ring around it. **Volley:** a fan of five bolts.
+- **Blink:** it vanishes and steps out beside you. **Pools:** three burning pools under and around you.
+
+Strikes resolve on clip events; a **rigid** monster (a possessed object: one static mesh) uses fixed timings instead.
+Six bosses use it: Umm al-Ghūla, the Iron Microbus, the Si'lah of Sadat Station, al-Nasnas al-Kabir, the Ifrit of Bab
+Zuweila and the Qutrub of the Quarries. Bosses are leashed to their court and heal when the hero escapes or dies.
+
+Ordinary monsters now path on the nav grid (A*, refreshed every 0.6–0.9 s); leapers telegraph a landing circle, and
+the dish's beam telegraphs its line.
+
+## Gameplay (`game/world.*`, `game/stats.*`, `game/items.*`)
+
+The `World` is plain data, stepped at a fixed 60 Hz:
+- `actors[0]` is the hero; the rest are monsters.
+- It also holds projectiles, ground effects (cracks, telegraphs, rings), loot on the ground, and particles.
+
+**Stats.** Every number comes from the modifier engine (see GDD §8). A mod is (stat, flat / increased / more,
+value, required tags); a query context picks up every mod whose tags it carries. `compute_hit` runs the pipeline
+in this order: base → added → increased (summed) → more (each multiplied) → crit. `roll_hit` then applies armour
+(A/(A+10D), capped at 90%) and resistances (capped at 75%). The golden tests are in `tests/test_stats.cpp`.
+
+**Skills.** Skills are table rows (`skill_defs`): tags, clip, effectiveness, mana cost, cooldown, and shape (cone,
+circle, detonate, warcry). A skill resolves on its clip's `hit` event, so animation and damage never drift apart.
+Attack speed scales the clip. Aim assist bends the swing towards the best target in a 40° cone.
+
+**Monsters.** Each monster runs a small state machine: idle → chase → windup (a ground telegraph sized to the
+attack) → strike on the clip event → recover. Spitters keep their distance and lead the hero with bile. Rares
+roll two mods (Hasted, Armoured, Frenzied, Vampiric), get a gold rim, and drop a rare weapon.
+
+**Break.** Hits fill a Break meter in proportion to damage over maximum life. When it's full, the target is stunned
+for 1.4 s and then takes 50% more damage for 3 s. Rallying Shout and slams build Break faster.
+
+**Items.** A base plus affixes, where each affix is a tier gated by item level with rolled values:
+- Local mods (added or increased physical, attack speed, crit, armour) fold into the item itself.
+- Every other mod becomes a global modifier on the hero.
+- Tooltip text is generated from the structured mods.
+- The tooltip shows the DPS change against the equipped weapon.
+
+**Events.** The simulation never calls presentation code. It appends `Event`s (Swing, SlamImpact, EnemyDie, Break,
+LevelUp and so on) that the app turns into sound, rumble and light flashes after each step.
+
+**Bots (`game/bots.*`).** A bot drives the game through the same `Input` a player produces, menus included: it
+opens the inventory with Start and walks the cursor with the D-pad to equip or sell. It moves along nav-grid paths
+and dodges out of telegraphs. The Sorcerer's pilot keeps its distance, lays a glyph under a pack, chains Arc into
+crowds and calls the star down on anything chilled. These bots run in `tools/build_all.sh` and CI:
+- `walk` moves on the rooftop and round-trips a save state.
+- `fight` clears the Slice 1 street, including the rare, and equips upgrades through the inventory.
+- `zone` is the Slice 2 exit test: hub → zone → a portal round trip, checking the zone is unchanged → the cache →
+  the boss, with a save state mid-fight → the exit portal → the vendor, checking the arithmetic → a character file
+  round trip. `sorcerer` runs the same as the Sorcerer.
+- `sky` is the Slice 3 exit test: 30 stars planned on the sticks and placed in under two minutes, a paid respec, and a
+  build code round trip.
+- `title` makes a character from the title screen, deletes it, and makes another.
+
+`tour` and `tour3` are not tests; they pose every screen for screenshots. Set `QAHIRA_BOT_TRACE=1` to print what a bot is
+doing every five seconds.
+
+## Classes, skills and supports (`game/classes.*`, `game/skills.*`)
+
+- **Classes** are a table: base attributes, life, mana, Hirz, armour, the starting weapon, four starting Talismans, the
+  model. The class also sets the start in the sky. The Warrior, the Sorcerer, the Ranger and the Mercenary are
+  playable; a class may start with a second weapon on its back (`ClassDef::weapon2`).
+- **A Talisman** is a skill (a row in `skill_defs`) with a level, 2-5 Wafq slots and an attribute requirement
+  (8 + 3.4 per level of its attribute). Spells scale their base damage by 12% a level, attacks their effectiveness by
+  4%. The hero carries any number of Talismans; two bars of five point at them (hold L2 for the second).
+- **Shapes:** cone, circle, detonate and warcry (the Warrior's), and projectile, chain, glyph and meteor (the
+  Sorcerer's). A skill resolves on its clip's `hit` event. Ground-targeted spells land on the enemy they were aimed at,
+  or short of full reach; the right stick overrides the aim.
+- **A Wafq** (support) adds modifiers to a copy of the hero's stats for that one skill, sourced `SRC_WAFQ + id`, and
+  multiplies the mana cost. `skill_ctx` works a Talisman out once: stats, the hit, mana, cooldown, speed, area,
+  projectiles, chains and ailment chances. The HUD, the Talismans tab, the tree's stat delta, the build simulator and
+  the cast all use it, so they cannot disagree.
+- **Ailments** on monsters: Ignite (90% of the fire hit per second for 4 s), Chill (30% slower, scaled by Freeze
+  modifiers), Freeze (a meter filled by cold damage over life; full, they stop for 1.6 s, bosses 0.8 s) and Shock (20%
+  more damage taken for 4 s, scaled by Shock effect). Chill slows the monster's whole step, animation included.
+- **The Ranger's rules (Slice 6):**
+  - *Bow skills* carry `T_BOW` and need a bow in hand (`SkillCtx::needs_weapon`, `skill_weapon_need`); a bow is drawn in the left hand
+    (`weapon_L`). Physical attack projectiles fly as arrows.
+  - *Evasion:* `World::evade_chance` sets the Evasion Rating against the monsters' accuracy (18 + 8 per area level),
+    PoE's shape, capped at 75%. `damage_hero` rolls it for hits; pools, novas and the storm pass `evadable = false`.
+  - *Poison:* each poisoning hit adds a stack (up to six) of 25% of its physical and chaos damage per second for 2 s.
+  - *Marks:* the marked enemy's next attack hits (3 + `S_MARK`) are Critical Strikes, for 8 s.
+  - *Frenzy Charges:* 4% more damage and speed each (3 + `S_FRENZY`), gained when a Marked enemy dies (and from the
+    ascendancies), and lost ten seconds after the last.
+  - *DPS* shown anywhere is one target's: one projectile of a fan.
+- **The Mercenary's rules (Slice 7):**
+  - *The weapon swap:* `EQ_WEAPON2` holds a weapon on the back; it gives no stats. `start_skill` swaps it into hand
+    (`World::swap_weapons`) when the skill needs its kind (`T_SWORD`, `T_CROSSBOW`, `T_BOW`). `hero_skill_ctx` rates a
+    skill with the weapon it would be used with; the HUD, the sheet, tooltips and the bots all use it.
+  - *Bleeding:* a hit with a bleed chance adds 70% of its physical damage over 5 s (scaled by `S_BLEED_DAMAGE`); a
+    stronger bleed replaces a weaker one. Riposte's second thrust (the clip's `hit2` event) deals what is left at once.
+  - *Crescent Cut:* the combo counter (`Hero::combo`); every third hit in a row (second with Crescent Moon) is wider,
+    60% more damage, and always Bleeds.
+  - *Piercing:* a hero projectile passes through `pierce` enemies (the skill's own plus `S_PIERCE`), remembering the
+    ones it hit (`Projectile::pierced`).
+  - *Grenades:* `Shape::Grenade` throws a pot in an arc (`GroundFx::Grenade`, `pos2` to `pos`) that bursts when it
+    lands (`World::grenade_burst`). Grenades are neither attacks nor spells: base damage by level, cast speed.
+  - Keystone and ascendancy rules are a 64-bit mask (`Hero::keystones`); the Mercenary's start at bit 25.
+- **The Shadow's rules (Slice 8):**
+  - *Daggers and quarterstaves:* `WK_DAGGER` (1x2, `T_DAGGER`) in hand and `WK_QSTAFF` (1x4, two-handed, `T_QSTAFF`)
+    on the back, swapped in by Whirling Staff as the Mercenary's crossbow is. A dagger's crits always Poison.
+  - *Traps:* `Shape::Trap` throws a `GroundFx::Trap` that flies to where you aim (`pulse` seconds), arms, and bursts
+    in its radius when an enemy comes within 1.4 m, with five bolts drawn out from it. At most `trap_max()` (3 +
+    `S_TRAP_THROW`) are out; the oldest goes. The burst copies what it needs before hitting, as a hit can grow
+    `World::ground`.
+  - *Wither:* a chaos spell's hit adds a stack (up to 10) for 4 s (`S_WITHER`): 6% more chaos damage taken each,
+    poison included (`ailments_step`).
+  - *Power Charges:* 40% increased Critical Strike Chance each (3 + `S_POWER`), gained on a quarterstaff's crits, lost
+    ten seconds after the last.
+  - *Spin:* `Shape::Spin` strikes everything round the hero.
+  - Hybrid armour (evasion and Hirz) is kind 4 to the bots.
+- **The Templar's rules (Slice 9):**
+  - *Maces and sceptres:* `WK_MACE` and `WK_SCEPTRE` (both 1x3, `T_MACE`); a sceptre's implicit is increased elemental
+    damage (`S_DAMAGE` inc `T_ELEMENTAL`). Armour and Hirz is kind 5 to the bots.
+  - *Conversion:* a skill's `convert_fire` turns that share of the hit's physical damage to fire in `compute_hit`, before
+    increases, so fire and elemental increases apply to it (Ember Strike 60%, Brazier Slam 50%).
+  - *The Beacon* (`Shape::Aura`) toggles `Hero::aura`: while it is up `compute_hero_stats` adds its mods (scaled by
+    `S_AURA`) and `recompute_hero` reserves a quarter of the mana pool (`SRC_AURA`).
+  - *Signal Fire* (`Shape::Totem`) plants a `GroundFx::Totem` that throws fire at the nearest enemy (`T_TOTEM`, the last
+    tag bit); one at a time. *Brazier Slam* (`Shape::Brazier`) leaves `GroundFx::Embers`: burning ground that hurts
+    enemies on it and mends the hero (`S_EMBERS` scales it).
+  - *Block* (`S_BLOCK`, capped at 75%) turns a whole hit aside in `damage_hero`.
+  - The keystone **al-Iklil** (`KS_ALL_FIRE`, tree bit 5): every kind of hit damage becomes fire, and 15% less of it.
+- `World::hit_enemy` is the one place a hero hit lands: mitigation, keystones, crit text, leech, ailments, Break and
+  knockback. Projectiles, glyph pulses and falling stars carry a `HeroHit` (the worked-out hit and chances) so a save
+  state restores them exactly.
+
+## The Book of Fixed Stars (`game/tree.*`, `game/sky.*`)
+
+- `tools/tree/build_tree.py` lays the tree out and validates it; `data/tree.json` holds the stars, edges,
+  constellations and each class's Recommended Path.
+- An `Allocation` follows PoE's rules. Held stars' mods join the hero's stats (`SRC_STAR + id`).
+- The screen stages changes in a copy of the allocation; Start applies them (and charges for refunds after level 20).
+  The plan is a list of stars in an order that can be taken, kept in the character file.
+- The stat delta compares two `HeroSummary`s (`summarize`), computed without touching the live hero.
+- Build codes: `Q1<class>-<held stars as base-32 bits>-<checksum>`. `ui/qr.*` draws them as QR codes.
+
+## The menu's Talismans and Character tabs (`game/menu_tabs.cpp`)
+
+- **Talismans:** rows for the ten bar slots and the Blank Talismans; columns for the Wafq slots and the Stylus "+".
+  South opens a picker: a Talisman for a slot, a Wafq for a slot, or a skill to carve a Blank into.
+- **Character:** a cursor over every number. "Why?" lists the modifiers behind it with their sources; the main
+  skill's DPS is laid out as the pipeline (base, added, gain as extra, increased, more, crit, speed).
+
+## The title screen (`game/title.*`)
+
+Four slots (`qahira_1.character` ... `qahira_4.character`; a Slice 2 `qahira.character` becomes slot 1). A new
+character picks a class. Bots skip the title, except the `title` bot, which uses its own save folder.
+
+## Audio (`audio/`)
+
+A 32-voice software mixer at 48 kHz stereo. It has linear-interpolated resampling (for pitch variation), constant-power
+panning, two crossfading music beds and two ambience beds, and a soft limiter. Sounds are 16-bit mono WAVs from the
+pack, all synthesised by `tools/audio/synth.py` (see ASSETS.md). `qhost --wav out.wav` records the mix for checks.
+
+## Ascendancy (`game/asc.*`)
+
+Each class's inner sky: thirteen nodes, six minor→notable pairs round a start. The Trials of Ascendancy give two points
+each (Bab Zuweila is Trial I). Notables carry mods and rules (`AscRule`, alongside the tree's keystones):
+- **Ironclad** (Warrior): Endurance Charges (gained on Break or from warcries; each is 4% less physical damage taken
+  and +4% elemental resistances; they fall off after 10 s), no knockback, armour against elemental hits, slams that
+  punish Broken enemies, life regeneration per charge.
+- **Stormbinder** (Sorcerer): spell crits always Shock, chilled and frozen enemies take more damage, more Ignite
+  damage, spell crit, Hirz, and chains.
+
+- **Marksman** and **Outrider** (Ranger, Slice 6): the first a class with two. A class with two shows both side by
+  side in the Ascendancy tab and the character chooses one at the First Trial, for good (`Hero::ascendancy`, an index
+  into `ascendancies()`; `ascendancy_of(cls, chosen)` falls back to a class's only one). Their rules: marks that last
+  longer and hurt more, the long shot, Frenzy on crit or kill, a Mark or poisons passing on at a death, poisons that
+  hit harder, a flask that refills itself.
+
+- **Duelist** and **Demolitionist** (Mercenary, Slice 7): Riposte ready again when a hit lands on you, more damage
+  to the Bleeding and to rares and uniques, life back from a bleeding kill, a crescent every second cut; a second
+  pot, grenade kills that burst, heavier piercing bolts, and faster grenades. Bab al-Futuh (Trial II) gives the next
+  two points.
+
+- **Nightblade** and **Mystic** (Shadow, Slice 8), rules from bit 32 of the 64-bit mask: hits on an enemy below 35%
+  of its life are crits (`KS_LOW_CRIT`), a crit that kills gives a Power Charge (`KS_POWER_KILL`); quarterstaff hits
+  gain 8% of their physical damage as lightning (`KS_STAFF_STORM`) and as cold (`KS_CHARGE_COLD`) per Power Charge,
+  and Hirz recharges twice as soon with 3% back on a kill (`KS_VEIL`). The Shadow's keystone in the sky, **al-Sharatan** (`KS_AGONY`, tree bit 4):
+  hits deal 30% less, and a crit's poison is multiplied by the crit multiplier.
+
+- **Zealot** and **Warden** (Templar, Slice 9), bits 37-40: enemies on your burning ground take 20% more damage
+  (`KS_EMBER_FIRE`), Signal Fire leaves burning ground where it stands (`KS_TOTEM_EMBERS`); a Block recovers 2% of
+  your life (`KS_BLOCK_RECOVER`), and the Beacon reserves no mana (`KS_AURA_FREE`). New rules continue from bit 41.
+  Bab al-Nasr (Trial III) gives the last two points.
+
+A node needs its parent; a refund costs a Rosewater Vial.
+
+## The Journal and the codex
+
+The menu's Journal has three sections: quests (done or not, and their rewards), the codex (an entry the first time you
+meet each monster family and each mechanic: waypoints, the trial, the bench, Blends, Omens, the Ember, posters and the
+ascendancy), and the posters (every film, the scraps you hold, and the poster drawn with its missing quarters torn).
+New entries, learned recipes and finished posters show as toasts in the field.
+
+## The Map of al-Idrisi (`game/atlas.*`, `game/atlas_ui.*`)
+
+The endgame's first piece. After Act I a chart table stands on the rooftop; it opens al-Idrisi's world map (1154,
+drawn with south at the top, so east is on the left), with the eclipse's path as a dark band across it.
+- **Sites:** sixteen cities on four Climes (tiers), each a `ZoneDef` of act 0 (no waypoint; the area level comes from
+  the Clime, 14 to 17) on an Act I region's tiles, with its own spawns and a master (an Act I boss). The First Clime is
+  revealed when Act I ends; finishing a site reveals the sites its roads lead to. A test walks the roads from the First
+  Clime to every site.
+- **Charts** are items (`Slot::Chart`, one base per Clime) with their own mods (`AE_CHART`, read back by
+  `chart_mods`): more monster life or damage, more monsters, more magic and rare packs, fire on their hits, less
+  maximum resistance, faster monsters, more rarity, a likelier Haboob. Every mod is also 8% more items. The crafting
+  currencies work on charts as on gear.
+- **A run** (`Areas::enter_chart`): the chosen chart is spent, the site generated at its Clime's level, the chart's
+  mods applied to every monster it spawns, and a Haboob rolled. The site's master drops charts; so do rares and, rarely,
+  anything else. The drop rules (`chart_drop_chance`, `roll_chart_tier`, `boss_chart_drops`) are shared with the
+  simulation.
+- **The Haboob:** a band of sand 16 m deep rolls north across the site in about two minutes. Inside it the fog closes
+  in and turns to sand, sand jinn arrive in packs (always in sight of you), and a meter fills with time and kills. When
+  the storm has passed it leaves currency, dinars and, after a long stay, a chart.
+- **The Astrolabe:** twenty nodes on four pointers of an astrolabe's rete (charts, the storm, riches, the road); one
+  point per site finished. Slice 9 adds three: a higher tier more often, and two for the King's Pearls.
+- **`qchartsim`:** 600 simulated players from the end of Act I, each run's kills counted from the real spawner over the
+  generated tiles, charts drawn by the game's rules. It flags a stall rate over 5%, a median over 45 runs to finish a
+  Fourth Clime site, or under 8, and writes `build/chartsim_report.md`.
+
+## Act II and the Marid Rifts
+
+- **Act II** is six `ZoneDef`s of act 2 (levels 14 to 25) on five regions (`tools/art/env/regions2.py`); the Mokattam's
+  far court leads on to the first. Zones with no quest of their own open their way on from the start.
+- **Bosses:** El Naddaha's Wail is a *Call* (`BossDef::call`): it draws the hero to her instead of throwing them
+  back. Cold bosses' pools are black water (`GroundFx::Water`), which bites with cold. The Ram of the Avenue is a
+  rigid boss (a static mesh) that charges. When the Deep Tomb's marid dies (`Q_ACT2`), a coil of the serpent slides
+  through the pit beyond the burial hall (`World::coil_t`, drawn by the view).
+- **Marid Rifts** (`World::rift`, `rift_step`): after `Q_ACT2`, 35% of charts arm one at a random cell. Within 7 m and
+  in sight of the hero it opens for 20 s, its radius growing from 2 to 8.5 m while packs come through (up to 44
+  monsters, flagged `Actor::rift`). Rift monsters drop Marid Splinters (`CUR_SPLINTER`); fifty fuse into a Rift Seal
+  when picked up, and West at the chart table spends one on the Rift Lord's court (`rift_court`, act 0).
+
+## Act III and the Excavations
+
+- **Act III** is six `ZoneDef`s of act 3 (levels 26 to 35) on four regions (`tools/art/env/regions3.py`); the Deep
+  Tomb's far court leads on to the first. Siwa has no boss; its far court opens both the way on and the gate to Bab
+  al-Futuh, Trial II (the toll is your body armour). The Hyena of the Sand Sea's stare is a Call, like El Naddaha's.
+  The Sand-Wraith's damage is fire, so its pits are burning sand.
+- **The resistance penalty:** once `Q_ACT3` is held, `act_res_penalty` takes 30 from every resistance, in
+  `damage_hero` and on the character sheet.
+- **Excavations** (`World::dig`, `Areas::arm_dig`, `dig_step`, `dig_use`): after `Q_ACT3`, 35% of charts arm one. The
+  stake goes in the ordinary cell nearest the way in, the chamber in a cell 20-40 m on, and four charge spots down the
+  nav path between them (`Interactable::Charge`, `Detonator`). Fired with every charge set, they go off 0.35 s apart
+  (35% of an ordinary monster's life, 8% of a rare's, within 2.6 m), and the last opens the chamber: six guardians
+  (`Actor::dig`), then, when they are dead, `Interactable::Chamber`, which drops 3-6 Relics (`CUR_RELIC`), two items
+  and dinars. Relics never drop at random. **Amm Ramadan** (`Interactable::Dealer`, on the rooftop after Act III) is
+  the vendor's screen with `Menu::dealer` set: his stock (`restock_dealer`) costs relics (`relic_price`), and he buys
+  nothing.
+
+## Act IV and the Zar Nights
+
+- **Act IV** is six `ZoneDef`s of act 4 (levels 36 to 46) on four regions (`tools/art/env/regions4.py`); the Hill of
+  the Oracle's far court leads on to Ghadames. Sarab the Mirage (the ifrit's rig, tinted cold, lightning), the Iron Door of
+  the Souq (rigid, like the Ram) and the Ghula of the Salt (Umm al-Ghula's rig, tinted with salt) are `boss_def` rows. The
+  souq reuses the medina's tiles and the Sebkha the Chott's. `Q_ACT4` ends the act.
+- **Zar Nights** (`World::zar`, `Areas::arm_zar`, `zar_step`, `zar_use`, `zar_end`): after `Q_ACT4`, 35% of charts
+  arm one in an ordinary cell away from any rift or dig. `Interactable::Drum` starts it: the rhythm begins at 50 and
+  runs down by 4 a second plus 0.08 per second of the night; a death within 14 m of the circle adds 8 (magic 14, rare
+  30). Every 3.2 s a wave of the site's own monsters comes to the circle from a point with a clear line to it (three,
+  and one more every four waves; a magic one every other wave, a rare every fifth). At 100 the circle falls into a
+  trance: currency drops and the rhythm goes back to 55. The night ends after 45 s (the song) or when the rhythm
+  reaches 0; `zar_end` drops an item for every trance, one more if the song was played to its end, and dinars. The
+  drummers are scenery the view animates (their tempo follows the rhythm), and the music is `mus_zar` while it plays.
+
+## Act V, the Reaches and the Marid King
+
+- **Act V** is seven `ZoneDef`s of act 5 (levels 46 to 56) on four regions (`tools/art/env/regions5.py`); the Sebkha's
+  far court leads on to the Tanneries of Fes. Bu Ghettat (the wraith's rig in indigo), Dukhan (the ifrit gone grey), the
+  Bronze Mamluk of Bab al-Nasr (Trial III; the toll is your gloves) and Aisha Qandisha (her own rig; her Wail is a Call)
+  are `boss_def` rows. `Q_ACT5` ends the act.
+- **Charts to the Sixteenth** (`game/atlas.*`): `kChartTiers` is 16. Tiers 1-7 are the Seven Climes and 8-16 the
+  Reaches of the Encircling Sea (`tier_name`); the area level is 14-17 for the first four, then 54 to 65, a
+  level a tier (`chart_area_level`). Past the Fourth, a dropped chart is a tier up 7% of the time and a tier down 14%
+  (`kReachUp`, `kReachDown`; the Astrolabe's tier nodes count a third as much there), so each tier takes a few runs.
+  Sixteen more sites (32 in all: the site masks are full) run on two roads out of the Fourth Clime: south from Fas over the sand to Ghana and on round the edge of the world to al-Bahr al-Muhit, and east from
+  Balarm and Tunis over the sea to Baghdad (a dead end). Their zones reuse every act's regions, and their masters are
+  the acts' bosses at the higher level.
+- **The gate on the higher tiers:** `ChartRun::max_tier` caps what a drop can roll (`roll_chart_tier`). It is the
+  Fourth Clime (`kChartTiersEarly`) until `Q_ACT5`, then sixteen; Amm Ramadan's charts go from the Fourth to the Fifth.
+  A character file from before the map grew has its finished sites' roads drawn again on loading.
+- **The King's Pearls** (`CUR_PEARL`, never at random): `pearl_drops` gives the master of a site of tier 14 and up a
+  chance of one (25% at the Fourteenth, 37%, 49% at the Sixteenth, with a 20% chance of a second there), more with the
+  Astrolabe's two pearl nodes. North at the chart table spends four on the **Marid King's throne** (`king_throne`, act
+  0, level 68; `Areas::enter_throne`). The Marid King is a `boss_def` row with every marid move and a Call; he always
+  drops two uniques and a purse of currency.
+- **`qchartsim`** now runs twice: the early map from Act I's end (drops held to the Fourth Clime, flagged as before), and
+  the Reaches from Act V's end (the four Climes done, four charts of the Fourth), until four pearls open the throne. It
+  flags a stall rate over 5%, a median over 220 runs or under 40, or any tier to the Fourteenth that under 90% of
+  players reach (past it, the pearls can open the throne first).
+
+## Saves
+
+There are two kinds:
+
+- **Save states (`retro_serialize`, version 14).** A versioned byte stream (`core/serial.hpp`, `game/save.cpp`) of
+  the whole simulation:
+  - every actor, including life, Break, AI state, boss phase and home, animation clip, time and fired events;
+  - projectiles, ground effects, and ground loot (items, currency, dinars);
+  - interactables;
+  - the character record (below), plus cooldowns and the flask;
+  - the areas, including the kept zone instance and its layout;
+  - the RNG state and the camera.
+
+  On load, the level geometry and NPCs are rebuilt from the saved area and layout. Particles and floating text are
+  cosmetic and aren't saved. RetroArch's save states and auto-resume therefore work anywhere, including mid-boss.
+  The bots check this by saving, changing the state, restoring, and comparing.
+- **The character file (`qahira_<slot>.character` in the frontend's save directory, version 8).** It holds level, XP,
+  kills, dinars, currency, the class and its stars, the plan, Talismans, the bars, Wafq, Blank Talismans, the filter
+  preset, equipment and the inventory, with its own magic and version. Version 4 adds Act I: waypoints, quests, the
+  trial's sealed item, recipes, the codex, read Omens, ascendancy nodes and Poster Scraps; its items carry corruption,
+  their unique and each mod's bench/implicit flag (item format 2). Version 5 adds the map: sites revealed and
+  finished, and the Astrolabe. Version 6 adds the ascendancy chosen; version 7 the weapon on the back and 64-bit
+  waypoints; version 8 waypoints for 128 zones (`ZoneBits`: the zones passed 64 with the Reaches' sites). Versions 1–7
+  still load (a unit test reads a hand-written version 3 file). It is written to
+  a temporary file and renamed, when you arrive in the hub, close the menu, level up, kill the boss, or quit. An
+  unreadable file is kept as `.bad` and a fresh character starts. Bots never touch it.
+
+## Known platform notes
+
+- **RetroArch for macOS (the 1.22 Homebrew build)** can't host this core. Its only GL driver is the legacy `gl`
+  driver, which fails with "Invalid enum" while creating its own framebuffer for any core-profile GL core, before
+  the core draws anything. The device path, RetroArch for Android with GLES 3.2, uses a different context, and it's
+  the same path the GLES cores PPSSPP and Flycast use. On the Mac, use `qhost`.
+- The core asks for no depth or stencil in the frontend framebuffer. It renders into its own targets and only
+  composites into the frontend's.
