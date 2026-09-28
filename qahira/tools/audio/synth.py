@@ -730,6 +730,64 @@ def sfx_slice7():
     write('bleed', norm(wet + drip, 0.45))
 
 
+def sfx_slice8():
+    """The Shadow: a trap set and a trap sprung, black sand, the staff whirled, a Power Charge; and the Zar's drums."""
+    s = SR
+    r = np.random.default_rng(83)
+    # trap_set: iron teeth cocked, a ratchet and a click
+    t = t_axis(0.35)
+    x = np.zeros(len(t))
+    for k in range(4):
+        tt = t_axis(0.03)
+        place(x, fft_filter(noise(len(tt)), 2000, 8000) * np.exp(-tt * 180) * 0.6, (0.03 + 0.05 * k) * s)
+    tt = t_axis(0.06)
+    place(x, (np.sin(2 * np.pi * 3200 * tt) + np.sin(2 * np.pi * 4700 * tt)) * np.exp(-tt * 90), 0.26 * s)
+    write('trap_set', norm(x, 0.4))
+    # trap_snap: the jaws slam, a crackle of sparks
+    t = t_axis(0.6)
+    snap = fft_filter(noise(len(t)), 500, 6000) * np.exp(-t * 40)
+    ring_ = sum(np.sin(2 * np.pi * f0 * t) * np.exp(-t * d) for f0, d in ((1250, 12), (1870, 16), (2950, 20))) * 0.3
+    spark = fft_filter(noise(len(t)), 3000, 11000) * (r.random(len(t)) > 0.97) * 1.5 * np.exp(-t * 6)
+    write('trap_snap', norm(snap + ring_ + spark, 0.6))
+    # black_sand: a dry hiss thrown, and a low hum of something wrong in it
+    t = t_axis(0.7)
+    hiss = fft_filter(noise(len(t)), 1500, 7000) * env_adsr(len(t), 0.02, 0.2, 0.4, 0.4)
+    hum = np.sin(2 * np.pi * np.cumsum(70 + 20 * np.sin(2 * np.pi * 5 * t)) / s) * env_adsr(len(t), 0.05, 0.2, 0.5, 0.3) * 0.4
+    write('black_sand', norm(hiss + hum, 0.5))
+    # staff_spin: a heavy whoosh going round
+    t = t_axis(0.7)
+    w = fft_filter(noise(len(t)), 200, 1800) * np.sin(np.pi * np.clip(t / 0.6, 0, 1)) ** 2 * (1 + 0.6 * np.sin(2 * np.pi * 6 * t))
+    write('staff_spin', norm(w, 0.5))
+    # power_charge: a bright chime rising
+    t = t_axis(0.6)
+    f = 880 * 2 ** (t * 1.2)
+    ch = (np.sin(2 * np.pi * np.cumsum(f) / s) + 0.4 * np.sin(4 * np.pi * np.cumsum(f) / s)) * np.exp(-t * 5)
+    write('power_charge', norm(ch, 0.35))
+
+
+def music_act4():
+    """Act IV, the Maghreb coast: the salt flats slow and wide on the ney, the medina busier on the qanun; and the Zar:
+    drums first, the ayyub rhythm driving, a melody that circles."""
+    compose('mus_maghreb', 'bayati', 146.83, 76, 16, seed=101, melody_inst='ney', rhythm='wahda', riq_p=0.15)
+    compose('mus_medina', 'hijaz', 146.83, 108, 24, seed=103, melody_inst='qanun', rhythm='maqsum', riq_p=0.65)
+    compose('mus_zar', 'saba', 146.83, 128, 32, seed=107, melody_inst='ney', rhythm='ayyub', riq_p=0.8, intensity=1.3)
+
+
+def ambience_salt(name, dur=40.0, sr=32000):
+    """The Chott at night: a thin wind with nothing to catch on, the crust ticking as it cools, far-off water lapping."""
+    t = t_axis(dur, sr)
+    wind = fft_filter(noise(len(t)), 300, 2400, sr) * (0.4 + 0.2 * np.sin(2 * np.pi * t / 11.0)) * 0.5
+    x = wind
+    r = np.random.default_rng(9)
+    for k in range(60):   # the crust ticking
+        tt = t_axis(0.02, sr)
+        place(x, fft_filter(noise(len(tt)), 3000, 9000, sr) * np.exp(-tt * 300) * r.uniform(0.05, 0.2), r.uniform(0, dur - 0.1) * sr)
+    lap = fft_filter(noise(len(t)), 200, 900, sr) * np.clip(np.sin(2 * np.pi * t / 3.7), 0, 1) ** 3 * 0.12
+    x = x + lap
+    x = x + conv(x, reverb_ir(2.0, sr, 0.3))[:len(x)] * 0.4
+    write(name, norm(_loop_fade(x, sr), 0.4), sr)
+
+
 def ambience_desert(name, dur=40.0, sr=32000):
     """The Western Desert: wind over open sand, grains hissing off a crest, and now and then a dune singing: a low hum
     that swells and fades (the booming sands of the Sand Sea)."""
@@ -771,6 +829,7 @@ if __name__ == '__main__':
         sfx_slice3()
         sfx_slice4()
         sfx_slice7()
+        sfx_slice8()
     if 'ambience' in only:
         ambience('amb_street')
         ambience_necro('amb_necro')
@@ -789,6 +848,12 @@ if __name__ == '__main__':
         music_act2()
     if 'act3' in only:
         sfx_slice7()
+    if 'act4' in only:
+        sfx_slice8()
+    if 'act4' in only or 'ambience' in only:
+        ambience_salt('amb_salt')
+    if 'act4' in only or 'music' in only:
+        music_act4()
     if 'act3' in only or 'ambience' in only:
         ambience_desert('amb_desert')
     if 'act3' in only or 'music' in only:

@@ -13,8 +13,8 @@ import qart.geom as geom
 geom.scene = bpy.context.scene
 
 from qart import rig, preview
-from characters import warrior, ghoul, npc, ghoula, sorcerer, jinn, ranger, nile, mercenary, desert
-from env import street, souq, necro, rooftop, kit, regions, regions2, regions3
+from characters import warrior, ghoul, npc, ghoula, sorcerer, jinn, ranger, nile, mercenary, desert, shadow, maghreb
+from env import street, souq, necro, rooftop, kit, regions, regions2, regions3, regions4
 from props import props, dig
 
 args = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
@@ -23,6 +23,7 @@ ONLY = next((a.split('=', 1)[1].split(',') for a in args if a.startswith('only='
 REGION_NAMES = ('downtown', 'metro', 'khan', 'muizz', 'mokattam', 'gate')
 REGION2_NAMES = ('nile', 'village', 'karnak', 'valley', 'tomb')
 REGION3_NAMES = ('white', 'siwa', 'dunes', 'futuh')
+REGION4_NAMES = ('ghadames', 'chott', 'tozeur', 'medina')
 ROOT = os.path.abspath(os.path.join(HERE, '..', '..'))
 OUT = os.path.join(ROOT, 'assets', 'generated')
 PREV = os.path.join(ROOT, 'build', 'preview')
@@ -37,6 +38,8 @@ def want(name):
     if name == 'act2' and ONLY is not None and any(r in ONLY for r in REGION2_NAMES):
         return True
     if name == 'act3' and ONLY is not None and any(r in ONLY for r in REGION3_NAMES):
+        return True
+    if name == 'act4' and ONLY is not None and any(r in ONLY for r in REGION4_NAMES):
         return True
     return ONLY is None or name in ONLY
 
@@ -76,6 +79,16 @@ if want('mercenary'):
     mercenary.build_grenade().export(os.path.join(OUT, 'meshes', 'grenade.qmesh'), skinned=False)
     if PREVIEW:
         preview.sheet(os.path.join(PREV, 'mercenary_anims.png'), J, body, mercenary.CLIPS, weapon=sword)
+if want('shadow'):
+    J = shadow.skeleton()
+    rig.write_skeleton(os.path.join(OUT, 'skel', 'shadow.qskel'), J)
+    rig.bake(J, shadow.CLIPS, os.path.join(OUT, 'anim', 'shadow.qanim'))
+    body = shadow.build(J).export(os.path.join(OUT, 'meshes', 'shadow.qmesh'))
+    dagger = shadow.build_dagger().export(os.path.join(OUT, 'meshes', 'dagger.qmesh'), skinned=False)
+    shadow.build_qstaff().export(os.path.join(OUT, 'meshes', 'qstaff.qmesh'), skinned=False)
+    shadow.build_trap().export(os.path.join(OUT, 'meshes', 'trap.qmesh'), skinned=False)
+    if PREVIEW:
+        preview.sheet(os.path.join(PREV, 'shadow_anims.png'), J, body, shadow.CLIPS, weapon=dagger)
 if want('ghoul'):
     J = ghoul.skeleton()
     rig.write_skeleton(os.path.join(OUT, 'skel', 'ghoul.qskel'), J)
@@ -92,7 +105,7 @@ if want('ghoula'):
     if PREVIEW:
         preview.sheet(os.path.join(PREV, 'ghoula_anims.png'), J, body, ghoula.CLIPS)
 
-for nm, skel, build, clips in jinn.CREATURES + nile.CREATURES + desert.CREATURES:
+for nm, skel, build, clips in jinn.CREATURES + nile.CREATURES + desert.CREATURES + maghreb.CREATURES:
     if want(nm) or want('creatures'):
         J = skel()
         rig.write_skeleton(os.path.join(OUT, 'skel', nm + '.qskel'), J)
@@ -100,7 +113,7 @@ for nm, skel, build, clips in jinn.CREATURES + nile.CREATURES + desert.CREATURES
         body = build(J).export(os.path.join(OUT, 'meshes', nm + '.qmesh'))
         if PREVIEW:
             preview.sheet(os.path.join(PREV, nm + '_anims.png'), J, body, clips)
-for nm, build in jinn.STATICS + nile.STATICS + desert.STATICS:
+for nm, build in jinn.STATICS + nile.STATICS + desert.STATICS + maghreb.STATICS:
     if want(nm) or want('creatures'):
         build().export(os.path.join(OUT, 'meshes', nm + '.qmesh'), skinned=False)
 
@@ -135,6 +148,12 @@ if want('act3'):
     os.makedirs(tiles, exist_ok=True)
     for R in regions3.REGIONS:
         if ONLY is None or 'act3' in ONLY or R.NAME in ONLY:
+            kit.export_region(R, os.path.join(OUT, 'meshes'), tiles)
+if want('act4'):
+    tiles = os.path.join(OUT, 'tiles')
+    os.makedirs(tiles, exist_ok=True)
+    for R in regions4.REGIONS:
+        if ONLY is None or 'act4' in ONLY or R.NAME in ONLY:
             kit.export_region(R, os.path.join(OUT, 'meshes'), tiles)
 if want('hub'):
     tiles = os.path.join(OUT, 'tiles')
