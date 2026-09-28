@@ -83,6 +83,29 @@ const std::vector<SkillDef>& skill_defs() {
         s = add({"whirling_staff", "Whirling Staff", "Whirl a quarterstaff round you, striking everything near. Its Critical Strikes "
                  "grant a Power Charge: 40% increased Critical Strike Chance each.",
                  T_ATTACK | T_MELEE | T_AREA | T_QSTAFF, "spin", 0.95f, 0, 0, DT_PHYS, 5, 0, Shape::Spin, 0, 2.9f, 0, 1.0f, 19, ATTR_DEX, "shadow"});
+        // ---- the Templar's kit (Slice 9): a burning strike, the beacon held up, a signal brazier planted, and a slam
+        // that leaves the ground burning
+        s = add({"ember_strike", "Ember Strike", "Strike with a mace or sceptre wreathed in fire: 60% of its physical damage is "
+                 "converted to Fire, and it can Ignite.",
+                 T_ATTACK | T_MELEE | T_STRIKE | T_FIRE, "swing", 1.1f, 0, 0, DT_PHYS, 0, 0, Shape::Cone, 2.5f, 0, 0.9f, 0.9f, 20, ATTR_STR, "templar"});
+        s->convert_fire = 0.6f;
+        s->ignite = 20;
+        s = add({"beacon", "The Beacon", "Hold up the signal lantern, or put it away. While it is up it reserves a quarter of your "
+                 "Mana, and you have 15% increased Elemental Damage and +12% to Fire, Cold and Lightning Resistance.",
+                 T_AREA, "raise", 0, 0, 0, DT_FIRE, 0, 1.0f, Shape::Aura, 0, 3.f, 0, 0, 21, ATTR_INT, "templar"});
+        s = add({"signal_fire", "Signal Fire", "Plant a signal brazier. For 8 s it throws fire at the nearest enemy, twice a "
+                 "second. One can burn at a time.",
+                 T_SPELL | T_TOTEM | T_FIRE | T_PROJECTILE | T_DURATION, "plant", 0, 9, 15, DT_FIRE, 12, 2.0f, Shape::Totem, 7.f, 0.4f, 0,
+                 0.4f, 22, ATTR_INT, "templar"});
+        s->proj_speed = 20.f;
+        s->duration = 8.f;
+        s->ignite = 15;
+        s = add({"brazier_slam", "Brazier Slam", "Slam the ground: half its physical damage is converted to Fire, and the ground "
+                 "burns for 4 s. Enemies on it burn; you, standing on it, recover 1.5% of your Life a second.",
+                 T_ATTACK | T_MELEE | T_SLAM | T_AREA | T_FIRE | T_DURATION, "slam", 1.35f, 0, 0, DT_PHYS, 9, 0, Shape::Brazier, 1.8f, 2.3f,
+                 0, 1.5f, 23, ATTR_STR, "templar"});
+        s->convert_fire = 0.5f;
+        s->duration = 4.f;
         return v;
     }();
     return d;
@@ -213,6 +236,7 @@ SkillCtx skill_ctx(const Talisman& t, const Stats& hero, const WeaponStats& w) {
     c.ss.base_type = d.base_type;
     c.ss.crit = (d.tags & T_SPELL) ? 6.f : 5.f;
     c.ss.break_mult = d.break_mult;
+    c.ss.convert_fire = d.convert_fire;
     c.hit = compute_hit(s, w, c.ss);
     c.mana = std::round(d.mana * (1.f + 0.05f * lv) * mana_mult * std::max(0.1f, 1.f + s.sum(S_MANA_COST, d.tags).inc / 100.f));
     c.cooldown = d.cooldown / std::max(0.1f, 1.f + s.sum(S_COOLDOWN_RECOVERY, d.tags).inc / 100.f);

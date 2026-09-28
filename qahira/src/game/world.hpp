@@ -150,7 +150,8 @@ struct Projectile {
 };
 
 struct GroundFx {
-    enum Kind : uint8_t { Crack, Telegraph, Ring, Glyph, Meteor, Bolt, Fire, Line, Rain, Water, Grenade, Trap } kind = Crack;   // Fire: a hazard; Line: a
+    enum Kind : uint8_t { Crack, Telegraph, Ring, Glyph, Meteor, Bolt, Fire, Line, Rain, Water, Grenade, Trap,
+                          Totem, Embers } kind = Crack;   // Slice 9: a signal brazier; burning ground   // Fire: a hazard; Line: a
     // telegraphed strip; Rain: a Rain of Arrows (volleys on its pulses); Water: a cold hazard (Act II's pools);
     // Grenade: a pot in flight from pos2 to pos, bursting when it lands (Slice 7); Trap: in flight until `pulse`, then armed,
     // bursting when an enemy comes near (Slice 8)
@@ -271,7 +272,8 @@ struct Npc {
 enum class Ev : uint8_t { Swing, Impact, SlamImpact, EnemyHit, EnemyDie, HeroHit, Warcry, Dodge, Spit, Splash, Pickup,
                           Drink, Crit, Break, LevelUp, HeroDie, Aftershock, Portal, Gold, Currency, BossDie, BossWail,
                           BossLeap, Summon, Craft, Sell, InvFull, Cast, FireHit, ColdHit, LightningHit, StarFall, Frozen,
-                          Glyph, WeaponSwap, Bleed, TrapSet, TrapSnap, Power, ZarStart, Trance };
+                          Glyph, WeaponSwap, Bleed, TrapSet, TrapSnap, Power, ZarStart, Trance,
+                          Block, AuraOn, TotemSet };
 struct Event { Ev type; vec2 pos; float mag; int def = -1; };   // def: the monster, for its voice
 
 struct Hero {
@@ -307,6 +309,7 @@ struct Hero {
     int astro_points() const { return std::max(0, q::astro_points(sites_done) - __builtin_popcount(astro)); }
     int frenzy = 0;                // Frenzy Charges (Slice 6): 4% more damage and speed each
     float frenzy_t = 0;
+    bool aura = false;             // the Templar's Beacon is held up (Slice 9)
     int power = 0;                 // Power Charges (Slice 8): 40% increased Critical Strike Chance each
     float power_t = 0;
     int endurance = 0;             // Endurance Charges (Ironclad)

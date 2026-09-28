@@ -89,6 +89,19 @@ const std::vector<ItemBase>& item_bases() {
         {"night_burnous", "Night Burnous", Slot::Body, 15, 0, 0, 0, 0, 0, 60, nullptr, 40, WK_NONE},
         // the Warrior's mauls stopped at the Citadel's: one for Act III and on
         {"sultans_maul", "Sultan's Maul", Slot::Weapon, 27, 54, 96, 0.95f, 5.5f, 0, 0, nullptr, 0, WK_MAUL},
+        // Slice 9, the Templar: one-handed maces, sceptres (signal lanterns on iron staves), and armour with armour and Hirz
+        {"iron_mace", "Iron Mace", Slot::Weapon, 1, 8, 15, 1.3f, 5, 0, 0, nullptr, 0, WK_MACE},
+        {"flanged_mace", "Flanged Mace", Slot::Weapon, 12, 18, 33, 1.25f, 5, 0, 0, nullptr, 0, WK_MACE},
+        {"watchmans_mace", "Watchman's Mace", Slot::Weapon, 24, 29, 54, 1.25f, 5, 0, 0, nullptr, 0, WK_MACE},
+        {"lantern_sceptre", "Lantern Sceptre", Slot::Weapon, 1, 7, 13, 1.25f, 6, 0, 0, "12% increased Elemental Damage", 0, WK_SCEPTRE},
+        {"signal_sceptre", "Signal Sceptre", Slot::Weapon, 13, 15, 28, 1.25f, 6, 0, 0, "16% increased Elemental Damage", 0, WK_SCEPTRE},
+        {"beacon_sceptre", "Beacon Sceptre", Slot::Weapon, 26, 25, 47, 1.25f, 6.5f, 0, 0, "20% increased Elemental Damage", 0, WK_SCEPTRE},
+        {"brigade_helmet", "Brigade Helmet", Slot::Helmet, 1, 0, 0, 0, 0, 8, 0, nullptr, 6, WK_NONE},
+        {"quilted_greatcoat", "Quilted Greatcoat", Slot::Body, 1, 0, 0, 0, 0, 20, 0, nullptr, 14, WK_NONE},
+        {"brigade_gauntlets", "Brigade Gauntlets", Slot::Gloves, 1, 0, 0, 0, 0, 6, 0, nullptr, 4, WK_NONE},
+        {"brigade_boots", "Brigade Boots", Slot::Boots, 1, 0, 0, 0, 0, 6, 0, nullptr, 5, WK_NONE},
+        {"crested_helmet", "Crested Helmet", Slot::Helmet, 13, 0, 0, 0, 0, 28, 0, nullptr, 17, WK_NONE},
+        {"officers_greatcoat", "Officer's Greatcoat", Slot::Body, 15, 0, 0, 0, 0, 64, 0, nullptr, 38, WK_NONE},
     };
     return b;
 }
@@ -332,7 +345,8 @@ static const char* kRareGear[] = {"Ward", "Hold", "Veil", "Knot", "Grip", "Step"
 
 std::string rare_name(Rng& rng, const ItemBase* b) {
     const char** B = !b ? kRareB : b->slot != Slot::Weapon ? kRareGear : b->wkind == WK_BOW || b->wkind == WK_CROSSBOW ? kRareBow
-                    : b->wkind == WK_SWORD || b->wkind == WK_DAGGER ? kRareSword : b->wkind == WK_STAFF || b->wkind == WK_QSTAFF ? kRareStaff : kRareB;
+                    : b->wkind == WK_SWORD || b->wkind == WK_DAGGER ? kRareSword
+                    : b->wkind == WK_STAFF || b->wkind == WK_QSTAFF || b->wkind == WK_SCEPTRE ? kRareStaff : kRareB;
     const char* a = kRareA[rng.next() % 16];
     return std::string(a) + " " + B[rng.next() % 16];
 }
@@ -406,8 +420,8 @@ void grid_size(const Item& it, int& w, int& h) {
     switch (it.b().slot) {
         case Slot::Weapon: {
             const uint8_t k = it.b().wkind;
-            w = k == WK_SWORD || k == WK_DAGGER || k == WK_QSTAFF ? 1 : 2;
-            h = k == WK_DAGGER ? 2 : k == WK_SWORD || k == WK_CROSSBOW ? 3 : 4;
+            w = k == WK_SWORD || k == WK_DAGGER || k == WK_QSTAFF || k == WK_MACE || k == WK_SCEPTRE ? 1 : 2;
+            h = k == WK_DAGGER ? 2 : k == WK_SWORD || k == WK_CROSSBOW || k == WK_MACE || k == WK_SCEPTRE ? 3 : 4;
             break;
         }
         case Slot::Body: w = 2; h = 3; break;
@@ -472,6 +486,7 @@ WeaponStats Item::weapon() const {
     if (bb.implicit && std::string(bb.implicit).find("Critical Strike Chance") != std::string::npos) crit += float(atoi(bb.implicit));   // local
     w.crit = bb.crit * (1 + crit / 100.f);
     w.tags = bb.wkind == WK_SWORD ? T_SWORD : bb.wkind == WK_DAGGER ? T_DAGGER : bb.wkind == WK_QSTAFF ? T_TWO_HAND | T_QSTAFF
+           : bb.wkind == WK_MACE || bb.wkind == WK_SCEPTRE ? T_MACE
            : bb.wkind == WK_CROSSBOW ? T_TWO_HAND | T_CROSSBOW | T_PROJECTILE
            : T_TWO_HAND | (bb.wkind == WK_STAFF ? T_STAFF : bb.wkind == WK_BOW ? T_BOW | T_PROJECTILE : T_MACE);
     if (bb.wkind == WK_BOW || bb.wkind == WK_CROSSBOW) w.range = 12.f;
@@ -550,6 +565,7 @@ void Item::add_global_mods(Stats& s, uint16_t src) const {
         if (imp.find("Cold Resistance") != std::string::npos) s.add(S_COLD_RES, MK_FLAT, 14, 0, src);
         if (imp.find("maximum Hirz") != std::string::npos) s.add(S_ES, MK_FLAT, 20, 0, src);
         if (imp.find("Spell Damage") != std::string::npos) s.add(S_DAMAGE, MK_INC, float(atoi(bb.implicit)), T_SPELL, src);
+        if (imp.find("Elemental Damage") != std::string::npos) s.add(S_DAMAGE, MK_INC, float(atoi(bb.implicit)), T_ELEMENTAL, src);
         if (imp.find("Projectile Speed") != std::string::npos) s.add(S_PROJ_SPEED, MK_INC, 10, 0, src);
         if (imp.find("to Dexterity") != std::string::npos) s.add(S_DEX, MK_FLAT, 12, 0, src);
         if (imp.find("cause Bleeding") != std::string::npos) s.add(S_BLEED, MK_FLAT, 15, 0, src);
@@ -565,6 +581,7 @@ std::vector<std::string> Item::lines() const {
         WeaponStats w = weapon();
         out.push_back(bb.wkind == WK_STAFF ? "Staff" : bb.wkind == WK_BOW ? "Bow" : bb.wkind == WK_SWORD ? "One-Handed Sword"
                       : bb.wkind == WK_CROSSBOW ? "Crossbow" : bb.wkind == WK_DAGGER ? "Dagger" : bb.wkind == WK_QSTAFF ? "Quarterstaff"
+                      : bb.wkind == WK_MACE ? "One-Handed Mace" : bb.wkind == WK_SCEPTRE ? "Sceptre"
                       : "Two-Handed Mace");
         snprintf(buf, sizeof buf, "Physical Damage: %d-%d", int(w.phys_min), int(w.phys_max));
         out.push_back(buf);

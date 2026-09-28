@@ -9,7 +9,8 @@ namespace q {
 
 static const char* weapon_mesh(uint8_t wkind) {
     return wkind == WK_STAFF ? "staff" : wkind == WK_BOW ? "bow" : wkind == WK_SWORD ? "sword" : wkind == WK_CROSSBOW ? "crossbow"
-         : wkind == WK_DAGGER ? "dagger" : wkind == WK_QSTAFF ? "qstaff" : "maul";
+         : wkind == WK_DAGGER ? "dagger" : wkind == WK_QSTAFF ? "qstaff" : wkind == WK_MACE ? "mace" : wkind == WK_SCEPTRE ? "sceptre"
+         : "maul";
 }
 
 void View::follow(const World& w, float dt, bool snap) {
@@ -157,6 +158,10 @@ void View::render_world(Renderer& r, World& w) {
     const Actor& h = w.actors[0];
     w.level.render(r, w.time, h.pos);
     for (size_t i = 0; i < w.actors.size(); i++) draw_actor(r, w, w.actors[i], int(i));
+    if (w.hero.aura && h.alive()) {   // the Beacon held up: a warm ring on the ground round the hero, and its light
+        r.ground(vec3(h.pos, 0.02f), 3.2f, vec4(1.f, 0.72f, 0.3f, 0.22f), {1, 0.03f, 0, 1.5f}, Blend::Additive, w.time * 0.25f);
+        r.light(vec3(h.pos, 1.8f), 5.5f, hex_lin(0xFFB050) * 3.5f);
+    }
     for (auto& n : w.npcs) {
         Instance in;
         in.rim = vec4(hex_lin(0xF2A541), 0.12f);
@@ -258,6 +263,25 @@ void View::render_world(Renderer& r, World& w) {
                 r.ground(vec3(g.pos, 0.02f), g.radius, vec4(0.4f, 0.65f, 1.f, 0.18f), {1, 0.03f, 0, 1.5f}, Blend::Additive, w.time * 0.3f);
                 r.light(vec3(g.pos, 0.5f), 2.5f, hex_lin(0x5AA8F0) * 3.f);
             }
+        } else if (g.kind == GroundFx::Totem) {
+            // the signal brazier: it rises out of the ground, its coals and lantern alight, and sinks when its time is out
+            const float rise = smoothstep(0.f, 0.25f, g.t), sink = 1.f - smoothstep(g.life - 0.4f, g.life, g.t);
+            Instance to;
+            to.model = mat4::translate(vec3(g.pos, -0.9f * (1.f - rise * sink)));
+            to.extra = {-1, 0, 0, 0};
+            to.rim = vec4(hex_lin(0xFFA040), 0.25f);
+            r.draw(assets().mesh("totem"), to);
+            const float fl = 0.8f + 0.2f * std::sin(w.time * 17.f + float(g.seed % 11)) * std::sin(w.time * 7.f);
+            r.light(vec3(g.pos, 1.1f), 5.f, hex_lin(0xFF8A30) * 10.f * fl * rise * sink);
+            r.ground(vec3(g.pos, 0.02f), 0.8f, vec4(0, 0, 0, 0.45f), {0, 1.5f, 0, 1}, Blend::Alpha);
+        } else if (g.kind == GroundFx::Embers) {
+            // burning ground: a bed of coals, flickering, its edge a ring of flame
+            const float in_a = smoothstep(0.f, 0.2f, g.t) * (1.f - smoothstep(g.life - 0.5f, g.life, g.t));
+            const float fl = 0.75f + 0.25f * std::sin(w.time * 13.f + float(g.seed % 9));
+            r.ground(vec3(g.pos, 0.015f), g.radius, vec4(0.14f, 0.05f, 0.02f, 0.7f * in_a), {0, 1.2f, 0, 1}, Blend::Alpha);
+            r.ground(vec3(g.pos, 0.025f), g.radius, vec4(1.f, 0.45f, 0.1f, 0.5f * in_a * fl), {2, 0.05f, 0, 1}, Blend::Additive, w.time * 0.2f);
+            r.ground(vec3(g.pos, 0.03f), g.radius, vec4(1.f, 0.7f, 0.25f, 0.45f * in_a), {1, 0.05f, 0, 2}, Blend::Additive, -w.time * 0.3f);
+            r.light(vec3(g.pos, 0.4f), g.radius * 2.2f, hex_lin(0xFF7A2A) * 6.f * in_a * fl);
         } else if (g.kind == GroundFx::Rain) {
             // where the volleys land: a dusty ring, a thud of light on each volley
             float in_a = smoothstep(0.f, 0.1f, g.t) * (1.f - smoothstep(g.life - 0.2f, g.life, g.t));
@@ -636,6 +660,29 @@ void draw_skill_icon(float cx, float cy, float s, int glyph, bool ready) {
                 u.disc(cx - s * 0.1f + std::cos(a) * rr * 2.f, cy + std::sin(a) * rr, s * 0.04f, Rgba::hex(0x9A6AC8).alpha(ready ? 1.f : 0.5f));
             }
             u.disc(cx - s * 0.28f, cy + s * 0.18f, s * 0.12f, c);
+            break;
+        case 20:  // ember strike: a mace head trailing flame
+            u.line(cx - s * 0.3f, cy + s * 0.3f, cx + s * 0.1f, cy - s * 0.1f, s * 0.06f, c);
+            u.disc(cx + s * 0.16f, cy - s * 0.16f, s * 0.14f, c);
+            for (int i = 0; i < 3; i++)
+                u.disc(cx + s * (0.02f - 0.12f * i), cy - s * (0.26f + 0.02f * i), s * (0.08f - 0.02f * i), Rgba::hex(0xFF8A30).alpha(ready ? 1.f : 0.5f));
+            break;
+        case 21:  // the beacon: a lantern with its light around it
+            u.ring(cx, cy, s * 0.38f, s * 0.34f, Rgba::hex(0xE8B04A).alpha(ready ? 0.8f : 0.4f));
+            u.rect(cx - s * 0.1f, cy - s * 0.14f, s * 0.2f, s * 0.26f, c);
+            u.disc(cx, cy, s * 0.08f, Rgba::hex(0xFFC060).alpha(ready ? 1.f : 0.5f));
+            u.line(cx, cy - s * 0.14f, cx, cy - s * 0.26f, s * 0.04f, c);
+            break;
+        case 22:  // signal fire: a brazier on its tripod, a flame above
+            u.line(cx - s * 0.24f, cy + s * 0.34f, cx, cy + s * 0.04f, s * 0.05f, c);
+            u.line(cx + s * 0.24f, cy + s * 0.34f, cx, cy + s * 0.04f, s * 0.05f, c);
+            u.rect(cx - s * 0.2f, cy - s * 0.04f, s * 0.4f, s * 0.1f, c);
+            u.disc(cx, cy - s * 0.16f, s * 0.12f, Rgba::hex(0xFF8A30).alpha(ready ? 1.f : 0.5f));
+            break;
+        case 23:  // brazier slam: a mace down on burning ground
+            u.line(cx - s * 0.3f, cy - s * 0.3f, cx + s * 0.05f, cy + s * 0.05f, s * 0.06f, c);
+            u.disc(cx + s * 0.1f, cy + s * 0.1f, s * 0.12f, c);
+            u.ring(cx + s * 0.1f, cy + s * 0.22f, s * 0.3f, s * 0.24f, Rgba::hex(0xFF7A2A).alpha(ready ? 1.f : 0.5f));
             break;
         case 19:  // whirling staff: a staff across a circle of motion
             u.ring(cx, cy, s * 0.36f, s * 0.32f, c.alpha(0.6f));

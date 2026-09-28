@@ -27,7 +27,8 @@ const char* stat_name(Stat s) {
         "Damage Taken", "Flask Recovery", "Accuracy", "Hirz", "Hirz Recharge", "Freeze Buildup", "Shock Effect", "Chains",
         "Projectile Speed", "Warcry Effect", "Projectiles", "Damage Gained as Fire", "Chance to Ignite", "Talisman Level",
         "Chance to Poison", "Poison Damage", "Mark Effect", "Maximum Frenzy Charges",
-        "Chance to cause Bleeding", "Bleeding Damage", "Pierce", "Maximum Power Charges", "Traps", "Wither Effect"};
+        "Chance to cause Bleeding", "Bleeding Damage", "Pierce", "Maximum Power Charges", "Traps", "Wither Effect",
+        "Totems", "Aura Effect", "Burning Ground"};
     return s < S_COUNT ? n[s] : "?";
 }
 
@@ -45,7 +46,8 @@ bool stat_from_key(const std::string& k, Stat& out) {
         {"projectiles", S_PROJECTILES}, {"gain_fire", S_GAIN_FIRE}, {"ignite", S_IGNITE}, {"skill_level", S_SKILL_LEVEL},
         {"poison", S_POISON}, {"poison_damage", S_POISON_DAMAGE}, {"mark", S_MARK}, {"frenzy", S_FRENZY},
         {"bleed", S_BLEED}, {"bleed_damage", S_BLEED_DAMAGE}, {"pierce", S_PIERCE},
-        {"power", S_POWER}, {"traps", S_TRAP_THROW}, {"wither", S_WITHER},
+        {"power", S_POWER}, {"traps", S_TRAP_THROW}, {"wither", S_WITHER}, {"totems", S_TOTEMS}, {"aura", S_AURA},
+        {"embers", S_EMBERS},
     };
     for (auto& e : t) if (k == e.key) { out = e.s; return true; }
     return false;
@@ -59,7 +61,7 @@ bool tag_from_key(const std::string& k, uint32_t& out) {
         {"elemental", T_ELEMENTAL}, {"two_hand", T_TWO_HAND}, {"mace", T_MACE}, {"ailment", T_AILMENT}, {"channel", T_CHANNEL},
         {"chaining", T_CHAINING}, {"staff", T_STAFF}, {"glyph", T_GLYPH}, {"bow", T_BOW}, {"mark", T_MARK},
         {"sword", T_SWORD}, {"crossbow", T_CROSSBOW}, {"grenade", T_GRENADE},
-        {"dagger", T_DAGGER}, {"qstaff", T_QSTAFF}, {"trap", T_TRAP},
+        {"dagger", T_DAGGER}, {"qstaff", T_QSTAFF}, {"trap", T_TRAP}, {"totem", T_TOTEM},
     };
     for (auto& e : t) if (k == e.key) { out = e.t; return true; }
     return false;
@@ -121,6 +123,13 @@ HitDamage compute_hit(const Stats& a, const WeaponStats& w, const SkillStats& sk
         hi += a.sum(S_ADDED_MAX, c).flat;
         blo[size_t(t)] = lo * sk.effectiveness;
         bhi[size_t(t)] = std::max(lo, hi) * sk.effectiveness;
+    }
+    if (sk.convert_fire > 0) {   // converted before the increases, so fire and physical increases both apply to it
+        const float cv = clampf(sk.convert_fire, 0.f, 1.f);
+        blo[DT_FIRE] += blo[DT_PHYS] * cv;
+        bhi[DT_FIRE] += bhi[DT_PHYS] * cv;
+        blo[DT_PHYS] *= 1.f - cv;
+        bhi[DT_PHYS] *= 1.f - cv;
     }
     float gain = a.sum(S_GAIN_FIRE, ctx).flat / 100.f;
     if (gain > 0) {

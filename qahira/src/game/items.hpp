@@ -9,7 +9,7 @@ namespace q {
 enum class Rarity : uint8_t { Normal, Magic, Rare, Unique };
 enum class Slot : uint8_t { Weapon, Helmet, Body, Gloves, Boots, Belt, Amulet, Ring, Chart, Count };   // Chart: a map item
 
-enum WeaponKind : uint8_t { WK_NONE, WK_MAUL, WK_STAFF, WK_BOW, WK_SWORD, WK_CROSSBOW, WK_DAGGER, WK_QSTAFF };
+enum WeaponKind : uint8_t { WK_NONE, WK_MAUL, WK_STAFF, WK_BOW, WK_SWORD, WK_CROSSBOW, WK_DAGGER, WK_QSTAFF, WK_MACE, WK_SCEPTRE };
 
 struct ItemBase {
     const char* id;

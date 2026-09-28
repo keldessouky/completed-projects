@@ -24,6 +24,9 @@ enum class Shape : uint8_t {
     Grenade,    // Slice 7: a pot thrown in an arc that bursts where it lands
     Trap,       // Slice 8: thrown to a spot; it arms, and bursts when an enemy steps near
     Spin,       // Slice 8: everything round the hero
+    Totem,      // Slice 9: a signal brazier planted at a spot; it throws fire at what comes near
+    Aura,       // Slice 9: held up or put away; while up it reserves mana and strengthens the hero
+    Brazier,    // Slice 9: a slam that leaves burning ground
 };
 
 enum Attr : uint8_t { ATTR_STR, ATTR_DEX, ATTR_INT };
@@ -54,6 +57,7 @@ struct SkillDef {
     float poison = 0;             // base chance to Poison, percent
     float bleed = 0;              // base chance to cause Bleeding, percent (Slice 7)
     int pierce = 0;               // projectiles pass through this many enemies
+    float convert_fire = 0;       // part of an attack's physical damage converted to fire (Slice 9)
 };
 const std::vector<SkillDef>& skill_defs();
 int find_skill(const char* id);

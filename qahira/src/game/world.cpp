@@ -280,6 +280,11 @@ void compute_hero_stats(Hero& H) {
     H.passives.apply(H.stats);
     H.keystones = H.passives.keystones();
     if (const Ascendancy* a = ascendancy_of(H.passives.cls, H.ascendancy)) asc_apply(*a, H.asc, H.stats, H.keystones);
+    if (H.aura) {   // the Beacon, held up
+        const float e = H.stats.sum(S_AURA).apply(1.f);
+        H.stats.add(S_DAMAGE, MK_INC, 15.f * e, T_ELEMENTAL, SRC_AURA);
+        for (Stat r : {S_FIRE_RES, S_COLD_RES, S_LIGHTNING_RES}) H.stats.add(r, MK_FLAT, 12.f * e, 0, SRC_AURA);
+    }
     // attributes: Strength gives life and melee damage, Dexterity evasion, Intelligence mana and Hirz
     float str = H.stats.value(S_STR), dex = H.stats.value(S_DEX), in = H.stats.value(S_INT);
     H.stats.add(S_LIFE, MK_FLAT, str * 0.5f, 0, SRC_ATTRIBUTES);
@@ -324,7 +329,7 @@ void World::recompute_hero() {
     Actor& a = actors[0];
     float old_max = a.life_max;
     a.life_max = std::round(H.stats.value(S_LIFE));
-    a.mana_max = std::round(H.stats.value(S_MANA));
+    a.mana_max = std::round(H.stats.value(S_MANA) * (H.aura ? 0.75f : 1.f));   // the Beacon reserves a quarter
     a.armour = H.stats.value(S_ARMOUR);
     float old_es = H.es_max;
     H.es_max = std::round(std::max(0.f, H.stats.value(S_ES)));
@@ -532,6 +537,43 @@ void World::step(const Input& in, float dt) {
                     emit(Ev::TrapSnap, at);
                 }
             }
+        }
+        if (g.kind == GroundFx::Totem && g.t >= g.pulse && g.t < g.life) {   // the brazier throws fire at the nearest it sees
+            g.pulse += 0.5f;
+            const Actor* best = nullptr;
+            float bd = g.radius;
+            for (size_t k = 1; k < actors.size(); k++) {
+                const Actor& e = actors[k];
+                const float d = length(e.pos - g.pos);
+                if (e.alive() && d < bd && level.line_clear(g.pos, e.pos, 0.2f)) { bd = d; best = &e; }
+            }
+            if (best) {
+                Projectile p;
+                const vec2 pd = normalize(best->pos - g.pos + vec2{0.001f, 0});
+                p.pos = g.pos + pd * 0.4f;
+                p.vel = pd * std::max(8.f, g.half);
+                p.z = 1.7f;
+                p.radius = 0.4f;
+                p.life = g.radius / std::max(8.f, g.half) + 0.2f;
+                p.team = TEAM_HERO;
+                p.color = vec3{1.f, 0.55f, 0.2f};
+                p.hh = g.hh;
+                projectiles.push_back(p);
+                emit(Ev::Cast, g.pos, float(DT_FIRE));
+            }
+        }
+        if (g.kind == GroundFx::Embers && g.t >= g.pulse && g.t < g.life) {   // burning ground: enemies on it burn, the hero mends
+            g.pulse += 0.5f;
+            const HeroHit hh = g.hh;
+            const vec2 at = g.pos;
+            const float reach = g.radius;
+            for (size_t k = 1; k < actors.size(); k++) {
+                Actor& e = actors[k];
+                if (e.alive() && length(e.pos - at) <= reach + e.radius) hit_enemy(e, hh, at, 0.f);
+            }
+            Actor& hr = actors[0];
+            if (hr.alive() && length(hr.pos - at) <= reach)
+                hr.life = std::min(hr.life_max, hr.life + hr.life_max * 0.0075f * hero.stats.sum(S_EMBERS).apply(1.f));
         }
         if (g.kind == GroundFx::Rain && g.t >= g.pulse && g.t < g.life) {   // a volley lands
             g.pulse += 0.3f;
@@ -1571,7 +1613,7 @@ void World::resolve_skill(Actor& h) {
         case Shape::Cone: {
             if (sk.tags & T_SWORD) { sword_cut(h, sk, hh, area, dir); break; }
             hit_all(h.pos, sk.range * area, true, sk.angle);
-            if (hits > 0) {
+            if (hits > 0 && !(sk.tags & T_FIRE)) {   // (the Templar's burning strike cracks nothing)
                 H.combo++;
                 if (H.combo % 3 == 0) {
                     GroundFx g;
@@ -1774,6 +1816,69 @@ void World::resolve_skill(Actor& h) {
                 g2.seed = rng.next();
                 ground.push_back(g2);
             }
+            break;
+        }
+        case Shape::Aura: {   // the Beacon: held up, or put away
+            H.aura = !H.aura;
+            recompute_hero();
+            if (H.aura) {
+                GroundFx r;
+                r.kind = GroundFx::Ring;
+                r.pos = h.pos;
+                r.radius = 4.f;
+                r.life = 0.5f;
+                ground.push_back(r);
+                burst(vec3(h.pos, 1.6f), 24, vec4(1.f, 0.8f, 0.4f, 1), vec4(1.f, 0.5f, 0.1f, 0), 3.f, 0.12f, 0.8f, true, 1.f);
+                texts.push_back({vec3(h.pos, 2.6f), "BEACON", 0xE8B04A, 0, 30});
+            }
+            emit(Ev::AuraOn, h.pos, H.aura ? 1.f : 0.f);
+            break;
+        }
+        case Shape::Totem: {   // a signal brazier planted where you aim; the oldest goes when there are too many
+            const int max_out = 1 + int(H.stats.sum(S_TOTEMS).flat);
+            int out = 0;
+            GroundFx* oldest = nullptr;
+            for (auto& g : ground)
+                if (g.kind == GroundFx::Totem && g.t < g.life) { out++; if (!oldest || g.t > oldest->t) oldest = &g; }
+            if (out >= max_out && oldest) oldest->t = oldest->life;
+            GroundFx g;
+            g.kind = GroundFx::Totem;
+            vec2 aim = h.target;
+            if (length(aim - h.pos) > sk.range) aim = h.pos + normalize(aim - h.pos + vec2{0.01f, 0}) * sk.range;
+            g.pos = level.resolve(aim, 0.5f);
+            g.life = sk.duration * (1.f + H.stats.sum(S_TOTEMS).inc / 100.f);
+            g.pulse = 0.3f;
+            g.radius = 10.f;   // how far it sees
+            g.seed = rng.next();
+            g.hh = hh;
+            g.half = c.proj_speed;
+            ground.push_back(g);
+            burst(vec3(g.pos, 0.2f), 18, vec4(0.6f, 0.5f, 0.4f, 0.8f), vec4(0.4f, 0.35f, 0.3f, 0), 3.f, 0.3f, 0.6f, false, -3.f, 1);
+            emit(Ev::TotemSet, g.pos);
+            break;
+        }
+        case Shape::Brazier: {   // a slam that leaves the ground burning
+            vec2 at = h.pos + dir * sk.range;
+            hit_all(at, sk.radius * area, false, 0);
+            GroundFx g;
+            g.kind = GroundFx::Embers;
+            g.pos = at;
+            g.radius = sk.radius * area;
+            g.life = sk.duration;
+            g.pulse = 0.5f;
+            g.seed = rng.next();
+            g.hh = hh;
+            for (int t = 0; t < DT_COUNT; t++) { g.hh.hit.min[size_t(t)] *= t == DT_FIRE ? 0.18f : 0.f; g.hh.hit.max[size_t(t)] *= t == DT_FIRE ? 0.18f : 0.f; }
+            g.hh.hit.crit_chance = 0;
+            g.hh.ignite = 0;
+            const float em = H.stats.sum(S_EMBERS).apply(1.f);
+            for (int t = 0; t < DT_COUNT; t++) { g.hh.hit.min[size_t(t)] *= em; g.hh.hit.max[size_t(t)] *= em; }
+            ground.push_back(g);
+            burst(vec3(at, 0.1f), 26, vec4(1.f, 0.6f, 0.2f, 1), vec4(0.9f, 0.2f, 0.05f, 0), 6.f, 0.12f, 0.6f, true, -8.f);
+            burst(vec3(at, 0.1f), 14, vec4(0.42f, 0.37f, 0.33f, 0.6f), vec4(0.3f, 0.27f, 0.25f, 0), 5.f, 0.28f, 0.8f, false, -6.f, 1);
+            emit(Ev::SlamImpact, at, 1.f);
+            hitstop = 0.07f;
+            shake = std::max(shake, 0.5f);
             break;
         }
         case Shape::Trap: {   // thrown; lands and arms; the oldest goes when there are too many
@@ -2028,6 +2133,11 @@ void World::damage_hero(float lo, float hi, int type, vec2 from, float break_amt
         texts.push_back({vec3(h.pos, 2.2f), "EVADED", 0xB8D8A0, 0, 28});
         meet_codex("evasion");
         emit(Ev::Dodge, h.pos);
+        return;
+    }
+    if (evadable && rng.chance(std::min(0.75f, hero.stats.value(S_BLOCK) / 100.f))) {   // Block: the whole hit, turned aside
+        texts.push_back({vec3(h.pos, 2.2f), "BLOCKED", 0xD8C890, 0, 28});
+        emit(Ev::Block, h.pos);
         return;
     }
     HitDamage hd;

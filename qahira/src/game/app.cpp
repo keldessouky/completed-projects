@@ -242,6 +242,9 @@ void play_event_sounds(const World& w) {
             case Ev::Power: a.play("power_charge", 0.4f, 0, pv(1)); break;
             case Ev::ZarStart: a.play("zar_start", 0.8f, pan, 1); break;
             case Ev::Trance: a.play("zar_trance", 0.85f, pan, 1); break;
+            case Ev::Block: a.play("block", 0.6f, 0, pv(1)); break;
+            case Ev::AuraOn: a.play(e.mag > 0.5f ? "aura_on" : "ui_move", 0.6f, 0, 1); break;
+            case Ev::TotemSet: a.play("totem_plant", 0.7f, pan, pv(1)); break;
             case Ev::Bleed: a.play("bleed", e.mag > 1.5f ? 0.7f : 0.35f * near, pan, pv(e.mag > 1.5f ? 0.8f : 1.f)); break;
             case Ev::Frozen: a.play("frozen", 0.6f * near, pan, pv(1)); break;
             case Ev::Glyph: a.play("glyph", e.mag > 1.5f ? 0.8f : e.mag > 0.8f ? 0.55f : 0.25f, pan, e.mag > 1.5f ? 0.8f : pv(1)); break;
@@ -736,10 +739,11 @@ void app_render(GLuint fbo, int w, int h) {
 void app_audio(int16_t* stereo, int frames) { audio().mix(stereo, frames); }
 
 // ---- save states
-static const uint32_t kStateVersion = 12;  // 5: passives, Hirz, keystone state; 6: Talismans, ailments, glyphs; 7: Act I;
+static const uint32_t kStateVersion = 13;  // 5: passives, Hirz, keystone state; 6: Talismans, ailments, glyphs; 7: Act I;
                                            // 8: chart runs and the Haboob; 9: poison, marks, Frenzy, arrows;
                                            // 10: bleeding, piercing bolts, grenades, the weapon swap;
-                                           // 11: traps, Wither, Power Charges; 12: Zar Nights
+                                           // 11: traps, Wither, Power Charges; 12: Zar Nights;
+                                           // 13: the Beacon, totems, burning ground
 
 static ByteWriter save_state() {
     ByteWriter w;

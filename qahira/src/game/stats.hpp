@@ -19,6 +19,7 @@ enum Tag : uint32_t {
     T_CHAINING = 1u << 20, T_STAFF = 1u << 21, T_GLYPH = 1u << 22, T_BOW = 1u << 23, T_MARK = 1u << 24,
     T_SWORD = 1u << 25, T_CROSSBOW = 1u << 26, T_GRENADE = 1u << 27,   // Slice 7: the Mercenary
     T_DAGGER = 1u << 28, T_QSTAFF = 1u << 29, T_TRAP = 1u << 30,        // Slice 8: the Shadow
+    T_TOTEM = 1u << 31,                                                  // Slice 9: the Templar (the mask is full)
 };
 
 enum DamageType { DT_PHYS, DT_FIRE, DT_COLD, DT_LIGHTNING, DT_CHAOS, DT_COUNT };
@@ -56,6 +57,10 @@ enum Stat : uint16_t {
     S_POWER,                  // maximum Power Charges (flat)
     S_TRAP_THROW,             // traps: throwing speed (inc) and how many can be out at once (flat)
     S_WITHER,                 // Wither's effect (inc)
+    // Slice 9: the Templar
+    S_TOTEMS,                 // totems out at once (flat) and their duration (inc)
+    S_AURA,                   // the effect of your aura (inc)
+    S_EMBERS,                 // burning ground: its damage and your recovery on it (inc)
     S_COUNT
 };
 const char* stat_name(Stat s);
@@ -76,6 +81,7 @@ struct Mod {
 // Where a modifier came from, for the "Why?" breakdown: equipment slots are 1..9, then these ranges.
 enum ModSource : uint16_t {
     SRC_NONE = 0, SRC_CLASS = 50, SRC_LEVEL = 80, SRC_ATTRIBUTES = 90, SRC_WAFQ = 600,  // + wafq id
+    SRC_AURA = 700,                                                                    // an aura held up
     SRC_STAR = 1000,                                                                   // + star id
 };
 
@@ -111,6 +117,7 @@ struct SkillStats {
     int base_type = DT_PHYS;
     float crit = 5.0f;                // spells use this; attacks use the weapon's
     float break_mult = 1.0f;
+    float convert_fire = 0;           // Slice 9: part of the physical base converted to fire, before any increases
 };
 
 struct HitDamage {

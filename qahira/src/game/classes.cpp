@@ -10,8 +10,10 @@ const std::vector<ClassDef>& class_defs() {
         {"sorcerer", "The Sorcerer", "sorcerer", "ashwood_staff", "Intelligence", 14, 14, 32, 48, 62, 22, 0,
          {"ember_bolt", "arc", "frost_glyph", "falling_star"},
          "Fire, cold and lightning. Chill and Shock them, then call down a star. Hirz and spell crits.", true},
-        {"templar", "The Templar", "warrior", "worn_maul", "Strength and Intelligence", 23, 14, 23, 56, 50, 10, 20,
-         {"", "", "", ""}, "Elemental melee, auras and totems.", false},
+        {"templar", "The Templar", "templar", "lantern_sceptre", "Strength and Intelligence", 23, 14, 23, 56, 50, 10, 20,
+         {"ember_strike", "beacon", "signal_fire", "brazier_slam"},
+         "A lantern on an iron staff, and fire in everything it strikes. Hold up the beacon, plant a brazier, and let the "
+         "ground burn under them.", true},
         {"ranger", "The Ranger", "ranger", "reed_bow", "Dexterity", 14, 32, 14, 54, 46, 0, 0,
          {"split_arrow", "falcons_mark", "rain_of_arrows", "scorpion_sting"},
          "Bows and marks, poison and evasion. Mark the strongest, rain on the rest.", true, 60},
