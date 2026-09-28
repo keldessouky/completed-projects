@@ -66,7 +66,7 @@ void write_actor(ByteWriter& w, const Actor& a) {
     w.put(a.ignite_t); w.put(a.ignite_dps); w.put(a.chill_t); w.put(a.chill); w.put(a.freeze_meter); w.put(a.frozen_t);
     w.put(a.shock_t); w.put(a.shock);
     w.bytes(a.poison, sizeof a.poison); w.bytes(a.poison_t, sizeof a.poison_t); w.put(a.mark_t); w.put(a.mark_hits); w.put(a.rift);
-    w.put(a.bleed_t); w.put(a.bleed_dps); w.put(a.struck2); w.put(a.dig);
+    w.put(a.bleed_t); w.put(a.bleed_dps); w.put(a.struck2); w.put(a.dig); w.put(a.wither); w.put(a.wither_t);
     w.bytes(a.move_cd, sizeof a.move_cd);
     write_anim(w, a.anim);
 }
@@ -82,7 +82,7 @@ void read_actor(ByteReader& r, Actor& a) {
     r.get(a.ignite_t); r.get(a.ignite_dps); r.get(a.chill_t); r.get(a.chill); r.get(a.freeze_meter); r.get(a.frozen_t);
     r.get(a.shock_t); r.get(a.shock);
     r.bytes(a.poison, sizeof a.poison); r.bytes(a.poison_t, sizeof a.poison_t); r.get(a.mark_t); r.get(a.mark_hits); r.get(a.rift);
-    r.get(a.bleed_t); r.get(a.bleed_dps); r.get(a.struck2); r.get(a.dig);
+    r.get(a.bleed_t); r.get(a.bleed_dps); r.get(a.struck2); r.get(a.dig); r.get(a.wither); r.get(a.wither_t);
     r.bytes(a.move_cd, sizeof a.move_cd);
     a.model = a.def < 0 ? assets().character(hero_model()) : monster_model(a.def);
     a.anim = Animator{};
@@ -250,7 +250,7 @@ void write_world(ByteWriter& w, const World& W) {
     w.put(H.rally); w.put(H.combo); w.put(H.flask); w.put(H.flask_heal_t);
     w.put(H.es); w.put(H.es_wait); w.put(H.overload_t); w.put(H.last_attacker);
     w.bytes(H.cooldowns, sizeof H.cooldowns);
-    w.put(H.endurance); w.put(H.endurance_t); w.put(H.frenzy); w.put(H.frenzy_t);
+    w.put(H.endurance); w.put(H.endurance_t); w.put(H.frenzy); w.put(H.frenzy_t); w.put(H.power); w.put(H.power_t);
     w.put(W.in_chart); w.put(W.chart_site); w.put(W.chart); w.put(W.haboob); w.put(W.rift); w.put(W.dig);
     w.put(uint32_t(W.actors.size()));
     for (const Actor& a : W.actors) write_actor(w, a);
@@ -271,7 +271,7 @@ bool read_world(ByteReader& r, World& W) {
     float es = r.get<float>();
     r.get(H.es_wait); r.get(H.overload_t); r.get(H.last_attacker);
     r.bytes(H.cooldowns, sizeof H.cooldowns);
-    r.get(H.endurance); r.get(H.endurance_t); r.get(H.frenzy); r.get(H.frenzy_t);
+    r.get(H.endurance); r.get(H.endurance_t); r.get(H.frenzy); r.get(H.frenzy_t); r.get(H.power); r.get(H.power_t);
     r.get(W.in_chart); r.get(W.chart_site); r.get(W.chart); r.get(W.haboob); r.get(W.rift); r.get(W.dig);
     uint32_t na = r.get<uint32_t>();
     if (!r.ok || na == 0 || na > 4096) return false;

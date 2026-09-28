@@ -58,6 +58,7 @@ bool PassiveTree::load_json(const std::string& text) {
         if (flag == "overload") s.keystone = KS_OVERLOAD;
         if (flag == "point_blank") s.keystone = KS_POINT_BLANK;
         if (flag == "brand") s.keystone = KS_BRAND;
+        if (flag == "agony") s.keystone = KS_AGONY;
         if (s.id != int(stars.size())) { QERR("tree.json: ids out of order"); return false; }
         stars.push_back(std::move(s));
     }

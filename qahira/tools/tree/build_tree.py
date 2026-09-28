@@ -428,6 +428,51 @@ k = node('keystone', x, y, name="al-Han'a, the Brand", star='the 6th lunar mansi
 chain(hydra['unk'], k, 1, BLEED, const='the Lunar Mansions')
 keystones.append(k)
 
+# ================================================================ Slice 8: the Shadow's sky
+# At 1 o'clock, between the Ranger's Pegasus and the Sorcerer's Perseus. Appended, so every earlier id stays put.
+DAGGER = [inc('damage', 10, 'dagger')]
+CRIT = [inc('crit_chance', 12)]
+CHAOS = [inc('damage', 12, 'chaos')]
+TRAP = [inc('damage', 12, 'trap')]
+QSTAFF = [inc('damage', 10, 'qstaff')]
+ES_EV = [inc('evasion', 6), inc('es', 4)]
+IMPLEMENTED.add('shadow')
+nodes[starts['shadow']]['text'] = ['Dexterity and Intelligence', '']
+before = len(nodes)
+chain(pole, starts['shadow'], 3, ES)
+spokes['shadow'] = list(range(before, len(nodes)))
+chain(starts['shadow'], ecliptic_at(30), 1, ES_EV)
+for side, mods in ((-1, DAGGER), (1, CHAOS)):
+    x, y = polar(30 + side * 13, R_START + 60)
+    s_ = node('minor', x, y, mods)
+    link(starts['shadow'], s_)
+    link(s_, ecliptic_at(30 + side * 20))
+
+andromeda = constellation('al-Mar\'a al-Musalsala', 'Andromeda, the Chained Woman', 17, 640, 0, 60, [
+    ('alp', 'notable', 0, 0, 'Alpheratz', 'Surrat al-Faras, the Horse\'s Navel', [inc('damage', 25, 'dagger'), inc('crit_chance', 30, 'dagger'), flat('crit_multi', 10)], ''),
+    ('mir', 'notable', 0.4, 1.9, 'Mirach', 'al-Mi\'zar, the Girdle', [flat('poison', 15), inc('poison_damage', 25)], ''),
+    ('a1', 'minor', -0.9, -0.6, '', '', DAGGER, ''),
+    ('a2', 'minor', 0.9, -0.5, '', '', CRIT, ''),
+    ('a3', 'minor', 0.3, 0.95, '', '', CHAOS, ''),
+    ('alm', 'notable', -1.3, 2.6, 'Almach', '\'Anaq al-Ard, the Caracal', [inc('evasion', 18), inc('es', 12), inc('move_speed', 4)], ''),
+    ('a4', 'minor', -0.6, 1.9, '', '', ES_EV, ''),
+], [('alp', 'a1'), ('alp', 'a2'), ('alp', 'a3'), ('a3', 'mir'), ('mir', 'a4'), ('a4', 'alm')], [('a1', ecliptic_at(10)), ('a2', ecliptic_at(20))], fill=0)
+
+cassiopeia = constellation('Dhat al-Kursi', 'Cassiopeia, the Lady of the Chair', 22, 860, 0, 58, [
+    ('sch', 'notable', 0, 0, 'Schedar', 'al-Sadr, the Breast', [inc('damage', 25, 'qstaff'), flat('power', 1)], ''),
+    ('caph', 'notable', 1.5, 0.6, 'Caph', 'al-Kaff al-Khadib, the Dyed Hand', [inc('damage', 30, 'trap'), flat('traps', 1)], ''),
+    ('c1', 'minor', -1.0, -0.4, '', '', QSTAFF, ''),
+    ('c2', 'minor', 0.8, -0.6, '', '', TRAP, ''),
+    ('ruc', 'notable', 0.9, 1.9, 'Ruchbah', 'al-Rukba, the Knee', [flat('crit_multi', 20), inc('crit_chance', 20)], ''),
+    ('c3', 'minor', 0.5, 0.9, '', '', CRIT, ''),
+], [('sch', 'c1'), ('sch', 'c2'), ('c2', 'caph'), ('sch', 'c3'), ('c3', 'ruc')], [('c1', andromeda['mir'])], fill=0)
+
+x, y = polar(8, R_RIM)
+k = node('keystone', x, y, name='al-Sharatan, the Two Signs', star='the 1st lunar mansion', flag='agony',
+         text=['Your Critical Strike Multiplier also applies to Poison', 'Your hits deal 30% less damage'], const='the Lunar Mansions')
+chain(andromeda['mir'], k, 1, CHAOS, const='the Lunar Mansions')
+keystones.append(k)
+
 # ---------------------------------------------------------------- Recommended Paths (GDD §13)
 # the notables and keystones a new player aims for, in order; the tree screen can plan them in one press
 RECOMMENDED = {
@@ -435,6 +480,7 @@ RECOMMENDED = {
     'sorcerer': [corona['alp'], lyra['veg'], scorpius['ant'], scorpius['sha'], perseus['mir'], perseus['alg'], cygnus['den']],
     'ranger': [sagittarius['kau'], lepus['arn'], sagittarius['asc'], pegasus['mar'], pegasus['eni'], sagittarius['nun'], keystones[2]],
     'mercenary': [hydra['alf'], carina['can'], hydra['unk'], crater['alk'], carina['avi'], keystones[3]],
+    'shadow': [andromeda['alp'], andromeda['mir'], andromeda['alm'], cassiopeia['sch'], cassiopeia['ruc'], cassiopeia['caph']],
 }
 
 # ---------------------------------------------------------------- text for every node
@@ -447,10 +493,12 @@ NAMES = {'life': 'maximum Life', 'mana': 'maximum Mana', 'es': 'maximum Hirz', '
          'freeze': 'Freeze buildup', 'shock': 'Effect of Shock', 'chains': 'Chain', 'damage_taken': 'damage taken',
          'move_speed': 'Movement Speed', 'life_leech': 'Life', 'poison': 'chance to Poison', 'poison_damage': 'Poison damage',
          'proj_speed': 'Projectile Speed', 'flask': 'Flask Recovery', 'mark': 'Mark effect',
-         'bleed': 'chance to cause Bleeding', 'bleed_damage': 'Bleeding damage', 'pierce': 'Pierce'}
+         'bleed': 'chance to cause Bleeding', 'bleed_damage': 'Bleeding damage', 'pierce': 'Pierce',
+         'power': 'maximum Power Charges', 'traps': 'Traps', 'wither': 'Wither effect'}
 TAGW = {'melee': 'Melee', 'physical': 'Physical', 'slam': 'Slam', 'spell': 'Spell', 'lightning': 'Lightning', 'cold': 'Cold',
         'fire': 'Fire', 'elemental': 'Elemental', 'attack': 'Attack', 'area': 'Area', 'projectile': 'Projectile', 'bow': 'Bow',
-        'sword': 'Sword', 'crossbow': 'Crossbow', 'grenade': 'Grenade'}
+        'sword': 'Sword', 'crossbow': 'Crossbow', 'grenade': 'Grenade', 'dagger': 'Dagger', 'qstaff': 'Quarterstaff',
+        'trap': 'Trap', 'chaos': 'Chaos'}
 
 
 def mod_text(m):
@@ -466,6 +514,10 @@ def mod_text(m):
         return 'Arc chains %+d more time%s' % (v, '' if v == 1 else 's')
     if stat == 'pierce':
         return 'Projectiles Pierce %+d more enem%s' % (v, 'y' if v == 1 else 'ies')
+    if stat == 'traps' and kind == 'flat':
+        return '%+d Trap%s out at once' % (v, '' if v == 1 else 's')
+    if stat == 'power' and kind == 'flat':
+        return '%+d to maximum Power Charges' % v
     if stat == 'bleed' and kind == 'flat':
         return '%d%% chance to cause Bleeding' % v
     if stat == 'life_leech':
@@ -590,7 +642,8 @@ WEIGHT = {('damage', 'inc'): 1.0, ('life', 'flat'): 0.5, ('life', 'inc'): 2.5, (
           ('break', 'inc'): 0.8, ('warcry', 'inc'): 0.6, ('warcry', 'flat'): 12.0, ('shock', 'inc'): 0.4, ('freeze', 'inc'): 0.4,
           ('chains', 'flat'): 20.0, ('str', 'flat'): 0.8, ('int', 'flat'): 0.8, ('mana_regen', 'inc'): 0.5,
           ('es_recharge', 'inc'): 0.4, ('life_regen', 'flat'): 4.0, ('area', 'inc'): 1.0, ('damage_taken', 'inc'): -2.5,
-          ('life_leech', 'flat'): 6.0, ('mana', 'flat'): 0.4, ('pierce', 'flat'): 12.0, ('evasion', 'inc'): 0.8}
+          ('life_leech', 'flat'): 6.0, ('mana', 'flat'): 0.4, ('pierce', 'flat'): 12.0, ('evasion', 'inc'): 0.8,
+          ('power', 'flat'): 15.0, ('traps', 'flat'): 10.0}
 for n in nodes:
     if n['kind'] != 'notable':
         continue

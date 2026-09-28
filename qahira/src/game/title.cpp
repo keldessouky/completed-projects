@@ -125,14 +125,14 @@ void Title::render() const {
         for (auto& c : class_defs()) if (c.playable) list.push_back(&c);
         const float gap = list.size() > 3 ? 40.f : 60.f, cw = std::min(560.f, (1800.f - (list.size() - 1) * gap) / list.size());
         const float x0 = 960 - (list.size() * cw + (list.size() - 1) * gap) / 2;
-        const float big = cw < 500 ? 40.f : 46.f;
+        const float big = cw < 380 ? 34.f : cw < 500 ? 40.f : 46.f;
         for (auto* c : list) {
             float x = x0 + n * (cw + gap), yy = 300;
             bool cur = n == cls_cursor;
             u.frame(x, yy, cw, 460, cur ? pal::dusk : pal::panel, cur ? pal::amber : pal::line, 16, cur ? 3.f : 1.5f);
             u.text(x + cw / 2, yy + 30, c->name, big, cur ? pal::amber : pal::bone, Align::Center, 1.3f);
             u.text(x + cw / 2, yy + 96, c->attr, 28, pal::turquoise, Align::Center, 0.6f);
-            u.wrap(x + 36, yy + 160, cw - 72, c->blurb, cw < 500 ? 26 : 28, pal::soft);
+            u.wrap(x + 30, yy + 160, cw - 60, c->blurb, cw < 380 ? 23 : cw < 500 ? 26 : 28, pal::soft);
             n++;
         }
         float lx = 700, ly = 900;

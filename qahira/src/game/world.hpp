@@ -117,6 +117,8 @@ struct Actor {
     float mark_t = 0;              // Marked (a Ranger's mark): the next hits are critical strikes
     int mark_hits = 0;
     float bleed_t = 0, bleed_dps = 0;   // Bleeding (Slice 7): physical damage over time; the strongest one holds
+    int wither = 0;                // Withered (Slice 8): each stack, 6% more chaos damage taken
+    float wither_t = 0;
     bool rift = false;             // came through a Marid Rift: it leaves splinters
     bool dig = false;              // a buried chamber's guardian (Excavations)
     Animator anim;
@@ -148,9 +150,10 @@ struct Projectile {
 };
 
 struct GroundFx {
-    enum Kind : uint8_t { Crack, Telegraph, Ring, Glyph, Meteor, Bolt, Fire, Line, Rain, Water, Grenade } kind = Crack;   // Fire: a hazard; Line: a
+    enum Kind : uint8_t { Crack, Telegraph, Ring, Glyph, Meteor, Bolt, Fire, Line, Rain, Water, Grenade, Trap } kind = Crack;   // Fire: a hazard; Line: a
     // telegraphed strip; Rain: a Rain of Arrows (volleys on its pulses); Water: a cold hazard (Act II's pools);
-    // Grenade: a pot in flight from pos2 to pos, bursting when it lands (Slice 7)
+    // Grenade: a pot in flight from pos2 to pos, bursting when it lands (Slice 7); Trap: in flight until `pulse`, then armed,
+    // bursting when an enemy comes near (Slice 8)
     vec2 pos;
     float radius = 1, t = 0, life = 6, angle = 0, half = 0.6f;
     uint32_t owner = 0;
@@ -252,7 +255,7 @@ struct Npc {
 enum class Ev : uint8_t { Swing, Impact, SlamImpact, EnemyHit, EnemyDie, HeroHit, Warcry, Dodge, Spit, Splash, Pickup,
                           Drink, Crit, Break, LevelUp, HeroDie, Aftershock, Portal, Gold, Currency, BossDie, BossWail,
                           BossLeap, Summon, Craft, Sell, InvFull, Cast, FireHit, ColdHit, LightningHit, StarFall, Frozen,
-                          Glyph, WeaponSwap, Bleed };
+                          Glyph, WeaponSwap, Bleed, TrapSet, TrapSnap, Power };
 struct Event { Ev type; vec2 pos; float mag; int def = -1; };   // def: the monster, for its voice
 
 struct Hero {
@@ -288,6 +291,8 @@ struct Hero {
     int astro_points() const { return std::max(0, q::astro_points(sites_done) - __builtin_popcount(astro)); }
     int frenzy = 0;                // Frenzy Charges (Slice 6): 4% more damage and speed each
     float frenzy_t = 0;
+    int power = 0;                 // Power Charges (Slice 8): 40% increased Critical Strike Chance each
+    float power_t = 0;
     int endurance = 0;             // Endurance Charges (Ironclad)
     float endurance_t = 0;         // seconds until they fall off
     int asc_points() const;        // from trials, minus nodes held
@@ -399,10 +404,13 @@ public:
     void meet_codex(const char* id);          // the first time: an entry and a toast
     void gain_endurance(int n);
     void gain_frenzy(int n);
+    void gain_power(int n);
     void rift_step(float dt);
     void dig_step(float dt);
     void dig_use(int interact);          // a charge set, the charges fired, the chamber searched
     int frenzy_max() const { return 3 + int(hero.stats.sum(S_FRENZY).flat); }
+    int power_max() const { return 3 + int(hero.stats.sum(S_POWER).flat); }
+    int trap_max() const { return 3 + int(hero.stats.sum(S_TRAP_THROW).flat); }
     float evade_chance() const;   // against this area's monsters
     void haboob_step(float dt);
     void haboob_reward();

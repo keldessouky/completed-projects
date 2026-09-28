@@ -22,6 +22,8 @@ enum class Shape : uint8_t {
     Mark,       // Slice 6: mark the enemy aimed at; its next hits are critical strikes
     Rain,       // Slice 6: volleys of arrows on a spot
     Grenade,    // Slice 7: a pot thrown in an arc that bursts where it lands
+    Trap,       // Slice 8: thrown to a spot; it arms, and bursts when an enemy steps near
+    Spin,       // Slice 8: everything round the hero
 };
 
 enum Attr : uint8_t { ATTR_STR, ATTR_DEX, ATTR_INT };

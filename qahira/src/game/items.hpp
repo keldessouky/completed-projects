@@ -9,7 +9,7 @@ namespace q {
 enum class Rarity : uint8_t { Normal, Magic, Rare, Unique };
 enum class Slot : uint8_t { Weapon, Helmet, Body, Gloves, Boots, Belt, Amulet, Ring, Chart, Count };   // Chart: a map item
 
-enum WeaponKind : uint8_t { WK_NONE, WK_MAUL, WK_STAFF, WK_BOW, WK_SWORD, WK_CROSSBOW };
+enum WeaponKind : uint8_t { WK_NONE, WK_MAUL, WK_STAFF, WK_BOW, WK_SWORD, WK_CROSSBOW, WK_DAGGER, WK_QSTAFF };
 
 struct ItemBase {
     const char* id;
@@ -40,8 +40,8 @@ enum AffixEffect : uint8_t {
     AE_LOCAL_EVASION_ADD, AE_LOCAL_EVASION_INC,
 };
 // AffixDef::need: which bases in a slot can roll it (0: any)
-enum AffixNeed : uint8_t { NEED_ARMOUR = 1, NEED_ES = 2, NEED_MAUL = 4, NEED_STAFF = 8, NEED_EVASION = 16, NEED_BOW = 32, NEED_SWORD = 64,
-                           NEED_CROSSBOW = 128 };
+enum AffixNeed : uint16_t { NEED_ARMOUR = 1, NEED_ES = 2, NEED_MAUL = 4, NEED_STAFF = 8, NEED_EVASION = 16, NEED_BOW = 32, NEED_SWORD = 64,
+                            NEED_CROSSBOW = 128, NEED_DAGGER = 256, NEED_QSTAFF = 512 };
 
 struct AffixDef {
     const char* id;
@@ -53,7 +53,7 @@ struct AffixDef {
     float lo[3], hi[3];     // value range per tier (for added damage: min range; hi2 is the max)
     float lo2[3], hi2[3];   // second value (added damage max), unused otherwise
     const char* fmt;        // "%d%% increased Physical Damage"
-    uint8_t need = 0;       // AffixNeed bits
+    uint16_t need = 0;      // AffixNeed bits
     // AE_GENERIC: the stat it adds to. An affix with no slots never rolls on drops (bench, corruption, uniques).
     Stat gstat = S_COUNT;
     ModKind gkind = MK_FLAT;

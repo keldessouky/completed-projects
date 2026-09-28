@@ -172,6 +172,11 @@ bool Bot::caster_combat(World& w, Input& in, uint64_t frame, float reach) {
         return c.def && w.hero.cooldowns[slot] <= 0 && h.mana >= c.mana && c.usable;
     };
     if (frame % 2) return true;   // release between presses
+    if (w.hero.passives.cls == "shadow") {   // (a boss) snares at its feet, Black Sand between
+        if (ready(1)) press(in, BTN_WEST);
+        else if (ready(2)) press(in, BTN_NORTH);
+        return true;
+    }
     if (w.hero.passives.cls == "ranger") {   // mark the strong, rain on crowds, sting the tough, and split the rest
         bool tough = target->rarity >= Rarity::Rare;
         if (ready(1) && tough && target->mark_t <= 0) press(in, BTN_WEST);                                          // Falcon's Mark
@@ -193,13 +198,18 @@ bool Bot::caster_combat(World& w, Input& in, uint64_t frame, float reach) {
 bool Bot::combat(World& w, Input& in, uint64_t frame, float reach) {
     if (w.hero.passives.cls == "sorcerer" || w.hero.passives.cls == "ranger") return caster_combat(w, in, frame, reach);
     Actor& h = w.actors[0];
+    if (w.hero.passives.cls == "shadow" && h.mana >= 14.f)   // the Shadow has not the life to stand in front of a boss: kite it
+        for (size_t i = 1; i < w.actors.size(); i++)
+            if (w.actors[i].rarity == Rarity::Unique && w.actors[i].alive() && length(w.actors[i].pos - h.pos) < reach + 2.f)
+                return caster_combat(w, in, frame, reach);
     // step out of any telegraph we are standing in
     for (auto& g : w.ground) {
         vec2 out;
         float dist;
         if (!in_danger(g, h, out, dist)) continue;
         // a boss's swing (a cone) is traded, as a player does, while there is life to spare; circles and charges are not
-        if (g.kind == GroundFx::Telegraph && g.half < kPi - 0.01f && h.life > h.life_max * 0.6f) continue;
+        if (g.kind == GroundFx::Telegraph && g.half < kPi - 0.01f && h.life > h.life_max * 0.6f &&
+            w.hero.passives.cls != "shadow") continue;   // (the Shadow has not the life to)
         // against a boss, dodge back into her court rather than down the lanes (she resets if we flee)
         for (size_t i = 1; i < w.actors.size(); i++) {
             const Actor& b = w.actors[i];
@@ -265,6 +275,33 @@ bool Bot::combat(World& w, Input& in, uint64_t frame, float reach) {
         in.lstick = normalize(d) * 0.3f;
         if (ready(1) && target->bleed_t > 1.f && (tough || target->life > target->life_max * 0.4f)) press(in, BTN_WEST);   // Riposte
         else if (ready(0)) press(in, BTN_SOUTH);                                                                               // Crescent Cut
+        return true;
+    }
+    if (w.hero.passives.cls == "shadow") {   // Black Sand on the tough, a snare on a crowd, the staff when surrounded, the knife
+        auto ready = [&](int slot) {
+            SkillCtx c = w.slot_ctx(slot);
+            return c.def && w.hero.cooldowns[slot] <= 0 && h.mana >= c.mana &&
+                   (c.usable || (c.needs_weapon && (w.hero.equip[EQ_WEAPON2].weapon().tags & skill_weapon_need(*c.def))));
+        };
+        const float dist = length(d);
+        const bool tough = target->rarity >= Rarity::Rare;
+        int crowd = 0;
+        for (size_t i = 1; i < w.actors.size(); i++)
+            if (w.actors[i].alive() && length(w.actors[i].pos - target->pos) < 3.f) crowd++;
+        const bool clear = w.level.line_clear(h.pos, target->pos, 0.2f);
+        if (frame % 2) return true;
+        in.rstick = normalize(d);
+        if (ready(1) && (crowd >= 3 || tough) && dist < 8.f && clear) { press(in, BTN_WEST); return true; }         // Snare of Sparks
+        if (ready(2) && tough && target->wither < 4 && dist < 11.f && clear) { press(in, BTN_NORTH); return true; }  // Black Sand
+        if (dist > range) {
+            const bool ranged = target->def >= 0 && monster_defs()[size_t(target->def)].keep_distance > 0;
+            if (ready(2) && ranged && dist < 11.f && clear) { press(in, BTN_NORTH); return true; }
+            chase(w, in, *target);
+            return true;
+        }
+        in.lstick = normalize(d) * 0.3f;
+        if (ready(3) && near >= 3) press(in, BTN_R1);   // Whirling Staff
+        else if (ready(0)) press(in, BTN_SOUTH);        // Viper's Kiss
         return true;
     }
     if (length(d) > range) { chase(w, in, *target); return true; }
@@ -1019,7 +1056,10 @@ void Bot::act1(World& w, Menu& m, Areas& a, Input& in, uint64_t frame) {
         if (h.dead_t > 1.3f && frame % 10 == 0) {
             press(in, BTN_SOUTH);
             deaths++;
-            fprintf(stderr, "%s: died in %s at t=%.0fs, level %d\n", tag, a.name(), frame / 60.f, H.level);
+            const char* by = "?";
+            for (size_t i = 1; i < w.actors.size(); i++)
+                if (w.actors[i].id == H.last_attacker && w.actors[i].def >= 0) by = monster_defs()[size_t(w.actors[i].def)].name;
+            fprintf(stderr, "%s: died in %s at t=%.0fs, level %d, to %s\n", tag, a.name(), frame / 60.f, H.level, by);
             if (a.current == AreaId::Zone && a.zone.def == last_target_) zone_deaths_++;
         }
         if (deaths > 30) fail("died more than 30 times");
@@ -1101,9 +1141,19 @@ void Bot::act1(World& w, Menu& m, Areas& a, Input& in, uint64_t frame) {
         act_zones_++;
         fprintf(stderr, "%s: t=%.0fs %s (area level %d): hero level %d, life %.0f, dps %.0f, %s (%s)\n", tag, frame / 60.f, a.name(), w.area_level,
                 H.level, h.life_max, summarize(H).dps, H.weapon().display_name().c_str(), H.weapon().b().name);
+        if (getenv("QAHIRA_BOT_TRACE"))
+            for (int k = 0; k < 4; k++)
+                if (const Talisman* t = H.slot_talisman(k)) fprintf(stderr, "   slot %d %s: %.0f dps\n", k, t->def().name, hero_skill_ctx(H, *t).hit.dps());
     }
     int here = L.cell_index_at(h.pos);
     if (here >= 0) visited_[size_t(here)] = 1;
+    if (getenv("QAHIRA_BOSS_TRACE") && frame % 30 == 0)
+        for (size_t i = 1; i < w.actors.size(); i++) {
+            const Actor& e = w.actors[i];
+            if (e.rarity != Rarity::Unique || !e.alive() || length(e.pos - h.pos) > 14.f) continue;
+            fprintf(stderr, "boss: t=%.1f life %.0f/%.0f mana %.0f flask %d | dist %.1f boss %.0f act %d skill %d | fx %zu\n", frame / 60.f, h.life,
+                    h.life_max, h.mana, int(w.hero.flask), length(e.pos - h.pos), e.life, int(e.act), e.skill, w.ground.size());
+        }
     if (getenv("QAHIRA_BOT_TRACE") && frame % 600 == 0) {
         const Actor* b = nullptr;
         for (size_t i = 1; i < w.actors.size(); i++) if (w.actors[i].rarity == Rarity::Unique) b = &w.actors[i];
@@ -1249,8 +1299,10 @@ void Bot::prepare(World& w) {
     else
         for (int k = 0; k < 4; k++) H.inv.add(make_chart(1, r, 0.25f, 0.f));
     // what a player carries out of Act I: level-appropriate rares in every slot
-    const bool caster = H.passives.cls == "sorcerer", ranger = H.passives.cls == "ranger", merc = H.passives.cls == "mercenary";
-    // armour of the class's defence: Hirz for the Sorcerer, evasion for the Ranger, armour for the Warrior, both for the Mercenary
+    const bool caster = H.passives.cls == "sorcerer", ranger = H.passives.cls == "ranger", merc = H.passives.cls == "mercenary",
+               shadow = H.passives.cls == "shadow";
+    // armour of the class's defence: Hirz for the Sorcerer, evasion for the Ranger, armour for the Warrior, both for the Mercenary,
+    // evasion and Hirz for the Shadow
     auto best = [&](Slot slot, bool, int wk) {
         int b = -1;
         for (size_t i = 0; i < item_bases().size(); i++) {
@@ -1258,8 +1310,8 @@ void Bot::prepare(World& w) {
             if (ib.slot != slot || ib.level > gear) continue;
             if (slot == Slot::Weapon && ib.wkind != wk) continue;
             if (slot == Slot::Helmet || slot == Slot::Body || slot == Slot::Gloves || slot == Slot::Boots) {
-                int kind = ib.es > 0 ? 1 : ib.evasion > 0 && ib.armour > 0 ? 3 : ib.evasion > 0 ? 2 : 0;
-                if (kind != (caster ? 1 : ranger ? 2 : merc ? 3 : 0)) continue;
+                int kind = ib.es > 0 && ib.evasion > 0 ? 4 : ib.es > 0 ? 1 : ib.evasion > 0 && ib.armour > 0 ? 3 : ib.evasion > 0 ? 2 : 0;
+                if (kind != (caster ? 1 : ranger ? 2 : merc ? 3 : shadow ? 4 : 0)) continue;
             }
             if (b < 0 || ib.level >= item_bases()[size_t(b)].level) b = int(i);
         }
@@ -1268,8 +1320,9 @@ void Bot::prepare(World& w) {
     const Slot slots[EQ_COUNT] = {Slot::Weapon, Slot::Helmet, Slot::Body, Slot::Gloves, Slot::Boots, Slot::Belt, Slot::Amulet, Slot::Ring, Slot::Ring,
                                   Slot::Weapon};
     for (int e = 0; e < EQ_COUNT; e++) {
-        if (e == EQ_WEAPON2 && !merc) continue;
-        const int wk = e == EQ_WEAPON2 ? WK_CROSSBOW : caster ? WK_STAFF : ranger ? WK_BOW : merc ? WK_SWORD : WK_MAUL;
+        if (e == EQ_WEAPON2 && !merc && !shadow) continue;
+        const int wk = e == EQ_WEAPON2 ? (shadow ? WK_QSTAFF : WK_CROSSBOW) : caster ? WK_STAFF : ranger ? WK_BOW : merc ? WK_SWORD
+                     : shadow ? WK_DAGGER : WK_MAUL;
         if (int b = best(slots[e], caster, wk); b >= 0) H.equip[e] = make_item(b, Rarity::Rare, gear, r);
     }
     for (auto& t : H.talismans) t.level = uint8_t(gear == 14 ? 10 : 14);

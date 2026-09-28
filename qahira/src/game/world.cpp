@@ -474,6 +474,34 @@ void World::step(const Input& in, float dt) {
         if (g.kind == GroundFx::Glyph && g.t >= g.pulse && g.t < g.life) { g.pulse += 1.f; glyph_pulse(ground[i]); }
         if (g.kind == GroundFx::Meteor && g.t >= g.life) star_fall(ground[i]);
         if (g.kind == GroundFx::Grenade && g.t >= g.life) grenade_burst(ground[i]);
+        if (g.kind == GroundFx::Trap && g.t < g.life) {
+            if (g.t - dt < g.pulse && g.t >= g.pulse) emit(Ev::TrapSet, g.pos);   // it lands and arms
+            if (g.t >= g.pulse) {
+                bool near = false;
+                for (size_t k = 1; k < actors.size() && !near; k++) near = actors[k].alive() && length(actors[k].pos - g.pos) < 1.4f + actors[k].radius;
+                if (near) {   // sprung: lightning through everything in reach
+                    const HeroHit hh = g.hh;
+                    const vec2 at = g.pos;
+                    const float reach = g.radius;
+                    g.t = g.life;   // (before anything below can grow `ground` and move it)
+                    for (size_t k = 1; k < actors.size(); k++) {
+                        Actor& e = actors[k];
+                        if (e.alive() && length(e.pos - at) <= reach + e.radius) hit_enemy(e, hh, at, 2.f);
+                    }
+                    burst(vec3(at, 0.4f), 26, vec4(0.7f, 0.85f, 1.f, 1), vec4(0.3f, 0.5f, 1.f, 0), 7.f, 0.12f, 0.45f, true, -4.f);
+                    for (int b = 0; b < 5; b++) {
+                        GroundFx bolt;
+                        bolt.kind = GroundFx::Bolt;
+                        bolt.pos = at;
+                        bolt.pos2 = at + rotate(vec2{reach, 0}, float(b) * kTau / 5 + fx_rng.range(0.f, 1.f));
+                        bolt.life = 0.2f;
+                        bolt.seed = rng.next();
+                        ground.push_back(bolt);
+                    }
+                    emit(Ev::TrapSnap, at);
+                }
+            }
+        }
         if (g.kind == GroundFx::Rain && g.t >= g.pulse && g.t < g.life) {   // a volley lands
             g.pulse += 0.3f;
             HeroHit hh = g.hh;
@@ -899,6 +927,13 @@ void World::gain_frenzy(int n) {
     if (hero.frenzy > before) texts.push_back({vec3(actors[0].pos, 2.8f), "FRENZY", 0x7AD890, 0, 28});
 }
 
+void World::gain_power(int n) {
+    int before = hero.power;
+    hero.power = std::min(power_max(), hero.power + n);
+    hero.power_t = 10.f;
+    if (hero.power > before) { texts.push_back({vec3(actors[0].pos, 2.8f), "POWER", 0x7AB8F8, 0, 28}); emit(Ev::Power, actors[0].pos); }
+}
+
 void World::gain_endurance(int n) {
     int before = hero.endurance;
     hero.endurance = std::min(endurance_max(), hero.endurance + n);
@@ -1039,6 +1074,7 @@ void World::hero_step(const Input& in, float dt) {
     // Endurance and Frenzy Charges fall off ten seconds after the last one was gained
     if (H.endurance > 0 && (H.endurance_t -= dt) <= 0) H.endurance = 0;
     if (H.frenzy > 0 && (H.frenzy_t -= dt) <= 0) H.frenzy = 0;
+    if (H.power > 0 && (H.power_t -= dt) <= 0) H.power = 0;
     if ((H.keystones & KS_OATH) && H.endurance > 0) h.life = std::min(h.life_max, h.life + h.life_max * 0.006f * H.endurance * dt);
     if (H.keystones & KS_QIRBA) H.flask = std::min(H.flask_max, H.flask + 0.125f * dt);   // Qirba of Plenty
     if (H.flask_heal_t > 0) {
@@ -1126,8 +1162,11 @@ float World::hit_enemy(Actor& e, const HeroHit& hh, vec2 from, float knock, floa
     }
     if ((H.keystones & KS_LONG_SHOT) && (sk_tags & T_PROJECTILE) && (sk_tags & T_ATTACK))   // The Long Shot
         k *= 1.f + 0.3f * clampf((length(e.pos - h.pos) - 3.f) / 9.f, 0.f, 1.f);
+    if (H.power > 0) he.crit_chance = std::min(1.f, he.crit_chance * (1.f + 0.4f * float(H.power)));        // Power Charges
     if (e.mark_t > 0 && e.mark_hits > 0 && (sk_tags & T_ATTACK)) { he.crit_chance = 1.f; e.mark_hits--; }   // Marked: a sure crit
+    if ((H.keystones & KS_LOW_CRIT) && e.life < e.life_max * 0.35f) he.crit_chance = 1.f;                    // Unseen Blade
     if ((H.keystones & KS_SINGLE) && e.rarity >= Rarity::Rare) k *= 1.25f;                                   // Single Combat
+    if (H.keystones & KS_AGONY) k *= 0.7f;                                                                    // al-Sharatan: hits deal less...
     for (int t = 0; t < DT_COUNT; t++) { he.min[size_t(t)] *= k; he.max[size_t(t)] *= k; }
     Defences def;
     def.armour = e.armour;
@@ -1136,6 +1175,12 @@ float World::hit_enemy(Actor& e, const HeroHit& hh, vec2 from, float knock, floa
     if ((H.keystones & KS_HAWK) && e.mark_t > 0) def.damage_taken_inc += 10.f;                              // Hawk's Gaze
     if ((H.keystones & KS_OPEN_WOUNDS) && e.bleed_t > 0) def.damage_taken_inc += 12.f;                      // Open Wounds
     HitResult res = roll_hit(he, def, rng);
+    if (e.wither > 0 && res.by_type[DT_CHAOS] > 0) {   // Withered: more chaos damage taken
+        float extra = res.by_type[DT_CHAOS] * 0.06f * float(e.wither);
+        res.by_type[DT_CHAOS] += extra;
+        res.total += extra;
+    }
+    if (res.crit && (sk_tags & T_QSTAFF)) gain_power(1);   // Whirling Staff: crits charge you
     if (res.crit && (H.keystones & KS_OVERLOAD)) H.overload_t = 6.f;
     if (res.crit && (H.keystones & KS_CRIT_FRENZY) && rng.chance(0.3f)) gain_frenzy(1);                    // Frenzied Aim
     e.life -= res.total;
@@ -1166,6 +1211,7 @@ float World::hit_enemy(Actor& e, const HeroHit& hh, vec2 from, float knock, floa
             burst(vec3(e.pos, 0.6f), 24, vec4(1.f, 0.65f, 0.25f, 1), vec4(0.9f, 0.2f, 0.05f, 0), 6.f, 0.14f, 0.5f, true, -6.f);
             emit(Ev::StarFall, e.pos, 0.5f);
         }
+        if (res.crit && (H.keystones & KS_POWER_KILL)) gain_power(1);   // Night's Harvest
         kill(e);
         return res.total;
     }
@@ -1190,11 +1236,19 @@ float World::hit_enemy(Actor& e, const HeroHit& hh, vec2 from, float knock, floa
     }
     // poison: a stack of chaos over two seconds, from the physical and chaos damage of the hit
     float pc = res.by_type[DT_PHYS] + res.by_type[DT_CHAOS];
-    if (pc > 0 && hh.poison > 0 && rng.chance(hh.poison)) {
+    const bool dagger_crit = res.crit && (sk_tags & T_DAGGER);   // a dagger's crits always poison
+    const bool chaos_spell = (sk_tags & T_SPELL) && (sk_tags & T_CHAOS);
+    if (chaos_spell || ((sk_tags & T_TRAP) && (H.keystones & KS_TRAP_WITHER))) {   // Black Sand (Black Tide: traps too)
+        const bool deep = H.keystones & KS_DEEP_WITHER;                               // Sand-Drift
+        e.wither = std::min(deep ? 15 : 10, e.wither + (deep && chaos_spell ? 2 : 1));
+        e.wither_t = 4.f * H.stats.sum(S_WITHER).apply(1.f);
+    }
+    if (pc > 0 && (dagger_crit || (hh.poison > 0 && rng.chance(hh.poison)))) {
         int slot = 0;
         for (int i = 1; i < 6; i++) if (e.poison_t[i] < e.poison_t[slot]) slot = i;
         const bool viper = H.keystones & KS_VIPER;   // Scorpion's Kiss
         e.poison[slot] = pc * 0.25f * hh.poison_mult * (viper ? 1.4f : 1.f);
+        if (res.crit && (H.keystones & KS_AGONY)) e.poison[slot] *= std::max(1.f, he.crit_multi);   // ...and crits' poisons more
         e.poison_t[slot] = viper ? 3.f : 2.f;
     }
     // bleeding: 70% of the hit's physical damage over five seconds; a stronger one replaces a weaker
@@ -1489,6 +1543,7 @@ void World::resolve_skill(Actor& h) {
                 p.team = TEAM_HERO;
                 p.arrow = (sk.tags & T_ATTACK) && sk.base_type == DT_PHYS;
                 p.color = sk.base_type == DT_COLD ? vec3{0.5f, 0.8f, 1.f} : sk.base_type == DT_LIGHTNING ? vec3{0.7f, 0.8f, 1.f}
+                        : sk.base_type == DT_CHAOS && !(sk.tags & T_ATTACK) ? vec3{0.45f, 0.25f, 0.6f}
                         : p.arrow ? (sk.poison > 0 ? vec3{0.55f, 0.9f, 0.3f} : vec3{1.f, 0.85f, 0.6f}) : vec3{1.f, 0.55f, 0.2f};
                 p.hh = hh;
                 p.pierce = int8_t(std::clamp(c.pierce, 0, 4));
@@ -1601,6 +1656,36 @@ void World::resolve_skill(Actor& h) {
             }
             break;
         }
+        case Shape::Trap: {   // thrown; lands and arms; the oldest goes when there are too many
+            int out = 0;
+            GroundFx* oldest = nullptr;
+            for (auto& g : ground)
+                if (g.kind == GroundFx::Trap && g.t < g.life) { out++; if (!oldest || g.t > oldest->t) oldest = &g; }
+            if (out >= trap_max() && oldest) oldest->t = oldest->life;
+            GroundFx g;
+            g.kind = GroundFx::Trap;
+            g.pos = level.resolve(h.target, 0.3f);
+            g.pos2 = h.pos + dir * 0.4f;
+            g.pulse = clampf(length(g.pos - g.pos2) / 16.f, 0.2f, 0.5f);   // in flight until then
+            g.life = g.pulse + 10.f;
+            g.radius = sk.radius * area;
+            g.seed = rng.next();
+            g.hh = hh;
+            ground.push_back(g);
+            break;
+        }
+        case Shape::Spin: {
+            hit_all(h.pos, sk.radius * area, false, 0);
+            GroundFx r;
+            r.kind = GroundFx::Ring;
+            r.pos = h.pos;
+            r.radius = sk.radius * area;
+            r.life = 0.3f;
+            ground.push_back(r);
+            emit(Ev::Impact, h.pos, float(hits));
+            hitstop = hits ? 0.04f : 0.f;
+            break;
+        }
         case Shape::Meteor: {
             GroundFx g;
             g.kind = GroundFx::Meteor;
@@ -1627,6 +1712,8 @@ void World::ailments_step(Actor& m, float dt) {
     float pd = 0;
     for (int i = 0; i < 6; i++)
         if (m.poison_t[i] > 0) { m.poison_t[i] -= dt; pd += m.poison[i]; }
+    pd *= 1.f + 0.06f * float(m.wither);   // poison is chaos: Wither feeds it
+    if (m.wither > 0 && (m.wither_t -= dt) <= 0) { m.wither = 0; m.wither_t = 0; }
     if (pd > 0) {
         m.life -= pd * dt;
         if (fx_rng.chance(0.3f))
@@ -1653,6 +1740,7 @@ void World::kill(Actor& e) {
     e.life = 0;
     e.dead_t = 0;
     e.anim.play("death", 0.05f, true);
+    if ((hero.keystones & KS_VEIL) && actors[0].alive()) hero.es = std::min(hero.es_max, hero.es + hero.es_max * 0.03f);   // The Veil
     if ((hero.keystones & KS_BLOOD_KILL) && e.bleed_t > 0 && actors[0].alive())   // Second Wind
         actors[0].life = std::min(actors[0].life_max, actors[0].life + actors[0].life_max * 0.03f);
     e.bleed_t = 0;
@@ -1840,7 +1928,7 @@ void World::damage_hero(float lo, float hi, int type, vec2 from, float break_amt
     r.total = taken;
     float soak = std::min(hero.es, taken);                     // Hirz takes the hit first
     hero.es -= soak;
-    hero.es_wait = 2.f;
+    hero.es_wait = (hero.keystones & KS_VEIL) ? 1.f : 2.f;   // The Veil
     h.life -= taken - soak;
     h.hit_flash = 0.6f;
     if (!(hero.keystones & KS_UNSHAKEN)) h.knock += normalize(h.pos - from) * 1.5f;

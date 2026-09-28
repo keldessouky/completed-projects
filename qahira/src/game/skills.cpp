@@ -66,6 +66,23 @@ const std::vector<SkillDef>& skill_defs() {
         s->proj_speed = 34.f;
         s->pierce = 2;
         s->bleed = 25;
+        // ---- the Shadow's kit (Slice 8): a knife for the one in front, a snare for the crowd, black sand to wither, a staff
+        // whirled when they close in
+        s = add({"viper_kiss", "Viper's Kiss", "A quick stab with a dagger. It has a 30% chance to Poison, and a dagger's Critical "
+                 "Strikes always Poison.",
+                 T_ATTACK | T_MELEE | T_STRIKE | T_DAGGER, "stab", 1.15f, 0, 0, DT_PHYS, 0, 0, Shape::Cone, 2.2f, 0, 0.55f, 0.7f, 16, ATTR_DEX, "shadow"});
+        s->poison = 30;
+        s = add({"snare_of_sparks", "Snare of Sparks", "Throw a trap. It arms as it lands, and when an enemy comes near it bursts in "
+                 "lightning that can Shock. Three can be out at once.",
+                 T_TRAP | T_AREA | T_LIGHTNING, "throw", 0, 10, 30, DT_LIGHTNING, 7, 0.6f, Shape::Trap, 9.f, 2.4f, 0, 0.6f, 17, ATTR_INT, "shadow"});
+        s->shock = 50;
+        s = add({"black_sand", "Black Sand", "Hurl a handful of black sand that deals Chaos damage and Withers: each stack makes the "
+                 "enemy take 6% more Chaos damage, poison included, for 4 s (up to ten).",
+                 T_SPELL | T_PROJECTILE | T_CHAOS, "cast", 0, 8, 14, DT_CHAOS, 6, 0, Shape::Projectile, 13.f, 0.35f, 0, 0.4f, 18, ATTR_INT, "shadow"});
+        s->proj_speed = 18.f;
+        s = add({"whirling_staff", "Whirling Staff", "Whirl a quarterstaff round you, striking everything near. Its Critical Strikes "
+                 "grant a Power Charge: 40% increased Critical Strike Chance each.",
+                 T_ATTACK | T_MELEE | T_AREA | T_QSTAFF, "spin", 0.95f, 0, 0, DT_PHYS, 5, 0, Shape::Spin, 0, 2.9f, 0, 1.0f, 19, ATTR_DEX, "shadow"});
         return v;
     }();
     return d;
@@ -77,10 +94,11 @@ int find_skill(const char* id) {
     return -1;
 }
 
-uint32_t skill_weapon_need(const SkillDef& d) { return d.tags & (T_BOW | T_SWORD | T_CROSSBOW); }
+uint32_t skill_weapon_need(const SkillDef& d) { return d.tags & (T_BOW | T_SWORD | T_CROSSBOW | T_DAGGER | T_QSTAFF); }
 
 const char* weapon_need_name(uint32_t need) {
-    return need & T_BOW ? "a bow" : need & T_SWORD ? "a sword" : need & T_CROSSBOW ? "a crossbow" : "";
+    return need & T_BOW ? "a bow" : need & T_SWORD ? "a sword" : need & T_CROSSBOW ? "a crossbow" : need & T_DAGGER ? "a dagger"
+         : need & T_QSTAFF ? "a quarterstaff" : "";
 }
 
 int skill_requirement(const SkillDef&, int level) { return level <= 1 ? 0 : int(8 + 3.4f * level); }

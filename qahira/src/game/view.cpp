@@ -8,7 +8,8 @@
 namespace q {
 
 static const char* weapon_mesh(uint8_t wkind) {
-    return wkind == WK_STAFF ? "staff" : wkind == WK_BOW ? "bow" : wkind == WK_SWORD ? "sword" : wkind == WK_CROSSBOW ? "crossbow" : "maul";
+    return wkind == WK_STAFF ? "staff" : wkind == WK_BOW ? "bow" : wkind == WK_SWORD ? "sword" : wkind == WK_CROSSBOW ? "crossbow"
+         : wkind == WK_DAGGER ? "dagger" : wkind == WK_QSTAFF ? "qstaff" : "maul";
 }
 
 void View::follow(const World& w, float dt, bool snap) {
@@ -129,6 +130,8 @@ void View::draw_actor(Renderer& r, World& w, Actor& a, int index) {
     for (float pt : a.poison_t) poisoned = poisoned || pt > 0;
     if (poisoned) in.tint = vec4(lerp(vec3(in.tint.x, in.tint.y, in.tint.z), vec3{0.55f, 0.9f, 0.35f}, 0.3f), 1);
     if (a.bleed_t > 0 && a.alive()) in.rim = vec4(hex_lin(0xB0201A), 0.9f + 0.3f * std::sin(w.time * 6.f + a.id));   // Bleeding
+    if (a.wither > 0 && a.alive())   // Withered: darkened, a violet rim that deepens with the stacks
+        in.tint = vec4(vec3(in.tint.x, in.tint.y, in.tint.z) * (1.f - 0.04f * float(a.wither)), 1), in.rim = vec4(hex_lin(0x8A4AC8), 0.4f + 0.08f * float(a.wither));
     r.draw(m.body, in);
     if (a.mark_t > 0 && a.alive()) {   // a Falcon's Mark: a turning sigil at the feet and a bright point overhead
         float t = w.time * 1.5f;
@@ -238,6 +241,23 @@ void View::render_world(Renderer& r, World& w) {
             r.draw(assets().mesh("grenade"), pot);
             r.light(p, 3.f, hex_lin(0xFFA040) * 6.f);
             r.ground(vec3(g.pos, 0.02f), g.radius, vec4(1.f, 0.5f, 0.15f, 0.2f + 0.35f * k), {2, 0.05f, 0, 1}, Blend::Additive);
+        } else if (g.kind == GroundFx::Trap) {
+            if (g.t < g.pulse) {   // in flight, bowled low
+                float kk = g.t / std::max(0.01f, g.pulse);
+                vec3 p = vec3(lerp(g.pos2, g.pos, kk), 0.8f * (1.f - kk) + 1.2f * kk * (1.f - kk) + 0.05f);
+                Instance tr;
+                tr.model = mat4::translate(p) * mat4::rot_z(w.time * 12.f);
+                tr.extra = {-1, 0, 0, 0};
+                r.draw(assets().mesh("trap"), tr);
+            } else {   // armed: the iron ring on the ground, its charm glowing, its reach faintly drawn
+                Instance tr;
+                tr.model = mat4::translate(vec3(g.pos, 0.01f)) * mat4::rot_z(float(g.seed % 628) * 0.01f);
+                tr.extra = {-1, 0, 0, 0};
+                tr.rim = vec4(hex_lin(0x5AA8F0), 0.4f + 0.3f * std::sin(w.time * 5.f + float(g.seed % 7)));
+                r.draw(assets().mesh("trap"), tr);
+                r.ground(vec3(g.pos, 0.02f), g.radius, vec4(0.4f, 0.65f, 1.f, 0.18f), {1, 0.03f, 0, 1.5f}, Blend::Additive, w.time * 0.3f);
+                r.light(vec3(g.pos, 0.5f), 2.5f, hex_lin(0x5AA8F0) * 3.f);
+            }
         } else if (g.kind == GroundFx::Rain) {
             // where the volleys land: a dusty ring, a thud of light on each volley
             float in_a = smoothstep(0.f, 0.1f, g.t) * (1.f - smoothstep(g.life - 0.2f, g.life, g.t));
@@ -567,6 +587,35 @@ void draw_skill_icon(float cx, float cy, float s, int glyph, bool ready) {
             u.line(cx + s * 0.36f, cy - s * 0.36f, cx + s * 0.2f, cy - s * 0.32f, s * 0.06f, c);
             u.line(cx + s * 0.36f, cy - s * 0.36f, cx + s * 0.32f, cy - s * 0.2f, s * 0.06f, c);
             break;
+        case 16:  // viper's kiss: a curved blade striking, a green drop at its point
+            u.line(cx - s * 0.32f, cy + s * 0.3f, cx + s * 0.1f, cy - s * 0.12f, s * 0.07f, c);
+            u.line(cx + s * 0.1f, cy - s * 0.12f, cx + s * 0.3f, cy - s * 0.24f, s * 0.05f, c);
+            u.line(cx - s * 0.3f, cy + s * 0.14f, cx - s * 0.14f, cy + s * 0.32f, s * 0.05f, c);
+            u.disc(cx + s * 0.32f, cy - s * 0.12f, s * 0.07f, Rgba::hex(0x8FD14F).alpha(ready ? 1.f : 0.5f));
+            break;
+        case 17: {  // snare of sparks: a ring of teeth, a spark at its heart
+            for (int i = 0; i < 10; i++) {
+                float a = i * kTau / 10;
+                u.line(cx + std::cos(a) * s * 0.24f, cy + std::sin(a) * s * 0.24f, cx + std::cos(a) * s * 0.36f, cy + std::sin(a) * s * 0.36f, s * 0.05f, c);
+            }
+            u.ring(cx, cy, s * 0.26f, s * 0.22f, c);
+            u.line(cx - s * 0.08f, cy - s * 0.12f, cx + s * 0.04f, cy, s * 0.05f, Rgba::hex(0x9FC8FF).alpha(ready ? 1.f : 0.5f));
+            u.line(cx + s * 0.04f, cy, cx - s * 0.04f, cy + s * 0.12f, s * 0.05f, Rgba::hex(0x9FC8FF).alpha(ready ? 1.f : 0.5f));
+            break;
+        }
+        case 18:  // black sand: a scatter of dark grains from an open hand
+            for (int i = 0; i < 9; i++) {
+                float a = radians(-60 + i * 15.f), rr = s * (0.15f + 0.03f * (i % 3));
+                u.disc(cx - s * 0.1f + std::cos(a) * rr * 2.f, cy + std::sin(a) * rr, s * 0.04f, Rgba::hex(0x9A6AC8).alpha(ready ? 1.f : 0.5f));
+            }
+            u.disc(cx - s * 0.28f, cy + s * 0.18f, s * 0.12f, c);
+            break;
+        case 19:  // whirling staff: a staff across a circle of motion
+            u.ring(cx, cy, s * 0.36f, s * 0.32f, c.alpha(0.6f));
+            u.line(cx - s * 0.38f, cy + s * 0.12f, cx + s * 0.38f, cy - s * 0.12f, s * 0.07f, c);
+            u.disc(cx - s * 0.38f, cy + s * 0.12f, s * 0.05f, c);
+            u.disc(cx + s * 0.38f, cy - s * 0.12f, s * 0.05f, c);
+            break;
         default: break;
     }
 }
@@ -850,6 +899,13 @@ void View::render_hud(World& w, const Input& in, const Areas& areas) {
         u.disc(x, y, 12, pal::night.alpha(0.8f));
         u.disc(x, y, 9, Rgba::hex(0x6FCF5A).alpha(k));
         u.disc(x - 3, y - 3, 3, Rgba::hex(0xE0FFD0).alpha(k));
+    }
+    // Power Charges (the Shadow's): blue studs after the others
+    for (int i = 0; i < H.power; i++) {
+        float x = 330 + (H.endurance + H.frenzy + i) * 30 + (H.endurance || H.frenzy ? 12 : 0), y = 900, k = clampf(H.power_t / 3.f, 0.35f, 1.f);
+        u.disc(x, y, 12, pal::night.alpha(0.8f));
+        u.disc(x, y, 9, Rgba::hex(0x5A9AF0).alpha(k));
+        u.disc(x - 3, y - 3, 3, Rgba::hex(0xD8E8FF).alpha(k));
     }
     // skill bar: bar one, or bar two while L2 is held (a small strip shows the other)
     static const int btn[5] = {BTN_SOUTH, BTN_WEST, BTN_NORTH, BTN_R1, BTN_R2};

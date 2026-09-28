@@ -19,8 +19,10 @@ const std::vector<ClassDef>& class_defs() {
          {"crescent_cut", "riposte", "naffata", "quarrel"},
          "A sword in hand and a crossbow on the back. Cut them bleeding, then finish the wound; a pot of naphtha for the "
          "crowd.", true, 30, "light_crossbow"},
-        {"shadow", "The Shadow", "warrior", "worn_maul", "Dexterity and Intelligence", 14, 23, 23, 52, 52, 10, 0,
-         {"", "", "", ""}, "Daggers and quarterstaves, crits, poison and traps.", false},
+        {"shadow", "The Shadow", "shadow", "night_knife", "Dexterity and Intelligence", 14, 23, 23, 52, 52, 10, 0,
+         {"viper_kiss", "snare_of_sparks", "black_sand", "whirling_staff"},
+         "A dagger in hand and a quarterstaff on the back. Poison the one in front, snare the crowd, wither what is left.",
+         true, 30, "ash_staff"},
     };
     return d;
 }

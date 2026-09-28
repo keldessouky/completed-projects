@@ -73,6 +73,20 @@ const std::vector<ItemBase>& item_bases() {
         {"march_boots", "March Boots", Slot::Boots, 1, 0, 0, 0, 0, 6, 6, nullptr, 0, WK_NONE},
         {"nasal_helm", "Nasal Helm", Slot::Helmet, 12, 0, 0, 0, 0, 30, 28, nullptr, 0, WK_NONE},
         {"lamellar_coat", "Lamellar Coat", Slot::Body, 14, 0, 0, 0, 0, 70, 64, nullptr, 0, WK_NONE},
+        // Slice 8, the Shadow: daggers, quarterstaves, and armour with evasion and Hirz
+        {"night_knife", "Night Knife", Slot::Weapon, 1, 6, 13, 1.6f, 8, 0, 0, nullptr, 0, WK_DAGGER},
+        {"curved_dagger", "Curved Dagger", Slot::Weapon, 7, 11, 22, 1.55f, 8.5f, 0, 0, nullptr, 0, WK_DAGGER},
+        {"koummya", "Koummya", Slot::Weapon, 15, 18, 36, 1.55f, 9, 0, 0, "30% increased Critical Strike Chance", 0, WK_DAGGER},
+        {"djerid_dagger", "Djerid Dagger", Slot::Weapon, 24, 26, 52, 1.5f, 9.5f, 0, 0, "30% increased Critical Strike Chance", 0, WK_DAGGER},
+        {"ash_staff", "Ash Quarterstaff", Slot::Weapon, 1, 8, 16, 1.25f, 7, 0, 0, nullptr, 0, WK_QSTAFF},
+        {"iron_shod_staff", "Iron-Shod Quarterstaff", Slot::Weapon, 12, 18, 36, 1.2f, 7.5f, 0, 0, "+14% to Cold Resistance", 0, WK_QSTAFF},
+        {"palm_heart_staff", "Palm-Heart Quarterstaff", Slot::Weapon, 26, 30, 60, 1.2f, 8, 0, 0, "+14% to Cold Resistance", 0, WK_QSTAFF},
+        {"indigo_hood", "Indigo Hood", Slot::Helmet, 1, 0, 0, 0, 0, 0, 8, nullptr, 7, WK_NONE},
+        {"runners_burnous", "Runner's Burnous", Slot::Body, 1, 0, 0, 0, 0, 0, 18, nullptr, 16, WK_NONE},
+        {"silk_wraps", "Silk Wraps", Slot::Gloves, 1, 0, 0, 0, 0, 0, 5, nullptr, 5, WK_NONE},
+        {"rooftop_slippers", "Rooftop Slippers", Slot::Boots, 1, 0, 0, 0, 0, 0, 6, nullptr, 5, WK_NONE},
+        {"veiled_hood", "Veiled Hood", Slot::Helmet, 13, 0, 0, 0, 0, 0, 26, nullptr, 18, WK_NONE},
+        {"night_burnous", "Night Burnous", Slot::Body, 15, 0, 0, 0, 0, 0, 60, nullptr, 40, WK_NONE},
     };
     return b;
 }
@@ -202,7 +216,7 @@ const std::vector<AffixDef>& affix_defs() {
             {"ev_inc", true, "Nimble", AE_LOCAL_EVASION_INC, ARMOUR_SLOTS, {1, 8, 16}, {15, 27, 40}, {26, 39, 60}, {0, 0, 0}, {0, 0, 0}, "%d%% increased Evasion Rating", NEED_EVASION},
         };
         auto gen = [&](const char* id, bool pre, const char* name, uint32_t slots, std::array<float, 6> v6, const char* fmt, Stat st,
-                       ModKind k, uint32_t tags, uint8_t need) {
+                       ModKind k, uint32_t tags, uint16_t need) {
             AffixDef d{id, pre, name, AE_GENERIC, slots, {1, 8, 16}, {v6[0], v6[2], v6[4]}, {v6[1], v6[3], v6[5]}, {0, 0, 0}, {0, 0, 0}, fmt, need};
             d.gstat = st;
             d.gkind = k;
@@ -223,7 +237,7 @@ const std::vector<AffixDef>& affix_defs() {
     static const std::vector<AffixDef> r7 = [&] {
         std::vector<AffixDef> v;
         auto gen = [&](const char* id, bool pre, const char* name, uint32_t slots, std::array<float, 6> v6, const char* fmt, Stat st,
-                       ModKind k, uint32_t tags, uint8_t need) {
+                       ModKind k, uint32_t tags, uint16_t need) {
             AffixDef d{id, pre, name, AE_GENERIC, slots, {1, 8, 16}, {v6[0], v6[2], v6[4]}, {v6[1], v6[3], v6[5]}, {0, 0, 0}, {0, 0, 0}, fmt, need};
             d.gstat = st;
             d.gkind = k;
@@ -242,12 +256,36 @@ const std::vector<AffixDef>& affix_defs() {
             "%d%% increased Grenade Damage", S_DAMAGE, MK_INC, T_GRENADE, 0);
         return v;
     }();
+    // Slice 8: daggers, quarterstaves, traps, chaos (rolled; append only)
+    static const std::vector<AffixDef> r8 = [&] {
+        std::vector<AffixDef> v;
+        auto gen = [&](const char* id, bool pre, const char* name, uint32_t slots, std::array<float, 6> v6, const char* fmt, Stat st,
+                       ModKind k, uint32_t tags, uint16_t need) {
+            AffixDef d{id, pre, name, AE_GENERIC, slots, {1, 12, 24}, {v6[0], v6[2], v6[4]}, {v6[1], v6[3], v6[5]}, {0, 0, 0}, {0, 0, 0}, fmt, need};
+            d.gstat = st;
+            d.gkind = k;
+            d.gtags = tags;
+            v.push_back(d);
+        };
+        gen("dagger_crit", false, "of the Needle", SB(Slot::Weapon), {15, 24, 25, 34, 35, 49},
+            "%d%% increased Critical Strike Chance with Daggers", S_CRIT_CHANCE, MK_INC, T_DAGGER, NEED_DAGGER);
+        gen("qstaff_speed", false, "of the Whirl", SB(Slot::Weapon), {6, 9, 10, 13, 14, 18},
+            "%d%% increased Attack Speed with Quarterstaves", S_ATTACK_SPEED, MK_INC, T_QSTAFF, NEED_QSTAFF);
+        gen("trap_dmg", true, "Tripwired", SB(Slot::Belt) | SB(Slot::Gloves) | SB(Slot::Amulet), {12, 20, 21, 30, 31, 42},
+            "%d%% increased Trap Damage", S_DAMAGE, MK_INC, T_TRAP, 0);
+        gen("chaos_dmg", true, "Blackened", SB(Slot::Amulet) | SB(Slot::Ring) | SB(Slot::Gloves), {10, 16, 17, 24, 25, 34},
+            "%d%% increased Chaos Damage", S_DAMAGE, MK_INC, T_CHAOS, 0);
+        gen("crit_multi_g", false, "of the Knife's Edge", SB(Slot::Amulet) | SB(Slot::Ring), {10, 15, 16, 22, 23, 30},
+            "+%d%% to Critical Strike Multiplier", S_CRIT_MULTI, MK_FLAT, 0, 0);
+        return v;
+    }();
     static const std::vector<AffixDef> all = [&] {
         std::vector<AffixDef> v = a;
         v.insert(v.end(), g.begin(), g.end());
         v.insert(v.end(), c.begin(), c.end());
         v.insert(v.end(), r.begin(), r.end());
         v.insert(v.end(), r7.begin(), r7.end());
+        v.insert(v.end(), r8.begin(), r8.end());
         return v;
     }();
     return all;
@@ -261,10 +299,11 @@ static bool fits_need(const AffixDef& ad, const ItemBase& b) {
         return ((ad.need & NEED_ARMOUR) && b.armour > 0) || ((ad.need & NEED_ES) && b.es > 0) || ((ad.need & NEED_EVASION) && b.evasion > 0);
     }
     if (b.slot == Slot::Weapon) {
-        if (!(ad.need & (NEED_MAUL | NEED_STAFF | NEED_BOW | NEED_SWORD | NEED_CROSSBOW))) return true;
+        if (!(ad.need & (NEED_MAUL | NEED_STAFF | NEED_BOW | NEED_SWORD | NEED_CROSSBOW | NEED_DAGGER | NEED_QSTAFF))) return true;
         return ((ad.need & NEED_MAUL) && b.wkind == WK_MAUL) || ((ad.need & NEED_STAFF) && b.wkind == WK_STAFF) ||
                ((ad.need & NEED_BOW) && b.wkind == WK_BOW) || ((ad.need & NEED_SWORD) && b.wkind == WK_SWORD) ||
-               ((ad.need & NEED_CROSSBOW) && b.wkind == WK_CROSSBOW);
+               ((ad.need & NEED_CROSSBOW) && b.wkind == WK_CROSSBOW) || ((ad.need & NEED_DAGGER) && b.wkind == WK_DAGGER) ||
+               ((ad.need & NEED_QSTAFF) && b.wkind == WK_QSTAFF);
     }
     return true;
 }
@@ -291,7 +330,7 @@ static const char* kRareGear[] = {"Ward", "Hold", "Veil", "Knot", "Grip", "Step"
 
 std::string rare_name(Rng& rng, const ItemBase* b) {
     const char** B = !b ? kRareB : b->slot != Slot::Weapon ? kRareGear : b->wkind == WK_BOW || b->wkind == WK_CROSSBOW ? kRareBow
-                    : b->wkind == WK_SWORD ? kRareSword : b->wkind == WK_STAFF ? kRareStaff : kRareB;
+                    : b->wkind == WK_SWORD || b->wkind == WK_DAGGER ? kRareSword : b->wkind == WK_STAFF || b->wkind == WK_QSTAFF ? kRareStaff : kRareB;
     const char* a = kRareA[rng.next() % 16];
     return std::string(a) + " " + B[rng.next() % 16];
 }
@@ -363,7 +402,12 @@ Item make_item(int base, Rarity r, int ilvl, Rng& rng) {
 
 void grid_size(const Item& it, int& w, int& h) {
     switch (it.b().slot) {
-        case Slot::Weapon: w = it.b().wkind == WK_SWORD ? 1 : 2; h = it.b().wkind == WK_SWORD || it.b().wkind == WK_CROSSBOW ? 3 : 4; break;
+        case Slot::Weapon: {
+            const uint8_t k = it.b().wkind;
+            w = k == WK_SWORD || k == WK_DAGGER || k == WK_QSTAFF ? 1 : 2;
+            h = k == WK_DAGGER ? 2 : k == WK_SWORD || k == WK_CROSSBOW ? 3 : 4;
+            break;
+        }
         case Slot::Body: w = 2; h = 3; break;
         case Slot::Helmet: case Slot::Gloves: case Slot::Boots: w = 2; h = 2; break;
         case Slot::Belt: w = 2; h = 1; break;
@@ -423,8 +467,10 @@ WeaponStats Item::weapon() const {
     w.phys_min = std::round((bb.phys_min + add_lo) * (1 + inc / 100.f));
     w.phys_max = std::round((bb.phys_max + add_hi) * (1 + inc / 100.f));
     w.aps = bb.aps * (1 + speed / 100.f);
+    if (bb.implicit && std::string(bb.implicit).find("Critical Strike Chance") != std::string::npos) crit += float(atoi(bb.implicit));   // local
     w.crit = bb.crit * (1 + crit / 100.f);
-    w.tags = bb.wkind == WK_SWORD ? T_SWORD : bb.wkind == WK_CROSSBOW ? T_TWO_HAND | T_CROSSBOW | T_PROJECTILE
+    w.tags = bb.wkind == WK_SWORD ? T_SWORD : bb.wkind == WK_DAGGER ? T_DAGGER : bb.wkind == WK_QSTAFF ? T_TWO_HAND | T_QSTAFF
+           : bb.wkind == WK_CROSSBOW ? T_TWO_HAND | T_CROSSBOW | T_PROJECTILE
            : T_TWO_HAND | (bb.wkind == WK_STAFF ? T_STAFF : bb.wkind == WK_BOW ? T_BOW | T_PROJECTILE : T_MACE);
     if (bb.wkind == WK_BOW || bb.wkind == WK_CROSSBOW) w.range = 12.f;
     w.valid = true;
@@ -516,7 +562,8 @@ std::vector<std::string> Item::lines() const {
     if (bb.slot == Slot::Weapon) {
         WeaponStats w = weapon();
         out.push_back(bb.wkind == WK_STAFF ? "Staff" : bb.wkind == WK_BOW ? "Bow" : bb.wkind == WK_SWORD ? "One-Handed Sword"
-                      : bb.wkind == WK_CROSSBOW ? "Crossbow" : "Two-Handed Mace");
+                      : bb.wkind == WK_CROSSBOW ? "Crossbow" : bb.wkind == WK_DAGGER ? "Dagger" : bb.wkind == WK_QSTAFF ? "Quarterstaff"
+                      : "Two-Handed Mace");
         snprintf(buf, sizeof buf, "Physical Damage: %d-%d", int(w.phys_min), int(w.phys_max));
         out.push_back(buf);
         if (w.add_max[DT_FIRE] > 0) { snprintf(buf, sizeof buf, "Fire Damage: %d-%d", int(w.add_min[DT_FIRE]), int(w.add_max[DT_FIRE])); out.push_back(buf); }
