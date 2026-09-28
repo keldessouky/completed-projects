@@ -626,8 +626,10 @@ what each slice actually delivered and how it was verified.
 - **Two ascendancies for the Shadow**, chosen at the First Trial:
   - **Nightblade:** hits on an enemy below 35% of its life are crits, a crit that kills grants a Power Charge, a
     fourth Power Charge, poison and dagger speed;
-  - **Mystic:** trap bursts Wither, chaos spells add two stacks of Wither up to fifteen, two more traps, a Hirz that
-    recharges twice as soon and comes back on a kill, chaos resistance and cast speed.
+  - **Mystic** (as GDD §4 has it: the quarterstaff and its charges): quarterstaff hits gain 8% of their physical damage
+    as lightning, and 8% as cold, for each Power Charge; a fourth Power Charge; a Hirz that recharges twice as soon and
+    comes back on a kill; chaos resistance; and the staff's reach and damage. Traps belong to the Trapwright, the
+    third ascendancy, which is not in the launch set.
 - **Act IV, the Maghreb Coast** (`game/acts.cpp`), levels 36 to 46, six zones on four new regions
   (`tools/art/env/regions4.py`; no mosque stands in any of them):
   - **Ghadames, the Covered City** (whitewashed houses with triangular crenellations, lanes roofed with palm beams);
@@ -670,7 +672,7 @@ what each slice actually delivered and how it was verified.
 
 | Check | Result |
 |---|---|
-| Unit tests (`qtests`) | pass, 62 cases (11 new: the Shadow's quarterstaff on the back and the swap both ways; a trap landing, arming, bursting, and the oldest going; Black Sand's Wither, its 60% at ten stacks and on poison, its fading; quarterstaff crits and Power Charges, a dagger crit's poison; al-Sharatan's 30% less and its crit poison; the Nightblade and Mystic's rules; save state v11; Act IV's road; a Zar Night's rhythm, waves in sight of the circle, trance, payout and save state; a failed night paying nothing; Zar Nights only after Act IV) |
+| Unit tests (`qtests`) | pass, 62 cases (11 new: the Shadow's quarterstaff on the back and the swap both ways; a trap landing, arming, bursting, and the oldest going; Black Sand's Wither, its 60% at ten stacks and on poison, its fading; quarterstaff crits and Power Charges, a dagger crit's poison; al-Sharatan's 30% less and its crit poison; the Nightblade's crits on the wounded and its Power Charge on a killing crit, the Mystic's lightning and cold by Power Charge; save state v11; Act IV's road; a Zar Night's rhythm, waves in sight of the circle, trance, payout and save state; a failed night paying nothing; Zar Nights only after Act IV) |
 | `act4` bot (the exit): a character as Act III leaves one plays Act IV through, Ghadames to the Sebkha of Sijoumi | pass: the Warrior in 11.2 minutes (level 34 to 42, 0 deaths, 296 kills), the Shadow in 17.0 (4 deaths), the Mercenary 12.0 (2), the Sorcerer 7.0 (0), the Ranger 8.5 (0) |
 | `zar` bot (the endgame piece): after Act IV, a chart with a Zar Night; the drum sat at, the circle held, a trance, the pay-out picked up | pass: al-Iskandariya, 1 trance, 21 kills in the circle, the rhythm failing near the end; 1.6 minutes, 0 deaths |
 | The Shadow through the earlier acts | `zone` pass; `act1` pass (37.0 minutes, 11 deaths, most of them to bosses); `act2` pass (14.7 minutes, 0 deaths); `act3` pass (16.2 minutes, 5 deaths) |

@@ -40,8 +40,8 @@ enum AscRule : uint64_t {
     // Slice 8: the Shadow's Nightblade and Mystic
     KS_LOW_CRIT = 1ull << 32,      // hits against enemies on low life are Critical Strikes
     KS_POWER_KILL = 1ull << 33,    // killing with a Critical Strike grants a Power Charge
-    KS_TRAP_WITHER = 1ull << 34,   // trap bursts Wither
-    KS_DEEP_WITHER = 1ull << 35,   // chaos spells add two stacks of Wither; Wither stacks to 15
+    KS_STAFF_STORM = 1ull << 34,   // quarterstaff hits gain lightning for each Power Charge
+    KS_CHARGE_COLD = 1ull << 35,   // quarterstaff hits gain cold for each Power Charge
     KS_VEIL = 1ull << 36,          // Hirz recharges sooner, and kills restore some of it
 };
 

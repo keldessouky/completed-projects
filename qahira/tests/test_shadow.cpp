@@ -175,24 +175,25 @@ TEST(the_nightblade_and_the_mystic) {
     m.life = 3.f;   // and a crit that kills gives a Power Charge
     w.hit_enemy(m, hh, {0, 0}, 0);
     CHECK(!m.alive() && w.hero.power == before + 1);
-    // the Mystic: trap bursts Wither, and chaos spells add two stacks up to fifteen
+    // the Mystic: a quarterstaff's hits gain lightning and cold for each Power Charge
     World v;
     v.reset_hero("shadow");
     v.hero.ascendancy = int8_t(find_ascendancy("mystic"));
     v.hero.asc = (1u << 1) | (1u << 2) | (1u << 5) | (1u << 6);
     v.recompute_hero();
-    CHECK((v.hero.keystones & KS_TRAP_WITHER) && (v.hero.keystones & KS_DEEP_WITHER));
+    CHECK((v.hero.keystones & KS_STAFF_STORM) && (v.hero.keystones & KS_CHARGE_COLD));
     v.spawn_monster(find_monster("ghoul"), {0, 2}, Rarity::Normal, 5);
     Actor& n = v.actors.back();
     n.life = n.life_max = 1e6f;
-    HeroHit tr;
-    tr.hit.min[DT_LIGHTNING] = tr.hit.max[DT_LIGHTNING] = 5;
-    tr.talisman = 1;   // Snare of Sparks
-    v.hit_enemy(n, tr, {0, 0}, 0);
-    CHECK(n.wither == 1);
-    tr.talisman = 2;   // Black Sand
-    for (int k = 0; k < 10; k++) v.hit_enemy(n, tr, {0, 0}, 0);
-    CHECK(n.wither == 15);
+    n.armour = 0;
+    HeroHit st;
+    st.hit.min[DT_PHYS] = st.hit.max[DT_PHYS] = 100;
+    st.hit.crit_chance = 0.f;
+    st.talisman = 3;   // Whirling Staff
+    const float bare = v.hit_enemy(n, st, {0, 0}, 0);
+    v.hero.power = 2;
+    const float charged = v.hit_enemy(n, st, {0, 0}, 0);
+    CHECK(charged > bare * 1.2f && n.chill_t > 0);   // 16% as lightning and 16% as cold (less the ghoul's resistances), and a chill
 }
 
 TEST(a_save_state_v11_keeps_power_and_wither) {

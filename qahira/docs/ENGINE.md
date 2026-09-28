@@ -345,9 +345,9 @@ each (Bab Zuweila is Trial I). Notables carry mods and rules (`AscRule`, alongsi
   two points.
 
 - **Nightblade** and **Mystic** (Shadow, Slice 8), rules from bit 32 of the 64-bit mask: hits on an enemy below 35%
-  of its life are crits (`KS_LOW_CRIT`), a crit that kills gives a Power Charge (`KS_POWER_KILL`); trap bursts Wither
-  (`KS_TRAP_WITHER`), chaos spells add two stacks up to fifteen (`KS_DEEP_WITHER`), and Hirz recharges twice as soon
-  with 3% back on a kill (`KS_VEIL`). The Shadow's keystone in the sky, **al-Sharatan** (`KS_AGONY`, tree bit 4):
+  of its life are crits (`KS_LOW_CRIT`), a crit that kills gives a Power Charge (`KS_POWER_KILL`); quarterstaff hits
+  gain 8% of their physical damage as lightning (`KS_STAFF_STORM`) and as cold (`KS_CHARGE_COLD`) per Power Charge,
+  and Hirz recharges twice as soon with 3% back on a kill (`KS_VEIL`). The Shadow's keystone in the sky, **al-Sharatan** (`KS_AGONY`, tree bit 4):
   hits deal 30% less, and a crit's poison is multiplied by the crit multiplier.
 
 A node needs its parent; a refund costs a Rosewater Vial.

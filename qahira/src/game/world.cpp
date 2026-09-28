@@ -1283,6 +1283,11 @@ float World::hit_enemy(Actor& e, const HeroHit& hh, vec2 from, float knock, floa
     if (e.mark_t > 0 && e.mark_hits > 0 && (sk_tags & T_ATTACK)) { he.crit_chance = 1.f; e.mark_hits--; }   // Marked: a sure crit
     if ((H.keystones & KS_LOW_CRIT) && e.life < e.life_max * 0.35f) he.crit_chance = 1.f;                    // Unseen Blade
     if ((H.keystones & KS_SINGLE) && e.rarity >= Rarity::Rare) k *= 1.25f;                                   // Single Combat
+    if ((sk_tags & T_QSTAFF) && H.power > 0) {   // the Mystic: the storm and the winter in the staff, by Power Charge
+        const float per = 0.08f * float(H.power);
+        for (auto [rule, dt] : {std::pair{KS_STAFF_STORM, DT_LIGHTNING}, std::pair{KS_CHARGE_COLD, DT_COLD}})
+            if (H.keystones & rule) { he.min[size_t(dt)] += he.min[DT_PHYS] * per; he.max[size_t(dt)] += he.max[DT_PHYS] * per; }
+    }
     if (H.keystones & KS_AGONY) k *= 0.7f;                                                                    // al-Sharatan: hits deal less...
     for (int t = 0; t < DT_COUNT; t++) { he.min[size_t(t)] *= k; he.max[size_t(t)] *= k; }
     Defences def;
@@ -1354,10 +1359,8 @@ float World::hit_enemy(Actor& e, const HeroHit& hh, vec2 from, float knock, floa
     // poison: a stack of chaos over two seconds, from the physical and chaos damage of the hit
     float pc = res.by_type[DT_PHYS] + res.by_type[DT_CHAOS];
     const bool dagger_crit = res.crit && (sk_tags & T_DAGGER);   // a dagger's crits always poison
-    const bool chaos_spell = (sk_tags & T_SPELL) && (sk_tags & T_CHAOS);
-    if (chaos_spell || ((sk_tags & T_TRAP) && (H.keystones & KS_TRAP_WITHER))) {   // Black Sand (Black Tide: traps too)
-        const bool deep = H.keystones & KS_DEEP_WITHER;                               // Sand-Drift
-        e.wither = std::min(deep ? 15 : 10, e.wither + (deep && chaos_spell ? 2 : 1));
+    if ((sk_tags & T_SPELL) && (sk_tags & T_CHAOS)) {   // Black Sand: a stack of Wither
+        e.wither = std::min(10, e.wither + 1);
         e.wither_t = 4.f * H.stats.sum(S_WITHER).apply(1.f);
     }
     if (pc > 0 && (dagger_crit || (hh.poison > 0 && rng.chance(hh.poison)))) {
