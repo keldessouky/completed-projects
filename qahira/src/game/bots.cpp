@@ -1599,6 +1599,8 @@ void Bot::digs(World& w, Menu& m, Areas& a, Input& in, uint64_t frame) {
 void Bot::tour8(World& w, Menu& m, Areas& a, Input& in, uint64_t frame) {
     static const char* zones[] = {"farafra", "sand_sea", "siwa", "bab_futuh", "shali", "oracle"};
     const uint64_t z0 = 240, each = 300;
+    // QAHIRA_TOUR_DIG=1: straight to the Excavation (after the first frame's setup)
+    if (frame > 1 && getenv("QAHIRA_TOUR_DIG")) frame += z0 + 6 * each - 2;
     Hero& H = w.hero;
     Actor& h = w.actors[0];
     auto at = [&](uint64_t f) { return frame == f; };
@@ -1646,7 +1648,7 @@ void Bot::tour8(World& w, Menu& m, Areas& a, Input& in, uint64_t frame) {
         return;
     }
     // a chart with an Excavation: the line of charges, fired, the chamber and its guardians
-    const uint64_t dig0 = zones_end, dig_len = 480;
+    const uint64_t dig0 = zones_end, dig_len = 620;
     if (frame < dig0 + dig_len) {
         int t = int(frame - dig0);
         Dig& d = w.dig;
@@ -1659,13 +1661,25 @@ void Bot::tour8(World& w, Menu& m, Areas& a, Input& in, uint64_t frame) {
             for (size_t i = 1; i < w.actors.size(); i++) if (length(w.actors[i].pos - d.stake) < 40.f) w.actors[i].life = 0, w.actors[i].act = Act::Dead, w.actors[i].dead_t = 3;
             fprintf(stderr, "tour8: an excavation at frame %llu\n", (unsigned long long)frame);
         }
+        if (t == 1) h.pos = w.level.resolve(d.spots[0] + normalize(d.stake - d.spots[0] + vec2{0.01f, 0}) * 4.f, h.radius);   // a tour: skip the walk
         if (t < 60) { steer(w, in, d.spots[0]); return; }
         if (t == 60) for (size_t i = 0; i < w.interacts.size(); i++) if (w.interacts[i].kind == Interactable::Charge && w.interacts[i].target > 0) w.dig_use(int(i));
         if (t < 140) { if (!go_to_interact(w, in, frame, Interactable::Charge)) steer(w, in, d.stake); return; }
+        if (t == 140 && !d.all_set()) {   // (a tour: whatever the pilot could not reach is set for it)
+            fprintf(stderr, "tour8: charge 0 not set by hand (near %d, hero %.1f,%.1f spot %.1f,%.1f)\n", w.near_interact, h.pos.x, h.pos.y,
+                    d.spots[0].x, d.spots[0].y);
+            for (size_t i = 0; i < w.interacts.size(); i++) if (w.interacts[i].kind == Interactable::Charge) w.dig_use(int(i));
+        }
         if (!d.fired) { go_to_interact(w, in, frame, Interactable::Detonator); return; }
-        if (t == 400) for (size_t i = 1; i < w.actors.size(); i++) if (w.actors[i].dig) w.actors[i].life = 1;
-        if (d.searchable && !d.searched) { go_to_interact(w, in, frame, Interactable::Chamber); return; }
-        if (!d.opened) { in.lstick = normalize(d.stake - h.pos + vec2{0.01f, 0}) * 0.2f; return; }
+        if (t == 330) for (size_t i = 1; i < w.actors.size(); i++) if (w.actors[i].dig) w.actors[i].life = 1;
+        if (d.searchable && !d.searched) {
+            static bool moved = false;   // a tour: to the chamber's door, rather than the walk back up the line
+            if (!moved) { moved = true; h.pos = w.level.resolve(d.chamber + normalize(d.stake - d.chamber + vec2{0.01f, 0}) * 5.f, h.radius); }
+            go_to_interact(w, in, frame, Interactable::Chamber);
+            return;
+        }
+        if (d.searched) { steer(w, in, d.chamber + normalize(d.stake - d.chamber + vec2{0.01f, 0}) * 4.f); return; }
+        if (!d.opened) { steer(w, in, d.spots[1]); return; }   // towards the line, to watch it go off
         combat(w, in, frame, 16.f);
         return;
     }
@@ -1678,8 +1692,8 @@ void Bot::tour8(World& w, Menu& m, Areas& a, Input& in, uint64_t frame) {
         w.level.bind_gpu();
         h.pos = w.level.point("spawn") + vec2{-2.6f, -0.6f};
     }
-    if (t < 60) { go_to_interact(w, in, frame, Interactable::Dealer); return; }
-    if (t == 60) m.show_dealer(w);
+    if (t < 60 && !m.open) { go_to_interact(w, in, frame, Interactable::Dealer); return; }
+    if (t == 60 && !m.open) m.show_dealer(w);
     if (t > 70 && t < 140 && m.open && frame % 10 == 0 && m.cx < 2) press(in, BTN_RIGHT);
     if (t == 260) { m.hide(); pass("tour8 done"); }
 }
