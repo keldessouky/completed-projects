@@ -13,8 +13,11 @@
 //          seal opens the Rift Lord's court at the chart table, where the Rift Lord dies
 //   act3   Slice 7's exit: a character as Act II leaves one plays Act III through, the White Desert to the Hill of the
 //          Oracle, Trial II at Bab al-Futuh included
+//   act4   Slice 8's exit: a character as Act III leaves one plays Act IV through, Ghadames to the Sebkha of Sijoumi
 //   digs   Slice 7's endgame piece: after Act III, a chart with an Excavation: every charge set, fired from the stake,
 //          the chamber's guardians killed, the chamber searched, and its relics bartered with Amm Ramadan
+//   zar    Slice 8's endgame piece: after Act IV, a chart with a Zar Night: the drum sat at, the circle held against what
+//          comes to it until the song is over, at least one trance, and what the night paid out picked up
 //   tour   not a test: a scripted visit of every screen for screenshots (it gives itself gear)
 #pragma once
 #include "game/areas.hpp"
@@ -83,8 +86,11 @@ private:
     void tour7(World& w, Menu& m, Areas& a, Input& in, uint64_t frame);
     int rift_stage_ = 0, rift_splinters0_ = 0;
     void digs(World& w, Menu& m, Areas& a, Input& in, uint64_t frame);
+    void zar(World& w, Menu& m, Areas& a, Input& in, uint64_t frame);
     void tour8(World& w, Menu& m, Areas& a, Input& in, uint64_t frame);
+    void tour9(World& w, Menu& m, Areas& a, Input& in, uint64_t frame);
     int dig_stage_ = 0, dig_relics_ = 0;
+    bool recovering_ = false;    // backed off from a boss, too hurt to trade and the flask dry, until life comes back
     // charts scenario
     int chart_runs_ = 0, chart_target_ = -1, map_presses_ = 0, best_tier_done_ = 0, haboobs_seen_ = 0;
     uint32_t run_seed_ = 0;
@@ -109,6 +115,8 @@ private:
     // shared skills
     bool combat(World& w, Input& in, uint64_t frame, float reach);   // true while fighting
     bool caster_combat(World& w, Input& in, uint64_t frame, float reach);
+    // a direction to back off in, bent round a boss's court when the hero has strayed from it (she goes home and heals if led away)
+    vec2 keep_to_court(const World& w, vec2 dir) const;
     bool loot_and_equip(World& w, Menu& m, Input& in, uint64_t frame);  // true while busy with loot or the menu
     bool menu_nav(const World& w, const Menu& m, Input& in, uint64_t frame, Region r, int x, int y);
     void steer(World& w, Input& in, vec2 target);

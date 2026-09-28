@@ -167,6 +167,21 @@ const std::vector<CodexEntry>& codex_entries() {
          "The gate's jinn wear the armour of the soldiers who once held it. Nothing is inside; the armour is very hard to hurt."},
         {"res_penalty", CX_MECHANIC, "The eclipse and your resistances",
          "Past Act III the eclipse weighs on everything: all your resistances are 30% lower. Keep them up with gear and the sky."},
+        // Slice 8: the Shadow, and Act IV
+        {"traps", CX_MECHANIC, "Traps, Wither and Power Charges",
+         "A trap is thrown, lands and arms; it bursts when an enemy comes near. Chaos spells Wither: each stack, 6% more chaos "
+         "damage taken, poison included. A quarterstaff's crits grant Power Charges, 40% increased Critical Strike Chance each."},
+        {"salt_ghouls", CX_MONSTER, "Ghouls of the salt",
+         "The ghouls of the Chott and the sebkha, crusted white where the brine dried on them. Their mother is older than the city."},
+        {"mirage", CX_MONSTER, "Mirages",
+         "Sarab: the jinn of the heat-shimmer, who shows travellers water on the horizon and walks them out onto the salt. They "
+         "throw lightning from afar and are gone when you reach them."},
+        {"zar", CX_MECHANIC, "Zar Nights",
+         "After Act IV, a chart may hold a drum circle. Sit down at the drum and the Zar begins: the site's creatures come to the "
+         "drums, every death near the circle feeds the rhythm, and the rhythm runs down on its own. Each time it fills, the circle "
+         "falls into a trance and pays out. Play the song to its end for one more reward; let the rhythm fail and the night is over."},
+        {"iron_door", CX_MONSTER, "The Iron Door",
+         "One of the great studded doors of the medina, green and black under its arch, with a jinn in it. It is very hard to hurt."},
         {"excavations", CX_MECHANIC, "Excavations",
          "After Act III, a chart may hold a buried chamber. Set charges along the line to it and fire them; guardians climb out "
          "of the dust. What you dig up is traded with Amm Ramadan, the antiquities dealer, for what he keeps under the counter."},

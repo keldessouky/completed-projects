@@ -62,6 +62,7 @@ struct State {
     float storm_k = 0;            // how deep in the Haboob the camera's fog is
     float fade_t = 0;             // > 0 fading out towards the travel, < 0 fading back in
     bool boss_music = false;
+    bool zar_music = false;
     bool persist = true;          // write the character file (off for bots)
 };
 
@@ -131,6 +132,7 @@ void area_audio() {
         case AreaId::Street: a.music("mus_hijaz", 0.5f, 2.f); a.ambience("amb_street", 0.5f, 2.f); break;
     }
     S->boss_music = false;
+    S->zar_music = false;
 }
 
 void arrived() {
@@ -238,6 +240,8 @@ void play_event_sounds(const World& w) {
             case Ev::TrapSet: a.play("trap_set", 0.45f * near, pan, pv(1)); break;
             case Ev::TrapSnap: a.play("trap_snap", 0.7f * near, pan, pv(1)); break;
             case Ev::Power: a.play("power_charge", 0.4f, 0, pv(1)); break;
+            case Ev::ZarStart: a.play("zar_start", 0.8f, pan, 1); break;
+            case Ev::Trance: a.play("zar_trance", 0.85f, pan, 1); break;
             case Ev::Bleed: a.play("bleed", e.mag > 1.5f ? 0.7f : 0.35f * near, pan, pv(e.mag > 1.5f ? 0.8f : 1.f)); break;
             case Ev::Frozen: a.play("frozen", 0.6f * near, pan, pv(1)); break;
             case Ev::Glyph: a.play("glyph", e.mag > 1.5f ? 0.8f : e.mag > 0.8f ? 0.55f : 0.25f, pan, e.mag > 1.5f ? 0.8f : pv(1)); break;
@@ -258,6 +262,7 @@ void presentation_events() {
             case Ev::Break: S->rumble_weak = std::max(S->rumble_weak, 0.8f); break;
             case Ev::BossWail: S->rumble_strong = std::max(S->rumble_strong, 0.6f); break;
             case Ev::Summon: S->rumble_strong = std::max(S->rumble_strong, 0.8f); break;
+            case Ev::Trance: S->rumble_strong = std::max(S->rumble_strong, 0.6f); break;
             case Ev::StarFall: S->rumble_strong = std::max(S->rumble_strong, 0.8f); break;
             case Ev::Frozen: S->rumble_weak = std::max(S->rumble_weak, 0.6f); break;
             case Ev::LevelUp: save_character(); break;
@@ -300,6 +305,9 @@ uint32_t boss_quest(const ZoneDef& zd) {
     if (id == "sand_sea") return Q_DABA;
     if (id == "bab_futuh") return Q_TRIAL2;
     if (id == "oracle") return Q_WRAITH | Q_ACT3;
+    if (id == "chott") return Q_SARAB;
+    if (id == "medina") return Q_DOOR;
+    if (id == "sebkha") return Q_SALT | Q_ACT4;
     return 0;
 }
 
@@ -310,9 +318,12 @@ void boss_state(World& w) {
     for (size_t i = 1; i < w.actors.size(); i++)
         if (w.actors[i].rarity == Rarity::Unique && w.actors[i].alive()) boss = &w.actors[i];
     bool fighting = boss && boss->ai_state > 0 && w.actors[0].alive();
-    if (fighting != S->boss_music) {
+    const bool zar = w.zar.started && !w.zar.over;   // the Zar's drums take over the music while the night plays
+    if (fighting != S->boss_music || zar != S->zar_music) {
         S->boss_music = fighting;
-        audio().music(fighting ? (zd->trial ? "mus_trial" : "mus_boss") : zd->music, fighting ? 0.6f : 0.5f, fighting ? 0.8f : 3.f);
+        S->zar_music = zar;
+        audio().music(fighting ? (zd->trial ? "mus_trial" : "mus_boss") : zar ? "mus_zar" : zd->music, fighting || zar ? 0.6f : 0.5f,
+                      fighting ? 0.8f : zar ? 1.2f : 3.f);
     }
     if (w.boss_killed && !S->areas.zone.cleared && zd->act == 0) {   // a chart's site is finished
         S->areas.open_exit(w);
@@ -381,7 +392,12 @@ void boss_state(World& w) {
             S->view.banner_sub = "The desert's jinn were fleeing west, to the sea. All your resistances are 30% lower from here on.";
             w.meet_codex("res_penalty");
         }
-        S->view.banner_t = fresh & (Q_ACT2 | Q_ACT3) ? 9.f : 5.f;
+        if (fresh & Q_ACT4) {
+            S->view.banner = "Act IV is over";
+            S->view.banner_sub = "In the medina the drums have started. The Zar Nights come to the charts: keep the circle playing.";
+            w.meet_codex("zar");
+        }
+        S->view.banner_t = fresh & (Q_ACT2 | Q_ACT3 | Q_ACT4) ? 9.f : 5.f;
         save_character();
     }
 }
@@ -663,6 +679,7 @@ void app_update(const Input& in_raw, float dt) {
             case Interactable::ChartTable: S->map.show(w); w.meet_codex("charts"); audio().play("portal", 0.4f, 0, 0.8f); break;
             case Interactable::Chest: A.open_chest(w, w.used_interact); break;
             case Interactable::Charge: case Interactable::Detonator: case Interactable::Chamber: w.dig_use(w.used_interact); break;
+            case Interactable::Drum: w.zar_use(w.used_interact); break;
             case Interactable::Dealer: M.show_dealer(w); w.meet_codex("excavations"); audio().play("ui_select", 0.4f, 0, 1); break;
         }
     }
@@ -719,10 +736,10 @@ void app_render(GLuint fbo, int w, int h) {
 void app_audio(int16_t* stereo, int frames) { audio().mix(stereo, frames); }
 
 // ---- save states
-static const uint32_t kStateVersion = 11;  // 5: passives, Hirz, keystone state; 6: Talismans, ailments, glyphs; 7: Act I;
+static const uint32_t kStateVersion = 12;  // 5: passives, Hirz, keystone state; 6: Talismans, ailments, glyphs; 7: Act I;
                                            // 8: chart runs and the Haboob; 9: poison, marks, Frenzy, arrows;
                                            // 10: bleeding, piercing bolts, grenades, the weapon swap;
-                                           // 11: traps, Wither, Power Charges
+                                           // 11: traps, Wither, Power Charges; 12: Zar Nights
 
 static ByteWriter save_state() {
     ByteWriter w;

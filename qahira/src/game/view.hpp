@@ -29,6 +29,10 @@ public:
 private:
     Pose pose_;
     std::vector<Xform> scratch_;
+    CharacterModel zar_cm_;         // the Zar's drummers: scenery, animated here
+    Animator zar_anim_;
+    bool zar_ready_ = false;
+    float zar_clock_ = 0;
     void draw_actor(Renderer& r, World& w, Actor& a, int index);
     void draw_skinned(Renderer& r, const CharacterModel& m, const Animator& anim, vec2 pos, float facing, float scale, Instance in);
     void draw_portal(Renderer& r, const World& w, vec2 pos, vec3 color, float t);

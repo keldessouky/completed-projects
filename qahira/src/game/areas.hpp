@@ -41,7 +41,8 @@ struct Areas {
     void enter_zone(World& w, int def, Arrival how);   // def -1: the kept instance
     void enter_chart(World& w, int site, const Item& chart);   // a chart consumed at the table: a fresh site
     void arm_haboob(World& w);
-    bool arm_dig(World& w);          // an Excavation in this chart (false when the site has no room for one)
+    bool arm_dig(World& w);
+    bool arm_zar(World& w);          // a Zar Night in this chart          // an Excavation in this chart (false when the site has no room for one)
     void enter_rift_court(World& w);   // a Rift Seal spent: the Rift Lord's court                 // this site gets a Haboob (its bounds from the layout)
     void enter_street(World& w);
     void leave_zone(World& w);                 // snapshot the live zone into the instance

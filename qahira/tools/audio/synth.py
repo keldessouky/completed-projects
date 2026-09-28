@@ -763,6 +763,24 @@ def sfx_slice8():
     f = 880 * 2 ** (t * 1.2)
     ch = (np.sin(2 * np.pi * np.cumsum(f) / s) + 0.4 * np.sin(4 * np.pi * np.cumsum(f) / s)) * np.exp(-t * 5)
     write('power_charge', norm(ch, 0.35))
+    # zar_start: the drummers take up the rhythm, dum . tek dum . tek, quickening
+    x = np.zeros(int(1.6 * s))
+    at = 0.0
+    for k, (kind, gap) in enumerate([('d', 0.36), ('t', 0.18), ('d', 0.3), ('t', 0.15), ('d', 0.26), ('t', 0.13), ('d', 0.13), ('t', 0.2)]):
+        place(x, dum(s, 0.9) if kind == 'd' else tek(s, 0.7), at * s)
+        place(x, riq(s, 0.4), at * s)
+        at += gap
+    write('zar_start', norm(x, 0.6))
+    # zar_trance: a great beat of every drum at once, and the ney's cry rising over it
+    t = t_axis(1.8)
+    x = np.zeros(len(t))
+    for k in range(3):
+        place(x, dum(s, 1.0), k * 0.012 * s)
+    place(x, riq(s, 0.8), 0.02 * s)
+    f = 440 * 2 ** (np.clip(t - 0.1, 0, None) * 0.35)
+    cry = np.sin(2 * np.pi * np.cumsum(f) / s) * env_adsr(len(t), 0.25, 0.3, 0.7, 0.6) * 0.35
+    cry += fft_filter(noise(len(t)), 400, 2200) * env_adsr(len(t), 0.25, 0.3, 0.5, 0.6) * 0.15
+    write('zar_trance', norm(x + cry, 0.7))
 
 
 def music_act4():
@@ -848,7 +866,7 @@ if __name__ == '__main__':
         music_act2()
     if 'act3' in only:
         sfx_slice7()
-    if 'act4' in only:
+    if 'act4' in only or 'zar' in only:
         sfx_slice8()
     if 'act4' in only or 'ambience' in only:
         ambience_salt('amb_salt')

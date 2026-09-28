@@ -203,6 +203,21 @@ struct Dig {
     static float open_at() { return blow_at(kCharges) + 0.35f; }
 };
 
+// A Zar Night (Slice 8, charts after Act IV): a drum circle in one of the site's cells. Sit down at the drum and the
+// drummers start; the dead feed the rhythm, which runs down on its own. Each time it fills, the circle falls into a
+// trance and pays out; the night ends when its song is over or the rhythm fails. What it has earned drops at the end.
+struct Zar {
+    bool armed = false, started = false, over = false;
+    vec2 pos;
+    int16_t zone = -1;             // whose monsters come to the drums
+    float rhythm = 0, t = 0, wave_t = 0;
+    int trances = 0, kills = 0, waves = 0;
+    static constexpr float kSong = 45.f;     // seconds a night lasts
+    static constexpr float kRadius = 14.f;   // deaths inside it feed the rhythm
+    static constexpr float kStart = 50.f;
+    float decay() const { return 4.f + t * 0.08f; }   // the drummers tire as the night goes on
+};
+
 struct Particle {
     vec3 pos, vel;
     float life, max_life, size0, size1, gravity, drag;
@@ -231,7 +246,8 @@ struct GroundItem {
 
 struct Interactable {
     enum Kind : uint8_t { Stair, Portal, Vendor, Exit, Chest, Waypoint, Next, Bench, Gate, ChartTable,
-                          Charge, Detonator, Chamber, Dealer } kind;   // Slice 7: an Excavation's, and Amm Ramadan
+                          Charge, Detonator, Chamber, Dealer,   // Slice 7: an Excavation's, and Amm Ramadan
+                          Drum } kind;                          // Slice 8: a Zar Night's
     // Next: the way on to zone `target`; Gate: a side zone (a trial); Waypoint: the waypoint list; Bench: the Coppersmith
     vec2 pos;
     float radius = 1.8f;
@@ -255,7 +271,7 @@ struct Npc {
 enum class Ev : uint8_t { Swing, Impact, SlamImpact, EnemyHit, EnemyDie, HeroHit, Warcry, Dodge, Spit, Splash, Pickup,
                           Drink, Crit, Break, LevelUp, HeroDie, Aftershock, Portal, Gold, Currency, BossDie, BossWail,
                           BossLeap, Summon, Craft, Sell, InvFull, Cast, FireHit, ColdHit, LightningHit, StarFall, Frozen,
-                          Glyph, WeaponSwap, Bleed, TrapSet, TrapSnap, Power };
+                          Glyph, WeaponSwap, Bleed, TrapSet, TrapSnap, Power, ZarStart, Trance };
 struct Event { Ev type; vec2 pos; float mag; int def = -1; };   // def: the monster, for its voice
 
 struct Hero {
@@ -363,6 +379,7 @@ public:
     bool boss_killed = false;
     Rift rift;
     Dig dig;                       // an Excavation in this chart (Slice 7)
+    Zar zar;                       // a Zar Night in this chart (Slice 8)
     float coil_t = -1;             // Act II's end: a coil of the serpent passing through the pit (seconds in; -1 none)
     vec2 coil_at, coil_dir;
     // a chart run: its tier and mods, the Astrolabe it was opened under, and its Haboob
@@ -376,6 +393,7 @@ public:
     void reset_hero(const std::string& cls = "warrior");
     void recompute_hero();
     Actor& spawn_monster(int def, vec2 pos, Rarity rarity = Rarity::Normal, int level = 1);
+    void kill(Actor& e);
     void step(const Input& in, float dt);
 
     // queries used by the HUD and tests
@@ -408,6 +426,9 @@ public:
     void rift_step(float dt);
     void dig_step(float dt);
     void dig_use(int interact);          // a charge set, the charges fired, the chamber searched
+    void zar_step(float dt);
+    void zar_use(int interact);          // the drum: the night begins
+    void zar_end();                      // the song is over (or the rhythm failed): what the night earned
     int frenzy_max() const { return 3 + int(hero.stats.sum(S_FRENZY).flat); }
     int power_max() const { return 3 + int(hero.stats.sum(S_POWER).flat); }
     int trap_max() const { return 3 + int(hero.stats.sum(S_TRAP_THROW).flat); }
@@ -439,7 +460,6 @@ private:
     bool in_glyph(vec2 p) const;
     // evadable: an attack (melee, arrows, bile) that Evasion can avoid; spells, novas and burning ground cannot be
     void damage_hero(float lo, float hi, int type, vec2 from, float break_amt, uint32_t attacker = 0, bool evadable = true);
-    void kill(Actor& e);
     void monster_attack(Actor& m);
     void drop_loot(const Actor& e);
     void separate();

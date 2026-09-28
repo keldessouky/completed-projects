@@ -106,7 +106,26 @@ const std::vector<ZoneDef>& zone_defs() {
          "", "", "oracle", "poster", "", false, -1, {1.1f, 0.92f, 0.85f}},
         {"oracle", "The Hill of the Oracle", "The oracle answered kings here. Tonight the wind answers", "siwa", 3, 35, 3, 6, 2,
          "mus_desert", "amb_desert", {{"sand_shade", 4}, {"desert_ghoul", 4}, {"salt_jinn", 3}, {"iron_guard", 1}}, "sand_shade",
-         "sand_wraith", "The Sand-Wraith scatters on the wind. Act III is over", "", "cache", "", false, -1, {0.85f, 0.9f, 1.15f}},
+         "sand_wraith", "The Sand-Wraith scatters on the wind. Act III is over", "ghadames", "cache", "", false, -1, {0.85f, 0.9f, 1.15f}},
+        // Act IV (Slice 8): the Maghreb Coast
+        {"ghadames", "Ghadames, the Covered City", "Lanes roofed against the sun, and something walking on the roofs", "ghadames", 4, 36, 4, 5, 3,
+         "mus_maghreb", "amb_desert", {{"souq_silah", 4}, {"desert_ghoul", 4}, {"sand_shade", 3}}, "souq_silah",
+         "", "", "chott", "poster", "", false, -1, {1.1f, 1.0f, 0.88f}},
+        {"chott", "Chott el-Djerid", "A dry sea of salt, and on the horizon water that is not there", "chott", 4, 38, 3, 6, 2,
+         "mus_maghreb", "amb_salt", {{"salt_ghoul", 5}, {"mirage", 4}, {"salt_jinn", 2}}, "salt_ghoul",
+         "sarab", "The mirage breaks, and the salt is only salt", "tozeur", "cache", "", false, -1, {1.0f, 1.02f, 1.12f}},
+        {"tozeur", "Tozeur", "Patterned brick in every wall, and the palm groves full of whispering", "tozeur", 4, 40, 4, 5, 3,
+         "mus_maghreb", "amb_desert", {{"souq_silah", 4}, {"hyena", 3}, {"mirage", 3}, {"desert_ghoul", 3}}, "hyena",
+         "", "", "medina", "cache", "", false, -1, {1.12f, 0.98f, 0.85f}},
+        {"medina", "The Medina of Tunis", "Green doors in white walls; one of the doors has left its wall", "medina", 4, 42, 4, 6, 3,
+         "mus_medina", "amb_street", {{"souq_silah", 5}, {"nasnas", 3}, {"salt_ghoul", 2}, {"iron_guard", 2}}, "iron_guard",
+         "iron_door", "The Iron Door falls flat, and the medina is quiet", "souq", "cache", "", false, -1, {1.0f, 1.0f, 1.08f}},
+        {"souq", "The Souq of the Chechia-Makers", "Red felt caps on every hook, and nobody to sell them", "medina", 4, 44, 3, 6, 2,
+         "mus_medina", "amb_street", {{"souq_silah", 5}, {"nasnas", 4}, {"mirage", 2}}, "souq_silah",
+         "", "", "sebkha", "poster", "", false, -1, {1.08f, 0.9f, 0.9f}},
+        {"sebkha", "The Sebkha of Sijoumi", "The salt lake under the city, where the flamingos will not land", "chott", 4, 46, 3, 6, 2,
+         "mus_maghreb", "amb_salt", {{"salt_ghoul", 6}, {"mirage", 3}, {"salt_jinn", 2}}, "salt_ghoul",
+         "ghula_salt", "The Ghula of the Salt crumbles into brine. Act IV is over", "", "cache", "", false, -1, {0.95f, 1.0f, 1.15f}},
     };
     return d;
 }
@@ -134,6 +153,9 @@ const std::vector<QuestDef>& quest_defs() {
         {Q_DABA, "The Hyena's Gaze", "Travellers on the Sand Sea walk off after something that laughs. Find it before you follow.", 1, 0},
         {Q_TRIAL2, "The Second Trial", "Pay the toll at Bab al-Futuh and bring its Iron Mamluk to its knees.", 0, 2},
         {Q_WRAITH, "The Oracle's Silence", "Climb the hill at Siwa where the oracle spoke, and silence what speaks there now.", 1, 0},
+        {Q_SARAB, "The Mirage", "Travellers on the Chott walk out toward water that is not there. Find what shows it to them.", 1, 0},
+        {Q_DOOR, "The Iron Door", "A door of the Tunis medina has torn itself from its wall. Put it down.", 1, 0},
+        {Q_SALT, "The Ghula of the Salt", "Something crusted white has risen from the sebkha under the city. Lay it to rest.", 1, 0},
     };
     return d;
 }

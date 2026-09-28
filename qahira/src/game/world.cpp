@@ -46,6 +46,13 @@ const std::vector<MonsterDef>& monster_defs() {
             {"dab_a", "Umm al-Dab', the Hyena of the Sand Sea", "qutrub", 1.8f, {1.35f, 1.1f, 0.7f}, 1150, 5.0f, 1.0f, AttackKind::Boss, 3.2f, 1.2f, 18, 27, DT_PHYS, 100, 1500, 0},
             {"iron_mamluk", "The Iron Mamluk", "mamluk", 1.0f, {1, 1, 1}, 1300, 3.2f, 1.0f, AttackKind::Boss, 3.4f, 1.5f, 19, 29, DT_PHYS, 350, 1700, 0},
             {"sand_wraith", "The Sand-Wraith of Siwa", "wraith", 1.0f, {1, 1, 1}, 1400, 3.8f, 1.0f, AttackKind::Boss, 3.4f, 1.3f, 20, 30, DT_FIRE, 120, 1900, 0},
+            // Act IV (Slice 8): the Maghreb Coast
+            {"salt_ghoul", "Salt Ghoul", "ghoul", 1.08f, {1.5f, 1.46f, 1.4f}, 62, 4.8f, 0.45f, AttackKind::Claw, 1.6f, 1.2f, 9, 14, DT_PHYS, 35, 26, 0},
+            {"mirage", "Mirage Jinn", "sand", 0.95f, {0.85f, 1.05f, 1.45f}, 46, 4.2f, 0.45f, AttackKind::Spit, 10.f, 2.2f, 8, 13, DT_LIGHTNING, 5, 27, 7.f},
+            {"souq_silah", "Si'lah of the Souq", "silah", 1.0f, {1.12f, 0.95f, 0.85f}, 62, 4.8f, 0.45f, AttackKind::Leap, 6.5f, 2.8f, 10, 15, DT_PHYS, 15, 27, 0},
+            {"sarab", "Sarab, the Mirage", "ifrit", 1.1f, {0.72f, 0.95f, 1.35f}, 1500, 3.8f, 1.0f, AttackKind::Boss, 3.4f, 1.3f, 21, 31, DT_LIGHTNING, 100, 2100, 0},
+            {"iron_door", "The Iron Door of the Souq", "iron_door", 1.0f, {1, 1, 1}, 1650, 2.8f, 1.5f, AttackKind::Boss, 3.6f, 1.6f, 22, 33, DT_PHYS, 380, 2300, 0},
+            {"ghula_salt", "The Ghula of the Salt", "ghoula", 1.45f, {1.55f, 1.5f, 1.45f}, 1850, 4.0f, 0.95f, AttackKind::Boss, 3.3f, 1.4f, 23, 35, DT_PHYS, 160, 2600, 0},
         };
         auto set = [&](const char* id, bool rigid, const char* fam, const char* voice = "ghoul") {
             for (auto& m : v) if (std::string(m.id) == id) { m.rigid = rigid; m.family = fam; m.voice = voice; }
@@ -78,6 +85,12 @@ const std::vector<MonsterDef>& monster_defs() {
         set("sand_wraith", false, "Sand shades", "whisper");
         set("iron_guard", false, "The armour of Bab al-Futuh", "metal");
         set("iron_mamluk", false, "The armour of Bab al-Futuh", "metal");
+        set("salt_ghoul", false, "Ghouls of the salt");
+        set("ghula_salt", false, "Ghouls of the salt");
+        set("mirage", false, "Mirages", "whisper");
+        set("sarab", false, "Mirages", "fire");
+        set("souq_silah", false, "Si'lah, the shape-shifters", "whisper");
+        set("iron_door", true, "The Iron Door", "metal");
         codex("Ghouls", "ghouls");
         codex("Possessed", "possessed");
         codex("Si'lah", "silah");
@@ -94,6 +107,9 @@ const std::vector<MonsterDef>& monster_defs() {
         codex("Ghouls of the sands", "desert_ghouls");
         codex("Sand shades", "wraith");
         codex("The armour of Bab al-Futuh", "mamluk");
+        codex("Ghouls of the salt", "salt_ghouls");
+        codex("Mirages", "mirage");
+        codex("The Iron Door", "iron_door");
         return v;
     }();
     return d;
@@ -165,6 +181,21 @@ const BossDef* boss_def(int monster) {
           {MoveKind::Blink, "cast", 6.5f, 5.f, 30, 0, 1}, {MoveKind::Wail, "wail", 10.f, 0, 99, 0, 1},
           {MoveKind::Volley, "cast", 3.8f, 4.f, 30, 0.8f, 0}, {MoveKind::Combo, "combo", 1.2f, 0, 3.8f, 1.f, 0}},
          0.5f, "THE WIND ANSWERS IT", "sand_shade", 4, 11.f, 1.3f, {1.f, 0.75f, 0.4f}},
+        // Act IV: the mirage blinks and throws lightning, the door slams and charges, the ghula calls her salt-crusted brood
+        {"sarab",
+         {{MoveKind::Summon, "summon", 1e9f, 0, 99, 0, 1}, {MoveKind::Blink, "cast", 5.5f, 5.f, 30, 0, 0},
+          {MoveKind::Volley, "cast", 3.4f, 5.f, 30, 0.7f, 0}, {MoveKind::Nova, "wail", 7.f, 0, 5.5f, 1.2f, 1},
+          {MoveKind::Combo, "combo", 1.2f, 0, 3.6f, 1.f, 0}},
+         0.5f, "THE HORIZON COMES CLOSER", "mirage", 4, 11.f, 1.3f, {0.6f, 0.85f, 1.f}},
+        {"iron_door",
+         {{MoveKind::Summon, "", 1e9f, 0, 99, 0, 1}, {MoveKind::Nova, "", 6.f, 0, 5.5f, 1.2f, 0},
+          {MoveKind::Charge, "", 3.8f, 3.5f, 30, 1.6f, 0}, {MoveKind::Combo, "", 1.5f, 0, 3.8f, 1.f, 0}},
+         0.5f, "EVERY DOOR IN THE SOUQ SLAMS", "souq_silah", 3, 11.f, 1.25f, {1.f, 0.72f, 0.3f}},
+        {"ghula_salt",
+         {{MoveKind::Summon, "summon", 1e9f, 0, 99, 0, 1}, {MoveKind::Wail, "wail", 10.f, 0, 99, 0, 1},
+          {MoveKind::Pools, "cast", 7.5f, 0, 30, 0.55f, 0}, {MoveKind::Leap, "leap", 4.f, 4.5f, 25, 1.5f, 0},
+          {MoveKind::Combo, "combo", 1.2f, 0, 3.6f, 1.f, 0}},
+         0.5f, "THE SALT RISES WITH HER", "salt_ghoul", 5, 11.f, 1.3f, {0.95f, 0.95f, 1.f}},
     };
     if (monster < 0 || monster >= int(monster_defs().size())) return nullptr;
     const char* id = monster_defs()[size_t(monster)].id;
@@ -431,7 +462,7 @@ void World::step(const Input& in, float dt) {
     hero_step(in, dt);
     for (size_t i = 1; i < actors.size(); i++) monster_step(actors[i], dt);
     separate();
-    if (in_chart) { haboob_step(dt); rift_step(dt); dig_step(dt); }
+    if (in_chart) { haboob_step(dt); rift_step(dt); dig_step(dt); zar_step(dt); }
     // projectiles: the monsters' bile and the hero's bolts
     Actor& h = actors[0];
     for (auto& p : projectiles) {
@@ -843,6 +874,92 @@ void World::dig_step(float dt) {
             notices.push_back("The guardians are dust: search the chamber");
         }
     }
+}
+
+void World::zar_step(float dt) {
+    Zar& z = zar;
+    if (!z.armed || z.over) return;
+    if (!z.started) {   // the drummers wait, a lamp at their feet
+        if (fx_rng.chance(0.1f))
+            particles.push_back(Particle{vec3(z.pos + vec2{fx_rng.range(-0.3f, 0.3f), fx_rng.range(-0.3f, 0.3f)}, 0.3f), vec3(0, 0, 0.8f), 1.2f,
+                                         1.2f, 0.06f, 0.02f, 0, 0, vec4(1.f, 0.7f, 0.3f, 0.9f), vec4(1.f, 0.4f, 0.1f, 0), 0, true});
+        return;
+    }
+    z.t += dt;
+    z.rhythm = std::max(0.f, z.rhythm - z.decay() * dt);
+    // the drums draw them: a wave every few seconds from the edge of the circle, thicker as the night goes on
+    if ((z.wave_t -= dt) <= 0 && z.t < Zar::kSong - 4.f) {
+        z.wave_t = 3.2f;
+        z.waves++;
+        const ZoneDef& zd = zone_def(z.zone);
+        int total = 0;
+        for (auto& e : zd.spawns) if (e.monster) total += e.weight;
+        const int n = 3 + z.waves / 4;
+        const float a0 = rng.range(0.f, kTau);
+        for (int k = 0; k < n && total > 0; k++) {
+            int pick = rng.irange(0, total - 1);
+            const char* id = zd.spawns[0].monster;
+            for (auto& e : zd.spawns) if (e.monster && (pick -= e.weight) < 0) { id = e.monster; break; }
+            vec2 at{};   // from where the drums can be seen: never behind a wall, where they could not come
+            bool found = false;
+            for (int tries = 0; tries < 8 && !found; tries++) {
+                at = level.resolve(z.pos + rotate(vec2{rng.range(7.f, 12.f), 0}, a0 + float(k) * 0.9f + float(tries) * 0.8f), 0.5f);
+                found = length(at - z.pos) > 5.f && level.line_clear(z.pos, at, 0.4f);
+            }
+            if (!found) continue;
+            const Rarity rar = z.waves % 5 == 0 && k == 0 ? Rarity::Rare : z.waves % 2 == 0 && k == 0 ? Rarity::Magic : Rarity::Normal;
+            Actor& m = spawn_monster(find_monster(id), at, rar, area_level);
+            m.ai_state = 1;
+            burst(vec3(m.pos, 0.6f), 10, vec4(0.9f, 0.6f, 0.3f, 0.8f), vec4(0.5f, 0.3f, 0.2f, 0), 2.5f, 0.3f, 0.6f, false, 1.f, 1);
+        }
+    }
+    if (z.rhythm >= 100.f) {   // a trance: the circle pays out, and the drums go on
+        z.trances++;
+        z.rhythm = 55.f;
+        burst(vec3(z.pos, 1.2f), 50, vec4(1.f, 0.8f, 0.4f, 1), vec4(0.8f, 0.3f, 0.6f, 0), 6.f, 0.2f, 1.0f, true, -1.f);
+        texts.push_back({vec3(z.pos, 3.f), "TRANCE", 0xE8B04A, 0, 56});
+        emit(Ev::Trance, z.pos);
+        drop_currency(level.resolve(z.pos + rotate(vec2{2.4f, 0}, float(z.trances) * 2.1f), 0.3f), roll_currency(rng, area_level), 1 + z.trances / 2);
+        shake = std::max(shake, 0.4f);
+    }
+    if (z.rhythm <= 0.f || z.t >= Zar::kSong) zar_end();
+}
+
+void World::zar_use(int i) {
+    if (i < 0 || i >= int(interacts.size())) return;
+    Interactable& it = interacts[size_t(i)];
+    Zar& z = zar;
+    if (it.kind != Interactable::Drum || it.spent || z.started) return;
+    it.spent = true;
+    it.label.clear();
+    z.started = true;
+    z.rhythm = Zar::kStart;
+    z.wave_t = 1.5f;
+    emit(Ev::ZarStart, z.pos);
+    meet_codex("zar");
+    notices.push_back("The drummers take up the rhythm: keep it going");
+}
+
+void World::zar_end() {
+    Zar& z = zar;
+    if (z.over) return;
+    z.over = true;
+    const bool failed = z.rhythm <= 0.f;
+    // what the night earned: an item and some coin for every trance, and one more if the song was played to its end
+    const int items = z.trances + (failed ? 0 : 1);
+    for (int k = 0; k < items; k++) {
+        GroundItem g;
+        g.item = random_drop(area_level + 1, k < z.trances ? 0.6f : 0.25f, 0.6f, rng);
+        g.pos = level.resolve(z.pos + rotate(vec2{2.2f, 0}, 0.4f + float(k) * 1.3f), 0.3f);
+        g.id = next_id++;
+        loot.push_back(g);
+    }
+    if (z.trances > 0) drop_gold(level.resolve(z.pos + vec2{-1.4f, -1.2f}, 0.3f), (20 + area_level * 3) * z.trances);
+    char b[120];
+    if (failed) snprintf(b, sizeof b, "The rhythm fails and the drummers stop. %d trance%s", z.trances, z.trances == 1 ? "" : "s");
+    else snprintf(b, sizeof b, "The song is over: %d trance%s, and the circle is quiet", z.trances, z.trances == 1 ? "" : "s");
+    notices.push_back(b);
+    emit(Ev::Pickup, z.pos, 2.f);
 }
 
 void World::dig_use(int i) {
@@ -1662,6 +1779,7 @@ void World::resolve_skill(Actor& h) {
             for (auto& g : ground)
                 if (g.kind == GroundFx::Trap && g.t < g.life) { out++; if (!oldest || g.t > oldest->t) oldest = &g; }
             if (out >= trap_max() && oldest) oldest->t = oldest->life;
+            meet_codex("traps");
             GroundFx g;
             g.kind = GroundFx::Trap;
             g.pos = level.resolve(h.target, 0.3f);
@@ -1740,6 +1858,10 @@ void World::kill(Actor& e) {
     e.life = 0;
     e.dead_t = 0;
     e.anim.play("death", 0.05f, true);
+    if (zar.started && !zar.over && length(e.pos - zar.pos) < Zar::kRadius) {   // a death in the circle feeds the rhythm
+        zar.kills++;
+        zar.rhythm += e.rarity == Rarity::Rare ? 30.f : e.rarity == Rarity::Magic ? 14.f : e.rarity == Rarity::Unique ? 40.f : 8.f;
+    }
     if ((hero.keystones & KS_VEIL) && actors[0].alive()) hero.es = std::min(hero.es_max, hero.es + hero.es_max * 0.03f);   // The Veil
     if ((hero.keystones & KS_BLOOD_KILL) && e.bleed_t > 0 && actors[0].alive())   // Second Wind
         actors[0].life = std::min(actors[0].life_max, actors[0].life + actors[0].life_max * 0.03f);

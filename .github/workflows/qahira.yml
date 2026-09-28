@@ -64,11 +64,12 @@ jobs:
         run: ./build/linux/qchartsim
       - name: Bots
         run: |
-          for bot in walk fight zone sorcerer sky title rifts digs; do
+          for bot in walk fight zone sorcerer sky title rifts digs zar; do
             ./build/linux/qhost build/Qahira.qpk --headless --bot "$bot"
           done
           QAHIRA_CLASS=ranger ./build/linux/qhost build/Qahira.qpk --headless --bot zone
           QAHIRA_CLASS=mercenary ./build/linux/qhost build/Qahira.qpk --headless --bot zone
+          QAHIRA_CLASS=shadow ./build/linux/qhost build/Qahira.qpk --headless --bot zone
       - name: Act I, played through by the bot (a fresh Warrior)
         timeout-minutes: 40
         run: ./build/linux/qhost build/Qahira.qpk --headless --bot act1 2>&1 | grep -E "^act1|TEST"; test ${PIPESTATUS[0]} -eq 0
@@ -78,6 +79,17 @@ jobs:
       - name: Act III, played through by the bot (a Warrior as Act II leaves one)
         timeout-minutes: 40
         run: ./build/linux/qhost build/Qahira.qpk --headless --bot act3 2>&1 | grep -E "^act3|TEST"; test ${PIPESTATUS[0]} -eq 0
+      - name: Act IV, played through by the bot (a Warrior as Act III leaves one)
+        timeout-minutes: 40
+        run: ./build/linux/qhost build/Qahira.qpk --headless --bot act4 2>&1 | grep -E "^act4|TEST"; test ${PIPESTATUS[0]} -eq 0
+      - name: Act IV as the Shadow (nightly and on demand)
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        timeout-minutes: 40
+        run: QAHIRA_CLASS=shadow ./build/linux/qhost build/Qahira.qpk --headless --bot act4 2>&1 | grep -E "^act4|TEST"; test ${PIPESTATUS[0]} -eq 0
+      - name: Act III as the Shadow (nightly and on demand)
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        timeout-minutes: 40
+        run: QAHIRA_CLASS=shadow ./build/linux/qhost build/Qahira.qpk --headless --bot act3 2>&1 | grep -E "^act3|TEST"; test ${PIPESTATUS[0]} -eq 0
       - name: Act I as the Mercenary (nightly and on demand)
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         timeout-minutes: 40

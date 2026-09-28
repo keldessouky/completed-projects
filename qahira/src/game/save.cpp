@@ -251,7 +251,7 @@ void write_world(ByteWriter& w, const World& W) {
     w.put(H.es); w.put(H.es_wait); w.put(H.overload_t); w.put(H.last_attacker);
     w.bytes(H.cooldowns, sizeof H.cooldowns);
     w.put(H.endurance); w.put(H.endurance_t); w.put(H.frenzy); w.put(H.frenzy_t); w.put(H.power); w.put(H.power_t);
-    w.put(W.in_chart); w.put(W.chart_site); w.put(W.chart); w.put(W.haboob); w.put(W.rift); w.put(W.dig);
+    w.put(W.in_chart); w.put(W.chart_site); w.put(W.chart); w.put(W.haboob); w.put(W.rift); w.put(W.dig); w.put(W.zar);
     w.put(uint32_t(W.actors.size()));
     for (const Actor& a : W.actors) write_actor(w, a);
     w.vec(W.projectiles);
@@ -272,7 +272,7 @@ bool read_world(ByteReader& r, World& W) {
     r.get(H.es_wait); r.get(H.overload_t); r.get(H.last_attacker);
     r.bytes(H.cooldowns, sizeof H.cooldowns);
     r.get(H.endurance); r.get(H.endurance_t); r.get(H.frenzy); r.get(H.frenzy_t); r.get(H.power); r.get(H.power_t);
-    r.get(W.in_chart); r.get(W.chart_site); r.get(W.chart); r.get(W.haboob); r.get(W.rift); r.get(W.dig);
+    r.get(W.in_chart); r.get(W.chart_site); r.get(W.chart); r.get(W.haboob); r.get(W.rift); r.get(W.dig); r.get(W.zar);
     uint32_t na = r.get<uint32_t>();
     if (!r.ok || na == 0 || na > 4096) return false;
     W.actors.resize(na);

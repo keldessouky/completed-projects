@@ -316,6 +316,33 @@ void View::render_world(Renderer& r, World& w) {
             r.ground(vec3(rf.pos, 0.02f), rf.radius, vec4(0.05f, 0.2f, 0.3f, 0.35f), {0, 1.2f, 0, 1}, Blend::Alpha);
         }
     }
+    if (w.zar.armed) {   // a Zar Night: three drummers round a rug and a lamp, and while it plays, the circle it draws from
+        const Zar& z = w.zar;
+        if (!zar_ready_) {
+            zar_cm_ = assets().character("drummer");
+            zar_anim_.bind(zar_cm_.skel, zar_cm_.anims);
+            zar_anim_.play("idle", 0);
+            zar_ready_ = true;
+            zar_clock_ = w.time;
+        }
+        const float dt = clampf(w.time - zar_clock_, 0.f, 0.1f);
+        zar_clock_ = w.time;
+        zar_anim_.update(z.over ? 0.f : z.started ? dt * (0.8f + z.rhythm / 125.f) : dt * 0.25f);
+        for (int k = 0; k < 3; k++) {
+            const vec2 p = z.pos + rotate(vec2{2.1f, 0}, 0.5f + float(k) * kTau / 3);
+            Instance in;
+            in.rim = vec4(hex_lin(0xE8B04A), z.started && !z.over ? 0.1f + 0.2f * z.rhythm / 100.f : 0.06f);
+            draw_skinned(r, zar_cm_, zar_anim_, p, std::atan2(z.pos.y - p.y, z.pos.x - p.x), 1.f, in);
+            r.ground(vec3(p, 0), 0.6f, vec4(0, 0, 0, 0.45f), {0, 1.5f, 0, 1}, Blend::Alpha);
+        }
+        r.ground(vec3(z.pos, 0.015f), 3.2f, vec4(0.42f, 0.12f, 0.1f, 0.8f), {0, 1.1f, 0, 1}, Blend::Alpha);   // the rug
+        r.ground(vec3(z.pos, 0.02f), 3.0f, vec4(hex_lin(0xE8B04A), 0.35f), {1, 0.05f, 0, 2}, Blend::Additive, w.time * 0.2f);
+        const float glow = z.over ? 0.3f : 0.7f + 0.3f * std::sin(w.time * (z.started ? 9.f : 2.f));
+        r.light(vec3(z.pos, 0.8f), 7.f, hex_lin(0xFFB050) * 9.f * glow);
+        if (z.started && !z.over)
+            r.ground(vec3(z.pos, 0.03f), Zar::kRadius, vec4(hex_lin(0xC07AD0), 0.12f + 0.25f * z.rhythm / 100.f), {1, 0.02f, 0, 2}, Blend::Additive,
+                     -w.time * 0.15f);
+    }
     if (w.dig.armed) {   // an Excavation: the stake, the charges down the line and their wire, and the chamber once it is open
         const Dig& d = w.dig;
         Instance in;
@@ -783,6 +810,24 @@ void View::render_hud(World& w, const Input& in, const Areas& areas) {
         else snprintf(b, sizeof b, "SEARCH THE CHAMBER");
         u.text(x - 286, y + 6, "EXCAVATION", 24, Rgba::hex(0xF0C070), Align::Left, 1.f);
         u.text(x - 286, y + 34, b, 20, pal::bone, Align::Left, 0.8f);
+    }
+    // a Zar Night: the rhythm, the trances, the song's time
+    if (w.zar.armed && !w.zar.over && (w.zar.started || length(w.zar.pos - h.pos) < 22.f)) {
+        const Zar& z = w.zar;
+        const bool dig_shown = w.dig.armed && !w.dig.searched && (w.dig.fired || length(w.dig.stake - h.pos) < 24.f || w.dig.set);
+        float x = 1880, y = (w.haboob.active ? 190 : 90) + (w.rift.open ? 100 : 0) + (dig_shown ? 80 : 0);
+        u.frame(x - 300, y, 300, 76, pal::panel.alpha(0.85f), Rgba::hex(0xC07AD0), 10, 2);
+        u.text(x - 286, y + 6, z.started ? "ZAR NIGHT" : "THE DRUMMERS WAIT", 24, Rgba::hex(0xE0B0F0), Align::Left, 1.f);
+        if (z.started) {
+            char b[32];
+            snprintf(b, sizeof b, "TRANCE %d", z.trances);
+            u.text(x - 16, y + 6, b, 22, Rgba::hex(0xE8B04A), Align::Right, 1.f);
+            const float k = clampf(z.rhythm / 100.f, 0.f, 1.f);
+            u.rect(x - 286, y + 40, 272, 10, pal::night.alpha(0.8f), 4);
+            u.rect(x - 286, y + 40, 272 * k, 10, k < 0.25f ? Rgba::hex(0xE05030) : Rgba::hex(0xC07AD0), 4);
+            u.rect(x - 286, y + 58, 272, 4, pal::night.alpha(0.8f), 2);
+            u.rect(x - 286, y + 58, 272 * clampf(1.f - z.t / Zar::kSong, 0.f, 1.f), 4, Rgba::hex(0xE8B04A), 2);
+        }
     }
     // a Marid Rift: its time left, and what has died in it
     if (w.rift.open || (w.rift.armed && !w.rift.closed && length(w.rift.pos - h.pos) < 22.f)) {

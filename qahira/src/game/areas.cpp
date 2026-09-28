@@ -276,6 +276,8 @@ void Areas::enter_chart(World& w, int site, const Item& chart) {
     }
     // an Excavation, once Act III is behind you: a stake near the way in, and a buried chamber further on
     if ((w.hero.quests & Q_ACT3) && w.rng.chance(0.35f)) arm_dig(w);
+    // a Zar Night, once Act IV is behind you: a drum circle in one of the site's cells
+    if ((w.hero.quests & Q_ACT4) && w.rng.chance(0.35f)) arm_zar(w);
     w.meet_codex("charts");
 }
 
@@ -320,6 +322,24 @@ bool Areas::arm_dig(World& w) {
     }
     w.interacts.push_back({Interactable::Detonator, d.stake, 1.8f, "The surveyor's stake: set the charges down the line"});
     w.notices.push_back("A surveyor's stake: something is buried here");
+    return true;
+}
+
+bool Areas::arm_zar(World& w) {
+    const ZoneLayout& L = zone.layout;
+    std::vector<int> cells;
+    for (size_t i = 0; i < L.cells.size(); i++)
+        if (L.cells[i].kind == ZoneCell::Normal && (!w.rift.armed || length(L.center(L.cells[i]) - w.rift.pos) > 6.f) &&
+            (!w.dig.armed || length(L.center(L.cells[i]) - w.dig.stake) > 6.f))
+            cells.push_back(int(i));
+    if (cells.empty()) return false;
+    Zar& z = w.zar;
+    z = Zar{};
+    z.armed = true;
+    z.zone = int16_t(zone.def);
+    z.pos = w.level.resolve(L.center(L.cells[size_t(cells[size_t(w.rng.irange(0, int(cells.size()) - 1))])]), 1.2f);
+    w.interacts.push_back({Interactable::Drum, w.level.resolve(z.pos + vec2{0, -1.4f}, 0.5f), 1.8f, "Sit down at the drum: begin the Zar"});
+    w.notices.push_back("Somewhere in the site, drummers are waiting");
     return true;
 }
 
@@ -380,6 +400,7 @@ void Areas::close_zone(World& w) {
     w.haboob = Haboob{};
     w.rift = Rift{};
     w.dig = Dig{};
+    w.zar = Zar{};
 }
 
 void Areas::cast_portal(World& w) {

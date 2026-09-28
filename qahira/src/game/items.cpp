@@ -87,6 +87,8 @@ const std::vector<ItemBase>& item_bases() {
         {"rooftop_slippers", "Rooftop Slippers", Slot::Boots, 1, 0, 0, 0, 0, 0, 6, nullptr, 5, WK_NONE},
         {"veiled_hood", "Veiled Hood", Slot::Helmet, 13, 0, 0, 0, 0, 0, 26, nullptr, 18, WK_NONE},
         {"night_burnous", "Night Burnous", Slot::Body, 15, 0, 0, 0, 0, 0, 60, nullptr, 40, WK_NONE},
+        // the Warrior's mauls stopped at the Citadel's: one for Act III and on
+        {"sultans_maul", "Sultan's Maul", Slot::Weapon, 27, 54, 96, 0.95f, 5.5f, 0, 0, nullptr, 0, WK_MAUL},
     };
     return b;
 }
