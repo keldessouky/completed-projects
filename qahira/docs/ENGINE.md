@@ -278,6 +278,19 @@ doing every five seconds.
   - *Grenades:* `Shape::Grenade` throws a pot in an arc (`GroundFx::Grenade`, `pos2` to `pos`) that bursts when it
     lands (`World::grenade_burst`). Grenades are neither attacks nor spells: base damage by level, cast speed.
   - Keystone and ascendancy rules are a 64-bit mask (`Hero::keystones`); the Mercenary's start at bit 25.
+- **The Shadow's rules (Slice 8):**
+  - *Daggers and quarterstaves:* `WK_DAGGER` (1x2, `T_DAGGER`) in hand and `WK_QSTAFF` (1x4, two-handed, `T_QSTAFF`)
+    on the back, swapped in by Whirling Staff as the Mercenary's crossbow is. A dagger's crits always Poison.
+  - *Traps:* `Shape::Trap` throws a `GroundFx::Trap` that flies to where you aim (`pulse` seconds), arms, and bursts
+    in its radius when an enemy comes within 1.4 m, with five bolts drawn out from it. At most `trap_max()` (3 +
+    `S_TRAP_THROW`) are out; the oldest goes. The burst copies what it needs before hitting, as a hit can grow
+    `World::ground`.
+  - *Wither:* a chaos spell's hit adds a stack (up to 10) for 4 s (`S_WITHER`): 6% more chaos damage taken each,
+    poison included (`ailments_step`).
+  - *Power Charges:* 40% increased Critical Strike Chance each (3 + `S_POWER`), gained on a quarterstaff's crits, lost
+    ten seconds after the last.
+  - *Spin:* `Shape::Spin` strikes everything round the hero.
+  - Hybrid armour (evasion and Hirz) is kind 4 to the bots.
 - `World::hit_enemy` is the one place a hero hit lands: mitigation, keystones, crit text, leech, ailments, Break and
   knockback. Projectiles, glyph pulses and falling stars carry a `HeroHit` (the worked-out hit and chances) so a save
   state restores them exactly.
@@ -330,6 +343,12 @@ each (Bab Zuweila is Trial I). Notables carry mods and rules (`AscRule`, alongsi
   to the Bleeding and to rares and uniques, life back from a bleeding kill, a crescent every second cut; a second
   pot, grenade kills that burst, heavier piercing bolts, and faster grenades. Bab al-Futuh (Trial II) gives the next
   two points.
+
+- **Nightblade** and **Mystic** (Shadow, Slice 8), rules from bit 32 of the 64-bit mask: hits on an enemy below 35%
+  of its life are crits (`KS_LOW_CRIT`), a crit that kills gives a Power Charge (`KS_POWER_KILL`); trap bursts Wither
+  (`KS_TRAP_WITHER`), chaos spells add two stacks up to fifteen (`KS_DEEP_WITHER`), and Hirz recharges twice as soon
+  with 3% back on a kill (`KS_VEIL`). The Shadow's keystone in the sky, **al-Sharatan** (`KS_AGONY`, tree bit 4):
+  hits deal 30% less, and a crit's poison is multiplied by the crit multiplier.
 
 A node needs its parent; a refund costs a Rosewater Vial.
 
@@ -394,6 +413,21 @@ drawn with south at the top, so east is on the left), with the eclipse's path as
   and dinars. Relics never drop at random. **Amm Ramadan** (`Interactable::Dealer`, on the rooftop after Act III) is
   the vendor's screen with `Menu::dealer` set: his stock (`restock_dealer`) costs relics (`relic_price`), and he buys
   nothing.
+
+## Act IV and the Zar Nights
+
+- **Act IV** is six `ZoneDef`s of act 4 (levels 36 to 46) on four regions (`tools/art/env/regions4.py`); the Hill of
+  the Oracle's far court leads on to Ghadames. Sarab the Mirage (the ifrit's rig, tinted cold, lightning), the Iron Door of
+  the Souq (rigid, like the Ram) and the Ghula of the Salt (Umm al-Ghula's rig, tinted with salt) are `boss_def` rows. The
+  souq reuses the medina's tiles and the Sebkha the Chott's. `Q_ACT4` ends the act.
+- **Zar Nights** (`World::zar`, `Areas::arm_zar`, `zar_step`, `zar_use`, `zar_end`): after `Q_ACT4`, 35% of charts
+  arm one in an ordinary cell away from any rift or dig. `Interactable::Drum` starts it: the rhythm begins at 50 and
+  runs down by 4 a second plus 0.08 per second of the night; a death within 14 m of the circle adds 8 (magic 14, rare
+  30). Every 3.2 s a wave of the site's own monsters comes to the circle from a point with a clear line to it (three,
+  and one more every four waves; a magic one every other wave, a rare every fifth). At 100 the circle falls into a
+  trance: currency drops and the rhythm goes back to 55. The night ends after 45 s (the song) or when the rhythm
+  reaches 0; `zar_end` drops an item for every trance, one more if the song was played to its end, and dinars. The
+  drummers are scenery the view animates (their tempo follows the rhythm), and the music is `mus_zar` while it plays.
 
 ## Saves
 

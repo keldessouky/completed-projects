@@ -1811,6 +1811,12 @@ void Bot::tour9(World& w, Menu& m, Areas& a, Input& in, uint64_t frame) {
         for (auto& t : H.talismans) t.level = 16;
         if (const auto* rec = tree().recommended_for(H.passives.cls)) for (int t : *rec) plan_to(H, t);
         for (int k = 0; k < 40 && H.passive_points() > 0; k++) if (place_next_planned(w) < 0) break;
+        for (int k = 0; k < 60 && H.passive_points() > 0; k++) {   // the rest wherever they can go, so the HUD has none left
+            int take = -1;
+            for (auto& st : tree().stars) if (H.passives.can_take(st.id)) { take = st.id; break; }
+            if (take < 0) break;
+            H.passives.taken[size_t(take)] = 1;
+        }
         H.ascendancy = -1;
         H.asc = 0;
         w.recompute_hero();
@@ -1851,12 +1857,20 @@ void Bot::tour9(World& w, Menu& m, Areas& a, Input& in, uint64_t frame) {
             Rng r(9);
             a.enter_chart(w, find_site("tunis"), make_chart(4, r, 0.f, 0.f));
             w.level.bind_gpu();
+            // a tour: the Zar alone (no rift or dig the chart may also have rolled)
+            w.rift = Rift{};
+            w.dig = Dig{};
+            w.interacts.erase(std::remove_if(w.interacts.begin(), w.interacts.end(), [](const Interactable& i) {
+                                  return i.kind == Interactable::Charge || i.kind == Interactable::Detonator; }), w.interacts.end());
             if (!z.armed) a.arm_zar(w);
             for (size_t i = 1; i < w.actors.size(); i++) if (length(w.actors[i].pos - z.pos) < 30.f) w.actors[i].life = 0, w.actors[i].act = Act::Dead, w.actors[i].dead_t = 3;
             h.pos = w.level.resolve(z.pos + vec2{0, -5.f}, h.radius);   // a tour: skip the walk
             fprintf(stderr, "tour9: a Zar Night at frame %llu\n", (unsigned long long)frame);
         }
+        if (!z.started && t >= 130)   // (a tour: whatever the pilot could not reach is done for it)
+            for (size_t i = 0; i < w.interacts.size(); i++) if (w.interacts[i].kind == Interactable::Drum) w.zar_use(int(i));
         if (!z.started) { if (t < 70) steer(w, in, z.pos + vec2{0, -3.f}); else if (!go_to_interact(w, in, frame, Interactable::Drum)) steer(w, in, z.pos); return; }
+        if (t == 560) z.rhythm = std::max(z.rhythm, 97.f);   // a tour, only a few seconds of the night: a trance to show
         if (!z.over) {
             if (length(h.pos - z.pos) > Zar::kRadius * 0.6f && h.act == Act::Idle) { steer(w, in, z.pos); return; }
             if (!combat(w, in, frame, Zar::kRadius)) steer(w, in, z.pos + rotate(vec2{3.5f, 0}, float(frame) * 0.01f));

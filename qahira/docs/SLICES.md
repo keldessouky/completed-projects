@@ -599,3 +599,100 @@ what each slice actually delivered and how it was verified.
 - Acts II and III may be too gentle for a character with a rare in every slot (the bots start so); tuning waits for
   the on-device feel review.
 - Audio is stored as 16-bit WAV: the pack is now 127 MB. A compressed format is due.
+
+## Slice 8 · The Maghreb Coast
+
+*One act, one class, two ascendancies, its piece of the sky, and one endgame piece.*
+
+**Delivered**
+- **The Shadow**, a fifth class (Dexterity and Intelligence; `game/classes.*`, `tools/art/characters/shadow.py`):
+  - a runner of the Tunis medina's rooftops, who carried whatever was paid for across the old city by night and never
+    touched the lanes: a short hooded burnous of indigo over a dark tunic, a litham drawn to the eyes, sirwal gathered
+    at the shin, wrapped forearms, a red sash with a curved dagger in a brass sheath, and a belt of pouches for traps;
+  - **daggers** (four bases, 1x2, the later two with increased critical strike chance) in hand and **quarterstaves**
+    (three, 1x4, two-handed) on the back, swapped in by the skill that needs one; hybrid armour with evasion and Hirz
+    (six bases); rolled dagger-crit, quarterstaff-speed, trap, chaos and crit-multiplier mods;
+  - **four Talismans:** *Viper's Kiss* (a quick stab: a 30% chance to Poison, and a dagger's crits always Poison),
+    *Snare of Sparks* (a thrown trap that arms as it lands and bursts in lightning when an enemy comes near; three out
+    at once, the oldest goes), *Black Sand* (a bolt of chaos that Withers: each stack, 6% more chaos damage taken,
+    poison included) and *Whirling Staff* (the quarterstaff whirled round you; its crits grant **Power Charges**, 40%
+    increased critical strike chance each).
+- **The Shadow's sky** at 1 o'clock, between the Ranger's Pegasus and the Sorcerer's Perseus: **Andromeda** (with
+  Alpheratz, *Surrat al-Faras, the Horse's Navel*: dagger damage and crit; Mirach, *the Girdle*: poison; Almach,
+  *'Anaq al-Ard, the Caracal*: evasion, Hirz and speed) and **Cassiopeia** (Schedar, *the Breast*: quarterstaves and a
+  Power Charge; Caph, *the Dyed Hand*: traps; Ruchbah, *the Knee*: crits), and the keystone **al-Sharatan, the Two
+  Signs** (your crit multiplier also applies to poison; your hits deal 30% less). 215 stars; the first 192 keep their
+  ids.
+- **Two ascendancies for the Shadow**, chosen at the First Trial:
+  - **Nightblade:** hits on an enemy below 35% of its life are crits, a crit that kills grants a Power Charge, a
+    fourth Power Charge, poison and dagger speed;
+  - **Mystic:** trap bursts Wither, chaos spells add two stacks of Wither up to fifteen, two more traps, a Hirz that
+    recharges twice as soon and comes back on a kill, chaos resistance and cast speed.
+- **Act IV, the Maghreb Coast** (`game/acts.cpp`), levels 36 to 46, six zones on four new regions
+  (`tools/art/env/regions4.py`; no mosque stands in any of them):
+  - **Ghadames, the Covered City** (whitewashed houses with triangular crenellations, lanes roofed with palm beams);
+  - **Chott el-Djerid** (a salt crust cracked into polygons, pink brine, a causeway) and **Sarab, the Mirage**: the
+    jinn of the heat-shimmer, who shows travellers water on the horizon, blinks away and throws lightning;
+  - **Tozeur** (buff brick in raised diamonds, palm groves and their channels);
+  - **the Medina of Tunis** (whitewashed walls, green and blue studded doors, souq vaults) and **the Iron Door of the
+    Souq**: one of the medina's great studded doors, torn from its wall, with a jinn in it;
+  - **the Souq of the Chechia-Makers**, red felt caps on every hook;
+  - **the Sebkha of Sijoumi** and **the Ghula of the Salt**, Umm al-Ghula's kin risen from the brine, with her brood of salt
+    ghouls. When she
+    crumbles into brine, Act IV is over.
+  - New monsters: salt ghouls, mirage jinn that throw lightning from afar, and the souq's Si'lah. Two pieces of music
+    (the salt flats on the ney, the medina on the qanun) and the Chott's ambience.
+  - Three quests (+1 passive star each); the Hill of the Oracle's far court now leads on to Ghadames.
+- **The Zar Nights**, the endgame piece: once Act IV is over, a chart may hold a drum circle, three drummers seated
+  round a rug with bendirs on their knees. Sit down at the drum and the Zar begins. The music turns to the Zar's (saba,
+  the ney over the ayyub rhythm), and the site's creatures come to the drums in waves. Every death inside the circle
+  feeds the rhythm, which runs down on its own and faster as the night goes on. Each time it fills, the circle falls
+  into a **trance** (every drum at once, the ney's cry) and pays out. Play the song to its end (45 seconds) for one
+  more reward; let the rhythm fail and the drummers stop. The drummers are shown as musicians, and nothing more.
+- **The codex** gains traps, Wither and Power Charges, the ghouls of the salt, the mirages, the Iron Door, and the Zar
+  Nights.
+- **Saves:** save states v11 (traps, Wither, Power Charges) and v12 (the Zar Night).
+- **Also:** the Sultan's Maul (level 27), since the Warrior's mauls stopped at the Citadel Maul (level 18).
+- **The bots:**
+  - they pilot the Shadow: the knife in melee, snares on crowds and the tough, Black Sand at range, the staff when
+    surrounded, and bosses kited with traps and Black Sand (through the ranged pilot);
+  - `act4` and `zar` are new; a death now logs what killed it, and `QAHIRA_BOSS_TRACE=1` follows a boss fight;
+  - fixes the new content exposed:
+    - menus are steered by a search over the menu's own moves: a wide item at the bottom of Amm Ramadan's stock
+      trapped the old rule, and the `digs` bot stalled;
+    - the `rifts` bot clears what is close before its portal home, since a portal needs calm;
+    - kiting bends round a boss's court, since a boss led past its leash walks home and heals;
+    - the Zar's waves come only from points with a clear line to the circle, never from behind a wall;
+    - in a chart, a pilot too hurt to trade with the site's master and with its flask dry backs off until its life
+      comes back (it had dodged for ever at half life).
+
+**Verified**
+
+| Check | Result |
+|---|---|
+| Unit tests (`qtests`) | pass, 62 cases (11 new: the Shadow's quarterstaff on the back and the swap both ways; a trap landing, arming, bursting, and the oldest going; Black Sand's Wither, its 60% at ten stacks and on poison, its fading; quarterstaff crits and Power Charges, a dagger crit's poison; al-Sharatan's 30% less and its crit poison; the Nightblade and Mystic's rules; save state v11; Act IV's road; a Zar Night's rhythm, waves in sight of the circle, trance, payout and save state; a failed night paying nothing; Zar Nights only after Act IV) |
+| `act4` bot (the exit): a character as Act III leaves one plays Act IV through, Ghadames to the Sebkha of Sijoumi | pass: the Warrior in 11.2 minutes (level 34 to 42, 0 deaths, 296 kills), the Shadow in 17.0 (4 deaths), the Mercenary 12.0 (2), the Sorcerer 7.0 (0), the Ranger 8.5 (0) |
+| `zar` bot (the endgame piece): after Act IV, a chart with a Zar Night; the drum sat at, the circle held, a trance, the pay-out picked up | pass: al-Iskandariya, 1 trance, 21 kills in the circle, the rhythm failing near the end; 1.6 minutes, 0 deaths |
+| The Shadow through the earlier acts | `zone` pass; `act1` pass (37.0 minutes, 11 deaths, most of them to bosses); `act2` pass (14.7 minutes, 0 deaths); `act3` pass (16.2 minutes, 5 deaths) |
+| Every earlier bot | pass: `walk`, `fight`, `zone` (all five classes), `sorcerer`, `sky`, `title`, `rifts` (1.5 minutes), `digs` (0.8), `act1` (Warrior 9.1 min / 0 deaths, Sorcerer 7.9 / 0, Mercenary 19.3 / 3, Ranger 24.6 / 7), `act2` (Warrior 11.7, Sorcerer 7.1, Ranger 14.7, Mercenary 13.5; 0 deaths each), `act3` (Warrior 10.9, Sorcerer 9.4, Ranger 6.8, Mercenary 12.1; 0 deaths each), `charts` (Warrior after 8 runs, 0 deaths; Mercenary after 7, 4 deaths) |
+| Tree validator | pass: 215 stars; the Shadow reaches its keystones in 9/13/13/17/24 points; its Recommended Path takes 15 |
+| Build simulator | 0 flags; at level 30 the Shadow's Recommended Path makes 350 DPS against a crowd of 277 +/- 78 (the Warrior 413 with the Sultan's Maul, the Mercenary 363, the Ranger 259, the Sorcerer 181) |
+| `qchartsim` | 0 flags (median 10 runs to the Fourth Clime) |
+
+| | |
+|---|---|
+| ![Choosing the Shadow's ascendancy: the Mystic](img/slice8-ascend.jpg) | ![Ghadames, the Covered City: crenellated rooftops, palm beams over the lanes, painted doors](img/slice8-ghadames.jpg) |
+| ![Chott el-Djerid: Sarab, the Mirage, and the salt's pink brine](img/slice8-sarab.jpg) | ![Tozeur: the patterned brick, a palm, and a mirage jinn's bolt landing](img/slice8-tozeur.jpg) |
+| ![The Medina of Tunis: the Iron Door of the Souq in its court](img/slice8-door.jpg) | ![The Souq of the Chechia-Makers](img/slice8-souq.jpg) |
+| ![The Sebkha of Sijoumi: the Ghula of the Salt](img/slice8-ghula.jpg) | ![A Zar Night: the drummers waiting round the rug](img/slice8-drummers.jpg) |
+| ![A Zar Night: the circle in a trance](img/slice8-trance.jpg) | |
+
+**Known gaps (carried forward)**
+- The `charts` bot as the Shadow does not finish: in al-Iskandariya it chases al-Nasnas al-Kabir round a corner and
+  never gets a clear line. A pathing fault in the pilot, not the game; the Shadow's charts are not a CI step.
+- The Shadow's `act1` is slow and deadly for the bot (37 minutes, 11 deaths). Its poison DPS is real but not counted by
+  the summaries the bot upgrades by, and its life (about 230 at level 10, against the Warrior's 280) leaves little room against Act I's bosses.
+- Claws, and the Shadow's third ascendancy (the Saboteur's mines) are not in the launch set. Traps have one kind.
+- Zar Nights have no Astrolabe nodes yet, and the trance's pay-out is currency; a Zar-only reward (a charm, a
+  Nazar) waits for Slice 9's Nazar slots.
+- Audio is stored as 16-bit WAV: the pack is 152 MB.

@@ -264,6 +264,38 @@ burning. Both weapons are held in the right hand. Thirteen clips: a guard stance
 - The hyenas (al-Dab') are the Qutrub tinted sand and ochre; the salt jinn are the Sand Jinn crusted white; the
   ghouls of the sands are the ghoul tinted the colour of the dunes.
 
+## The Shadow (Slice 8)
+
+`characters/shadow.py`, relative to the rig's joints (1.74 m): a runner of the Tunis medina's rooftops. A short hooded
+burnous of indigo over a dark tunic, a litham drawn over the face to the eyes, baggy sirwal gathered at the shin,
+wrapped forearms and soft boots, a red sash with a curved dagger in a brass sheath, and a belt of pouches for the
+traps. `build_dagger` is curved with a brass hilt, `build_qstaff` ash with iron shoes (held at its middle),
+`build_trap` a sprung iron ring with a coil. Fourteen clips on the shared rig, among them a quick `stab`, a whirling
+`spin`, and a low `throw` for the traps; the rest are the Mercenary's.
+
+## Act IV's regions (Slice 8)
+
+`env/regions4.py`, on the same cell kit. No mosque stands in any of them (brief.md §5):
+- **Ghadames:** whitewashed mud houses with triangular crenellations, lanes roofed with palm-trunk beams and lit by
+  shafts of light, red and green triangles painted round the doors.
+- **Chott el-Djerid:** a salt lake's crust cracked into polygons, pools of pink brine, mounds of dug salt, a raised
+  causeway, the salt cutters' frond shelters.
+- **Tozeur:** walls of buff brick laid in raised diamonds and chevrons, palm groves with their channels, date crates.
+- **The Tunis medina:** whitewashed walls, studded doors in green and blue, tile skirts, souq vaults hung with
+  lanterns, a chechia maker's red caps.
+
+## Act IV's creatures (Slice 8)
+
+`characters/maghreb.py`:
+- **the Iron Door of the Souq:** a great studded medina door, green planks in a black iron frame, bronze knockers,
+  the arch of alternating black and white stones over it, and a jinn's light in the gap between the leaves (a static
+  mesh: a possessed thing, like the Ram of the Avenue);
+- **a Zar drummer:** the keeper's body in a white robe with a coloured sash, seated on a low stool with a bendir (a
+  wide frame drum of skin on a wooden hoop) on the left forearm, the right hand beating it. The Zar is shown as
+  musicians playing, and nothing more.
+- Sarab the Mirage is the ifrit, tinted cold; the Ghula of the Salt is Umm al-Ghula tinted with salt; the
+  salt ghouls, mirage jinn and the souq's Si'lah are the ghoul, the sand jinn and the Si'lah, tinted.
+
 ## Props
 
 `props/props.py`:
@@ -328,6 +360,12 @@ Act III (Slice 7) adds `mus_desert` (saba, a slow ney, wahda) and `mus_siwa` (ra
 `amb_desert` (wind over open sand in gusts, grains hissing off a crest, and three times a minute a dune singing: a low
 hum that swells and fades), and the Mercenary's sounds: `naffata` (clay shattering, a whoomp, a roar crackling away),
 `crossbow` (the latch, the prod's twang, the bolt's hiss), `weapon_swap` (a leather slide and a click) and `bleed`.
+
+Act IV (Slice 8) adds `mus_maghreb` (bayati, a slow ney, wahda), `mus_medina` (hijaz, qanun, maqsum) and `mus_zar`
+(saba, the ney over the ayyub rhythm, driving), the ambience `amb_salt` (a thin wind over the Chott, the crust ticking
+as it cools, far-off water), and the Shadow's and the Zar's sounds: `trap_set` (a ratchet and a click), `trap_snap`
+(the jaws, a crackle of sparks), `black_sand`, `staff_spin`, `power_charge`, `zar_start` (the drummers taking up the
+rhythm, quickening) and `zar_trance` (every drum at once, the ney's cry rising).
 
 ## Formats (little-endian)
 
