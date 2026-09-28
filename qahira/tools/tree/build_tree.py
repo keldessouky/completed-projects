@@ -449,7 +449,7 @@ for side, mods in ((-1, DAGGER), (1, CHAOS)):
     link(s_, ecliptic_at(30 + side * 20))
 
 andromeda = constellation('al-Mar\'a al-Musalsala', 'Andromeda, the Chained Woman', 17, 640, 0, 60, [
-    ('alp', 'notable', 0, 0, 'Alpheratz', 'Surrat al-Faras, the Horse\'s Navel', [inc('damage', 25, 'dagger'), inc('crit_chance', 30, 'dagger'), flat('crit_multi', 10)], ''),
+    ('alp', 'notable', 0, 0, 'Alpheratz', 'Surrat al-Faras, the Horse\'s Navel', [inc('damage', 25, 'dagger'), inc('crit_chance', 25, 'dagger')], ''),
     ('mir', 'notable', 0.4, 1.9, 'Mirach', 'al-Mi\'zar, the Girdle', [flat('poison', 15), inc('poison_damage', 25)], ''),
     ('a1', 'minor', -0.9, -0.6, '', '', DAGGER, ''),
     ('a2', 'minor', 0.9, -0.5, '', '', CRIT, ''),
