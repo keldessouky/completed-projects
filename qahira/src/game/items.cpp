@@ -4,6 +4,7 @@
 #include <array>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 
 namespace q {
 
@@ -102,6 +103,19 @@ const std::vector<ItemBase>& item_bases() {
         {"brigade_boots", "Brigade Boots", Slot::Boots, 1, 0, 0, 0, 0, 6, 0, nullptr, 5, WK_NONE},
         {"crested_helmet", "Crested Helmet", Slot::Helmet, 13, 0, 0, 0, 0, 28, 0, nullptr, 17, WK_NONE},
         {"officers_greatcoat", "Officer's Greatcoat", Slot::Body, 15, 0, 0, 0, 0, 64, 0, nullptr, 38, WK_NONE},
+        // Slice 9: the higher Climes, and the Reaches of the Encircling Sea beyond the Seventh (levels as chart_area_level)
+        {"chart_clime_5", "Chart of the Fifth Clime", Slot::Chart, 54, 0, 0, 0, 0, 0, 0, nullptr, 0, WK_NONE},
+        {"chart_clime_6", "Chart of the Sixth Clime", Slot::Chart, 55, 0, 0, 0, 0, 0, 0, nullptr, 0, WK_NONE},
+        {"chart_clime_7", "Chart of the Seventh Clime", Slot::Chart, 56, 0, 0, 0, 0, 0, 0, nullptr, 0, WK_NONE},
+        {"chart_clime_8", "Chart of the Eighth Reach", Slot::Chart, 57, 0, 0, 0, 0, 0, 0, nullptr, 0, WK_NONE},
+        {"chart_clime_9", "Chart of the Ninth Reach", Slot::Chart, 58, 0, 0, 0, 0, 0, 0, nullptr, 0, WK_NONE},
+        {"chart_clime_10", "Chart of the Tenth Reach", Slot::Chart, 59, 0, 0, 0, 0, 0, 0, nullptr, 0, WK_NONE},
+        {"chart_clime_11", "Chart of the Eleventh Reach", Slot::Chart, 60, 0, 0, 0, 0, 0, 0, nullptr, 0, WK_NONE},
+        {"chart_clime_12", "Chart of the Twelfth Reach", Slot::Chart, 61, 0, 0, 0, 0, 0, 0, nullptr, 0, WK_NONE},
+        {"chart_clime_13", "Chart of the Thirteenth Reach", Slot::Chart, 62, 0, 0, 0, 0, 0, 0, nullptr, 0, WK_NONE},
+        {"chart_clime_14", "Chart of the Fourteenth Reach", Slot::Chart, 63, 0, 0, 0, 0, 0, 0, nullptr, 0, WK_NONE},
+        {"chart_clime_15", "Chart of the Fifteenth Reach", Slot::Chart, 64, 0, 0, 0, 0, 0, 0, nullptr, 0, WK_NONE},
+        {"chart_clime_16", "Chart of the Sixteenth Reach", Slot::Chart, 65, 0, 0, 0, 0, 0, 0, nullptr, 0, WK_NONE},
     };
     return b;
 }
@@ -606,9 +620,10 @@ std::vector<std::string> Item::lines() const {
         snprintf(buf, sizeof buf, "Evasion Rating: %d", int(local_evasion()));
         out.push_back(buf);
     } else if (bb.slot == Slot::Chart) {
-        snprintf(buf, sizeof buf, "Clime %d chart: Area Level %d", bb.level - 13, bb.level);
+        const int tier = std::atoi(bb.id + std::strlen("chart_clime_"));   // (the base ids carry the tier)
+        snprintf(buf, sizeof buf, "Tier %d chart: Area Level %d", tier, bb.level);
         out.push_back(buf);
-        out.push_back("~Run it on a site of its Clime, at the chart table");
+        out.push_back(tier <= 7 ? "~Run it on a site of its Clime, at the chart table" : "~Run it on a site of its Reach, at the chart table");
     }
     if (bb.implicit) out.push_back(std::string("~") + bb.implicit);
     auto text = [&](const Affix& a) {

@@ -29,7 +29,7 @@ namespace q {
 
 namespace {
 
-enum class Travel : uint8_t { None, ZoneEntrance, ZonePortal, HubPortal, HubExit, Chart, Rift };
+enum class Travel : uint8_t { None, ZoneEntrance, ZonePortal, HubPortal, HubExit, Chart, Rift, Throne };
 
 // the waypoint list: the hub and every zone whose waypoint you have touched
 using Waypoints = WaypointList;
@@ -175,6 +175,10 @@ void do_travel(Travel t) {
             break;
         case Travel::Rift:
             A.enter_rift_court(w);
+            save_character();
+            break;
+        case Travel::Throne:
+            A.enter_throne(w);
             save_character();
             break;
         default: return;
@@ -357,7 +361,7 @@ void boss_state(World& w) {
         w.hero.quests |= q;
         w.learn_recipe(recipe_for_zone(zd->id, true));
         for (const char* z : {zd->next, zd->side})   // the way on stays open: its waypoint is yours
-            if (int n = find_zone(z); n >= 0) w.hero.waypoints |= 1ull << n;
+            if (int n = find_zone(z); n >= 0) w.hero.waypoints.add(n);
         if (fresh & Q_TRIAL1) w.meet_codex("ascendancy");
         S->view.banner = zd->boss_line;
         int next = find_zone(zd->next);
@@ -419,7 +423,7 @@ void open_waypoints(World& w) {
     W.items.clear();
     if (S->areas.current != AreaId::Hub) W.items.push_back(-1);
     for (size_t i = 0; i < zone_defs().size(); i++)
-        if ((w.hero.waypoints >> i & 1) || (i == size_t(find_zone("downtown"))))
+        if (w.hero.waypoints.has(int(i)) || (i == size_t(find_zone("downtown"))))
             W.items.push_back(int(i));   // a trial is listed once its gate has opened
     // the act's order, not the table's
     std::sort(W.items.begin(), W.items.end(), [](int a, int b) { return (a < 0 ? -1 : zone_def(a).level) < (b < 0 ? -1 : zone_def(b).level); });
@@ -633,6 +637,7 @@ void app_update(const Input& in_raw, float dt) {
             S->map.go_site = S->map.go_chart = -1;
         }
         if (S->map.go_rift) { S->map.go_rift = false; begin_travel(Travel::Rift); }
+        if (S->map.go_throne) { S->map.go_throne = false; begin_travel(Travel::Throne); }
         if (!S->map.open) save_character();
         S->view.follow(w, dt);
         return;
@@ -684,7 +689,7 @@ void app_update(const Input& in_raw, float dt) {
             case Interactable::Exit: begin_travel(Travel::HubExit); break;
             case Interactable::Next: case Interactable::Gate: begin_travel(Travel::ZoneEntrance, it.target); break;
             case Interactable::Bench: w.hero.quests |= Q_BENCH; w.hero.recipes |= kStarterRecipes; w.meet_codex("bench");
-                if (const ZoneDef* zd = S->areas.def()) if (int n = find_zone(zd->next); n >= 0) w.hero.waypoints |= 1ull << n;
+                if (const ZoneDef* zd = S->areas.def()) if (int n = find_zone(zd->next); n >= 0) w.hero.waypoints.add(n);
                 M.show_bench(w); audio().play("craft", 0.5f, 0, 1); break;
             case Interactable::Vendor: M.show(w, true); audio().play("ui_select", 0.4f, 0, 1); break;
             case Interactable::ChartTable: S->map.show(w); w.meet_codex("charts"); audio().play("portal", 0.4f, 0, 0.8f); break;
@@ -747,11 +752,12 @@ void app_render(GLuint fbo, int w, int h) {
 void app_audio(int16_t* stereo, int frames) { audio().mix(stereo, frames); }
 
 // ---- save states
-static const uint32_t kStateVersion = 13;  // 5: passives, Hirz, keystone state; 6: Talismans, ailments, glyphs; 7: Act I;
+static const uint32_t kStateVersion = 14;  // 5: passives, Hirz, keystone state; 6: Talismans, ailments, glyphs; 7: Act I;
                                            // 8: chart runs and the Haboob; 9: poison, marks, Frenzy, arrows;
                                            // 10: bleeding, piercing bolts, grenades, the weapon swap;
                                            // 11: traps, Wither, Power Charges; 12: Zar Nights;
-                                           // 13: the Beacon, totems, burning ground
+                                           // 13: the Beacon, totems, burning ground; 14: charts to T16 (a chart run's
+                                           // highest tier), waypoints for 128 zones
 
 static ByteWriter save_state() {
     ByteWriter w;

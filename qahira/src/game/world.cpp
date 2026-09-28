@@ -63,6 +63,8 @@ const std::vector<MonsterDef>& monster_defs() {
             {"dukhan", "Dukhan, the Smoke of the Stalls", "ifrit", 1.1f, {0.62f, 0.6f, 0.64f}, 2100, 3.8f, 1.0f, AttackKind::Boss, 3.4f, 1.3f, 25, 37, DT_FIRE, 110, 3100, 0},
             {"bronze_mamluk", "The Bronze Mamluk of Bab al-Nasr", "mamluk", 1.05f, {1.25f, 0.85f, 0.5f}, 2200, 3.2f, 1.0f, AttackKind::Boss, 3.4f, 1.5f, 26, 38, DT_PHYS, 420, 3200, 0},
             {"qandisha", "Aisha Qandisha", "qandisha", 1.0f, {1, 1, 1}, 2500, 4.2f, 0.9f, AttackKind::Boss, 3.2f, 1.3f, 27, 40, DT_COLD, 130, 3600, 0},
+            // Slice 9: the first pinnacle, on his throne under the Encircling Sea
+            {"marid_king", "The Marid King", "marid", 2.4f, {0.42f, 0.72f, 1.3f}, 2200, 4.0f, 1.2f, AttackKind::Boss, 3.6f, 1.2f, 24, 36, DT_COLD, 200, 6000, 0},
         };
         auto set = [&](const char* id, bool rigid, const char* fam, const char* voice = "ghoul") {
             for (auto& m : v) if (std::string(m.id) == id) { m.rigid = rigid; m.family = fam; m.voice = voice; }
@@ -110,6 +112,7 @@ const std::vector<MonsterDef>& monster_defs() {
         set("bronze_mamluk", false, "The armour of Bab al-Futuh", "metal");
         set("bu_ghettat", false, "Bu Ghettat, the Presser", "whisper");
         set("qandisha", false, "Aisha Qandisha", "whisper");
+        set("marid_king", false, "The Marid King", "whisper");
         codex("Ghouls", "ghouls");
         codex("Possessed", "possessed");
         codex("Si'lah", "silah");
@@ -133,6 +136,7 @@ const std::vector<MonsterDef>& monster_defs() {
         codex("Jinn of the smoke", "smoke");
         codex("Bu Ghettat", "presser");
         codex("Aisha Qandisha", "qandisha");
+        codex("The Marid King", "marid_king");
         return v;
     }();
     return d;
@@ -240,6 +244,13 @@ const BossDef* boss_def(int monster) {
           {MoveKind::Pools, "cast", 7.f, 0, 30, 0.55f, 0}, {MoveKind::Blink, "cast", 6.f, 5.f, 30, 0, 1},
           {MoveKind::Volley, "cast", 3.6f, 5.f, 30, 0.75f, 0}, {MoveKind::Combo, "combo", 1.2f, 0, 3.6f, 1.f, 0}},
          0.5f, "THE SEA CALLS YOU IN HER VOICE", "sea_marid", 4, 11.f, 1.3f, {0.5f, 0.8f, 1.f}, true},
+        // the Marid King: every marid's move, faster, and in the second half his court rises and the sea pulls you to him
+        {"marid_king",
+         {{MoveKind::Summon, "summon", 1e9f, 0, 99, 0, 1}, {MoveKind::Wail, "wail", 9.f, 0, 99, 0, 1},
+          {MoveKind::Pools, "cast", 6.f, 0, 30, 0.6f, 0}, {MoveKind::Nova, "slam", 6.f, 0, 6.f, 1.4f, 0},
+          {MoveKind::Blink, "cast", 6.f, 5.f, 30, 0, 1}, {MoveKind::Volley, "cast", 3.2f, 5.f, 30, 0.8f, 0},
+          {MoveKind::Combo, "combo", 1.1f, 0, 4.0f, 1.f, 0}},
+         0.55f, "THE ENCIRCLING SEA KNEELS TO HIM", "sea_marid", 5, 12.f, 1.35f, {0.55f, 0.85f, 1.f}, true},
     };
     if (monster < 0 || monster >= int(monster_defs().size())) return nullptr;
     const char* id = monster_defs()[size_t(monster)].id;
@@ -2120,17 +2131,25 @@ void World::drop_loot(const Actor& e) {
                 g.id = next_id++;
                 loot.push_back(g);
             }
+        if (in_chart && chart_site >= 0)   // the masters of the last Reaches carry the King's Pearls
+            if (int n = pearl_drops(chart, rng); n > 0) {
+                drop_currency(level.resolve(e.pos + vec2{-2.4f, 1.4f}, 0.3f), CUR_PEARL, n);
+                notices.push_back(n == 1 ? "A King's Pearl" : "King's Pearls");
+            }
         if (int u = random_unique(area_level + 2, rng); u >= 0) drop_special(e.pos + vec2{0, 1.8f}, GroundItem::Scrap, u);
-        const bool lord = std::string(monster_defs()[size_t(e.def)].id) == "rift_lord";   // the Rift Lord: a unique, always
+        const std::string id = monster_defs()[size_t(e.def)].id;
+        const bool king = id == "marid_king";                // the Marid King: two uniques and a purse, always
+        const bool lord = id == "rift_lord" || king;         // the Rift Lord: a unique, always
         if (lord)
-            for (int k = 0; k < 3; k++) drop_currency(e.pos + rotate(vec2{3.0f, 0}, 0.8f + k * 0.7f), roll_currency(rng, area_level + 4), 1);
-        if (rng.chance(lord ? 1.f : 0.08f)) if (int u = random_unique(area_level + 2, rng); u >= 0) {
-            GroundItem g;
-            g.item = make_unique(u, area_level + 2, rng);
-            g.pos = level.resolve(e.pos + vec2{0, 2.6f}, 0.3f);
-            g.id = next_id++;
-            loot.push_back(g);
-        }
+            for (int k = 0; k < (king ? 6 : 3); k++) drop_currency(e.pos + rotate(vec2{3.0f, 0}, 0.8f + k * 0.7f), roll_currency(rng, area_level + 4), 1);
+        for (int k = 0; k < (king ? 2 : 1); k++)
+            if (rng.chance(lord ? 1.f : 0.08f)) if (int u = random_unique(area_level + 2, rng); u >= 0) {
+                GroundItem g;
+                g.item = make_unique(u, area_level + 2, rng);
+                g.pos = level.resolve(e.pos + vec2{k ? 1.8f : 0.f, 2.6f}, 0.3f);
+                g.id = next_id++;
+                loot.push_back(g);
+            }
         return;
     }
     // charts drop inside charts (and, rarely, in the act's last reaches)

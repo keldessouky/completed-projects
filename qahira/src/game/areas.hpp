@@ -43,6 +43,7 @@ struct Areas {
     void arm_haboob(World& w);
     bool arm_dig(World& w);
     bool arm_zar(World& w);          // a Zar Night in this chart          // an Excavation in this chart (false when the site has no room for one)
+    void enter_throne(World& w);       // four King's Pearls spent: the Marid King's throne
     void enter_rift_court(World& w);   // a Rift Seal spent: the Rift Lord's court                 // this site gets a Haboob (its bounds from the layout)
     void enter_street(World& w);
     void leave_zone(World& w);                 // snapshot the live zone into the instance

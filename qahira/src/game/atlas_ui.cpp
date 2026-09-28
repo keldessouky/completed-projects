@@ -14,15 +14,13 @@ enum Dir { D_UP, D_DOWN, D_LEFT, D_RIGHT };
 // the schematic world: units of its radius, south up (so east is on the left)
 vec2 disc_pt(float x, float y) { return {MX + x * (MR - 30), MY + y * (MR - 30)}; }
 
-Rgba tier_color(int t) {
-    static const uint32_t c[4] = {0xE8C070, 0x7AC8A0, 0x8AA8F2, 0xE07AB0};
-    return Rgba::hex(c[std::clamp(t, 1, 4) - 1]);
+Rgba tier_color(int t) {   // the Climes warm to cool, then the Reaches from sea-green to pearl
+    static const uint32_t c[kChartTiers] = {0xE8C070, 0x7AC8A0, 0x8AA8F2, 0xE07AB0, 0xF08A5A, 0xC8D860, 0xB08AF0,
+                                            0x4ACAC0, 0x48B8D8, 0x4A9AE8, 0x6A84F0, 0x8A7AF0, 0xA894F0, 0xC8B4F0, 0xDCD0F4, 0xF0ECF8};
+    return Rgba::hex(c[std::clamp(t, 1, kChartTiers) - 1]);
 }
 
-const char* clime_name(int t) {
-    static const char* n[] = {"First", "Second", "Third", "Fourth", "Fifth", "Sixth", "Seventh"};
-    return n[std::clamp(t, 1, 7) - 1];
-}
+std::string tier_title(int t) { return std::string("The ") + tier_ordinal(t) + (t <= 7 ? " Clime" : " Reach"); }
 
 void legend(float x, float y, std::initializer_list<std::pair<int, const char*>> items) {
     Ui& u = ui();
@@ -83,6 +81,16 @@ void MapScreen::update(World& w, const Input& in, float dt) {
         open = false;
         return;
     }
+    if (!picking && view == 0 && in.hit(BTN_NORTH)) {   // four King's Pearls: the Marid King's throne
+        if (w.hero.currency[CUR_PEARL] < kPearlsPerThrone) {
+            say("Four King's Pearls open the Marid King's throne: the masters of the last Reaches carry them");
+            return;
+        }
+        w.hero.currency[CUR_PEARL] -= kPearlsPerThrone;
+        go_throne = true;
+        open = false;
+        return;
+    }
     // the nearest candidate in the push direction (screen space: up is up)
     auto nearest = [&](vec2 from, int n, auto pos, auto ok) {
         vec2 want = push;
@@ -135,7 +143,7 @@ void MapScreen::update(World& w, const Input& in, float dt) {
         picks.clear();
         for (size_t i = 0; i < H.inv.items.size(); i++)
             if (chart_tier(H.inv.items[i].item) == tier) picks.push_back(int(i));
-        if (picks.empty()) { say(std::string("You carry no chart of the ") + clime_name(tier) + " Clime"); return; }
+        if (picks.empty()) { say("You carry no chart of " + tier_name(tier)); return; }
         pick = 0;
         picking = true;
     }
@@ -215,26 +223,31 @@ void MapScreen::render(const World& w) const {
     y += 54;
     u.text(IX + IW / 2, y, view == 0 ? "Drawn for King Roger of Sicily, 1154, with south at the top" : "Its rete turns one pointer for every site you finish", 20, pal::dim, Align::Center);
     y += 50;
-    // your charts, by Clime
-    for (int t = 1; t <= kChartTiers; t++) {
+    // your charts, by tier: the four Climes of the early map in one row; once Act V is over, all sixteen in two
+    const bool reaches = (H.quests & Q_ACT5) != 0;
+    for (int t = 1; t <= (reaches ? kChartTiers : kChartTiersEarly); t++) {
         int n = 0;
         for (auto& e : H.inv.items) if (chart_tier(e.item) == t) n++;
-        float x = IX + 40 + (t - 1) * 92;
-        u.disc(x + 14, y + 16, 11, tier_color(t));
-        u.text(x + 32, y + 2, std::to_string(n), 30, pal::bone, Align::Left, 1.f);
+        float x = reaches ? IX + 30 + ((t - 1) % 8) * 66 : IX + 40 + (t - 1) * 92, ty = reaches ? y + ((t - 1) / 8) * 44 : y;
+        u.disc(x + 14, ty + 16, 11, tier_color(t));
+        u.text(x + 32, ty + 2, std::to_string(n), reaches ? 26 : 30, n ? pal::bone : pal::dim, Align::Left, 1.f);
     }
-    u.text(IX + IW - 30, y + 6, "charts by Clime", 20, pal::dim, Align::Right);
-    y += 60;
+    if (!reaches) u.text(IX + IW - 30, y + 6, "charts by Clime", 20, pal::dim, Align::Right);
+    y += reaches ? 100 : 60;
     char b[160];
-    snprintf(b, sizeof b, "Sites finished: %d of %zu      Astrolabe points: %d", __builtin_popcount(H.sites_done), S.size(), H.astro_points());
-    u.text(IX + IW / 2, y, b, 22, pal::soft, Align::Center);
-    y += 50;
+    if (H.currency[CUR_PEARL] > 0 || reaches)
+        snprintf(b, sizeof b, "Sites finished: %d of %zu    Astrolabe points: %d    Pearls: %d", __builtin_popcount(H.sites_done), S.size(),
+                 H.astro_points(), H.currency[CUR_PEARL]);
+    else
+        snprintf(b, sizeof b, "Sites finished: %d of %zu      Astrolabe points: %d", __builtin_popcount(H.sites_done), S.size(), H.astro_points());
+    u.text(IX + IW / 2, y, b, fit(b, 22, IW - 40), pal::soft, Align::Center);
+    y += reaches ? 40 : 50;
     if (view == 0) {
         const Site& s = S[size_t(cursor)];
         bool rev = H.sites_revealed >> cursor & 1, done = H.sites_done >> cursor & 1;
-        u.frame(IX + 24, y, IW - 48, 420, pal::panel2, tier_color(s.tier).alpha(0.7f), 12, 2);
+        u.frame(IX + 24, y, IW - 48, 380, pal::panel2, tier_color(s.tier).alpha(0.7f), 12, 2);
         u.text(IX + IW / 2, y + 18, rev ? s.name : "Unknown", 36, rev ? tier_color(s.tier) : pal::dim, Align::Center, 1.f);
-        snprintf(b, sizeof b, "The %s Clime  \xC2\xB7  Area Level %d", clime_name(s.tier), chart_area_level(s.tier));
+        snprintf(b, sizeof b, "%s  \xC2\xB7  Area Level %d", tier_title(s.tier).c_str(), chart_area_level(s.tier));
         u.text(IX + IW / 2, y + 66, b, 24, pal::bone, Align::Center);
         if (rev) {
             u.wrap(IX + 50, y + 110, IW - 100, s.note, 24, pal::soft);
@@ -256,7 +269,7 @@ void MapScreen::render(const World& w) const {
         } else {
             u.wrap(IX + 50, y + 110, IW - 100, "Finish a neighbouring site to see where this road leads.", 24, pal::dim);
         }
-        y += 440;
+        y += 400;
         if (picking) {
             u.frame(IX + 24, y, IW - 48, 60 + 52 * std::min<size_t>(6, picks.size()), pal::panel2, pal::amber, 12, 2);
             u.text(IX + 44, y + 12, "Which chart?", 26, pal::amber, Align::Left, 1.f);
@@ -282,7 +295,12 @@ void MapScreen::render(const World& w) const {
                 }
             }
         }
-        if (!picking && H.currency[CUR_RIFT_SEAL] > 0)
+        const bool seal = H.currency[CUR_RIFT_SEAL] > 0, pearls = H.currency[CUR_PEARL] >= kPearlsPerThrone;
+        if (!picking && seal && pearls)
+            legend(IX + 24, 986, {{BTN_SOUTH, "Chart"}, {BTN_WEST, "Seal"}, {BTN_NORTH, "Pearls"}, {BTN_R1, "Astrolabe"}});
+        else if (!picking && pearls)
+            legend(IX + 24, 986, {{BTN_SOUTH, "Choose a chart"}, {BTN_NORTH, "The Throne"}, {BTN_R1, "Astrolabe"}, {BTN_EAST, "Close"}});
+        else if (!picking && seal)
             legend(IX + 24, 986, {{BTN_SOUTH, "Choose a chart"}, {BTN_WEST, "Rift Seal"}, {BTN_R1, "Astrolabe"}, {BTN_EAST, "Close"}});
         else
             legend(IX + 24, 986, {{BTN_SOUTH, picking ? "Set out" : "Choose a chart"}, {BTN_R1, "Astrolabe"}, {BTN_EAST, picking ? "Back" : "Close"}});

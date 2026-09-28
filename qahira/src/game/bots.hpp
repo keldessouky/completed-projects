@@ -20,6 +20,9 @@
 //          the chamber's guardians killed, the chamber searched, and its relics bartered with Amm Ramadan
 //   zar    Slice 8's endgame piece: after Act IV, a chart with a Zar Night: the drum sat at, the circle held against what
 //          comes to it until the song is over, at least one trance, and what the night paid out picked up
+//   reaches Slice 9's endgame piece: after Act V, the charts climb past the old edge of the map, from the Fifth Clime until
+//          a site of the Eighth Reach is finished
+//   king   Slice 9's pinnacle: four King's Pearls spent at the chart table open the throne, and the Marid King dies
 //   tour   not a test: a scripted visit of every screen for screenshots (it gives itself gear)
 #pragma once
 #include "game/areas.hpp"
@@ -85,6 +88,8 @@ private:
     void charts(World& w, Menu& m, Areas& a, Input& in, uint64_t frame);
     void tour6(World& w, Areas& a, Input& in, uint64_t frame);
     void rifts(World& w, Menu& m, Areas& a, Input& in, uint64_t frame);
+    void king(World& w, Menu& m, Areas& a, Input& in, uint64_t frame);
+    int king_stage_ = 0;
     void tour7(World& w, Menu& m, Areas& a, Input& in, uint64_t frame);
     int rift_stage_ = 0, rift_splinters0_ = 0;
     void digs(World& w, Menu& m, Areas& a, Input& in, uint64_t frame);
@@ -93,6 +98,7 @@ private:
     void tour9(World& w, Menu& m, Areas& a, Input& in, uint64_t frame);
     int dig_stage_ = 0, dig_relics_ = 0;
     bool recovering_ = false;    // backed off from a site's master until life comes back (see combat)
+    uint64_t recover_frame_ = 0;
     // charts scenario
     int chart_runs_ = 0, chart_target_ = -1, map_presses_ = 0, best_tier_done_ = 0, haboobs_seen_ = 0;
     uint32_t run_seed_ = 0;

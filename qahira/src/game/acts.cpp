@@ -1,4 +1,5 @@
 #include "game/acts.hpp"
+#include "game/atlas.hpp"
 
 namespace q {
 
@@ -30,7 +31,7 @@ const std::vector<ZoneDef>& zone_defs() {
          "qutrub_alpha", "The Qutrub of the Quarries is dead. Act I is over", "nile_bank", "cache", "", false, -1, {0.9f, 0.95f, 1.1f}},
         // Slice 5: the sites of the Map of al-Idrisi (act 0: the endgame; no waypoints; the chart sets the level)
 #define SITE(id, name, sub, tiles, tier, w, h, br, mus, amb, s1, w1, s2, w2, s3, w3, elite, boss, tint)                          \
-        {"site_" id, name, sub, tiles, 0, 13 + tier, w, h, br, mus, amb, {{s1, w1}, {s2, w2}, {s3, w3}}, elite, boss,       \
+        {"site_" id, name, sub, tiles, 0, chart_area_level(tier), w, h, br, mus, amb, {{s1, w1}, {s2, w2}, {s3, w3}}, elite, boss,       \
          "The site's master falls. The chart is complete", "", "cache", "", false, -1, tint}
         SITE("iskandariya", "al-Iskandariya", "The lighthouse city, where the sea wind never rests", "muizz", 1, 3, 5, 2, "mus_muizz",
              "amb_street", "nasnas", 5, "ghoul", 5, "silah", 3, "nasnas", "nasnas_kabir", SITE_TINT(1.0f, 1.0f, 1.1f)),
@@ -149,6 +150,48 @@ const std::vector<ZoneDef>& zone_defs() {
         {"strait", "The Sea Walls of the Strait", "The rocks below the walls, and a woman standing in the surf", "tangier", 5, 56, 3, 6, 2,
          "mus_strait", "amb_sea", {{"sea_marid", 5}, {"nasr_guard", 1}, {"blue_nasnas", 3}}, "sea_marid",
          "qandisha", "Aisha Qandisha goes down into the sea. Act V is over", "", "cache", "", false, -1, {0.82f, 0.95f, 1.2f}},
+        // Slice 9: the sites of the higher Climes and the Reaches of the Encircling Sea (tiers 5-16, after Act V), on the
+        // regions of every act; their masters are the acts' own, grown old and strong at the map's edge
+#define SITE(id, name, sub, tiles, tier, w, h, br, mus, amb, s1, w1, s2, w2, s3, w3, elite, boss, tint)                          \
+        {"site_" id, name, sub, tiles, 0, chart_area_level(tier), w, h, br, mus, amb, {{s1, w1}, {s2, w2}, {s3, w3}}, elite, boss, \
+         "The site's master falls. The chart is complete", "", "cache", "", false, -1, tint}
+        SITE("marrakush", "Marrakush", "The red city at the foot of the snows", "jemaa", 5, 4, 5, 3, "mus_jemaa", "amb_market",
+             "smoke_jinn", 5, "dye_ghoul", 4, "blue_nasnas", 3, "smoke_jinn", "dukhan", SITE_TINT(1.15f, 0.92f, 0.8f)),
+        SITE("saraqusa", "Saraqusa", "Sicily's other harbour, and the old quarries under the town", "tangier", 5, 4, 5, 2, "mus_strait",
+             "amb_sea", "sea_marid", 5, "salt_ghoul", 3, "souq_silah", 3, "sea_marid", "qandisha", SITE_TINT(0.9f, 0.98f, 1.12f)),
+        SITE("sijilmasa", "Sijilmasa", "The last city before the sand, where the gold caravans gather", "ghadames", 6, 4, 5, 3,
+             "mus_maghreb", "amb_desert", "desert_ghoul", 5, "hyena", 4, "sand_shade", 3, "hyena", "dab_a", SITE_TINT(1.12f, 1.0f, 0.84f)),
+        SITE("iqritish", "Iqritish", "An island of a hundred harbours, and a maze in its hills", "karnak", 6, 4, 5, 3, "mus_karnak",
+             "amb_temple", "timthal", 4, "tomb_ghoul", 4, "marid", 3, "timthal", "ram_sphinx", SITE_TINT(1.05f, 0.95f, 1.0f)),
+        SITE("awdaghust", "Awdaghust", "Wells in the sand, houses of stone, and the date palms", "dunes", 7, 3, 6, 2, "mus_desert",
+             "amb_desert", "hyena", 4, "sand_jinn", 4, "desert_ghoul", 4, "sand_shade", "sand_wraith", SITE_TINT(1.15f, 0.98f, 0.8f)),
+        SITE("dimashq", "Dimashq", "Seven rivers and their orchards, and the swordsmiths' market", "medina", 7, 4, 6, 3, "mus_medina",
+             "amb_street", "souq_silah", 5, "iron_guard", 3, "nasnas", 3, "iron_guard", "iron_mamluk", SITE_TINT(1.0f, 1.0f, 1.05f)),
+        SITE("ghana", "Ghana", "Two towns on the river, and gold in its sand", "siwa", 8, 4, 5, 3, "mus_siwa", "amb_desert",
+             "salt_jinn", 4, "desert_ghoul", 4, "sand_shade", 3, "salt_jinn", "sarab", SITE_TINT(1.1f, 1.02f, 0.86f)),
+        SITE("baghdad", "Baghdad", "The Round City, and its House of Wisdom", "fes", 8, 4, 5, 3, "mus_atlas", "amb_street",
+             "dye_ghoul", 4, "souq_silah", 3, "smoke_jinn", 3, "dye_ghoul", "iron_door", SITE_TINT(1.08f, 0.95f, 0.9f)),
+        SITE("kawkaw", "Kawkaw", "A king's city on the great river of the south", "village", 9, 4, 5, 3, "mus_village", "amb_river",
+             "qutrub", 4, "hyena", 4, "marid", 3, "qutrub", "qutrub_alpha", SITE_TINT(1.05f, 0.98f, 0.9f)),
+        SITE("jabal_qamar", "Jabal al-Qamar", "The Mountains of the Moon, where the Nile begins in ten springs", "white", 10, 4, 5, 3,
+             "mus_desert", "amb_cliffs", "salt_jinn", 5, "qutrub", 3, "sand_shade", 3, "salt_jinn", "ghula_salt", SITE_TINT(0.92f, 0.98f, 1.15f)),
+        SITE("sufala", "Sufala", "The last harbour down the eastern coast, and gold dug from the hills", "nile", 11, 3, 6, 2, "mus_nile",
+             "amb_river", "marid", 5, "marid_caller", 3, "tomb_ghoul", 3, "marid_caller", "marid_tomb", SITE_TINT(0.85f, 0.95f, 1.12f)),
+        SITE("qumr", "Qumr", "The island of the moon, a month's sailing long", "chaouen", 12, 4, 5, 3, "mus_atlas", "amb_sea",
+             "blue_nasnas", 5, "sea_marid", 3, "mirage", 2, "blue_nasnas", "bu_ghettat", SITE_TINT(0.85f, 0.92f, 1.2f)),
+        SITE("maqdishu", "Maqdishu", "White houses on the dunes, and ships from the Indies", "tangier", 13, 4, 5, 3, "mus_strait", "amb_sea",
+             "souq_silah", 4, "sea_marid", 4, "silah", 3, "souq_silah", "silah_sadat", SITE_TINT(1.0f, 1.0f, 1.08f)),
+        SITE("adan", "Adan", "A harbour inside a dead fire-mountain, and the half-men in its hills", "mokattam", 14, 4, 5, 3,
+             "mus_mokattam", "amb_cliffs", "nasnas", 5, "blue_nasnas", 3, "qutrub", 3, "nasnas", "nasnas_kabir", SITE_TINT(1.12f, 0.9f, 0.82f)),
+        SITE("waqwaq", "al-Waq-Waq", "An island at the world's end, where a tree calls out", "nile", 15, 3, 6, 2, "mus_nile", "amb_river",
+             "marid_caller", 4, "mirage", 3, "sea_marid", 3, "marid_caller", "naddaha", SITE_TINT(0.8f, 1.0f, 1.1f)),
+        SITE("muhit", "al-Bahr al-Muhit", "The Encircling Ocean. Past it the map is blank", "chott", 16, 3, 6, 2, "mus_strait", "amb_sea",
+             "sea_marid", 5, "marid", 3, "salt_ghoul", 3, "sea_marid", "rift_lord", SITE_TINT(0.75f, 0.9f, 1.2f)),
+#undef SITE
+        // the Marid King's throne: four King's Pearls open it at the chart table (act 0, above the Sixteenth Reach)
+        {"king_throne", "The Throne of the Marid King", "Under the Encircling Sea, a hall of columns in green water", "karnak", 0, 68, 2,
+         5, 1, "mus_strait", "amb_sea", {{"sea_marid", 5}, {"marid", 3}, {"marid_caller", 2}}, "sea_marid",
+         "marid_king", "The Marid King is unmade, and the sea lets go of the world", "", "cache", "", false, -1, {0.55f, 0.85f, 1.2f}},
     };
     return d;
 }

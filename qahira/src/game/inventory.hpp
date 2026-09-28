@@ -29,8 +29,11 @@ enum Currency : uint8_t { CUR_BEAD, CUR_SALT, CUR_GROUNDS, CUR_SAFFRON, CUR_PIAS
                           CUR_SPLINTER, CUR_RIFT_SEAL,
                           // Slice 7: Excavations (dug up, never dropped; bartered with the antiquities dealer)
                           CUR_RELIC,
+                          // Slice 9: the masters of the last Reaches drop them; four open the Marid King's throne
+                          CUR_PEARL,
                           CUR_COUNT };
 constexpr int kSplintersPerSeal = 50;
+constexpr int kPearlsPerThrone = 4;
 constexpr int kFirstBlend = CUR_BLEND_EMBERS, kLastBlend = CUR_BLEND_HAMMER;
 constexpr int kFirstOmen = CUR_OMEN_BIRD, kLastOmen = CUR_OMEN_CRESCENT;
 inline bool is_omen(int c) { return c >= kFirstOmen && c <= kLastOmen; }

@@ -291,6 +291,18 @@ doing every five seconds.
     ten seconds after the last.
   - *Spin:* `Shape::Spin` strikes everything round the hero.
   - Hybrid armour (evasion and Hirz) is kind 4 to the bots.
+- **The Templar's rules (Slice 9):**
+  - *Maces and sceptres:* `WK_MACE` and `WK_SCEPTRE` (both 1x3, `T_MACE`); a sceptre's implicit is increased elemental
+    damage (`S_DAMAGE` inc `T_ELEMENTAL`). Armour and Hirz is kind 5 to the bots.
+  - *Conversion:* a skill's `convert_fire` turns that share of the hit's physical damage to fire in `compute_hit`, before
+    increases, so fire and elemental increases apply to it (Ember Strike 60%, Brazier Slam 50%).
+  - *The Beacon* (`Shape::Aura`) toggles `Hero::aura`: while it is up `compute_hero_stats` adds its mods (scaled by
+    `S_AURA`) and `recompute_hero` reserves a quarter of the mana pool (`SRC_AURA`).
+  - *Signal Fire* (`Shape::Totem`) plants a `GroundFx::Totem` that throws fire at the nearest enemy (`T_TOTEM`, the last
+    tag bit); one at a time. *Brazier Slam* (`Shape::Brazier`) leaves `GroundFx::Embers`: burning ground that hurts
+    enemies on it and mends the hero (`S_EMBERS` scales it).
+  - *Block* (`S_BLOCK`, capped at 75%) turns a whole hit aside in `damage_hero`.
+  - The keystone **al-Iklil** (`KS_ALL_FIRE`, tree bit 5): every kind of hit damage becomes fire, and 15% less of it.
 - `World::hit_enemy` is the one place a hero hit lands: mitigation, keystones, crit text, leech, ailments, Break and
   knockback. Projectiles, glyph pulses and falling stars carry a `HeroHit` (the worked-out hit and chances) so a save
   state restores them exactly.
@@ -350,6 +362,11 @@ each (Bab Zuweila is Trial I). Notables carry mods and rules (`AscRule`, alongsi
   and Hirz recharges twice as soon with 3% back on a kill (`KS_VEIL`). The Shadow's keystone in the sky, **al-Sharatan** (`KS_AGONY`, tree bit 4):
   hits deal 30% less, and a crit's poison is multiplied by the crit multiplier.
 
+- **Zealot** and **Warden** (Templar, Slice 9), bits 37-40: enemies on your burning ground take 20% more damage
+  (`KS_EMBER_FIRE`), Signal Fire leaves burning ground where it stands (`KS_TOTEM_EMBERS`); a Block recovers 2% of
+  your life (`KS_BLOCK_RECOVER`), and the Beacon reserves no mana (`KS_AURA_FREE`). New rules continue from bit 41.
+  Bab al-Nasr (Trial III) gives the last two points.
+
 A node needs its parent; a refund costs a Rosewater Vial.
 
 ## The Journal and the codex
@@ -379,7 +396,7 @@ drawn with south at the top, so east is on the left), with the eclipse's path as
   in and turns to sand, sand jinn arrive in packs (always in sight of you), and a meter fills with time and kills. When
   the storm has passed it leaves currency, dinars and, after a long stay, a chart.
 - **The Astrolabe:** twenty nodes on four pointers of an astrolabe's rete (charts, the storm, riches, the road); one
-  point per site finished.
+  point per site finished. Slice 9 adds three: a higher tier more often, and two for the King's Pearls.
 - **`qchartsim`:** 600 simulated players from the end of Act I, each run's kills counted from the real spawner over the
   generated tiles, charts drawn by the game's rules. It flags a stall rate over 5%, a median over 45 runs to finish a
   Fourth Clime site, or under 8, and writes `build/chartsim_report.md`.
@@ -429,11 +446,36 @@ drawn with south at the top, so east is on the left), with the eclipse's path as
   reaches 0; `zar_end` drops an item for every trance, one more if the song was played to its end, and dinars. The
   drummers are scenery the view animates (their tempo follows the rhythm), and the music is `mus_zar` while it plays.
 
+## Act V, the Reaches and the Marid King
+
+- **Act V** is seven `ZoneDef`s of act 5 (levels 46 to 56) on four regions (`tools/art/env/regions5.py`); the Sebkha's
+  far court leads on to the Tanneries of Fes. Bu Ghettat (the wraith's rig in indigo), Dukhan (the ifrit gone grey), the
+  Bronze Mamluk of Bab al-Nasr (Trial III; the toll is your gloves) and Aisha Qandisha (her own rig; her Wail is a Call)
+  are `boss_def` rows. `Q_ACT5` ends the act.
+- **Charts to the Sixteenth** (`game/atlas.*`): `kChartTiers` is 16. Tiers 1-7 are the Seven Climes and 8-16 the
+  Reaches of the Encircling Sea (`tier_name`); the area level is 14-17 for the first four, then 54 to 65, a
+  level a tier (`chart_area_level`). Past the Fourth, a dropped chart is a tier up 7% of the time and a tier down 14%
+  (`kReachUp`, `kReachDown`; the Astrolabe's tier nodes count a third as much there), so each tier takes a few runs. Sixteen more sites (32 in all: the site masks are full) run on two roads out of the Fourth
+  Clime: south from Fas over the sand to Ghana and on round the edge of the world to al-Bahr al-Muhit, and east from
+  Balarm and Tunis over the sea to Baghdad (a dead end). Their zones reuse every act's regions, and their masters are
+  the acts' bosses at the higher level.
+- **The gate on the higher tiers:** `ChartRun::max_tier` caps what a drop can roll (`roll_chart_tier`). It is the
+  Fourth Clime (`kChartTiersEarly`) until `Q_ACT5`, then sixteen; Amm Ramadan's charts go from the Fourth to the Fifth.
+  A character file from before the map grew has its finished sites' roads drawn again on loading.
+- **The King's Pearls** (`CUR_PEARL`, never at random): `pearl_drops` gives the master of a site of tier 14 and up a
+  chance of one (25% at the Fourteenth, 37%, 49% at the Sixteenth, with a 20% chance of a second there), more with the
+  Astrolabe's two pearl nodes. North at the chart table spends four on the **Marid King's throne** (`king_throne`, act
+  0, level 68; `Areas::enter_throne`). The Marid King is a `boss_def` row with every marid move and a Call; he always
+  drops two uniques and a purse of currency.
+- **`qchartsim`** now runs twice: the early map from Act I's end (drops held to the Fourth Clime, flagged as before), and
+  the Reaches from Act V's end (the four Climes done, four charts of the Fourth), until four pearls open the throne. It
+  flags a stall rate over 5%, a median over 220 runs or under 40, or any tier that under 90% of players reach.
+
 ## Saves
 
 There are two kinds:
 
-- **Save states (`retro_serialize`, version 10).** A versioned byte stream (`core/serial.hpp`, `game/save.cpp`) of
+- **Save states (`retro_serialize`, version 14).** A versioned byte stream (`core/serial.hpp`, `game/save.cpp`) of
   the whole simulation:
   - every actor, including life, Break, AI state, boss phase and home, animation clip, time and fired events;
   - projectiles, ground effects, and ground loot (items, currency, dinars);
@@ -445,13 +487,14 @@ There are two kinds:
   On load, the level geometry and NPCs are rebuilt from the saved area and layout. Particles and floating text are
   cosmetic and aren't saved. RetroArch's save states and auto-resume therefore work anywhere, including mid-boss.
   The bots check this by saving, changing the state, restoring, and comparing.
-- **The character file (`qahira_<slot>.character` in the frontend's save directory, version 7).** It holds level, XP,
+- **The character file (`qahira_<slot>.character` in the frontend's save directory, version 8).** It holds level, XP,
   kills, dinars, currency, the class and its stars, the plan, Talismans, the bars, Wafq, Blank Talismans, the filter
   preset, equipment and the inventory, with its own magic and version. Version 4 adds Act I: waypoints, quests, the
   trial's sealed item, recipes, the codex, read Omens, ascendancy nodes and Poster Scraps; its items carry corruption,
   their unique and each mod's bench/implicit flag (item format 2). Version 5 adds the map: sites revealed and
   finished, and the Astrolabe. Version 6 adds the ascendancy chosen; version 7 the weapon on the back and 64-bit
-  waypoints. Versions 1–6 still load (a unit test reads a hand-written version 3 file). It is written to
+  waypoints; version 8 waypoints for 128 zones (`ZoneBits`: the zones passed 64 with the Reaches' sites). Versions 1–7
+  still load (a unit test reads a hand-written version 3 file). It is written to
   a temporary file and renamed, when you arrive in the hub, close the menu, level up, kill the boss, or quit. An
   unreadable file is kept as `.bad` and a fresh character starts. Bots never touch it.
 

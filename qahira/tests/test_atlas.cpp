@@ -7,15 +7,15 @@ using namespace q;
 
 TEST(every_site_can_be_reached_from_the_first_clime) {
     auto& S = sites();
-    CHECK(S.size() == 16);
+    CHECK(S.size() == 32);   // (the masks are 32 bits: the map is full)
     uint32_t seen = starting_sites(), frontier = seen;
-    for (int k = 0; k < 8; k++) {
+    for (int k = 0; k < 20; k++) {
         uint32_t next = seen;
         for (size_t i = 0; i < S.size(); i++) if (frontier >> i & 1) next |= reveal_after(int(i));
         frontier = next & ~seen;
         seen = next;
     }
-    CHECK(seen == (1u << S.size()) - 1);
+    CHECK(seen == 0xFFFFFFFFu);
     for (size_t i = 0; i < S.size(); i++) {
         CHECK(find_zone(S[i].zone) >= 0);
         CHECK(zone_def(find_zone(S[i].zone)).act == 0);
@@ -25,8 +25,9 @@ TEST(every_site_can_be_reached_from_the_first_clime) {
             CHECK(j >= 0);
             if (j >= 0) CHECK(S[size_t(j)].tier >= S[i].tier);   // a road never leads back down a Clime
         }
-        // every site but the Fourth Clime's leads on
-        if (S[i].tier < kChartTiers) CHECK(!S[i].links.empty());
+        // every site leads on but the ends of the roads: Sabta, Baghdad, and the Encircling Ocean
+        const std::string id = S[i].id;
+        if (id != "sabta" && id != "baghdad" && id != "muhit") CHECK(!S[i].links.empty());
     }
 }
 
@@ -56,7 +57,7 @@ TEST(charts_roll_chart_mods_and_read_them_back) {
 
 TEST(the_astrolabe_and_the_drop_rules) {
     auto& n = astro_nodes();
-    CHECK(n.size() == 20);
+    CHECK(n.size() == 23);
     for (size_t i = 0; i < n.size(); i++) CHECK(n[i].parent < int(i));   // parents come first
     CHECK(astro_can_take(0, 0) && !astro_can_take(0, 1) && astro_can_take(1u, 1));
     CHECK(astro_value(1u, AX_CHART_DROP) == 10.f && astro_points(0x7) == 3);
@@ -90,7 +91,8 @@ TEST(character_v5_keeps_the_map) {
     Hero b;
     ByteReader br(w.buf.data(), w.buf.size());
     CHECK(read_character(br, b));
-    CHECK(b.sites_revealed == 0xFF && b.sites_done == 0x13 && b.astro == 0x21);
+    // (the roads out of finished sites are drawn again on loading, for a map that has grown since)
+    CHECK(b.sites_revealed == (0xFFu | reveal_after(0) | reveal_after(1) | reveal_after(4)) && b.sites_done == 0x13 && b.astro == 0x21);
     CHECK(b.inv.items.size() == 1 && chart_tier(b.inv.items[0].item) == 3);
     CHECK(b.astro_points() == 1);   // three sites done, two nodes set
 }

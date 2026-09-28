@@ -65,6 +65,7 @@ const CurrencyDef& currency_def(int c) {
         {"marid_splinter", "Marid Splinter", "Fifty fuse into a Rift Seal", 0x5FC8E8, 0, 0, 999},
         {"rift_seal", "Rift Seal", "Opens the Rift Lord's court, at the chart table", 0x2E8AB8, 0, 0, 999},
         {"relic", "Relic", "Dug up in the Excavations. Amm Ramadan barters for them", 0x3AA8A0, 0, 0, 999},
+        {"kings_pearl", "King's Pearl", "Four open the Marid King's throne, at the chart table", 0xE6EEF4, 0, 0, 999},
     };
     return d[c >= 0 && c < CUR_COUNT ? c : 0];
 }

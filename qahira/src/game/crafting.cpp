@@ -190,6 +190,14 @@ const std::vector<CodexEntry>& codex_entries() {
         {"qandisha", CX_MONSTER, "Aisha Qandisha",
          "The lady of the springs and rivers in the Moroccan stories: beautiful, with a goat's hooves under her dress, who draws "
          "men to the water. When she calls, you go to her: be ready to roll away when you arrive."},
+        {"reaches", CX_MECHANIC, "The Reaches of the Encircling Sea",
+         "Once Act V is over, charts climb past the Fourth Clime: the Fifth, Sixth and Seventh Climes, and then the nine Reaches "
+         "of the Encircling Sea beyond them, to the Sixteenth. The masters of the Fourteenth Reach and above carry the King's "
+         "Pearls; four of them, spent at the chart table, open the Marid King's throne."},
+        {"marid_king", CX_MONSTER, "The Marid King",
+         "The oldest and greatest of the marids, who holds court under the ocean at the rim of the world. Every marid you have "
+         "met bows to him. He calls you to him across his hall, as the lady of the springs did, and in the second half of the "
+         "fight his court rises from the water."},
         {"zar", CX_MECHANIC, "Zar Nights",
          "After Act IV, a chart may hold a drum circle. Sit down at the drum and the Zar begins: the site's creatures come to the "
          "drums, every death near the circle feeds the rhythm, and the rhythm runs down on its own. Each time it fills, the circle "

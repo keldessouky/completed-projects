@@ -2,6 +2,7 @@
 // is on the left, as al-Idrisi drew it for King Roger. The eclipse's path is a dark band across it.
 //   Stick / D-pad  the cursor jumps to the nearest site in the push direction
 //   South          on a revealed site: choose a chart of its Clime, then South again to set out
+//   West / North   spend a Rift Seal (the Rift Lord's court) / four King's Pearls (the Marid King's throne)
 //   L1 / R1        the Map, or the Astrolabe (the atlas tree); South takes a node there
 //   East           back, or close
 #pragma once
@@ -22,6 +23,7 @@ struct MapScreen {
     int go_site = -1;              // set when a chart is chosen: the app consumes it and sets out
     int go_chart = -1;             // the inventory index of that chart
     bool go_rift = false;          // a Rift Seal spent: the app sets out for the Rift Lord's court
+    bool go_throne = false;        // four King's Pearls spent: the app sets out for the Marid King's throne
     std::string msg;
     float msg_t = 0;
 

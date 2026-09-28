@@ -243,7 +243,7 @@ void Areas::enter_zone(World& w, int def, Arrival how) {
         w.in_chart = zd.act == 0;
     }
     if (zone_def(zone.def).act > 0) {
-        w.hero.waypoints |= 1ull << zone.def;
+        w.hero.waypoints.add(zone.def);
         w.meet_codex("waypoints");
     }
     if (zone_def(zone.def).trial) w.meet_codex("trial");
@@ -259,6 +259,7 @@ void Areas::enter_chart(World& w, int site, const Item& chart) {
     w.chart.tier = st.tier;
     w.chart.mods = chart_mods(chart);
     w.chart.astro = w.hero.astro;
+    w.chart.max_tier = (w.hero.quests & Q_ACT5) ? kChartTiers : kChartTiersEarly;
     enter_zone(w, find_zone(st.zone), Arrival::Entrance);   // (a fresh instance: it closes the last one first)
     w.chart_site = site;
     // the Haboob, if the chart has one: it rises in the south of the site after a while
@@ -279,6 +280,7 @@ void Areas::enter_chart(World& w, int site, const Item& chart) {
     // a Zar Night, once Act IV is behind you: a drum circle in one of the site's cells
     if ((w.hero.quests & Q_ACT4) && w.rng.chance(0.35f)) arm_zar(w);
     w.meet_codex("charts");
+    if (st.tier > kChartTiersEarly) w.meet_codex("reaches");
 }
 
 bool Areas::arm_dig(World& w) {
@@ -346,10 +348,22 @@ bool Areas::arm_zar(World& w) {
 void Areas::enter_rift_court(World& w) {
     close_zone(w);
     w.chart = ChartRun{};
-    w.chart.tier = kChartTiers;
+    w.chart.tier = kChartTiersEarly;   // the court is at the Fourth Clime's level
     w.chart.astro = w.hero.astro;
+    w.chart.max_tier = (w.hero.quests & Q_ACT5) ? kChartTiers : kChartTiersEarly;
     enter_zone(w, find_zone("rift_court"), Arrival::Entrance);
     w.chart_site = -1;
+}
+
+void Areas::enter_throne(World& w) {
+    close_zone(w);
+    w.chart = ChartRun{};
+    w.chart.tier = kChartTiers;
+    w.chart.max_tier = kChartTiers;
+    w.chart.astro = w.hero.astro;
+    enter_zone(w, find_zone("king_throne"), Arrival::Entrance);
+    w.chart_site = -1;
+    w.meet_codex("marid_king");
 }
 
 void Areas::arm_haboob(World& w) {

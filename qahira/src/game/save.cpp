@@ -104,10 +104,11 @@ GroundItem read_ground_item(ByteReader& r) {
 
 // ---- the character: what persists between sessions
 static const uint32_t kCharMagic = 0x31484351;  // "QCH1"
-static const uint32_t kCharVersion = 7;   // 2: the class and its stars; 3: Talismans, Wafq, Blanks, currency count;
+static const uint32_t kCharVersion = 8;   // 2: the class and its stars; 3: Talismans, Wafq, Blanks, currency count;
                                           // 4: Act I (waypoints, quests, the toll, recipes, scraps, codex, omens,
                                           //    ascendancy) and item format 2; 5: the Map of al-Idrisi (sites, the
-                                          //    Astrolabe); 6: the ascendancy chosen; 7: the weapon swap slot, 64-bit waypoints
+                                          //    Astrolabe); 6: the ascendancy chosen; 7: the weapon swap slot, 64-bit waypoints;
+                                          // 8: waypoints for 128 zones
 
 void write_character(ByteWriter& w, const Hero& H) {
     w.put(kCharMagic);
@@ -134,7 +135,7 @@ void write_character(ByteWriter& w, const Hero& H) {
     w.put(uint16_t(H.inv.items.size()));
     for (auto& e : H.inv.items) { write_item(w, e.item); w.put(uint8_t(e.x)); w.put(uint8_t(e.y)); }
     // v4
-    w.put(H.waypoints); w.put(H.quests);   // v7: waypoints are 64 bits (the zones outgrew 32)
+    w.put(H.waypoints.w[0]); w.put(H.quests);   // v7: waypoints are 64 bits (the zones outgrew 32)
     write_item(w, H.sealed); w.put(H.sealed_slot);
     w.put(H.omens); w.put(H.recipes); w.put(H.codex); w.put(H.asc);
     w.put(uint8_t(kMaxUniques));
@@ -143,6 +144,8 @@ void write_character(ByteWriter& w, const Hero& H) {
     w.put(H.sites_revealed); w.put(H.sites_done); w.put(H.astro);
     // v6
     w.put(H.ascendancy);
+    // v8
+    w.put(H.waypoints.w[1]);
 }
 
 bool read_character(ByteReader& r, Hero& H) {
@@ -215,15 +218,16 @@ bool read_character(ByteReader& r, Hero& H) {
         e.y = r.get<uint8_t>();
         H.inv.items.push_back(e);
     }
-    H.waypoints = H.quests = H.recipes = H.asc = 0;
+    H.waypoints = ZoneBits{};
+    H.quests = H.recipes = H.asc = 0;
     H.codex = 0;
     H.omens = 0;
     H.sealed = Item{};
     H.sealed_slot = -1;
     for (auto& sc : H.scraps) sc = 0;
     if (version >= 4) {
-        if (version >= 7) r.get(H.waypoints);
-        else H.waypoints = r.get<uint32_t>();
+        if (version >= 7) r.get(H.waypoints.w[0]);
+        else H.waypoints.w[0] = r.get<uint32_t>();
         r.get(H.quests);
         H.sealed = read_item(r, fmt); r.get(H.sealed_slot);
         r.get(H.omens); r.get(H.recipes); r.get(H.codex); r.get(H.asc);
@@ -235,9 +239,12 @@ bool read_character(ByteReader& r, Hero& H) {
     if (version >= 5) { r.get(H.sites_revealed); r.get(H.sites_done); r.get(H.astro); }
     H.ascendancy = -1;
     if (version >= 6) r.get(H.ascendancy);
+    if (version >= 8) r.get(H.waypoints.w[1]);
     if (H.ascendancy >= int(ascendancies().size())) H.ascendancy = -1;
     if (H.quests & Q_BENCH) H.recipes |= kStarterRecipes;
     if (H.quests & Q_ACT1) H.sites_revealed |= starting_sites();   // an Act I finished before the map existed
+    for (size_t i = 0; i < sites().size(); i++)   // the roads from sites finished before the map grew (Slice 9)
+        if (H.sites_done >> i & 1) H.sites_revealed |= reveal_after(int(i));
     if (H.filter >= FILTER_COUNT) H.filter = FILTER_STANDARD;
     return r.ok;
 }

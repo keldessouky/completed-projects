@@ -59,6 +59,14 @@ void draw_currency_icon(float cx, float cy, float s, int c, float alpha) {
         u.line(cx - s * 0.12f, cy + s * 0.18f, cx + s * 0.1f, cy - s * 0.2f, s * 0.05f, Rgba::hex(0xFFFFFF).alpha(0.6f * alpha));
         return;
     }
+    if (c == CUR_PEARL) {   // a pearl in a half-shell
+        u.disc(cx, cy + s * 0.14f, s * 0.38f, Rgba::hex(0x3A5A78).alpha(alpha));
+        u.disc(cx, cy + s * 0.08f, s * 0.32f, Rgba::hex(0x9ABACC).alpha(alpha));
+        u.disc(cx, cy - s * 0.02f, s * 0.2f, col);
+        u.disc(cx - s * 0.06f, cy - s * 0.08f, s * 0.07f, Rgba::hex(0xFFFFFF).alpha(0.8f * alpha));
+        u.ring(cx, cy - s * 0.02f, s * 0.2f, s * 0.17f, Rgba::hex(0xC8A8D8).alpha(0.6f * alpha));
+        return;
+    }
     if (c == CUR_RIFT_SEAL) {   // a round seal with the river's three waves on it
         u.disc(cx, cy, s * 0.36f, col);
         u.ring(cx, cy, s * 0.36f, s * 0.3f, Rgba::hex(0x8FDFF0).alpha(alpha));
@@ -192,7 +200,9 @@ void Menu::restock_dealer(World& w) {
         if (it.b().slot == Slot::Chart) it = random_drop(lvl, 1.f, 0.f, r, Slot::Weapon);
         stock.add(it);
     }
-    for (int i = 0; i < 2; i++) stock.add(make_chart(kChartTiers, r, 0.5f, 0.3f));
+    // the Fourth Clime's charts; once Act V is over, the Fifth's, the first step past the old edge of the map
+    const int tier = (w.hero.quests & Q_ACT5) ? kChartTiersEarly + 1 : kChartTiersEarly;
+    for (int i = 0; i < 2; i++) stock.add(make_chart(tier, r, 0.5f, 0.3f));
 }
 
 int Menu::relic_price(const Item& it) {

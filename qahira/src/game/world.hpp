@@ -276,6 +276,16 @@ enum class Ev : uint8_t { Swing, Impact, SlamImpact, EnemyHit, EnemyDie, HeroHit
                           Block, AuraOn, TotemSet };
 struct Event { Ev type; vec2 pos; float mag; int def = -1; };   // def: the monster, for its voice
 
+// A bit per zone index, for 128 zones (the zones outgrew 64 in Slice 9: the sites of the higher Climes)
+struct ZoneBits {
+    uint64_t w[2] = {0, 0};
+    ZoneBits() = default;
+    ZoneBits(uint64_t lo) : w{lo, 0} {}
+    bool has(int i) const { return i >= 0 && i < 128 && (w[i >> 6] >> (i & 63) & 1); }
+    void add(int i) { if (i >= 0 && i < 128) w[i >> 6] |= 1ull << (i & 63); }
+    bool operator==(const ZoneBits& o) const { return w[0] == o.w[0] && w[1] == o.w[1]; }
+};
+
 struct Hero {
     Stats base;                    // class base stats
     Stats stats;                   // base + items + buffs (rebuilt when anything changes)
@@ -291,7 +301,7 @@ struct Hero {
     float es_wait = 0;             // seconds until Hirz starts to recharge
     float overload_t = 0;          // al-Simak: elemental damage after a crit
     uint32_t last_attacker = 0;    // al-Dabaran: the last enemy that hit you
-    uint64_t waypoints = 0;        // zones whose waypoint you have touched (bit = zone index)
+    ZoneBits waypoints;            // zones whose waypoint you have touched (bit = zone index)
     uint32_t quests = 0;           // Quest bits (game/acts.hpp)
     Item sealed;                   // what a trial's gatekeeper holds as the toll
     int8_t sealed_slot = -1;
