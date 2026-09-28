@@ -23,7 +23,8 @@ Work proceeds in vertical slices ([slice plan](../_bmad-output/planning-artifact
 | 4 · Act I, Cairo in Twilight | **Done**. Six regions and seven zones from Downtown to the Mokattam cliffs, with waypoints, six data-driven bosses and the Bab Zuweila trial; the Ironclad and Stormbinder ascendancies; the Coppersmith's Bench, new currencies, Spice Blends and Coffee-Cup Omens; twenty uniques from invented golden-age film posters; the Journal and codex. A bot plays the whole act. See the [slice log](docs/SLICES.md). |
 | 5 · The First Chart | **Done**. The Map of al-Idrisi (south at the top), sixteen sites over four Climes, charts with their own mods, the Haboob, a 20-node Astrolabe, and a simulation and a bot that both reach the Fourth Clime. See the [slice log](docs/SLICES.md). |
 | 6 · The Nile to Luxor | **Done**. The Ranger (bows, evasion, poison, marks and Frenzy) with her piece of the sky and two ascendancies to choose between, Marksman and Outrider; Act II up the Nile through six zones on five new regions to El Naddāha, the Ram of the Avenue and the Deep Tomb; and the Mārid Rifts in the endgame. Bots play Act II and a rift through to the Rift Lord. See the [slice log](docs/SLICES.md). |
-| 7–11 | Not started |
+| 7 · The Western Desert | **Done**. The Mercenary (swords, a crossbow on the back that skills swap into hand, bleeding, piercing bolts, naphtha grenades) with his piece of the sky and two ascendancies, Duelist and Demolitionist; Act III across the Western Desert through six zones on four new regions, to the Hyena of the Sand Sea, the Second Trial at Bab al-Futuh and the Sand-Wraith of Siwa, with resistances 30% lower after it; and the Excavations in the endgame, with Amm Ramadan to barter relics. Bots play Act III and an Excavation through. See the [slice log](docs/SLICES.md). |
+| 8–11 | Not started |
 
 ## Docs
 
@@ -81,6 +82,8 @@ cmake --build build/android                # -> qahira_libretro_android.so
 ./build/mac/qhost build/Qahira.qpk --headless --bot charts                       # level 14: charts to the Fourth Clime
 ./build/mac/qhost build/Qahira.qpk --headless --bot act2                         # Act II through, as Act I leaves you
 ./build/mac/qhost build/Qahira.qpk --headless --bot rifts                        # a rift, its seal, the Rift Lord
+./build/mac/qhost build/Qahira.qpk --headless --bot act3                         # Act III through, as Act II leaves you
+./build/mac/qhost build/Qahira.qpk --headless --bot digs                         # an Excavation, and Amm Ramadan
 QAHIRA_CLASS=ranger ./build/mac/qhost build/Qahira.qpk --headless --bot zone     # any bot as another class
 ./build/mac/qhost build/Qahira.qpk --hidden --bot tour --shot-every 30           # screenshots of every screen
 ./build/mac/qhost build/Qahira.qpk --hidden --bot tour3 --shot-every 30          # ... and Slice 3's
@@ -89,6 +92,7 @@ QAHIRA_CLASS=ranger ./build/mac/qhost build/Qahira.qpk --headless --bot zone    
 ./build/mac/qhost build/Qahira.qpk --hidden --bot bestiary --shot-every 50       # each Act I monster in turn
 ./build/mac/qhost build/Qahira.qpk --hidden --bot tour6 --shot-every 60          # the map, the Astrolabe, a Haboob
 QAHIRA_CLASS=ranger ./build/mac/qhost build/Qahira.qpk --hidden --bot tour7 --shot-every 50   # the Ranger in Act II, a rift
+QAHIRA_CLASS=mercenary ./build/mac/qhost build/Qahira.qpk --hidden --bot tour8 --shot-every 50   # Act III, an Excavation
 ./build/mac/qhost build/Qahira.qpk --hidden --frames 90 --shot build/shot.png    # render check
 python3 tools/check_shaders.py                                                   # all shaders as GLSL ES 3.00
 ```

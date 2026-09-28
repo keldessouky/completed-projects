@@ -222,6 +222,48 @@ as if sending a falcon; `cast_ground`, `swing` (a backhand with the bow), `slam`
   **the Ram of the Avenue** (a ram-headed sphinx with curled horns and a little king between its paws); and **one coil
   of the serpent**, 16 m of black scales with a sheen and pale belly plates.
 
+## The Mercenary (Slice 7)
+
+`characters/mercenary.py`, relative to the rig's joints (1.84 m): an olive field jacket with the sleeves pushed up over
+a dark shirt, a dark red scarf, cargo trousers and boots, a leather bandolier of clay grenade pots (the old
+sphero-conical pots of Fustat, filled with naphtha as the Mamluks used them), and a crossbow slung across the back.
+`build_sword` is straight and double-edged with a fuller, a brass crossguard and pommel and a wrapped grip;
+`build_crossbow` a wooden stock with a steel prod, string and brass rail; `build_grenade` the thrown pot, its wick
+burning. Both weapons are held in the right hand. Thirteen clips: a guard stance, `swing`, a two-cut `combo` (events
+`hit` and `hit2`), `slam`, an overarm `throw` with the left hand, `shoot` (the crossbow up to the shoulder, the kick),
+`cast`, `cast_ground`, `warcry`, `dodge`, `hit`, `death`.
+
+## Act III's regions (Slice 7)
+
+`env/regions3.py`, on the same cell kit:
+- **The White Desert:** chalk towers weathered into mushrooms and tents on shelves of chalk, pale sand strewn with
+  flint; the ashes of a travellers' fire; a stalled 4x4 with its lamps on at the way in; a ring of the tallest
+  formations round a hollow for the far court; the Chicken and the Mushroom as the landmark.
+- **Siwa:** crusts of salt on the lanes; palm groves behind low mud walls with spring pools; the kershef of old Shali,
+  salt-clay walls melted by the one rain, stacked houses with palm-log lintels and dark doorways; heaps of dates on
+  frond mats; the old town's crumbled gate; the Spring of the Sun (a round stone pool, its steps going down) for the
+  far court; the oracle's hill with the ruined temple's walls for the landmark.
+- **The Great Sand Sea:** dunes for blocks, long ridges with a sharp crest and a steep slip face; wind ripples across
+  the troughs; camel ribs half buried; an old expedition's painted oil drum; the last cairn with a hurricane lamp at
+  the way in; a bowl between star dunes with a lost caravan's camp for the far court; a sand-buried Land Rover.
+- **Bab al-Futuh:** the gate's two square towers with rounded fronts, carved bosses and arrow slits, torches of
+  jinn-blue fire; the gatekeeper's hall with suits of Mamluk armour on stands round a sunken floor, and blue fire in
+  iron bowls.
+
+## Act III's creatures (Slice 7)
+
+`characters/desert.py`:
+- **the Sand-Wraith of Siwa:** a hooded shroud with nothing inside but blown sand and two points of light, a crown of
+  salt crystals, its hem trailing into a dust stream; it floats, and its death collapses it into the sand it was.
+  (The Sand Shades are it, small.)
+- **the Iron Mamluk:** an empty suit of Mamluk armour: a pointed helmet with a nasal and a mail aventail, lamellar
+  over mail, a round shield and a flanged mace, blue light in the eye slits. (The Empty Armour of the gate is it,
+  small.)
+- **Amm Ramadan,** the antiquities dealer: the keeper's body in a dark galabeya and a worn tweed jacket, a red
+  tarboosh, round brass spectacles, and a small glazed figure he lifts to the light.
+- The hyenas (al-Dab') are the Qutrub tinted sand and ochre; the salt jinn are the Sand Jinn crusted white; the
+  ghouls of the sands are the ghoul tinted the colour of the dunes.
+
 ## Props
 
 `props/props.py`:
@@ -233,6 +275,11 @@ as if sending a falcon; `cast_ground`, `swing` (a backhand with the bow), `slam`
   - a spill of dinars,
   - a glass bead on a thread (currency, tinted per kind in the engine);
   - a clay tablet with a carved grid (a Wafq in turquoise, a Blank Talisman in brass).
+
+`props/dig.py` (Slice 7, the Excavations): the surveyor's stake with a red rag and the plunger box beside it; a
+blasting charge (a wired bundle in a scrape of sand, its fuse wire trailing); the buried chamber's doorway (sandstone
+jambs and a lintel carved with zigzags and rosettes, the dark beyond, steps going down, the blown sand heaped round);
+and a relic on the ground (a small glazed figure broken at the knees, tinted by the engine).
 
 ## Audio
 
@@ -276,6 +323,11 @@ Act II (Slice 6) adds `mus_nile` (rast, ney, the Sa'idi rhythm of Upper Egypt), 
 Sa'idi), `mus_karnak` (nahawand, a slow ney) and `mus_tomb` (saba, a slow oud), and three ambiences: `amb_river`
 (water lapping, frogs in the cane, crickets, a mooring rope creaking), `amb_temple` (a deep wind between columns, sand
 hissing, an owl, stone grinding somewhere) and `amb_tomb` (the rock's low drone, sand trickling, a long exhale).
+
+Act III (Slice 7) adds `mus_desert` (saba, a slow ney, wahda) and `mus_siwa` (rast, qanun, maqsum), the ambience
+`amb_desert` (wind over open sand in gusts, grains hissing off a crest, and three times a minute a dune singing: a low
+hum that swells and fades), and the Mercenary's sounds: `naffata` (clay shattering, a whoomp, a roar crackling away),
+`crossbow` (the latch, the prod's twang, the bolt's hiss), `weapon_swap` (a leather slide and a click) and `bleed`.
 
 ## Formats (little-endian)
 

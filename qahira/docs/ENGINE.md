@@ -240,7 +240,8 @@ doing every five seconds.
 ## Classes, skills and supports (`game/classes.*`, `game/skills.*`)
 
 - **Classes** are a table: base attributes, life, mana, Hirz, armour, the starting weapon, four starting Talismans, the
-  model. The class also sets the start in the sky. The Warrior, the Sorcerer and the Ranger are playable.
+  model. The class also sets the start in the sky. The Warrior, the Sorcerer, the Ranger and the Mercenary are
+  playable; a class may start with a second weapon on its back (`ClassDef::weapon2`).
 - **A Talisman** is a skill (a row in `skill_defs`) with a level, 2-5 Wafq slots and an attribute requirement
   (8 + 3.4 per level of its attribute). Spells scale their base damage by 12% a level, attacks their effectiveness by
   4%. The hero carries any number of Talismans; two bars of five point at them (hold L2 for the second).
@@ -255,7 +256,7 @@ doing every five seconds.
   modifiers), Freeze (a meter filled by cold damage over life; full, they stop for 1.6 s, bosses 0.8 s) and Shock (20%
   more damage taken for 4 s, scaled by Shock effect). Chill slows the monster's whole step, animation included.
 - **The Ranger's rules (Slice 6):**
-  - *Bow skills* carry `T_BOW` and need a bow in hand (`SkillCtx::needs_bow`); a bow is drawn in the left hand
+  - *Bow skills* carry `T_BOW` and need a bow in hand (`SkillCtx::needs_weapon`, `skill_weapon_need`); a bow is drawn in the left hand
     (`weapon_L`). Physical attack projectiles fly as arrows.
   - *Evasion:* `World::evade_chance` sets the Evasion Rating against the monsters' accuracy (18 + 8 per area level),
     PoE's shape, capped at 75%. `damage_hero` rolls it for hits; pools, novas and the storm pass `evadable = false`.
@@ -264,6 +265,19 @@ doing every five seconds.
   - *Frenzy Charges:* 4% more damage and speed each (3 + `S_FRENZY`), gained when a Marked enemy dies (and from the
     ascendancies), and lost ten seconds after the last.
   - *DPS* shown anywhere is one target's: one projectile of a fan.
+- **The Mercenary's rules (Slice 7):**
+  - *The weapon swap:* `EQ_WEAPON2` holds a weapon on the back; it gives no stats. `start_skill` swaps it into hand
+    (`World::swap_weapons`) when the skill needs its kind (`T_SWORD`, `T_CROSSBOW`, `T_BOW`). `hero_skill_ctx` rates a
+    skill with the weapon it would be used with; the HUD, the sheet, tooltips and the bots all use it.
+  - *Bleeding:* a hit with a bleed chance adds 70% of its physical damage over 5 s (scaled by `S_BLEED_DAMAGE`); a
+    stronger bleed replaces a weaker one. Riposte's second thrust (the clip's `hit2` event) deals what is left at once.
+  - *Crescent Cut:* the combo counter (`Hero::combo`); every third hit in a row (second with Crescent Moon) is wider,
+    60% more damage, and always Bleeds.
+  - *Piercing:* a hero projectile passes through `pierce` enemies (the skill's own plus `S_PIERCE`), remembering the
+    ones it hit (`Projectile::pierced`).
+  - *Grenades:* `Shape::Grenade` throws a pot in an arc (`GroundFx::Grenade`, `pos2` to `pos`) that bursts when it
+    lands (`World::grenade_burst`). Grenades are neither attacks nor spells: base damage by level, cast speed.
+  - Keystone and ascendancy rules are a 64-bit mask (`Hero::keystones`); the Mercenary's start at bit 25.
 - `World::hit_enemy` is the one place a hero hit lands: mitigation, keystones, crit text, leech, ailments, Break and
   knockback. Projectiles, glyph pulses and falling stars carry a `HeroHit` (the worked-out hit and chances) so a save
   state restores them exactly.
@@ -312,6 +326,11 @@ each (Bab Zuweila is Trial I). Notables carry mods and rules (`AscRule`, alongsi
   longer and hurt more, the long shot, Frenzy on crit or kill, a Mark or poisons passing on at a death, poisons that
   hit harder, a flask that refills itself.
 
+- **Duelist** and **Demolitionist** (Mercenary, Slice 7): Riposte ready again when a hit lands on you, more damage
+  to the Bleeding and to rares and uniques, life back from a bleeding kill, a crescent every second cut; a second
+  pot, grenade kills that burst, heavier piercing bolts, and faster grenades. Bab al-Futuh (Trial II) gives the next
+  two points.
+
 A node needs its parent; a refund costs a Rosewater Vial.
 
 ## The Journal and the codex
@@ -359,11 +378,28 @@ drawn with south at the top, so east is on the left), with the eclipse's path as
   monsters, flagged `Actor::rift`). Rift monsters drop Marid Splinters (`CUR_SPLINTER`); fifty fuse into a Rift Seal
   when picked up, and West at the chart table spends one on the Rift Lord's court (`rift_court`, act 0).
 
+## Act III and the Excavations
+
+- **Act III** is six `ZoneDef`s of act 3 (levels 26 to 35) on four regions (`tools/art/env/regions3.py`); the Deep
+  Tomb's far court leads on to the first. Siwa has no boss; its far court opens both the way on and the gate to Bab
+  al-Futuh, Trial II (the toll is your body armour). The Hyena of the Sand Sea's stare is a Call, like El Naddaha's.
+  The Sand-Wraith's damage is fire, so its pits are burning sand.
+- **The resistance penalty:** once `Q_ACT3` is held, `act_res_penalty` takes 30 from every resistance, in
+  `damage_hero` and on the character sheet.
+- **Excavations** (`World::dig`, `Areas::arm_dig`, `dig_step`, `dig_use`): after `Q_ACT3`, 35% of charts arm one. The
+  stake goes in the ordinary cell nearest the way in, the chamber in a cell 20-40 m on, and four charge spots down the
+  nav path between them (`Interactable::Charge`, `Detonator`). Fired with every charge set, they go off 0.35 s apart
+  (35% of an ordinary monster's life, 8% of a rare's, within 2.6 m), and the last opens the chamber: six guardians
+  (`Actor::dig`), then, when they are dead, `Interactable::Chamber`, which drops 3-6 Relics (`CUR_RELIC`), two items
+  and dinars. Relics never drop at random. **Amm Ramadan** (`Interactable::Dealer`, on the rooftop after Act III) is
+  the vendor's screen with `Menu::dealer` set: his stock (`restock_dealer`) costs relics (`relic_price`), and he buys
+  nothing.
+
 ## Saves
 
 There are two kinds:
 
-- **Save states (`retro_serialize`, version 9).** A versioned byte stream (`core/serial.hpp`, `game/save.cpp`) of
+- **Save states (`retro_serialize`, version 10).** A versioned byte stream (`core/serial.hpp`, `game/save.cpp`) of
   the whole simulation:
   - every actor, including life, Break, AI state, boss phase and home, animation clip, time and fired events;
   - projectiles, ground effects, and ground loot (items, currency, dinars);
@@ -375,12 +411,13 @@ There are two kinds:
   On load, the level geometry and NPCs are rebuilt from the saved area and layout. Particles and floating text are
   cosmetic and aren't saved. RetroArch's save states and auto-resume therefore work anywhere, including mid-boss.
   The bots check this by saving, changing the state, restoring, and comparing.
-- **The character file (`qahira_<slot>.character` in the frontend's save directory, version 6).** It holds level, XP,
+- **The character file (`qahira_<slot>.character` in the frontend's save directory, version 7).** It holds level, XP,
   kills, dinars, currency, the class and its stars, the plan, Talismans, the bars, Wafq, Blank Talismans, the filter
   preset, equipment and the inventory, with its own magic and version. Version 4 adds Act I: waypoints, quests, the
   trial's sealed item, recipes, the codex, read Omens, ascendancy nodes and Poster Scraps; its items carry corruption,
   their unique and each mod's bench/implicit flag (item format 2). Version 5 adds the map: sites revealed and
-  finished, and the Astrolabe. Version 6 adds the ascendancy chosen. Versions 1–5 still load (a unit test reads a hand-written version 3 file). It is written to
+  finished, and the Astrolabe. Version 6 adds the ascendancy chosen; version 7 the weapon on the back and 64-bit
+  waypoints. Versions 1–6 still load (a unit test reads a hand-written version 3 file). It is written to
   a temporary file and renamed, when you arrive in the hub, close the menu, level up, kill the boss, or quit. An
   unreadable file is kept as `.bad` and a fresh character starts. Bots never touch it.
 

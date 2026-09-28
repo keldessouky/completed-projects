@@ -494,3 +494,108 @@ what each slice actually delivered and how it was verified.
 - The Beastmaster (the Ranger's third, companion ascendancy) is not in the launch set (GDD §4).
 - Act II may be too gentle: every class's bot plays it through with no deaths (the bot starts with a rare in every
   slot). Its tuning waits for the on-device feel review.
+
+## Slice 7 · The Western Desert
+
+*One act, one class, two ascendancies, its piece of the sky, and one endgame piece.*
+
+**Delivered**
+- **The Mercenary**, a fourth class (Strength and Dexterity; `game/classes.*`, `tools/art/characters/mercenary.py`):
+  - a guard from a Garden City bank who kept working when the banks stopped: an olive field jacket with the sleeves
+    pushed up, a dark red scarf, cargo trousers and boots, a bandolier of the sphero-conical clay pots of Fustat (the
+    naphtha grenades the Mamluks used), and a crossbow slung across the back; thirteen clips on the shared rig,
+    including a two-cut `combo`, an overarm `throw` and a crossbow `shoot` from the shoulder;
+  - a straight double-edged sword with a brass guard, a crossbow, and a clay grenade for the thrown pot;
+  - **swords** (four bases, one-handed, 1x3 in the bag) and **crossbows** (three, two-handed, 2x3), and hybrid armour
+    with both armour and evasion (six bases); rolled bleed, sword-speed, crossbow and grenade mods;
+  - **the weapon swap**: a second weapon slot, on the back (`EQ_WEAPON2`). A skill that needs the other weapon swaps it
+    into hand (a leather slide and a click), and the weapon on the back gives nothing until it is in hand. A crossbow
+    found goes on the back, not in the sword's place. The skill bar shows those skills ready;
+  - **four Talismans:** *Crescent Cut* (a sword arc that builds a combo: every third cut in a row is a crescent, wider,
+    60% more damage, always Bleeding), *Riposte* (two thrusts at one enemy: 80% more against the Bleeding, and the
+    second bursts the bleed, all its damage at once), *Naffata* (a pot of naphtha thrown in an arc that bursts where
+    it lands and can Ignite) and *Quarrel* (a heavy crossbow bolt that pierces two enemies and can cause Bleeding);
+  - **Bleeding** (70% of a hit's physical damage over five seconds; the strongest bleed holds) and **piercing**
+    projectiles (they pass through enemies, never striking one twice).
+- **The Mercenary's sky** at 6 o'clock, between the Warrior's Great Dog and the Ranger's Hare: **Hydra** (al-Shuja',
+  with Alphard, *al-Fard, the Solitary One*), **Crater** (al-Batiya, the Jar: grenades) and **Carina** (with Canopus,
+  *Suhayl, the Star of the South*: armour, evasion and life), and the keystone **al-Han'a, the Brand** (your hits always
+  cause Bleeding; bleeding you cause deals 30% less). 192 stars; the first 171 keep their ids.
+- **Two ascendancies for the Mercenary**, chosen at the First Trial:
+  - **Duelist:** a hit taken readies Riposte, Bleeding enemies take more damage, more damage to rares and uniques,
+    sword crits, life back from a bleeding kill, and a crescent every second cut;
+  - **Demolitionist:** Naffata throws a second pot, grenades Ignite and reach further, heavier and piercing bolts,
+    enemies killed by a grenade burst, fire resistance, and grenades that come back faster.
+- **Act III, the Western Desert** (`game/acts.cpp`), levels 26 to 35, six zones on four new regions
+  (`tools/art/env/regions3.py`):
+  - **the White Desert** (chalk towers weathered into mushrooms and tents on pale sand, flint underfoot);
+  - **the Great Sand Sea** (dune ridges, wind-rippled troughs, bleached bones) and **Umm al-Dab', the Hyena of the Sand
+    Sea**: in the old stories a hyena's gaze bewitches the traveller, who follows it laughing into its den. Her stare
+    draws you to her (a Call), and the pack laughs with her;
+  - **Siwa** (the salt-and-mud kershef of old Shali in ruins, palm groves, spring pools, salt pans), with a gate in its
+    far court to **Bab al-Futuh, the Second Trial**: the gatekeeper takes your body armour, and **the Iron Mamluk**, an
+    empty suit of Mamluk armour the gate's jinn wear, must kneel. Two more ascendancy points;
+  - **Shali**, the old town melting in a rain that never came;
+  - **the Hill of the Oracle**, and **the Sand-Wraith of Siwa**: a hooded shroud of blown sand with two points of light
+    inside and a crown of salt, which throws burning sand and opens pits of it. When it scatters, Act III is over, and
+    **every resistance is 30% lower** from then on (GDD §9).
+  - New monsters: hyenas (al-Dab'), salt jinn, ghouls of the sands, sand shades that throw burning sand, and the empty
+    armour of the gate. Two pieces of music (the desert, slow on the ney; Siwa's gardens, brighter on the qanun) and
+    the desert's ambience (wind over open sand, grains hissing off a crest, and now and then a dune singing).
+  - Three quests (+1 passive star for each of the hyena and the wraith, two ascendancy points for the trial); the Deep
+    Tomb's far court now leads on to the White Desert.
+- **The Excavations**, the endgame piece: once Act III is over, a chart may hold one. A surveyor's stake stands near
+  the way in, and a line of four scrapes runs from it towards a buried chamber. Set a blasting charge in each, go back
+  to the stake and fire them: they go off down the line, one after another, hurting whatever stands by them, and the
+  last blows the sand off the chamber's doorway. Its guardians climb out of the dust (an Empty Armour and the site's
+  own); kill them and search the chamber for **Relics**. Relics never drop at random: **Amm Ramadan**, an old
+  antiquities dealer who came up to the rooftop from Siwa, barters for them (uniques, rares above your level, charts of
+  the Fourth Clime).
+- **The codex** gains bleeding and the weapon swap, the hyenas, salt jinn, ghouls of the sands, sand shades, the
+  gate's armour, the resistance penalty, and the Excavations.
+- **Saves:** the character file v7 (the weapon swap slot, and waypoints in 64 bits: the zones outgrew 32; v1–v6 still
+  load) and save states v10 (bleeding, piercing bolts, grenades in flight, the swap, the Excavation). The keystone and
+  ascendancy rules are 64 bits too, for the six ascendancies still to come.
+- **Fixes along the way:**
+  - the inventory's DPS was labelled "Crushing Blow" for every class; it names your main skill;
+  - DPS, the tooltip's comparison and the bots' upgrades now rate a skill with the weapon it would be used with: a
+    crossbow is weighed by Quarrel and compared with the crossbow, the sword by Crescent Cut with the sword;
+  - Amm Sayed "sold" Marid Splinters and Rift Seals for nothing; he has none of those;
+  - Scorpion Sting's card always said it pierces; now that projectiles can, it pierces one enemy;
+  - the build simulator gave every class but the Sorcerer a maul: each class now gets its own kind of weapon (the
+    Ranger's numbers below are with a bow);
+  - monsters' thrown bolts took their colour from nothing: cold ones are blue, fire ones orange;
+  - the waypoint list grew past the screen; it scrolls, twelve rows at a time;
+  - the class screen fits four classes.
+
+**Verified**
+
+| Check | Result |
+|---|---|
+| Unit tests (`qtests`) | pass, 51 cases (8 new: the Mercenary's swap to the crossbow on his back and back again, a found crossbow going on the back; bleeding and Riposte's burst; piercing bolts never hitting twice; Duelist, Demolitionist and al-Han'a; Act III's road, Trial II and the resistance penalty; character file v7 with the swap slot and waypoints past 32; relics never dropping at random; an Excavation's charges on a walkable line, fired only when all are set) |
+| `act3` bot (the exit): a character as Act II leaves one plays Act III through, the White Desert to the Hill of the Oracle, Trial II included | pass: the Warrior in 10.3 minutes (level 24 to 33, 0 deaths, 314 kills), the Mercenary in 12.1 (1 death), the Sorcerer in 8.7 (0), the Ranger in 8.3 (0) |
+| `digs` bot (the endgame piece): after Act III, a chart with an Excavation; every charge set and fired, the guardians killed, the chamber searched, the relics bartered with Amm Ramadan | pass: 3 relics dug up and bartered, 0.8 minutes, 0 deaths |
+| `act1` as the Mercenary (from level 1) | pass: 13.4 minutes, 2 deaths (the Warrior 12.8 and 1, the Sorcerer 9.0 and 0, the Ranger 18.0 and 1) |
+| `act2` as every class | pass: the Warrior in 12.2 minutes (0 deaths), the Sorcerer 8.6 (0), the Ranger 15.2 (1), the Mercenary 11.1 (0). The Ranger is slower than in Slice 6 (6.4): swords and crossbows now share the weapon drops, and her first better bow came at level 19 |
+| `charts` as the Warrior and the Mercenary | pass: the Fourth Clime after 12 runs and 8 runs, 0 deaths each |
+| `zone` (Warrior, Sorcerer, Ranger, Mercenary), `rifts`, `walk`, `fight`, `sky`, `title` | pass |
+| Tree validator | pass: 192 stars; the Mercenary reaches its keystones in 9/12/13/23 points; its Recommended Path takes 17 |
+| Build simulator | 0 flags; at level 30 the Mercenary's Recommended Path makes 333 DPS against a crowd of 317 +/- 82 (the Warrior 310, the Ranger 259 with a bow, the Sorcerer 201) |
+| `qchartsim` | 0 flags (median 10 runs to the Fourth Clime) |
+
+| | |
+|---|---|
+| ![Choosing the Mercenary's ascendancy: the Duelist or the Demolitionist](img/slice7-ascend.jpg) | ![The White Desert: chalk mushrooms in the moonlight, and a Quarrel bolt piercing down the lane](img/slice7-white.jpg) |
+| ![The Great Sand Sea: Umm al-Dab', the Hyena of the Sand Sea, and her stare drawn on the sand](img/slice7-hyena.jpg) | ![Siwa: a lamp in the palm grove and the kershef's walls](img/slice7-siwa.jpg) |
+| ![Bab al-Futuh, the Second Trial: the Iron Mamluk and the gate's empty armour](img/slice7-mamluk.jpg) | ![The Hill of the Oracle: the Sand-Wraith of Siwa at the Spring of the Sun](img/slice7-wraith.jpg) |
+| ![An Excavation: a charge goes off down the line](img/slice7-blast.jpg) | ![The buried chamber, blown open: its guardians dead, its relics on the steps](img/slice7-chamber.jpg) |
+| ![Amm Ramadan's Antiquities: what the sand gave back, for relics](img/slice7-dealer.jpg) | |
+
+**Known gaps (carried forward)**
+- The Vanguard (the Mercenary's third, banner-and-block ascendancy) is not in the launch set (GDD §4).
+- Crossbow ammunition kinds (PoE2's) are one kind here: Quarrel. Grenades have one kind: Naffata.
+- The weapon swap has no button of its own: skills swap. A manual swap is a small addition when a skill set wants it.
+- Excavations have no Astrolabe nodes yet, and Amm Ramadan's stock is small (two uniques, five rares, two charts).
+- Acts II and III may be too gentle for a character with a rare in every slot (the bots start so); tuning waits for
+  the on-device feel review.
+- Audio is stored as 16-bit WAV: the pack is now 127 MB. A compressed format is due.
