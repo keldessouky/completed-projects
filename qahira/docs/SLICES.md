@@ -698,3 +698,97 @@ what each slice actually delivered and how it was verified.
 - Zar Nights have no Astrolabe nodes yet, and the trance's pay-out is currency; a Zar-only reward (a charm, a
   Nazar) waits for Slice 9's Nazar slots.
 - Audio is stored as 16-bit WAV: the pack is 152 MB.
+
+## Slice 9 · The Atlas and the Strait
+
+*One act, one class, two ascendancies, its piece of the sky, and one endgame piece: charts to the Sixteenth, and the
+first pinnacle.*
+
+**Delivered**
+- **The Templar**, a sixth class (Strength and Intelligence; `game/classes.*`, `tools/art/characters/templar.py`):
+  - an officer of Cairo's old Khedivial fire brigade, who kept the city's signal fires lit when the rest of the brigade
+    was gone: a brass fireman's helmet with a comb crest, a long double-breasted coat of dark blue wool with brass
+    buttons and red collar tabs, a signal lantern at his belt. Nothing he wears or carries is a religious sign;
+  - **maces** and **sceptres** (1x3; a sceptre's implicit is increased elemental damage), armour-and-Hirz bases;
+  - **four Talismans:** *Ember Strike* (60% of the blow converted to fire; it can Ignite), *the Beacon* (an aura held
+    up or put away: a quarter of your mana reserved for 15% increased elemental damage and +12% to the elemental
+    resistances), *Signal Fire* (a brazier on a tripod that throws fire at the nearest enemy for 8 s; one at a time)
+    and *Brazier Slam* (half the slam converted to fire; the ground burns for 4 s, hurting enemies on it and mending
+    you on it);
+  - **Block:** a chance to turn a whole hit aside (capped at 75%).
+- **The Templar's sky** between the Warrior's and the Sorcerer's: **Hercules** and **Boötes**, with the keystone
+  **al-Iklil, the Crown** (every kind of hit damage is fire, and 15% less of it). 231 stars; the first 215 keep their ids.
+- **Two ascendancies for the Templar**, chosen at the First Trial:
+  - **Zealot:** enemies on your burning ground take 20% more damage, Signal Fire leaves burning ground where it
+    stands, Ignite, fire damage, fire attacks' speed and more;
+  - **Warden:** a Block recovers 2% of your life, the Beacon reserves no mana, more Block, aura effect, armour, life
+    regeneration and resistances.
+- **Act V, the Atlas and the Strait** (`game/acts.cpp`), levels 46 to 56, seven zones on four new regions
+  (`tools/art/env/regions5.py`; no mosque stands in any of them):
+  - **the Tanneries of Fes** and **Fes el-Bali**: ochre walls, hides drying on the roofs, the dye pits;
+  - **Chefchaouen, the Blue City**, and **Bu Ghettat, the Presser**, who sits on sleepers' chests;
+  - **Jemaa el-Fnaa at Night**, the grills still burning with nobody at them, and **Dukhan, the Smoke of the Stalls**;
+  - **Bab al-Nasr**, the Third Trial (the toll is your gloves), and **the Bronze Mamluk** who guards it;
+  - **the Kasbah of Tangier** and **the Sea Walls of the Strait**, where **Aisha Qandisha** stands in the surf. When
+    she goes down into the sea, Act V is over.
+  - New monsters: the dyers' ghouls, blue nasnas, smoke jinn, the marids of the Strait and the Bronze Armour. Three
+    pieces of music and two ambiences (the night market, the sea walls).
+- **The endgame piece: charts to the Sixteenth, and the Marid King.**
+  - Once Act V is over, charts climb past the Fourth Clime: the Fifth, Sixth and Seventh Climes, then the nine
+    **Reaches of the Encircling Sea**, a level a tier (area levels 54 to 65). Above the Fourth the climb is slower (a
+    chart a tier up 7% of the time, a tier down 14%).
+  - **Sixteen more sites** (32 in all) on two roads out of the Fourth Clime: south from Fas over the sand, through
+    Marrakush, Sijilmasa, Awdaghust and Ghana, and on round the southern edge of the world by Kawkaw, the Mountains of
+    the Moon, Sufala, Qumr, Maqdishu, Adan and al-Waq-Waq to **al-Bahr al-Muhit**, the Encircling Ocean, on the rim of
+    the map; and east from Balarm and Tunis over the sea, by Saraqusa, Iqritish and Dimashq, to Baghdad. Their zones
+    reuse every act's regions; their masters are the acts' bosses.
+  - The masters of the **Fourteenth Reach and up** drop **King's Pearls**. Four of them, spent at the chart table
+    (North), open **the Throne of the Marid King**: a drowned hall of columns under the Encircling Sea (level 68).
+    The Marid King has every marid's move, calls you to him across his hall, raises his court in the second half, and
+    always drops two uniques.
+  - The map screen shows all sixteen tiers' charts in two rows, the pearls held, and the Throne on North. Three
+    Astrolabe nodes (a tier up more often; two for the pearls). The codex gains the Reaches and the Marid King.
+- **Saves:** save states v13 (the Beacon, totems, burning ground) and v14 (a chart run's highest tier); the character
+  file v8 (waypoints for 128 zones: the zones passed 64 with the Reaches' sites). A character from before the map
+  grew has its finished sites' roads drawn again on loading.
+- **Simulation:** `qchartsim` runs the Reaches too, from Act V's end until four pearls open the throne.
+- **The bots:**
+  - they pilot the Templar (the Beacon up, Signal Fire by the tough or a crowd, Brazier Slam into a pack, Ember Strike
+    otherwise);
+  - `act5`, `reaches` and `king` are new; `tour10` takes the screenshots;
+  - fixes the new content exposed: the chart back-off from a site's master gives up after 15 s (a master that reaches
+    far never let life come back); in the throne, a pilot held by something out of reach goes to the King.
+
+**Verified**
+
+| Check | Result |
+|---|---|
+| Unit tests (`qtests`) | pass, 73 cases (new: the Templar's sceptre and Ember Strike's conversion; the Beacon held up and put away; Signal Fire and burning ground; Block; al-Iklil, the Zealot and the Warden and a save state that keeps the Beacon up; Act V's road; sixteen tiers of charts with their own bases, levels and sites; charts past the Fourth only after Act V; the King's Pearls from the last Reaches' masters, in the rules and in the world; the throne; waypoints for 128 zones through the character file) |
+| `act5` bot (the exit): a character as Act IV leaves one plays Act V through, Fes to the sea walls of the Strait, Trial III included | pass: the Warrior in 11.0 minutes (level 43 to 54, 2 deaths, 381 kills), the Templar in 9.2 (0 deaths), the Sorcerer 9.2 (0) |
+| `reaches` bot (the endgame piece): after Act V, charts from the Fifth Clime until a site of the Eighth Reach is finished | pass: Ghana after 10 runs, 22 sites, level 58 to 62, 4 deaths, 21 minutes |
+| `king` bot (the pinnacle): four King's Pearls at the table, the throne, the Marid King | pass as the Warrior (1.3 minutes, 0 deaths) and the Sorcerer (1.0, 0). Not yet as the Ranger, Mercenary, Shadow or Templar: see Known gaps |
+| The Templar through the earlier acts | `zone` pass; `act1` 9.0 minutes, `act2` 8.3, `act3` 8.8, `act4` 9.6; 0 deaths each |
+| Every earlier bot | pass: `walk`, `fight`, `zone` (all six classes), `sorcerer`, `sky`, `title`, `rifts` (5.5 minutes, 4 deaths in the Rift Lord's court; the same before the Reaches went in), `digs` (0.8), `zar` (1.1, 5 trances), `charts` (Tunis after 9 runs, 0 deaths), `act1` (11.5 min, 0 deaths), `act2` (10.8, 0), `act3` (10.8, 0), `act4` (13.3, 0) |
+| Tree validator | pass: 231 stars |
+| Build simulator | 0 flags; at level 30 the Templar's Recommended Path makes 344 DPS against a crowd of 282 |
+| `qchartsim` | 0 flags: the early map, median 9 runs to the Fourth Clime; after Act V, median 44 runs to open the throne (to the Eighth Reach 15, the Twelfth 30, the Sixteenth 42), 0% stalled |
+
+| | |
+|---|---|
+| ![Choosing the Templar's ascendancy: the Warden](img/slice9-warden.jpg) | ![The Tanneries of Fes: the Templar with the Beacon up](img/slice9-fes.jpg) |
+| ![Chefchaouen, the Blue City: Bu Ghettat, the Presser](img/slice9-chaouen.jpg) | ![Jemaa el-Fnaa at Night: Dukhan, the Smoke of the Stalls](img/slice9-dukhan.jpg) |
+| ![Bab al-Nasr, the Third Trial: the Bronze Mamluk](img/slice9-mamluk.jpg) | ![The Sea Walls of the Strait: the marids come out of the surf](img/slice9-strait.jpg) |
+| ![The Map of al-Idrisi after Act V: the roads south and east, the Reaches, sixteen tiers of charts, four pearls](img/slice9-reaches.jpg) | ![The Throne of the Marid King](img/slice9-king.jpg) |
+| ![The Marid King's pools, in the drowned hall](img/slice9-throne.jpg) | |
+
+**Known gaps (carried forward)**
+- **Hero power stops growing after Act V.** The best bases are level 27 to 40 (the Warrior's Sultan's Maul is 27) and
+  Talismans stop at level 20, while monster life keeps growing a level at a time. So the Reaches are a level a tier, and
+  the Marid King is sized like Aisha Qandisha. At level 70 the bots' Ranger, Mercenary, Shadow and Templar have 180-270
+  DPS and do not beat him (the Warrior and the Sorcerer do). Higher-level weapon and armour bases, and Talisman levels
+  past 20, are Slice 10's.
+- The site masks are 32 bits and the map now has 32 sites: another site needs 64-bit masks and a character file bump.
+- The Marid King is the marid's rig, grown and tinted; he has no model or voice of his own yet.
+- The Rift Lord's court costs the `rifts` bot 4 deaths and 5.5 minutes now (it was 1.5 minutes in Slice 8). The build
+  from before the Reaches went in does the same, so it came with Slice 9's earlier work. Not yet looked into.
+- Audio is stored as 16-bit WAV: the pack is 170 MB.

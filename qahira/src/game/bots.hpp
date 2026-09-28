@@ -96,6 +96,7 @@ private:
     void zar(World& w, Menu& m, Areas& a, Input& in, uint64_t frame);
     void tour8(World& w, Menu& m, Areas& a, Input& in, uint64_t frame);
     void tour9(World& w, Menu& m, Areas& a, Input& in, uint64_t frame);
+    void tour10(World& w, Menu& m, Areas& a, Input& in, uint64_t frame);
     int dig_stage_ = 0, dig_relics_ = 0;
     bool recovering_ = false;    // backed off from a site's master until life comes back (see combat)
     uint64_t recover_frame_ = 0;

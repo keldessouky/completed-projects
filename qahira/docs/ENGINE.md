@@ -455,8 +455,8 @@ drawn with south at the top, so east is on the left), with the eclipse's path as
 - **Charts to the Sixteenth** (`game/atlas.*`): `kChartTiers` is 16. Tiers 1-7 are the Seven Climes and 8-16 the
   Reaches of the Encircling Sea (`tier_name`); the area level is 14-17 for the first four, then 54 to 65, a
   level a tier (`chart_area_level`). Past the Fourth, a dropped chart is a tier up 7% of the time and a tier down 14%
-  (`kReachUp`, `kReachDown`; the Astrolabe's tier nodes count a third as much there), so each tier takes a few runs. Sixteen more sites (32 in all: the site masks are full) run on two roads out of the Fourth
-  Clime: south from Fas over the sand to Ghana and on round the edge of the world to al-Bahr al-Muhit, and east from
+  (`kReachUp`, `kReachDown`; the Astrolabe's tier nodes count a third as much there), so each tier takes a few runs.
+  Sixteen more sites (32 in all: the site masks are full) run on two roads out of the Fourth Clime: south from Fas over the sand to Ghana and on round the edge of the world to al-Bahr al-Muhit, and east from
   Balarm and Tunis over the sea to Baghdad (a dead end). Their zones reuse every act's regions, and their masters are
   the acts' bosses at the higher level.
 - **The gate on the higher tiers:** `ChartRun::max_tier` caps what a drop can roll (`roll_chart_tier`). It is the
@@ -469,7 +469,8 @@ drawn with south at the top, so east is on the left), with the eclipse's path as
   drops two uniques and a purse of currency.
 - **`qchartsim`** now runs twice: the early map from Act I's end (drops held to the Fourth Clime, flagged as before), and
   the Reaches from Act V's end (the four Climes done, four charts of the Fourth), until four pearls open the throne. It
-  flags a stall rate over 5%, a median over 220 runs or under 40, or any tier that under 90% of players reach.
+  flags a stall rate over 5%, a median over 220 runs or under 40, or any tier to the Fourteenth that under 90% of
+  players reach (past it, the pearls can open the throne first).
 
 ## Saves
 

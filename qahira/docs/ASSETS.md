@@ -296,6 +296,39 @@ traps. `build_dagger` is curved with a brass hilt, `build_qstaff` ash with iron 
 - Sarab the Mirage is the ifrit, tinted cold; the Ghula of the Salt is Umm al-Ghula tinted with salt; the
   salt ghouls, mirage jinn and the souq's Si'lah are the ghoul, the sand jinn and the Si'lah, tinted.
 
+## The Templar (Slice 9)
+
+`characters/templar.py`, relative to the rig's joints: an officer of Cairo's old Khedivial fire brigade, who kept the
+city's signal fires lit when the rest of the brigade was gone. A brass fireman's helmet with a comb crest and a leather
+neck curtain, a long double-breasted coat of dark blue wool with two rows of brass buttons and red collar tabs, a broad
+belt with a signal lantern hanging from it, leather gauntlets, and a heavy moustache. His sceptre is a brass signal
+lantern on an iron staff, his mace a flanged iron one, and his totem a signal brazier on an iron tripod. Nothing he
+wears or carries is a religious sign.
+
+## Act V's regions (Slice 9)
+
+`env/regions5.py`, on the same cell kit. No mosque stands in any of them (brief.md §5):
+- **Fes el-Bali and its tanneries:** ochre and umber walls, hides drying on the roofs and on poles, and the honeycomb
+  of the dye pits (lime, saffron, poppy red, indigo, henna) for the landmark.
+- **Chefchaouen:** lanes and stairs washed in every blue, whitewashed trims, flower pots, a spring under an arch.
+- **Jemaa el-Fnaa at night:** the open square of beaten earth, the food stalls under canvas with smoke and lanterns,
+  orange-juice carts in a row, strings of lamps between poles.
+- **Tangier on the Strait:** the kasbah's white walls and blue doors, the ramparts over the sea with their old cannons.
+
+The sixteen sites of the higher Climes and the Reaches (Slice 9's endgame piece) reuse every act's regions; the Marid
+King's throne is the hall of columns of Karnak, tinted green under the sea. No new mesh was needed for him: he is the
+marid, 2.4 times its size, tinted a deep sea blue.
+
+## Act V's creatures (Slice 9)
+
+`characters/atlas.py`:
+- **Aisha Qandisha** of the Moroccan stories: a tall woman of the springs, in a deep green dress to mid-calf with gold
+  at the wrists and ears, black hair to the waist and eyes of amber light; under the hem, a goat's legs and hooves.
+  She stands ankle-deep in spring water, and when she dies she goes down into it, standing.
+- Bu Ghettat, the Presser, is the sand-wraith's shroud in indigo; Dukhan is the ifrit gone grey with smoke; the Bronze
+  Mamluk of Bab al-Nasr is the Iron Mamluk in bronze; the dyers' ghouls, blue nasnas, smoke jinn and the marids of the
+  Strait are the ghoul, the nasnas, the ifrit and the marid, tinted.
+
 ## Props
 
 `props/props.py`:
@@ -366,6 +399,13 @@ Act IV (Slice 8) adds `mus_maghreb` (bayati, a slow ney, wahda), `mus_medina` (h
 as it cools, far-off water), and the Shadow's and the Zar's sounds: `trap_set` (a ratchet and a click), `trap_snap`
 (the jaws, a crackle of sparks), `black_sand`, `staff_spin`, `power_charge`, `zar_start` (the drummers taking up the
 rhythm, quickening) and `zar_trance` (every drum at once, the ney's cry rising).
+
+Act V (Slice 9) adds `mus_atlas` (the lanes of Fes and Chefchaouen on the ney in kurd, unhurried), `mus_jemaa` (the
+night market, driving, on the qanun and the drums) and `mus_strait` (slow and wide, for the sea walls and the Marid
+King's hall), the ambiences `amb_market` (Jemaa el-Fnaa after the crowd has gone: grills crackling, smoke hissing off
+the coals, a far drum) and `amb_sea` (surf breaking on the rocks below the walls, drawing back over shingle, the wind),
+and the Templar's sounds: `block` (iron on iron, short and bright, with a scrape), `aura_on` (the beacon lifted) and
+`totem_plant` (a brazier's pole driven into the ground).
 
 ## Formats (little-endian)
 

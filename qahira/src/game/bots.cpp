@@ -35,6 +35,7 @@ void Bot::drive(World& w, Menu& m, Areas& a, Input& in, uint64_t frame) {
     else if (scenario == "zar") zar(w, m, a, in, frame);
     else if (scenario == "tour8") tour8(w, m, a, in, frame);
     else if (scenario == "tour9") tour9(w, m, a, in, frame);
+    else if (scenario == "tour10") tour10(w, m, a, in, frame);
     else fail("unknown bot " + scenario);
 }
 
@@ -2004,6 +2005,109 @@ void Bot::tour9(World& w, Menu& m, Areas& a, Input& in, uint64_t frame) {
         return;
     }
     pass("tour9 done");
+}
+
+// ---------------------------------------------------------------- tour10: the Templar, Act V, the Reaches, the Marid King (screenshots)
+void Bot::tour10(World& w, Menu& m, Areas& a, Input& in, uint64_t frame) {
+    static const char* zones[] = {"fes", "chaouen", "jemaa", "bab_nasr", "tangier", "strait"};
+    const uint64_t z0 = 240, each = 300;
+    // QAHIRA_TOUR_KING=1: straight to the map of the Reaches and the throne (after the first frame's setup)
+    if (frame > 1 && getenv("QAHIRA_TOUR_KING")) frame += z0 + 6 * each - 2;
+    Hero& H = w.hero;
+    Actor& h = w.actors[0];
+    auto at = [&](uint64_t f) { return frame == f; };
+    h.life = h.life_max;   // a tour, not a test
+    if (at(1)) {
+        Rng r(41);
+        H.level = 52;
+        H.quests = Q_MICROBUS | Q_SILAH | Q_NASNAS | Q_TRIAL1 | Q_GHULA | Q_QUTRUB | Q_BENCH | Q_ACT1 | Q_NADDAHA | Q_RAM | Q_MARID | Q_ACT2 |
+                   Q_DABA | Q_TRIAL2 | Q_WRAITH | Q_ACT3 | Q_SARAB | Q_DOOR | Q_SALT | Q_ACT4;
+        H.weapon() = make_item(find_base("beacon_sceptre"), Rarity::Rare, 50, r);
+        const char* armour[] = {"crested_helmet", "officers_greatcoat", "brigade_gauntlets", "brigade_boots"};
+        const int eq[] = {EQ_HELMET, EQ_BODY, EQ_GLOVES, EQ_BOOTS};
+        for (int k = 0; k < 4; k++) H.equip[eq[k]] = make_item(find_base(armour[k]), Rarity::Rare, 50, r);
+        for (auto& t : H.talismans) t.level = 20;
+        if (const auto* rec = tree().recommended_for(H.passives.cls)) for (int t : *rec) plan_to(H, t);
+        for (int k = 0; k < 80 && H.passive_points() > 0; k++) if (place_next_planned(w) < 0) break;
+        H.ascendancy = -1;
+        H.asc = 0;
+        w.recompute_hero();
+    }
+    // the choice of ascendancy: look at both, take the Warden
+    if (at(10)) { m.show(w, false); m.tab = MenuTab::Ascendancy; }
+    if (at(80)) press(in, BTN_RIGHT);
+    if (at(130)) press(in, BTN_SOUTH);
+    if (at(150)) { H.asc = (1u << 1) | (1u << 2) | (1u << 3) | (1u << 4); w.recompute_hero(); }
+    if (at(230)) m.hide();
+    if (frame < z0) return;
+    const uint64_t zones_end = z0 + 6 * each;
+    if (frame < zones_end) {
+        int k = int((frame - z0) / each), t = int((frame - z0) % each);
+        if (t == 0) {
+            a.enter_zone(w, find_zone(zones[k]), Arrival::Entrance);
+            w.level.bind_gpu();
+            fprintf(stderr, "tour10: %s at frame %llu\n", a.name(), (unsigned long long)frame);
+        }
+        const ZoneLayout& L = a.zone.layout;
+        if (t == 110 && *zone_def(find_zone(zones[k])).boss) {   // boss zones: skip ahead to the far court
+            h.pos = w.level.resolve(L.center(L.cells[size_t(L.arena)]) + vec2{0, -5.f}, h.radius);
+            for (size_t i = 1; i < w.actors.size(); i++)
+                if (w.actors[i].rarity != Rarity::Unique && length(w.actors[i].pos - h.pos) < 10.f) w.actors[i].life = 0, w.actors[i].act = Act::Dead, w.actors[i].dead_t = 3;
+        }
+        if (t == 20 && !H.aura) { h.skill = 1; w.resolve_skill(h); }   // the Beacon held up
+        combat(w, in, frame, t > 110 ? 30.f : 9.f);
+        return;
+    }
+    // the Map of al-Idrisi after Act V: the Reaches, part charted, a few pearls
+    const uint64_t map0 = zones_end, map_len = 360;
+    MapScreen& M = *map_ui;
+    if (frame < map0 + map_len) {
+        int t = int(frame - map0);
+        if (t == 0) {
+            H.quests |= Q_PRESSER | Q_TRIAL3 | Q_SMOKE | Q_QANDISHA | Q_ACT5;
+            for (size_t i = 0; i < sites().size(); i++) if (sites()[i].tier <= 9 && sites()[i].id != std::string("baghdad")) H.sites_done |= 1u << i;
+            for (size_t i = 0; i < sites().size(); i++) if (H.sites_done >> i & 1) H.sites_revealed |= reveal_after(int(i));
+            H.astro = (1u << 0) | (1u << 1) | (1u << 2) | (1u << 3) | (1u << 20) | (1u << 21) | (1u << 5);
+            Rng r(12);
+            for (int tier : {9, 9, 10, 10, 10, 11, 8, 12, 14}) H.inv.add(make_chart(tier, r, 0.4f, 0.2f));
+            H.currency[CUR_PEARL] = kPearlsPerThrone;
+            a.close_zone(w);
+            a.enter_hub(w, Arrival::Entrance);
+            w.level.bind_gpu();
+            M.show(w);
+            M.cursor = find_site("jabal_qamar");
+            fprintf(stderr, "tour10: the map at frame %llu\n", (unsigned long long)frame);
+        }
+        if (t == 150) M.cursor = find_site("adan");
+        if (t == 250) M.cursor = find_site("muhit");
+        return;
+    }
+    // the throne: four pearls at the table, and the Marid King
+    const uint64_t king0 = map0 + map_len, king_len = 1200;
+    if (frame < king0 + king_len) {
+        int t = int(frame - king0);
+        if (t == 0) {
+            M.hide();
+            H.currency[CUR_PEARL] -= kPearlsPerThrone;
+            H.level = 70;
+            w.recompute_hero();
+            a.enter_throne(w);
+            w.level.bind_gpu();
+            fprintf(stderr, "tour10: the throne at frame %llu\n", (unsigned long long)frame);
+        }
+        const ZoneLayout& L = a.zone.layout;
+        if (t == 60) {   // a tour: straight to his court
+            h.pos = w.level.resolve(L.center(L.cells[size_t(L.arena)]) + vec2{0, -6.f}, h.radius);
+            for (size_t i = 1; i < w.actors.size(); i++)
+                if (w.actors[i].rarity != Rarity::Unique) w.actors[i].life = 0, w.actors[i].act = Act::Dead, w.actors[i].dead_t = 3;
+        }
+        if (t == 20 && !H.aura) { h.skill = 1; w.resolve_skill(h); }
+        if (t == 900)   // and he falls, for the last pictures
+            for (size_t i = 1; i < w.actors.size(); i++) if (w.actors[i].rarity == Rarity::Unique && w.actors[i].alive()) w.actors[i].life = 1;
+        combat(w, in, frame, 30.f);
+        return;
+    }
+    pass("tour10 done");
 }
 
 // ---------------------------------------------------------------- tour8: the Mercenary, Act III, an Excavation (screenshots)
