@@ -783,6 +783,31 @@ def sfx_slice8():
     write('zar_trance', norm(x + cry, 0.7))
 
 
+def sfx_slice9():
+    """The Templar: a hit turned aside on the mace, the beacon lifted, a brazier's pole driven into the ground."""
+    s = SR
+    # block: a clang of iron on iron, short and bright, with a scrape
+    t = t_axis(0.5)
+    ring_ = sum(np.sin(2 * np.pi * f0 * t) * np.exp(-t * d) for f0, d in ((820, 9), (1340, 12), (2210, 16), (3100, 22))) * 0.3
+    hit_ = fft_filter(noise(len(t)), 1500, 9000) * np.exp(-t * 60)
+    write('block', norm(ring_ + hit_, 0.6))
+    # aura_on: a warm swell, a low hum rising into a chord and a brass shimmer
+    t = t_axis(1.2)
+    e = env_adsr(len(t), 0.35, 0.3, 0.6, 0.4)
+    ch = sum(np.sin(2 * np.pi * f0 * t) for f0 in (146.83, 220.0, 293.66)) * 0.25
+    sh = fft_filter(noise(len(t)), 3000, 9000) * 0.12 * (0.5 + 0.5 * np.sin(2 * np.pi * 7 * t))
+    write('aura_on', norm((ch + sh) * e, 0.5))
+    # totem_plant: an iron pole thumped into the ground, the coals catching with a whoomp
+    t = t_axis(0.9)
+    th = dum(s, 1.0)
+    x = np.zeros(len(t))
+    place(x, th, 0)
+    whoomp = fft_filter(noise(len(t)), 80, 900) * env_adsr(len(t), 0.12, 0.2, 0.3, 0.4) * 0.6
+    crack = fft_filter(noise(len(t)), 2000, 8000) * (np.random.default_rng(91).random(len(t)) > 0.985) * 0.8 * np.exp(-t * 3)
+    place(x, whoomp + crack, 0.05 * s)
+    write('totem_plant', norm(x, 0.6))
+
+
 def music_act4():
     """Act IV, the Maghreb coast: the salt flats slow and wide on the ney, the medina busier on the qanun; and the Zar:
     drums first, the ayyub rhythm driving, a melody that circles."""
@@ -848,6 +873,7 @@ if __name__ == '__main__':
         sfx_slice4()
         sfx_slice7()
         sfx_slice8()
+        sfx_slice9()
     if 'ambience' in only:
         ambience('amb_street')
         ambience_necro('amb_necro')
@@ -868,6 +894,8 @@ if __name__ == '__main__':
         sfx_slice7()
     if 'act4' in only or 'zar' in only:
         sfx_slice8()
+    if 'act5' in only or 'templar' in only:
+        sfx_slice9()
     if 'act4' in only or 'ambience' in only:
         ambience_salt('amb_salt')
     if 'act4' in only or 'music' in only:

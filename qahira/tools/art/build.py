@@ -13,7 +13,7 @@ import qart.geom as geom
 geom.scene = bpy.context.scene
 
 from qart import rig, preview
-from characters import warrior, ghoul, npc, ghoula, sorcerer, jinn, ranger, nile, mercenary, desert, shadow, maghreb
+from characters import warrior, ghoul, npc, ghoula, sorcerer, jinn, ranger, nile, mercenary, desert, shadow, maghreb, templar
 from env import street, souq, necro, rooftop, kit, regions, regions2, regions3, regions4
 from props import props, dig
 
@@ -89,6 +89,16 @@ if want('shadow'):
     shadow.build_trap().export(os.path.join(OUT, 'meshes', 'trap.qmesh'), skinned=False)
     if PREVIEW:
         preview.sheet(os.path.join(PREV, 'shadow_anims.png'), J, body, shadow.CLIPS, weapon=dagger)
+if want('templar'):
+    J = templar.skeleton()
+    rig.write_skeleton(os.path.join(OUT, 'skel', 'templar.qskel'), J)
+    rig.bake(J, templar.CLIPS, os.path.join(OUT, 'anim', 'templar.qanim'))
+    body = templar.build(J).export(os.path.join(OUT, 'meshes', 'templar.qmesh'))
+    sceptre = templar.build_sceptre().export(os.path.join(OUT, 'meshes', 'sceptre.qmesh'), skinned=False)
+    templar.build_mace().export(os.path.join(OUT, 'meshes', 'mace.qmesh'), skinned=False)
+    templar.build_totem().export(os.path.join(OUT, 'meshes', 'totem.qmesh'), skinned=False)
+    if PREVIEW:
+        preview.sheet(os.path.join(PREV, 'templar_anims.png'), J, body, templar.CLIPS, weapon=sceptre)
 if want('ghoul'):
     J = ghoul.skeleton()
     rig.write_skeleton(os.path.join(OUT, 'skel', 'ghoul.qskel'), J)
