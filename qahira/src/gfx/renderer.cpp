@@ -1,6 +1,7 @@
 #include "gfx/renderer.hpp"
 #include "gfx/shaders.hpp"
 #include "core/log.hpp"
+#include "core/pack.hpp"
 #include <algorithm>
 #include <cstring>
 
@@ -71,6 +72,14 @@ bool Renderer::init(int out_w, int out_h, float scale) {
     bones_.create(kBoneTexW, 64, GL_RGBA32F, GL_RGBA, GL_FLOAT, nullptr, false);
     tiles_.create(kTileSlots, tiles_x_ * tiles_y_, GL_R8UI, GL_RED_INTEGER, GL_UNSIGNED_BYTE, nullptr, false);
     palette_.resize(size_t(kBoneTexW) * 64 * 4);
+    // the spell effects' pixel-art sheet ("QTX1", u16 w, u16 h, RGBA8), sampled texel for texel
+    static const uint8_t kClear[4] = {0, 0, 0, 0};
+    Blob fx = pack().get("textures/fx.qtex");
+    if (fx && fx.size > 8 && std::memcmp(fx.data, "QTX1", 4) == 0) {
+        int w = fx.data[4] | fx.data[5] << 8, h = fx.data[6] | fx.data[7] << 8;
+        if (fx.size >= size_t(8 + w * h * 4)) fx_.create(w, h, GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE, fx.data + 8, false);
+    }
+    if (!fx_.id) { QLOG("no effects sheet in the pack: spells fall back to plain sprites"); fx_.create(1, 1, GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE, kClear, false); }
     resize_scene(scale);
     return true;
 }
@@ -98,6 +107,7 @@ void Renderer::shutdown() {
     scene_.destroy();
     for (auto& b : bloom_) b.destroy();
     bones_.destroy();
+    fx_.destroy();
     tiles_.destroy();
     GLuint bufs[] = {inst_vbo_, ubo_, sprite_vbo_};
     glDeleteBuffers(3, bufs);
@@ -168,6 +178,12 @@ void Renderer::billboard(vec3 c, float size, vec4 color, vec4 params, Blend blen
     vec3 right{cam_.view(0, 0), cam_.view(0, 1), cam_.view(0, 2)};
     vec3 up{cam_.view(1, 0), cam_.view(1, 1), cam_.view(1, 2)};
     quad(c, right * size, up * size, color, params, blend);
+}
+
+void Renderer::fx(vec3 c, float size, int sheet_row, float frame, vec4 tint) {
+    vec3 right{cam_.view(0, 0), cam_.view(0, 1), cam_.view(0, 2)};
+    vec3 up{cam_.view(1, 0), cam_.view(1, 1), cam_.view(1, 2)};
+    quad(c, right * size, up * size, tint, {8, float(sheet_row), frame, 1.f}, Blend::Alpha);
 }
 
 void Renderer::beam(vec3 base, float height, float width, vec4 color) {
@@ -254,6 +270,10 @@ void Renderer::draw_sprites(std::vector<SpriteVertex>& v, Blend b) {
     glBindBuffer(GL_ARRAY_BUFFER, sprite_vbo_);
     glBufferData(GL_ARRAY_BUFFER, GLsizeiptr(v.size() * sizeof(SpriteVertex)), v.data(), GL_STREAM_DRAW);
     sprite_sh_.use();
+    sprite_sh_.set("uFx", 3);
+    glActiveTexture(GL_TEXTURE3);
+    glBindTexture(GL_TEXTURE_2D, fx_.id);
+    glActiveTexture(GL_TEXTURE0);
     glEnable(GL_BLEND);
     if (b == Blend::Alpha) glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ZERO, GL_ONE);
     else glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE, GL_ZERO, GL_ONE);

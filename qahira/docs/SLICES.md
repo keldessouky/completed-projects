@@ -987,6 +987,26 @@ notes after playing it, taken one at a time.*
   - the affix *of the Spring* (Regenerate 12–52 Life per second) rolls on items of level 36 and up;
   - three bases carry it as their implicit: the *Caravanserai Belt* (level 40, 18 a second), the *Spring-Water
     Amulet* (50, 28) and the *Oasis Ring* (58, 22).
+- **Spells as pixel art** ("they look like 3D glowing round dots"). The spell effects are now flipbooks drawn in the
+  manner of the handheld RPGs' move animations: 32 × 32 frames, four flat shades and a dark outline, ordered
+  dithering, and no soft glow. All of it is original art drawn by `tools/fx/fx_atlas.py` from simple shapes and noise;
+  nothing is taken from any game. It has 18 effects of 8 frames each, packed as `textures/fx.qtex`:
+  - **what flies:** a fireball, an ice shard, a ball of sparks, a blob of poison, a shadow orb and a stone. Each
+    projectile is drawn as the one for its damage type, with a trail of small flipbooks;
+  - **what bursts:** embers, frost, a zap, a poison bubble, smoke, a four-pointed hit star, an explosion, blood, a
+    splash, ice shards, the void and a gold twinkle.
+
+  How they are used:
+  - every hit flashes the star, bigger on a critical;
+  - a bolt bursts into its element's impact;
+  - the Meteor, grenades and Chain Reaction explode;
+  - the Arc is a chain of zaps and the Frost Glyph turns with snowflakes;
+  - every particle burst in the game picks its flipbook by its colour (fire, cold, poison, chaos, gold, dust, blood).
+    Bursts spawn a third as many sprites, larger, and still draw the same random numbers, so nothing in play
+    changes: every bot's result is identical.
+
+  The sprite shader samples the sheet texel for texel. Sprites fade out by dropping pixels in a 4×4 ordered pattern,
+  not by turning translucent. The meteor's ground marker is no longer a glowing disc.
 - Character files are v10 (the flask's tier) and save states v17.
 - CI had been red since the glow change. The new art changed the drops and some layouts, which showed up two faults in
   the bot pilot, not in the game:
@@ -999,12 +1019,13 @@ notes after playing it, taken one at a time.*
 
 | Check | Result |
 |---|---|
-| Unit tests (`qtests`) | pass, 88 cases (new: the flask's tiers, charges, heal and prices climb, the tier in the character file, the Spring affix and the Spring-Water Amulet's regeneration) |
+| Unit tests (`qtests`) | pass, 90 cases (new: the effects sheet's rows match the game's list, a burst's colour picks its flipbook and it draws the same random numbers as before, the flask's tiers, charges, heal and prices climb, the tier in the character file, the Spring affix and the Spring-Water Amulet's regeneration) |
 | Every bot | pass: `walk`, `fight`, `zone` (all seven classes), `sorcerer`, `sky`, `title`, `rifts`, `digs`, `zar`, `king` |
 
 | | |
 |---|---|
 | ![Amm Sayed's wares with the flask upgrade](img/f3-flask.jpg) | ![The objective arrow and its label](img/f2-objective.jpg) |
+| ![The Sorcerer's fire, frost and smoke as pixel art](img/f4-fx-game.jpg) | ![The effects sheet: 18 effects of 8 frames](img/f4-fx-sheet.png) |
 
 **Known gaps (carried forward)**
 - The nightly `act1` as the Wanderer runs out of its 50 minutes: the pilot's Wanderer is too weak for Umm al-Ghula and
@@ -1012,5 +1033,7 @@ notes after playing it, taken one at a time.*
   changes. Every other long run passes locally: `act1` to `act6` as the Warrior, `act1` and `act3` as the Mercenary,
   `act2` as the Ranger, `act3` and `act4` as the Shadow, `act5` and `act6` as the Templar, `falak`, `subyan`, `charts`
   and `reaches`.
-- Next from the owner's notes: GBA-style pixel spell effects (original art, not taken from any game) in place of the
-  glowing discs, and Radio Kafr El-Sheikh, the owner's own show, as the game's radio in place of the music.
+- Next from the owner's notes: Radio Kafr El-Sheikh, the owner's own show, as the game's radio in place of the music.
+  It waits on the episodes themselves.
+- The telegraphs (the magenta warnings of a monster's strike), the portal and the loot beams keep their smooth,
+  glowing look: they are warnings and markers, not spells.

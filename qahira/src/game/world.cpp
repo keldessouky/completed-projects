@@ -609,8 +609,9 @@ void World::step(const Input& in, float dt) {
     for (auto& p : projectiles) {
         p.pos += p.vel * dt;
         p.life -= dt;
-        if (fx_rng.chance(0.6f)) {
-            Particle q{vec3(p.pos, p.z), {0, 0, 0}, 0.3f, 0.3f, 0.25f, 0.05f, 0, 1, vec4(p.color, 0.8f), vec4(p.color * 0.5f, 0), 0, true};
+        if (fx_rng.chance(0.6f) && !p.arrow && int(p.life * 60.f) % 3 == 0) {   // a trail of small flipbooks
+            Particle q{vec3(p.pos, p.z), {0, 0, 0}, 0.35f, 0.35f, 0.26f, 0.26f, 0, 1, vec4(p.color, 0.8f), vec4(p.color * 0.5f, 0), 0, false};
+            q.fx = int8_t(fx_for(vec4(p.color, 1), true, 0));
             particles.push_back(q);
         }
         if (p.team == TEAM_ENEMY && h.alive() && length(p.pos - h.pos) < p.radius + h.radius) {
@@ -635,6 +636,8 @@ void World::step(const Input& in, float dt) {
         if (level.blocked(p.pos, 0.05f)) p.life = 0;
         if (p.life <= 0) {
             burst(vec3(p.pos, 0.3f), 12, vec4(p.color, 1), vec4(p.color * 0.3f, 0), 3.f, 0.18f, 0.5f, true);
+            if (!p.arrow) sprite_fx(vec3(p.pos, p.z), fx_impact(p.dmg_type, p.color), 0.75f, 0.45f);
+            else sprite_fx(vec3(p.pos, p.z), FX_STAR, 0.4f, 0.3f);
             if (p.team == TEAM_ENEMY) emit(Ev::Splash, p.pos);
         }
     }
@@ -1510,6 +1513,7 @@ float World::hit_enemy(Actor& e, const HeroHit& hh, vec2 from, float knock, floa
         emit(Ev::Crit, e.pos);
     }
     vec3 hp = vec3(e.pos, 1.0f * e.scale);
+    sprite_fx(hp + vec3{0, 0, 0.1f}, FX_STAR, res.crit ? 0.7f : 0.45f, 0.28f);
     burst(hp, 7, vec4(1.f, 0.7f, 0.4f, 0.8f), vec4(0.9f, 0.3f, 0.1f, 0), 5.f, 0.08f, 0.3f, true, -9.f);
     burst(hp, 3, vec4(0.2f, 0.17f, 0.18f, 0.55f), vec4(0.15f, 0.13f, 0.14f, 0), 2.f, 0.22f, 0.5f, false, -4.f, 1);
     if (e.life <= 0) {
@@ -1523,6 +1527,7 @@ float World::hit_enemy(Actor& e, const HeroHit& hh, vec2 from, float knock, floa
                 if (o.life <= 0) kill(o);
             }
             burst(vec3(e.pos, 0.6f), 24, vec4(1.f, 0.65f, 0.25f, 1), vec4(0.9f, 0.2f, 0.05f, 0), 6.f, 0.14f, 0.5f, true, -6.f);
+            sprite_fx(vec3(e.pos, 1.0f), FX_BLAST, 1.3f, 0.6f);
             emit(Ev::StarFall, e.pos, 0.5f);
         }
         if (res.crit && (H.keystones & KS_POWER_KILL)) gain_power(1);   // Night's Harvest
@@ -1629,6 +1634,7 @@ void World::star_fall(GroundFx& g) {
         emit(Ev::Glyph, gl.pos, 2.f);
     }
     burst(vec3(g.pos, 0.2f), 36, vec4(1.f, 0.8f, 0.4f, 1), vec4(1.f, 0.3f, 0.1f, 0), 8.f, 0.14f, 0.7f, true, -10.f);
+    sprite_fx(vec3(g.pos, 0.9f), FX_BLAST, std::max(1.2f, g.radius * 0.7f), 0.6f);
     burst(vec3(g.pos, 0.1f), 18, vec4(0.4f, 0.36f, 0.34f, 0.8f), vec4(0.3f, 0.27f, 0.25f, 0), 4.f, 0.4f, 1.0f, false, -5.f, 1);
     emit(Ev::StarFall, g.pos);
     hitstop = std::max(hitstop, 0.05f);
@@ -1641,6 +1647,7 @@ void World::grenade_burst(GroundFx& g) {
         if (e.alive() && length(e.pos - g.pos) <= g.radius + e.radius) hit_enemy(e, g.hh, g.pos, 3.f);
     }
     burst(vec3(g.pos, 0.3f), 30, vec4(1.f, 0.72f, 0.3f, 1), vec4(0.9f, 0.25f, 0.05f, 0), 7.f, 0.16f, 0.6f, true, -6.f);
+    sprite_fx(vec3(g.pos, 0.9f), FX_BLAST, std::max(1.2f, g.radius * 0.7f), 0.6f);
     burst(vec3(g.pos, 0.2f), 16, vec4(0.25f, 0.2f, 0.18f, 0.8f), vec4(0.15f, 0.12f, 0.1f, 0), 3.f, 0.45f, 1.1f, false, 1.5f, 1);
     burst(vec3(g.pos, 0.1f), 10, vec4(0.66f, 0.45f, 0.3f, 1), vec4(0.5f, 0.35f, 0.22f, 0), 5.f, 0.06f, 0.6f, false, -14.f);   // clay
     GroundFx r;
@@ -2886,7 +2893,48 @@ void World::separate() {
     }
 }
 
+int fx_for(vec4 c, bool additive, uint8_t shape) {
+    const float r = c.x, g = c.y, b = c.z;
+    if (shape == 1) return FX_SMOKE;                                  // dust and smoke
+    if (g > r && g > b) return FX_BUBBLE;                             // poison
+    if (b > r + 0.1f) return FX_FROST;                                // cold, the river's light
+    if (r > g + 0.2f && b > g + 0.2f) return FX_VOID;                 // chaos
+    if (!additive && r > 0.3f && g < 0.15f) return FX_BLOOD;          // blood
+    if (!additive) return FX_STONE;                                   // clay, grit
+    return g >= 0.78f * r ? FX_HOLY : FX_EMBER;                       // gold, or fire
+}
+
+int fx_projectile(int dmg_type, vec3 color) {
+    switch (dmg_type) {
+        case DT_FIRE: return FX_FIREBALL;
+        case DT_COLD: return FX_ICE_SHARD;
+        case DT_LIGHTNING: return FX_SPARK_BALL;
+        case DT_PHYS: return FX_STONE;
+        default: return color.y > color.x && color.y > color.z ? FX_POISON_BLOB : FX_SHADOW_ORB;
+    }
+}
+
+int fx_impact(int dmg_type, vec3 color) {
+    switch (dmg_type) {
+        case DT_FIRE: return FX_BLAST;
+        case DT_COLD: return FX_SHATTER;
+        case DT_LIGHTNING: return FX_ZAP;
+        case DT_PHYS: return FX_STAR;
+        default: return color.y > color.x && color.y > color.z ? FX_BUBBLE : FX_VOID;
+    }
+}
+
+void World::sprite_fx(vec3 p, int fx, float size, float life, vec3 vel) {
+    if (particles.size() >= 3000) return;
+    Particle q{p, vel, life, life, size, size, 0, 1, vec4(1, 1, 1, 1), vec4(1, 1, 1, 1), 0, false};
+    q.fx = int8_t(fx);
+    particles.push_back(q);
+}
+
 void World::burst(vec3 p, int n, vec4 c0, vec4 c1, float speed, float size, float life, bool additive, float gravity, uint8_t shape) {
+    // drawn as pixel-art flipbooks: a third as many, larger. Every particle still draws its numbers from fx_rng, so
+    // what depends on that stream (a bolt's fork, a monster's pause) is as it was
+    const int fx = fx_for(c0, additive, shape);
     for (int i = 0; i < n && particles.size() < 3000; i++) {
         vec3 dir = normalize(vec3{fx_rng.range(-1, 1), fx_rng.range(-1, 1), fx_rng.range(0.1f, 1.2f)});
         Particle q;
@@ -2901,6 +2949,11 @@ void World::burst(vec3 p, int n, vec4 c0, vec4 c1, float speed, float size, floa
         q.c1 = c1;
         q.shape = shape;
         q.additive = additive;
+        if (i % 3) continue;
+        q.fx = int8_t(fx);
+        q.size0 = std::clamp(q.size0 * (shape == 1 ? 1.4f : 2.4f), 0.22f, shape == 1 ? 0.8f : 1.1f);
+        q.size1 = shape == 1 ? q.size0 * 1.3f : q.size0;
+        q.life = q.max_life = std::max(q.life, 0.35f);   // long enough to see its frames
         particles.push_back(q);
     }
 }

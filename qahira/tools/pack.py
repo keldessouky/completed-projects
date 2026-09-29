@@ -40,6 +40,17 @@ def font(name_in, name_out):
     return ttf
 
 
+def fx_sheet():
+    """The spell effects' pixel-art sheet (tools/fx/fx_atlas.py), drawn afresh each pack: it takes about a second."""
+    sys.path.insert(0, os.path.join(ROOT, 'tools', 'fx'))
+    import fx_atlas
+    out = os.path.join(ROOT, 'build', 'fx.qtex')
+    os.makedirs(os.path.dirname(out), exist_ok=True)
+    with open(out, 'wb') as f:
+        f.write(fx_atlas.qtex(*fx_atlas.atlas()))
+    return out
+
+
 def collect():
     entries = []
     gen = os.path.join(ROOT, 'assets', 'generated')
@@ -60,6 +71,7 @@ def collect():
         for f in sorted(files):
             full = os.path.join(dirpath, f)
             entries.append(('data/' + os.path.relpath(full, data).replace(os.sep, '/'), full))
+    entries.append(('textures/fx.qtex', fx_sheet()))
     entries.append(('fonts/ui.ttf', font('Inter.woff2', 'ui.ttf')))
     entries.append(('fonts/arabic.ttf', font('NotoSansArabic-VariableFont_wdth,wght.woff2', 'arabic.ttf')))
     return entries

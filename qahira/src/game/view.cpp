@@ -268,17 +268,18 @@ void View::render_world(Renderer& r, World& w) {
             r.ground(vec3(g.pos, 0.01f), g.radius, vec4(0.2f, 0.4f, 0.8f, 0.18f * in_a), {0, 1.5f, 0, 1}, Blend::Additive);
             for (int i = 0; i < 8; i++) {  // the star: short bright points round the rim
                 float a = g.t * 0.4f + i * kTau / 8;
-                r.billboard(vec3(g.pos + from_angle(a) * g.radius * 0.78f, 0.1f), 0.22f, vec4(0.6f, 0.85f, 1.f, 0.8f * in_a), {0, 1.5f, 0, 3});
+                r.fx(vec3(g.pos + from_angle(a) * g.radius * 0.78f, 0.3f), 0.32f, FX_FROST, float((int(g.t * 10.f) + i) % 5), vec4(1, 1, 1, in_a));
             }
             r.light(vec3(g.pos, 1.0f), g.radius * 2.f, hex_lin(0x6FA8FF) * 6.f * in_a * beat);
         } else if (g.kind == GroundFx::Meteor) {
             // the telegraph on the ground and the star coming down onto it
-            r.ground(vec3(g.pos, 0.02f), g.radius, vec4(1.f, 0.55f, 0.2f, 0.3f + 0.5f * k), {2, 0.05f, 0, 1}, Blend::Additive);
-            r.ground(vec3(g.pos, 0.03f), g.radius * k, vec4(1.f, 0.7f, 0.3f, 0.7f), {1, 0.1f, 0, 1.5f}, Blend::Additive);
+            r.ground(vec3(g.pos, 0.02f), g.radius, vec4(0.9f, 0.45f, 0.15f, 0.06f + 0.14f * k), {2, 0.05f, 0, 1}, Blend::Alpha);
+            r.ground(vec3(g.pos, 0.03f), g.radius * k, vec4(0.9f, 0.6f, 0.25f, 0.6f), {1, 0.06f, 0, 1}, Blend::Alpha);
             vec3 p = vec3(g.pos, 0) + vec3{-3.f, 2.f, 12.f} * (1.f - k);
-            r.billboard(p, 0.9f, vec4(1.f, 0.85f, 0.5f, 1), {0, 1.5f, 0, 4});
-            r.billboard(p + vec3{-0.6f, 0.4f, 2.4f} * 0.5f, 0.6f, vec4(1.f, 0.5f, 0.2f, 0.6f), {0, 1.5f, 0, 4});
-            r.light(p, 8.f, hex_lin(0xFFB060) * 20.f);
+            const float fr = std::fmod(w.time * 14.f, 8.f);
+            r.fx(p, 1.3f, FX_FIREBALL, fr);   // the star, a ball of flame, and its tail
+            for (int i = 1; i <= 3; i++) r.fx(p + vec3{-0.6f, 0.4f, 2.4f} * (0.45f * i), 1.0f - 0.2f * i, FX_EMBER, float((int(fr) + i * 2) % 6));
+            r.light(p, 5.f, hex_lin(0xFFB060) * 3.f);
         } else if (g.kind == GroundFx::Grenade) {
             // a pot of naphtha in flight, its wick burning, and where it will land
             vec3 p = vec3(lerp(g.pos2, g.pos, k), 1.4f * (1.f - k) + 3.2f * k * (1.f - k) + 0.1f);
@@ -341,9 +342,8 @@ void View::render_world(Renderer& r, World& w) {
             float in_a = smoothstep(0.f, 0.3f, g.t) * (1.f - smoothstep(g.life - 0.6f, g.life, g.t));
             r.ground(vec3(g.pos, 0.02f), g.radius, vec4(1.f, 0.35f, 0.08f, 0.55f * in_a), {0, 1.2f, 0, 2}, Blend::Additive);
             r.ground(vec3(g.pos, 0.03f), g.radius * 0.6f, vec4(1.f, 0.7f, 0.25f, 0.5f * in_a), {0, 1.5f, 0, 2.5f}, Blend::Additive);
-            if (std::fmod(w.time * 13.f + g.pos.x, 1.f) < 0.5f)
-                r.billboard(vec3(g.pos + vec2{std::sin(w.time * 9.f) * g.radius * 0.5f, std::cos(w.time * 7.f) * g.radius * 0.5f}, 0.4f), 0.35f,
-                            vec4(1.f, 0.6f, 0.2f, 0.8f * in_a), {0, 1.5f, 0, 3});
+            r.fx(vec3(g.pos + vec2{std::sin(w.time * 9.f) * g.radius * 0.5f, std::cos(w.time * 7.f) * g.radius * 0.5f}, 0.4f), 0.4f,
+                 FX_EMBER, std::fmod(w.time * 10.f, 5.f), vec4(1, 1, 1, in_a));
             r.light(vec3(g.pos, 0.8f), g.radius * 3.f, hex_lin(0xFF7020) * 8.f * in_a);
         } else if (g.kind == GroundFx::Line) {
             // a telegraphed strip: discs along the line, filling as the strike nears
@@ -362,7 +362,7 @@ void View::render_world(Renderer& r, World& w) {
             for (int i = 0; i <= n; i++) {
                 float t = float(i) / n;
                 vec3 p = lerp(p0, p1, t) + vec3{jr.range(-0.25f, 0.25f), jr.range(-0.25f, 0.25f), jr.range(-0.2f, 0.2f)} * std::sin(t * kPi);
-                r.billboard(p, 0.22f, vec4(0.75f, 0.85f, 1.f, a), {0, 1.5f, 0, 4});
+                if (i % 2 == 0) r.fx(p, 0.45f, FX_ZAP, std::min(7.f, k * 8.f) + float((i / 2) % 2) * 8.f);
             }
             r.light(p1, 5.f, hex_lin(0x9FB8FF) * 14.f * a);
         }
@@ -468,13 +468,24 @@ void View::render_world(Renderer& r, World& w) {
             r.billboard(vec3(back, p.z), 0.18f, vec4(p.color, 0.5f), {0, 1.5f, 0, 4}, Blend::Additive);
             continue;
         }
-        r.billboard(vec3(p.pos, p.z), 0.35f, vec4(p.color, 1), {0, 1.5f, 0, 4});
-        r.light(vec3(p.pos, p.z), 4.f, p.color * 8.f);
+        // a pixel-art bolt of its element, turning over as it flies, and a little light on the ground under it
+        const int fx = fx_projectile(p.dmg_type, p.color);
+        const float frame = std::fmod(w.time * 14.f + float(size_t(&p - w.projectiles.data()) * 3), 8.f);
+        r.fx(vec3(p.pos, p.z), 0.5f, fx, frame + (p.vel.x < 0 ? 8.f : 0.f));
+        r.light(vec3(p.pos, p.z), 3.f, p.color * 3.f);
     }
     for (auto& p : w.particles) {
         float k = 1.f - p.life / p.max_life;
         vec4 c = p.c0 + (p.c1 + p.c0 * -1.f) * k;
         float s = lerpf(p.size0, p.size1, k);
+        if (p.fx >= 0) {   // a pixel-art flipbook: once over its life, or looping
+            const float frame = p.fx < kFxLooping ? std::fmod(w.time * 14.f, 8.f) : std::min(7.f, k * 8.f);
+            const float fade = p.fx < kFxLooping ? 1.f - smoothstep(0.6f, 1.f, k) : 1.f;
+            // dust, grit and blood keep the colour they were given (the sheet's greys and browns are their brightest)
+            vec3 tint = p.fx == FX_SMOKE || p.fx == FX_STONE ? minv(vec3(p.c0.x, p.c0.y, p.c0.z) * (1.f / 0.85f), vec3(1, 1, 1)) : vec3(1, 1, 1);
+            r.fx(p.pos, s, p.fx, frame + (int(p.max_life * 997.f) & 1 ? 8.f : 0.f), vec4(tint, fade));
+            continue;
+        }
         if (p.additive) r.billboard(p.pos, s, c, {0, 1.2f, 0, 3}, Blend::Additive);
         else r.billboard(p.pos, s, c, {0, 0.8f, 0, 1}, Blend::Alpha);
     }

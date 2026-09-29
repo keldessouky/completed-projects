@@ -346,6 +346,19 @@ blasting charge (a wired bundle in a scrape of sand, its fuse wire trailing); th
 jambs and a lintel carved with zigzags and rosettes, the dark beyond, steps going down, the blown sand heaped round);
 and a relic on the ground (a small glazed figure broken at the knees, tinted by the engine).
 
+## Spell effects
+
+The spells' pixel art is not made in Blender. `tools/fx/fx_atlas.py` draws it in plain Python, and `tools/pack.py`
+runs it on every pack (about a second) and packs `textures/fx.qtex`.
+- It is 18 effects of 8 frames, each frame 32 × 32. Each uses four flat shades and a dark outline from a palette of
+  its own, with ordered dithering between shades and a fade that drops pixels in Bayer order.
+- The rows are the game's `FxSprite` enum. Append only.
+- The first six loop (the projectiles: fireball, ice shard, spark ball, poison blob, shadow orb, stone); the rest play
+  once (embers, frost, zap, bubble, smoke, hit star, explosion, blood, splash, ice shards, void, gold twinkle).
+- `python3 tools/fx/fx_atlas.py` writes `build/fx_preview.png` to look at.
+- Everything is drawn from shapes and noise in the style of the handheld RPGs' move animations. No sprite comes from
+  any game.
+
 ## Audio
 
 `tools/audio/synth.py` runs under any Python with numpy (Blender's bundled one works) and writes 16-bit mono WAVs.
@@ -412,6 +425,7 @@ and the Templar's sounds: `block` (iron on iron, short and bright, with a scrape
 | File | Layout |
 |---|---|
 | `.qpk` | `"QPK1"`, u32 version, u32 count; then per entry {u16 name length, name, u64 offset, u64 size}; then the data |
+| `.qtex` | `"QTX1"`, u16 width, u16 height; then RGBA8 rows, top to bottom (the effects sheet) |
 | `.qmesh` | `"QMSH"`, u32 version, u32 flags (1 = skinned), u32 vertex count, u32 index count, f32 bmin[3], f32 bmax[3]; vertices {f32 pos[3], f32 normal[3], u8 rgb+AO[4], u8 rough/metal/emit/flags[4], [u8 bones[4], u8 weights[4]]}; u32 indices |
 | `.qskel` | `"QSKL"`, u32 version, u32 bone count; per bone {char name[32], i32 parent, f32 t[3], f32 r[4], f32 s[3], f32 inverse bind[16] column-major} |
 | `.qanim` | `"QANM"`, u32 version, u32 clip count, u32 bone count; per clip {char name[32], f32 fps, u32 frames, u32 flags (1 = loop), u32 event count, events {char name[16], f32 time}, frames × bones × {f32 t[3], f32 r[4]}} |

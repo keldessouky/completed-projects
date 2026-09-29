@@ -232,12 +232,28 @@ struct Zar {
     float decay() const { return 4.f + t * 0.08f; }   // the drummers tire as the night goes on
 };
 
+// The spell effects' pixel-art flipbooks: rows of the effects sheet (tools/fx/fx_atlas.py). Append only, in step
+// with EFFECTS there. The first six loop (projectiles); the rest play once over a particle's life.
+enum FxSprite : int8_t {
+    FX_NONE = -1,
+    FX_FIREBALL, FX_ICE_SHARD, FX_SPARK_BALL, FX_POISON_BLOB, FX_SHADOW_ORB, FX_STONE,
+    FX_EMBER, FX_FROST, FX_ZAP, FX_BUBBLE, FX_SMOKE, FX_STAR, FX_BLAST, FX_BLOOD, FX_WATER, FX_SHATTER, FX_VOID, FX_HOLY,
+    FX_COUNT
+};
+constexpr int kFxLooping = FX_EMBER;   // rows below this loop
+// the flipbook a burst of this colour is drawn with: embers, frost, sparks of gold, poison, smoke, blood, the void
+int fx_for(vec4 c0, bool additive, uint8_t shape);
+// the flipbook a projectile of this damage type (and colour) is drawn with, and the one it bursts into
+int fx_projectile(int dmg_type, vec3 color);
+int fx_impact(int dmg_type, vec3 color);
+
 struct Particle {
     vec3 pos, vel;
     float life, max_life, size0, size1, gravity, drag;
     vec4 c0, c1;
     uint8_t shape;
     bool additive;
+    int8_t fx = FX_NONE;           // drawn as a pixel-art flipbook (FxSprite) instead of a soft disc
 };
 
 struct FloatText {
@@ -473,6 +489,8 @@ public:
 
     void emit(Ev t, vec2 p, float mag = 1, int def = -1) { events.push_back({t, p, mag, def}); }
     void burst(vec3 p, int n, vec4 c0, vec4 c1, float speed, float size, float life, bool additive, float gravity = -6.f, uint8_t shape = 0);
+    // one pixel-art flipbook played once where something struck or burst (draws nothing from fx_rng)
+    void sprite_fx(vec3 p, int fx, float size, float life, vec3 vel = {0, 0, 0});
 
     // one hit on an enemy: mitigation, ailments, Break, knockback, leech, death. Returns the damage dealt.
     float hit_enemy(Actor& e, const HeroHit& hh, vec2 from, float knock, float extra_more = 1.f);
