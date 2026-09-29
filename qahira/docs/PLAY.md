@@ -11,7 +11,7 @@ update:
 **Always use both files from the same build.** The core and the pack change together, so an old pack with a new core
 (or the other way round) may not load.
 
-> **Status: nobody has run it on the device yet.** The core builds for Android, and bots play Acts I to VI through
+> **Status: nobody has run it on the device yet.** The core builds for Android, and bots play Acts I to VI and the Fourth Trial through
 > on every change, but the checks that need the real RP6 are still open: launching through RetroArch, frame
 > pacing, all the buttons, rumble, save states and a long play session (see the
 > [device checklist](RP6.md#device-checklist-slice-0-exit)). If something below doesn't match what you see, that's

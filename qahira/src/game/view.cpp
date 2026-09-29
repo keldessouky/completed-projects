@@ -204,6 +204,14 @@ void View::render_world(Renderer& r, World& w) {
                 r.light(vec3(it.pos, 1.5f), 6.f, c * (near ? 12.f : 7.f));
                 break;
             }
+            case Interactable::Toll: {   // a brass scale's pan on the ground, glowing by how brave the toll is
+                const vec3 c = hex_lin(it.target == EQ_WEAPON ? 0xFF7A3C : it.target == EQ_BODY ? 0xF2A541 : 0xE8D08A);
+                r.ground(vec3(it.pos, 0.02f), 1.0f + 0.08f * std::sin(w.time * 2.f + it.pos.x), vec4(c, near ? 0.8f : 0.4f), {1, 0.1f, 0, 2},
+                         Blend::Additive);
+                r.billboard(vec3(it.pos, 0.9f), 0.5f, vec4(c, near ? 0.6f : 0.3f), {0, 1.2f, 0, 3}, Blend::Additive);
+                r.light(vec3(it.pos, 1.2f), 4.f, c * (near ? 9.f : 4.f));
+                break;
+            }
             default: break;
         }
     }

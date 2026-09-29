@@ -90,3 +90,15 @@ TEST(bases_and_talismans_keep_growing_past_act_five) {
     for (int i = 0; i < 400; i++) if (random_drop(64, 0.1f, 0.3f, rng, Slot::Count).b().level >= 44) late++;
     CHECK(late > 400 / 3);
 }
+
+// the Fourth Trial: a side zone of Iram that opens after the campaign; the hero chooses the toll; eight points in all
+TEST(the_gate_of_iram_is_the_fourth_trial_and_you_choose_the_toll) {
+    int g = find_zone("gate_iram");
+    CHECK(g >= 0 && g < 128);
+    const ZoneDef& d = zone_def(g);
+    CHECK(d.trial && d.toll_slot == kTollChosen && d.act == 6 && d.level == 68);
+    CHECK(std::string(zone_def(find_zone("iram")).side) == "gate_iram");
+    CHECK(std::string(d.boss) == "iram_keeper" && boss_def(find_monster("iram_keeper")) != nullptr);
+    CHECK(quest_asc_points(Q_TRIAL1 | Q_TRIAL2 | Q_TRIAL3 | Q_TRIAL4) == 8);
+    CHECK(quest_passive_points(Q_TRIAL4) == 0);
+}

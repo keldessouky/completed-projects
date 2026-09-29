@@ -75,6 +75,8 @@ const std::vector<MonsterDef>& monster_defs() {
             {"al_hatif", "al-Hatif, the Voice of the Sands", "wraith", 1.2f, {1.3f, 1.2f, 1.05f}, 2600, 3.8f, 1.0f, AttackKind::Boss, 3.4f, 1.3f, 27, 40, DT_CHAOS, 110, 4200, 0},
             {"brass_horseman", "The Brass Horseman of Iram", "horseman", 1.0f, {1, 1, 1}, 3000, 4.0f, 1.6f, AttackKind::Boss, 3.8f, 1.5f, 27, 40, DT_PHYS, 450, 4500, 0},
             {"apep", "Apep, the Serpent of the Dark", "apep", 1.0f, {1, 1, 1}, 4200, 3.2f, 2.0f, AttackKind::Boss, 4.5f, 1.4f, 34, 50, DT_CHAOS, 200, 6500, 0},
+            // the Fourth Trial's gatekeeper (Slice 10)
+            {"iram_keeper", "The Keeper of the Gate of Iram", "mamluk", 1.15f, {1.35f, 1.05f, 0.4f}, 2900, 3.4f, 1.0f, AttackKind::Boss, 3.4f, 1.5f, 27, 40, DT_PHYS, 450, 4800, 0},
         };
         auto set = [&](const char* id, bool rigid, const char* fam, const char* voice = "ghoul") {
             for (auto& m : v) if (std::string(m.id) == id) { m.rigid = rigid; m.family = fam; m.voice = voice; }
@@ -130,6 +132,7 @@ const std::vector<MonsterDef>& monster_defs() {
         set("al_hatif", false, "The Hawatif, voices of the sand", "whisper");
         set("brass_guard", true, "The City of Brass", "metal");
         set("brass_horseman", true, "The City of Brass", "metal");
+        set("iram_keeper", false, "The City of Brass", "metal");
         set("eclipse_marid", false, "Apep, the serpent of the dark", "whisper");
         set("apep", true, "Apep, the serpent of the dark", "fire");
         codex("Ghouls", "ghouls");
@@ -301,6 +304,11 @@ const BossDef* boss_def(int monster) {
           {MoveKind::Nova, "", 5.5f, 0, 6.5f, 1.4f, 0}, {MoveKind::Charge, "", 4.5f, 4.f, 30, 1.7f, 1},
           {MoveKind::Combo, "", 1.4f, 0, 4.5f, 1.f, 0}},
          0.55f, "THE SUN IS IN ITS MOUTH", "eclipse_marid", 5, 12.f, 1.3f, {0.6f, 0.4f, 1.f}},
+        // the Keeper of the Gate of Iram: the Bronze Mamluk's moves, and the city's brass guardians rise at the half
+        {"iram_keeper",
+         {{MoveKind::Summon, "summon", 1e9f, 0, 99, 0, 1}, {MoveKind::Nova, "slam", 6.5f, 0, 5.5f, 1.25f, 0},
+          {MoveKind::Leap, "leap", 4.5f, 4.5f, 25, 1.4f, 1}, {MoveKind::Combo, "combo", 1.3f, 0, 3.6f, 1.f, 0}},
+         0.5f, "THE GATE OF IRAM STANDS TO", "brass_guard", 3, 11.f, 1.25f, {1.f, 0.8f, 0.35f}},
     };
     if (monster < 0 || monster >= int(monster_defs().size())) return nullptr;
     const char* id = monster_defs()[size_t(monster)].id;
@@ -2188,6 +2196,18 @@ void World::drop_loot(const Actor& e) {
             }
         if (int u = random_unique(area_level + 2, rng); u >= 0) drop_special(e.pos + vec2{0, 1.8f}, GroundItem::Scrap, u);
         const std::string id = monster_defs()[size_t(e.def)].id;
+        if (id == "iram_keeper" && hero.sealed_slot >= 0) {   // the Gate of Iram pays by the toll: a braver one, a richer reward
+            const int n = hero.sealed_slot == EQ_WEAPON ? 2 : hero.sealed_slot == EQ_BODY ? 1 : 0;
+            for (int k = 0; k < n; k++)
+                if (int u = random_unique(area_level + 2, rng); u >= 0) {
+                    GroundItem g;
+                    g.item = make_unique(u, area_level + 2, rng);
+                    g.pos = level.resolve(e.pos + vec2{-1.8f + 1.8f * float(k), -2.6f}, 0.3f);
+                    g.id = next_id++;
+                    loot.push_back(g);
+                }
+            if (hero.sealed_slot == EQ_WEAPON) drop_currency(level.resolve(e.pos + vec2{2.4f, -1.4f}, 0.3f), CUR_PEARL, 1);
+        }
         const bool king = id == "marid_king";                // the Marid King: two uniques and a purse, always
         const bool lord = id == "rift_lord" || king;         // the Rift Lord: a unique, always
         if (lord)

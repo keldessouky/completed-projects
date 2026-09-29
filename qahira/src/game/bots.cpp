@@ -626,10 +626,10 @@ void Bot::fight(World& w, Menu& m, Input& in, uint64_t frame) {
 }
 
 // ---------------------------------------------------------------- zone (Slice 2's exit)
-bool Bot::go_to_interact(World& w, Input& in, uint64_t frame, Interactable::Kind k) {
+bool Bot::go_to_interact(World& w, Input& in, uint64_t frame, Interactable::Kind k, int target) {
     for (size_t i = 0; i < w.interacts.size(); i++) {
         const Interactable& it = w.interacts[i];
-        if (it.kind != k || it.spent) continue;
+        if (it.kind != k || it.spent || (target >= 0 && it.target != target)) continue;
         if (w.near_interact == int(i)) {
             if (frame % 10 == 0) press(in, BTN_SOUTH);
         } else {
@@ -1168,7 +1168,7 @@ void Bot::act1(World& w, Menu& m, Areas& a, Input& in, uint64_t frame) {
     static const Step order5[] = {{"fes", 0}, {"fes_bali", 0}, {"chaouen", Q_PRESSER}, {"jemaa", Q_SMOKE}, {"bab_nasr", Q_TRIAL3},
                                   {"tangier", 0}, {"strait", Q_QANDISHA}};
     static const Step order6[] = {{"balad", 0}, {"harbour", Q_DUWAIS}, {"shibam", Q_SHIQQ}, {"rub", 0}, {"wabar", Q_HATIF}, {"iram", Q_HORSEMAN},
-                                  {"totality", Q_ACT6}};
+                                  {"totality", Q_ACT6}, {"gate_iram", Q_TRIAL4}};
     const int act = scenario == "act6" ? 6 : scenario == "act5" ? 5 : scenario == "act4" ? 4 : scenario == "act3" ? 3 : scenario == "act2" ? 2 : 1;
     const bool two = act >= 2;
     const Step* order = act == 6 ? order6 : act == 5 ? order5 : act == 4 ? order4 : act == 3 ? order3 : two ? order2 : order1;
@@ -1201,6 +1201,16 @@ void Bot::act1(World& w, Menu& m, Areas& a, Input& in, uint64_t frame) {
         if (deaths > 30) fail("died more than 30 times");
         return;
     }
+    if (act == 6 && (H.quests & Q_ACT6) && H.ending == 0) {   // the choice at the heart of totality: the bot seals the Veil
+        if (m.open || equip_target) { loot_and_equip(w, m, in, frame); return; }
+        if (!go_to_interact(w, in, frame, Interactable::Veil) && frame % 600 == 0) fprintf(stderr, "act6: looking for the Veil\n");
+        if (frame > 60ull * 60 * 49) fail("Apep fell but the Veil was never sealed");
+        return;
+    }
+    if (act == 6 && a.current == AreaId::Zone && a.def() && std::string(a.def()->id) == "gate_iram" && H.sealed_slot < 0 && !m.open) {
+        // the Fourth Trial asks a toll: the bot gives its body armour (a unique on top of the two points)
+        if (go_to_interact(w, in, frame, Interactable::Toll, EQ_BODY)) return;
+    }
     int target = -1;
     bool way_on = false;   // this step ends at the way on (or the side gate), not a quest
     bool via_side = false;
@@ -1209,10 +1219,13 @@ void Bot::act1(World& w, Menu& m, Areas& a, Input& in, uint64_t frame) {
     if (target < 0 && two) {
         const uint32_t done = act == 6 ? Q_ACT6 : act == 5 ? Q_ACT5 : act == 4 ? Q_ACT4 : act == 3 ? Q_ACT3 : Q_ACT2;
         if (!(H.quests & done)) { fail(std::string("every boss fell but Act ") + roman[act] + " is not marked over"); return; }
-        if (act == 6 && H.ending == 0) {   // the choice at the heart of totality: the bot seals the Veil
-            if (m.open || equip_target) { loot_and_equip(w, m, in, frame); return; }
-            if (!go_to_interact(w, in, frame, Interactable::Veil) && frame % 600 == 0) fprintf(stderr, "act6: looking for the Veil\n");
-            if (frame > 60ull * 60 * 49) fail("Apep fell but the Veil was never sealed");
+        if (act == 6 && H.ending != 1) { fail("the Veil was not sealed"); return; }
+        if (act == 6)   // the Fourth Trial's two points, spent as it ends (the pilot's usual spending comes later in the frame)
+            if (const Ascendancy* asc = ascendancy_of(H.passives.cls, H.ascendancy))
+                for (size_t i = 1; i < asc->nodes.size() && H.asc_points() > 0; i++)
+                    if (asc_can_take(*asc, H.asc, int(i))) { H.asc |= 1u << i; fprintf(stderr, "%s: ascended: %s\n", tag, asc->nodes[i].name); }
+        if (act == 6 && (__builtin_popcount(H.asc & ~1u) < 8 || H.asc_points() > 0)) {
+            fail("Trial IV was passed but its ascendancy points were not spent");
             return;
         }
         if (act == 3 && __builtin_popcount(H.asc & ~1u) < 3) { fail("Trial II was passed but its ascendancy points were not spent"); return; }

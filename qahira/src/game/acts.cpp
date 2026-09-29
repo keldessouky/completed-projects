@@ -210,10 +210,15 @@ const std::vector<ZoneDef>& zone_defs() {
          "al_hatif", "The voice stops, and the sand is only sand", "iram", "cache", "", false, -1, {1.05f, 0.9f, 1.0f}},
         {"iram", "Iram of the Pillars", "The lost city in the sand: pillars to the sky, and a horseman of brass at its heart", "iram", 6, 64,
          4, 6, 3, "mus_iram", "amb_temple", {{"brass_guard", 3}, {"sand_shade", 3}, {"salt_jinn", 3}}, "brass_guard",
-         "brass_horseman", "The Brass Horseman topples, and Iram is still", "totality", "cache", "", false, -1, {1.1f, 0.92f, 0.85f}},
+         "brass_horseman", "The Brass Horseman topples, and Iram is still", "totality", "cache", "gate_iram", false, -1, {1.1f, 0.92f, 0.85f}},
         {"totality", "The Heart of Totality", "Above Luxor the temple stands in the sky, and the sun is in the serpent's mouth", "karnak", 6,
          66, 2, 5, 1, "mus_apep", "amb_temple", {{"eclipse_marid", 5}, {"tomb_ghoul", 3}, {"timthal", 2}}, "eclipse_marid",
          "apep", "Apep lets go of the sun. Act VI is over", "", "cache", "", false, -1, {0.55f, 0.45f, 0.8f}},
+        // Slice 10: the Fourth Trial, in the endgame (its gate in Iram opens once the campaign is over). You choose the toll
+        {"gate_iram", "The Gate of Iram", "The Fourth Trial. The gate of the lost city asks what you will give up", "iram", 6, 68,
+         1, 5, 0, "mus_iram", "amb_temple", {{"brass_guard", 4}, {"sand_shade", 3}, {"eclipse_marid", 3}}, "brass_guard",
+         "iram_keeper", "The Keeper of the Gate lowers its spear, and Iram lets you in", "", "cache", "", true, kTollChosen,
+         {1.2f, 1.0f, 0.7f}},
     };
     return d;
 }
@@ -254,6 +259,7 @@ const std::vector<QuestDef>& quest_defs() {
         {Q_HATIF, "The Voice of the Sands", "In the ruins of Wabar a voice calls travellers by name. Answer it.", 1, 0},
         {Q_HORSEMAN, "The Brass Horseman", "At the heart of Iram a horseman of brass keeps the lost city. Bring it down.", 1, 0},
         {Q_ACT6, "The Heart of Totality", "Above Luxor, the serpent of the dark has the sun in its mouth. Make it let go.", 2, 0},
+        {Q_TRIAL4, "The Fourth Trial", "In Iram a gate asks for a toll of your choosing. The braver the toll, the richer the reward.", 0, 2},
     };
     return d;
 }

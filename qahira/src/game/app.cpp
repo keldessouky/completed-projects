@@ -324,6 +324,7 @@ uint32_t boss_quest(const ZoneDef& zd) {
     if (id == "wabar") return Q_HATIF;
     if (id == "iram") return Q_HORSEMAN;
     if (id == "totality") return Q_ACT6;
+    if (id == "gate_iram") return Q_TRIAL4;
     return 0;
 }
 
@@ -362,17 +363,22 @@ void boss_state(World& w) {
     }
     if (w.boss_killed && !S->areas.zone.cleared) {
         S->areas.open_exit(w);
-        uint32_t q = boss_quest(*zd), fresh = q & ~w.hero.quests;
+        uint32_t q = boss_quest(*zd);
+        if ((q & Q_TRIAL4) && w.hero.sealed_slot < 0) q &= ~Q_TRIAL4;   // the gate asks a toll: no toll, no trial
+        const uint32_t fresh = q & ~w.hero.quests;
         w.hero.quests |= q;
         w.learn_recipe(recipe_for_zone(zd->id, true));
         for (const char* z : {zd->next, zd->side})   // the way on stays open: its waypoint is yours
-            if (int n = find_zone(z); n >= 0) w.hero.waypoints.add(n);
+            if (int n = find_zone(z); n >= 0 && !(zone_def(n).toll_slot == kTollChosen && !(w.hero.quests & Q_ACT6))) w.hero.waypoints.add(n);
         if (fresh & Q_TRIAL1) w.meet_codex("ascendancy");
         S->view.banner = zd->boss_line;
         int next = find_zone(zd->next);
         S->view.banner_sub = next >= 0 ? std::string("The way on to ") + zone_def(next).name + " is open" : "A portal home opens";
         if (fresh & Q_TRIAL1) S->view.banner_sub = "The trial is passed: two ascendancy points. Your amulet is returned when you leave";
         if (fresh & Q_TRIAL2) S->view.banner_sub = "The Second Trial is passed: two more ascendancy points. Your body armour is returned when you leave";
+        if (fresh & Q_TRIAL4) S->view.banner_sub = "The Fourth Trial is passed: two more ascendancy points. The toll is returned when you leave";
+        if ((q & Q_TRIAL4) == 0 && std::string(zd->id) == "gate_iram")
+            S->view.banner_sub = "The Keeper falls, but the gate asked a toll and was paid nothing. Come back, and choose one";
         for (auto& qd : quest_defs())
             if ((fresh & qd.bit) && qd.passive_points) S->view.banner_sub += "  \xC2\xB7  +1 passive star";
         if (fresh & Q_ACT1) {
@@ -421,6 +427,8 @@ void boss_state(World& w) {
             S->view.banner = "Act VI is over";
             S->view.banner_sub = "Apep lets go of the sun. Seal the Veil, or leave the door open. All your resistances are 60% lower now.";
             w.meet_codex("veil");
+            if (int g = find_zone("gate_iram"); g >= 0) w.hero.waypoints.add(g);   // the Fourth Trial opens, in Iram
+            w.notices.push_back("The Gate of Iram opens: the Fourth Trial, by the waypoints");
             if (w.hero.ending == 0) {
                 const ZoneLayout& L = S->areas.zone.layout;
                 const vec2 c = L.center(L.cells[size_t(L.arena)]);
@@ -725,6 +733,25 @@ void app_update(const Input& in_raw, float dt) {
                 S->view.banner_t = 8.f;
                 w.emit(Ev::LevelUp, w.actors[0].pos);
                 save_character();
+                break;
+            }
+            case Interactable::Toll: {   // the Gate of Iram: the slot chosen is sealed until you leave, like the other gates'
+                Hero& H = w.hero;
+                const int slot = w.interacts[size_t(w.used_interact)].target;
+                if (H.sealed_slot < 0 && slot >= 0 && slot < EQ_COUNT) {
+                    H.sealed = H.equip[slot];
+                    H.sealed_slot = int8_t(slot);
+                    H.equip[slot] = Item{};
+                    w.recompute_hero();
+                }
+                w.interacts.erase(std::remove_if(w.interacts.begin(), w.interacts.end(), [](const Interactable& i) {
+                                      return i.kind == Interactable::Toll; }), w.interacts.end());
+                S->view.banner = "The gate takes its toll";
+                S->view.banner_sub = slot == EQ_WEAPON ? "Your weapon, the bravest toll. It is returned when you leave"
+                                   : slot == EQ_BODY ? "Your body armour. It is returned when you leave"
+                                                     : "Your helmet. It is returned when you leave";
+                S->view.banner_t = 5.f;
+                audio().play("portal", 0.4f, 0, 0.7f);
                 break;
             }
             case Interactable::Dealer: M.show_dealer(w); w.meet_codex("excavations"); audio().play("ui_select", 0.4f, 0, 1); break;

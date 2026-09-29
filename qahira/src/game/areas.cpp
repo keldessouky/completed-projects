@@ -226,6 +226,18 @@ void Areas::enter_zone(World& w, int def, Arrival how) {
             w.hero.equip[zd.toll_slot] = Item{};
             w.recompute_hero();
         }
+        // the Gate of Iram asks: three brass scales at the entrance, one for each toll (GDD §9.2)
+        if (zd.trial && zd.toll_slot == kTollChosen && w.hero.sealed_slot < 0) {
+            const struct { int slot; const char* label; } tolls[] = {
+                {EQ_HELMET, "Give the gate your helmet (the trial's two points)"},
+                {EQ_BODY, "Give the gate your body armour (and a unique)"},
+                {EQ_WEAPON, "Give the gate your weapon (two uniques, and a King's Pearl)"}};
+            for (int k = 0; k < 3; k++) {
+                Interactable t{Interactable::Toll, w.level.resolve(wp + vec2{-3.f + 3.f * float(k), 3.2f}, 0.6f), 1.6f, tolls[k].label};
+                t.target = int16_t(tolls[k].slot);
+                w.interacts.push_back(t);
+            }
+        }
     } else {
         const ZoneDef& zd = zone_def(zone.def);
         build_zone_level(zone.layout, zd.tileset, w.level);
@@ -445,6 +457,7 @@ void Areas::open_exit(World& w) {
         it.target = int16_t(next);
         w.interacts.push_back(it);
     }
+    if (side >= 0 && zone_def(side).trial && zone_def(side).toll_slot == kTollChosen && !(w.hero.quests & Q_ACT6)) side = -1;   // after the campaign
     if (side >= 0 && !has(Interactable::Gate)) {
         Interactable it{Interactable::Gate, w.level.resolve(c + vec2{3.4f, 1.0f}, 0.8f), 1.8f, std::string("Enter ") + zone_def(side).name};
         it.target = int16_t(side);

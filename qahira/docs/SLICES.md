@@ -795,8 +795,8 @@ first pinnacle.*
 
 ## Slice 10 · Across the Red Sea (in progress)
 
-*The last act, the seventh class, and the end of the campaign. The Gate of Iram trial, the Falak pinnacle, the uber
-bosses and higher-level bases are still to come (see Still to do).*
+*The last act, the seventh class, the end of the campaign and the Fourth Trial. The Falak pinnacle and the uber
+bosses are still to come (see Still to do).*
 
 **Delivered so far**
 - **The Wanderer**, a seventh class (all three attributes; `tools/art/characters/wanderer.py`):
@@ -828,6 +828,12 @@ bosses and higher-level bases are still to come (see Still to do).*
   passive stars), or **leave the door open** (the endless night: charts have 25% more monster life, 15% more monster
   damage, and 25% more item quantity and rarity). The choice is kept in the character file and shown on the title
   screen's slot. Act VI's five quests give six passive stars.
+- **The Gate of Iram, the Fourth Trial** (GDD §9.2). Once the campaign is over, a gate opens in Iram of the Pillars
+  (and on the waypoints). Three brass scales stand at its entrance, and **you choose the toll**: your helmet (the
+  trial's two ascendancy points), your body armour (and a unique) or your weapon (two uniques and a King's Pearl).
+  The toll is returned when you leave. **The Keeper of the Gate** is a gilded mamluk who leaps and slams, and raises
+  the city's brass guardians at half life. Kill him without paying and the trial is not passed. Four trials give 8
+  ascendancy points in all.
 - **Bases past Act V** (Slice 9's worst gap: hero power stopped growing while monster life kept climbing):
   - two more tiers for every kind of weapon, near 42 and near 56: the Ayyubid Maul and Qaitbay's Maul, the Meteorite
     and Armillary Staves, the Mamluk Recurve and the Horn-and-Sinew Bow, the Kilij and the Watered-Steel Sabre, the
@@ -849,8 +855,8 @@ bosses and higher-level bases are still to come (see Still to do).*
 
 | Check | Result |
 |---|---|
-| Unit tests (`qtests`) | pass, 80 cases (new: the Wanderer's start, walk and kit; Fragments' three notables; he wakes after Act VI; Act VI's road, bosses and resistance penalty; the ending in the character file and its two stars; the codex table pinned in its order; bases and Talismans that keep growing past Act V) |
-| `act6` bot | pass: the Warrior in 10.0 minutes (level 66, 0 deaths), the Templar in 9.7 (0 deaths). Before the new bases the Warrior took 27.2 minutes and died 11 times |
+| Unit tests (`qtests`) | pass, 81 cases (new: the Wanderer's start, walk and kit; Fragments' three notables; he wakes after Act VI; Act VI's road, bosses and resistance penalty; the ending in the character file and its two stars; the codex table pinned in its order; bases and Talismans that keep growing past Act V; the Gate of Iram) |
+| `act6` bot: Act VI, the Veil sealed, then the Gate of Iram with the body armour as the toll, and its two points spent | pass, 0 deaths each: the Warrior in 10.8 minutes, the Templar 10.3, the Sorcerer 10.5, the Ranger 10.4. Before the new bases, Act VI alone cost the Warrior 27.2 minutes and 11 deaths |
 | `king` bot (the Marid King, level 70, gear of level 60) | pass as the Warrior (1.0 minutes, 0 deaths), the Sorcerer (1.0, 0) and now the Ranger (0.7, 0), who could not before. DPS at the throne is 330 to 610 for every class (it was 180 to 270). Not yet as the Mercenary, the Shadow, the Templar or the Wanderer: see Still to do |
 | `reaches` bot | pass: Ghana after 11 runs, level 63, 5 deaths |
 | The Wanderer | `zone` pass; `act1` pass (nightly in CI) |
@@ -858,8 +864,8 @@ bosses and higher-level bases are still to come (see Still to do).*
 | Simulators | `qbuildsim` 0 flags; `qchartsim` 0 flags (median 44 runs to the throne) |
 
 **Still to do in Slice 10**
-- **The Gate of Iram**, the Fourth Trial (a toll you choose), and **Falak**, the second pinnacle; uber versions of
-  the Marid King and Falak.
+- **Falak**, the second pinnacle (the serpent beneath the world, Apep's true form); uber versions of the Marid King
+  and Falak.
 - The Mercenary, Shadow, Templar and Wanderer bots have the damage for the Marid King now, but die in reach of him
   (9 or more deaths): their pilots fight him face to face. A pilot that steps out of his combo, or a softer King.
 - The bots' Talismans stay at 20. With them at 24 the Warrior lost to the King; the likely cause (not yet confirmed)

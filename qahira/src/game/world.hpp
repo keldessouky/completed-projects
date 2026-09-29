@@ -249,7 +249,8 @@ struct Interactable {
     enum Kind : uint8_t { Stair, Portal, Vendor, Exit, Chest, Waypoint, Next, Bench, Gate, ChartTable,
                           Charge, Detonator, Chamber, Dealer,   // Slice 7: an Excavation's, and Amm Ramadan
                           Drum,                                 // Slice 8: a Zar Night's
-                          Veil, Door } kind;                    // Slice 10: the choice at the heart of totality
+                          Veil, Door,                           // Slice 10: the choice at the heart of totality
+                          Toll } kind;                          // the Gate of Iram: a toll to choose (target: the slot)
     // Next: the way on to zone `target`; Gate: a side zone (a trial); Waypoint: the waypoint list; Bench: the Coppersmith
     vec2 pos;
     float radius = 1.8f;
