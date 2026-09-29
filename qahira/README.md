@@ -10,6 +10,15 @@ through RetroArch. Every asset (meshes, animations, fonts, sound) is generated f
 
 ![Umm al-Ghula in the City of the Dead](docs/img/slice2-boss.jpg)
 
+## Play it on your RP6
+
+No PC needed. Every push to the `qahira` branch publishes the two files to the
+[`qahira-latest` release](https://github.com/keldessouky/completed-projects/releases/tag/qahira-latest):
+`qahira_libretro_android.so` (the RetroArch core) and `Qahira.qpk` (the game). **[docs/PLAY.md](docs/PLAY.md)**
+takes you from the handheld's browser to the title screen: download, install the core, place the pack, set the
+video driver, controls, saves, updates and troubleshooting. It also covers playing on a PC with `qhost`. The
+on-device checks haven't been run yet ([checklist](docs/RP6.md#device-checklist-slice-0-exit)).
+
 ## Status
 
 Work proceeds in vertical slices ([slice plan](../_bmad-output/planning-artifacts/qahira/slices.md)).
@@ -33,6 +42,7 @@ Work proceeds in vertical slices ([slice plan](../_bmad-output/planning-artifact
 - [Engine](docs/ENGINE.md): layers, the frame, renderer, animation, UI, levels and navigation, zones and areas,
   belongings and the menu, the boss, saves
 - [Assets](docs/ASSETS.md): the Blender generators, rig and IK, skinning, file formats
+- [Playing on the RP6](docs/PLAY.md): the player's guide, from the release download to the controls
 - [Running on the RP6](docs/RP6.md): install, launch, adb workflow, device checklist
 - [Slice log](docs/SLICES.md): what each slice delivered and how it was verified
 - [Handoff notes](docs/HANDOFF.md): the state of Slice 3 and what to know before picking up Slices 3–11

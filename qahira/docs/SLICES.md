@@ -830,7 +830,11 @@ bosses and higher-level bases are still to come (see Still to do).*
   screen's slot. Act VI's five quests give six passive stars.
 - **Saves:** the character file v9 (the ending); save states v15.
 - **The bots:** they pilot the Wanderer (a Mark every eight seconds, a shout into crowds, Arc at range, the staff up
-  close). `act6` is new: a character as Act V leaves one plays Act VI through and seals the Veil.
+  close). `act6` is new: a character as Act V leaves one plays Act VI through and seals the Veil. It runs in CI as
+  the Templar on every push, and as the Warrior nightly.
+- **Play it on the RP6 without a PC:** a CI job builds the Android core and the pack on every push to `qahira` and
+  publishes both on the rolling `qahira-latest` prerelease. [PLAY.md](PLAY.md) walks from the handheld's browser to
+  the title screen.
 
 **Verified**
 
@@ -845,7 +849,7 @@ bosses and higher-level bases are still to come (see Still to do).*
 - **The Gate of Iram**, the Fourth Trial (a toll you choose), and **Falak**, the second pinnacle; uber versions of
   the Marid King and Falak.
 - **Higher-level bases and Talisman levels past 20**, so hero power keeps growing past Act V (Slice 9's Known gaps).
-- `act6` in CI; screenshots of Act VI (`tour11`).
+- Screenshots of Act VI (`tour11`).
 - The codex once had entries inserted in the middle of its table (Slices 8 and 9), and characters store it by index.
   It is back in append order now, and a test pins it. A character saved by those builds may show the wrong entries
   as met.

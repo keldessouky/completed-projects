@@ -12,7 +12,8 @@ already has, what's left, and what's worth knowing before you change anything.
   (a stats preview and a QR encoder) were written again (`summarize` in `game/world.cpp`, `ui/qr.*`).
 - **Slice 10 (Across the Red Sea) is in progress:** the Wanderer (the Pole start, Fragments) and Act VI's seven
   zones to Apep, the 60% resistance penalty and the Veil-or-door ending are in, with the `act6` bot. Still to do: the
-  Gate of Iram trial, Falak, the ubers, higher-level bases, `act6` in CI and screenshots. See its SLICES.md entry.
+  Gate of Iram trial, Falak, the ubers, higher-level bases and screenshots. Every push also publishes the RP6 core
+  and pack on the `qahira-latest` prerelease (see [PLAY.md](PLAY.md)). See its SLICES.md entry.
 - **Slice 9 (the Atlas and the Strait) is done:** the Templar with the Beacon, the signal brazier, burning ground and
   Block, his sky and the keystone al-Iklil, the Zealot and the Warden, Act V's seven zones on four regions to Aisha
   Qandisha with Trial III at Bab al-Nasr, charts to the Sixteenth Reach over sixteen more sites, and the King's Pearls
