@@ -1,4 +1,5 @@
 #include "game/view.hpp"
+#include "ui/lang.hpp"
 #include "game/settings.hpp"
 #include <cstdio>
 #include <cstdlib>
@@ -214,6 +215,28 @@ void View::render_world(Renderer& r, World& w) {
                 break;
             }
             default: break;
+        }
+    }
+    // the objective: a gold chevron at the hero's feet, along the route (not through the walls)
+    if (obj_on && !w.actors.empty() && w.actors[0].alive()) {
+        const Actor& h = w.actors[0];
+        const float dist = length(obj_target - h.pos);
+        if (dist > 3.f) {
+            obj_t_ -= 1.f / 60.f;
+            if (obj_t_ <= 0 || length(obj_target - obj_goal_) > 1.f) {
+                obj_path_.clear();
+                if (!w.level.line_clear(h.pos, obj_target, h.radius)) w.level.find_path(h.pos, obj_target, h.radius + 0.1f, obj_path_);
+                obj_goal_ = obj_target;
+                obj_t_ = 0.5f;
+            }
+            vec2 aim = obj_target;
+            for (vec2 p : obj_path_) if (length(p - h.pos) > 1.5f) { aim = p; break; }
+            vec2 want = normalize(aim - h.pos + vec2{1e-4f, 0});
+            obj_dir_ = normalize(lerp(obj_dir_, want, 0.2f) + vec2{1e-4f, 0});   // turns, not snaps
+            const float pulse = 0.5f + 0.5f * std::sin(w.time * 4.f);
+            const float rot = std::atan2(-obj_dir_.x, obj_dir_.y);
+            r.ground(vec3(h.pos + obj_dir_ * (2.0f + 0.2f * pulse), 0.03f), 0.85f, vec4(hex_lin(0xF2C14E), 0.8f + 0.2f * pulse), {7, 0, 0, 1},
+                     Blend::Alpha, rot);
         }
     }
     // ground effects
@@ -960,6 +983,16 @@ void View::render_hud(World& w, const Input& in, const Areas& areas) {
         u.frame(p.x - tw / 2, p.y - 30, tw, 58, pal::panel.alpha(0.92f), pal::amber.alpha(0.8f), 12, 2);
         draw_button_glyph(p.x - tw / 2 + 34, p.y - 1, 40, BTN_SOUTH);
         u.text(p.x - tw / 2 + 64, p.y - 20, it.label, 30, pal::bone, Align::Left, 0.6f);
+    }
+    // the objective's name and distance, above the play (out of the way of a target's frame)
+    if (obj_on && h.alive() && !obj_label.empty()) {
+        const float d = length(obj_target - h.pos);
+        if (d > 3.f) {
+            char dm[32];
+            snprintf(dm, sizeof dm, "  \xC2\xB7  %d m", int(d + 0.5f));
+            const std::string label = std::string("\xE2\x96\xB2 ") + tr(obj_label) + dm;   // top right, clear of the toasts
+            u.text(1880, 20, label, 28, pal::rare.alpha(0.95f), Align::Right, 0.8f, true);
+        }
     }
     // target frame
     if (const Actor* f = w.focus_enemy()) {

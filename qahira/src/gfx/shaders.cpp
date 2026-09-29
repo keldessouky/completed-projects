@@ -292,6 +292,10 @@ void main() {
         }
         a = smoothstep(0.06, 0.0, best) * smoothstep(1.0, 0.85, r);
         a = max(a, smoothstep(0.35, 0.0, r) * 0.6);
+    } else if (shape == 7) {
+        // the objective chevron, pointing along +y (the quad's up axis)
+        float v = 0.45 - abs(p.x) * 0.95;
+        a = smoothstep(0.26, 0.18, abs(p.y - v)) * smoothstep(0.9, 0.8, abs(p.x));
     } else if (shape == 6) {
         // vertical loot beam: bright core fading upward
         a = pow(clamp(1.0 - abs(vUV.x * 2.0 - 1.0), 0.0, 1.0), 3.0) * pow(1.0 - vUV.y, 1.5);

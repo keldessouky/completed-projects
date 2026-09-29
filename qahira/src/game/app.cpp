@@ -782,6 +782,43 @@ void app_update(const Input& in_raw, float dt) {
     if (S->plat && S->plat->rumble) S->plat->rumble(int(S->rumble_strong * 65535), int(S->rumble_weak * 65535));
 }
 
+// where the player should go next: the choice to make if one is waiting, the boss if it stands, then the way on, the
+// way home; on the rooftop, the waypoint. The View draws it as a chevron at the hero's feet and a line at the top.
+static void update_objective() {
+    View& V = S->view;
+    World& w = S->world;
+    Areas& A = S->areas;
+    V.obj_on = false;
+    if (S->title.open || S->menu.open || S->map.open || S->sky.open || w.actors.empty()) return;
+    auto find = [&](Interactable::Kind k, int target = -1) -> const Interactable* {
+        for (auto& it : w.interacts) if (it.kind == k && !it.spent && (target < 0 || it.target == target)) return &it;
+        return nullptr;
+    };
+    auto go = [&](vec2 p, const std::string& label) { V.obj_on = true; V.obj_target = p; V.obj_label = label; };
+    if (A.current == AreaId::Hub) {
+        if (const Interactable* it = find(Interactable::Stair)) go(it->pos, "Waypoints");
+        else if (const Interactable* wp = find(Interactable::Waypoint)) go(wp->pos, "Waypoints");
+        return;
+    }
+    if (A.current != AreaId::Zone || !A.zone.valid) return;
+    if (const Interactable* t = find(Interactable::Toll, EQ_BODY)) { go(t->pos, "Choose the toll"); return; }
+    if (const Interactable* v = find(Interactable::Veil)) { go(v->pos, "Seal the Veil, or leave the door open"); return; }
+    const ZoneDef* zd = A.def();
+    if (zd && *zd->boss && !w.boss_killed) {
+        const ZoneLayout& L = A.zone.layout;
+        const int m = find_monster(zd->boss);
+        go(L.center(L.cells[size_t(L.arena)]), m >= 0 ? monster_defs()[size_t(m)].name : "The far court");
+        return;
+    }
+    if (const Interactable* n = find(Interactable::Next)) { go(n->pos, n->label); return; }
+    if (const Interactable* g = find(Interactable::Gate)) { go(g->pos, g->label); return; }
+    if (const Interactable* e = find(Interactable::Exit)) { go(e->pos, "Portal home"); return; }
+    if (!zd || !*zd->boss) {   // no boss: the rare in the far court guards the way on
+        const ZoneLayout& L = A.zone.layout;
+        go(L.center(L.cells[size_t(L.arena)]), "The far court");
+    }
+}
+
 void app_render(GLuint fbo, int w, int h) {
     if (S->title.open) {  // the title covers everything: no need to draw the world behind it
         Ui& u = ui();
@@ -808,6 +845,7 @@ void app_render(GLuint fbo, int w, int h) {
         env.sky = lerp(env.sky, hex_lin(0xC09060) * 0.9f, k * 0.6f);
         env.sun_color = env.sun_color * (1.f - 0.5f * k);
     }
+    update_objective();
     r.begin(S->view.cam, env, S->world.time);
     S->view.render_world(r, S->world);
     r.end(fbo, w, h, false);
