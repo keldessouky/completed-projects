@@ -37,6 +37,7 @@ void Bot::drive(World& w, Menu& m, Areas& a, Input& in, uint64_t frame) {
     else if (scenario == "tour8") tour8(w, m, a, in, frame);
     else if (scenario == "tour9") tour9(w, m, a, in, frame);
     else if (scenario == "tour10") tour10(w, m, a, in, frame);
+    else if (scenario == "tour11") tour11(w, m, a, in, frame);
     else fail("unknown bot " + scenario);
 }
 
@@ -2180,6 +2181,127 @@ void Bot::tour10(World& w, Menu& m, Areas& a, Input& in, uint64_t frame) {
         return;
     }
     pass("tour10 done");
+}
+
+// ---------------------------------------------------------------- tour11: the Wanderer, Act VI, the choice, the Gate of Iram, Falak (screenshots)
+void Bot::tour11(World& w, Menu& m, Areas& a, Input& in, uint64_t frame) {
+    static const char* zones[] = {"balad", "harbour", "shibam", "rub", "iram", "totality"};
+    const uint64_t z0 = 60, each = 300;
+    // QAHIRA_TOUR_GATE=1: straight to the Gate of Iram (after the first frame's setup)
+    if (frame > 1 && getenv("QAHIRA_TOUR_GATE")) frame += z0 + 6 * each - 2;
+    Hero& H = w.hero;
+    Actor& h = w.actors[0];
+    h.life = h.life_max;   // a tour, not a test
+    (void)m;
+    if (frame == 1) {
+        Rng r(61);
+        H.level = 62;
+        H.quests = Q_MICROBUS | Q_SILAH | Q_NASNAS | Q_TRIAL1 | Q_GHULA | Q_QUTRUB | Q_BENCH | Q_ACT1 | Q_NADDAHA | Q_RAM | Q_MARID | Q_ACT2 |
+                   Q_DABA | Q_TRIAL2 | Q_WRAITH | Q_ACT3 | Q_SARAB | Q_DOOR | Q_SALT | Q_ACT4 | Q_PRESSER | Q_TRIAL3 | Q_SMOKE | Q_QANDISHA | Q_ACT5;
+        H.weapon() = make_item(find_base("caravan_staff"), Rarity::Rare, 60, r);
+        const char* armour[] = {"kettle_helm", "scale_hauberk", "mamluk_gauntlets", "mamluk_boots"};
+        const int eq[] = {EQ_HELMET, EQ_BODY, EQ_GLOVES, EQ_BOOTS};
+        for (int k = 0; k < 4; k++) H.equip[eq[k]] = make_item(find_base(armour[k]), Rarity::Rare, 60, r);
+        for (auto& t : H.talismans) t.level = 20;
+        if (const auto* rec = tree().recommended_for(H.passives.cls)) for (int t : *rec) plan_to(H, t);
+        for (int k = 0; k < 80 && H.passive_points() > 0; k++) if (place_next_planned(w) < 0) break;
+        if (!ascendancies_of(H.passives.cls).empty()) H.ascendancy = int8_t(ascendancies_of(H.passives.cls)[0]);
+        H.asc = (1u << 1) | (1u << 2) | (1u << 3) | (1u << 4) | (1u << 5) | (1u << 6);
+        w.recompute_hero();
+        return;
+    }
+    if (frame < z0) return;
+    const uint64_t zones_end = z0 + 6 * each;
+    if (frame < zones_end) {
+        int k = int((frame - z0) / each), t = int((frame - z0) % each);
+        if (t == 0) {
+            a.enter_zone(w, find_zone(zones[k]), Arrival::Entrance);
+            w.level.bind_gpu();
+            fprintf(stderr, "tour11: %s at frame %llu\n", a.name(), (unsigned long long)frame);
+        }
+        const ZoneLayout& L = a.zone.layout;
+        if (t == 110 && *zone_def(find_zone(zones[k])).boss) {   // boss zones: skip ahead to the far court
+            h.pos = w.level.resolve(L.center(L.cells[size_t(L.arena)]) + vec2{0, -5.f}, h.radius);
+            for (size_t i = 1; i < w.actors.size(); i++)
+                if (w.actors[i].rarity != Rarity::Unique && length(w.actors[i].pos - h.pos) < 10.f) w.actors[i].life = 0, w.actors[i].act = Act::Dead, w.actors[i].dead_t = 3;
+        }
+        if (std::string(zones[k]) == "totality" && t == 200) {   // Apep lets go: the two columns of the choice
+            H.quests |= Q_DUWAIS | Q_SHIQQ | Q_HATIF | Q_HORSEMAN | Q_ACT6;
+            for (size_t i = 1; i < w.actors.size(); i++) if (w.actors[i].alive()) w.actors[i].life = 0, w.actors[i].act = Act::Dead, w.actors[i].dead_t = 3;
+            w.interacts.push_back({Interactable::Veil, w.level.resolve(h.pos + vec2{-2.6f, 2.f}, 0.6f), 2.0f, "Seal the Veil"});
+            w.interacts.push_back({Interactable::Door, w.level.resolve(h.pos + vec2{2.6f, 2.f}, 0.6f), 2.0f, "Leave the door open"});
+        }
+        if (t >= 200 && std::string(zones[k]) == "totality") return;   // stand between them
+        combat(w, in, frame, t > 110 ? 30.f : 9.f);
+        return;
+    }
+    // the Gate of Iram: the three scales, then the Keeper
+    const uint64_t gate0 = zones_end, gate_len = 700;
+    if (frame < gate0 + gate_len) {
+        int t = int(frame - gate0);
+        if (t == 0) {
+            H.quests |= Q_DUWAIS | Q_SHIQQ | Q_HATIF | Q_HORSEMAN | Q_ACT6;
+            H.ending = 1;
+            a.enter_zone(w, find_zone("gate_iram"), Arrival::Entrance);
+            w.level.bind_gpu();
+            fprintf(stderr, "tour11: the Gate of Iram at frame %llu\n", (unsigned long long)frame);
+        }
+        if (t < 260) {   // walk up to the scales
+            for (auto& it : w.interacts) if (it.kind == Interactable::Toll && it.target == EQ_BODY && length(it.pos - h.pos) > 1.2f) steer(w, in, it.pos);
+            return;
+        }
+        if (t == 260) go_to_interact(w, in, frame, Interactable::Toll, EQ_BODY);
+        const ZoneLayout& L = a.zone.layout;
+        if (t == 330) {
+            h.pos = w.level.resolve(L.center(L.cells[size_t(L.arena)]) + vec2{0, -5.f}, h.radius);
+            for (size_t i = 1; i < w.actors.size(); i++)
+                if (w.actors[i].rarity != Rarity::Unique && length(w.actors[i].pos - h.pos) < 10.f) w.actors[i].life = 0, w.actors[i].act = Act::Dead, w.actors[i].dead_t = 3;
+        }
+        if (t > 260 && t < 330) { go_to_interact(w, in, frame, Interactable::Toll, EQ_BODY); return; }
+        combat(w, in, frame, 30.f);
+        return;
+    }
+    // the Pinnacles at the chart table
+    MapScreen& M = *map_ui;
+    const uint64_t map0 = gate0 + gate_len, map_len = 240;
+    if (frame < map0 + map_len) {
+        int t = int(frame - map0);
+        if (t == 0) {
+            H.currency[CUR_PEARL] = 9;
+            H.currency[CUR_SCALE] = 5;
+            a.close_zone(w);
+            a.enter_hub(w, Arrival::Entrance);
+            w.level.bind_gpu();
+            M.show(w);
+            M.pinnacles = true;
+            M.pin_cursor = PIN_FALAK;
+            fprintf(stderr, "tour11: the pinnacles at frame %llu\n", (unsigned long long)frame);
+        }
+        if (t == 150) M.pin_cursor = PIN_FALAK_UBER;
+        return;
+    }
+    // Falak, beneath the world
+    const uint64_t falak0 = map0 + map_len, falak_len = 1100;
+    if (frame < falak0 + falak_len) {
+        int t = int(frame - falak0);
+        if (t == 0) {
+            M.hide();
+            H.level = 70;
+            w.recompute_hero();
+            a.enter_pinnacle(w, PIN_FALAK);
+            w.level.bind_gpu();
+            fprintf(stderr, "tour11: Falak at frame %llu\n", (unsigned long long)frame);
+        }
+        const ZoneLayout& L = a.zone.layout;
+        if (t == 60) {
+            h.pos = w.level.resolve(L.center(L.cells[size_t(L.arena)]) + vec2{0, -6.f}, h.radius);
+            for (size_t i = 1; i < w.actors.size(); i++)
+                if (w.actors[i].rarity != Rarity::Unique) w.actors[i].life = 0, w.actors[i].act = Act::Dead, w.actors[i].dead_t = 3;
+        }
+        combat(w, in, frame, 30.f);
+        return;
+    }
+    pass("tour11 done");
 }
 
 // ---------------------------------------------------------------- tour8: the Mercenary, Act III, an Excavation (screenshots)

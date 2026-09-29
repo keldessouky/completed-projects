@@ -10,16 +10,15 @@ already has, what's left, and what's worth knowing before you change anything.
   Slice 3 was finished after the handoff: the Stars screen, the Sorcerer, Talismans and Wafq, ailments, "Why?", the
   title screen, the build simulator and CI. The parked `qahira-slice3-wip` branch was never pushed; its two pieces
   (a stats preview and a QR encoder) were written again (`summarize` in `game/world.cpp`, `ui/qr.*`).
-- **Slice 10 (Across the Red Sea) is in progress:** the Wanderer (the Pole start, Fragments) and Act VI's seven
-  zones to Apep, the 60% resistance penalty and the Veil-or-door ending are in, with the `act6` bot. Bases past Act V,
-  the Gate of Iram (the Fourth Trial, a toll you choose), Falak and the uber pinnacles are in. Still to do:
-  screenshots of Act VI, then Slice 11. Every push also publishes the RP6 core
-  and pack on the `qahira-latest` prerelease (see [PLAY.md](PLAY.md)). See its SLICES.md entry.
+- **Slice 10 (Across the Red Sea) is done:** the Wanderer (the Pole start, Fragments), Act VI's seven zones to
+  Apep, the 60% resistance penalty and the Veil-or-door ending, bases past Act V, the Gate of Iram (the Fourth Trial,
+  a toll you choose), Falak and the uber pinnacles. `act6` (with the Gate) and `falak` run in CI. Every push also
+  publishes the RP6 core and pack on the `qahira-latest` prerelease (see [PLAY.md](PLAY.md)). Next is Slice 11.
 - **Slice 9 (the Atlas and the Strait) is done:** the Templar with the Beacon, the signal brazier, burning ground and
   Block, his sky and the keystone al-Iklil, the Zealot and the Warden, Act V's seven zones on four regions to Aisha
   Qandisha with Trial III at Bab al-Nasr, charts to the Sixteenth Reach over sixteen more sites, and the King's Pearls
   that open the Marid King's throne. The `act5` and `king` bots run in CI; `reaches` nightly. The weak spot is hero
-  scaling past Act V (see its Known gaps): Slice 10 should add higher-level bases.
+  scaling past Act V (see its Known gaps); Slice 10 added the higher-level bases.
 - **Slice 8 (the Maghreb Coast) is done:** the Shadow with traps, Wither and Power Charges, his sky and the keystone
   al-Sharatan, the Nightblade and the Mystic, Act IV's six zones on four regions with Sarab the Mirage, the Iron Door
   of the Souq and the Ghula of the Salt, and the Zar Nights. The `act4` and `zar` bots run in CI.
@@ -127,7 +126,8 @@ already has, what's left, and what's worth knowing before you change anything.
   map has 32 sites: another site needs 64-bit masks and a character file bump. The tag mask (`T_*`) is full at 32.
 - **Chart tiers:** `kChartTiers` is 16, `kChartTiersEarly` (4) the cap before Act V (`ChartRun::max_tier`). The
   Reaches' climb (`kReachUp`, `kReachDown`) and the pearl rates (`pearl_drops`) are the knobs; `qchartsim` checks both
-  the early map and the road to the throne. `QAHIRA_TOUR_KING=1` starts `tour10` at the map of the Reaches.
+  the early map and the road to the throne. `QAHIRA_TOUR_KING=1` starts `tour10` at the map of the Reaches;
+  `QAHIRA_TOUR_GATE=1` starts `tour11` (the Wanderer, Act VI, the Gate, Falak) at the Gate of Iram.
 - **The weapon swap:** `EQ_WEAPON2` is the weapon on the back; it adds no stats until `World::swap_weapons` brings it
   into hand, which `start_skill` does when a skill needs its kind. Rate a skill with `hero_skill_ctx`, which uses the
   weapon it would really be used with.

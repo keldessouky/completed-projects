@@ -793,12 +793,12 @@ first pinnacle.*
   from before the Reaches went in does the same, so it came with Slice 9's earlier work. Not yet looked into.
 - Audio is stored as 16-bit WAV: the pack is 170 MB.
 
-## Slice 10 · Across the Red Sea (in progress)
+## Slice 10 · Across the Red Sea
 
 *The last act, the seventh class, the end of the campaign, the Fourth Trial, the second pinnacle and the uber
-bosses. Screenshots are still to come.*
+bosses.*
 
-**Delivered so far**
+**Delivered**
 - **The Wanderer**, a seventh class (all three attributes; `tools/art/characters/wanderer.py`):
   - a courier of the long roads, in a camel-hair coat and a sand-and-red headwrap, with a satchel, a waterskin and a
     small brass astrolabe on the chest strap;
@@ -855,7 +855,7 @@ bosses. Screenshots are still to come.*
   - Blank Talismans climb past 20 in the last areas: one level more every four area levels past 44, to 25.
 - **Saves:** the character file v9 (the ending); save states v15.
 - **The bots:** they pilot the Wanderer (a Mark every eight seconds, a shout into crowds, Arc at range, the staff up
-  close). `act6` is new: a character as Act V leaves one plays Act VI through and seals the Veil. It runs in CI as
+  close). `act6`, `falak`, `uber` and `tour11` (the screenshots; `QAHIRA_TOUR_GATE=1` starts it at the Gate of Iram) are new. `act6`: a character as Act V leaves one plays Act VI through and seals the Veil. It runs in CI as
   the Templar on every push, and as the Warrior nightly.
 - **Play it on the RP6 without a PC:** a CI job builds the Android core and the pack on every push to `qahira` and
   publishes both on the rolling `qahira-latest` prerelease. [PLAY.md](PLAY.md) walks from the handheld's browser to
@@ -875,7 +875,15 @@ bosses. Screenshots are still to come.*
 | Every earlier bot | pass: `walk`, `fight`, `zone` (all seven classes), `sorcerer`, `sky`, `title`, `rifts`, `digs`, `zar`, `king`, `act3` (8.5 minutes, 0 deaths), `act4` (13.8, 0), `act5` (the Warrior 7.8, 0; the Templar 8.6, 0) |
 | Simulators | `qbuildsim` 0 flags; `qchartsim` 0 flags (median 44 runs to the throne) |
 
-**Still to do in Slice 10**
+| | |
+|---|---|
+| ![The Old Harbour of Jeddah: Umm al-Duwais](img/slice10-harbour.jpg) | ![Shibam, the Towers of Hadramawt: Shiqq, the half-man](img/slice10-shiqq.jpg) |
+| ![The Empty Quarter](img/slice10-rub.jpg) | ![Iram of the Pillars: the Brass Horseman charges](img/slice10-horseman.jpg) |
+| ![The Heart of Totality: Apep, with the sun in its mouth](img/slice10-apep.jpg) | ![The choice: the Veil (sunlight) or the door (the eclipse's dark)](img/slice10-choice.jpg) |
+| ![The Gate of Iram: three brass scales, one for each toll](img/slice10-gate.jpg) | ![The Keeper of the Gate of Iram](img/slice10-keeper.jpg) |
+| ![The Pinnacles at the chart table](img/slice10-pinnacles.jpg) | ![Falak, the serpent beneath the world](img/slice10-falak.jpg) |
+
+**Known gaps (carried forward)**
 - The Mercenary, Shadow, Templar and Wanderer bots have the damage for the Marid King now, but die in reach of him
   (9 or more deaths), and the Templar dies to Falak: their pilots fight face to face. A pilot that steps out of the
   combo would fix it.
@@ -883,7 +891,6 @@ bosses. Screenshots are still to come.*
 - The bots' Talismans stay at 20. With them at 24 the Warrior lost to the King; the likely cause (not yet confirmed)
   is a level-24 Talisman's attribute requirement of 89. Players who find the higher Blanks need the attributes to
   use them.
-- Screenshots of Act VI (`tour11`).
 - The codex once had entries inserted in the middle of its table (Slices 8 and 9), and characters store it by index.
   It is back in append order now, and a test pins it. A character saved by those builds may show the wrong entries
   as met.
