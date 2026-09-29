@@ -24,8 +24,7 @@ pack* job in `.github/workflows/qahira.yml`) and publishes them on the `qahira-l
 4. **Settings → Drivers → Video** must be `gl`. This is the RetroArch default on Android, and the core needs a
    GLES 3.2 context. The Vulkan driver can't host a GL core.
 5. Optional: in the RP6's Android settings, map the rear buttons to the stick clicks: **M1 → L3** (life flask) and
-   **M2 → R3**. R3 does nothing in the field yet. So far it's only
-   used in the Book of Fixed Stars, for build codes.
+   **M2 → R3** (the next episode on Radio Kafr El-Sheikh; in the Book of Fixed Stars, build codes).
 
 ## Launching
 

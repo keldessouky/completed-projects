@@ -1,6 +1,7 @@
 #include "audio/audio.hpp"
 #include "core/pack.hpp"
 #include "core/log.hpp"
+#include <algorithm>
 #include <cmath>
 #include <cstring>
 
@@ -129,7 +130,11 @@ void Audio::mix(int16_t* stereo, int frames) {
             v.pos += v.step;
         }
     }
-    for (auto& b : music_) mix_bed(b, out, frames, music_volume);
+    // a crossfade of a second between the game's music and the radio
+    const bool live = radio_on && radio.playing();
+    radio_mix_ = std::clamp(radio_mix_ + (live ? 1.f : -1.f) * float(frames) / 48000.f, 0.f, 1.f);
+    for (auto& b : music_) mix_bed(b, out, frames, music_volume * (1.f - radio_mix_));
+    if (live) radio.mix(out, frames, music_volume * radio_gain * radio_mix_);
     for (auto& b : amb_) mix_bed(b, out, frames, 1.f);
     for (int i = 0; i < frames * 2; i++) {
         float x = out[i] * master;

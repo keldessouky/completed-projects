@@ -1,4 +1,5 @@
 #include "game/settings.hpp"
+#include "audio/audio.hpp"
 #include "ui/lang.hpp"
 #include "ui/ui.hpp"
 #include <cstdio>
@@ -9,7 +10,7 @@ namespace {
 std::string g_dir = ".";
 std::string path() { return g_dir + "/qahira.settings"; }
 constexpr uint32_t kMagic = 0x54455351;   // "QSET"
-constexpr uint8_t kVersion = 1;
+constexpr uint8_t kVersion = 2;   // 2: the music and the radio's place
 }  // namespace
 
 Settings& settings() { static Settings s; return s; }
@@ -40,8 +41,9 @@ bool load_settings() {
     FILE* f = fopen(path().c_str(), "rb");
     if (!f) return false;
     uint32_t magic = 0;
-    uint8_t v[6] = {};
-    bool ok = fread(&magic, 4, 1, f) == 1 && magic == kMagic && fread(v, 1, 6, f) == 6 && v[0] == kVersion;
+    uint8_t v[13] = {};
+    bool ok = fread(&magic, 4, 1, f) == 1 && magic == kMagic && fread(v, 1, 6, f) == 6 && (v[0] == 1 || v[0] == kVersion);
+    if (ok && v[0] >= 2) ok = fread(v + 6, 1, 7, f) == 7;
     fclose(f);
     if (!ok) return false;
     Settings& s = settings();
@@ -50,6 +52,11 @@ bool load_settings() {
     s.colours = v[3] < 3 ? v[3] : 0;
     s.shake = v[4] <= 4 ? v[4] : 4;
     s.bar2_toggle = v[5] < 2 ? v[5] : 0;
+    if (v[0] >= 2) {
+        s.music = v[6] < 2 ? v[6] : 0;
+        s.radio_ep = uint16_t(v[7] | v[8] << 8);
+        s.radio_pos = uint32_t(v[9] | v[10] << 8 | v[11] << 16 | uint32_t(v[12]) << 24);
+    }
     return true;
 }
 
@@ -57,19 +64,21 @@ bool save_settings() {
     FILE* f = fopen(path().c_str(), "wb");
     if (!f) return false;
     const Settings& s = settings();
-    const uint8_t v[6] = {kVersion, s.lang, s.text, s.colours, s.shake, s.bar2_toggle};
-    bool ok = fwrite(&kMagic, 4, 1, f) == 1 && fwrite(v, 1, 6, f) == 6;
+    const uint8_t v[13] = {kVersion, s.lang, s.text, s.colours, s.shake, s.bar2_toggle, s.music,
+                           uint8_t(s.radio_ep), uint8_t(s.radio_ep >> 8),
+                           uint8_t(s.radio_pos), uint8_t(s.radio_pos >> 8), uint8_t(s.radio_pos >> 16), uint8_t(s.radio_pos >> 24)};
+    bool ok = fwrite(&kMagic, 4, 1, f) == 1 && fwrite(v, 1, 13, f) == 13;
     fclose(f);
     return ok;
 }
 
 const char* setting_label(int row) {
-    static const char* l[SET_COUNT] = {"Language", "Text size", "Loot colours", "Screen shake", "Second skill bar"};
+    static const char* l[SET_COUNT] = {"Language", "Text size", "Loot colours", "Screen shake", "Second skill bar", "Music"};
     return l[row < 0 || row >= SET_COUNT ? 0 : row];
 }
 
 int setting_choices(int row) {
-    static const int n[SET_COUNT] = {2, 3, 3, 5, 2};
+    static const int n[SET_COUNT] = {2, 3, 3, 5, 2, 2};
     return n[row < 0 || row >= SET_COUNT ? 0 : row];
 }
 
@@ -81,6 +90,7 @@ int setting_value(int row) {
         case SET_COLOURS: return s.colours;
         case SET_SHAKE: return s.shake;
         case SET_BAR2: return s.bar2_toggle;
+        case SET_MUSIC: return s.music;
         default: return 0;
     }
 }
@@ -95,6 +105,7 @@ void set_setting(int row, int v) {
         case SET_COLOURS: s.colours = uint8_t(v); break;
         case SET_SHAKE: s.shake = uint8_t(v); break;
         case SET_BAR2: s.bar2_toggle = uint8_t(v); break;
+        case SET_MUSIC: s.music = uint8_t(v); apply_music(); break;
         default: break;
     }
     apply_settings();
@@ -107,10 +118,30 @@ std::string setting_choice_name(int row, int v) {
         case SET_COLOURS: return v == 2 ? "Blue-yellow safe" : v == 1 ? "Red-green safe" : "Standard";
         case SET_SHAKE: return v == 0 ? std::string("Off") : std::to_string(v * 25) + "%";
         case SET_BAR2: return v == 1 ? "Toggle with L2" : "Hold L2";
+        case SET_MUSIC: return v == 1 ? "The game's music" : "Radio Kafr El-Sheikh";
         default: return "";
     }
 }
 
 float shake_scale() { return settings().shake / 4.f; }
+
+void set_radio_dirs(const std::vector<std::string>& dirs) { audio().radio.scan(dirs); }
+
+void apply_music() {
+    Settings& s = settings();
+    Radio& r = audio().radio;
+    const bool on = s.music == 0 && r.count() > 0;
+    if (on && !r.playing()) r.start(s.radio_ep, s.radio_pos);
+    if (!on && r.playing()) { keep_radio_place(); r.stop(); }
+    audio().radio_on = on;
+}
+
+void keep_radio_place() {
+    Radio& r = audio().radio;
+    if (!r.playing()) return;
+    settings().radio_ep = uint16_t(r.current());
+    settings().radio_pos = uint32_t(r.seconds());
+    save_settings();
+}
 
 }  // namespace q

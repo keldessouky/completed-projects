@@ -1007,6 +1007,20 @@ notes after playing it, taken one at a time.*
 
   The sprite shader samples the sheet texel for texel. Sprites fade out by dropping pixels in a 4×4 ordered pattern,
   not by turning translucent. The meteor's ground marker is no longer a glowing disc.
+- **Radio Kafr El-Sheikh** ("this game's version of the GTA radio"): the owner's show in place of the music. The
+  episodes are not in the pack. Players put them in a `radio` folder beside it (or beside the saves).
+  - **Formats:** MP3 (minimp3), Ogg Vorbis (stb_vorbis) or 16-bit WAV, at any rate, mono or stereo.
+  - **Playback:** each episode streams from its file, a chunk at a time, resampled to the mixer's 48 kHz, so an
+    hour-long episode costs a few kilobytes of memory. Episodes play in natural order (`Episode 2` before
+    `Episode 10`), and on to the next when one ends.
+  - **In the field:** R3 (M2 on the RP6) tunes to the next episode through a burst of static (generated, with a
+    whistle sliding down through it). A station card at the top of the screen names the episode, and the top-left
+    hints show the button.
+  - **Resuming:** the episode and the place in it are kept in the settings every twenty seconds and on exit, so the
+    show goes on where it was left.
+  - **Settings:** a **Music** row (the radio, or the game's music) and a line saying how many episodes were found.
+    The game's music fades out under the radio over a second.
+  - **Fallback:** with no episodes, the game's own music plays as before. The settings file is v2 and still reads v1.
 - Character files are v10 (the flask's tier) and save states v17.
 - CI had been red since the glow change. The new art changed the drops and some layouts, which showed up two faults in
   the bot pilot, not in the game:
@@ -1019,13 +1033,14 @@ notes after playing it, taken one at a time.*
 
 | Check | Result |
 |---|---|
-| Unit tests (`qtests`) | pass, 90 cases (new: the effects sheet's rows match the game's list, a burst's colour picks its flipbook and it draws the same random numbers as before, the flask's tiers, charges, heal and prices climb, the tier in the character file, the Spring affix and the Spring-Water Amulet's regeneration) |
+| Unit tests (`qtests`) | pass, 93 cases (new: the radio finds its episodes in natural order and streams MP3, Ogg and WAV at 48 kHz, keeps its place and moves on at an episode's end; the settings keep the music and the radio's place and still read v1; the effects sheet's rows match the game's list, a burst's colour picks its flipbook and it draws the same random numbers as before, the flask's tiers, charges, heal and prices climb, the tier in the character file, the Spring affix and the Spring-Water Amulet's regeneration) |
 | Every bot | pass: `walk`, `fight`, `zone` (all seven classes), `sorcerer`, `sky`, `title`, `rifts`, `digs`, `zar`, `king` |
 
 | | |
 |---|---|
 | ![Amm Sayed's wares with the flask upgrade](img/f3-flask.jpg) | ![The objective arrow and its label](img/f2-objective.jpg) |
 | ![The Sorcerer's fire, frost and smoke as pixel art](img/f4-fx-game.jpg) | ![The effects sheet: 18 effects of 8 frames](img/f4-fx-sheet.png) |
+| ![The radio's station card and the M2 hint](img/f5-radio-card.jpg) | ![Settings: Music, and the episodes found](img/f5-radio-settings.jpg) |
 
 **Known gaps (carried forward)**
 - The nightly `act1` as the Wanderer runs out of its 50 minutes: the pilot's Wanderer is too weak for Umm al-Ghula and
@@ -1033,7 +1048,7 @@ notes after playing it, taken one at a time.*
   changes. Every other long run passes locally: `act1` to `act6` as the Warrior, `act1` and `act3` as the Mercenary,
   `act2` as the Ranger, `act3` and `act4` as the Shadow, `act5` and `act6` as the Templar, `falak`, `subyan`, `charts`
   and `reaches`.
-- Next from the owner's notes: Radio Kafr El-Sheikh, the owner's own show, as the game's radio in place of the music.
-  It waits on the episodes themselves.
+- Radio Kafr El-Sheikh is built and tested with generated tones. It is waiting on the show's episodes, which the
+  owner adds beside the pack. It has not been heard on the RP6 yet.
 - The telegraphs (the magenta warnings of a monster's strike), the portal and the loot beams keep their smooth,
   glowing look: they are warnings and markers, not spells.

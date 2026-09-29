@@ -1,4 +1,5 @@
 #include "game/view.hpp"
+#include "audio/audio.hpp"
 #include "ui/lang.hpp"
 #include "game/settings.hpp"
 #include <cstdio>
@@ -42,6 +43,11 @@ void View::follow(const World& w, float dt, bool snap) {
     shown_life = damp(shown_life, ha.life / std::max(1.f, ha.life_max), 10.f, dt);
     shown_mana = damp(shown_mana, ha.mana / std::max(1.f, ha.mana_max), 10.f, dt);
     banner_t = std::max(0.f, banner_t - dt);
+    radio_card_t = std::max(0.f, radio_card_t - dt);
+    if (audio().radio.tuned != radio_seen_) {
+        radio_seen_ = audio().radio.tuned;
+        if (audio().radio_on) radio_card_t = 5.f;
+    }
 }
 
 void View::on_events(const World& w) {
@@ -1120,6 +1126,15 @@ void View::render_hud(World& w, const Input& in, const Areas& areas) {
         u.text(960, 300, banner, 72, pal::amber.alpha(a), Align::Center, 2, true);
         u.text(960, 384, banner_sub, 30, pal::bone.alpha(a), Align::Center);
     }
+    // the station card, as the car radio shows it: the station, then the episode
+    if (radio_card_t > 0 && audio().radio_on) {
+        const float a = std::min(1.f, radio_card_t / 0.5f) * std::min(1.f, (5.f - radio_card_t) / 0.3f + 0.2f);
+        const std::string ep = audio().radio.title(audio().radio.current());
+        const float tw = std::max(u.text_width(tr("RADIO KAFR EL-SHEIKH"), 34), u.text_width(ep, 28)) + 80;
+        u.frame(960 - tw / 2, 120, tw, 110, pal::panel.alpha(0.88f * a), pal::brass.alpha(a), 12, 2);
+        u.text(960, 134, "RADIO KAFR EL-SHEIKH", 34, pal::rare.alpha(a), Align::Center, 1.2f, true);
+        u.text(960, 184, ep, 28, pal::bone.alpha(a), Align::Center, 0.6f);
+    }
     // field hints: what the D-pad does here
     {
         float x = 40, y = 40;
@@ -1134,6 +1149,7 @@ void View::render_hud(World& w, const Input& in, const Areas& areas) {
             hint(BTN_DOWN, map_open ? "Hide map" : "Map");
         }
         hint(BTN_RIGHT, (std::string("Filter: ") + filter_name(H.filter)).c_str());
+        if (audio().radio.count() > 0) hint(BTN_R3, audio().radio_on ? "Next episode" : "Radio");
     }
     // death
     if (!h.alive()) {

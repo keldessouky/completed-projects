@@ -17,6 +17,7 @@ public:
     float shown_life = 1, shown_mana = 1;
     float banner_t = 0;
     std::string banner, banner_sub;
+    float radio_card_t = 0;         // the station card, shown when an episode starts on the radio
 
     void follow(const World& w, float dt, bool snap = false);
     void on_events(const World& w);
@@ -36,6 +37,7 @@ private:
     CharacterModel zar_cm_;         // the Zar's drummers: scenery, animated here
     Animator zar_anim_;
     bool zar_ready_ = false;
+    uint32_t radio_seen_ = 0;
     std::vector<vec2> obj_path_;    // the route to the objective, found again every half second
     vec2 obj_goal_{1e9f, 1e9f};
     float obj_t_ = 0;

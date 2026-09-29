@@ -73,6 +73,28 @@ Move `Qahira.qpk` out of `Download` into a folder of its own. Any folder works; 
 Use the RP6's **Files** app: long-press `Qahira.qpk` → **Move** → create `ROMs/Qahira` (the RP6 may already have a
 `ROMs` folder, possibly on the SD card) → **Move here**.
 
+### Radio Kafr El-Sheikh (optional)
+
+The game has a radio in place of its music, the way GTA has stations: **Radio Kafr El-Sheikh**. It plays the
+episodes of the show one after another. To put it on the air, make a folder named `radio` beside the pack and copy
+the episodes into it:
+
+```
+/storage/emulated/0/ROMs/Qahira/radio/Episode 1.mp3
+/storage/emulated/0/ROMs/Qahira/radio/Episode 2.mp3
+...
+```
+
+- **Formats:** MP3, Ogg Vorbis (`.ogg`) or 16-bit WAV, at any sample rate, mono or stereo.
+- **Order:** by file name, with numbers counted properly, so `Episode 2` comes before `Episode 10`.
+- **Names on screen:** the file name, with underscores shown as spaces.
+- **Where it picks up:** the radio remembers the episode and the place in it. When an episode ends, the next one
+  starts.
+- **In the field, R3** (the right stick pressed in, or M2 if you mapped it) tunes to the next episode, through a burst
+  of static, and a card at the top of the screen names it.
+- **To turn it off:** **Settings → Music** switches between the radio and the game's own music. With no `radio`
+  folder the game plays its own music, as before.
+
 ## 5. Set the video driver to `gl` (once)
 
 The core draws with OpenGL ES 3.2 and can't run under the Vulkan driver.
@@ -124,6 +146,7 @@ use the same positions.
 | D-pad up | Cast a portal home (in a zone) |
 | D-pad down | Show or hide the map (in a zone) |
 | D-pad right | Next loot filter preset |
+| R3 (press right stick, or M2 if mapped) | Radio Kafr El-Sheikh: the next episode |
 | Start | Menu: inventory, Talismans, character, loot filter |
 | Hold Select | The Book of Fixed Stars, the passive tree |
 | Tap Select | Place the next star you planned in the Book |
@@ -140,8 +163,13 @@ the screen names it and how far it is.
 seven tiers, each healing more and every second one holding a charge more, for dinars once you're at the level it
 asks. High-level belts, amulets and rings, and the affix *of the Spring*, regenerate life every second.
 
-**Settings** (the menu's last tab): the language (English, or Arabic laid out right to left), the text size, loot
-colours safe for colour-blind players, the screen shake, and whether L2 holds or toggles the second skill bar.
+**Settings** (the menu's last tab):
+- the language (English, or Arabic laid out right to left);
+- the text size;
+- loot colours safe for colour-blind players;
+- the screen shake;
+- whether L2 holds or toggles the second skill bar;
+- the music: Radio Kafr El-Sheikh or the game's own. Below the list, the tab says how many episodes the radio found.
 
 **In the menu:** L1 / R1 switch tabs, the bottom button equips or uses, the top button drops (on the Character tab it
 shows "Why?" for any number), and the right button or Start closes it. The world is paused while any menu is open.

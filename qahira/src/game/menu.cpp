@@ -1,4 +1,5 @@
 #include "game/menu.hpp"
+#include "audio/audio.hpp"
 #include "game/settings.hpp"
 #include "game/view.hpp"
 #include "ui/ui.hpp"
@@ -751,17 +752,26 @@ void Menu::render(const World& w) const {
         y += 70;
         for (int r = 0; r < SET_COUNT; r++) {
             const bool cur = settings_cursor == r;
-            u.frame(x - 10, y, PW - 100, 96, cur ? pal::dusk : pal::panel2, cur ? pal::amber : pal::line, 12, cur ? 3.f : 1.f);
-            u.text(x + 20, y + 28, setting_label(r), 32, pal::bone, Align::Left, 0.8f);
+            u.frame(x - 10, y, PW - 100, 86, cur ? pal::dusk : pal::panel2, cur ? pal::amber : pal::line, 12, cur ? 3.f : 1.f);
+            u.text(x + 20, y + 23, setting_label(r), 32, pal::bone, Align::Left, 0.8f);
             const std::string v = setting_choice_name(r, setting_value(r));
             const float vx = PX + PW - 110;
-            u.text(vx, y + 28, v, 32, cur ? pal::amber : pal::soft, Align::Right, 0.8f);
+            u.text(vx, y + 23, v, 32, cur ? pal::amber : pal::soft, Align::Right, 0.8f);
             if (cur) {   // the arrows either side of the choice
                 const bool m = ui().mirrored();   // the arrows point outward on either side, mirrored or not
-                u.text(vx - u.text_width(v, 32) - 40, y + 26, m ? "\xE2\x86\x92" : "\xE2\x86\x90", 32, pal::amber, Align::Left);
-                u.text(vx + 14, y + 26, m ? "\xE2\x86\x90" : "\xE2\x86\x92", 32, pal::amber, Align::Left);
+                u.text(vx - u.text_width(v, 32) - 40, y + 21, m ? "\xE2\x86\x92" : "\xE2\x86\x90", 32, pal::amber, Align::Left);
+                u.text(vx + 14, y + 21, m ? "\xE2\x86\x90" : "\xE2\x86\x92", 32, pal::amber, Align::Left);
             }
-            y += 112;
+            y += 98;
+        }
+        // the radio: what it has found, and where it looks
+        {
+            const Radio& rd = audio().radio;
+            if (rd.count() > 0)
+                u.text(x, y - 4, std::to_string(rd.count()) + (rd.count() == 1 ? " episode on the radio" : " episodes on the radio") +
+                       (audio().radio_on && rd.playing() ? "  \xC2\xB7  " + rd.title(rd.current()) : std::string()), 24, pal::dim);
+            else u.text(x, y - 4, "No episodes: put them in a folder named radio beside Qahira.qpk", 24, pal::dim);
+            y += 34;
         }
         // the loot colours, as they are now
         y += 10;

@@ -547,6 +547,17 @@ bool app_init(const char* pack_path, Platform* plat) {
     else S->areas.enter_hub(w, Arrival::Entrance);
     S->menu.restock(w);
     audio().init();
+    // Radio Kafr El-Sheikh: the owner's episodes, in a "radio" folder beside the pack (or beside the saves)
+    if (S->persist && !S->bot.uses_title()) {
+        const std::string p = pack_path;
+        const size_t cut = p.find_last_of("/\\");
+        const std::string dir = cut == std::string::npos ? std::string(".") : p.substr(0, cut);
+        set_radio_dirs({dir + "/radio", dir + "/Radio", save_dir() + "/radio"});
+        apply_music();
+    } else if (const char* rd = getenv("QAHIRA_RADIO")) {   // pictures of the radio: a bot with episodes from here
+        set_radio_dirs({rd});
+        apply_music();
+    }
     arrived();
     return true;
 }
@@ -554,6 +565,8 @@ bool app_init(const char* pack_path, Platform* plat) {
 void app_shutdown() {
     if (!S) return;
     save_character();
+    keep_radio_place();
+    audio().radio.stop();
     if (S->gpu) { S->renderer.shutdown(); assets().clear(); }
     delete S;
     S = nullptr;
@@ -577,6 +590,7 @@ void app_gpu_lost() {
 void app_update(const Input& in_raw, float dt) {
     Input in = in_raw;
     S->frame++;
+    if (S->frame % (60 * 20) == 0) keep_radio_place();   // the show goes on where it was left
     World& w = S->world;
     Areas& A = S->areas;
     Menu& M = S->menu;
@@ -713,6 +727,12 @@ void app_update(const Input& in_raw, float dt) {
     if (h.alive()) {
         if (in.hit(BTN_UP) && A.current == AreaId::Zone) A.cast_portal(w);
         if (in.hit(BTN_DOWN) && A.current == AreaId::Zone) S->view.map_open = !S->view.map_open;
+        if (in.hit(BTN_R3)) {   // the radio: tune in, or on to the next episode
+            Radio& r = audio().radio;
+            if (!r.count()) M.say("No episodes: put them in a folder named radio beside Qahira.qpk");
+            else if (!audio().radio_on) { set_setting(SET_MUSIC, 0); save_settings(); }
+            else { r.next(1); keep_radio_place(); }
+        }
         if (in.hit(BTN_RIGHT)) {
             w.hero.filter = uint8_t((w.hero.filter + 1) % FILTER_COUNT);
             M.say(std::string("Loot filter: ") + filter_name(w.hero.filter) + "  \xC2\xB7  " + filter_desc(w.hero.filter));
