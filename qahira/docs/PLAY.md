@@ -129,6 +129,10 @@ use the same positions.
 | Tap Select | Place the next star you planned in the Book |
 | Bottom button, after dying | Get up again |
 
+**Performance** (RetroArch's **Quick Menu → Core Options**): *Balanced* (60 fps, the default) or *Battery* (40 fps,
+which divides the RP6's 120 Hz screen evenly, with the 3D drawn at a lower resolution). The game itself runs at the
+same speed in both. Neither has been timed on the device yet.
+
 **Settings** (the menu's last tab): the language (English, or Arabic laid out right to left), the text size, loot
 colours safe for colour-blind players, the screen shake, and whether L2 holds or toggles the second skill bar.
 

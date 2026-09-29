@@ -23,6 +23,25 @@ static bool loaded = false;
 static uint32_t prev_buttons = 0;
 static Platform plat;
 static const int kW = 1920, kH = 1080;
+// the performance mode (GDD §11.6): Balanced, 60 fps with the 3D at 75%; Battery, 40 fps (it divides the RP6's 120 Hz
+// evenly) with the 3D at 67%. The simulation always steps at 60 Hz: at 40 fps a frame runs one or two steps.
+static int g_fps = 60;
+static float g_steps = 0;
+
+static void check_variables(bool announce) {
+    retro_variable var{"qahira_performance", nullptr};
+    if (!env_cb || !env_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) || !var.value) return;
+    const bool battery = strncmp(var.value, "Battery", 7) == 0;
+    app_set_option("qahira_performance", battery ? "battery" : "balanced");
+    const int fps = battery ? 40 : 60;
+    if (fps == g_fps) return;
+    g_fps = fps;
+    if (announce) {   // the frontend needs the new timing
+        retro_system_av_info av;
+        retro_get_system_av_info(&av);
+        env_cb(RETRO_ENVIRONMENT_SET_SYSTEM_AV_INFO, &av);
+    }
+}
 
 static void log_sink(LogLevel l, const char* msg) {
     if (log_cb) {
@@ -66,21 +85,26 @@ RETRO_API void retro_set_environment(retro_environment_t cb) {
         {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_A, "Dodge / Back"},
         {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_Y, "Skill 2"},
         {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_X, "Skill 3"},
-        {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_R, "Skill 4"},
+        {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_R, "Skill 4 / next menu tab"},
         {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_R2, "Skill 5 (analog)"},
         {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_L2, "Second skill bar"},
-        {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_L, "Swap weapons"},
+        {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_L, "Previous menu tab"},
         {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_L3, "Life flask (M1)"},
-        {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_R3, "Mana flask (M2)"},
+        {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_R3, "Build codes (in the Book of Fixed Stars)"},
         {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_START, "Menu"},
-        {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_SELECT, "Target lock"},
+        {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_SELECT, "Book of Fixed Stars (hold) / place a star (tap)"},
         {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_UP, "Portal"},
         {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_LEFT, "Pick up"},
-        {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_RIGHT, "Loot labels"},
+        {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_RIGHT, "Next loot filter"},
         {0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_DOWN, "Map"},
         {0, 0, 0, 0, nullptr},
     };
     cb(RETRO_ENVIRONMENT_SET_INPUT_DESCRIPTORS, desc);
+    static const retro_variable vars[] = {
+        {"qahira_performance", "Performance; Balanced (60 fps)|Battery (40 fps)"},
+        {nullptr, nullptr},
+    };
+    cb(RETRO_ENVIRONMENT_SET_VARIABLES, (void*)vars);
 }
 
 RETRO_API void retro_set_video_refresh(retro_video_refresh_t cb) { video_cb = cb; }
@@ -108,7 +132,7 @@ RETRO_API void retro_get_system_av_info(retro_system_av_info* info) {
     info->geometry.max_width = kW;
     info->geometry.max_height = kH;
     info->geometry.aspect_ratio = 16.f / 9.f;
-    info->timing.fps = 60.0;
+    info->timing.fps = double(g_fps);
     info->timing.sample_rate = 48000.0;
 }
 
@@ -142,6 +166,7 @@ RETRO_API bool retro_load_game(const retro_game_info* game) {
     if (env_cb(RETRO_ENVIRONMENT_GET_SAVE_DIRECTORY, &dir) && dir) plat.save_dir = dir;
     else plat.save_dir = ".";
     loaded = app_init(game->path, &plat);
+    if (loaded) check_variables(false);
     return loaded;
 }
 
@@ -195,7 +220,14 @@ RETRO_API void retro_run(void) {
     in.update_edges(prev_buttons);
     prev_buttons = in.down;
 
-    app_update(in, 1.f / 60.f);
+    bool updated = false;
+    if (env_cb(RETRO_ENVIRONMENT_GET_VARIABLE_UPDATE, &updated) && updated) check_variables(true);
+    // 60 simulation steps a second whatever the frame rate; a second step in one frame sees no new presses
+    g_steps += 60.f / float(g_fps);
+    for (bool first = true; g_steps >= 1.f; g_steps -= 1.f, first = false) {
+        if (!first) { in.pressed = 0; in.released = 0; in.tapped = false; }
+        app_update(in, 1.f / 60.f);
+    }
 
     if (gpu_ready) {
         app_render(GLuint(hw.get_current_framebuffer()), kW, kH);
@@ -204,9 +236,10 @@ RETRO_API void retro_run(void) {
         video_cb(nullptr, kW, kH, 0);
     }
 
-    static int16_t audio[800 * 2];
-    app_audio(audio, 800);
-    if (audio_batch_cb) audio_batch_cb(audio, 800);
+    static int16_t audio[1200 * 2];
+    const int frames = 48000 / g_fps;   // 800 at 60 fps, 1200 at 40
+    app_audio(audio, frames);
+    if (audio_batch_cb) audio_batch_cb(audio, size_t(frames));
 }
 
 RETRO_API size_t retro_serialize_size(void) { return app_serialize_size(); }

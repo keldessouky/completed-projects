@@ -49,6 +49,7 @@ struct State {
     float select_t = -1;          // how long Select has been held in the field (-1: not held)
     Input last_input;
     bool bar2_latched = false;    // the second skill bar, when L2 toggles it
+    float scene_scale = 0.75f;    // the 3D resolution: 0.75 (Balanced), 0.67 (Battery)
     uint64_t frame = 0;
     int wave = 0;
     float wave_t = 0;
@@ -560,7 +561,7 @@ void app_shutdown() {
 
 void app_gpu_init() {
     S->gpu = true;
-    S->renderer.init(1920, 1080, 0.75f);
+    S->renderer.init(1920, 1080, S->scene_scale);
     ui().init();
     for (auto& a : S->world.actors) a.model = a.def < 0 ? assets().character(hero_model()) : monster_model(a.def);
     assets().mesh("maul");
@@ -869,7 +870,16 @@ bool app_unserialize(const void* data, size_t size) {
     return r.ok;
 }
 
-void app_set_option(const char*, const char*) {}
+// the core options (Slice 11): the performance mode's 3D resolution; the frame rate is the libretro layer's
+void app_set_option(const char* key, const char* value) {
+    if (!S || !key || !value) return;
+    if (std::string(key) == "qahira_performance") {
+        const float scale = std::string(value) == "battery" ? 0.67f : 0.75f;
+        if (scale == S->scene_scale) return;
+        S->scene_scale = scale;
+        if (S->gpu) S->renderer.resize_scene(scale);
+    }
+}
 int app_test_status() { return S ? S->bot.status : 0; }
 const char* app_test_message() { return S ? S->bot.message.c_str() : ""; }
 

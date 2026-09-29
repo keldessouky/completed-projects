@@ -10,8 +10,10 @@ already has, what's left, and what's worth knowing before you change anything.
   Slice 3 was finished after the handoff: the Stars screen, the Sorcerer, Talismans and Wafq, ailments, "Why?", the
   title screen, the build simulator and CI. The parked `qahira-slice3-wip` branch was never pushed; its two pieces
   (a stats preview and a QR encoder) were written again (`summarize` in `game/world.cpp`, `ui/qr.*`).
-- **Slice 11 is in progress:** Arabic text (shaped, right to left, the layout mirrored), the Settings tab (language,
-  text size, colour-blind loot colours, screen shake, L2 hold or toggle). Umm al-Ṣubyān, the third pinnacle, is in. Polish is next.
+- **Slice 11 is done, and with it Slices 3–11:** Arabic text (shaped, right to left, the layout mirrored), the
+  Settings tab (language, text size, colour-blind loot colours, screen shake, L2 hold or toggle), the Balanced and
+  Battery performance modes as a core option, and Umm al-Ṣubyān, the third pinnacle. What is left is the device
+  checklist in [RP6.md](RP6.md) and the known gaps in the slice log.
 - **Slice 10 (Across the Red Sea) is done:** the Wanderer (the Pole start, Fragments), Act VI's seven zones to
   Apep, the 60% resistance penalty and the Veil-or-door ending, bases past Act V, the Gate of Iram (the Fourth Trial,
   a toll you choose), Falak and the uber pinnacles. `act6` (with the Gate) and `falak` run in CI. Every push also

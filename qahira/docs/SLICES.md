@@ -895,12 +895,12 @@ bosses.*
   It is back in append order now, and a test pins it. A character saved by those builds may show the wrong entries
   as met.
 
-## Slice 11 · Arabic, accessibility and polish (in progress)
+## Slice 11 · Arabic, accessibility and polish
 
 *The last slice: the UI in Arabic laid out right to left, the accessibility settings, the third pinnacle, Umm
-al-Ṣubyān, and polish.*
+al-Ṣubyān, and the performance modes. The device checks on the RP6 are still to be run.*
 
-**Delivered so far**
+**Delivered**
 - **Arabic text** (`ui/arabic.*`), without HarfBuzz: the letters take their contextual forms from Noto Sans Arabic's
   Presentation Forms-B (isolated, final, initial, medial), lam and alef become one sign, the harakat are dropped (the
   UI's text is unvowelled), and a line is put in visual order: Arabic runs right to left, numbers and Latin words left
@@ -931,6 +931,10 @@ al-Ṣubyān, and polish.*
     the Twelfth Reach and up gives one too (50%, 80% on the Sixteenth).
   - The pinnacle pilot got a stall breaker: held at the entrance after a death by something it cannot reach, it walks
     to the boss while the boss sleeps.
+- **Performance modes** as a RetroArch core option (GDD §11.6): *Balanced* (60 fps, the 3D at 75%) and *Battery*
+  (40 fps, which divides the RP6's 120 Hz evenly, the 3D at 67%). The simulation steps at 60 Hz in both: at 40 fps a
+  frame runs one or two steps (the second sees no new presses) and hands RetroArch 1200 audio frames instead of 800.
+  *Showcase* (120 fps) is left out: the game has no interpolation between steps, so it would show the same 60.
 - `tour12` takes the pictures (`QAHIRA_LANG=ar` for the Arabic screens); `subyan` is a new bot.
 
 **Verified**
@@ -947,5 +951,10 @@ al-Ṣubyān, and polish.*
 | ![The inventory in Arabic, mirrored](img/slice11-items-ar.jpg) | ![The HUD in Arabic, mirrored](img/slice11-hud-ar.jpg) |
 | ![Umm al-Ṣubyān in the House of the Unsleeping](img/slice11-subyan.jpg) | |
 
-**Still to do**
-- Polish; the device checks on the RP6.
+**Known gaps (carried forward)**
+- **The device checks on the RP6** (RP6.md's checklist): the core builds for Android in CI and is published on
+  `qahira-latest`, but nobody has launched it on the handheld yet, nor timed the performance modes.
+- Item, zone, monster and skill names, the tooltips' stat lines and the codex stay English in the Arabic UI.
+- The Mercenary, Shadow, Templar and Wanderer bots die to the pinnacles (a stricter dodge in the pinnacles was tried,
+  and was worse); the Templar dies to all three. The bot pilots, not the numbers: they fight face to face.
+- Falak is Apep's mesh and Umm al-Ṣubyān is Qandisha's rig, re-tinted; neither has a model of its own.
