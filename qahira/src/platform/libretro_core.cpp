@@ -121,7 +121,7 @@ RETRO_API void retro_get_system_info(retro_system_info* info) {
     memset(info, 0, sizeof(*info));
     info->library_name = "Qahira";
     info->library_version = "0.1.0";
-    info->valid_extensions = "qpk";
+    info->valid_extensions = "qpk|bin";   // (a phone browser may save the pack as .bin; the core checks the pack itself)
     info->need_fullpath = true;
     info->block_extract = true;
 }
