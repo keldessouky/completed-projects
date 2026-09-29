@@ -141,7 +141,7 @@ class Downtown:
             pts, n = face_points(x0, y0, x1, y1, s)
             for (px, py) in pts:
                 r = rnd.random()
-                if r < 0.35:   # a lit shop: an opening and a neon sign over it
+                if r < 0.07:   # a lit shop: an opening and a neon sign over it (one in five of what it was)
                     col_n, light = rnd.choice(Downtown.NEON)
                     horiz = s in ('N', 'S')
                     P('#FFC880', rough=0.5, emit=0.35).box((px + n[0] * 0.05, py + n[1] * 0.05, 1.2),

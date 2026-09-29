@@ -146,9 +146,9 @@ void main() {
     }
     // rim light: amber on the player, magenta on enemies
     float rim = pow(1.0 - max(dot(N, V), 0.0), 3.0);
-    col += vRim.rgb * rim * vRim.a;
+    col += vRim.rgb * rim * vRim.a * 0.35;   // a hint of an outline, not a neon edge
     // emissive and hit flash
-    col += albedo * vMat.b * 18.0 * (1.0 + vExtra.y);
+    col += albedo * vMat.b * 3.6 * (1.0 + vExtra.y);   // emission (a fifth of what it was: less neon)
     col += vec3(1.0, 0.9, 0.8) * vExtra.z;
     // fog
     float dist = length(uCamPos.xyz - vWorld);

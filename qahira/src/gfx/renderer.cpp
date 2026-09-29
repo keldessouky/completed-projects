@@ -6,6 +6,10 @@
 
 namespace q {
 
+// the glow of the whole game (bloom, and additive halos and sparks): a fifth of the look-dev's, which read as too neon
+constexpr float kGlow = 0.2f;
+
+
 static constexpr int kBoneTexW = 1024;
 static constexpr int kMaxLights = 64;
 static constexpr int kTileSlots = 32;  // count + 31 light indices
@@ -131,7 +135,7 @@ void Renderer::draw(const GpuMesh* mesh, const Instance& inst) {
 void Renderer::light(vec3 pos, float radius, vec3 color) {
     if (int(light_pos_.size()) >= kMaxLights) return;
     light_pos_.push_back(vec4(pos, radius));
-    light_col_.push_back(vec4(color, 0));
+    light_col_.push_back(vec4(color * 0.6f, 0));   // softer pools of coloured light
 }
 
 static void put(std::vector<SpriteVertex>& v, vec3 p, vec2 uv, vec4 c, vec4 params) {
@@ -154,11 +158,13 @@ void Renderer::quad(vec3 c, vec3 ax, vec3 ay, vec4 color, vec4 params, Blend ble
 }
 
 void Renderer::ground(vec3 c, float r, vec4 color, vec4 params, Blend blend, float rot) {
+    if (blend == Blend::Additive) color.w *= 0.5f;   // glowing decals at half: telegraphs must still read
     vec3 ax{std::cos(rot) * r, std::sin(rot) * r, 0}, ay{-std::sin(rot) * r, std::cos(rot) * r, 0};
     quad(c + vec3{0, 0, 0.02f}, ax, ay, color, params, blend);
 }
 
 void Renderer::billboard(vec3 c, float size, vec4 color, vec4 params, Blend blend) {
+    if (blend == Blend::Additive) color.w *= kGlow;   // glowing halos and sparks at a fifth
     vec3 right{cam_.view(0, 0), cam_.view(0, 1), cam_.view(0, 2)};
     vec3 up{cam_.view(1, 0), cam_.view(1, 1), cam_.view(1, 2)};
     quad(c, right * size, up * size, color, params, blend);
@@ -344,7 +350,7 @@ void Renderer::end(GLuint out_fbo, int out_w, int out_h, bool flip_y) {
     comp_sh_.use();
     comp_sh_.set("uScene", 0);
     comp_sh_.set("uBloom", 1);
-    comp_sh_.set("uBloomStrength", bloom_.empty() ? 0.f : env_.bloom_strength);
+    comp_sh_.set("uBloomStrength", bloom_.empty() ? 0.f : env_.bloom_strength * kGlow);
     comp_sh_.set("uExposure", env_.exposure);
     comp_sh_.set("uLift", env_.lift);
     comp_sh_.set("uGain", env_.gain);
