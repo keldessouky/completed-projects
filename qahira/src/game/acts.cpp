@@ -219,6 +219,11 @@ const std::vector<ZoneDef>& zone_defs() {
          1, 5, 0, "mus_iram", "amb_temple", {{"brass_guard", 4}, {"sand_shade", 3}, {"eclipse_marid", 3}}, "brass_guard",
          "iram_keeper", "The Keeper of the Gate lowers its spear, and Iram lets you in", "", "cache", "", true, kTollChosen,
          {1.2f, 1.0f, 0.7f}},
+        // the second pinnacle: Falak, the serpent beneath the world (Apep's true form), opened with four Scales of Falak
+        {"falak_lair", "The Sea Beneath the World", "Under the earth, the great serpent Falak holds the world in its coils", "karnak", 0,
+         70, 2, 5, 1, "mus_apep", "amb_temple", {{"eclipse_marid", 5}, {"sand_shade", 3}, {"marid_caller", 2}}, "eclipse_marid",
+         "falak", "Falak sinks into the dark water, and the world sits still on its back", "", "cache", "", false, -1,
+         {0.45f, 0.3f, 0.55f}},
     };
     return d;
 }

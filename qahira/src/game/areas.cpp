@@ -373,15 +373,20 @@ void Areas::enter_rift_court(World& w) {
     w.chart_site = -1;
 }
 
-void Areas::enter_throne(World& w) {
+void Areas::enter_throne(World& w) { enter_pinnacle(w, PIN_KING); }
+
+void Areas::enter_pinnacle(World& w, int p) {
+    const PinnacleDef& d = pinnacle_def(p);
     close_zone(w);
     w.chart = ChartRun{};
     w.chart.tier = kChartTiers;
     w.chart.max_tier = kChartTiers;
     w.chart.astro = w.hero.astro;
-    enter_zone(w, find_zone("king_throne"), Arrival::Entrance);
+    w.chart.uber = d.uber;
+    if (d.uber) uber_mods(w.chart.mods);
+    enter_zone(w, find_zone(d.zone), Arrival::Entrance);
     w.chart_site = -1;
-    w.meet_codex("marid_king");
+    w.meet_codex(std::string(d.boss) == "falak" ? "falak" : "marid_king");
 }
 
 void Areas::arm_haboob(World& w) {

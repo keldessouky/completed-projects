@@ -77,6 +77,8 @@ const std::vector<MonsterDef>& monster_defs() {
             {"apep", "Apep, the Serpent of the Dark", "apep", 1.0f, {1, 1, 1}, 4200, 3.2f, 2.0f, AttackKind::Boss, 4.5f, 1.4f, 34, 50, DT_CHAOS, 200, 6500, 0},
             // the Fourth Trial's gatekeeper (Slice 10)
             {"iram_keeper", "The Keeper of the Gate of Iram", "mamluk", 1.15f, {1.35f, 1.05f, 0.4f}, 2900, 3.4f, 1.0f, AttackKind::Boss, 3.4f, 1.5f, 27, 40, DT_PHYS, 450, 4800, 0},
+            // the second pinnacle (Slice 10): Falak, the serpent beneath the world; Apep's own mesh, vaster and darker
+            {"falak", "Falak, the Serpent beneath the World", "apep", 1.45f, {0.62f, 0.38f, 0.58f}, 2600, 3.2f, 2.2f, AttackKind::Boss, 5.0f, 1.3f, 21, 31, DT_CHAOS, 220, 9000, 0},
         };
         auto set = [&](const char* id, bool rigid, const char* fam, const char* voice = "ghoul") {
             for (auto& m : v) if (std::string(m.id) == id) { m.rigid = rigid; m.family = fam; m.voice = voice; }
@@ -133,6 +135,7 @@ const std::vector<MonsterDef>& monster_defs() {
         set("brass_guard", true, "The City of Brass", "metal");
         set("brass_horseman", true, "The City of Brass", "metal");
         set("iram_keeper", false, "The City of Brass", "metal");
+        set("falak", true, "Falak", "fire");
         set("eclipse_marid", false, "Apep, the serpent of the dark", "whisper");
         set("apep", true, "Apep, the serpent of the dark", "fire");
         codex("Ghouls", "ghouls");
@@ -165,6 +168,7 @@ const std::vector<MonsterDef>& monster_defs() {
         codex("The Hawatif", "hatif");
         codex("The City of Brass", "brass");
         codex("Apep", "apep");
+        codex("Falak", "falak");
         return v;
     }();
     return d;
@@ -309,6 +313,12 @@ const BossDef* boss_def(int monster) {
          {{MoveKind::Summon, "summon", 1e9f, 0, 99, 0, 1}, {MoveKind::Nova, "slam", 6.5f, 0, 5.5f, 1.25f, 0},
           {MoveKind::Leap, "leap", 4.5f, 4.5f, 25, 1.4f, 1}, {MoveKind::Combo, "combo", 1.3f, 0, 3.6f, 1.f, 0}},
          0.5f, "THE GATE OF IRAM STANDS TO", "brass_guard", 3, 11.f, 1.25f, {1.f, 0.8f, 0.35f}},
+        // Falak: Apep's moves, slower and wider; it calls you across the dark water, and its court of marids rises
+        {"falak",
+         {{MoveKind::Summon, "", 1e9f, 0, 99, 0, 1}, {MoveKind::Wail, "", 10.f, 0, 99, 0, 1},
+          {MoveKind::Pools, "", 7.f, 0, 30, 0.5f, 0}, {MoveKind::Nova, "", 7.5f, 0, 7.f, 1.15f, 0},
+          {MoveKind::Charge, "", 5.5f, 4.f, 30, 1.35f, 1}, {MoveKind::Combo, "", 1.6f, 0, 5.f, 1.f, 0}},
+         0.55f, "THE WORLD SHIFTS ON ITS BACK", "eclipse_marid", 5, 12.f, 1.3f, {0.7f, 0.3f, 0.8f}, true},
     };
     if (monster < 0 || monster >= int(monster_defs().size())) return nullptr;
     const char* id = monster_defs()[size_t(monster)].id;
@@ -2194,6 +2204,11 @@ void World::drop_loot(const Actor& e) {
                 drop_currency(level.resolve(e.pos + vec2{-2.4f, 1.4f}, 0.3f), CUR_PEARL, n);
                 notices.push_back(n == 1 ? "A King's Pearl" : "King's Pearls");
             }
+        if (in_chart && chart_site >= 0)   // and after the campaign, the last two Reaches' masters carry Scales of Falak
+            if (int n = scale_drops(chart, (hero.quests & Q_ACT6) != 0, rng); n > 0) {
+                drop_currency(level.resolve(e.pos + vec2{2.4f, 1.4f}, 0.3f), CUR_SCALE, n);
+                notices.push_back("A Scale of Falak");
+            }
         if (int u = random_unique(area_level + 2, rng); u >= 0) drop_special(e.pos + vec2{0, 1.8f}, GroundItem::Scrap, u);
         const std::string id = monster_defs()[size_t(e.def)].id;
         if (id == "iram_keeper" && hero.sealed_slot >= 0) {   // the Gate of Iram pays by the toll: a braver one, a richer reward
@@ -2208,15 +2223,19 @@ void World::drop_loot(const Actor& e) {
                 }
             if (hero.sealed_slot == EQ_WEAPON) drop_currency(level.resolve(e.pos + vec2{2.4f, -1.4f}, 0.3f), CUR_PEARL, 1);
         }
-        const bool king = id == "marid_king";                // the Marid King: two uniques and a purse, always
+        if (id == "iram_keeper") {   // the Keeper always carries a Scale of Falak
+            drop_currency(level.resolve(e.pos + vec2{-2.4f, -1.4f}, 0.3f), CUR_SCALE, 1);
+            notices.push_back("A Scale of Falak");
+        }
+        const bool king = id == "marid_king" || id == "falak";   // the pinnacles: two uniques and a purse, always (an uber: three)
         const bool lord = id == "rift_lord" || king;         // the Rift Lord: a unique, always
         if (lord)
             for (int k = 0; k < (king ? 6 : 3); k++) drop_currency(e.pos + rotate(vec2{3.0f, 0}, 0.8f + k * 0.7f), roll_currency(rng, area_level + 4), 1);
-        for (int k = 0; k < (king ? 2 : 1); k++)
+        for (int k = 0; k < (king ? (chart.uber ? 3 : 2) : 1); k++)
             if (rng.chance(lord ? 1.f : 0.08f)) if (int u = random_unique(area_level + 2, rng); u >= 0) {
                 GroundItem g;
                 g.item = make_unique(u, area_level + 2, rng);
-                g.pos = level.resolve(e.pos + vec2{k ? 1.8f : 0.f, 2.6f}, 0.3f);
+                g.pos = level.resolve(e.pos + vec2{1.8f * float(k), 2.6f}, 0.3f);
                 g.id = next_id++;
                 loot.push_back(g);
             }

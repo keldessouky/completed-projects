@@ -90,6 +90,13 @@ jobs:
       - name: Act VI, played through by the bot (a Templar as Act V leaves one)
         timeout-minutes: 40
         run: QAHIRA_CLASS=templar ./build/linux/qhost build/Qahira.qpk --headless --bot act6 2>&1 | grep -E "^act6|TEST"; test ${PIPESTATUS[0]} -eq 0
+      - name: Falak, the second pinnacle (a Sorcerer after the campaign, four Scales of Falak)
+        timeout-minutes: 30
+        run: QAHIRA_CLASS=sorcerer ./build/linux/qhost build/Qahira.qpk --headless --bot falak 2>&1 | grep -E "^king|TEST"; test ${PIPESTATUS[0]} -eq 0
+      - name: Falak as the Warrior (nightly and on demand)
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        timeout-minutes: 30
+        run: ./build/linux/qhost build/Qahira.qpk --headless --bot falak 2>&1 | grep -E "^king|TEST"; test ${PIPESTATUS[0]} -eq 0
       - name: Act VI as the Warrior (nightly and on demand)
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         timeout-minutes: 60

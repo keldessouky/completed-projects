@@ -57,6 +57,7 @@ struct State {
     int travel_zone = -1;         // where a ZoneEntrance goes
     Waypoints wp;
     MapScreen map;                // the Map of al-Idrisi, at the chart table
+    int pinnacle = 0;             // where a Throne travel goes (Pinnacle)
     int chart_site = -1;          // where a Chart travel goes, and the chart it spends
     Item chart_item;
     float storm_k = 0;            // how deep in the Haboob the camera's fog is
@@ -178,7 +179,7 @@ void do_travel(Travel t) {
             save_character();
             break;
         case Travel::Throne:
-            A.enter_throne(w);
+            A.enter_pinnacle(w, S->pinnacle);
             save_character();
             break;
         default: return;
@@ -663,7 +664,7 @@ void app_update(const Input& in_raw, float dt) {
             S->map.go_site = S->map.go_chart = -1;
         }
         if (S->map.go_rift) { S->map.go_rift = false; begin_travel(Travel::Rift); }
-        if (S->map.go_throne) { S->map.go_throne = false; begin_travel(Travel::Throne); }
+        if (S->map.go_pinnacle >= 0) { S->pinnacle = S->map.go_pinnacle; S->map.go_pinnacle = -1; begin_travel(Travel::Throne); }
         if (!S->map.open) save_character();
         S->view.follow(w, dt);
         return;
@@ -810,12 +811,13 @@ void app_render(GLuint fbo, int w, int h) {
 void app_audio(int16_t* stereo, int frames) { audio().mix(stereo, frames); }
 
 // ---- save states
-static const uint32_t kStateVersion = 15;  // 5: passives, Hirz, keystone state; 6: Talismans, ailments, glyphs; 7: Act I;
+static const uint32_t kStateVersion = 16;  // 5: passives, Hirz, keystone state; 6: Talismans, ailments, glyphs; 7: Act I;
                                            // 8: chart runs and the Haboob; 9: poison, marks, Frenzy, arrows;
                                            // 10: bleeding, piercing bolts, grenades, the weapon swap;
                                            // 11: traps, Wither, Power Charges; 12: Zar Nights;
                                            // 13: the Beacon, totems, burning ground; 14: charts to T16 (a chart run's
-                                           // highest tier), waypoints for 128 zones; 15: the Veil and the Door
+                                           // highest tier), waypoints for 128 zones; 15: the Veil and the Door;
+                                           // 16: a pinnacle's uber flag
 
 static ByteWriter save_state() {
     ByteWriter w;

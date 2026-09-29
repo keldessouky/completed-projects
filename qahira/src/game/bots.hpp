@@ -138,6 +138,8 @@ private:
     float chase_best_ = 0;
     uint64_t chase_frame_ = 0;
     bool unreachable(uint32_t id) const { for (uint32_t i : ignored_) if (i == id) return true; return false; }
+    bool pinnacle_run() const { return scenario == "king" || scenario == "falak" || scenario == "uber"; }
+    int pinnacle_wanted() const { return scenario == "falak" ? PIN_FALAK : scenario == "uber" ? PIN_KING_UBER : PIN_KING; }
     bool go_to_interact(World& w, Input& in, uint64_t frame, Interactable::Kind k, int target = -1);   // target: a Gate/Next zone, a toll slot
 };
 

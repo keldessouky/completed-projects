@@ -1,4 +1,6 @@
 #include "game/atlas.hpp"
+#include "game/inventory.hpp"
+#include <algorithm>
 #include <array>
 #include <cmath>
 
@@ -223,6 +225,32 @@ int pearl_drops(const ChartRun& r, Rng& rng) {
     int n = rng.chance(std::min(1.f, (0.25f + 0.12f * float(r.tier - kPearlTier)) * more)) ? 1 : 0;   // T14 25%, T15 37%, T16 49%
     if (r.tier == kChartTiers && rng.chance(0.2f * more)) n++;
     return n;
+}
+
+int scale_drops(const ChartRun& r, bool campaign_over, Rng& rng) {
+    if (!campaign_over || r.tier < kChartTiers - 1) return 0;
+    return rng.chance(r.tier == kChartTiers ? 0.3f : 0.15f) ? 1 : 0;   // T15 15%, T16 30%
+}
+
+const PinnacleDef& pinnacle_def(int p) {
+    static const PinnacleDef d[PIN_COUNT] = {
+        {"The Marid King", "king_throne", "marid_king", CUR_PEARL, kPearlsPerThrone, false,
+         "the masters of the Fourteenth Reach and up carry King's Pearls"},
+        {"The Marid King Unbound", "king_throne", "marid_king", CUR_PEARL, 2 * kPearlsPerThrone, true,
+         "eight King's Pearls: the King with the whole sea behind him"},
+        {"Falak, beneath the World", "falak_lair", "falak", CUR_SCALE, kPearlsPerThrone, false,
+         "the Keeper of the Gate of Iram, and the last two Reaches' masters after Act VI, carry Scales of Falak"},
+        {"Falak Awake", "falak_lair", "falak", CUR_SCALE, 2 * kPearlsPerThrone, true,
+         "eight Scales of Falak: the serpent that holds the world, awake"},
+    };
+    return d[std::clamp(p, 0, PIN_COUNT - 1)];
+}
+
+void uber_mods(ChartMods& m) {
+    m.monster_life += 200;
+    m.monster_damage += 50;
+    m.quantity += 50;
+    m.rarity += 50;
 }
 
 float haboob_chance(const ChartRun& r) {

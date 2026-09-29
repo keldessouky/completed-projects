@@ -2,6 +2,8 @@
 #include "tests/check.hpp"
 #include "tests/fixture.hpp"
 #include "game/acts.hpp"
+#include "game/atlas.hpp"
+#include "game/inventory.hpp"
 #include "game/crafting.hpp"
 #include "game/items.hpp"
 #include "game/skills.hpp"
@@ -58,7 +60,7 @@ TEST(the_codex_is_append_only) {
                            "bleeding", "hyenas", "salt_jinn", "desert_ghouls", "wraith", "mamluk", "res_penalty",
                            "excavations", "traps", "salt_ghouls", "mirage", "zar", "iron_door", "auras", "dye_ghouls",
                            "smoke", "presser", "qandisha", "reaches", "marid_king", "coral_ghouls", "duwais", "shiqq",
-                           "hatif", "brass", "apep", "veil"};
+                           "hatif", "brass", "apep", "veil", "falak"};
     const size_t n = sizeof order / sizeof *order;
     auto& c = codex_entries();
     CHECK(c.size() >= n && c.size() <= 64);   // they fit in Hero::codex
@@ -101,4 +103,30 @@ TEST(the_gate_of_iram_is_the_fourth_trial_and_you_choose_the_toll) {
     CHECK(std::string(d.boss) == "iram_keeper" && boss_def(find_monster("iram_keeper")) != nullptr);
     CHECK(quest_asc_points(Q_TRIAL1 | Q_TRIAL2 | Q_TRIAL3 | Q_TRIAL4) == 8);
     CHECK(quest_passive_points(Q_TRIAL4) == 0);
+}
+
+// the pinnacles: the Marid King and Falak, each for four keys, and their uber versions for eight; the Scales of Falak
+// come from the last two Reaches only after the campaign
+TEST(falak_and_the_uber_pinnacles) {
+    for (int p = 0; p < PIN_COUNT; p++) {
+        const PinnacleDef& d = pinnacle_def(p);
+        CHECK(find_zone(d.zone) >= 0 && zone_def(find_zone(d.zone)).act == 0);
+        CHECK(std::string(zone_def(find_zone(d.zone)).boss) == d.boss && boss_def(find_monster(d.boss)) != nullptr);
+        CHECK(d.cost == (d.uber ? 2 : 1) * kPearlsPerThrone);
+    }
+    CHECK(pinnacle_def(PIN_FALAK).currency == CUR_SCALE && pinnacle_def(PIN_KING).currency == CUR_PEARL);
+    CHECK(monster_defs()[size_t(find_monster("falak"))].rigid);
+    ChartMods m;
+    uber_mods(m);
+    CHECK(m.monster_life >= 200 && m.monster_damage > 0 && m.quantity > 0);
+    ChartRun r;
+    r.tier = kChartTiers;
+    Rng rng(5);
+    int before = 0, after = 0;
+    for (int i = 0; i < 400; i++) { before += scale_drops(r, false, rng); after += scale_drops(r, true, rng); }
+    CHECK(before == 0 && after > 60 && after < 200);
+    r.tier = kChartTiers - 2;
+    int low = 0;
+    for (int i = 0; i < 200; i++) low += scale_drops(r, true, rng);
+    CHECK(low == 0);
 }

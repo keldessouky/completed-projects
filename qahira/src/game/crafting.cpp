@@ -227,6 +227,9 @@ const std::vector<CodexEntry>& codex_entries() {
         {"veil", CX_MECHANIC, "The Veil",
          "When Apep lets go of the sun, the choice is yours: seal the Veil, and the sun comes back and the jinn go unseen again "
          "(two more passive stars); or leave the door open, and keep the endless night: the charts are harder, and richer."},
+        {"falak", CX_MONSTER, "Falak, the serpent beneath the world",
+         "In the old cosmographies the earth rests on a bull, the bull on a fish, and under them all the serpent Falak, in the "
+         "dark water. Apep was only the part of it that reached for the sun. Four Scales of Falak open its lair."},
     };
     return c;
 }

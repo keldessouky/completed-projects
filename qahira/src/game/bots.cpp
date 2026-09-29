@@ -28,7 +28,7 @@ void Bot::drive(World& w, Menu& m, Areas& a, Input& in, uint64_t frame) {
         act1(w, m, a, in, frame);
     else if (scenario == "tour5") tour5(w, a, in, frame);
     else if (scenario == "charts" || scenario == "reaches") charts(w, m, a, in, frame);
-    else if (scenario == "king") king(w, m, a, in, frame);
+    else if (scenario == "king" || scenario == "falak" || scenario == "uber") king(w, m, a, in, frame);
     else if (scenario == "tour6") tour6(w, a, in, frame);
     else if (scenario == "rifts") rifts(w, m, a, in, frame);
     else if (scenario == "tour7") tour7(w, m, a, in, frame);
@@ -547,7 +547,7 @@ bool Bot::loot_and_equip(World& w, Menu& m, Input& in, uint64_t frame) {
         }
         if (scenario == "act1" || scenario == "act2" || scenario == "act3" || scenario == "act4" || scenario == "act5" || scenario == "act6" ||
             scenario == "charts" ||
-            scenario == "zar" || scenario == "reaches" || scenario == "king") {   // the long runs keep their bags for upgrades only
+            scenario == "zar" || scenario == "reaches" || pinnacle_run()) {   // the long runs keep their bags for upgrades only
             if (slot < 0 || slot == H.sealed_slot) continue;
             better = better || (slot > EQ_WEAPON && upgrade(w, g.item));
             if (!better && !fills) continue;
@@ -1413,15 +1413,15 @@ void Bot::tour5(World& w, Areas& a, Input& in, uint64_t frame) {
 void Bot::prepare(World& w) {
     if (scenario != "charts" && scenario != "tour6" && scenario != "act2" && scenario != "act3" && scenario != "act4" && scenario != "act5" &&
         scenario != "act6" &&
-        scenario != "rifts" && scenario != "digs" && scenario != "zar" && scenario != "reaches" && scenario != "king")
+        scenario != "rifts" && scenario != "digs" && scenario != "zar" && scenario != "reaches" && !pinnacle_run())
         return;
     Hero& H = w.hero;
     Rng r(1404);
-    const bool late = scenario == "reaches" || scenario == "king";   // after Act V
+    const bool late = scenario == "reaches" || pinnacle_run();   // after Act V
     // Act II: as Act I leaves you; Act III and the rifts: as Act II does
     H.level = scenario == "act2" ? 13 : scenario == "rifts" ? 25 : scenario == "act3" ? 24 : scenario == "digs" ? 34 : scenario == "act4" ? 34 : scenario == "zar" ? 44 : scenario == "act5" ? 43 : scenario == "act6" ? 53
-            : scenario == "reaches" ? 58 : scenario == "king" ? 70 : 14;
-    const int gear = scenario == "king" ? 60 : scenario == "reaches" ? 50 : scenario == "act6" ? 48 : scenario == "act5" ? 40 : scenario == "act4" || scenario == "zar" ? 32
+            : scenario == "reaches" ? 58 : pinnacle_run() ? 70 : 14;
+    const int gear = pinnacle_run() ? 60 : scenario == "reaches" ? 50 : scenario == "act6" ? 48 : scenario == "act5" ? 40 : scenario == "act4" || scenario == "zar" ? 32
                    : scenario == "act3" || scenario == "digs" ? 24 : 14;
     H.quests = Q_MICROBUS | Q_SILAH | Q_NASNAS | Q_TRIAL1 | Q_GHULA | Q_QUTRUB | Q_BENCH | Q_ACT1;
     H.recipes = kStarterRecipes;
@@ -1436,11 +1436,16 @@ void Bot::prepare(World& w) {
         H.quests |= Q_NADDAHA | Q_RAM | Q_MARID | Q_ACT2 | Q_DABA | Q_TRIAL2 | Q_WRAITH | Q_ACT3 | Q_SARAB | Q_DOOR | Q_SALT | Q_ACT4 | Q_PRESSER |
                     Q_TRIAL3 | Q_SMOKE | Q_QANDISHA | Q_ACT5;
         for (size_t i = 0; i < sites().size(); i++)
-            if (sites()[i].tier <= (scenario == "king" ? kChartTiers : kChartTiersEarly)) H.sites_done |= 1u << i;
+            if (sites()[i].tier <= (pinnacle_run() ? kChartTiers : kChartTiersEarly)) H.sites_done |= 1u << i;
         for (size_t i = 0; i < sites().size(); i++) if (H.sites_done >> i & 1) H.sites_revealed |= reveal_after(int(i));
         H.astro = (1u << 0) | (1u << 1) | (1u << 3) | (1u << 4) | (1u << 2) | (1u << 20);
         if (scenario == "reaches") for (int k = 0; k < 4; k++) H.inv.add(make_chart(kChartTiersEarly + 1, r, 0.25f, 0.f));
-        if (scenario == "king") H.currency[CUR_PEARL] = kPearlsPerThrone;
+        const PinnacleDef& pd = pinnacle_def(pinnacle_wanted());
+        if (pinnacle_run()) H.currency[pd.currency] = pd.cost;
+        if (scenario == "falak") {   // Falak is after the campaign: Act VI and the Fourth Trial behind you, the Veil sealed
+            H.quests |= Q_DUWAIS | Q_SHIQQ | Q_HATIF | Q_HORSEMAN | Q_ACT6 | Q_TRIAL4;
+            H.ending = 1;
+        }
     }
     if (scenario == "act3" || scenario == "act4" || scenario == "act5" || scenario == "act6") {
         H.quests |= Q_NADDAHA | Q_RAM | Q_MARID | Q_ACT2;
@@ -1528,6 +1533,7 @@ void Bot::prepare(World& w) {
     if ((scenario == "act4" || scenario == "act5" || scenario == "act6" || late) && ascendancy_of(H.passives.cls, H.ascendancy))
         H.asc |= (1u << 3) | (1u << 4);   // and Trial II's
     if ((late || scenario == "act6") && ascendancy_of(H.passives.cls, H.ascendancy)) H.asc |= (1u << 5) | (1u << 6);   // and Trial III's
+    if (scenario == "falak" && ascendancy_of(H.passives.cls, H.ascendancy)) H.asc |= (1u << 7) | (1u << 8);   // and Trial IV's
     if (scenario == "tour6") {   // further on: a few sites done, some of the Astrolabe set, charts of every Clime
         H.level = 17;
         H.sites_done = (1u << find_site("iskandariya")) | (1u << find_site("qus")) | (1u << find_site("wahat"));
@@ -1786,7 +1792,8 @@ void Bot::king(World& w, Menu& m, Areas& a, Input& in, uint64_t frame) {
     Actor& h = w.actors[0];
     Hero& H = w.hero;
     MapScreen& M = *map_ui;
-    if (frame > 60ull * 60 * 20) { fail("the Marid King took longer than 20 minutes of play"); return; }
+    const PinnacleDef& pd = pinnacle_def(pinnacle_wanted());
+    if (frame > 60ull * 60 * 20) { fail(std::string(pd.name) + " took longer than 20 minutes of play"); return; }
     if (!h.alive()) {
         if (h.dead_t > 1.3f && frame % 10 == 0) {
             press(in, BTN_SOUTH);
@@ -1803,17 +1810,19 @@ void Bot::king(World& w, Menu& m, Areas& a, Input& in, uint64_t frame) {
     if (a.current == AreaId::Hub) {
         if (king_stage_ >= 1) { fail("back on the rooftop, and the throne not taken"); return; }
         if (!M.open) { go_to_interact(w, in, frame, Interactable::ChartTable); return; }
-        if (frame % 10 == 0) press(in, BTN_NORTH);   // the four pearls, at the table
+        // the pinnacles, at the table: North opens the list, the cursor down to the one wanted, North again sets out
+        if (frame % 10 == 0) press(in, M.pinnacles && M.pin_cursor != pinnacle_wanted() ? BTN_DOWN : BTN_NORTH);
         return;
     }
     const ZoneDef* zd = a.def();
-    if (!zd || std::string(zd->id) != "king_throne") { fail(std::string("somewhere else: ") + (zd ? zd->id : "?")); return; }
+    if (!zd || std::string(zd->id) != pd.zone) { fail(std::string("somewhere else: ") + (zd ? zd->id : "?")); return; }
+    if (w.chart.uber != pd.uber) { fail("the uber flag is not as chosen"); return; }
     if (king_stage_ < 1) {
         king_stage_ = 1;
         stage_frame = frame;
-        if (H.currency[CUR_PEARL] != 0) { fail("the pearls were not spent"); return; }
+        if (H.currency[pd.currency] != 0) { fail("the keys were not spent"); return; }
         const HeroSummary s = summarize(H);
-        fprintf(stderr, "king: t=%.0fs on the Marid King's throne (level %d: %.0f life, %.0f Hirz, %.0f DPS, %.0f EHP)\n", frame / 60.f,
+        fprintf(stderr, "king: t=%.0fs before %s (level %d: %.0f life, %.0f Hirz, %.0f DPS, %.0f EHP)\n", frame / 60.f, pd.name,
                 H.level, s.life, s.es, s.dps, s.ehp);
     }
     const Actor* boss = nullptr;
@@ -1831,8 +1840,8 @@ void Bot::king(World& w, Menu& m, Areas& a, Input& in, uint64_t frame) {
         int uniques = 0;
         for (auto& g : w.loot) uniques += g.kind == GroundItem::Gear && g.item.rarity == Rarity::Unique;
         char b[200];
-        snprintf(b, sizeof b, "four King's Pearls spent at the table, the Marid King killed on his throne in %.1f minutes, %d deaths, "
-                 "%d uniques on the floor", frame / 3600.f, deaths, uniques);
+        snprintf(b, sizeof b, "%d %s spent at the table, %s killed in %.1f minutes, %d deaths, %d uniques on the floor", pd.cost,
+                 pd.currency == CUR_PEARL ? "King's Pearls" : "Scales of Falak", pd.name, frame / 3600.f, deaths, uniques);
         pass(b);
         return;
     }
