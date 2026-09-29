@@ -1,5 +1,6 @@
 #include "game/settings.hpp"
 #include "audio/audio.hpp"
+#include "audio/radio_fetch.hpp"
 #include "ui/lang.hpp"
 #include "ui/ui.hpp"
 #include <algorithm>
@@ -11,6 +12,23 @@ namespace {
 std::string g_dir = ".";
 std::string path() { return g_dir + "/qahira.settings"; }
 std::string radio_path() { return g_dir + "/qahira.radio"; }   // every station's place
+std::vector<std::string> g_radio_dirs;
+uint32_t g_arrived = 0;
+RadioFetch& fetcher() { static RadioFetch f; return f; }
+
+// where every station was left; before there were stations, the settings kept Radio Kafr El-Sheikh's place
+void load_radio_places() {
+    Radio& r = audio().radio;
+    if (FILE* f = fopen(radio_path().c_str(), "rb")) {
+        std::string text;
+        char buf[4096];
+        for (size_t n; (n = fread(buf, 1, sizeof buf, f)) > 0;) text.append(buf, n);
+        fclose(f);
+        r.set_places(text);
+    } else {
+        r.set_place(0, settings().radio_ep, settings().radio_pos);
+    }
+}
 constexpr uint32_t kMagic = 0x54455351;   // "QSET"
 constexpr uint8_t kVersion = 2;   // 2: the music and the radio's place
 }  // namespace
@@ -140,18 +158,28 @@ std::string setting_choice_name(int row, int v) {
 float shake_scale() { return settings().shake / 4.f; }
 
 void set_radio_dirs(const std::vector<std::string>& dirs) {
+    g_radio_dirs = dirs;
+    if (audio().radio.scan(dirs)) load_radio_places();
+}
+
+void start_radio_fetch(const std::string& stations_json, const std::string& dir) {
+    g_arrived = 0;
+    fetcher().start(stations_json, dir);
+}
+
+void stop_radio_fetch() { fetcher().stop(); }
+
+std::string radio_fetch_status() { return fetcher().status(); }
+
+void poll_radio() {
+    const uint32_t a = fetcher().arrived();
+    if (a == g_arrived) return;
+    g_arrived = a;
     Radio& r = audio().radio;
-    if (!r.scan(dirs)) return;
-    // where every station was left; before there were stations, the settings kept Radio Kafr El-Sheikh's place
-    if (FILE* f = fopen(radio_path().c_str(), "rb")) {
-        std::string text;
-        char buf[4096];
-        for (size_t n; (n = fread(buf, 1, sizeof buf, f)) > 0;) text.append(buf, n);
-        fclose(f);
-        r.set_places(text);
-    } else {
-        r.set_place(0, settings().radio_ep, settings().radio_pos);
-    }
+    const bool had = r.stations() > 0;
+    r.scan(g_radio_dirs);   // the episode playing goes on
+    if (!had && r.stations()) load_radio_places();
+    apply_music();          // the first episode to land starts the radio
 }
 
 void apply_music() {

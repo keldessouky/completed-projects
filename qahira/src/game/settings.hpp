@@ -38,5 +38,10 @@ float shake_scale();                           // 0..1
 void set_radio_dirs(const std::vector<std::string>& dirs);
 void apply_music();
 void keep_radio_place();                       // every station's episode and place in it, saved
+// the radio fetches its own episodes (the stations in data/radio.json) into this folder, on a thread of its own
+void start_radio_fetch(const std::string& stations_json, const std::string& dir);
+void stop_radio_fetch();
+std::string radio_fetch_status();              // "Downloading the radio: 3/18" while it fetches, else empty
+void poll_radio();                             // each frame: episodes that arrived go on the air
 
 }  // namespace q

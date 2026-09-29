@@ -1,9 +1,0 @@
-{
-  "stations": [
-    {
-      "name": "Radio Kafr El-Sheikh",
-      "youtube": ["https://www.youtube.com/channel/UCCdqKbjhEp_ShkMakt3mQCw"],
-      "order": "auto"
-    }
-  ]
-}

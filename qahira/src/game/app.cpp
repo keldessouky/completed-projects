@@ -555,6 +555,8 @@ bool app_init(const char* pack_path, Platform* plat) {
         const std::string dir = cut == std::string::npos ? std::string(".") : p.substr(0, cut);
         set_radio_dirs({dir + "/radio", dir + "/Radio", save_dir() + "/radio"});
         apply_music();
+        // and it fetches its stations' episodes itself, over Wi-Fi, into the saves folder
+        start_radio_fetch(pack().get("data/radio.json").str(), save_dir() + "/radio");
     } else if (const char* rd = getenv("QAHIRA_RADIO")) {   // pictures of the radio: a bot with episodes from here
         set_radio_dirs({rd});
         apply_music();
@@ -566,6 +568,7 @@ bool app_init(const char* pack_path, Platform* plat) {
 void app_shutdown() {
     if (!S) return;
     save_character();
+    stop_radio_fetch();
     keep_radio_place();
     audio().radio.stop();
     if (S->gpu) { S->renderer.shutdown(); assets().clear(); }
@@ -592,6 +595,7 @@ void app_update(const Input& in_raw, float dt) {
     Input in = in_raw;
     S->frame++;
     if (S->frame % (60 * 20) == 0) keep_radio_place();   // the show goes on where it was left
+    poll_radio();
     World& w = S->world;
     Areas& A = S->areas;
     Menu& M = S->menu;
@@ -732,7 +736,10 @@ void app_update(const Input& in_raw, float dt) {
         // to the next episode on this one
         Radio& r = audio().radio;
         if (in.hit(BTN_R3)) {
-            if (!r.stations()) M.say("No episodes: put them in a folder named radio beside Qahira.qpk");
+            if (!r.stations()) {
+                const std::string st = radio_fetch_status();
+                M.say(st.empty() ? std::string("The radio downloads its episodes over Wi-Fi") : st);
+            }
             else if (!audio().radio_on) { set_setting(SET_MUSIC, r.station()); save_settings(); }
             else S->r3_t = 0;
         } else if (S->r3_t >= 0 && in.held(BTN_R3)) {

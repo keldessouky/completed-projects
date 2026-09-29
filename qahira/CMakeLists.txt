@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(qahira CXX)
+project(qahira C CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
@@ -8,11 +8,15 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 file(GLOB_RECURSE CORE_SRC CONFIGURE_DEPENDS src/*.cpp)
-add_library(qahira_obj OBJECT ${CORE_SRC} third_party/stb_impl.cpp third_party/audio_decoders.cpp)
-target_include_directories(qahira_obj PUBLIC src third_party/libretro third_party/stb third_party/minimp3)
-target_compile_options(qahira_obj PRIVATE -Wall -Wno-unused-function -Wno-missing-braces)
+# Mbed TLS (Apache-2.0): HTTPS for the radio, which fetches its episodes by itself
+file(GLOB TLS_SRC CONFIGURE_DEPENDS third_party/mbedtls/library/*.c)
+set_source_files_properties(${TLS_SRC} PROPERTIES COMPILE_OPTIONS "-w")
+add_library(qahira_obj OBJECT ${CORE_SRC} third_party/stb_impl.cpp third_party/audio_decoders.cpp ${TLS_SRC})
+target_include_directories(qahira_obj PUBLIC src third_party/libretro third_party/stb third_party/minimp3
+                           third_party/mbedtls/include)
+target_compile_options(qahira_obj PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-Wall -Wno-unused-function -Wno-missing-braces>)
 if(ANDROID)
-  target_compile_options(qahira_obj PRIVATE -O3 -ffast-math -fno-exceptions)
+  target_compile_options(qahira_obj PRIVATE -O3 $<$<COMPILE_LANGUAGE:CXX>:-ffast-math -fno-exceptions>)
 endif()
 
 add_library(qahira_libretro SHARED $<TARGET_OBJECTS:qahira_obj>)

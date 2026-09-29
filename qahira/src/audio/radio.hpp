@@ -19,8 +19,9 @@ public:
 
     Radio();
     ~Radio();
-    // finds the stations in these folders (the first that has any): the home station first, the rest by name, each
-    // one's episodes in natural order ("Episode 2" before "Episode 10"); returns how many stations
+    // finds the stations in these folders (all of them, merged by name): the home station first, the rest by name,
+    // each one's episodes in natural order ("Episode 2" before "Episode 10"); returns how many stations. Called again
+    // (as episodes arrive), it keeps the episode playing and every station's place.
     int scan(const std::vector<std::string>& dirs);
     int stations() const { return int(stations_.size()); }
     std::string station_name(int s) const;
@@ -62,6 +63,7 @@ private:
         double at = 0;
     };
     void keep_place();
+    void apply_places(const std::string& text);
     bool refill();
     std::vector<Station> stations_;
     int st_ = 0;

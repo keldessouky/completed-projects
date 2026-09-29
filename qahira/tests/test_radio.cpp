@@ -146,3 +146,125 @@ TEST(the_music_setting_chooses_a_station) {
     remove((std::string(QAHIRA_SOURCE_DIR) + "/build/qahira.settings").c_str());
     remove((std::string(QAHIRA_SOURCE_DIR) + "/build/qahira.radio").c_str());
 }
+
+// the radio's own fetching: the stations in the pack, the Internet Archive's and a feed's episode lists, and the
+// downloads themselves (from files here, so the tests need no network), resumed when cut off
+#include "audio/radio_fetch.hpp"
+#include <sys/stat.h>
+#include <unistd.h>
+
+static std::string slurp(const std::string& p) {
+    std::string s;
+    if (FILE* f = fopen(p.c_str(), "rb")) {
+        char b[4096];
+        for (size_t n; (n = fread(b, 1, sizeof b, f)) > 0;) s.append(b, n);
+        fclose(f);
+    }
+    return s;
+}
+
+TEST(the_pack_lists_radio_kafr_el_sheikh) {
+    const auto st = parse_stations(slurp(std::string(QAHIRA_SOURCE_DIR) + "/data/radio.json"));
+    CHECK(st.size() == 1 && st[0].name == Radio::kHome && st[0].folder() == "Radio Kafr El-Sheikh");
+    CHECK(st[0].episodes.size() == 18);
+    const RadioEpisode& e = st[0].episodes[0];
+    CHECK(e.n == 2 && e.ext == ".mp3" && e.file() == "2 - \xD8\xA7\xD9\x84\xD8\xAD\xD9\x84\xD9\x82\xD8\xA9 \xD8\xA7\xD9\x84\xD8\xAB\xD8\xA7\xD9\x86\xD9\x8A\xD8\xA9.mp3");
+    CHECK(e.url == "https://archive.org/download/radiokafrelshikh/%D8%A7%D9%84%D8%AB%D8%A7%D9%86%D9%8A%D8%A9.mp3");
+    // in the show's order, the special without a number last
+    int last = 0;
+    for (size_t i = 0; i + 1 < st[0].episodes.size(); i++) { CHECK(st[0].episodes[i].n > last); last = st[0].episodes[i].n; }
+    CHECK(st[0].episodes.back().n == 0 && st[0].episodes.back().file().find(" - ") == std::string::npos);
+    // the files sort in the order they play: 2 before 12, the special after 26
+    std::vector<std::string> names;
+    for (const auto& ep : st[0].episodes) names.push_back(ep.file());
+    for (size_t i = 0; i + 1 < names.size(); i++) CHECK(Radio::natural_less(names[i], names[i + 1]));
+}
+
+TEST(the_radio_lists_an_archive_item_and_a_feed) {
+    const char* meta = R"({"files": [
+        {"name": "b.mp3", "track": "02"}, {"name": "b.ogg"}, {"name": "a.mp3", "track": "01"},
+        {"name": "b.png"}, {"name": "c.mp3"}]})";
+    const auto a = archive_episodes("item", meta);
+    CHECK(a.size() == 3 && a[0].title == "a" && a[0].ext == ".mp3" && a[1].title == "b" && a[1].ext == ".ogg");
+    CHECK(a[1].url == "https://archive.org/download/item/b.ogg" && a[2].title == "c" && a[2].n == 3);
+    const char* rss = R"(<rss><channel><title>Show</title>
+        <item><title><![CDATA[Newest: <b>]]></title><enclosure url="https://x.org/3.mp3?id=1" type="audio/mpeg"/></item>
+        <item><title>M4A &amp; more</title><enclosure url="https://x.org/2.m4a" type="audio/x-m4a"/></item>
+        <item><title>The first &#1575;</title><enclosure length="9" url='https://x.org/1.ogg' type="audio/ogg"></enclosure></item>
+        </channel></rss>)";
+    const auto r = rss_episodes(rss);
+    CHECK(r.size() == 2);   // the M4A can't play
+    CHECK(r[0].n == 1 && r[0].title == "The first \xD8\xA7" && r[0].url == "https://x.org/1.ogg" && r[0].ext == ".ogg");
+    CHECK(r[1].n == 2 && r[1].title == "Newest: <b>" && r[1].ext == ".mp3" && r[1].file() == "2 - Newest - b.mp3");
+}
+
+TEST(the_radio_fetches_its_episodes_and_plays_them) {
+    const std::string src = std::string(QAHIRA_SOURCE_DIR) + "/tests/data/radio/";
+    const std::string dir = std::string(QAHIRA_SOURCE_DIR) + "/build/radio_fetch_test";
+    const std::string st_dir = dir + "/Nile FM";
+    const std::string json = R"({"stations": [{"name": "Nile FM", "episodes": [
+        {"n": 1, "title": "The Canal: A Walk?", "url": "file://)" + src + R"(Episode_1-the_canal.mp3"},
+        {"n": 2, "title": "The Market", "url": "file://)" + src + R"(episode_2-the_market.ogg"},
+        {"n": 3, "title": "Gone", "url": "file:///nowhere/gone.wav"}]}]})";
+    const std::string one = st_dir + "/1 - The Canal - A Walk.mp3", two = st_dir + "/2 - The Market.ogg";
+    remove(one.c_str());
+    remove(two.c_str());
+    // a download cut off half way: it goes on from where it stopped
+    mkdir(dir.c_str(), 0755);
+    mkdir(st_dir.c_str(), 0755);
+    const std::string whole = slurp(src + "episode_2-the_market.ogg");
+    if (FILE* f = fopen((two + ".part").c_str(), "wb")) { fwrite(whole.data(), 1, 1000, f); fclose(f); }
+    RadioFetch rf;
+    rf.run_once_for_tests(json, dir);
+    CHECK(rf.arrived() == 2);   // not the one that is gone
+    CHECK(slurp(one) == slurp(src + "Episode_1-the_canal.mp3") && slurp(two) == whole);
+    CHECK(slurp(two + ".part").empty() && rf.status().empty());
+    // the radio plays what came, and goes on playing when more comes
+    Radio r;
+    remove(two.c_str());
+    CHECK(r.scan({"/nowhere", dir}) == 1 && r.station_name(0) == "Nile FM" && r.count() == 1);
+    CHECK(r.start(0, 0));
+    std::vector<float> out(4800 * 2, 0.f);
+    r.mix(out.data(), 4800, 1.f);
+    rf.run_once_for_tests(json, dir);   // the second episode again
+    CHECK(rf.arrived() == 3);   // it counts on
+    r.scan({"/nowhere", dir});
+    CHECK(r.count() == 2 && r.playing() && r.current() == 0 && std::fabs(r.seconds() - 0.1) < 0.03);
+    CHECK(r.title(1) == "2 - The Market");
+    remove(one.c_str());
+    remove(two.c_str());
+    rmdir(st_dir.c_str());
+    rmdir(dir.c_str());
+}
+
+TEST(the_game_starts_the_radio_when_its_first_episode_lands) {
+    // as the game runs it: nothing on the radio, the fetcher's thread, and the radio coming on with the first episode
+    const std::string src = std::string(QAHIRA_SOURCE_DIR) + "/tests/data/radio/";
+    const std::string dir = std::string(QAHIRA_SOURCE_DIR) + "/build/radio_game_test";
+    const std::string st_dir = dir + "/" + Radio::kHome, ep = st_dir + "/1 - The Canal.mp3";
+    remove(ep.c_str());
+    set_settings_dir(std::string(QAHIRA_SOURCE_DIR) + "/build");
+    remove((std::string(QAHIRA_SOURCE_DIR) + "/build/qahira.radio").c_str());
+    Settings keep = settings();
+    settings() = Settings{};
+    Radio& r = audio().radio;
+    set_radio_dirs({"/nowhere", dir});
+    apply_music();
+    CHECK(r.stations() == 0 && !audio().radio_on);
+    start_radio_fetch(R"({"stations": [{"name": "Radio Kafr El-Sheikh", "episodes": [
+        {"n": 1, "title": "The Canal", "url": "file://)" + src + R"(Episode_1-the_canal.mp3"}]}]})", dir);
+    for (int i = 0; i < 500 && !r.stations(); i++) {   // up to five seconds
+        poll_radio();
+        usleep(10000);
+    }
+    CHECK(r.stations() == 1 && audio().radio_on && r.playing() && r.title(0) == "1 - The Canal");
+    stop_radio_fetch();
+    CHECK(radio_fetch_status().empty());
+    r.stop();
+    audio().radio_on = false;
+    settings() = keep;
+    remove(ep.c_str());
+    rmdir(st_dir.c_str());
+    rmdir(dir.c_str());
+    remove((std::string(QAHIRA_SOURCE_DIR) + "/build/qahira.settings").c_str());
+}

@@ -204,7 +204,10 @@ std::string Radio::title(int i) const {
 }
 
 int Radio::scan(const std::vector<std::string>& dirs) {
-    stop();
+    // what plays, and where every station was, carry over: the fetcher adds episodes while the radio plays
+    const std::string kept = places();
+    const std::string playing = dec_ && st_ < stations() ? stations_[size_t(st_)].files[size_t(ep_)] : std::string();
+    const std::string playing_on = station_name(st_);
     stations_.clear();
     st_ = 0;
     ep_ = -1;
@@ -228,9 +231,12 @@ int Radio::scan(const std::vector<std::string>& dirs) {
         if (files.empty()) return;
         auto it = std::find_if(stations_.begin(), stations_.end(), [&](const Station& s) { return s.name == name; });
         if (it == stations_.end()) it = stations_.insert(stations_.end(), Station{name, {}, 0, 0});
-        it->files.insert(it->files.end(), files.begin(), files.end());
+        for (const std::string& f : files)   // an episode in two of the folders plays once
+            if (std::none_of(it->files.begin(), it->files.end(), [&](const std::string& g) { return base_name(g) == base_name(f); }))
+                it->files.push_back(f);
     };
     auto by_file = [](const std::string& a, const std::string& b) { return natural_less(base_name(a), base_name(b)); };
+    // every folder: the player's own beside the pack, and what the radio fetched itself
     for (const std::string& d : dirs) {
         std::vector<std::string> loose, folders;
         if (!list(d, loose, &folders)) continue;
@@ -241,13 +247,25 @@ int Radio::scan(const std::vector<std::string>& dirs) {
             list(d + "/" + f, files, nullptr);
             add(f, files);
         }
-        if (stations_.empty()) continue;
-        // the home station first (loose or in its own folder), the rest by name
-        std::stable_partition(stations_.begin(), stations_.end(), [](const Station& s) { return s.name == kHome; });
-        for (Station& s : stations_) std::sort(s.files.begin(), s.files.end(), by_file);
-        QLOG("radio: %d episodes on %d stations in %s", episodes(), stations(), d.c_str());
-        break;
     }
+    // the home station first (loose or in its own folder), the rest by name
+    std::stable_partition(stations_.begin(), stations_.end(), [](const Station& s) { return s.name == kHome; });
+    for (Station& s : stations_) std::sort(s.files.begin(), s.files.end(), by_file);
+    apply_places(kept);
+    if (dec_) {   // the episode playing goes on, wherever it now sits in the list
+        st_ = -1;
+        for (int i = 0; i < stations() && st_ < 0; i++)
+            if (stations_[size_t(i)].name == playing_on)
+                for (size_t k = 0; k < stations_[size_t(i)].files.size(); k++)
+                    if (stations_[size_t(i)].files[k] == playing) { st_ = i; ep_ = int(k); break; }
+        if (st_ < 0) {   // its file is gone: the radio falls quiet (stop() would keep a place in the old list)
+            st_ = 0;
+            dec_.reset();
+            buf_.clear();
+            pos_ = 0;
+        }
+    }
+    if (st_ >= stations()) st_ = 0;
     return stations();
 }
 
@@ -340,6 +358,10 @@ std::string Radio::places() const {
 
 void Radio::set_places(const std::string& text) {
     stop();
+    apply_places(text);
+}
+
+void Radio::apply_places(const std::string& text) {
     auto find = [&](const std::string& name) {
         for (int i = 0; i < stations(); i++)
             if (stations_[size_t(i)].name == name) return i;
@@ -361,7 +383,7 @@ void Radio::set_places(const std::string& text) {
         if (s < 0) continue;   // a station that is gone
         if (f[0] == "tuned") {
             st_ = s;
-            ep_ = stations_[size_t(s)].ep;
+            if (!dec_) ep_ = stations_[size_t(s)].ep;
         } else if (f[0] == "place" && f.size() >= 4) {
             const std::vector<std::string>& files = stations_[size_t(s)].files;
             for (size_t i = 0; i < files.size(); i++)

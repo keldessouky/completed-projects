@@ -176,6 +176,7 @@ const std::vector<std::pair<const char*, const char*>>& whole() {
         {"Next episode", "الحلقة التالية"},
         {"Next station", "المحطة التالية"},
         {"No episodes: put them in a folder named radio beside Qahira.qpk", "لا حلقات: ضعها في مجلد اسمه radio بجانب Qahira.qpk"},
+        {"The radio downloads its episodes over Wi-Fi", "يُنزّل الراديو حلقاته عبر الواي فاي"},
     };
     return d;
 }
@@ -184,6 +185,7 @@ const std::vector<std::pair<const char*, const char*>>& whole() {
 const std::vector<std::pair<const char*, const char*>>& prefixes() {
     static const std::vector<std::pair<const char*, const char*>> d = {
         {"Level ", "المستوى "},
+        {"Downloading the radio: ", "تنزيل الراديو: "},
         {"Filter: ", "الفرز: "},
         {"Needs ", "يحتاج "},
         {"Buy for ", "اشترِ بـ "},

@@ -767,11 +767,16 @@ void Menu::render(const World& w) const {
         // the radio: what it has found, and where it looks
         {
             const Radio& rd = audio().radio;
+            const std::string fetching = radio_fetch_status();
             if (rd.count() > 0)
                 u.text(x, y - 4, std::to_string(rd.count()) + (rd.count() == 1 ? " episode on the radio" : " episodes on the radio") +
                        (audio().radio_on && rd.playing() ? "  \xC2\xB7  " + rd.title(rd.current()) : std::string()), 24, pal::dim);
-            else u.text(x, y - 4, "No episodes: put them in a folder named radio beside Qahira.qpk", 24, pal::dim);
+            else u.text(x, y - 4, fetching.empty() ? std::string("The radio downloads its episodes over Wi-Fi") : fetching, 24, pal::dim);
             y += 34;
+            if (rd.count() > 0 && !fetching.empty()) {
+                u.text(x, y - 4, fetching, 24, pal::dim);
+                y += 34;
+            }
         }
         // the loot colours, as they are now
         y += 10;

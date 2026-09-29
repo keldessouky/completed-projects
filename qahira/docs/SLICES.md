@@ -1007,39 +1007,40 @@ notes after playing it, taken one at a time.*
 
   The sprite shader samples the sheet texel for texel. Sprites fade out by dropping pixels in a 4×4 ordered pattern,
   not by turning translucent. The meteor's ground marker is no longer a glowing disc.
-- **Radio Kafr El-Sheikh** ("this game's version of the GTA radio"): the owner's show in place of the music. The
-  episodes are not in the pack. Players put them in a `radio` folder beside it (or beside the saves).
+- **Radio Kafr El-Sheikh** ("this game's version of the GTA radio"): Mohamed Andeel's show in place of the music,
+  with nothing for the player to set up.
   - **Formats:** MP3 (minimp3), Ogg Vorbis (stb_vorbis) or 16-bit WAV, at any rate, mono or stereo.
   - **Playback:** each episode streams from its file, a chunk at a time, resampled to the mixer's 48 kHz, so an
-    hour-long episode costs a few kilobytes of memory. Episodes play in natural order (`Episode 2` before
-    `Episode 10`), and on to the next when one ends.
-  - **In the field:** R3 (M2 on the RP6) tunes to the next episode through a burst of static (generated, with a
-    whistle sliding down through it). A station card at the top of the screen names the episode, and the top-left
-    hints show the button.
-  - **Resuming:** the episode and the place in it are kept in the settings every twenty seconds and on exit, so the
-    show goes on where it was left.
-  - **Settings:** a **Music** row (the radio, or the game's music) and a line saying how many episodes were found.
-    The game's music fades out under the radio over a second.
-  - **Fallback:** with no episodes, the game's own music plays as before. The settings file is v2 and still reads v1.
-  - **Stations** (so more can be added later, like GTA's): each folder in `radio` is a station, named after
-    it. Loose episodes belong to Radio Kafr El-Sheikh, which always comes first. A new station is a new folder, with
-    no change to the game.
-    - **Tuning:** a tap of R3 goes to the next station and a hold (half a second) to the next episode. With one
-      station, a tap is the next episode, as before.
-    - **Settings:** the Music row lists the stations, then the game's music.
-    - **Places:** each station keeps its own episode and place. They are kept by station and file name in
-      `qahira.radio` beside the settings, so stations and episodes added later don't move them. The settings' own
-      place (v2) is read once, for Radio Kafr El-Sheikh, when that file isn't there yet.
-  - **From YouTube:** `tools/radio/fetch.py` (yt-dlp, ffmpeg, a JavaScript runtime) fills each station from the
-    playlists and channels listed for it in `tools/radio/stations.json`. Adding a station is adding an entry.
-    - **Files:** MP3s numbered in airing order (`12 - Title.mp3`). A channel is taken oldest first. Titles are made
-      safe for the SD card without look-alike letters the font lacks.
-    - **Run again:** it fetches only new episodes. A manifest per station (`.youtube.json`, which the game skips)
-      keeps the numbers already given, so each station's saved place stays right.
-    - **Where it runs:** on a PC, or on the RP6 in Termux. YouTube refuses downloads from cloud servers, so it can't
-      run in CI.
-    - **Why the core doesn't stream:** that would take TLS, YouTube's player code and Opus/AAC decoders in the core,
-      and it would break whenever YouTube changes.
+    hour-long episode costs a few kilobytes of memory. Episodes play in natural order (`2 - …` before `12 - …`),
+    and on to the next when one ends.
+  - **The game fetches the episodes itself** (`audio/radio_fetch.*`, `net/http.*`):
+    - **The list:** the stations are in the pack, in `data/radio.json`. Radio Kafr El-Sheikh takes 18 of the show's
+      28 episodes from the [Internet Archive](https://archive.org/details/radiokafrelshikh), where a fan uploaded
+      them, in the airing order from TheTVDB. The show is a fan work, so nothing is rehosted: the game downloads from
+      the archive as a listener would.
+    - **Adding a station:** add an entry to `data/radio.json`. Its episodes can come from an Internet Archive item
+      (all its audio, or chosen files), a podcast's RSS feed, or plain links.
+    - **The downloads:** a thread fetches over Wi-Fi into `radio/<station>/` in the saves folder: the first episode
+      of every station first, then the rest. Half-fetched files are `.part` (the radio skips them) and resume with a
+      Range request. Without Wi-Fi it tries again after 30 seconds, then less often (up to every 15 minutes). The
+      radio rescans as each episode lands, without interrupting the one playing, and comes on with the first.
+      Settings shows the progress ("Downloading the radio: 3/18"). All 18 take about 565 MB.
+    - **HTTPS:** Mbed TLS 3.6 (Apache-2.0, `third_party/mbedtls`), verified against the system's certificate
+      authorities (on Android, `/system/etc/security/cacerts`). The client follows redirects and reads chunked
+      bodies. It honours `HTTPS_PROXY` on desktops.
+    - **Why not YouTube:** YouTube locks its audio behind player code that changes every few weeks and refuses cloud
+      servers, so an offline core would keep breaking.
+  - **Stations** (so more can be added later, like GTA's): each folder in `radio` is a station, named after it.
+    Loose episodes belong to Radio Kafr El-Sheikh, which always comes first. The folders beside the pack and in the
+    saves are merged, so players can still add their own.
+    - **Tuning:** a tap of R3 (M2 on the RP6) goes to the next station, through a burst of static, and a hold (half
+      a second) to the next episode. With one station, a tap is the next episode. A station card names the station
+      and the episode.
+    - **Settings:** the Music row lists the stations, then the game's music. The game's music fades out under the
+      radio over a second.
+    - **Places:** each station keeps its own episode and place, by station and file name, in `qahira.radio` beside
+      the settings, every twenty seconds and on exit. The settings' own place (v2, which still reads v1) is read
+      once, for Radio Kafr El-Sheikh, when that file isn't there yet.
 - Character files are v10 (the flask's tier) and save states v17.
 - CI had been red since the glow change. The new art changed the drops and some layouts, which showed up two faults in
   the bot pilot, not in the game:
@@ -1052,7 +1053,7 @@ notes after playing it, taken one at a time.*
 
 | Check | Result |
 |---|---|
-| Unit tests (`qtests`) | pass, 95 cases (new: a station for each folder in the radio folder, each keeping its own place by name, and the Music setting choosing among them; the radio finds its episodes in natural order and streams MP3, Ogg and WAV at 48 kHz, keeps its place and moves on at an episode's end; the settings keep the music and the radio's place and still read v1; the effects sheet's rows match the game's list, a burst's colour picks its flipbook and it draws the same random numbers as before, the flask's tiers, charges, heal and prices climb, the tier in the character file, the Spring affix and the Spring-Water Amulet's regeneration) |
+| Unit tests (`qtests`) | pass, 99 cases (new: the radio coming on by itself when its first episode lands, the pack's station list in airing order, an Internet Archive item and a podcast feed listed, episodes fetched (from local files) and a cut-off one resumed, the radio going on playing as episodes arrive; a station for each folder in the radio folder, each keeping its own place by name, and the Music setting choosing among them; the radio finds its episodes in natural order and streams MP3, Ogg and WAV at 48 kHz, keeps its place and moves on at an episode's end; the settings keep the music and the radio's place and still read v1; the effects sheet's rows match the game's list, a burst's colour picks its flipbook and it draws the same random numbers as before, the flask's tiers, charges, heal and prices climb, the tier in the character file, the Spring affix and the Spring-Water Amulet's regeneration) |
 | Every bot | pass: `walk`, `fight`, `zone` (all seven classes), `sorcerer`, `sky`, `title`, `rifts`, `digs`, `zar`, `king` |
 
 | | |
@@ -1067,9 +1068,10 @@ notes after playing it, taken one at a time.*
   changes. Every other long run passes locally: `act1` to `act6` as the Warrior, `act1` and `act3` as the Mercenary,
   `act2` as the Ranger, `act3` and `act4` as the Shadow, `act5` and `act6` as the Templar, `falak`, `subyan`, `charts`
   and `reaches`.
-- Radio Kafr El-Sheikh is built and tested with generated tones. `tools/radio/stations.json` points it at the
-  show's channel ([Radio Kafr ElSheikh](https://www.youtube.com/channel/UCCdqKbjhEp_ShkMakt3mQCw), 31 videos by
-  upload date, teasers and listener contributions included). The episodes have to be fetched at home or on the RP6,
-  because YouTube refuses cloud servers. It has not been heard on the RP6 yet.
+- Radio Kafr El-Sheikh fetches its 18 episodes from the Internet Archive by itself. This was tested on Linux: all 18
+  links answer, episodes arrive byte for byte, a cut-off download resumes to an identical file, and MP3 and Ogg
+  both play. It has not been heard on the RP6 yet, where it relies on Android's certificate store and RetroArch's
+  network permission. Episodes 1, 3–7, 10, 11, 18, 27 and 28 aren't in the archive; they are on Andeel's
+  SoundCloud, which has no stable download links.
 - The telegraphs (the magenta warnings of a monster's strike), the portal and the loot beams keep their smooth,
   glowing look: they are warnings and markers, not spells.

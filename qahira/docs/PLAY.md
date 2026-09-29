@@ -73,78 +73,31 @@ Move `Qahira.qpk` out of `Download` into a folder of its own. Any folder works; 
 Use the RP6's **Files** app: long-press `Qahira.qpk` → **Move** → create `ROMs/Qahira` (the RP6 may already have a
 `ROMs` folder, possibly on the SD card) → **Move here**.
 
-### The radio (optional)
+### The radio
 
-The game has a radio in place of its music, the way GTA has stations. **Radio Kafr El-Sheikh** plays the episodes of
-the owner's show one after another, and more stations can sit beside it. Each station is a folder inside a folder
-named `radio` beside the pack, and the folder's name is the station's name:
+The game has a radio in place of its music, the way GTA has stations. **Radio Kafr El-Sheikh** plays Mohamed
+Andeel's show one episode after another. There is nothing to set up: the game downloads the episodes by itself over
+Wi-Fi, in the background, from the [Internet Archive](https://archive.org/details/radiokafrelshikh), and the radio
+comes on as soon as the first one has arrived (a minute or so). Until then the game's own music plays.
 
-```
-/storage/emulated/0/ROMs/Qahira/radio/Radio Kafr El-Sheikh/1 - The First Episode.mp3
-/storage/emulated/0/ROMs/Qahira/radio/Radio Kafr El-Sheikh/2 - The Second Episode.mp3
-/storage/emulated/0/ROMs/Qahira/radio/Nile FM/1 - ....mp3
-```
-
-The quickest way to fill the folders is from YouTube (below). You can also copy files in by hand.
-
-- **Adding a station:** make a new folder in `radio` and put its episodes in it. The game finds it the next time it
-  starts.
-- **Loose files:** episodes directly in `radio`, outside any station folder, play on Radio Kafr El-Sheikh, which is
-  always the first station.
-- **Formats:** MP3, Ogg Vorbis (`.ogg`) or 16-bit WAV, at any sample rate, mono or stereo.
-- **Order:** by file name, with numbers counted properly, so `Episode 2` comes before `Episode 10`.
-- **Names on screen:** the file name, with underscores shown as spaces.
-- **Where it picks up:** each station remembers its own episode and the place in it, so you can tune away and come back
-  to where you were. When an episode ends, the next one starts.
+- **Storage:** the episodes go in a `radio` folder in RetroArch's saves folder, about 560 MB for all 18.
+- **Offline:** what has arrived keeps playing without Wi-Fi. A download that was cut off picks up where it stopped
+  the next time the game runs with Wi-Fi.
+- **Order:** the show's own airing order.
+- **Where it picks up:** each station remembers its own episode and the place in it, so you can tune away and come
+  back to where you were. When an episode ends, the next one starts.
 - **In the field, R3** (the right stick pressed in, or M2 if you mapped it):
   - **tap** for the next station;
   - **hold** for half a second for the next episode on this station.
 
   With only one station, a tap also goes to the next episode. The dial goes through a burst of static, and a card at
   the top of the screen names the station and the episode.
-- **Choosing a station, or turning it off:** in **Settings → Music**, pick a station or the game's own music. With no
-  `radio` folder, the game plays its own music, as before.
-
-#### The stations from YouTube
-
-`tools/radio/fetch.py` fills each station's folder from YouTube playlists or channels. It saves each video as an MP3
-named in airing order (`1 - First Episode.mp3`, `2 - …`), so the station card shows the video's title.
-
-- **The list of stations:** `tools/radio/stations.json`. To add a station, add an entry with its name and its
-  YouTube links:
-
-  ```json
-  {"name": "Nile FM", "youtube": ["https://www.youtube.com/playlist?list=…"], "order": "auto"}
-  ```
-
-  - **Links:** a station can have more than one; they play in the order given.
-  - **`order`:** `auto` plays a channel oldest first and a playlist in its own order. `listed` and `reversed` set it
-    by hand.
-- **New episodes:** run the tool again. It fetches only the new ones, and the numbers already given stay the same, so
-  every station keeps its place.
-- **Options:**
-  - `--station "Name"` fetches just one station.
-  - A link on its own (`fetch.py "<link>" --station "Name"`) fetches it once without editing the list.
-  - `--list` shows what would be fetched.
-- **What it needs:** **yt-dlp**, **ffmpeg** and a JavaScript runtime for yt-dlp (**deno** or **node**).
-- Use it only for the show or other audio you have the right to download.
-
-On the RP6 itself, with [Termux](https://f-droid.org/packages/com.termux/) (from F-Droid; the Play Store build is
-out of date):
-
-```
-termux-setup-storage                     # once: lets Termux reach the RP6's storage
-pkg install python ffmpeg nodejs && pip install -U "yt-dlp[default]"
-curl -LO https://raw.githubusercontent.com/keldessouky/completed-projects/qahira/qahira/tools/radio/fetch.py
-curl -LO https://raw.githubusercontent.com/keldessouky/completed-projects/qahira/qahira/tools/radio/stations.json
-cd ~/storage/shared/ROMs/Qahira
-python ~/fetch.py                        # every station in stations.json, into ./radio
-```
-
-- **On a PC:** from the `qahira` folder, run `python3 tools/radio/fetch.py --out <path>/radio`, then copy the
-  `radio` folder next to the pack.
-- **If downloads start failing:** update yt-dlp (`pip install -U "yt-dlp[default]"`), because YouTube changes often.
-  YouTube also refuses downloads from cloud servers, so run the tool at home or on the RP6.
+- **Choosing a station, or turning it off:** in **Settings → Music**, pick a station or the game's own music. The tab
+  also shows how the download is going.
+- **Your own episodes (optional):** a `radio` folder beside the pack can hold more.
+  - A folder inside it is a station of its own, named after the folder.
+  - Loose files play on Radio Kafr El-Sheikh.
+  - Formats: MP3, Ogg Vorbis or 16-bit WAV.
 
 ## 5. Set the video driver to `gl` (once)
 
