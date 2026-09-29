@@ -93,6 +93,9 @@ jobs:
       - name: Falak, the second pinnacle (a Sorcerer after the campaign, four Scales of Falak)
         timeout-minutes: 30
         run: QAHIRA_CLASS=sorcerer ./build/linux/qhost build/Qahira.qpk --headless --bot falak 2>&1 | grep -E "^king|TEST"; test ${PIPESTATUS[0]} -eq 0
+      - name: Umm al-Subyan, the third pinnacle (a Sorcerer after the campaign, four Combs)
+        timeout-minutes: 30
+        run: QAHIRA_CLASS=sorcerer ./build/linux/qhost build/Qahira.qpk --headless --bot subyan 2>&1 | grep -E "^king|TEST"; test ${PIPESTATUS[0]} -eq 0
       - name: Falak as the Warrior (nightly and on demand)
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         timeout-minutes: 30

@@ -230,6 +230,10 @@ const std::vector<CodexEntry>& codex_entries() {
         {"falak", CX_MONSTER, "Falak, the serpent beneath the world",
          "In the old cosmographies the earth rests on a bull, the bull on a fish, and under them all the serpent Falak, in the "
          "dark water. Apep was only the part of it that reached for the sun. Four Scales of Falak open its lair."},
+        {"subyan", CX_MONSTER, "Umm al-Subyan",
+         "A jinniya of the old tales who creeps into houses at night and steals the sleep of everyone in them. In the long "
+         "night she has taken a whole house for herself, and lit every lamp in it. Take her combs and you have a hold on "
+         "her: four of them open her door."},
     };
     return c;
 }

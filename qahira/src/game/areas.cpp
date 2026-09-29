@@ -386,7 +386,8 @@ void Areas::enter_pinnacle(World& w, int p) {
     if (d.uber) uber_mods(w.chart.mods);
     enter_zone(w, find_zone(d.zone), Arrival::Entrance);
     w.chart_site = -1;
-    w.meet_codex(std::string(d.boss) == "falak" ? "falak" : "marid_king");
+    const std::string boss = d.boss;
+    w.meet_codex(boss == "falak" ? "falak" : boss == "umm_subyan" ? "subyan" : "marid_king");
 }
 
 void Areas::arm_haboob(World& w) {

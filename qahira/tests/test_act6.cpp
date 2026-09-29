@@ -60,7 +60,7 @@ TEST(the_codex_is_append_only) {
                            "bleeding", "hyenas", "salt_jinn", "desert_ghouls", "wraith", "mamluk", "res_penalty",
                            "excavations", "traps", "salt_ghouls", "mirage", "zar", "iron_door", "auras", "dye_ghouls",
                            "smoke", "presser", "qandisha", "reaches", "marid_king", "coral_ghouls", "duwais", "shiqq",
-                           "hatif", "brass", "apep", "veil", "falak"};
+                           "hatif", "brass", "apep", "veil", "falak", "subyan"};
     const size_t n = sizeof order / sizeof *order;
     auto& c = codex_entries();
     CHECK(c.size() >= n && c.size() <= 64);   // they fit in Hero::codex
@@ -129,4 +129,21 @@ TEST(falak_and_the_uber_pinnacles) {
     int low = 0;
     for (int i = 0; i < 200; i++) low += scale_drops(r, true, rng);
     CHECK(low == 0);
+}
+
+// Slice 11: the third pinnacle. Umm al-Subyan's Combs come from Falak and, after the campaign, from Zar Nights sung
+// to their end on the Twelfth Reach and up
+TEST(umm_al_subyan_the_third_pinnacle) {
+    const PinnacleDef& d = pinnacle_def(PIN_SUBYAN);
+    CHECK(d.currency == CUR_COMB && d.cost == kPearlsPerThrone && !d.uber && pinnacle_def(PIN_SUBYAN_UBER).uber);
+    CHECK(std::string(zone_def(find_zone("subyan_house")).boss) == "umm_subyan");
+    CHECK(find_codex("subyan") >= 0);
+    ChartRun r;
+    Rng rng(9);
+    r.tier = 11;
+    int low = 0, early = 0, late = 0;
+    for (int i = 0; i < 200; i++) low += comb_drops(r, true, rng);
+    r.tier = 14;
+    for (int i = 0; i < 200; i++) { early += comb_drops(r, false, rng); late += comb_drops(r, true, rng); }
+    CHECK(low == 0 && early == 0 && late > 60 && late < 140);
 }

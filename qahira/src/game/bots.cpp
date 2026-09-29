@@ -29,7 +29,7 @@ void Bot::drive(World& w, Menu& m, Areas& a, Input& in, uint64_t frame) {
         act1(w, m, a, in, frame);
     else if (scenario == "tour5") tour5(w, a, in, frame);
     else if (scenario == "charts" || scenario == "reaches") charts(w, m, a, in, frame);
-    else if (scenario == "king" || scenario == "falak" || scenario == "uber") king(w, m, a, in, frame);
+    else if (pinnacle_run()) king(w, m, a, in, frame);
     else if (scenario == "tour6") tour6(w, a, in, frame);
     else if (scenario == "rifts") rifts(w, m, a, in, frame);
     else if (scenario == "tour7") tour7(w, m, a, in, frame);
@@ -1445,7 +1445,7 @@ void Bot::prepare(World& w) {
         if (scenario == "reaches") for (int k = 0; k < 4; k++) H.inv.add(make_chart(kChartTiersEarly + 1, r, 0.25f, 0.f));
         const PinnacleDef& pd = pinnacle_def(pinnacle_wanted());
         if (pinnacle_run()) H.currency[pd.currency] = pd.cost;
-        if (scenario == "falak") {   // Falak is after the campaign: Act VI and the Fourth Trial behind you, the Veil sealed
+        if (scenario == "falak" || scenario == "subyan") {   // Falak and Umm al-Subyan are after the campaign: Act VI and the Fourth Trial behind you, the Veil sealed
             H.quests |= Q_DUWAIS | Q_SHIQQ | Q_HATIF | Q_HORSEMAN | Q_ACT6 | Q_TRIAL4;
             H.ending = 1;
         }
@@ -1536,7 +1536,7 @@ void Bot::prepare(World& w) {
     if ((scenario == "act4" || scenario == "act5" || scenario == "act6" || late) && ascendancy_of(H.passives.cls, H.ascendancy))
         H.asc |= (1u << 3) | (1u << 4);   // and Trial II's
     if ((late || scenario == "act6") && ascendancy_of(H.passives.cls, H.ascendancy)) H.asc |= (1u << 5) | (1u << 6);   // and Trial III's
-    if (scenario == "falak" && ascendancy_of(H.passives.cls, H.ascendancy)) H.asc |= (1u << 7) | (1u << 8);   // and Trial IV's
+    if ((scenario == "falak" || scenario == "subyan") && ascendancy_of(H.passives.cls, H.ascendancy)) H.asc |= (1u << 7) | (1u << 8);   // and Trial IV's
     if (scenario == "tour6") {   // further on: a few sites done, some of the Astrolabe set, charts of every Clime
         H.level = 17;
         H.sites_done = (1u << find_site("iskandariya")) | (1u << find_site("qus")) | (1u << find_site("wahat"));
@@ -1833,9 +1833,9 @@ void Bot::king(World& w, Menu& m, Areas& a, Input& in, uint64_t frame) {
     if (getenv("QAHIRA_BOT_TRACE") && frame % 300 == 0) {
         int alive = 0;
         for (size_t i = 1; i < w.actors.size(); i++) alive += w.actors[i].alive();
-        fprintf(stderr, "king trace t=%.0f pos (%.1f,%.1f) life %.0f/%.0f alive %d boss %s at %.1f m, %.0f%%, state %d\n", frame / 60.f,
-                h.pos.x, h.pos.y, h.life, h.life_max, alive, boss ? "yes" : "no", boss ? length(boss->pos - h.pos) : 0.f,
-                boss ? 100.f * boss->life / boss->life_max : 0.f, boss ? boss->ai_state : -1);
+        fprintf(stderr, "king trace t=%.0f pos (%.1f,%.1f) life %.0f/%.0f alive %d boss %s at %.1f m, %.0f%%, state %d, menu %d, act %d\n",
+                frame / 60.f, h.pos.x, h.pos.y, h.life, h.life_max, alive, boss ? "yes" : "no", boss ? length(boss->pos - h.pos) : 0.f,
+                boss ? 100.f * boss->life / boss->life_max : 0.f, boss ? boss->ai_state : -1, int(m.open), int(h.act));
     }
     if (boss && king_stage_ < 2 && boss->ai_state > 0) { king_stage_ = 2; fprintf(stderr, "king: t=%.0fs he rises\n", frame / 60.f); }
     if (boss && king_stage_ < 3 && boss->life < boss->life_max * 0.55f) { king_stage_ = 3; fprintf(stderr, "king: t=%.0fs his court rises\n", frame / 60.f); }
@@ -1844,12 +1844,18 @@ void Bot::king(World& w, Menu& m, Areas& a, Input& in, uint64_t frame) {
         for (auto& g : w.loot) uniques += g.kind == GroundItem::Gear && g.item.rarity == Rarity::Unique;
         char b[200];
         snprintf(b, sizeof b, "%d %s spent at the table, %s killed in %.1f minutes, %d deaths, %d uniques on the floor", pd.cost,
-                 pd.currency == CUR_PEARL ? "King's Pearls" : "Scales of Falak", pd.name, frame / 3600.f, deaths, uniques);
+                 pd.currency == CUR_PEARL ? "King's Pearls" : pd.currency == CUR_SCALE ? "Scales of Falak" : "Combs of Umm al-Subyan", pd.name,
+                 frame / 3600.f, deaths, uniques);
         pass(b);
         return;
     }
     // a minute in and the King not yet woken: something out of reach is holding the pilot; go to him, fighting only what is close
     const bool to_him = boss && boss->ai_state == 0 && frame - stage_frame > 3600;
+    // stalled (eight seconds without moving, say after a death at the entrance, held by something it cannot reach):
+    // walk to the boss for five seconds, fighting nothing on the way
+    if (length(h.pos - pin_last_pos_) > 0.5f) { pin_last_pos_ = h.pos; pin_still_ = frame; }
+    if (boss && boss->ai_state == 0 && frame - pin_still_ > 480 && pin_walk_until_ < frame) pin_walk_until_ = frame + 300;
+    if (boss && frame < pin_walk_until_) { steer(w, in, boss->pos); return; }
     if (combat(w, in, frame, to_him ? 5.f : 30.f)) return;
     const ZoneLayout& L = a.zone.layout;
     steer(w, in, to_him ? boss->pos : L.center(L.cells[size_t(L.arena)]));
@@ -2215,7 +2221,24 @@ void Bot::tour12(World& w, Menu& m, Areas& a, Input& in, uint64_t frame) {
     if (frame > 760 && frame < 1000) {   // the HUD, on the rooftop
         steer(w, in, a.zone.valid ? h.pos : h.pos + vec2{0.5f, 0.f});
     }
-    if (frame >= 1000) pass("tour12 done");
+    if (at(1000)) {   // Umm al-Subyan in her house
+        H.level = 70;
+        H.quests |= Q_ACT6;
+        w.recompute_hero();
+        a.enter_pinnacle(w, PIN_SUBYAN);
+        w.level.bind_gpu();
+    }
+    if (frame > 1000 && frame < 1700) {
+        const ZoneLayout& L = a.zone.layout;
+        if (at(1060)) {
+            h.pos = w.level.resolve(L.center(L.cells[size_t(L.arena)]) + vec2{0, -6.f}, h.radius);
+            for (size_t i = 1; i < w.actors.size(); i++)
+                if (w.actors[i].rarity != Rarity::Unique) w.actors[i].life = 0, w.actors[i].act = Act::Dead, w.actors[i].dead_t = 3;
+        }
+        if (frame > 1060) combat(w, in, frame, 30.f);
+        return;
+    }
+    if (frame >= 1700) pass("tour12 done");
 }
 
 // ---------------------------------------------------------------- tour11: the Wanderer, Act VI, the choice, the Gate of Iram, Falak (screenshots)

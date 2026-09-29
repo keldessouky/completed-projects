@@ -897,8 +897,8 @@ bosses.*
 
 ## Slice 11 · Arabic, accessibility and polish (in progress)
 
-*The last slice: the UI in Arabic laid out right to left, the accessibility settings, polish, and the third
-pinnacle, Umm al-Ṣubyān (still to come).*
+*The last slice: the UI in Arabic laid out right to left, the accessibility settings, the third pinnacle, Umm
+al-Ṣubyān, and polish.*
 
 **Delivered so far**
 - **Arabic text** (`ui/arabic.*`), without HarfBuzz: the letters take their contextual forms from Noto Sans Arabic's
@@ -921,19 +921,31 @@ pinnacle, Umm al-Ṣubyān (still to come).*
   - **Screen shake:** off, 25%, 50%, 75% or full;
   - **Second skill bar:** hold L2, or press L2 to toggle it.
   Rebinding is left to RetroArch's own remapping.
-- `tour12` takes the pictures (`QAHIRA_LANG=ar` for the Arabic screens).
+- **Umm al-Ṣubyān, the third pinnacle** (GDD §10). In the old tales a jinniya who creeps into houses at night and
+  steals the sleep of everyone in them; in the long night she has taken a whole house, **the House of the Unsleeping**
+  (level 70), and lit every lamp in it. She calls you to her through the dark house, vanishes and comes back behind
+  you, and leaves pools of cold on the floor; at the half every lamp goes out and the shades of the unsleeping rise.
+  She is Qandisha's rig, ash-pale, and always drops two uniques. No child appears in her story or her house.
+  - **Combs of Umm al-Ṣubyān** open it, four at the chart table (the Pinnacles list; eight for the uber, *Umm
+    al-Ṣubyān, Unsleeping*). Falak always carries one; after the campaign a Zar Night sung to its end on a chart of
+    the Twelfth Reach and up gives one too (50%, 80% on the Sixteenth).
+  - The pinnacle pilot got a stall breaker: held at the entrance after a death by something it cannot reach, it walks
+    to the boss while the boss sleeps.
+- `tour12` takes the pictures (`QAHIRA_LANG=ar` for the Arabic screens); `subyan` is a new bot.
 
 **Verified**
 
 | Check | Result |
 |---|---|
-| Unit tests (`qtests`) | pass, 86 cases (new: letters joined by context, lam-alef and the harakat; a line's visual order with numbers, Latin and brackets; the translations whole, by prefix and by suffix, and none in English; the settings saved, read back and applied) |
+| Unit tests (`qtests`) | pass, 87 cases (new: letters joined by context, lam-alef and the harakat; a line's visual order with numbers, Latin and brackets; the translations whole, by prefix and by suffix, and none in English; the settings saved, read back and applied; Umm al-Ṣubyān's pinnacle and her Combs) |
+| `subyan` bot: four Combs at the table, Umm al-Ṣubyān | pass as the Sorcerer (0.6 minutes, 0 deaths), the Ranger (0.6, 0) and the Warrior (1.0, 0); in CI as the Sorcerer. The Templar dies to her, as to the King and Falak |
 | Every bot | pass: `walk`, `fight`, `zone` (all seven classes), `sorcerer`, `sky`, `title`, `rifts`, `digs`, `zar`, `king` |
 
 | | |
 |---|---|
 | ![The Settings tab in Arabic](img/slice11-settings-ar.jpg) | ![Largest text and the red-green safe loot colours](img/slice11-largest-ar.jpg) |
 | ![The inventory in Arabic, mirrored](img/slice11-items-ar.jpg) | ![The HUD in Arabic, mirrored](img/slice11-hud-ar.jpg) |
+| ![Umm al-Ṣubyān in the House of the Unsleeping](img/slice11-subyan.jpg) | |
 
 **Still to do**
-- Umm al-Ṣubyān, the third pinnacle; polish; the device checks on the RP6.
+- Polish; the device checks on the RP6.

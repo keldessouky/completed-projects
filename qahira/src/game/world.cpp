@@ -79,6 +79,8 @@ const std::vector<MonsterDef>& monster_defs() {
             {"iram_keeper", "The Keeper of the Gate of Iram", "mamluk", 1.15f, {1.35f, 1.05f, 0.4f}, 2900, 3.4f, 1.0f, AttackKind::Boss, 3.4f, 1.5f, 27, 40, DT_PHYS, 450, 4800, 0},
             // the second pinnacle (Slice 10): Falak, the serpent beneath the world; Apep's own mesh, vaster and darker
             {"falak", "Falak, the Serpent beneath the World", "apep", 1.45f, {0.62f, 0.38f, 0.58f}, 2600, 3.2f, 2.2f, AttackKind::Boss, 5.0f, 1.3f, 21, 31, DT_CHAOS, 220, 9000, 0},
+            // the third pinnacle (Slice 11): the night-hag who steals the city's sleep; Qandisha's rig, ash-pale
+            {"umm_subyan", "Umm al-Subyan, Who Steals the Sleep", "qandisha", 1.15f, {0.82f, 0.78f, 0.95f}, 2500, 4.4f, 0.9f, AttackKind::Boss, 3.2f, 1.25f, 21, 32, DT_COLD, 140, 9000, 0},
         };
         auto set = [&](const char* id, bool rigid, const char* fam, const char* voice = "ghoul") {
             for (auto& m : v) if (std::string(m.id) == id) { m.rigid = rigid; m.family = fam; m.voice = voice; }
@@ -136,6 +138,7 @@ const std::vector<MonsterDef>& monster_defs() {
         set("brass_horseman", true, "The City of Brass", "metal");
         set("iram_keeper", false, "The City of Brass", "metal");
         set("falak", true, "Falak", "fire");
+        set("umm_subyan", false, "Umm al-Subyan", "whisper");
         set("eclipse_marid", false, "Apep, the serpent of the dark", "whisper");
         set("apep", true, "Apep, the serpent of the dark", "fire");
         codex("Ghouls", "ghouls");
@@ -169,6 +172,7 @@ const std::vector<MonsterDef>& monster_defs() {
         codex("The City of Brass", "brass");
         codex("Apep", "apep");
         codex("Falak", "falak");
+        codex("Umm al-Subyan", "subyan");
         return v;
     }();
     return d;
@@ -319,6 +323,13 @@ const BossDef* boss_def(int monster) {
           {MoveKind::Pools, "", 7.f, 0, 30, 0.5f, 0}, {MoveKind::Nova, "", 7.5f, 0, 7.f, 1.15f, 0},
           {MoveKind::Charge, "", 5.5f, 4.f, 30, 1.35f, 1}, {MoveKind::Combo, "", 1.6f, 0, 5.f, 1.f, 0}},
          0.55f, "THE WORLD SHIFTS ON ITS BACK", "eclipse_marid", 5, 12.f, 1.3f, {0.7f, 0.3f, 0.8f}, true},
+        // Umm al-Subyan: she calls you to her through the dark house, vanishes and comes back behind you, leaves pools of
+        // cold on the floor; at the half every lamp goes out and the shades of the unsleeping rise
+        {"umm_subyan",
+         {{MoveKind::Summon, "summon", 1e9f, 0, 99, 0, 1}, {MoveKind::Wail, "wail", 9.f, 0, 99, 0, 0},
+          {MoveKind::Pools, "cast", 7.f, 0, 30, 0.5f, 0}, {MoveKind::Blink, "cast", 5.5f, 5.f, 30, 0, 0},
+          {MoveKind::Volley, "cast", 3.6f, 5.f, 30, 0.7f, 0}, {MoveKind::Combo, "combo", 1.25f, 0, 3.6f, 1.f, 0}},
+         0.5f, "EVERY LAMP IN THE HOUSE GOES OUT", "sand_shade", 5, 11.f, 1.3f, {0.8f, 0.75f, 1.f}, true},
     };
     if (monster < 0 || monster >= int(monster_defs().size())) return nullptr;
     const char* id = monster_defs()[size_t(monster)].id;
@@ -1120,6 +1131,12 @@ void World::zar_end() {
         loot.push_back(g);
     }
     if (z.trances > 0) drop_gold(level.resolve(z.pos + vec2{-1.4f, -1.2f}, 0.3f), (20 + area_level * 3) * z.trances);
+    // after the campaign, a song sung to its end on the last charts gives one of Umm al-Subyan's Combs
+    if (!failed && in_chart)
+        if (int n = comb_drops(chart, (hero.quests & Q_ACT6) != 0, rng); n > 0) {
+            drop_currency(level.resolve(z.pos + vec2{1.4f, -1.2f}, 0.3f), CUR_COMB, n);
+            notices.push_back("A Comb of Umm al-Subyan");
+        }
     char b[120];
     if (failed) snprintf(b, sizeof b, "The rhythm fails and the drummers stop. %d trance%s", z.trances, z.trances == 1 ? "" : "s");
     else snprintf(b, sizeof b, "The song is over: %d trance%s, and the circle is quiet", z.trances, z.trances == 1 ? "" : "s");
@@ -2223,11 +2240,15 @@ void World::drop_loot(const Actor& e) {
                 }
             if (hero.sealed_slot == EQ_WEAPON) drop_currency(level.resolve(e.pos + vec2{2.4f, -1.4f}, 0.3f), CUR_PEARL, 1);
         }
+        if (id == "falak") {   // and Falak one of Umm al-Subyan's Combs
+            drop_currency(level.resolve(e.pos + vec2{-2.4f, -1.4f}, 0.3f), CUR_COMB, 1);
+            notices.push_back("A Comb of Umm al-Subyan");
+        }
         if (id == "iram_keeper") {   // the Keeper always carries a Scale of Falak
             drop_currency(level.resolve(e.pos + vec2{-2.4f, -1.4f}, 0.3f), CUR_SCALE, 1);
             notices.push_back("A Scale of Falak");
         }
-        const bool king = id == "marid_king" || id == "falak";   // the pinnacles: two uniques and a purse, always (an uber: three)
+        const bool king = id == "marid_king" || id == "falak" || id == "umm_subyan";   // the pinnacles: two uniques and a purse (an uber: three)
         const bool lord = id == "rift_lord" || king;         // the Rift Lord: a unique, always
         if (lord)
             for (int k = 0; k < (king ? 6 : 3); k++) drop_currency(e.pos + rotate(vec2{3.0f, 0}, 0.8f + k * 0.7f), roll_currency(rng, area_level + 4), 1);

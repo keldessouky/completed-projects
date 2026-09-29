@@ -90,6 +90,8 @@ private:
     void rifts(World& w, Menu& m, Areas& a, Input& in, uint64_t frame);
     void king(World& w, Menu& m, Areas& a, Input& in, uint64_t frame);
     int king_stage_ = 0;
+    vec2 pin_last_pos_{1e9f, 1e9f};   // the pinnacle pilot's stall breaker
+    uint64_t pin_still_ = 0, pin_walk_until_ = 0;
     uint64_t mark_frame_ = 0;   // the Wanderer's last Mark
     void tour7(World& w, Menu& m, Areas& a, Input& in, uint64_t frame);
     int rift_stage_ = 0, rift_splinters0_ = 0;
@@ -140,8 +142,8 @@ private:
     float chase_best_ = 0;
     uint64_t chase_frame_ = 0;
     bool unreachable(uint32_t id) const { for (uint32_t i : ignored_) if (i == id) return true; return false; }
-    bool pinnacle_run() const { return scenario == "king" || scenario == "falak" || scenario == "uber"; }
-    int pinnacle_wanted() const { return scenario == "falak" ? PIN_FALAK : scenario == "uber" ? PIN_KING_UBER : PIN_KING; }
+    bool pinnacle_run() const { return scenario == "king" || scenario == "falak" || scenario == "uber" || scenario == "subyan"; }
+    int pinnacle_wanted() const { return scenario == "falak" ? PIN_FALAK : scenario == "subyan" ? PIN_SUBYAN : scenario == "uber" ? PIN_KING_UBER : PIN_KING; }
     bool go_to_interact(World& w, Input& in, uint64_t frame, Interactable::Kind k, int target = -1);   // target: a Gate/Next zone, a toll slot
 };
 

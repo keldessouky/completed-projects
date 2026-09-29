@@ -96,7 +96,7 @@ void MapScreen::update(World& w, const Input& in, float dt) {
         return;
     }
     if (!picking && view == 0 && in.hit(BTN_NORTH)) {   // the pinnacles: the cursor starts on the first one the keys open
-        if (w.hero.currency[CUR_PEARL] <= 0 && w.hero.currency[CUR_SCALE] <= 0) {
+        if (w.hero.currency[CUR_PEARL] <= 0 && w.hero.currency[CUR_SCALE] <= 0 && w.hero.currency[CUR_COMB] <= 0) {
             say("Four King's Pearls open the Marid King's throne: the masters of the last Reaches carry them");
             return;
         }
@@ -312,7 +312,8 @@ void MapScreen::render(const World& w) const {
             }
         }
         const bool seal = H.currency[CUR_RIFT_SEAL] > 0,
-                   pearls = H.currency[CUR_PEARL] >= kPearlsPerThrone || H.currency[CUR_SCALE] >= kPearlsPerThrone;
+                   pearls = H.currency[CUR_PEARL] >= kPearlsPerThrone || H.currency[CUR_SCALE] >= kPearlsPerThrone ||
+                            H.currency[CUR_COMB] >= kPearlsPerThrone;
         if (!picking && seal && pearls)
             legend(IX + 24, 986, {{BTN_SOUTH, "Chart"}, {BTN_WEST, "Seal"}, {BTN_NORTH, "Pinnacles"}, {BTN_R1, "Astrolabe"}});
         else if (!picking && pearls)
@@ -362,22 +363,23 @@ void MapScreen::render(const World& w) const {
         legend(IX + 24, 986, {{BTN_SOUTH, "Set"}, {BTN_L1, "Map"}, {BTN_EAST, "Close"}});
     }
     if (pinnacles) {
-        const float x = IX + 24, wdt = IW - 48, y0 = 300;
+        const float x = IX + 24, wdt = IW - 48, y0 = 200;
         u.rect(IX, 0, 1920 - IX, 1080, pal::night.alpha(0.9f));
         u.text(IX + IW / 2, y0 - 80, "The Pinnacles", 40, pal::brass, Align::Center, 1.f);
         for (int p = 0; p < PIN_COUNT; p++) {
             const PinnacleDef& d = pinnacle_def(p);
             const bool can = H.currency[d.currency] >= d.cost, cur = p == pin_cursor;
-            const float y = y0 + p * 120.f;
-            u.frame(x, y, wdt, 104, cur ? pal::panel2 : pal::panel2.alpha(0.5f), cur ? pal::amber : pal::brass.alpha(0.4f), 10, 2);
-            u.text(x + 24, y + 12, d.name, fit(d.name, 32, wdt - 48), d.uber ? Rgba::hex(0xE07AB0) : pal::bone, Align::Left, 1.f);
+            const float y = y0 + p * 106.f;
+            u.frame(x, y, wdt, 94, cur ? pal::panel2 : pal::panel2.alpha(0.5f), cur ? pal::amber : pal::brass.alpha(0.4f), 10, 2);
+            u.text(x + 24, y + 10, d.name, fit(d.name, 30, wdt - 48), d.uber ? Rgba::hex(0xE07AB0) : pal::bone, Align::Left, 1.f);
             char k[96];
-            snprintf(k, sizeof k, "%d %s  (you hold %d)", d.cost, d.currency == CUR_PEARL ? "King's Pearls" : "Scales of Falak",
+            snprintf(k, sizeof k, "%d %s  (you hold %d)", d.cost,
+                     d.currency == CUR_PEARL ? "King's Pearls" : d.currency == CUR_SCALE ? "Scales of Falak" : "Combs of Umm al-Subyan",
                      H.currency[d.currency]);
-            u.text(x + 24, y + 60, k, 24, can ? pal::magic : pal::dim);
+            u.text(x + 24, y + 54, k, 22, can ? pal::magic : pal::dim);
         }
         const PinnacleDef& d = pinnacle_def(pin_cursor);
-        u.wrap(x + 12, y0 + PIN_COUNT * 120.f + 20, wdt - 24, std::string("Its keys: ") + d.where, 24, pal::soft);
+        u.wrap(x + 12, y0 + PIN_COUNT * 106.f + 16, wdt - 24, std::string("Its keys: ") + d.where, 22, pal::soft);
         legend(IX + 24, 986, {{BTN_SOUTH, "Set out"}, {BTN_UP, "Choose"}, {BTN_EAST, "Back"}});
     }
     if (msg_t > 0) {

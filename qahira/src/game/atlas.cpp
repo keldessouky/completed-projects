@@ -232,6 +232,11 @@ int scale_drops(const ChartRun& r, bool campaign_over, Rng& rng) {
     return rng.chance(r.tier == kChartTiers ? 0.3f : 0.15f) ? 1 : 0;   // T15 15%, T16 30%
 }
 
+int comb_drops(const ChartRun& r, bool campaign_over, Rng& rng) {
+    if (!campaign_over || r.tier < 12) return 0;
+    return rng.chance(r.tier >= kChartTiers ? 0.8f : 0.5f) ? 1 : 0;
+}
+
 const PinnacleDef& pinnacle_def(int p) {
     static const PinnacleDef d[PIN_COUNT] = {
         {"The Marid King", "king_throne", "marid_king", CUR_PEARL, kPearlsPerThrone, false,
@@ -242,6 +247,10 @@ const PinnacleDef& pinnacle_def(int p) {
          "the Keeper of the Gate of Iram, and the last two Reaches' masters after Act VI, carry Scales of Falak"},
         {"Falak Awake", "falak_lair", "falak", CUR_SCALE, 2 * kPearlsPerThrone, true,
          "eight Scales of Falak: the serpent that holds the world, awake"},
+        {"Umm al-Subyan", "subyan_house", "umm_subyan", CUR_COMB, kPearlsPerThrone, false,
+         "Falak always carries a Comb of Umm al-Subyan; after the campaign a Zar Night sung to its end on a chart of the Twelfth Reach and up gives one too"},
+        {"Umm al-Subyan, Unsleeping", "subyan_house", "umm_subyan", CUR_COMB, 2 * kPearlsPerThrone, true,
+         "eight Combs: the night-hag in a house where no lamp has gone out for a year"},
     };
     return d[std::clamp(p, 0, PIN_COUNT - 1)];
 }
