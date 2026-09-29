@@ -43,7 +43,23 @@ static void check_variables(bool announce) {
     }
 }
 
+// a message on RetroArch's screen: it shows over a black picture, so a player sees why there is no game
+static void osd(const char* msg, unsigned frames = 600) {
+    if (!env_cb) return;
+    retro_message m{msg, frames};
+    env_cb(RETRO_ENVIRONMENT_SET_MESSAGE, &m);
+}
+
 static void log_sink(LogLevel l, const char* msg) {
+    // the first few errors go on screen too (their first line): a shader the device's driver refuses, a missing file
+    static int shown = 0;
+    if (l == LogLevel::Error && shown < 3) {
+        shown++;
+        std::string first = std::string("Qahira: ") + msg;
+        if (size_t nl = first.find('\n'); nl != std::string::npos) first.resize(nl);
+        if (first.size() > 120) first.resize(120);
+        osd(first.c_str(), 900);
+    }
     if (log_cb) {
         retro_log_level lv = l == LogLevel::Error ? RETRO_LOG_ERROR : l == LogLevel::Warn ? RETRO_LOG_WARN : RETRO_LOG_INFO;
         log_cb(lv, "[qahira] %s\n", msg);
@@ -159,7 +175,10 @@ RETRO_API bool retro_load_game(const retro_game_info* game) {
     hw.stencil = false;
     hw.bottom_left_origin = true;
     plat.has_gpu = env_cb(RETRO_ENVIRONMENT_SET_HW_RENDER, &hw);
-    if (!plat.has_gpu) QWARN("no hardware context: running without video (headless)");
+    if (!plat.has_gpu) {
+        QWARN("no hardware context: running without video (headless)");
+        osd("Qahira needs the gl video driver: Settings > Drivers > Video > gl, then quit and restart RetroArch", 1200);
+    }
     have_rumble = env_cb(RETRO_ENVIRONMENT_GET_RUMBLE_INTERFACE, &rumble_if);
     plat.rumble = do_rumble;
     const char* dir = nullptr;
@@ -234,6 +253,11 @@ RETRO_API void retro_run(void) {
         video_cb(RETRO_HW_FRAME_BUFFER_VALID, kW, kH, 0);
     } else if (video_cb) {
         video_cb(nullptr, kW, kH, 0);
+        // no picture: say why, every ten seconds
+        static unsigned n = 0;
+        if (n++ % 600 == 0)
+            osd(plat.has_gpu ? "Qahira: waiting for the GL context (video driver gl?)"
+                             : "Qahira needs the gl video driver: Settings > Drivers > Video > gl, then quit and restart RetroArch", 540);
     }
 
     static int16_t audio[1200 * 2];
