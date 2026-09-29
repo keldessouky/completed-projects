@@ -47,6 +47,7 @@ struct State {
     int slot = 0;                 // which character file is being played
     View view;
     float select_t = -1;          // how long Select has been held in the field (-1: not held)
+    float r3_t = -1;              // how long R3 has been held in the field: a tap changes station, a hold the episode
     Input last_input;
     bool bar2_latched = false;    // the second skill bar, when L2 toggles it
     float scene_scale = 0.75f;    // the 3D resolution: 0.75 (Balanced), 0.67 (Battery)
@@ -547,7 +548,7 @@ bool app_init(const char* pack_path, Platform* plat) {
     else S->areas.enter_hub(w, Arrival::Entrance);
     S->menu.restock(w);
     audio().init();
-    // Radio Kafr El-Sheikh: the owner's episodes, in a "radio" folder beside the pack (or beside the saves)
+    // the radio: its stations, folders in a "radio" folder beside the pack (or beside the saves)
     if (S->persist && !S->bot.uses_title()) {
         const std::string p = pack_path;
         const size_t cut = p.find_last_of("/\\");
@@ -727,11 +728,24 @@ void app_update(const Input& in_raw, float dt) {
     if (h.alive()) {
         if (in.hit(BTN_UP) && A.current == AreaId::Zone) A.cast_portal(w);
         if (in.hit(BTN_DOWN) && A.current == AreaId::Zone) S->view.map_open = !S->view.map_open;
-        if (in.hit(BTN_R3)) {   // the radio: tune in, or on to the next episode
-            Radio& r = audio().radio;
-            if (!r.count()) M.say("No episodes: put them in a folder named radio beside Qahira.qpk");
-            else if (!audio().radio_on) { set_setting(SET_MUSIC, 0); save_settings(); }
-            else { r.next(1); keep_radio_place(); }
+        // the radio: R3 tunes in; then a tap goes to the next station (the next episode, with only one) and a hold
+        // to the next episode on this one
+        Radio& r = audio().radio;
+        if (in.hit(BTN_R3)) {
+            if (!r.stations()) M.say("No episodes: put them in a folder named radio beside Qahira.qpk");
+            else if (!audio().radio_on) { set_setting(SET_MUSIC, r.station()); save_settings(); }
+            else S->r3_t = 0;
+        } else if (S->r3_t >= 0 && in.held(BTN_R3)) {
+            S->r3_t += dt;
+            if (S->r3_t >= 0.5f) { S->r3_t = -1; r.next(1); keep_radio_place(); }
+        } else if (S->r3_t >= 0) {   // let go: a tap (or R3 was let go somewhere else, and it is nothing)
+            const bool tap = in.up(BTN_R3) && audio().radio_on;
+            S->r3_t = -1;
+            if (tap) {
+                if (r.stations() > 1) r.next_station(1);
+                else r.next(1);
+                keep_radio_place();
+            }
         }
         if (in.hit(BTN_RIGHT)) {
             w.hero.filter = uint8_t((w.hero.filter + 1) % FILTER_COUNT);

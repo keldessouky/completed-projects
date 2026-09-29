@@ -1021,6 +1021,25 @@ notes after playing it, taken one at a time.*
   - **Settings:** a **Music** row (the radio, or the game's music) and a line saying how many episodes were found.
     The game's music fades out under the radio over a second.
   - **Fallback:** with no episodes, the game's own music plays as before. The settings file is v2 and still reads v1.
+  - **Stations** (so more can be added later, like GTA's): each folder in `radio` is a station, named after
+    it. Loose episodes belong to Radio Kafr El-Sheikh, which always comes first. A new station is a new folder, with
+    no change to the game.
+    - **Tuning:** a tap of R3 goes to the next station and a hold (half a second) to the next episode. With one
+      station, a tap is the next episode, as before.
+    - **Settings:** the Music row lists the stations, then the game's music.
+    - **Places:** each station keeps its own episode and place. They are kept by station and file name in
+      `qahira.radio` beside the settings, so stations and episodes added later don't move them. The settings' own
+      place (v2) is read once, for Radio Kafr El-Sheikh, when that file isn't there yet.
+  - **From YouTube:** `tools/radio/fetch.py` (yt-dlp, ffmpeg, a JavaScript runtime) fills each station from the
+    playlists and channels listed for it in `tools/radio/stations.json`. Adding a station is adding an entry.
+    - **Files:** MP3s numbered in airing order (`12 - Title.mp3`). A channel is taken oldest first. Titles are made
+      safe for the SD card without look-alike letters the font lacks.
+    - **Run again:** it fetches only new episodes. A manifest per station (`.youtube.json`, which the game skips)
+      keeps the numbers already given, so each station's saved place stays right.
+    - **Where it runs:** on a PC, or on the RP6 in Termux. YouTube refuses downloads from cloud servers, so it can't
+      run in CI.
+    - **Why the core doesn't stream:** that would take TLS, YouTube's player code and Opus/AAC decoders in the core,
+      and it would break whenever YouTube changes.
 - Character files are v10 (the flask's tier) and save states v17.
 - CI had been red since the glow change. The new art changed the drops and some layouts, which showed up two faults in
   the bot pilot, not in the game:
@@ -1033,7 +1052,7 @@ notes after playing it, taken one at a time.*
 
 | Check | Result |
 |---|---|
-| Unit tests (`qtests`) | pass, 93 cases (new: the radio finds its episodes in natural order and streams MP3, Ogg and WAV at 48 kHz, keeps its place and moves on at an episode's end; the settings keep the music and the radio's place and still read v1; the effects sheet's rows match the game's list, a burst's colour picks its flipbook and it draws the same random numbers as before, the flask's tiers, charges, heal and prices climb, the tier in the character file, the Spring affix and the Spring-Water Amulet's regeneration) |
+| Unit tests (`qtests`) | pass, 95 cases (new: a station for each folder in the radio folder, each keeping its own place by name, and the Music setting choosing among them; the radio finds its episodes in natural order and streams MP3, Ogg and WAV at 48 kHz, keeps its place and moves on at an episode's end; the settings keep the music and the radio's place and still read v1; the effects sheet's rows match the game's list, a burst's colour picks its flipbook and it draws the same random numbers as before, the flask's tiers, charges, heal and prices climb, the tier in the character file, the Spring affix and the Spring-Water Amulet's regeneration) |
 | Every bot | pass: `walk`, `fight`, `zone` (all seven classes), `sorcerer`, `sky`, `title`, `rifts`, `digs`, `zar`, `king` |
 
 | | |
@@ -1048,7 +1067,7 @@ notes after playing it, taken one at a time.*
   changes. Every other long run passes locally: `act1` to `act6` as the Warrior, `act1` and `act3` as the Mercenary,
   `act2` as the Ranger, `act3` and `act4` as the Shadow, `act5` and `act6` as the Templar, `falak`, `subyan`, `charts`
   and `reaches`.
-- Radio Kafr El-Sheikh is built and tested with generated tones. It is waiting on the show's episodes, which the
-  owner adds beside the pack. It has not been heard on the RP6 yet.
+- Radio Kafr El-Sheikh is built and tested with generated tones. It is waiting on the show's YouTube links, in
+  `tools/radio/stations.json`. It has not been heard on the RP6 yet.
 - The telegraphs (the magenta warnings of a monster's strike), the portal and the loot beams keep their smooth,
   glowing look: they are warnings and markers, not spells.

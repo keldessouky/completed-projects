@@ -5,7 +5,9 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <cstdlib>
 #include <dirent.h>
+#include <sys/stat.h>
 
 #include "minimp3_ex.h"
 #define STB_VORBIS_HEADER_ONLY
@@ -23,6 +25,11 @@ bool has_ext(const std::string& f, const char* ext) {
     for (size_t i = 0; i < n; i++)
         if (std::tolower((unsigned char)f[f.size() - n + i]) != ext[i]) return false;
     return true;
+}
+
+std::string base_name(const std::string& path) {
+    const size_t cut = path.find_last_of("/\\");
+    return cut == std::string::npos ? path : path.substr(cut + 1);
 }
 }  // namespace
 
@@ -180,27 +187,68 @@ std::string Radio::clean_title(const std::string& file) {
     return out;
 }
 
-std::string Radio::title(int i) const { return i >= 0 && i < count() ? clean_title(files_[size_t(i)]) : std::string(); }
+std::string Radio::station_name(int s) const {
+    return s >= 0 && s < stations() ? stations_[size_t(s)].name : std::string();
+}
+
+int Radio::episodes() const {
+    int n = 0;
+    for (const Station& s : stations_) n += int(s.files.size());
+    return n;
+}
+
+int Radio::count() const { return st_ < stations() ? int(stations_[size_t(st_)].files.size()) : 0; }
+
+std::string Radio::title(int i) const {
+    return i >= 0 && i < count() ? clean_title(stations_[size_t(st_)].files[size_t(i)]) : std::string();
+}
 
 int Radio::scan(const std::vector<std::string>& dirs) {
-    files_.clear();
-    for (const std::string& d : dirs) {
+    stop();
+    stations_.clear();
+    st_ = 0;
+    ep_ = -1;
+    // the episodes in one folder, and the folders beside them
+    auto list = [](const std::string& d, std::vector<std::string>& audio, std::vector<std::string>* folders) {
         DIR* dir = opendir(d.c_str());
-        if (!dir) continue;
-        std::vector<std::string> found;
+        if (!dir) return false;
         while (dirent* e = readdir(dir)) {
             const std::string n = e->d_name;
-            if (n.empty() || n[0] == '.') continue;
-            if (has_ext(n, ".mp3") || has_ext(n, ".ogg") || has_ext(n, ".wav")) found.push_back(n);
+            if (n.empty() || n[0] == '.') continue;   // also the fetch tool's manifest
+            if (has_ext(n, ".mp3") || has_ext(n, ".ogg") || has_ext(n, ".wav")) audio.push_back(d + "/" + n);
+            else if (folders) {
+                struct stat st {};
+                if (stat((d + "/" + n).c_str(), &st) == 0 && S_ISDIR(st.st_mode)) folders->push_back(n);
+            }
         }
         closedir(dir);
-        if (found.empty()) continue;
-        std::sort(found.begin(), found.end(), natural_less);
-        for (auto& n : found) files_.push_back(d + "/" + n);
-        QLOG("radio: %zu episodes in %s", files_.size(), d.c_str());
+        return true;
+    };
+    auto add = [&](const std::string& name, std::vector<std::string>& files) {
+        if (files.empty()) return;
+        auto it = std::find_if(stations_.begin(), stations_.end(), [&](const Station& s) { return s.name == name; });
+        if (it == stations_.end()) it = stations_.insert(stations_.end(), Station{name, {}, 0, 0});
+        it->files.insert(it->files.end(), files.begin(), files.end());
+    };
+    auto by_file = [](const std::string& a, const std::string& b) { return natural_less(base_name(a), base_name(b)); };
+    for (const std::string& d : dirs) {
+        std::vector<std::string> loose, folders;
+        if (!list(d, loose, &folders)) continue;
+        add(kHome, loose);
+        std::sort(folders.begin(), folders.end(), natural_less);
+        for (const std::string& f : folders) {
+            std::vector<std::string> files;
+            list(d + "/" + f, files, nullptr);
+            add(f, files);
+        }
+        if (stations_.empty()) continue;
+        // the home station first (loose or in its own folder), the rest by name
+        std::stable_partition(stations_.begin(), stations_.end(), [](const Station& s) { return s.name == kHome; });
+        for (Station& s : stations_) std::sort(s.files.begin(), s.files.end(), by_file);
+        QLOG("radio: %d episodes on %d stations in %s", episodes(), stations(), d.c_str());
         break;
     }
-    return count();
+    return stations();
 }
 
 double Radio::seconds() const {
@@ -210,11 +258,12 @@ double Radio::seconds() const {
 
 bool Radio::start(int ep, double at) {
     stop();
-    if (files_.empty()) return false;
+    if (!count()) return false;
+    const std::vector<std::string>& files = stations_[size_t(st_)].files;
     ep_ = ((ep % count()) + count()) % count();
     auto d = std::make_unique<Decoder>();
-    if (!d->open(files_[size_t(ep_)])) {
-        QLOG("radio: cannot play %s", files_[size_t(ep_)].c_str());
+    if (!d->open(files[size_t(ep_)])) {
+        QLOG("radio: cannot play %s", files[size_t(ep_)].c_str());
         return false;
     }
     const uint64_t frame = at > 0 ? uint64_t(at * d->rate) : 0;
@@ -227,18 +276,98 @@ bool Radio::start(int ep, double at) {
     return true;
 }
 
+bool Radio::resume() {
+    if (!count()) return false;
+    const Station& s = stations_[size_t(st_)];
+    if (start(s.ep, s.at)) return true;
+    next(1);   // the episode it was on will not open: the one after
+    return playing();
+}
+
+void Radio::tune(int station, bool play) {
+    if (stations_.empty()) return;
+    keep_place();
+    dec_.reset();
+    st_ = ((station % stations()) + stations()) % stations();
+    ep_ = stations_[size_t(st_)].ep;
+    if (!play) return;
+    static_pos_ = 0;
+    resume();
+}
+
 void Radio::next(int dir) {
-    if (files_.empty()) return;
+    if (!count()) return;
     static_pos_ = 0;
     // an episode that will not open is skipped, but not for ever
     for (int k = 1; k <= count(); k++)
         if (start(ep_ + dir * k, 0)) return;
 }
 
+void Radio::keep_place() {
+    if (!dec_ || st_ >= stations()) return;
+    stations_[size_t(st_)].ep = ep_;
+    stations_[size_t(st_)].at = seconds();
+}
+
 void Radio::stop() {
+    keep_place();
     dec_.reset();
     buf_.clear();
     pos_ = 0;
+}
+
+void Radio::set_place(int station, int ep, double at) {
+    if (station < 0 || station >= stations()) return;
+    Station& s = stations_[size_t(station)];
+    s.ep = s.files.empty() ? 0 : std::clamp(ep, 0, int(s.files.size()) - 1);
+    s.at = std::max(0.0, at);
+    if (station == st_ && !dec_) ep_ = s.ep;
+}
+
+std::string Radio::places() const {
+    std::string out = "tuned\t" + station_name(st_) + "\n";
+    for (int i = 0; i < stations(); i++) {
+        const Station& s = stations_[size_t(i)];
+        const bool live = i == st_ && dec_;
+        const int ep = live ? ep_ : s.ep;
+        if (ep < 0 || ep >= int(s.files.size())) continue;
+        char at[32];
+        snprintf(at, sizeof at, "%.0f", live ? seconds() : s.at);
+        out += "place\t" + s.name + "\t" + base_name(s.files[size_t(ep)]) + "\t" + at + "\n";
+    }
+    return out;
+}
+
+void Radio::set_places(const std::string& text) {
+    stop();
+    auto find = [&](const std::string& name) {
+        for (int i = 0; i < stations(); i++)
+            if (stations_[size_t(i)].name == name) return i;
+        return -1;
+    };
+    size_t p = 0;
+    while (p < text.size()) {
+        size_t e = text.find('\n', p);
+        if (e == std::string::npos) e = text.size();
+        std::vector<std::string> f;
+        for (size_t a = p;;) {
+            const size_t b = text.find('\t', a);
+            if (b == std::string::npos || b > e) { f.push_back(text.substr(a, e - a)); break; }
+            f.push_back(text.substr(a, b - a));
+            a = b + 1;
+        }
+        p = e + 1;
+        const int s = f.size() >= 2 ? find(f[1]) : -1;
+        if (s < 0) continue;   // a station that is gone
+        if (f[0] == "tuned") {
+            st_ = s;
+            ep_ = stations_[size_t(s)].ep;
+        } else if (f[0] == "place" && f.size() >= 4) {
+            const std::vector<std::string>& files = stations_[size_t(s)].files;
+            for (size_t i = 0; i < files.size(); i++)
+                if (base_name(files[i]) == f[2]) { set_place(s, int(i), atof(f[3].c_str())); break; }
+        }
+    }
 }
 
 bool Radio::refill() {

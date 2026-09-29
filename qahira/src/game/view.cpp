@@ -2,6 +2,7 @@
 #include "audio/audio.hpp"
 #include "ui/lang.hpp"
 #include "game/settings.hpp"
+#include <cctype>
 #include <cstdio>
 #include <cstdlib>
 #include "ui/ui.hpp"
@@ -1130,9 +1131,11 @@ void View::render_hud(World& w, const Input& in, const Areas& areas) {
     if (radio_card_t > 0 && audio().radio_on) {
         const float a = std::min(1.f, radio_card_t / 0.5f) * std::min(1.f, (5.f - radio_card_t) / 0.3f + 0.2f);
         const std::string ep = audio().radio.title(audio().radio.current());
-        const float tw = std::max(u.text_width(tr("RADIO KAFR EL-SHEIKH"), 34), u.text_width(ep, 28)) + 80;
+        std::string st = audio().radio.station_name(audio().radio.station());
+        for (char& c : st) c = char(std::toupper((unsigned char)c));   // Latin letters only; Arabic has no case
+        const float tw = std::max(u.text_width(tr(st), 34), u.text_width(ep, 28)) + 80;
         u.frame(960 - tw / 2, 120, tw, 110, pal::panel.alpha(0.88f * a), pal::brass.alpha(a), 12, 2);
-        u.text(960, 134, "RADIO KAFR EL-SHEIKH", 34, pal::rare.alpha(a), Align::Center, 1.2f, true);
+        u.text(960, 134, st, 34, pal::rare.alpha(a), Align::Center, 1.2f, true);
         u.text(960, 184, ep, 28, pal::bone.alpha(a), Align::Center, 0.6f);
     }
     // field hints: what the D-pad does here
@@ -1149,7 +1152,8 @@ void View::render_hud(World& w, const Input& in, const Areas& areas) {
             hint(BTN_DOWN, map_open ? "Hide map" : "Map");
         }
         hint(BTN_RIGHT, (std::string("Filter: ") + filter_name(H.filter)).c_str());
-        if (audio().radio.count() > 0) hint(BTN_R3, audio().radio_on ? "Next episode" : "Radio");
+        if (audio().radio.stations() > 0)
+            hint(BTN_R3, !audio().radio_on ? "Radio" : audio().radio.stations() > 1 ? "Next station" : "Next episode");
     }
     // death
     if (!h.alive()) {

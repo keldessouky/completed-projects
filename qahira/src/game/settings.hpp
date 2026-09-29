@@ -14,8 +14,9 @@ struct Settings {
     uint8_t colours = 0;      // 0 standard, 1 red-green safe, 2 blue-yellow safe
     uint8_t shake = 4;        // in quarters: 0 off .. 4 full
     uint8_t bar2_toggle = 0;  // 0 hold L2, 1 L2 toggles
-    uint8_t music = 0;        // 0 Radio Kafr El-Sheikh (when it has episodes), 1 the game's music
-    uint16_t radio_ep = 0;    // the episode on the radio, and how far into it (seconds)
+    uint8_t music = 0;        // 0 the radio (when it has episodes), 1 the game's music
+    uint16_t radio_ep = 0;    // the episode on the station tuned, and how far into it (seconds); every station's
+                              // place is in qahira.radio beside this file, and these are read only when it is not
     uint32_t radio_pos = 0;
 };
 
@@ -32,9 +33,10 @@ int setting_value(int row);
 void set_setting(int row, int v);
 std::string setting_choice_name(int row, int v);
 float shake_scale();                           // 0..1
-// the radio: where its episodes are looked for, and tuning it in or out as the Music setting says
+// the radio: where its stations are looked for (and where each was left), tuning it in or out as the Music setting
+// says (which station, or the game's music)
 void set_radio_dirs(const std::vector<std::string>& dirs);
 void apply_music();
-void keep_radio_place();                       // the episode and the place in it, into the settings (and saved)
+void keep_radio_place();                       // every station's episode and place in it, saved
 
 }  // namespace q

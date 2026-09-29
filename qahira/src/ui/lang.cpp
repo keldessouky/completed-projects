@@ -174,6 +174,7 @@ const std::vector<std::pair<const char*, const char*>>& whole() {
         {"The game's music", "موسيقى اللعبة"},
         {"Radio", "الراديو"},
         {"Next episode", "الحلقة التالية"},
+        {"Next station", "المحطة التالية"},
         {"No episodes: put them in a folder named radio beside Qahira.qpk", "لا حلقات: ضعها في مجلد اسمه radio بجانب Qahira.qpk"},
     };
     return d;

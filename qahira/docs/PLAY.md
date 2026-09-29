@@ -73,27 +73,78 @@ Move `Qahira.qpk` out of `Download` into a folder of its own. Any folder works; 
 Use the RP6's **Files** app: long-press `Qahira.qpk` → **Move** → create `ROMs/Qahira` (the RP6 may already have a
 `ROMs` folder, possibly on the SD card) → **Move here**.
 
-### Radio Kafr El-Sheikh (optional)
+### The radio (optional)
 
-The game has a radio in place of its music, the way GTA has stations: **Radio Kafr El-Sheikh**. It plays the
-episodes of the show one after another. To put it on the air, make a folder named `radio` beside the pack and copy
-the episodes into it:
+The game has a radio in place of its music, the way GTA has stations. **Radio Kafr El-Sheikh** plays the episodes of
+the owner's show one after another, and more stations can sit beside it. Each station is a folder inside a folder
+named `radio` beside the pack, and the folder's name is the station's name:
 
 ```
-/storage/emulated/0/ROMs/Qahira/radio/Episode 1.mp3
-/storage/emulated/0/ROMs/Qahira/radio/Episode 2.mp3
-...
+/storage/emulated/0/ROMs/Qahira/radio/Radio Kafr El-Sheikh/1 - The First Episode.mp3
+/storage/emulated/0/ROMs/Qahira/radio/Radio Kafr El-Sheikh/2 - The Second Episode.mp3
+/storage/emulated/0/ROMs/Qahira/radio/Nile FM/1 - ....mp3
 ```
 
+The quickest way to fill the folders is from YouTube (below). You can also copy files in by hand.
+
+- **Adding a station:** make a new folder in `radio` and put its episodes in it. The game finds it the next time it
+  starts.
+- **Loose files:** episodes directly in `radio`, outside any station folder, play on Radio Kafr El-Sheikh, which is
+  always the first station.
 - **Formats:** MP3, Ogg Vorbis (`.ogg`) or 16-bit WAV, at any sample rate, mono or stereo.
 - **Order:** by file name, with numbers counted properly, so `Episode 2` comes before `Episode 10`.
 - **Names on screen:** the file name, with underscores shown as spaces.
-- **Where it picks up:** the radio remembers the episode and the place in it. When an episode ends, the next one
-  starts.
-- **In the field, R3** (the right stick pressed in, or M2 if you mapped it) tunes to the next episode, through a burst
-  of static, and a card at the top of the screen names it.
-- **To turn it off:** **Settings → Music** switches between the radio and the game's own music. With no `radio`
-  folder the game plays its own music, as before.
+- **Where it picks up:** each station remembers its own episode and the place in it, so you can tune away and come back
+  to where you were. When an episode ends, the next one starts.
+- **In the field, R3** (the right stick pressed in, or M2 if you mapped it):
+  - **tap** for the next station;
+  - **hold** for half a second for the next episode on this station.
+
+  With only one station, a tap also goes to the next episode. The dial goes through a burst of static, and a card at
+  the top of the screen names the station and the episode.
+- **Choosing a station, or turning it off:** in **Settings → Music**, pick a station or the game's own music. With no
+  `radio` folder, the game plays its own music, as before.
+
+#### The stations from YouTube
+
+`tools/radio/fetch.py` fills each station's folder from YouTube playlists or channels. It saves each video as an MP3
+named in airing order (`1 - First Episode.mp3`, `2 - …`), so the station card shows the video's title.
+
+- **The list of stations:** `tools/radio/stations.json`. To add a station, add an entry with its name and its
+  YouTube links:
+
+  ```json
+  {"name": "Nile FM", "youtube": ["https://www.youtube.com/playlist?list=…"], "order": "auto"}
+  ```
+
+  - **Links:** a station can have more than one; they play in the order given.
+  - **`order`:** `auto` plays a channel oldest first and a playlist in its own order. `listed` and `reversed` set it
+    by hand.
+- **New episodes:** run the tool again. It fetches only the new ones, and the numbers already given stay the same, so
+  every station keeps its place.
+- **Options:**
+  - `--station "Name"` fetches just one station.
+  - A link on its own (`fetch.py "<link>" --station "Name"`) fetches it once without editing the list.
+  - `--list` shows what would be fetched.
+- **What it needs:** **yt-dlp**, **ffmpeg** and a JavaScript runtime for yt-dlp (**deno** or **node**).
+- Use it only for the show or other audio you have the right to download.
+
+On the RP6 itself, with [Termux](https://f-droid.org/packages/com.termux/) (from F-Droid; the Play Store build is
+out of date):
+
+```
+termux-setup-storage                     # once: lets Termux reach the RP6's storage
+pkg install python ffmpeg nodejs && pip install -U "yt-dlp[default]"
+curl -LO https://raw.githubusercontent.com/keldessouky/completed-projects/qahira/qahira/tools/radio/fetch.py
+curl -LO https://raw.githubusercontent.com/keldessouky/completed-projects/qahira/qahira/tools/radio/stations.json
+cd ~/storage/shared/ROMs/Qahira
+python ~/fetch.py                        # every station in stations.json, into ./radio
+```
+
+- **On a PC:** from the `qahira` folder, run `python3 tools/radio/fetch.py --out <path>/radio`, then copy the
+  `radio` folder next to the pack.
+- **If downloads start failing:** update yt-dlp (`pip install -U "yt-dlp[default]"`), because YouTube changes often.
+  YouTube also refuses downloads from cloud servers, so run the tool at home or on the RP6.
 
 ## 5. Set the video driver to `gl` (once)
 
@@ -146,7 +197,7 @@ use the same positions.
 | D-pad up | Cast a portal home (in a zone) |
 | D-pad down | Show or hide the map (in a zone) |
 | D-pad right | Next loot filter preset |
-| R3 (press right stick, or M2 if mapped) | Radio Kafr El-Sheikh: the next episode |
+| R3 (press right stick, or M2 if mapped) | The radio: tap for the next station, hold for the next episode |
 | Start | Menu: inventory, Talismans, character, loot filter |
 | Hold Select | The Book of Fixed Stars, the passive tree |
 | Tap Select | Place the next star you planned in the Book |
@@ -169,7 +220,8 @@ asks. High-level belts, amulets and rings, and the affix *of the Spring*, regene
 - loot colours safe for colour-blind players;
 - the screen shake;
 - whether L2 holds or toggles the second skill bar;
-- the music: Radio Kafr El-Sheikh or the game's own. Below the list, the tab says how many episodes the radio found.
+- the music: a station on the radio (Radio Kafr El-Sheikh first) or the game's own. Below the list, the tab says
+  how many episodes the station has.
 
 **In the menu:** L1 / R1 switch tabs, the bottom button equips or uses, the top button drops (on the Character tab it
 shows "Why?" for any number), and the right button or Start closes it. The world is paused while any menu is open.
