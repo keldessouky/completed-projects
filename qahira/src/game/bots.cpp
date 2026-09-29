@@ -519,6 +519,9 @@ bool Bot::loot_and_equip(World& w, Menu& m, Input& in, uint64_t frame) {
         }
         int g = ground_index(equip_target);
         if (g < 0) { equip_target = 0; return false; }  // gone
+        // one it cannot reach (a nook, another drop always selected first): left after six seconds, like any other
+        if (loot_seed_ != equip_target) { loot_seed_ = equip_target; loot_frame_ = frame; }
+        else if (frame - loot_frame_ > 360) { ignored_loot_.push_back(equip_target); equip_target = 0; loot_seed_ = 0; return false; }
         if (w.selected_loot == g) { if (frame % 6 == 0) press(in, BTN_LEFT); }
         else steer(w, in, w.loot[size_t(g)].pos);
         return true;
@@ -679,6 +682,21 @@ void Bot::zone(World& w, Menu& m, Areas& a, Input& in, uint64_t frame) {
                         L.center(L.cells[size_t(L.arena)]).x, L.center(L.cells[size_t(L.arena)]).y);
     }
     auto goto_zone = [&](vec2 goal) { steer(w, in, goal); };
+    // a save state in the middle of the boss fight, wherever it happens (with no landmark the first walk meets him)
+    auto boss_save_state = [&]() {
+        const Actor* boss = nullptr;
+        for (size_t i = 1; i < w.actors.size(); i++) if (w.actors[i].rarity == Rarity::Unique && w.actors[i].alive()) boss = &w.actors[i];
+        if (!in_zone || !boss || boss_state_ok || boss->ai_state <= 0 || boss->life >= boss->life_max * 0.97f || boss->act == Act::Skill) return true;
+        float life = boss->life;
+        int phase = boss->phase;
+        if (!state_round_trip(w)) { fail("save state in the middle of the boss failed"); return false; }
+        const Actor* b2 = nullptr;
+        for (size_t i = 1; i < w.actors.size(); i++) if (w.actors[i].rarity == Rarity::Unique) b2 = &w.actors[i];
+        if (!b2 || b2->life != life || b2->phase != phase) { fail("the boss did not survive the save state"); return false; }
+        boss_state_ok = true;
+        fprintf(stderr, "bot: save state mid-boss ok (boss life %.0f / %.0f)\n", life, boss->life_max);
+        return true;
+    };
     auto calm = [&](float r) {
         for (size_t i = 1; i < w.actors.size(); i++) if (w.actors[i].alive() && length(w.actors[i].pos - h.pos) < r) return false;
         return true;
@@ -689,6 +707,7 @@ void Bot::zone(World& w, Menu& m, Areas& a, Input& in, uint64_t frame) {
             go_to_interact(w, in, frame, Interactable::Stair);
             break;
         case 1: {  // fight toward the landmark; after a few packs, portal out
+            if (!boss_save_state()) return;
             if (combat(w, in, frame, 9.f)) break;
             if (loot_and_equip(w, m, in, frame)) break;
             if (H.kills - zone_kills0 >= 10 && calm(12.f)) {
@@ -733,16 +752,7 @@ void Bot::zone(World& w, Menu& m, Areas& a, Input& in, uint64_t frame) {
             if (frame == stage_frame + 30 || frame == stage_frame + 150) { press(in, BTN_DOWN); break; }
             const Actor* boss = nullptr;
             for (size_t i = 1; i < w.actors.size(); i++) if (w.actors[i].rarity == Rarity::Unique && w.actors[i].alive()) boss = &w.actors[i];
-            if (boss && boss->ai_state > 0 && boss->life < boss->life_max * 0.97f && !boss_state_ok && boss->act != Act::Skill) {
-                float life = boss->life;
-                int phase = boss->phase;
-                if (!state_round_trip(w)) { fail("save state in the middle of the boss failed"); return; }
-                const Actor* b2 = nullptr;
-                for (size_t i = 1; i < w.actors.size(); i++) if (w.actors[i].rarity == Rarity::Unique) b2 = &w.actors[i];
-                if (!b2 || b2->life != life || b2->phase != phase) { fail("the boss did not survive the save state"); return; }
-                boss_state_ok = true;
-                fprintf(stderr, "bot: save state mid-boss ok (boss life %.0f / %.0f)\n", life, boss->life_max);
-            }
+            if (!boss_save_state()) return;
             if (w.boss_killed || (!boss && a.zone.cleared)) { boss_frame = frame; next_stage(7); break; }
             if (combat(w, in, frame, boss && boss->ai_state > 0 ? 30.f : 9.f)) break;
             if (loot_and_equip(w, m, in, frame)) break;
@@ -2215,8 +2225,8 @@ void Bot::tour12(World& w, Menu& m, Areas& a, Input& in, uint64_t frame) {
     if (at(360)) { m.tab = MenuTab::Settings; m.settings_cursor = SET_LANG; }
     if (at(460)) m.settings_cursor = SET_COLOURS;
     if (at(500)) set_setting(SET_COLOURS, 1);                        // red-green safe
-    if (at(560)) { m.tab = MenuTab::Inventory; }
-    if (at(660)) { m.tab = MenuTab::Settings; m.settings_cursor = SET_TEXT; set_setting(SET_TEXT, 2); }
+    if (at(560)) { m.hide(); w.hero.gold = 5000; m.show(w, true); }   // Amm Sayed: the flask to upgrade
+    if (at(660)) { m.hide(); m.show(w, false); m.tab = MenuTab::Settings; m.settings_cursor = SET_TEXT; set_setting(SET_TEXT, 2); }
     if (at(760)) { set_setting(SET_TEXT, 0); set_setting(SET_COLOURS, 0); m.hide(); }
     if (frame > 760 && frame < 1000) {   // the HUD, on the rooftop
         steer(w, in, a.zone.valid ? h.pos : h.pos + vec2{0.5f, 0.f});

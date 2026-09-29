@@ -10,6 +10,10 @@ already has, what's left, and what's worth knowing before you change anything.
   Slice 3 was finished after the handoff: the Stars screen, the Sorcerer, Talismans and Wafq, ailments, "Why?", the
   title screen, the build simulator and CI. The parked `qahira-slice3-wip` branch was never pushed; its two pieces
   (a stats preview and a QR encoder) were written again (`summarize` in `game/world.cpp`, `ui/qr.*`).
+- **After the first run on the RP6** (see the last entry in [SLICES.md](SLICES.md)): the glow is cut by 80%, an
+  objective arrow shows the way, the life flask upgrades through seven tiers at Amm Sayed's, and high-level gear
+  regenerates life. Still to come from the owner's notes: GBA-style pixel spell effects in place of the glowing
+  discs, and Radio Kafr El-Sheikh (the owner's own show) in place of the music.
 - **Slice 11 is done, and with it Slices 3–11:** Arabic text (shaped, right to left, the layout mirrored), the
   Settings tab (language, text size, colour-blind loot colours, screen shake, L2 hold or toggle), the Balanced and
   Battery performance modes as a core option, and Umm al-Ṣubyān, the third pinnacle. What is left is the device
@@ -37,7 +41,7 @@ already has, what's left, and what's worth knowing before you change anything.
   `qchartsim` and the `charts` bot (nightly in CI).
 - **Slice 4 (Act I) is done too:** six regions, seven zones, the Bab Zuweila trial, two ascendancies, the bench,
   Blends, Omens, twenty uniques with Poster Scraps, and the Journal. See its SLICES.md entry for what is left over.
-- **The head is green on Linux and in CI** (`.github/workflows/qahira.yml`): the tree validator, shaders, 87 unit
+- **The head is green on Linux and in CI** (`.github/workflows/qahira.yml`): the tree validator, shaders, 88 unit
   tests, the build and chart simulators, and the `walk`, `fight`, `zone` (and as the Ranger, the Mercenary, the
   Shadow and the Templar), `sorcerer`, `sky`, `title`, `rifts`, `digs`, `zar`, `king`, `act1`, `act2`, `act3`, `act4`
   and `act5` bots. Nightly adds `charts`, `reaches`, `act2` as the Ranger, `act1` and `act3` as the Mercenary, `act3`

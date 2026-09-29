@@ -126,6 +126,19 @@ struct Actor {
     bool alive() const { return act != Act::Dead; }
 };
 
+// The life flask's tiers: each heals more of your life, over the same second and a half, and every second tier holds
+// one charge more. Amm Sayed upgrades it for dinars once you are strong enough to carry it.
+constexpr int kFlaskTiers = 7;
+inline const char* flask_name(int t) {
+    static const char* n[kFlaskTiers] = {"Clay Qulla", "Glazed Qulla", "Copper Flask", "Brass Flask", "Silver Flask", "Rosewater Flask",
+                                         "Sabil Flask"};
+    return n[t < 0 ? 0 : t >= kFlaskTiers ? kFlaskTiers - 1 : t];
+}
+inline int flask_charges(int t) { return 3 + t / 2; }                  // 3 3 4 4 5 5 6
+inline float flask_heal(int t) { return 0.5f + 0.08f * float(t); }     // 50% .. 98% of your life
+inline int flask_upgrade_level(int t) { return 8 + 10 * t; }         // the level the next tier (t + 1) needs
+inline int flask_upgrade_price(int t) { return 150 * (t + 1) * (t + 1); }
+
 // What a hero's delayed or travelling hit carries: the pipeline's numbers and the ailment chances.
 struct HeroHit {
     HitDamage hit;
@@ -347,6 +360,7 @@ struct Hero {
     bool rally_hit = false;        // the hit being resolved spent one (it builds more Break)
     int combo = 0;                 // consecutive Crushing Blow hits
     float flask = 3, flask_max = 3;
+    uint8_t flask_tier = 0;        // the life flask, upgraded at Amm Sayed's (Slice 11 follow-up): kFlaskTiers
     float flask_heal_t = 0;
     float regen_acc = 0;
     int kills = 0;

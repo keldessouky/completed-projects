@@ -152,6 +152,8 @@ const std::vector<std::pair<const char*, const char*>>& whole() {
         {"Seal the Veil, or leave the door open", "اختم الحجاب، أو اترك الباب مفتوحاً"},
         {"The far court", "الساحة البعيدة"},
         {"Portal home", "بوابة العودة"},
+        {"Upgrade flask", "طوِّر القارورة"},
+        {"Your flask is the best there is", "قارورتك أفضل ما يوجد"},
         {"Weapon", "السلاح"},
         {"Helmet", "خوذة"},
         {"Body Armour", "درع الجسد"},

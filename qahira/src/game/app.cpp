@@ -863,13 +863,13 @@ void app_render(GLuint fbo, int w, int h) {
 void app_audio(int16_t* stereo, int frames) { audio().mix(stereo, frames); }
 
 // ---- save states
-static const uint32_t kStateVersion = 16;  // 5: passives, Hirz, keystone state; 6: Talismans, ailments, glyphs; 7: Act I;
+static const uint32_t kStateVersion = 17;  // 5: passives, Hirz, keystone state; 6: Talismans, ailments, glyphs; 7: Act I;
                                            // 8: chart runs and the Haboob; 9: poison, marks, Frenzy, arrows;
                                            // 10: bleeding, piercing bolts, grenades, the weapon swap;
                                            // 11: traps, Wither, Power Charges; 12: Zar Nights;
                                            // 13: the Beacon, totems, burning ground; 14: charts to T16 (a chart run's
                                            // highest tier), waypoints for 128 zones; 15: the Veil and the Door;
-                                           // 16: a pinnacle's uber flag
+                                           // 16: a pinnacle's uber flag; 17: the flask's tier
 
 static ByteWriter save_state() {
     ByteWriter w;

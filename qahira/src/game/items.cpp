@@ -178,6 +178,10 @@ const std::vector<ItemBase>& item_bases() {
         {"brass_toed_boots", "Brass-Toed Boots", Slot::Boots, 28, 0, 0, 0, 0, 22, 0, nullptr, 13, WK_NONE},
         {"fire_chiefs_gauntlets", "Fire Chief's Gauntlets", Slot::Gloves, 50, 0, 0, 0, 0, 36, 0, nullptr, 21, WK_NONE},
         {"fire_chiefs_boots", "Fire Chief's Boots", Slot::Boots, 50, 0, 0, 0, 0, 36, 0, nullptr, 21, WK_NONE},
+        // Slice 11 follow-up: late jewellery that restores life over time
+        {"caravanserai_belt", "Caravanserai Belt", Slot::Belt, 40, 0, 0, 0, 0, 0, 0, "Regenerate 18 Life per second", 0, WK_NONE},
+        {"spring_amulet", "Spring-Water Amulet", Slot::Amulet, 50, 0, 0, 0, 0, 0, 0, "Regenerate 28 Life per second", 0, WK_NONE},
+        {"oasis_ring", "Oasis Ring", Slot::Ring, 58, 0, 0, 0, 0, 0, 0, "Regenerate 22 Life per second", 0, WK_NONE},
     };
     return b;
 }
@@ -370,6 +374,16 @@ const std::vector<AffixDef>& affix_defs() {
             "+%d%% to Critical Strike Multiplier", S_CRIT_MULTI, MK_FLAT, 0, 0);
         return v;
     }();
+    // Slice 11 follow-up: high-level gear that restores life over time (rolled; append only)
+    static const std::vector<AffixDef> r11 = [&] {
+        std::vector<AffixDef> v;
+        AffixDef d{"spring", false, "of the Spring", AE_GENERIC, ARMOUR_SLOTS | JEWELLERY, {36, 50, 62}, {12, 22, 36}, {18, 32, 52},
+                   {0, 0, 0}, {0, 0, 0}, "Regenerate %d Life per second", 0};
+        d.gstat = S_LIFE_REGEN;
+        d.gkind = MK_FLAT;
+        v.push_back(d);
+        return v;
+    }();
     static const std::vector<AffixDef> all = [&] {
         std::vector<AffixDef> v = a;
         v.insert(v.end(), g.begin(), g.end());
@@ -377,6 +391,7 @@ const std::vector<AffixDef>& affix_defs() {
         v.insert(v.end(), r.begin(), r.end());
         v.insert(v.end(), r7.begin(), r7.end());
         v.insert(v.end(), r8.begin(), r8.end());
+        v.insert(v.end(), r11.begin(), r11.end());
         return v;
     }();
     return all;
@@ -640,6 +655,8 @@ void Item::add_global_mods(Stats& s, uint16_t src) const {
     if (bb.implicit) {
         std::string imp = bb.implicit;
         if (imp.find("maximum Life") != std::string::npos) s.add(S_LIFE, MK_FLAT, 20, 0, src);
+        if (int n = 0; imp.find("Life per second") != std::string::npos && sscanf(bb.implicit, "Regenerate %d", &n) == 1)
+            s.add(S_LIFE_REGEN, MK_FLAT, float(n), 0, src);
         if (imp.find("all Attributes") != std::string::npos) { s.add(S_STR, MK_FLAT, 10, 0, src); s.add(S_DEX, MK_FLAT, 10, 0, src); s.add(S_INT, MK_FLAT, 10, 0, src); }
         if (imp.find("Fire Resistance") != std::string::npos) s.add(S_FIRE_RES, MK_FLAT, 15, 0, src);
         if (imp.find("Cold Resistance") != std::string::npos) s.add(S_COLD_RES, MK_FLAT, 14, 0, src);

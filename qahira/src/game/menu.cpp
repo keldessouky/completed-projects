@@ -482,6 +482,20 @@ void Menu::act_south(World& w) {
 }
 
 void Menu::act_north(World& w) {
+    if (tab == MenuTab::Inventory && vendor && !dealer) {   // Amm Sayed upgrades the life flask
+        Hero& H = w.hero;
+        const int t = H.flask_tier;
+        if (t + 1 >= kFlaskTiers) { say("Your flask is the best there is"); return; }
+        if (H.level < flask_upgrade_level(t)) { say("Come back at level " + std::to_string(flask_upgrade_level(t))); return; }
+        if (H.gold < flask_upgrade_price(t)) { say("Not enough dinars"); return; }
+        H.gold -= flask_upgrade_price(t);
+        H.flask_tier = uint8_t(t + 1);
+        w.recompute_hero();
+        H.flask = H.flask_max;
+        say(std::string("Your flask is now a ") + flask_name(H.flask_tier));
+        w.emit(Ev::Craft, w.actors[0].pos, 1.f);
+        return;
+    }
     if (tab != MenuTab::Inventory || vendor || region != Region::Grid || held >= 0) return;
     int i = hovered_inv(w);
     if (i < 0) return;
@@ -652,11 +666,24 @@ void Menu::render(const World& w) const {
         }
         // the vendor's wares
         if (vendor) {
-            u.frame(VX, VY, VW, 446, pal::panel.alpha(0.96f), pal::line, 16, 2);
+            u.frame(VX, VY, VW, 506, pal::panel.alpha(0.96f), pal::line, 16, 2);
             u.text(VX + VW / 2, VY + 22, dealer ? "Amm Ramadan's Antiquities" : "Amm Sayed's Wares", 38, pal::amber, Align::Center, 1.2f, true);
             u.text(VX + VW / 2, VY + 70, dealer ? "What the sand gave back. He takes relics, not money" : "Tools of the trade, and a glass of tea on the house",
                    22, pal::dim, Align::Center);
             grid_cells(SX, SY, stock, region == Region::Stock, cx, cy, false);
+            if (!dealer) {   // the flask, and what its next tier costs
+                const int t = H.flask_tier;
+                char fb[200];
+                snprintf(fb, sizeof fb, "%s: heals %d%%, %d charges", flask_name(t), int(flask_heal(t) * 100 + 0.5f), flask_charges(t));
+                u.text(VX + VW / 2, VY + 440, fb, 24, pal::bone, Align::Center, 0.6f);
+                if (t + 1 < kFlaskTiers) {
+                    snprintf(fb, sizeof fb, "Upgrade to a %s (%d%%, %d charges): %d dinars, level %d", flask_name(t + 1),
+                             int(flask_heal(t + 1) * 100 + 0.5f), flask_charges(t + 1), flask_upgrade_price(t), flask_upgrade_level(t));
+                    const bool can = H.level >= flask_upgrade_level(t) && H.gold >= flask_upgrade_price(t);
+                    u.text(VX + VW / 2, VY + 468, fb, std::min(22.f, 22.f * (VW - 40) / std::max(1.f, u.text_width(fb, 22))),
+                           can ? pal::rare : pal::dim, Align::Center);
+                }
+            }
             if (int i = hovered_stock(); i >= 0) {
                 tip = &stock.items[size_t(i)].item;
                 int slot = equip_slot_for(*tip, H.equip);
@@ -665,7 +692,7 @@ void Menu::render(const World& w) const {
                                       std::to_string(H.currency[CUR_RELIC]) + ")"
                                 : "Buy for " + std::to_string(buy_price(*tip)) + " dinars";
             }
-            tip_y = 540;
+            tip_y = 590;
         }
         if (bench) bench_render(w, tip, tip_y, footer);
         // tooltip, and the equipped piece it would replace
@@ -674,7 +701,7 @@ void Menu::render(const World& w) const {
             float x = vendor ? VX : PX - tw - 24;
             float h1 = draw_item_card(0, 0, tw, *tip, w, compare, footer, false);
             float y = std::clamp(tip_y, 20.f, 1060.f - h1);
-            if (vendor) y = 530;
+            if (vendor) y = 590;
             draw_item_card(x, y, tw, *tip, w, compare, footer, true);
             if (compare && compare != tip) {
                 float h2 = draw_item_card(0, 0, tw, *compare, w, nullptr, "", false);
@@ -688,6 +715,9 @@ void Menu::render(const World& w) const {
         // legend
         if (held >= 0 || held_recipe >= 0) legend(PX + 30, PY + PH - 58, {{BTN_SOUTH, held_recipe >= 0 ? "Craft on item" : "Use on item"}, {BTN_EAST, "Put back"}});
         else if (bench && region == Region::Bench) legend(PX + 30, PY + PH - 58, {{BTN_SOUTH, "Choose recipe"}, {BTN_EAST, "Leave"}});
+        else if (vendor && !dealer)
+            legend(PX + 30, PY + PH - 58, {{BTN_SOUTH, region == Region::Stock || region == Region::Purse ? "Buy" : "Sell"}, {BTN_NORTH, "Upgrade flask"},
+                                           {BTN_EAST, "Leave"}});
         else if (vendor) legend(PX + 30, PY + PH - 58, {{BTN_SOUTH, region == Region::Stock || region == Region::Purse ? "Buy" : "Sell"}, {BTN_EAST, "Leave"}});
         else if (region == Region::Grid) legend(PX + 30, PY + PH - 58, {{BTN_SOUTH, "Equip"}, {BTN_NORTH, "Drop"}, {BTN_EAST, "Close"}});
         else if (region == Region::Purse) legend(PX + 30, PY + PH - 58, {{BTN_SOUTH, "Pick up"}, {BTN_EAST, "Close"}});

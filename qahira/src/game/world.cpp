@@ -458,6 +458,8 @@ HeroSummary summarize(const Hero& hero) {
 }
 
 void World::recompute_hero() {
+    hero.flask_max = float(flask_charges(hero.flask_tier));
+    hero.flask = std::min(hero.flask, hero.flask_max);
     Hero& H = hero;
     compute_hero_stats(H);
     Actor& a = actors[0];
@@ -1377,7 +1379,7 @@ void World::hero_step(const Input& in, float dt) {
     if ((H.keystones & KS_OATH) && H.endurance > 0) h.life = std::min(h.life_max, h.life + h.life_max * 0.006f * H.endurance * dt);
     if (H.keystones & KS_QIRBA) H.flask = std::min(H.flask_max, H.flask + 0.125f * dt);   // Qirba of Plenty
     if (H.flask_heal_t > 0) {
-        float rate = h.life_max * 0.5f / 1.5f * (1.f + H.stats.sum(S_FLASK_RECOVERY).inc / 100.f);
+        float rate = h.life_max * flask_heal(H.flask_tier) / 1.5f * (1.f + H.stats.sum(S_FLASK_RECOVERY).inc / 100.f);
         h.life = std::min(h.life_max, h.life + rate * dt);
         H.flask_heal_t -= dt;
     }

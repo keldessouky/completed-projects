@@ -958,3 +958,59 @@ al-Ṣubyān, and the performance modes. The device checks on the RP6 are still 
 - The Mercenary, Shadow, Templar and Wanderer bots die to the pinnacles (a stricter dodge in the pinnacles was tried,
   and was worse); the Templar dies to all three. The bot pilots, not the numbers: they fight face to face.
 - Falak is Apep's mesh and Umm al-Ṣubyān is Qandisha's rig, re-tinted; neither has a model of its own.
+
+---
+
+## After the first run on the RP6: the owner's notes
+
+*The game ran on the RP6 (RetroArch 1.22.2, the `gl` driver) once the core asked for GLES 3 before 3.2. The owner's
+notes after playing it, taken one at a time.*
+
+**Delivered**
+- **Less glow, by 80%** ("it looks too glowy"): emission in the mesh shader 18 → 3.6, the bloom at a fifth of each
+  region's strength, additive halos and sparks at a fifth, additive decals at half (a telegraph must still read),
+  point lights at 0.6 and the rim outline at 0.35. The street and Downtown generators hang a neon sign over one shop
+  in five instead of every shop or a third of them.
+- **An objective arrow:** a gold chevron at the hero's feet points along the path to the objective (the route is
+  found again every half second, so it turns round walls instead of pointing through them), and the top right names
+  the objective and its distance. The objective is the toll to choose, then the Veil or the door, then the zone's boss
+  while it stands, then the way on, a side gate and the portal home; on the rooftop it is the waypoints. It hides in
+  menus and within 3 m. The labels are translated into Arabic too.
+- **Upgradable life flask.** Amm Sayed (the top button at his wares) upgrades it through seven tiers, from the *Clay
+  Qulla* to the *Sabil Flask*:
+  - each tier heals more over the same second and a half (50% of your life, then +8% a tier, up to 98%);
+  - every second tier holds one charge more (3 up to 6);
+  - the next tier needs level 8, 18, 28 … 58 and costs 150 × (tier + 1)² dinars.
+
+  The vendor window shows the flask you have and the price of the next.
+- **Life regeneration on high-level gear:**
+  - the affix *of the Spring* (Regenerate 12–52 Life per second) rolls on items of level 36 and up;
+  - three bases carry it as their implicit: the *Caravanserai Belt* (level 40, 18 a second), the *Spring-Water
+    Amulet* (50, 28) and the *Oasis Ring* (58, 22).
+- Character files are v10 (the flask's tier) and save states v17.
+- CI had been red since the glow change. The new art changed the drops and some layouts, which showed up two faults in
+  the bot pilot, not in the game:
+  - an item it had chosen to equip but could not reach held it for ever; it now leaves it after six seconds, like any
+    other drop;
+  - in a Downtown without a landmark, its first walk met the boss, so the mid-fight save-state check never ran; that
+    check now runs in whichever stage the boss is fought.
+
+**Verified**
+
+| Check | Result |
+|---|---|
+| Unit tests (`qtests`) | pass, 88 cases (new: the flask's tiers, charges, heal and prices climb, the tier in the character file, the Spring affix and the Spring-Water Amulet's regeneration) |
+| Every bot | pass: `walk`, `fight`, `zone` (all seven classes), `sorcerer`, `sky`, `title`, `rifts`, `digs`, `zar`, `king` |
+
+| | |
+|---|---|
+| ![Amm Sayed's wares with the flask upgrade](img/f3-flask.jpg) | ![The objective arrow and its label](img/f2-objective.jpg) |
+
+**Known gaps (carried forward)**
+- The nightly `act1` as the Wanderer runs out of its 50 minutes: the pilot's Wanderer is too weak for Umm al-Ghula and
+  the Ifrit at level 12 (about 32 DPS on a Traveller's Staff). It already failed that way on the nightly before these
+  changes. Every other long run passes locally: `act1` to `act6` as the Warrior, `act1` and `act3` as the Mercenary,
+  `act2` as the Ranger, `act3` and `act4` as the Shadow, `act5` and `act6` as the Templar, `falak`, `subyan`, `charts`
+  and `reaches`.
+- Next from the owner's notes: GBA-style pixel spell effects (original art, not taken from any game) in place of the
+  glowing discs, and Radio Kafr El-Sheikh, the owner's own show, as the game's radio in place of the music.

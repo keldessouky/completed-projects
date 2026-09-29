@@ -133,6 +133,13 @@ use the same positions.
 which divides the RP6's 120 Hz screen evenly, with the 3D drawn at a lower resolution). The game itself runs at the
 same speed in both. Neither has been timed on the device yet.
 
+**Where to go:** a gold arrow at your feet points the way to the next objective, round walls, and the top right of
+the screen names it and how far it is.
+
+**The life flask** heals half your life to begin with. Amm Sayed upgrades it (the **top button** at his wares) through
+seven tiers, each healing more and every second one holding a charge more, for dinars once you're at the level it
+asks. High-level belts, amulets and rings, and the affix *of the Spring*, regenerate life every second.
+
 **Settings** (the menu's last tab): the language (English, or Arabic laid out right to left), the text size, loot
 colours safe for colour-blind players, the screen shake, and whether L2 holds or toggles the second skill bar.
 

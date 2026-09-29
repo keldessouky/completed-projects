@@ -147,3 +147,28 @@ TEST(umm_al_subyan_the_third_pinnacle) {
     for (int i = 0; i < 200; i++) { early += comb_drops(r, false, rng); late += comb_drops(r, true, rng); }
     CHECK(low == 0 && early == 0 && late > 60 && late < 140);
 }
+
+// the life flask climbs seven tiers at Amm Sayed's, and gear past Act III restores life over time
+TEST(flask_tiers_and_life_regeneration) {
+    CHECK(flask_charges(0) == 3 && flask_charges(kFlaskTiers - 1) == 6);
+    CHECK(flask_heal(0) == 0.5f && flask_heal(kFlaskTiers - 1) < 1.f);
+    for (int t = 0; t + 1 < kFlaskTiers; t++) CHECK(flask_upgrade_level(t + 1) > flask_upgrade_level(t) && flask_upgrade_price(t + 1) > flask_upgrade_price(t));
+    World w;
+    w.reset_hero("warrior");
+    w.hero.flask_tier = 4;
+    w.recompute_hero();
+    CHECK(w.hero.flask_max == 5.f);
+    // the character file keeps the tier
+    ByteWriter bw;
+    write_character(bw, w.hero);
+    Hero r;
+    ByteReader br(bw.buf.data(), bw.buf.size());
+    CHECK(read_character(br, r) && r.flask_tier == 4);
+    // regeneration: an affix that rolls only on high-level items, and three jewellery bases that carry it
+    const int sp = find_affix("spring");
+    CHECK(sp >= 0 && affix_defs()[size_t(sp)].tier_levels[0] >= 30);
+    Rng rng(3);
+    w.hero.equip[EQ_AMULET] = make_item(find_base("spring_amulet"), Rarity::Normal, 60, rng);
+    w.recompute_hero();
+    CHECK(w.hero.stats.value(S_LIFE_REGEN) >= 28.f);
+}
