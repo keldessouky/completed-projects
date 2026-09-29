@@ -149,7 +149,7 @@ const std::vector<ZoneDef>& zone_defs() {
          "", "", "strait", "cache", "", false, -1, {0.9f, 0.98f, 1.15f}},
         {"strait", "The Sea Walls of the Strait", "The rocks below the walls, and a woman standing in the surf", "tangier", 5, 56, 3, 6, 2,
          "mus_strait", "amb_sea", {{"sea_marid", 5}, {"nasr_guard", 1}, {"blue_nasnas", 3}}, "sea_marid",
-         "qandisha", "Aisha Qandisha goes down into the sea. Act V is over", "", "cache", "", false, -1, {0.82f, 0.95f, 1.2f}},
+         "qandisha", "Aisha Qandisha goes down into the sea. Act V is over", "balad", "cache", "", false, -1, {0.82f, 0.95f, 1.2f}},
         // Slice 9: the sites of the higher Climes and the Reaches of the Encircling Sea (tiers 5-16, after Act V), on the
         // regions of every act; their masters are the acts' own, grown old and strong at the map's edge
 #define SITE(id, name, sub, tiles, tier, w, h, br, mus, amb, s1, w1, s2, w2, s3, w3, elite, boss, tint)                          \
@@ -192,6 +192,28 @@ const std::vector<ZoneDef>& zone_defs() {
         {"king_throne", "The Throne of the Marid King", "Under the Encircling Sea, a hall of columns in green water", "karnak", 0, 68, 2,
          5, 1, "mus_strait", "amb_sea", {{"sea_marid", 5}, {"marid", 3}, {"marid_caller", 2}}, "sea_marid",
          "marid_king", "The Marid King is unmade, and the sea lets go of the world", "", "cache", "", false, -1, {0.55f, 0.85f, 1.2f}},
+        // Act VI (Slice 10): Across the Red Sea, to Apep at the heart of totality
+        {"balad", "Al-Balad, Old Jeddah", "Coral houses five storeys high, and every latticed window is watching", "balad", 6, 56, 4, 5, 3,
+         "mus_redsea", "amb_sea", {{"coral_ghoul", 5}, {"souq_silah", 3}, {"sea_marid", 2}}, "coral_ghoul",
+         "", "", "harbour", "poster", "", false, -1, {1.1f, 1.0f, 0.92f}},
+        {"harbour", "The Old Harbour of Jeddah", "The dhows are all turned toward the town, and someone on the quay smells of perfume",
+         "tangier", 6, 58, 3, 6, 2, "mus_redsea", "amb_sea", {{"sea_marid", 4}, {"coral_ghoul", 4}, {"blue_nasnas", 2}}, "sea_marid",
+         "umm_duwais", "Umm al-Duwais goes into the sea, and her scent goes with her", "shibam", "cache", "", false, -1, {1.05f, 0.95f, 1.05f}},
+        {"shibam", "Shibam, the Towers of Hadramawt", "Towers of mud in the wadi, and half a man in every doorway", "shibam", 6, 60, 4, 5, 3,
+         "mus_hadramawt", "amb_desert", {{"mud_nasnas", 5}, {"hyena", 3}, {"desert_ghoul", 2}}, "mud_nasnas",
+         "shiqq", "Shiqq falls in half, and neither half gets up", "rub", "cache", "", false, -1, {1.12f, 0.95f, 0.82f}},
+        {"rub", "The Empty Quarter", "Dunes to the end of the world, and the sand is whispering", "dunes", 6, 62, 3, 6, 2,
+         "mus_hadramawt", "amb_desert", {{"sand_jinn", 5}, {"sand_shade", 3}, {"hyena", 3}}, "sand_shade",
+         "", "", "wabar", "poster", "", false, -1, {1.15f, 0.98f, 0.8f}},
+        {"wabar", "The Ruins of Wabar", "A city given to the jinn when its people were gone, and kept by them", "siwa", 6, 63, 4, 5, 3,
+         "mus_hadramawt", "amb_desert", {{"desert_ghoul", 4}, {"sand_shade", 4}, {"mud_nasnas", 2}}, "sand_shade",
+         "al_hatif", "The voice stops, and the sand is only sand", "iram", "cache", "", false, -1, {1.05f, 0.9f, 1.0f}},
+        {"iram", "Iram of the Pillars", "The lost city in the sand: pillars to the sky, and a horseman of brass at its heart", "iram", 6, 64,
+         4, 6, 3, "mus_iram", "amb_temple", {{"brass_guard", 3}, {"sand_shade", 3}, {"salt_jinn", 3}}, "brass_guard",
+         "brass_horseman", "The Brass Horseman topples, and Iram is still", "totality", "cache", "", false, -1, {1.1f, 0.92f, 0.85f}},
+        {"totality", "The Heart of Totality", "Above Luxor the temple stands in the sky, and the sun is in the serpent's mouth", "karnak", 6,
+         66, 2, 5, 1, "mus_apep", "amb_temple", {{"eclipse_marid", 5}, {"tomb_ghoul", 3}, {"timthal", 2}}, "eclipse_marid",
+         "apep", "Apep lets go of the sun. Act VI is over", "", "cache", "", false, -1, {0.55f, 0.45f, 0.8f}},
     };
     return d;
 }
@@ -227,6 +249,11 @@ const std::vector<QuestDef>& quest_defs() {
         {Q_SMOKE, "The Smoke of the Stalls", "The night market's fires burn with a will of their own. Put out the one that leads them.", 1, 0},
         {Q_QANDISHA, "Aisha Qandisha", "Sailors on the Strait walk into the sea after a woman on the rocks. Meet her before the next one does.",
          1, 0},
+        {Q_DUWAIS, "Umm al-Duwais", "Men follow a scent of perfume down to Jeddah's quay, and are not seen again. Follow it yourself.", 1, 0},
+        {Q_SHIQQ, "The Half-Man", "In Shibam half a man stands in every doorway. Find the one who is the rest of them.", 1, 0},
+        {Q_HATIF, "The Voice of the Sands", "In the ruins of Wabar a voice calls travellers by name. Answer it.", 1, 0},
+        {Q_HORSEMAN, "The Brass Horseman", "At the heart of Iram a horseman of brass keeps the lost city. Bring it down.", 1, 0},
+        {Q_ACT6, "The Heart of Totality", "Above Luxor, the serpent of the dark has the sun in its mouth. Make it let go.", 2, 0},
     };
     return d;
 }

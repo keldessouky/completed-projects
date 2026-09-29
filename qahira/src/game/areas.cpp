@@ -260,6 +260,12 @@ void Areas::enter_chart(World& w, int site, const Item& chart) {
     w.chart.mods = chart_mods(chart);
     w.chart.astro = w.hero.astro;
     w.chart.max_tier = (w.hero.quests & Q_ACT5) ? kChartTiers : kChartTiersEarly;
+    if (w.hero.ending == 2) {   // the door left open (Slice 10): the night's world is harder, and richer
+        w.chart.mods.monster_life += 25;
+        w.chart.mods.monster_damage += 15;
+        w.chart.mods.quantity += 25;
+        w.chart.mods.rarity += 25;
+    }
     enter_zone(w, find_zone(st.zone), Arrival::Entrance);   // (a fresh instance: it closes the last one first)
     w.chart_site = site;
     // the Haboob, if the chart has one: it rises in the south of the site after a while

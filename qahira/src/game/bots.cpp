@@ -24,7 +24,8 @@ void Bot::drive(World& w, Menu& m, Areas& a, Input& in, uint64_t frame) {
     else if (scenario == "tour3") tour3(w, m, a, in, frame);
     else if (scenario == "bestiary") bestiary(w, a, in, frame);
     else if (scenario == "tour4") tour4(w, m, a, in, frame);
-    else if (scenario == "act1" || scenario == "act2" || scenario == "act3" || scenario == "act4" || scenario == "act5") act1(w, m, a, in, frame);
+    else if (scenario == "act1" || scenario == "act2" || scenario == "act3" || scenario == "act4" || scenario == "act5" || scenario == "act6")
+        act1(w, m, a, in, frame);
     else if (scenario == "tour5") tour5(w, a, in, frame);
     else if (scenario == "charts" || scenario == "reaches") charts(w, m, a, in, frame);
     else if (scenario == "king") king(w, m, a, in, frame);
@@ -544,7 +545,8 @@ bool Bot::loot_and_equip(World& w, Menu& m, Input& in, uint64_t frame) {
             if (d < bd) { bd = d; best = int(i); best_equip = false; }
             continue;
         }
-        if (scenario == "act1" || scenario == "act2" || scenario == "act3" || scenario == "act4" || scenario == "act5" || scenario == "charts" ||
+        if (scenario == "act1" || scenario == "act2" || scenario == "act3" || scenario == "act4" || scenario == "act5" || scenario == "act6" ||
+            scenario == "charts" ||
             scenario == "zar" || scenario == "reaches" || scenario == "king") {   // the long runs keep their bags for upgrades only
             if (slot < 0 || slot == H.sealed_slot) continue;
             better = better || (slot > EQ_WEAPON && upgrade(w, g.item));
@@ -1165,14 +1167,16 @@ void Bot::act1(World& w, Menu& m, Areas& a, Input& in, uint64_t frame) {
     static const Step order4[] = {{"ghadames", 0}, {"chott", Q_SARAB}, {"tozeur", 0}, {"medina", Q_DOOR}, {"souq", 0}, {"sebkha", Q_SALT}};
     static const Step order5[] = {{"fes", 0}, {"fes_bali", 0}, {"chaouen", Q_PRESSER}, {"jemaa", Q_SMOKE}, {"bab_nasr", Q_TRIAL3},
                                   {"tangier", 0}, {"strait", Q_QANDISHA}};
-    const int act = scenario == "act5" ? 5 : scenario == "act4" ? 4 : scenario == "act3" ? 3 : scenario == "act2" ? 2 : 1;
+    static const Step order6[] = {{"balad", 0}, {"harbour", Q_DUWAIS}, {"shibam", Q_SHIQQ}, {"rub", 0}, {"wabar", Q_HATIF}, {"iram", Q_HORSEMAN},
+                                  {"totality", Q_ACT6}};
+    const int act = scenario == "act6" ? 6 : scenario == "act5" ? 5 : scenario == "act4" ? 4 : scenario == "act3" ? 3 : scenario == "act2" ? 2 : 1;
     const bool two = act >= 2;
-    const Step* order = act == 5 ? order5 : act == 4 ? order4 : act == 3 ? order3 : two ? order2 : order1;
-    const size_t steps = act == 5 ? std::size(order5) : act == 4 ? std::size(order4) : act == 3 ? std::size(order3) : two ? std::size(order2)
-                                                                                                                         : std::size(order1);
-    static const char* tags[] = {"", "act1", "act2", "act3", "act4", "act5"};
+    const Step* order = act == 6 ? order6 : act == 5 ? order5 : act == 4 ? order4 : act == 3 ? order3 : two ? order2 : order1;
+    const size_t steps = act == 6 ? std::size(order6) : act == 5 ? std::size(order5) : act == 4 ? std::size(order4) : act == 3 ? std::size(order3)
+                       : two ? std::size(order2) : std::size(order1);
+    static const char* tags[] = {"", "act1", "act2", "act3", "act4", "act5", "act6"};
     const char* tag = tags[act];
-    static const char* roman[] = {"", "I", "II", "III", "IV", "V"};
+    static const char* roman[] = {"", "I", "II", "III", "IV", "V", "VI"};
     auto step_done = [&](const Step& st) {
         if (st.quest) return (H.quests & st.quest) != 0;
         const ZoneDef& zd = zone_def(find_zone(st.zone));
@@ -1203,8 +1207,14 @@ void Bot::act1(World& w, Menu& m, Areas& a, Input& in, uint64_t frame) {
     for (size_t k = 0; k < steps; k++)
         if (!step_done(order[k])) { target = find_zone(order[k].zone); way_on = order[k].quest == 0; via_side = order[k].side; break; }
     if (target < 0 && two) {
-        const uint32_t done = act == 5 ? Q_ACT5 : act == 4 ? Q_ACT4 : act == 3 ? Q_ACT3 : Q_ACT2;
+        const uint32_t done = act == 6 ? Q_ACT6 : act == 5 ? Q_ACT5 : act == 4 ? Q_ACT4 : act == 3 ? Q_ACT3 : Q_ACT2;
         if (!(H.quests & done)) { fail(std::string("every boss fell but Act ") + roman[act] + " is not marked over"); return; }
+        if (act == 6 && H.ending == 0) {   // the choice at the heart of totality: the bot seals the Veil
+            if (m.open || equip_target) { loot_and_equip(w, m, in, frame); return; }
+            if (!go_to_interact(w, in, frame, Interactable::Veil) && frame % 600 == 0) fprintf(stderr, "act6: looking for the Veil\n");
+            if (frame > 60ull * 60 * 49) fail("Apep fell but the Veil was never sealed");
+            return;
+        }
         if (act == 3 && __builtin_popcount(H.asc & ~1u) < 3) { fail("Trial II was passed but its ascendancy points were not spent"); return; }
         if (act == 5 && __builtin_popcount(H.asc & ~1u) < 5) { fail("Trial III was passed but its ascendancy points were not spent"); return; }
         char b[200];
@@ -1389,15 +1399,16 @@ void Bot::tour5(World& w, Areas& a, Input& in, uint64_t frame) {
 // ---------------------------------------------------------------- charts: the endgame loop, from where Act I ends
 void Bot::prepare(World& w) {
     if (scenario != "charts" && scenario != "tour6" && scenario != "act2" && scenario != "act3" && scenario != "act4" && scenario != "act5" &&
+        scenario != "act6" &&
         scenario != "rifts" && scenario != "digs" && scenario != "zar" && scenario != "reaches" && scenario != "king")
         return;
     Hero& H = w.hero;
     Rng r(1404);
     const bool late = scenario == "reaches" || scenario == "king";   // after Act V
     // Act II: as Act I leaves you; Act III and the rifts: as Act II does
-    H.level = scenario == "act2" ? 13 : scenario == "rifts" ? 25 : scenario == "act3" ? 24 : scenario == "digs" ? 34 : scenario == "act4" ? 34 : scenario == "zar" ? 44 : scenario == "act5" ? 43
+    H.level = scenario == "act2" ? 13 : scenario == "rifts" ? 25 : scenario == "act3" ? 24 : scenario == "digs" ? 34 : scenario == "act4" ? 34 : scenario == "zar" ? 44 : scenario == "act5" ? 43 : scenario == "act6" ? 53
             : scenario == "reaches" ? 58 : scenario == "king" ? 70 : 14;
-    const int gear = scenario == "king" ? 60 : scenario == "reaches" ? 50 : scenario == "act5" ? 40 : scenario == "act4" || scenario == "zar" ? 32
+    const int gear = scenario == "king" ? 60 : scenario == "reaches" ? 50 : scenario == "act6" ? 48 : scenario == "act5" ? 40 : scenario == "act4" || scenario == "zar" ? 32
                    : scenario == "act3" || scenario == "digs" ? 24 : 14;
     H.quests = Q_MICROBUS | Q_SILAH | Q_NASNAS | Q_TRIAL1 | Q_GHULA | Q_QUTRUB | Q_BENCH | Q_ACT1;
     H.recipes = kStarterRecipes;
@@ -1418,9 +1429,15 @@ void Bot::prepare(World& w) {
         if (scenario == "reaches") for (int k = 0; k < 4; k++) H.inv.add(make_chart(kChartTiersEarly + 1, r, 0.25f, 0.f));
         if (scenario == "king") H.currency[CUR_PEARL] = kPearlsPerThrone;
     }
-    if (scenario == "act3" || scenario == "act4" || scenario == "act5") {
+    if (scenario == "act3" || scenario == "act4" || scenario == "act5" || scenario == "act6") {
         H.quests |= Q_NADDAHA | Q_RAM | Q_MARID | Q_ACT2;
         for (const char* z : {"nile_bank", "village", "canal", "karnak", "valley", "tomb"}) H.waypoints.add(find_zone(z));
+    }
+    if (scenario == "act6") {
+        H.quests |= Q_DABA | Q_TRIAL2 | Q_WRAITH | Q_ACT3 | Q_SARAB | Q_DOOR | Q_SALT | Q_ACT4 | Q_PRESSER | Q_TRIAL3 | Q_SMOKE | Q_QANDISHA | Q_ACT5;
+        for (const char* z : {"farafra", "sand_sea", "siwa", "bab_futuh", "shali", "oracle", "ghadames", "chott", "tozeur", "medina", "souq",
+                              "sebkha", "fes", "fes_bali", "chaouen", "jemaa", "bab_nasr", "tangier", "strait", "balad"})
+            H.waypoints.add(find_zone(z));
     }
     if (scenario == "act5") {
         H.quests |= Q_DABA | Q_TRIAL2 | Q_WRAITH | Q_ACT3 | Q_SARAB | Q_DOOR | Q_SALT | Q_ACT4;
@@ -1432,7 +1449,7 @@ void Bot::prepare(World& w) {
         H.quests |= Q_DABA | Q_TRIAL2 | Q_WRAITH | Q_ACT3;
         for (const char* z : {"farafra", "sand_sea", "siwa", "bab_futuh", "shali", "oracle", "ghadames"}) H.waypoints.add(find_zone(z));
     }
-    if (scenario == "act2" || scenario == "act3" || scenario == "act4" || scenario == "act5") {
+    if (scenario == "act2" || scenario == "act3" || scenario == "act4" || scenario == "act5" || scenario == "act6") {
         for (const char* z : {"downtown", "metro", "khan", "muizz", "necropolis", "mokattam", "nile_bank"}) H.waypoints.add(find_zone(z));
         if (scenario == "act3") H.waypoints.add(find_zone("farafra"));
         // QAHIRA_ACT_AT=<zone> (or QAHIRA_ACT2_AT): start further in, with what comes before it done (for working on one zone)
@@ -1447,6 +1464,8 @@ void Bot::prepare(World& w) {
                                                                      {"souq", 0}, {"sebkha", Q_SALT}};
             static const std::pair<const char*, uint32_t> path5[] = {{"fes", 0}, {"fes_bali", 0}, {"chaouen", Q_PRESSER}, {"jemaa", Q_SMOKE},
                                                                      {"bab_nasr", Q_TRIAL3}, {"tangier", 0}, {"strait", Q_QANDISHA}};
+            static const std::pair<const char*, uint32_t> path6[] = {{"balad", 0}, {"harbour", Q_DUWAIS}, {"shibam", Q_SHIQQ}, {"rub", 0},
+                                                                     {"wabar", Q_HATIF}, {"iram", Q_HORSEMAN}, {"totality", Q_ACT6}};
             auto walk = [&](auto& path) {
                 for (auto& [z, q] : path) {
                     if (std::string(z) == at) { H.level = zone_def(find_zone(z)).level - 1; break; }
@@ -1455,7 +1474,7 @@ void Bot::prepare(World& w) {
                     for (const char* n : {zd.next, zd.side}) if (find_zone(n) >= 0) H.waypoints.add(find_zone(n));
                 }
             };
-            if (scenario == "act5") walk(path5); else if (scenario == "act4") walk(path4); else if (scenario == "act3") walk(path3); else walk(path2);
+            if (scenario == "act6") walk(path6); else if (scenario == "act5") walk(path5); else if (scenario == "act4") walk(path4); else if (scenario == "act3") walk(path3); else walk(path2);
         }
     }
     else if (!late)
@@ -1493,8 +1512,9 @@ void Bot::prepare(World& w) {
     for (int k = 0; k < 150 && H.passive_points() > 0; k++) if (place_next_planned(w) < 0) break;
     if (H.ascendancy < 0 && !ascendancies_of(H.passives.cls).empty()) H.ascendancy = int8_t(ascendancies_of(H.passives.cls)[0]);
     if (ascendancy_of(H.passives.cls, H.ascendancy)) H.asc = (1u << 1) | (1u << 2);   // Trial I's two points
-    if ((scenario == "act4" || scenario == "act5" || late) && ascendancy_of(H.passives.cls, H.ascendancy)) H.asc |= (1u << 3) | (1u << 4);   // and Trial II's
-    if (late && ascendancy_of(H.passives.cls, H.ascendancy)) H.asc |= (1u << 5) | (1u << 6);   // and Trial III's
+    if ((scenario == "act4" || scenario == "act5" || scenario == "act6" || late) && ascendancy_of(H.passives.cls, H.ascendancy))
+        H.asc |= (1u << 3) | (1u << 4);   // and Trial II's
+    if ((late || scenario == "act6") && ascendancy_of(H.passives.cls, H.ascendancy)) H.asc |= (1u << 5) | (1u << 6);   // and Trial III's
     if (scenario == "tour6") {   // further on: a few sites done, some of the Astrolabe set, charts of every Clime
         H.level = 17;
         H.sites_done = (1u << find_site("iskandariya")) | (1u << find_site("qus")) | (1u << find_site("wahat"));

@@ -65,6 +65,16 @@ const std::vector<MonsterDef>& monster_defs() {
             {"qandisha", "Aisha Qandisha", "qandisha", 1.0f, {1, 1, 1}, 2500, 4.2f, 0.9f, AttackKind::Boss, 3.2f, 1.3f, 27, 40, DT_COLD, 130, 3600, 0},
             // Slice 9: the first pinnacle, on his throne under the Encircling Sea
             {"marid_king", "The Marid King", "marid", 2.4f, {0.42f, 0.72f, 1.3f}, 2200, 4.0f, 1.2f, AttackKind::Boss, 3.6f, 1.2f, 24, 36, DT_COLD, 200, 6000, 0},
+            // Act VI (Slice 10): Across the Red Sea
+            {"coral_ghoul", "Coral Ghoul", "ghoul", 1.1f, {1.25f, 0.82f, 0.76f}, 80, 4.4f, 0.45f, AttackKind::Claw, 1.5f, 1.3f, 13, 19, DT_PHYS, 60, 34, 0},
+            {"mud_nasnas", "Nasnas of the Wadi", "nasnas", 1.05f, {1.08f, 0.8f, 0.6f}, 70, 5.4f, 0.42f, AttackKind::Claw, 1.4f, 1.0f, 12, 18, DT_PHYS, 20, 32, 0},
+            {"brass_guard", "Brass Guardian", "timthal", 1.0f, {1.35f, 1.0f, 0.5f}, 150, 2.8f, 0.6f, AttackKind::Slam, 2.4f, 2.6f, 18, 26, DT_PHYS, 320, 48, 0},
+            {"eclipse_marid", "Marid of the Black Sun", "marid", 1.1f, {0.45f, 0.35f, 0.72f}, 90, 4.6f, 0.5f, AttackKind::Claw, 1.8f, 1.3f, 14, 21, DT_CHAOS, 30, 40, 0},
+            {"umm_duwais", "Umm al-Duwais", "duwais", 1.0f, {1, 1, 1}, 2600, 4.4f, 0.9f, AttackKind::Boss, 3.2f, 1.2f, 28, 41, DT_PHYS, 130, 3800, 0},
+            {"shiqq", "Shiqq, the Half-Man of Shibam", "nasnas", 1.8f, {1.12f, 0.78f, 0.56f}, 2400, 4.8f, 1.0f, AttackKind::Boss, 3.0f, 1.2f, 21, 31, DT_PHYS, 120, 4000, 0},
+            {"al_hatif", "al-Hatif, the Voice of the Sands", "wraith", 1.2f, {1.3f, 1.2f, 1.05f}, 2600, 3.8f, 1.0f, AttackKind::Boss, 3.4f, 1.3f, 27, 40, DT_CHAOS, 110, 4200, 0},
+            {"brass_horseman", "The Brass Horseman of Iram", "horseman", 1.0f, {1, 1, 1}, 3000, 4.0f, 1.6f, AttackKind::Boss, 3.8f, 1.5f, 27, 40, DT_PHYS, 450, 4500, 0},
+            {"apep", "Apep, the Serpent of the Dark", "apep", 1.0f, {1, 1, 1}, 4200, 3.2f, 2.0f, AttackKind::Boss, 4.5f, 1.4f, 34, 50, DT_CHAOS, 200, 6500, 0},
         };
         auto set = [&](const char* id, bool rigid, const char* fam, const char* voice = "ghoul") {
             for (auto& m : v) if (std::string(m.id) == id) { m.rigid = rigid; m.family = fam; m.voice = voice; }
@@ -113,6 +123,15 @@ const std::vector<MonsterDef>& monster_defs() {
         set("bu_ghettat", false, "Bu Ghettat, the Presser", "whisper");
         set("qandisha", false, "Aisha Qandisha", "whisper");
         set("marid_king", false, "The Marid King", "whisper");
+        set("coral_ghoul", false, "Ghouls of the coral city");
+        set("umm_duwais", false, "Umm al-Duwais", "whisper");
+        set("mud_nasnas", false, "Nasnas, the half-men");
+        set("shiqq", false, "Shiqq, the half-man", "howl");
+        set("al_hatif", false, "The Hawatif, voices of the sand", "whisper");
+        set("brass_guard", true, "The City of Brass", "metal");
+        set("brass_horseman", true, "The City of Brass", "metal");
+        set("eclipse_marid", false, "Apep, the serpent of the dark", "whisper");
+        set("apep", true, "Apep, the serpent of the dark", "fire");
         codex("Ghouls", "ghouls");
         codex("Possessed", "possessed");
         codex("Si'lah", "silah");
@@ -137,6 +156,12 @@ const std::vector<MonsterDef>& monster_defs() {
         codex("Bu Ghettat", "presser");
         codex("Aisha Qandisha", "qandisha");
         codex("The Marid King", "marid_king");
+        codex("Ghouls of the coral", "coral_ghouls");
+        codex("Umm al-Duwais", "duwais");
+        codex("Shiqq", "shiqq");
+        codex("The Hawatif", "hatif");
+        codex("The City of Brass", "brass");
+        codex("Apep", "apep");
         return v;
     }();
     return d;
@@ -251,6 +276,31 @@ const BossDef* boss_def(int monster) {
           {MoveKind::Blink, "cast", 6.f, 5.f, 30, 0, 1}, {MoveKind::Volley, "cast", 3.2f, 5.f, 30, 0.8f, 0},
           {MoveKind::Combo, "combo", 1.1f, 0, 4.0f, 1.f, 0}},
          0.55f, "THE ENCIRCLING SEA KNEELS TO HIM", "sea_marid", 5, 12.f, 1.35f, {0.55f, 0.85f, 1.f}, true},
+        // Act VI: she draws you to her (a Call) and cuts; the half-man leaps and slams; the voice calls, vanishes and burns;
+        // the horseman charges (a rigid thing, like the Ram); Apep's coils crush, its dark pools spread, its court rises
+        {"umm_duwais",
+         {{MoveKind::Summon, "summon", 1e9f, 0, 99, 0, 1}, {MoveKind::Wail, "wail", 9.f, 0, 99, 0, 0},
+          {MoveKind::Leap, "leap", 4.2f, 4.5f, 25, 1.5f, 0}, {MoveKind::Volley, "cast", 4.5f, 5.f, 30, 0.7f, 1},
+          {MoveKind::Combo, "combo", 1.2f, 0, 3.6f, 1.f, 0}},
+         0.5f, "HER PERFUME FILLS THE LANES", "coral_ghoul", 4, 11.f, 1.3f, {1.f, 0.6f, 0.8f}, true},
+        {"shiqq",
+         {{MoveKind::Summon, "summon", 1e9f, 0, 99, 0, 1}, {MoveKind::Nova, "slam", 8.f, 0, 5.5f, 1.2f, 0},
+          {MoveKind::Leap, "leap", 4.5f, 4.5f, 25, 1.3f, 0}, {MoveKind::Combo, "combo", 1.2f, 0, 3.4f, 1.f, 0}},
+         0.5f, "THE OTHER HALF COMES OUT OF THE WALL", "mud_nasnas", 3, 11.f, 1.35f, {0.9f, 0.7f, 0.5f}},
+        {"al_hatif",
+         {{MoveKind::Summon, "summon", 1e9f, 0, 99, 0, 1}, {MoveKind::Wail, "wail", 8.5f, 0, 99, 0, 0},
+          {MoveKind::Pools, "cast", 7.f, 0, 30, 0.55f, 0}, {MoveKind::Blink, "cast", 5.5f, 5.f, 30, 0, 1},
+          {MoveKind::Volley, "cast", 3.4f, 5.f, 30, 0.8f, 0}, {MoveKind::Combo, "combo", 1.2f, 0, 3.8f, 1.f, 0}},
+         0.5f, "THE VOICE KNOWS YOUR NAME", "sand_shade", 4, 11.f, 1.3f, {1.f, 0.9f, 0.6f}, true},
+        {"brass_horseman",
+         {{MoveKind::Summon, "", 1e9f, 0, 99, 0, 1}, {MoveKind::Nova, "", 7.5f, 0, 5.5f, 1.15f, 0},
+          {MoveKind::Charge, "", 4.8f, 4.f, 30, 1.35f, 0}, {MoveKind::Combo, "", 1.5f, 0, 3.8f, 1.f, 0}},
+         0.5f, "THE CITY OF BRASS WAKES", "brass_guard", 2, 11.f, 1.3f, {1.f, 0.8f, 0.4f}},
+        {"apep",
+         {{MoveKind::Summon, "", 1e9f, 0, 99, 0, 1}, {MoveKind::Pools, "", 6.f, 0, 30, 0.6f, 0},
+          {MoveKind::Nova, "", 5.5f, 0, 6.5f, 1.4f, 0}, {MoveKind::Charge, "", 4.5f, 4.f, 30, 1.7f, 1},
+          {MoveKind::Combo, "", 1.4f, 0, 4.5f, 1.f, 0}},
+         0.55f, "THE SUN IS IN ITS MOUTH", "eclipse_marid", 5, 12.f, 1.3f, {0.6f, 0.4f, 1.f}},
     };
     if (monster < 0 || monster >= int(monster_defs().size())) return nullptr;
     const char* id = monster_defs()[size_t(monster)].id;

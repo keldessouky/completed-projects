@@ -104,11 +104,11 @@ GroundItem read_ground_item(ByteReader& r) {
 
 // ---- the character: what persists between sessions
 static const uint32_t kCharMagic = 0x31484351;  // "QCH1"
-static const uint32_t kCharVersion = 8;   // 2: the class and its stars; 3: Talismans, Wafq, Blanks, currency count;
+static const uint32_t kCharVersion = 9;   // 2: the class and its stars; 3: Talismans, Wafq, Blanks, currency count;
                                           // 4: Act I (waypoints, quests, the toll, recipes, scraps, codex, omens,
                                           //    ascendancy) and item format 2; 5: the Map of al-Idrisi (sites, the
                                           //    Astrolabe); 6: the ascendancy chosen; 7: the weapon swap slot, 64-bit waypoints;
-                                          // 8: waypoints for 128 zones
+                                          // 8: waypoints for 128 zones; 9: the ending chosen
 
 void write_character(ByteWriter& w, const Hero& H) {
     w.put(kCharMagic);
@@ -146,6 +146,8 @@ void write_character(ByteWriter& w, const Hero& H) {
     w.put(H.ascendancy);
     // v8
     w.put(H.waypoints.w[1]);
+    // v9
+    w.put(H.ending);
 }
 
 bool read_character(ByteReader& r, Hero& H) {
@@ -240,6 +242,9 @@ bool read_character(ByteReader& r, Hero& H) {
     H.ascendancy = -1;
     if (version >= 6) r.get(H.ascendancy);
     if (version >= 8) r.get(H.waypoints.w[1]);
+    H.ending = 0;
+    if (version >= 9) r.get(H.ending);
+    if (H.ending < 0 || H.ending > 2) H.ending = 0;
     if (H.ascendancy >= int(ascendancies().size())) H.ascendancy = -1;
     if (H.quests & Q_BENCH) H.recipes |= kStarterRecipes;
     if (H.quests & Q_ACT1) H.sites_revealed |= starting_sites();   // an Act I finished before the map existed

@@ -792,3 +792,60 @@ first pinnacle.*
 - The Rift Lord's court costs the `rifts` bot 4 deaths and 5.5 minutes now (it was 1.5 minutes in Slice 8). The build
   from before the Reaches went in does the same, so it came with Slice 9's earlier work. Not yet looked into.
 - Audio is stored as 16-bit WAV: the pack is 170 MB.
+
+## Slice 10 · Across the Red Sea (in progress)
+
+*The last act, the seventh class, and the end of the campaign. The Gate of Iram trial, the Falak pinnacle, the uber
+bosses and higher-level bases are still to come (see Still to do).*
+
+**Delivered so far**
+- **The Wanderer**, a seventh class (all three attributes; `tools/art/characters/wanderer.py`):
+  - a courier of the long roads, in a camel-hair coat and a sand-and-red headwrap, with a satchel, a waterskin and a
+    small brass astrolabe on the chest strap;
+  - he begins at **the Pole**, the centre of the sky, and walks through the other classes' starts (a point each) to
+    reach their ground. His Recommended Path is 23 stars;
+  - the **Traveller's Staff** (+10 to all Attributes), and a Talisman from four other classes: *Whirling Staff*, *Arc*,
+    *Rallying Shout* and *Falcon's Mark*. Three more quarterstaves (levels 6, 18 and 34);
+  - **Fragments**, his ascendancy: one notable from each of six others (the Ironclad, the Stormbinder, the Warden, the
+    Nightblade, the Outrider and the Duelist), of which three may be held;
+  - he wakes on the title screen once a character in any slot has finished Act VI. The seven classes lay out in two
+    rows.
+- **Act VI, Across the Red Sea** (`game/acts.cpp`), levels 56 to 66, seven zones on three new regions
+  (`tools/art/env/regions6.py`; no mosque stands in any of them):
+  - **Al-Balad, Old Jeddah**: coral houses five storeys high, their latticed rawashin watching. **The Old Harbour**:
+    **Umm al-Duwais**, who draws men down to the quay with her scent (a Call), and cuts;
+  - **Shibam, the Towers of Hadramawt**: the mud towers of the wadi, half a man in every doorway. **Shiqq**, the
+    half-man, leaps and slams, and brings his other halves out of the walls;
+  - **the Empty Quarter**, and **the Ruins of Wabar**, a city given to the jinn. **al-Hatif**, the voice of the sands,
+    calls you by name, vanishes and burns;
+  - **Iram of the Pillars**, the lost city: **the Brass Horseman** charges through its colonnades;
+  - **the Heart of Totality**, a temple in the sky above Luxor: **Apep**, the serpent of the dark, with the sun in its
+    mouth. Its coils crush, its dark pools spread, and its court of eclipse marids rises.
+  - New monsters: coral ghouls, the nasnas of the wadi, brass guardians and the marids of the black sun. Four pieces
+    of music in maqam sikah (`tools/audio/synth.py act6`). Seven codex entries.
+- **The end of the campaign.** When Apep lets go of the sun, every resistance is **60% lower** (30% after Act III),
+  and two columns stand in the temple: **seal the Veil** (the sun comes back and the jinn go unseen again; two more
+  passive stars), or **leave the door open** (the endless night: charts have 25% more monster life, 15% more monster
+  damage, and 25% more item quantity and rarity). The choice is kept in the character file and shown on the title
+  screen's slot. Act VI's five quests give six passive stars.
+- **Saves:** the character file v9 (the ending); save states v15.
+- **The bots:** they pilot the Wanderer (a Mark every eight seconds, a shout into crowds, Arc at range, the staff up
+  close). `act6` is new: a character as Act V leaves one plays Act VI through and seals the Veil.
+
+**Verified**
+
+| Check | Result |
+|---|---|
+| Unit tests (`qtests`) | pass, 79 cases (new: the Wanderer's start, walk and kit; Fragments' three notables; he wakes after Act VI; Act VI's road, bosses and resistance penalty; the ending in the character file and its two stars; the codex table pinned in its order) |
+| `act6` bot | pass: the Templar in 10.6 minutes (level 66, 0 deaths), the Warrior in 27.2 (level 69, 11 deaths: Umm al-Duwais and Shiqq catch it under-levelled) |
+| The Wanderer | `zone` pass; `act1` pass (nightly in CI) |
+| Every earlier bot | pass: `walk`, `fight`, `zone` (all seven classes), `sorcerer`, `sky`, `title`, `rifts`, `digs`, `zar`, `king`, `act5` (the Warrior 15.5 minutes, 6 deaths) |
+
+**Still to do in Slice 10**
+- **The Gate of Iram**, the Fourth Trial (a toll you choose), and **Falak**, the second pinnacle; uber versions of
+  the Marid King and Falak.
+- **Higher-level bases and Talisman levels past 20**, so hero power keeps growing past Act V (Slice 9's Known gaps).
+- `act6` in CI; screenshots of Act VI (`tour11`).
+- The codex once had entries inserted in the middle of its table (Slices 8 and 9), and characters store it by index.
+  It is back in append order now, and a test pins it. A character saved by those builds may show the wrong entries
+  as met.

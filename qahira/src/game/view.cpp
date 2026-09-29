@@ -194,6 +194,16 @@ void View::render_world(Renderer& r, World& w) {
                 r.ground(vec3(it.pos, 0.02f), 1.2f + 0.08f * std::sin(w.time * 2.f), vec4(hex_lin(0xF2A541), near ? 0.7f : 0.3f), {1, 0.08f, 0, 2},
                          Blend::Additive);
                 break;
+            case Interactable::Veil: case Interactable::Door: {   // the choice: a column of sunlight, or a column of the eclipse's dark
+                const bool veil = it.kind == Interactable::Veil;
+                const vec3 c = veil ? hex_lin(0xFFD890) : hex_lin(0x8A5AE0);
+                for (int k = 0; k < 6; k++)
+                    r.billboard(vec3(it.pos, 0.4f + k * 0.55f), 0.9f - 0.08f * k, vec4(c, (near ? 0.5f : 0.3f) * (1.f - k / 7.f)), {0, 1.2f, 0, 3},
+                                Blend::Additive);
+                r.ground(vec3(it.pos, 0.02f), 1.4f + 0.1f * std::sin(w.time * 2.f), vec4(c, near ? 0.8f : 0.45f), {1, 0.1f, 0, 2}, Blend::Additive);
+                r.light(vec3(it.pos, 1.5f), 6.f, c * (near ? 12.f : 7.f));
+                break;
+            }
             default: break;
         }
     }

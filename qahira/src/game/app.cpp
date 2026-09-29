@@ -319,6 +319,11 @@ uint32_t boss_quest(const ZoneDef& zd) {
     if (id == "bab_nasr") return Q_TRIAL3;
     if (id == "jemaa") return Q_SMOKE;
     if (id == "strait") return Q_QANDISHA | Q_ACT5;
+    if (id == "harbour") return Q_DUWAIS;
+    if (id == "shibam") return Q_SHIQQ;
+    if (id == "wabar") return Q_HATIF;
+    if (id == "iram") return Q_HORSEMAN;
+    if (id == "totality") return Q_ACT6;
     return 0;
 }
 
@@ -412,7 +417,20 @@ void boss_state(World& w) {
             S->view.banner = "Act V is over";
             S->view.banner_sub = "The Strait is quiet. On the Map of al-Idrisi the far Climes open: charts to the Sixteenth tier.";
         }
-        S->view.banner_t = fresh & (Q_ACT2 | Q_ACT3 | Q_ACT4 | Q_ACT5) ? 9.f : 5.f;
+        if (fresh & Q_ACT6) {   // the campaign's end: the sun let go, and the choice (GDD §9.3)
+            S->view.banner = "Act VI is over";
+            S->view.banner_sub = "Apep lets go of the sun. Seal the Veil, or leave the door open. All your resistances are 60% lower now.";
+            w.meet_codex("veil");
+            if (w.hero.ending == 0) {
+                const ZoneLayout& L = S->areas.zone.layout;
+                const vec2 c = L.center(L.cells[size_t(L.arena)]);
+                w.interacts.push_back({Interactable::Veil, w.level.resolve(c + vec2{-3.f, -1.f}, 0.6f), 2.0f,
+                                       "Seal the Veil: the sun comes back, the jinn go unseen (two more passive stars)"});
+                w.interacts.push_back({Interactable::Door, w.level.resolve(c + vec2{3.f, -1.f}, 0.6f), 2.0f,
+                                       "Leave the door open: the night stays, and the charts are harder and richer"});
+            }
+        }
+        S->view.banner_t = fresh & (Q_ACT2 | Q_ACT3 | Q_ACT4 | Q_ACT5 | Q_ACT6) ? 9.f : 5.f;
         save_character();
     }
 }
@@ -696,6 +714,19 @@ void app_update(const Input& in_raw, float dt) {
             case Interactable::Chest: A.open_chest(w, w.used_interact); break;
             case Interactable::Charge: case Interactable::Detonator: case Interactable::Chamber: w.dig_use(w.used_interact); break;
             case Interactable::Drum: w.zar_use(w.used_interact); break;
+            case Interactable::Veil: case Interactable::Door: {   // the choice, once, for this character
+                const bool seal = w.interacts[size_t(w.used_interact)].kind == Interactable::Veil;
+                w.hero.ending = seal ? 1 : 2;
+                w.interacts.erase(std::remove_if(w.interacts.begin(), w.interacts.end(), [](const Interactable& i) {
+                                      return i.kind == Interactable::Veil || i.kind == Interactable::Door; }), w.interacts.end());
+                S->view.banner = seal ? "The Veil is sealed" : "The door is left open";
+                S->view.banner_sub = seal ? "The sun comes back over Cairo, and the jinn go back to being unseen. Two more passive stars."
+                                          : "The eclipse stays. The jinn walk openly now, and the charts are harder, and richer.";
+                S->view.banner_t = 8.f;
+                w.emit(Ev::LevelUp, w.actors[0].pos);
+                save_character();
+                break;
+            }
             case Interactable::Dealer: M.show_dealer(w); w.meet_codex("excavations"); audio().play("ui_select", 0.4f, 0, 1); break;
         }
     }
@@ -752,12 +783,12 @@ void app_render(GLuint fbo, int w, int h) {
 void app_audio(int16_t* stereo, int frames) { audio().mix(stereo, frames); }
 
 // ---- save states
-static const uint32_t kStateVersion = 14;  // 5: passives, Hirz, keystone state; 6: Talismans, ailments, glyphs; 7: Act I;
+static const uint32_t kStateVersion = 15;  // 5: passives, Hirz, keystone state; 6: Talismans, ailments, glyphs; 7: Act I;
                                            // 8: chart runs and the Haboob; 9: poison, marks, Frenzy, arrows;
                                            // 10: bleeding, piercing bolts, grenades, the weapon swap;
                                            // 11: traps, Wither, Power Charges; 12: Zar Nights;
                                            // 13: the Beacon, totems, burning ground; 14: charts to T16 (a chart run's
-                                           // highest tier), waypoints for 128 zones
+                                           // highest tier), waypoints for 128 zones; 15: the Veil and the Door
 
 static ByteWriter save_state() {
     ByteWriter w;

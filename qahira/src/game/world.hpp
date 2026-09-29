@@ -248,7 +248,8 @@ struct GroundItem {
 struct Interactable {
     enum Kind : uint8_t { Stair, Portal, Vendor, Exit, Chest, Waypoint, Next, Bench, Gate, ChartTable,
                           Charge, Detonator, Chamber, Dealer,   // Slice 7: an Excavation's, and Amm Ramadan
-                          Drum } kind;                          // Slice 8: a Zar Night's
+                          Drum,                                 // Slice 8: a Zar Night's
+                          Veil, Door } kind;                    // Slice 10: the choice at the heart of totality
     // Next: the way on to zone `target`; Gate: a side zone (a trial); Waypoint: the waypoint list; Bench: the Coppersmith
     vec2 pos;
     float radius = 1.8f;
@@ -320,6 +321,7 @@ struct Hero {
     int frenzy = 0;                // Frenzy Charges (Slice 6): 4% more damage and speed each
     float frenzy_t = 0;
     bool aura = false;             // the Templar's Beacon is held up (Slice 9)
+    int8_t ending = 0;             // after Apep (Slice 10): 1 the Veil sealed, 2 the door left open
     int power = 0;                 // Power Charges (Slice 8): 40% increased Critical Strike Chance each
     float power_t = 0;
     int endurance = 0;             // Endurance Charges (Ironclad)
@@ -350,7 +352,9 @@ struct Hero {
 };
 
 inline int Hero::asc_points() const { return std::max(0, quest_asc_points(quests) - asc_spent(asc)); }
-inline int Hero::passive_points() const { return std::max(0, level - 1 + quest_passive_points(quests) - passives.spent()); }
+inline int Hero::passive_points() const {
+    return std::max(0, level - 1 + quest_passive_points(quests) + (ending == 1 ? 2 : 0) - passives.spent());   // (the Veil sealed: +2)
+}
 
 // The hero's numbers for a sheet or a preview (the tree screen compares two of these).
 struct HeroSummary {

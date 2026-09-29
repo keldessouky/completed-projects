@@ -173,6 +173,7 @@ def maqam(name, tonic):
         'saba': [0, 150, 300, 400, 600, 700, 1000, 1200],
         'kurd': [0, 100, 300, 500, 700, 800, 1000, 1200],
         'nahawand': [0, 200, 300, 500, 700, 800, 1100, 1200],
+        'sikah': [0, 150, 350, 500, 650, 850, 1000, 1200],   # (Act VI: the maqam of the Arabian coasts)
     }[name]
     return [tonic * 2 ** (c / 1200) for c in cents]
 
@@ -816,6 +817,15 @@ def music_act5():
     compose('mus_strait', 'nahawand', 146.83, 70, 16, seed=117, melody_inst='oud', rhythm='wahda', riq_p=0.1)
 
 
+def music_act6():
+    """Act VI, Across the Red Sea: al-Balad and the harbour on the oud in sikah over a baladi; Hadramawt and the Empty
+    Quarter on the qanun, slow; Iram of the Pillars on a lone ney in hijaz; and Apep, at the heart of totality, driving."""
+    compose('mus_redsea', 'sikah', 146.83, 100, 20, seed=121, melody_inst='oud', rhythm='baladi', riq_p=0.5)
+    compose('mus_hadramawt', 'sikah', 130.81, 78, 16, seed=127, melody_inst='qanun', rhythm='wahda', riq_p=0.15)
+    compose('mus_iram', 'hijaz', 110.0, 64, 16, seed=131, melody_inst='ney', rhythm='wahda', riq_p=0.05, intensity=0.8)
+    compose('mus_apep', 'saba', 146.83, 138, 32, seed=137, melody_inst='qanun', rhythm='ayyub', riq_p=0.9, intensity=1.7)
+
+
 def ambience_market(name, dur=40.0, sr=32000):
     """Jemaa el-Fnaa after the crowd has gone: the grills still crackling, smoke hissing off the coals, a far drum."""
     t = t_axis(dur, sr)
@@ -936,6 +946,8 @@ if __name__ == '__main__':
         music_act4()
     if 'act5' in only or 'music' in only:
         music_act5()
+    if 'act6' in only or 'music' in only:
+        music_act6()
     if 'act5' in only or 'ambience' in only:
         ambience_market('amb_market')
         ambience_sea('amb_sea')

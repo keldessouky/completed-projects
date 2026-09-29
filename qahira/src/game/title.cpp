@@ -44,6 +44,7 @@ void Title::scan(const std::string& dir) {
         slots[i].cls = h.passives.cls;
         slots[i].level = h.level;
         slots[i].kills = h.kills;
+        slots[i].ending = h.ending;
         if (h.quests & Q_ACT6) wanderer_unlocked = true;
     }
 }
@@ -115,7 +116,8 @@ void Title::render() const {
         if (slots[i].exists) {
             u.text(200, y + 14, class_def(slots[i].cls).name, 36, cur ? pal::amber : pal::bone, Align::Left, 1.f);
             char b[96];
-            snprintf(b, sizeof b, "Level %d  \xC2\xB7  %d laid to rest", slots[i].level, slots[i].kills);
+            snprintf(b, sizeof b, "Level %d  \xC2\xB7  %d laid to rest%s", slots[i].level, slots[i].kills,
+                     slots[i].ending == 1 ? "  \xC2\xB7  the Veil sealed" : slots[i].ending == 2 ? "  \xC2\xB7  the door left open" : "");
             u.text(200, y + 58, b, 24, pal::dim);
             if (delete_armed == i) u.text(880, y + 30, "North again to delete", 26, pal::bad, Align::Right, 0.8f);
         } else {

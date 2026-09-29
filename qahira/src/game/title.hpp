@@ -10,7 +10,7 @@ struct ClassDef;
 
 struct Title {
     static constexpr int kSlots = 4;
-    struct Slot { bool exists = false; std::string cls; int level = 0, kills = 0; };
+    struct Slot { bool exists = false; std::string cls; int level = 0, kills = 0, ending = 0; };
     bool open = false;
     int cursor = 0;
     bool picking = false;          // choosing a class for a new character
