@@ -78,6 +78,10 @@ const WafqDef& wafq_def(int w);
 std::vector<int> magic_square(int order);
 
 // ---- a carved Talisman ---------------------------------------------------------
+// The highest Blank Talisman an area can drop: 20 through the acts, then one more every four levels past 44, to 25
+// (Slice 10: skills kept pace with the monsters no further than Act V)
+inline int blank_cap(int area_level) { return area_level <= 44 ? 20 : area_level >= 64 ? 25 : 20 + (area_level - 44) / 4; }
+
 struct Talisman {
     int16_t skill = -1;
     uint8_t level = 1;

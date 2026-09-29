@@ -828,6 +828,15 @@ bosses and higher-level bases are still to come (see Still to do).*
   passive stars), or **leave the door open** (the endless night: charts have 25% more monster life, 15% more monster
   damage, and 25% more item quantity and rarity). The choice is kept in the character file and shown on the title
   screen's slot. Act VI's five quests give six passive stars.
+- **Bases past Act V** (Slice 9's worst gap: hero power stopped growing while monster life kept climbing):
+  - two more tiers for every kind of weapon, near 42 and near 56: the Ayyubid Maul and Qaitbay's Maul, the Meteorite
+    and Armillary Staves, the Mamluk Recurve and the Horn-and-Sinew Bow, the Kilij and the Watered-Steel Sabre, the
+    Windlass and Bastion Arbalests, the Janbiya and the Khanjar, the Ironwood and Caravan-Master's Quarterstaves, the
+    Bronze and Gate-Warden's Maces, the Lighthouse and Pharos Sceptres;
+  - for each of the six kinds of defence, a helmet (38) and a body (40), and gloves and boots at 28 and 50 (until
+    now gloves and boots stopped at level 1);
+  - past Act V, the bases of the last twenty levels drop three times as often; the acts' drops are as they were;
+  - Blank Talismans climb past 20 in the last areas: one level more every four area levels past 44, to 25.
 - **Saves:** the character file v9 (the ending); save states v15.
 - **The bots:** they pilot the Wanderer (a Mark every eight seconds, a shout into crowds, Arc at range, the staff up
   close). `act6` is new: a character as Act V leaves one plays Act VI through and seals the Veil. It runs in CI as
@@ -840,15 +849,22 @@ bosses and higher-level bases are still to come (see Still to do).*
 
 | Check | Result |
 |---|---|
-| Unit tests (`qtests`) | pass, 79 cases (new: the Wanderer's start, walk and kit; Fragments' three notables; he wakes after Act VI; Act VI's road, bosses and resistance penalty; the ending in the character file and its two stars; the codex table pinned in its order) |
-| `act6` bot | pass: the Templar in 10.6 minutes (level 66, 0 deaths), the Warrior in 27.2 (level 69, 11 deaths: Umm al-Duwais and Shiqq catch it under-levelled) |
+| Unit tests (`qtests`) | pass, 80 cases (new: the Wanderer's start, walk and kit; Fragments' three notables; he wakes after Act VI; Act VI's road, bosses and resistance penalty; the ending in the character file and its two stars; the codex table pinned in its order; bases and Talismans that keep growing past Act V) |
+| `act6` bot | pass: the Warrior in 10.0 minutes (level 66, 0 deaths), the Templar in 9.7 (0 deaths). Before the new bases the Warrior took 27.2 minutes and died 11 times |
+| `king` bot (the Marid King, level 70, gear of level 60) | pass as the Warrior (1.0 minutes, 0 deaths), the Sorcerer (1.0, 0) and now the Ranger (0.7, 0), who could not before. DPS at the throne is 330 to 610 for every class (it was 180 to 270). Not yet as the Mercenary, the Shadow, the Templar or the Wanderer: see Still to do |
+| `reaches` bot | pass: Ghana after 11 runs, level 63, 5 deaths |
 | The Wanderer | `zone` pass; `act1` pass (nightly in CI) |
-| Every earlier bot | pass: `walk`, `fight`, `zone` (all seven classes), `sorcerer`, `sky`, `title`, `rifts`, `digs`, `zar`, `king`, `act5` (the Warrior 15.5 minutes, 6 deaths) |
+| Every earlier bot | pass: `walk`, `fight`, `zone` (all seven classes), `sorcerer`, `sky`, `title`, `rifts`, `digs`, `zar`, `king`, `act3` (8.5 minutes, 0 deaths), `act4` (13.8, 0), `act5` (the Warrior 7.8, 0; the Templar 8.6, 0) |
+| Simulators | `qbuildsim` 0 flags; `qchartsim` 0 flags (median 44 runs to the throne) |
 
 **Still to do in Slice 10**
 - **The Gate of Iram**, the Fourth Trial (a toll you choose), and **Falak**, the second pinnacle; uber versions of
   the Marid King and Falak.
-- **Higher-level bases and Talisman levels past 20**, so hero power keeps growing past Act V (Slice 9's Known gaps).
+- The Mercenary, Shadow, Templar and Wanderer bots have the damage for the Marid King now, but die in reach of him
+  (9 or more deaths): their pilots fight him face to face. A pilot that steps out of his combo, or a softer King.
+- The bots' Talismans stay at 20. With them at 24 the Warrior lost to the King; the likely cause (not yet confirmed)
+  is a level-24 Talisman's attribute requirement of 89. Players who find the higher Blanks need the attributes to
+  use them.
 - Screenshots of Act VI (`tour11`).
 - The codex once had entries inserted in the middle of its table (Slices 8 and 9), and characters store it by index.
   It is back in append order now, and a test pins it. A character saved by those builds may show the wrong entries

@@ -2172,7 +2172,7 @@ void World::drop_loot(const Actor& e) {
         for (int k = 0; k < 4; k++) drop_currency(e.pos + rotate(vec2{2.2f, 0}, k * 1.57f), k == 0 ? CUR_PIASTRE : roll_currency(rng, area_level + 2), 1);
         drop_gold(e.pos + vec2{0, -1.8f}, 60 + 12 * area_level);
         drop_special(e.pos + vec2{1.6f, -1.2f}, GroundItem::Wafq, rng.irange(0, WQ_COUNT - 1));
-        drop_special(e.pos + vec2{-1.6f, -1.2f}, GroundItem::Blank, std::min(20, area_level + 1));
+        drop_special(e.pos + vec2{-1.6f, -1.2f}, GroundItem::Blank, std::min(blank_cap(area_level), area_level + 1));
         if (in_chart)   // a site's master always carries charts
             for (int k = 0, n = boss_chart_drops(chart, rng); k < n; k++) {
                 GroundItem g;
@@ -2229,7 +2229,7 @@ void World::drop_loot(const Actor& e) {
     float wq = e.rarity == Rarity::Rare ? 0.3f : e.rarity == Rarity::Magic ? 0.06f : 0.008f;
     if (rng.chance(wq)) drop_special(scatter(0.9f), GroundItem::Wafq, rng.irange(0, WQ_COUNT - 1));
     float bl = e.rarity == Rarity::Rare ? 0.35f : e.rarity == Rarity::Magic ? 0.07f : 0.012f;
-    if (rng.chance(bl)) drop_special(scatter(0.9f), GroundItem::Blank, std::clamp(area_level + rng.irange(-1, 1), 1, 20));
+    if (rng.chance(bl)) drop_special(scatter(0.9f), GroundItem::Blank, std::clamp(area_level + rng.irange(-1, 1), 1, blank_cap(area_level)));
     // currency and dinars
     float cur_chance = (e.rarity == Rarity::Rare ? 0.9f : e.rarity == Rarity::Magic ? 0.25f : 0.045f) * qty *
                        (in_chart ? 1.f + astro_value(chart.astro, AX_CURRENCY) / 100.f : 1.f);

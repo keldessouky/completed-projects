@@ -3,6 +3,8 @@
 #include "tests/fixture.hpp"
 #include "game/acts.hpp"
 #include "game/crafting.hpp"
+#include "game/items.hpp"
+#include "game/skills.hpp"
 #include "game/save.hpp"
 #include "game/zone.hpp"
 
@@ -63,4 +65,28 @@ TEST(the_codex_is_append_only) {
     for (size_t i = 0; i < n; i++) CHECK(std::string(c[i].id) == order[i]);
     // every family's codex key names an entry
     for (auto& m : monster_defs()) if (*m.codex) CHECK(find_codex(m.codex) >= 0);
+}
+
+// past Act V the hero keeps growing: every weapon kind has a base near 56, every kind of armour one past 40 and
+// gloves and boots at 50, and Blank Talismans climb past 20 in the last areas
+TEST(bases_and_talismans_keep_growing_past_act_five) {
+    for (int wk = WK_MAUL; wk <= WK_SCEPTRE; wk++) {
+        int top = 0;
+        for (auto& b : item_bases()) if (b.slot == Slot::Weapon && b.wkind == wk) top = std::max(top, b.level);
+        CHECK(top >= 56);
+    }
+    // the six kinds of defence: armour, evasion, Hirz, and each pair
+    auto kind = [](const ItemBase& b) { return (b.armour > 0 ? 1 : 0) | (b.evasion > 0 ? 2 : 0) | (b.es > 0 ? 4 : 0); };
+    for (int k : {1, 2, 4, 3, 6, 5})
+        for (Slot s : {Slot::Helmet, Slot::Body, Slot::Gloves, Slot::Boots}) {
+            int top = 0;
+            for (auto& b : item_bases()) if (b.slot == s && kind(b) == k) top = std::max(top, b.level);
+            CHECK(top >= (s == Slot::Helmet || s == Slot::Body ? 38 : 50));
+        }
+    CHECK(blank_cap(20) == 20 && blank_cap(44) == 20 && blank_cap(56) == 23 && blank_cap(68) == 25);
+    // an area past Act V mostly drops the newer bases
+    Rng rng(11);
+    int late = 0;
+    for (int i = 0; i < 400; i++) if (random_drop(64, 0.1f, 0.3f, rng, Slot::Count).b().level >= 44) late++;
+    CHECK(late > 400 / 3);
 }
