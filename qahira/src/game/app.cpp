@@ -2,6 +2,7 @@
 // behind a fade, keeps the character file, and implements app_api.
 #include "platform/app_api.hpp"
 #include "core/log.hpp"
+#include "game/settings.hpp"
 #include "core/pack.hpp"
 #include "core/serial.hpp"
 #include "gfx/renderer.hpp"
@@ -47,6 +48,7 @@ struct State {
     View view;
     float select_t = -1;          // how long Select has been held in the field (-1: not held)
     Input last_input;
+    bool bar2_latched = false;    // the second skill bar, when L2 toggles it
     uint64_t frame = 0;
     int wave = 0;
     float wave_t = 0;
@@ -525,6 +527,12 @@ bool app_init(const char* pack_path, Platform* plat) {
         remove(slot_path(S->plat->save_dir, 0).c_str());
     }
     S->bot.save_dir = save_dir();
+    // the settings are the device's: loaded for players, left at their defaults for the bots (QAHIRA_LANG=ar for
+    // pictures of the Arabic screens)
+    set_settings_dir(save_dir());
+    if (S->persist && !S->bot.uses_title()) load_settings();
+    if (const char* l = getenv("QAHIRA_LANG")) settings().lang = std::string(l) == "ar" ? 1 : 0;
+    apply_settings();
     // QAHIRA_CLASS picks a fresh character's class (the bots use it; players choose on the title screen)
     const char* cls = getenv("QAHIRA_CLASS");
     w.reset_hero(cls && *cls ? cls : S->bot.default_class());
@@ -572,6 +580,11 @@ void app_update(const Input& in_raw, float dt) {
     Areas& A = S->areas;
     Menu& M = S->menu;
     S->bot.drive(w, M, A, in, S->frame);
+    // the second skill bar: L2 held, or (a setting) L2 pressed to latch it; the menus and the sky keep the raw L2
+    if (settings().bar2_toggle && !M.open && !S->sky.open && !S->map.open && !S->title.open) {
+        if (in.hit(BTN_L2)) S->bar2_latched = !S->bar2_latched;
+        in.down = S->bar2_latched ? in.down | (1u << BTN_L2) : in.down & ~(1u << BTN_L2);
+    }
     S->last_input = in;
     S->storm_k = damp(S->storm_k, w.haboob.inside(w.actors[0].pos) ? 1.f : 0.f, 2.5f, dt);
     if (S->title.open) {

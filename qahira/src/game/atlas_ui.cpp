@@ -167,6 +167,7 @@ void MapScreen::update(World& w, const Input& in, float dt) {
 void MapScreen::render(const World& w) const {
     if (!open) return;
     Ui& u = ui();
+    struct KeepEast { bool was = ui().set_mirror_enabled(false); ~KeepEast() { ui().set_mirror_enabled(was); } } keep;   // al-Idrisi's map is not mirrored
     const Hero& H = w.hero;
     u.rect(0, 0, 1920, 1080, pal::night.alpha(0.96f));
     // the round world: the encircling ocean, the land, the seas

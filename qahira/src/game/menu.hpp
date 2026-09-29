@@ -8,7 +8,7 @@
 
 namespace q {
 
-enum class MenuTab : uint8_t { Inventory, Talismans, Character, Ascendancy, Journal, Filter, Count };
+enum class MenuTab : uint8_t { Inventory, Talismans, Character, Ascendancy, Journal, Filter, Settings, Count };
 enum class Region : uint8_t { Grid, Equip, Purse, Stock, Bench };
 
 struct Menu {
@@ -33,6 +33,7 @@ struct Menu {
     int journal_section = 0;     // quests, codex, posters
     int journal_row = 0;
     int filter_cursor = 0;
+    int settings_cursor = 0;   // the Settings tab (Slice 11)
     Inventory stock;             // Amm Sayed's wares, restocked each visit
     std::string toast;
     float toast_t = 0;

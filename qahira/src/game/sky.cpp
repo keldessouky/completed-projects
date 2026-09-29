@@ -366,6 +366,7 @@ void Sky::update(World& w, const Input& in, float dt) {
 // ---------------------------------------------------------------- drawing
 void Sky::render(const World& w) const {
     Ui& u = ui();
+    struct KeepSky { bool was = ui().set_mirror_enabled(false); ~KeepSky() { ui().set_mirror_enabled(was); } } keep;   // the stars keep their places
     if (!open) {
         if (msg_t > 0) {  // a placement from the field
             float a = std::min(1.f, msg_t / 0.3f);

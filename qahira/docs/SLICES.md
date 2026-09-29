@@ -894,3 +894,46 @@ bosses.*
 - The codex once had entries inserted in the middle of its table (Slices 8 and 9), and characters store it by index.
   It is back in append order now, and a test pins it. A character saved by those builds may show the wrong entries
   as met.
+
+## Slice 11 · Arabic, accessibility and polish (in progress)
+
+*The last slice: the UI in Arabic laid out right to left, the accessibility settings, polish, and the third
+pinnacle, Umm al-Ṣubyān (still to come).*
+
+**Delivered so far**
+- **Arabic text** (`ui/arabic.*`), without HarfBuzz: the letters take their contextual forms from Noto Sans Arabic's
+  Presentation Forms-B (isolated, final, initial, medial), lam and alef become one sign, the harakat are dropped (the
+  UI's text is unvowelled), and a line is put in visual order: Arabic runs right to left, numbers and Latin words left
+  to right inside them, neutrals and brackets on the right side. The Arabic glyphs are baked into the UI's SDF atlas
+  beside the Latin ones (315 glyphs).
+- **The UI in Arabic** (`ui/lang.*`): the UI still draws English strings, and in Arabic `Ui::text` looks each one up,
+  whole, by a leading prefix ("Level " and a number) or by a trailing suffix (a number and " stars to place"). About
+  180 entries cover the title screen, the menu's tabs and panels, the HUD, the map, the sky and the settings. Item,
+  zone and monster names, the codex and the tooltips' stat lines stay English.
+- **Right to left:** in Arabic the whole layout is mirrored (every x goes to width minus x, and left and right
+  alignment swap), so the menu's panel, its tabs, the HUD's orbs and the button prompts all read from the right. The
+  Map of al-Idrisi and the Book of Fixed Stars keep their geography and are not mirrored.
+- **The Settings tab** (the menu's seventh), kept for the device in `qahira.settings` beside the character files:
+  - **Language:** English or العربية;
+  - **Text size:** normal, larger (+8%) or largest (+16%);
+  - **Loot colours:** standard, red-green safe (Okabe and Ito's blue, yellow and vermilion) or blue-yellow safe. They
+    recolour the item rarities and the green and red of the comparisons;
+  - **Screen shake:** off, 25%, 50%, 75% or full;
+  - **Second skill bar:** hold L2, or press L2 to toggle it.
+  Rebinding is left to RetroArch's own remapping.
+- `tour12` takes the pictures (`QAHIRA_LANG=ar` for the Arabic screens).
+
+**Verified**
+
+| Check | Result |
+|---|---|
+| Unit tests (`qtests`) | pass, 86 cases (new: letters joined by context, lam-alef and the harakat; a line's visual order with numbers, Latin and brackets; the translations whole, by prefix and by suffix, and none in English; the settings saved, read back and applied) |
+| Every bot | pass: `walk`, `fight`, `zone` (all seven classes), `sorcerer`, `sky`, `title`, `rifts`, `digs`, `zar`, `king` |
+
+| | |
+|---|---|
+| ![The Settings tab in Arabic](img/slice11-settings-ar.jpg) | ![Largest text and the red-green safe loot colours](img/slice11-largest-ar.jpg) |
+| ![The inventory in Arabic, mirrored](img/slice11-items-ar.jpg) | ![The HUD in Arabic, mirrored](img/slice11-hud-ar.jpg) |
+
+**Still to do**
+- Umm al-Ṣubyān, the third pinnacle; polish; the device checks on the RP6.

@@ -1,4 +1,5 @@
 #include "game/view.hpp"
+#include "game/settings.hpp"
 #include <cstdio>
 #include <cstdlib>
 #include "ui/ui.hpp"
@@ -27,8 +28,8 @@ void View::follow(const World& w, float dt, bool snap) {
     vec3 off{0, -d * std::cos(pitch), d * std::sin(pitch)};
     cam.target = snap ? target : lerp(cam.target, target, std::min(1.f, dt * 8.f));
     cam.eye = cam.target + off;
-    if (w.shake > 0) {
-        float s = w.shake * w.shake * 0.35f;
+    if (w.shake > 0 && shake_scale() > 0) {
+        float s = w.shake * w.shake * 0.35f * shake_scale();   // the screen shake setting
         vec3 j{std::sin(w.time * 71.f) * s, std::sin(w.time * 57.f + 1.f) * s, std::sin(w.time * 63.f + 2.f) * s * 0.5f};
         cam.eye += j;
         cam.target += j;

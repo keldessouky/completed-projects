@@ -1,4 +1,5 @@
 #include "game/bots.hpp"
+#include "game/settings.hpp"
 #include "game/save.hpp"
 #include "platform/app_api.hpp"
 #include <cstdio>
@@ -38,6 +39,7 @@ void Bot::drive(World& w, Menu& m, Areas& a, Input& in, uint64_t frame) {
     else if (scenario == "tour9") tour9(w, m, a, in, frame);
     else if (scenario == "tour10") tour10(w, m, a, in, frame);
     else if (scenario == "tour11") tour11(w, m, a, in, frame);
+    else if (scenario == "tour12") tour12(w, m, a, in, frame);
     else fail("unknown bot " + scenario);
 }
 
@@ -2181,6 +2183,39 @@ void Bot::tour10(World& w, Menu& m, Areas& a, Input& in, uint64_t frame) {
         return;
     }
     pass("tour10 done");
+}
+
+// ---------------------------------------------------------------- tour12: Slice 11's screens (run with QAHIRA_LANG=ar for Arabic)
+void Bot::tour12(World& w, Menu& m, Areas& a, Input& in, uint64_t frame) {
+    Hero& H = w.hero;
+    Actor& h = w.actors[0];
+    h.life = h.life_max;
+    (void)in;
+    auto at = [&](uint64_t f) { return frame == f; };
+    if (at(1)) {   // a character a little way in, with things in the bag to colour
+        Rng r(71);
+        H.level = 24;
+        H.gold = 1234;
+        H.weapon() = make_item(find_base("citadel_maul"), Rarity::Rare, 24, r);
+        H.equip[EQ_HELMET] = make_item(find_base("riveted_cap"), Rarity::Magic, 24, r);
+        H.equip[EQ_BODY] = make_item(find_base("riveted_breastplate"), Rarity::Rare, 24, r);
+        for (const char* b : {"mokattam_sledge", "work_coat", "brass_ring", "tooled_belt", "laced_boots"})
+            H.inv.add(make_item(find_base(b), b[0] == 'b' ? Rarity::Rare : Rarity::Magic, 24, r));
+        if (int u = random_unique(24, r); u >= 0) H.inv.add(make_unique(u, 24, r));
+        w.recompute_hero();
+    }
+    if (at(80)) m.show(w, false);                                    // the items
+    if (at(220)) m.tab = MenuTab::Character;
+    if (at(360)) { m.tab = MenuTab::Settings; m.settings_cursor = SET_LANG; }
+    if (at(460)) m.settings_cursor = SET_COLOURS;
+    if (at(500)) set_setting(SET_COLOURS, 1);                        // red-green safe
+    if (at(560)) { m.tab = MenuTab::Inventory; }
+    if (at(660)) { m.tab = MenuTab::Settings; m.settings_cursor = SET_TEXT; set_setting(SET_TEXT, 2); }
+    if (at(760)) { set_setting(SET_TEXT, 0); set_setting(SET_COLOURS, 0); m.hide(); }
+    if (frame > 760 && frame < 1000) {   // the HUD, on the rooftop
+        steer(w, in, a.zone.valid ? h.pos : h.pos + vec2{0.5f, 0.f});
+    }
+    if (frame >= 1000) pass("tour12 done");
 }
 
 // ---------------------------------------------------------------- tour11: the Wanderer, Act VI, the choice, the Gate of Iram, Falak (screenshots)

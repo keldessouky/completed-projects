@@ -1,4 +1,6 @@
 #include "ui/ui.hpp"
+#include "ui/arabic.hpp"
+#include "ui/lang.hpp"
 #include "gfx/shaders.hpp"
 #include "core/log.hpp"
 #include "stb_truetype.h"
@@ -54,6 +56,7 @@ bool Ui::init() {
         cps.push_back(c);
     const int pad = 6;
     int px = 8, py = 0, row_h = 0;
+    auto bake = [&](stbtt_fontinfo& fi, float scale, const std::vector<uint32_t>& cps) {
     for (uint32_t cp : cps) {
         int gi = stbtt_FindGlyphIndex(&fi, int(cp));
         if (gi == 0 && cp != 32) continue;
@@ -73,6 +76,23 @@ bool Ui::init() {
         glyphs_[cp] = g;
         px += w + 1;
         row_h = std::max(row_h, h);
+    }
+    };
+    bake(fi, scale, cps);
+    // Arabic (Slice 11): the contextual forms of Presentation Forms-B and the lam-alef ligatures, Arabic digits and
+    // punctuation, from Noto Sans Arabic at the Latin font's em size (a touch larger: Arabic reads small beside Latin)
+    if (Blob ar = pack().get("fonts/arabic.ttf")) {
+        stbtt_fontinfo fa;
+        if (stbtt_InitFont(&fa, ar.data, stbtt_GetFontOffsetForIndex(ar.data, 0))) {
+            const float em_px = scale * float((fi.data[fi.head + 18] << 8) | fi.data[fi.head + 19]);   // the Latin font's em (unitsPerEm), in pixels
+            const float sa = stbtt_ScaleForMappingEmToPixels(&fa, em_px * 1.12f);
+            std::vector<uint32_t> ac;
+            for (uint32_t c = 0xFE70; c <= 0xFEFC; c++) ac.push_back(c);
+            for (uint32_t c = 0x0621; c <= 0x064A; c++) ac.push_back(c);
+            for (uint32_t c = 0x0660; c <= 0x066C; c++) ac.push_back(c);
+            for (uint32_t c : {0x060Cu, 0x061Bu, 0x061Fu}) ac.push_back(c);
+            bake(fa, sa, ac);
+        }
     }
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
     font_.create(AW, AH, GL_R8, GL_RED, GL_UNSIGNED_BYTE, atlas.data(), true);
@@ -99,6 +119,7 @@ void Ui::quad(float x0, float y0, float x1, float y1, float u0, float v0, float 
 
 void Ui::rect(float x, float y, float w, float h, Rgba c, float radius) {
     if (w <= 0 || h <= 0 || c.a == 0) return;
+    x = mx(x, w);
     if (radius <= 0.5f) {
         float p[4] = {0, 0, 0, 0};
         quad(x, y, x + w, y + h, 1.f / 1024, 1.f / 1024, 2.f / 1024, 2.f / 1024, c, p);
@@ -116,10 +137,13 @@ void Ui::frame(float x, float y, float w, float h, Rgba fill, Rgba border, float
 void Ui::ring(float cx, float cy, float r_out, float r_in, Rgba c) {
     float p[4] = {3, r_out, r_in, 0};
     float e = r_out + 1;
+    cx = mx(cx);
     quad(cx - e, cy - e, cx + e, cy + e, -e, -e, e, e, c, p);
 }
 
 void Ui::line(float x0, float y0, float x1, float y1, float w, Rgba c) {
+    x0 = mx(x0);
+    x1 = mx(x1);
     vec2 d = normalize(vec2{x1 - x0, y1 - y0}), n = perp(d) * (w * 0.5f);
     float p[4] = {0, 0, 0, 0};
     float u = 1.f / 1024;
@@ -140,7 +164,16 @@ void Ui::arc_fill(float cx, float cy, float r, float frac, Rgba c) {
 }
 
 float Ui::text_width(const std::string& s, float size) const {
+    std::string t;
+    return width_raw(translate(s, t) ? t : s, size * text_scale_);
+}
+
+float Ui::width_raw(const std::string& s, float size) const {
     float k = size / font_px_, w = 0;
+    if (has_arabic(s)) {   // shaped: the contextual forms have their own widths
+        for (char32_t cp : arabic_line(s)) if (auto it = glyphs_.find(uint32_t(cp)); it != glyphs_.end()) w += it->second.advance * k;
+        return w;
+    }
     for (size_t i = 0; i < s.size();) {
         uint32_t cp = next_cp(s, i);
         auto it = glyphs_.find(cp);
@@ -150,14 +183,27 @@ float Ui::text_width(const std::string& s, float size) const {
 }
 
 float Ui::text(float x, float y, const std::string& s, float size, Rgba c, Align a, float weight, bool outline) {
+    std::string t;
+    const std::string& str = translate(s, t) ? t : s;
+    if (mirrored()) {
+        x = w_ - x;
+        a = a == Align::Left ? Align::Right : a == Align::Right ? Align::Left : a;
+    }
+    // the size grows with the text size setting, the line stays where the caller put it
+    return text_raw(x, y, str, size * text_scale_, c, a, weight, outline);
+}
+
+float Ui::text_raw(float x, float y, const std::string& s, float size, Rgba c, Align a, float weight, bool outline) {
     float k = size / font_px_;
-    float w = text_width(s, size);
+    float w = width_raw(s, size);
     if (a == Align::Center) x -= w / 2;
     else if (a == Align::Right) x -= w;
     float base = y + ascent_ * k;
     float p[4] = {1, 0.5f - weight * 0.12f, outline ? 0.18f : 0.f, 0};
-    for (size_t i = 0; i < s.size();) {
-        uint32_t cp = next_cp(s, i);
+    const bool ar = has_arabic(s);
+    const std::u32string shaped = ar ? arabic_line(s) : std::u32string();
+    for (size_t i = 0, j = 0; ar ? j < shaped.size() : i < s.size();) {
+        uint32_t cp = ar ? uint32_t(shaped[j++]) : next_cp(s, i);
         auto it = glyphs_.find(cp);
         if (it == glyphs_.end()) continue;
         const Glyph& g = it->second;
@@ -167,7 +213,10 @@ float Ui::text(float x, float y, const std::string& s, float size, Rgba c, Align
     return w;
 }
 
-float Ui::wrap(float x, float y, float w, const std::string& s, float size, Rgba c, float line_h, float weight) {
+float Ui::wrap(float x, float y, float w, const std::string& s0, float size, Rgba c, float line_h, float weight) {
+    std::string tt;
+    const std::string s = translate(s0, tt) ? tt : s0;   // the whole paragraph first: its lines have no entries
+    line_h *= text_scale_;   // text() applies the text size; the line height follows it
     std::string line, word;
     float cy = y;
     auto emit = [&]() { text(x, cy, line, size, c, Align::Left, weight); cy += size * line_h; line.clear(); };
@@ -186,6 +235,7 @@ float Ui::wrap(float x, float y, float w, const std::string& s, float size, Rgba
 }
 
 void Ui::push_clip(float x, float y, float w, float h) {
+    x = mx(x, w);
     verts_.push_back(V{-1e9f, 0, 0, 0, {0, 0, 0, 0}, {x, y, w, h}});  // clip marker
     clips_.push_back(vec4{x, y, w, h});
 }

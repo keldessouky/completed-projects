@@ -1,4 +1,5 @@
 #include "game/menu.hpp"
+#include "game/settings.hpp"
 #include "game/view.hpp"
 #include "ui/ui.hpp"
 #include <cstdio>
@@ -293,6 +294,18 @@ void Menu::update(World& w, const Input& in, float dt) {
 }
 
 void Menu::move(World& w, int dir) {
+    if (tab == MenuTab::Settings) {   // up and down the rows, left and right through a row's choices, kept at once
+        if (dir == D_UP) settings_cursor = (settings_cursor + SET_COUNT - 1) % SET_COUNT;
+        if (dir == D_DOWN) settings_cursor = (settings_cursor + 1) % SET_COUNT;
+        if (dir == D_LEFT || dir == D_RIGHT) {
+            // in Arabic the screen is mirrored: right on the stick is back through the choices
+            const bool fwd = (dir == D_RIGHT) != ui().mirrored();
+            set_setting(settings_cursor, setting_value(settings_cursor) + (fwd ? 1 : -1));
+            save_settings();
+            w.emit(Ev::Craft, w.actors[0].pos, 0);
+        }
+        return;
+    }
     if (tab == MenuTab::Filter) {
         if (dir == D_UP) filter_cursor = std::max(0, filter_cursor - 1);
         if (dir == D_DOWN) filter_cursor = std::min(int(FILTER_COUNT) - 1, filter_cursor + 1);
@@ -376,6 +389,7 @@ void Menu::move(World& w, int dir) {
 
 void Menu::act_south(World& w) {
     Hero& H = w.hero;
+    if (tab == MenuTab::Settings) { move(w, ui().mirrored() ? D_LEFT : D_RIGHT); return; }
     if (tab == MenuTab::Filter) {
         H.filter = uint8_t(filter_cursor);
         say(std::string("Loot filter: ") + filter_name(H.filter));
@@ -540,7 +554,7 @@ void Menu::render(const World& w) const {
     if (vendor) {
         u.text(PX + PW / 2, PY + 22, "Your Belongings", 38, pal::bone, Align::Center, 1.2f, true);
     } else {
-        static const char* names[] = {"Items", "Talismans", "Character", "Ascendancy", "Journal", "Filter"};
+        static const char* names[] = {"Items", "Talismans", "Character", "Ascendancy", "Journal", "Filter", "Settings"};
         if (bench) {
             u.text(PX + PW / 2, PY + 22, "Your Belongings", 38, pal::bone, Align::Center, 1.2f, true);
         } else {
@@ -701,6 +715,33 @@ void Menu::render(const World& w) const {
         }
         u.text(x, y + 10, "Quick switch in the field: D-pad Right", 24, pal::dim);
         legend(PX + 30, PY + PH - 58, {{BTN_SOUTH, "Apply"}, {BTN_EAST, "Close"}});
+    } else if (tab == MenuTab::Settings) {
+        float x = PX + 60, y = PY + 130;
+        u.text(x, y, "Saved for every character on this device", 26, pal::dim);
+        y += 70;
+        for (int r = 0; r < SET_COUNT; r++) {
+            const bool cur = settings_cursor == r;
+            u.frame(x - 10, y, PW - 100, 96, cur ? pal::dusk : pal::panel2, cur ? pal::amber : pal::line, 12, cur ? 3.f : 1.f);
+            u.text(x + 20, y + 28, setting_label(r), 32, pal::bone, Align::Left, 0.8f);
+            const std::string v = setting_choice_name(r, setting_value(r));
+            const float vx = PX + PW - 110;
+            u.text(vx, y + 28, v, 32, cur ? pal::amber : pal::soft, Align::Right, 0.8f);
+            if (cur) {   // the arrows either side of the choice
+                const bool m = ui().mirrored();   // the arrows point outward on either side, mirrored or not
+                u.text(vx - u.text_width(v, 32) - 40, y + 26, m ? "\xE2\x86\x92" : "\xE2\x86\x90", 32, pal::amber, Align::Left);
+                u.text(vx + 14, y + 26, m ? "\xE2\x86\x90" : "\xE2\x86\x92", 32, pal::amber, Align::Left);
+            }
+            y += 112;
+        }
+        // the loot colours, as they are now
+        y += 10;
+        const char* names2[] = {"Magic", "Rare", "Unique"};
+        const Rgba cs[] = {pal::magic, pal::rare, pal::unique};
+        for (int k = 0; k < 3; k++) {
+            u.frame(x + k * 200.f, y, 180, 60, cs[k].mix(pal::panel, 0.8f), cs[k], 8, 2);
+            u.text(x + k * 200.f + 90, y + 14, names2[k], 28, cs[k], Align::Center, 0.8f);
+        }
+        legend(PX + 30, PY + PH - 58, {{BTN_SOUTH, "Change"}, {BTN_EAST, "Close"}});
     }
     if (toast_t > 0) {
         float a = std::min(1.f, toast_t / 0.3f);

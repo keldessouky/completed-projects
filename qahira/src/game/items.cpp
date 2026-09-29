@@ -1,4 +1,5 @@
 #include "game/items.hpp"
+#include "ui/ui.hpp"
 #include "game/uniques.hpp"
 #include <algorithm>
 #include <array>
@@ -708,10 +709,11 @@ std::vector<std::string> Item::lines() const {
 }
 
 uint32_t rarity_color(Rarity r) {
+    auto hex = [](Rgba c) { return uint32_t(c.r) << 16 | uint32_t(c.g) << 8 | c.b; };   // as the colour-blind setting has them
     switch (r) {
-        case Rarity::Magic: return 0x7AA8FF;
-        case Rarity::Rare: return 0xF5D76E;
-        case Rarity::Unique: return 0xE08A3C;
+        case Rarity::Magic: return hex(pal::magic);
+        case Rarity::Rare: return hex(pal::rare);
+        case Rarity::Unique: return hex(pal::unique);
         default: return 0xEDE3D1;
     }
 }

@@ -129,6 +129,9 @@ use the same positions.
 | Tap Select | Place the next star you planned in the Book |
 | Bottom button, after dying | Get up again |
 
+**Settings** (the menu's last tab): the language (English, or Arabic laid out right to left), the text size, loot
+colours safe for colour-blind players, the screen shake, and whether L2 holds or toggles the second skill bar.
+
 **In the menu:** L1 / R1 switch tabs, the bottom button equips or uses, the top button drops (on the Character tab it
 shows "Why?" for any number), and the right button or Start closes it. The world is paused while any menu is open.
 Every screen shows its own button prompts at the bottom.
