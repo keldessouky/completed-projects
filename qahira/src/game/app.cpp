@@ -5,6 +5,7 @@
 #include "game/settings.hpp"
 #include "core/pack.hpp"
 #include "net/http.hpp"
+#include "game/updater.hpp"
 #include "core/serial.hpp"
 #include "gfx/renderer.hpp"
 #include "ui/ui.hpp"
@@ -70,6 +71,8 @@ struct State {
     bool boss_music = false;
     bool zar_music = false;
     bool persist = true;          // write the character file (off for bots)
+    bool exit_requested = false;  // Game → Exit: the frontend closes the game
+    bool update_told = false;     // the toast that an update is ready, once
 };
 
 State* S = nullptr;
@@ -560,6 +563,9 @@ bool app_init(const char* pack_path, Platform* plat) {
         // authorities the pack carries as well as the system's (an older Android's may lack the newer ones)
         net::add_trusted(pack().get("data/cacert.pem").str());
         start_radio_fetch(pack().get("data/radio.json").str(), save_dir() + "/radio");
+        // and asks once whether a newer build is out (Start → Game → Update downloads it)
+        updater().configure(Updater::defaults(plat ? plat->core_path : std::string(), pack_path));
+        updater().check();
     } else if (const char* rd = getenv("QAHIRA_RADIO")) {   // pictures of the radio: a bot with episodes from here
         set_radio_dirs({rd});
         apply_music();
@@ -571,6 +577,7 @@ bool app_init(const char* pack_path, Platform* plat) {
 void app_shutdown() {
     if (!S) return;
     save_character();
+    updater().stop();
     stop_radio_fetch();
     keep_radio_place();
     audio().radio.stop();
@@ -711,11 +718,36 @@ void app_update(const Input& in_raw, float dt) {
         bool was_open = M.open;
         M.update(w, in, dt);
         presentation_events();
+        if (M.request == Menu::Request::Title) {   // Game → Quit to the title: saved, and back to the four slots
+            M.request = Menu::Request::None;
+            save_character();
+            keep_radio_place();
+            M.hide();
+            S->view.map_open = false;
+            S->title.scan(save_dir());
+            S->title.cursor = S->slot;
+            S->title.open = true;
+            audio().play("portal", 0.5f, 0, 1);
+            return;
+        }
+        if (M.request == Menu::Request::Exit) {    // Game → Exit: saved, and the frontend closes the game
+            M.request = Menu::Request::None;
+            save_character();
+            keep_radio_place();
+            M.hide();
+            S->exit_requested = true;
+            return;
+        }
         if (was_open && !M.open) save_character();
         S->view.follow(w, dt);
         return;
     }
     M.update(w, in, dt);  // toasts fade
+    if (!S->update_told && updater().state() == Updater::State::Available) {   // once, in the field
+        S->update_told = true;
+        M.say("A new build is ready: Start, then the Game tab");
+        M.toast_t = 4.f;
+    }
     if (!w.notices.empty() && M.toast_t <= 0.2f) {   // recipes, codex entries, posters: one at a time
         M.say(w.notices.front());
         M.toast_t = 3.2f;
@@ -951,6 +983,8 @@ bool app_unserialize(const void* data, size_t size) {
     area_audio();
     return r.ok;
 }
+
+bool app_exit_requested() { return S && S->exit_requested; }
 
 // the core options (Slice 11): the performance mode's 3D resolution; the frame rate is the libretro layer's
 void app_set_option(const char* key, const char* value) {

@@ -1044,6 +1044,23 @@ notes after playing it, taken one at a time.*
     - **Places:** each station keeps its own episode and place, by station and file name, in `qahira.radio` beside
       the settings, every twenty seconds and on exit. The settings' own place (v2, which still reads v1) is read
       once, for Radio Kafr El-Sheikh, when that file isn't there yet.
+- **The Game tab** (the menu's last): Resume; Update; Quit to the title (saves, then back to the four slots); Exit
+  the game (saves, then asks RetroArch to close it with `RETRO_ENVIRONMENT_SHUTDOWN`). Quitting and exiting each ask
+  for a second press. The tab shows the build ("Build 48 (1a2b3c4)").
+- **Updating in the game** (`game/updater.*`):
+  - **Release:** CI now publishes `version.json` with qahira-latest: the commit, the run, and each file's size and
+    SHA-256. The Android core is built with its own commit and run baked in (`QAHIRA_COMMIT`, `QAHIRA_RUN`).
+  - **Check:** at start, the game fetches `version.json` and compares commits. A newer build shows as a toast in
+    the field and on the Update row.
+  - **Install:**
+    - It downloads the core and the pack beside the ones in use (`.part`, resumed with Range) and checks both
+      SHA-256s.
+    - Then it swaps them in, the core first (the old one kept as `.old` until the pack is in, and put back if the
+      pack can't follow).
+    - The running game keeps what it loaded: the pack is in memory and the old core stays mapped.
+    - The core's own path comes from `dladdr`.
+  - **Where it runs:** the Android core only. The dev host shows "Updates are for the RP6's core".
+- **Saves without a saves folder:** when RetroArch names none, the saves go beside the pack.
 - Character files are v10 (the flask's tier) and save states v17.
 - CI had been red since the glow change. The new art changed the drops and some layouts, which showed up two faults in
   the bot pilot, not in the game:
@@ -1056,7 +1073,7 @@ notes after playing it, taken one at a time.*
 
 | Check | Result |
 |---|---|
-| Unit tests (`qtests`) | pass, 99 cases (new: the radio coming on by itself when its first episode lands, the pack's station list in airing order, an Internet Archive item and a podcast feed listed, episodes fetched (from local files) and a cut-off one resumed, the radio going on playing as episodes arrive; a station for each folder in the radio folder, each keeping its own place by name, and the Music setting choosing among them; the radio finds its episodes in natural order and streams MP3, Ogg and WAV at 48 kHz, keeps its place and moves on at an episode's end; the settings keep the music and the radio's place and still read v1; the effects sheet's rows match the game's list, a burst's colour picks its flipbook and it draws the same random numbers as before, the flask's tiers, charges, heal and prices climb, the tier in the character file, the Spring affix and the Spring-Water Amulet's regeneration) |
+| Unit tests (`qtests`) | pass, 104 cases (new: the update reads version.json, installs a newer build from files here, resumes a cut-off download, changes nothing when a download is damaged, and runs in the background; the Game tab asks twice before quitting; the radio coming on by itself when its first episode lands, the pack's station list in airing order, an Internet Archive item and a podcast feed listed, episodes fetched (from local files) and a cut-off one resumed, the radio going on playing as episodes arrive; a station for each folder in the radio folder, each keeping its own place by name, and the Music setting choosing among them; the radio finds its episodes in natural order and streams MP3, Ogg and WAV at 48 kHz, keeps its place and moves on at an episode's end; the settings keep the music and the radio's place and still read v1; the effects sheet's rows match the game's list, a burst's colour picks its flipbook and it draws the same random numbers as before, the flask's tiers, charges, heal and prices climb, the tier in the character file, the Spring affix and the Spring-Water Amulet's regeneration) |
 | Every bot | pass: `walk`, `fight`, `zone` (all seven classes), `sorcerer`, `sky`, `title`, `rifts`, `digs`, `zar`, `king` |
 
 | | |

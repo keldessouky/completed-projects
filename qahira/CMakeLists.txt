@@ -15,6 +15,19 @@ add_library(qahira_obj OBJECT ${CORE_SRC} third_party/stb_impl.cpp third_party/a
 target_include_directories(qahira_obj PUBLIC src third_party/libretro third_party/stb third_party/minimp3
                            third_party/mbedtls/include)
 target_compile_options(qahira_obj PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-Wall -Wno-unused-function -Wno-missing-braces>)
+# which build this is, for the in-game update (CI passes the run number; the commit comes from git when not given)
+if(NOT QAHIRA_COMMIT)
+  execute_process(COMMAND git rev-parse HEAD WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+                  OUTPUT_VARIABLE QAHIRA_COMMIT OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+endif()
+if(NOT QAHIRA_COMMIT)
+  set(QAHIRA_COMMIT dev)
+endif()
+if(NOT QAHIRA_RUN)
+  set(QAHIRA_RUN 0)
+endif()
+set_source_files_properties(src/game/updater.cpp PROPERTIES
+                            COMPILE_DEFINITIONS "QAHIRA_COMMIT=\"${QAHIRA_COMMIT}\";QAHIRA_RUN=${QAHIRA_RUN}")
 if(ANDROID)
   target_compile_options(qahira_obj PRIVATE -O3 $<$<COMPILE_LANGUAGE:CXX>:-ffast-math -fno-exceptions>)
 endif()

@@ -3,6 +3,7 @@
 #include "platform/app_api.hpp"
 #include "core/log.hpp"
 #include <cstring>
+#include <dlfcn.h>
 #include <string>
 #include <vector>
 
@@ -155,6 +156,8 @@ RETRO_API void retro_get_system_av_info(retro_system_av_info* info) {
 RETRO_API void retro_set_controller_port_device(unsigned, unsigned) {}
 RETRO_API void retro_reset(void) {}
 
+static bool g_shutdown_asked = false;   // RetroArch was asked to close the game (Game → Exit)
+
 RETRO_API bool retro_load_game(const retro_game_info* game) {
     if (!game || !game->path) return false;
     retro_pixel_format fmt = RETRO_PIXEL_FORMAT_XRGB8888;
@@ -207,6 +210,9 @@ RETRO_API bool retro_load_game(const retro_game_info* game) {
         const size_t cut = p.find_last_of("/\\");
         plat.save_dir = cut == std::string::npos ? std::string(".") : p.substr(0, cut);
     }
+    g_shutdown_asked = false;
+    Dl_info self{};   // where RetroArch loaded this core from: an update replaces that file
+    if (dladdr((void*)&retro_run, &self) && self.dli_fname) plat.core_path = self.dli_fname;
     loaded = app_init(game->path, &plat);
     if (loaded) check_variables(false);
     return loaded;
@@ -270,6 +276,7 @@ RETRO_API void retro_run(void) {
         if (!first) { in.pressed = 0; in.released = 0; in.tapped = false; }
         app_update(in, 1.f / 60.f);
     }
+    if (app_exit_requested() && !g_shutdown_asked) g_shutdown_asked = env_cb(RETRO_ENVIRONMENT_SHUTDOWN, nullptr);   // Game → Exit
 
     if (gpu_ready) {
         app_render(GLuint(hw.get_current_framebuffer()), kW, kH);

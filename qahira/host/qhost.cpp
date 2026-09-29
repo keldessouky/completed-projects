@@ -291,6 +291,7 @@ int main(int argc, char** argv) {
         int st = q::app_test_status();
         if (st != 0) { fprintf(stderr, "TEST %s: %s\n", st == 1 ? "PASS" : "FAIL", q::app_test_message()); quit = true; if (st == 2) { retro_unload_game(); return 2; } }
         if (frames > 0 && frame >= frames) quit = true;
+        if (q::app_exit_requested()) quit = true;
     }
     retro_unload_game();
     if (g_wav) {  // patch the RIFF header now that the length is known

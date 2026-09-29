@@ -203,7 +203,8 @@ jobs:
           echo "NDK: $NDK"
           cmake -S . -B build/android -G Ninja -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_TOOLCHAIN_FILE="$NDK/build/cmake/android.toolchain.cmake" \
-            -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-29
+            -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-29 \
+            -DQAHIRA_COMMIT="$GITHUB_SHA" -DQAHIRA_RUN="$GITHUB_RUN_NUMBER"
           cmake --build build/android
           BIN="$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin"
           "$BIN/llvm-strip" -o build/qahira_libretro_android.so build/android/qahira_libretro_android.so
@@ -213,12 +214,30 @@ jobs:
           echo "retro_* exports: $exports"
           test "$exports" -ge 25
           ls -l build/qahira_libretro_android.so
+      - name: version.json (what the in-game update reads)
+        run: |
+          python - <<'EOF'
+          import hashlib, json, os
+          files = []
+          for name in ('qahira_libretro_android.so', 'Qahira.qpk'):
+              path = os.path.join('build', name)
+              h = hashlib.sha256()
+              with open(path, 'rb') as f:
+                  for block in iter(lambda: f.read(1 << 20), b''):
+                      h.update(block)
+              files.append({'name': name, 'size': os.path.getsize(path), 'sha256': h.hexdigest()})
+          info = {'commit': os.environ['GITHUB_SHA'], 'run': int(os.environ['GITHUB_RUN_NUMBER']), 'files': files}
+          with open('build/version.json', 'w') as f:
+              json.dump(info, f, indent=1)
+          EOF
+          cat build/version.json
       - uses: actions/upload-artifact@v4
         with:
           name: qahira-rp6
           path: |
             qahira/build/qahira_libretro_android.so
             qahira/build/Qahira.qpk
+            qahira/build/version.json
           compression-level: 0
           retention-days: 14
       - name: Move the qahira-latest tag to this commit
@@ -243,7 +262,10 @@ jobs:
             - `qahira_libretro_android.so`: the RetroArch core (Android, arm64-v8a)
             - `Qahira.qpk`: the game's content pack
 
+            Already playing? Start → Game → Update downloads these in the game (`version.json` tells it what's here).
+
             How to install and play from the handheld: [qahira/docs/PLAY.md](https://github.com/${{ github.repository }}/blob/qahira/qahira/docs/PLAY.md)
           files: |
             qahira/build/qahira_libretro_android.so
             qahira/build/Qahira.qpk
+            qahira/build/version.json

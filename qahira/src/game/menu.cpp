@@ -175,6 +175,8 @@ void draw_item_icon(float x, float y, float w, float h, const Item& it, float al
 // ---------------------------------------------------------------- state
 void Menu::show(World& w, bool at_vendor) {
     open = true;
+    game_armed = -1;
+    request = Request::None;
     vendor = at_vendor;
     tab = MenuTab::Inventory;
     held = -1;
@@ -289,6 +291,7 @@ void Menu::update(World& w, const Input& in, float dt) {
     if (tab == MenuTab::Character && !vendor) { char_update(w, in, step); return; }
     if (tab == MenuTab::Ascendancy && !vendor) { asc_update(w, in, step); return; }
     if (tab == MenuTab::Journal && !vendor) { journal_update(w, in, step); return; }
+    if (tab == MenuTab::Game && !vendor) { game_update(w, in, step); return; }
     if (step >= 0) move(w, step);
     if (in.hit(BTN_SOUTH)) act_south(w);
     else if (in.hit(BTN_NORTH)) act_north(w);
@@ -569,7 +572,7 @@ void Menu::render(const World& w) const {
     if (vendor) {
         u.text(PX + PW / 2, PY + 22, "Your Belongings", 38, pal::bone, Align::Center, 1.2f, true);
     } else {
-        static const char* names[] = {"Items", "Talismans", "Character", "Ascendancy", "Journal", "Filter", "Settings"};
+        static const char* names[] = {"Items", "Talismans", "Character", "Ascendancy", "Journal", "Filter", "Settings", "Game"};
         if (bench) {
             u.text(PX + PW / 2, PY + 22, "Your Belongings", 38, pal::bone, Align::Center, 1.2f, true);
         } else {
@@ -746,6 +749,8 @@ void Menu::render(const World& w) const {
         }
         u.text(x, y + 10, "Quick switch in the field: D-pad Right", 24, pal::dim);
         legend(PX + 30, PY + PH - 58, {{BTN_SOUTH, "Apply"}, {BTN_EAST, "Close"}});
+    } else if (tab == MenuTab::Game) {
+        game_render();
     } else if (tab == MenuTab::Settings) {
         float x = PX + 60, y = PY + 130;
         u.text(x, y, "Saved for every character on this device", 26, pal::dim);

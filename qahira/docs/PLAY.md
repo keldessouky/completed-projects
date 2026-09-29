@@ -186,7 +186,15 @@ asks. High-level belts, amulets and rings, and the affix *of the Spring*, regene
 shows "Why?" for any number), and the right button or Start closes it. The world is paused while any menu is open.
 Every screen shows its own button prompts at the bottom.
 
-**RetroArch's own menu** (to quit, or for save states) usually opens with the Android **Back** button. If it doesn't,
+**The Game tab** (the menu's last):
+- **Resume** closes the menu.
+- **Update** gets a newer build (see [Updating](#updating-to-a-newer-build)).
+- **Quit to the title** saves your character and goes back to the four slots.
+- **Exit the game** saves and closes the game.
+
+Quitting and exiting each ask for a second press. The tab also shows which build you're on.
+
+**RetroArch's own menu** (for save states) usually opens with the Android **Back** button. If it doesn't,
 set a combination under **Settings → Input → Hotkeys → Menu Toggle Controller Combo**. The game uses every button,
 so any combination also reaches the game. Pick one you won't press during play.
 
@@ -202,6 +210,24 @@ so any combination also reaches the game. Pick one you won't press during play.
   tests, but haven't been tried on the device yet.
 
 ## Updating to a newer build
+
+**In the game** (from the build that has the Game tab on):
+1. With Wi-Fi on, press **Start** and go to the **Game** tab (R1 until you reach it). When a new build is out, the
+   game says so in the field ("A new build is ready"), and the Update row offers it with its size.
+2. Press the bottom button on **Download the update**.
+   - The core (a few MB) and the pack (about 200 MB) download in the background, so you can close the menu and play
+     on.
+   - If the download is cut off, the next try goes on from where it stopped.
+3. Both files are checked against the release's SHA-256 before anything is replaced. A damaged download replaces
+   nothing.
+4. When the row says **Installed**, choose **Exit the game** and start the game again. If the Game tab still shows
+   the old build number, close RetroArch completely (swipe it away) and open it again.
+
+The update needs room for a second copy of the pack (about 200 MB). It also needs RetroArch to be allowed to write
+where the core and the pack are, which it normally is. If it can't, the Update row says why, and the steps below
+still work.
+
+**By hand:**
 
 1. Open the [release page](https://github.com/keldessouky/completed-projects/releases/tag/qahira-latest) again. It
    says which commit it was built from, so you can tell whether it's new.

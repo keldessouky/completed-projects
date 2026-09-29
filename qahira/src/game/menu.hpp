@@ -8,7 +8,9 @@
 
 namespace q {
 
-enum class MenuTab : uint8_t { Inventory, Talismans, Character, Ascendancy, Journal, Filter, Settings, Count };
+enum class MenuTab : uint8_t { Inventory, Talismans, Character, Ascendancy, Journal, Filter, Settings, Game, Count };
+// the Game tab's rows
+enum GameRow { GAME_RESUME, GAME_UPDATE, GAME_TITLE, GAME_EXIT, GAME_ROWS };
 enum class Region : uint8_t { Grid, Equip, Purse, Stock, Bench };
 
 struct Menu {
@@ -34,6 +36,9 @@ struct Menu {
     int journal_row = 0;
     int filter_cursor = 0;
     int settings_cursor = 0;   // the Settings tab (Slice 11)
+    int game_cursor = 0;       // the Game tab: resume, update, quit to the title, exit
+    int game_armed = -1;       // quitting and exiting ask for a second press
+    enum class Request : uint8_t { None, Title, Exit } request = Request::None;   // for the app to carry out
     Inventory stock;             // Amm Sayed's wares, restocked each visit
     std::string toast;
     float toast_t = 0;
@@ -78,6 +83,8 @@ private:
     void asc_render(const World& w) const;
     void journal_update(World& w, const Input& in, int dir);
     void journal_render(const World& w) const;
+    void game_update(World& w, const Input& in, int dir);
+    void game_render() const;
 };
 
 // A film's poster (GDD §7.4), with the scraps you hold of it; missing quarters are torn away.
