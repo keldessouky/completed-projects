@@ -48,13 +48,14 @@ public:
     void stop();
     bool running() const { return thread_.joinable() && !done_; }
     uint32_t arrived() const { return arrived_; }   // episodes finished so far (the radio looks again on a change)
-    std::string status() const;                     // "Downloading the radio: 3/18", or empty
+    std::string status() const;                     // "Downloading the radio: 3/18", "Radio: <what failed>", or empty
     void run_once_for_tests(const std::string& stations_json, const std::string& dir);
 
 private:
     bool pass();                                    // one round; true when everything is here
     bool fetch(const RadioStation& st, const RadioEpisode& ep);
     void set_status(const std::string& s);
+    void note(const std::string& what, bool error = true);   // to the log, the radio log and (errors) the status
     std::vector<RadioStation> stations_;
     std::string dir_;
     std::thread thread_;
@@ -64,6 +65,7 @@ private:
     mutable std::mutex m_;
     std::condition_variable cv_;
     std::string status_;
+    std::string error_;                             // the last thing that went wrong
 };
 
 }  // namespace q

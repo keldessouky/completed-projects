@@ -201,8 +201,12 @@ RETRO_API bool retro_load_game(const retro_game_info* game) {
     have_rumble = env_cb(RETRO_ENVIRONMENT_GET_RUMBLE_INTERFACE, &rumble_if);
     plat.rumble = do_rumble;
     const char* dir = nullptr;
-    if (env_cb(RETRO_ENVIRONMENT_GET_SAVE_DIRECTORY, &dir) && dir) plat.save_dir = dir;
-    else plat.save_dir = ".";
+    if (env_cb(RETRO_ENVIRONMENT_GET_SAVE_DIRECTORY, &dir) && dir && *dir) plat.save_dir = dir;
+    else {   // no saves folder (or "keep saves with the content"): beside the pack, as "." is "/" on Android
+        const std::string p = game->path ? game->path : "";
+        const size_t cut = p.find_last_of("/\\");
+        plat.save_dir = cut == std::string::npos ? std::string(".") : p.substr(0, cut);
+    }
     loaded = app_init(game->path, &plat);
     if (loaded) check_variables(false);
     return loaded;

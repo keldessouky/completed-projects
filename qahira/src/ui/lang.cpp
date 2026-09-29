@@ -186,6 +186,7 @@ const std::vector<std::pair<const char*, const char*>>& prefixes() {
     static const std::vector<std::pair<const char*, const char*>> d = {
         {"Level ", "المستوى "},
         {"Downloading the radio: ", "تنزيل الراديو: "},
+        {"Radio: ", "الراديو: "},
         {"Filter: ", "الفرز: "},
         {"Needs ", "يحتاج "},
         {"Buy for ", "اشترِ بـ "},

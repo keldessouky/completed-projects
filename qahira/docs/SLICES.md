@@ -1025,8 +1025,11 @@ notes after playing it, taken one at a time.*
       Range request. Without Wi-Fi it tries again after 30 seconds, then less often (up to every 15 minutes). The
       radio rescans as each episode lands, without interrupting the one playing, and comes on with the first.
       Settings shows the progress ("Downloading the radio: 3/18"). All 18 take about 565 MB.
-    - **HTTPS:** Mbed TLS 3.6 (Apache-2.0, `third_party/mbedtls`), verified against the system's certificate
-      authorities (on Android, `/system/etc/security/cacerts`). The client follows redirects and reads chunked
+    - **HTTPS:** Mbed TLS 3.6 (Apache-2.0, `third_party/mbedtls`), verified against Mozilla's certificate
+      authorities, which the pack carries (`data/cacert.pem`), and the system's (on Android,
+      `/system/etc/security/cacerts`).
+    - **Diagnosis:** a failure shows in Settings ("Radio: …") and goes into `radio log.txt` in the radio folder,
+      beside the RetroArch log, along with how many authorities it trusts. The client follows redirects and reads chunked
       bodies. It honours `HTTPS_PROXY` on desktops.
     - **Why not YouTube:** YouTube locks its audio behind player code that changes every few weeks and refuses cloud
       servers, so an offline core would keep breaking.
@@ -1068,6 +1071,14 @@ notes after playing it, taken one at a time.*
   changes. Every other long run passes locally: `act1` to `act6` as the Warrior, `act1` and `act3` as the Mercenary,
   `act2` as the Ranger, `act3` and `act4` as the Shadow, `act5` and `act6` as the Templar, `falak`, `subyan`, `charts`
   and `reaches`.
+- The first try on the RP6 kept the game's music: the radio never came on, and nothing said why. The next build:
+  - shows the reason on screen and in `radio log.txt`;
+  - brings its own trusted authorities;
+  - puts the saves beside the pack when RetroArch names no saves folder (it had fallen back to ".", which is `/`
+    on Android).
+
+  Checked offline: Mbed TLS accepts the chain archive.org's download servers send (Let's Encrypt YE1 ← Root YE ←
+  ISRG Root X2 ← X1) with only ISRG Root X1 trusted.
 - Radio Kafr El-Sheikh fetches its 18 episodes from the Internet Archive by itself. This was tested on Linux: all 18
   links answer, episodes arrive byte for byte, a cut-off download resumes to an identical file, and MP3 and Ogg
   both play. It has not been heard on the RP6 yet, where it relies on Android's certificate store and RetroArch's

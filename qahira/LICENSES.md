@@ -7,6 +7,7 @@
 | `third_party/minimp3/` (lieff) | CC0 1.0 | MP3 decoding for Radio Kafr El-Sheikh |
 | `third_party/stb/stb_vorbis.c` (Sean Barrett) | Public domain / MIT | Ogg Vorbis decoding for Radio Kafr El-Sheikh |
 | `third_party/mbedtls/` (Mbed TLS 3.6.7) | Apache-2.0 | HTTPS for the radio's downloads |
+| `data/cacert.pem` (Mozilla's CA certificates, as curl extracts them) | MPL-2.0 | The authorities the radio's downloads trust, besides the system's |
 | Inter (Rasmus Andersson), Noto Sans Arabic (Google) | SIL Open Font License 1.1 | UI text, converted from the copies that ship with Blender |
 | SDL2 (dev host only, not shipped) | zlib | Window, input and audio on the Mac |
 

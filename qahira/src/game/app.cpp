@@ -4,6 +4,7 @@
 #include "core/log.hpp"
 #include "game/settings.hpp"
 #include "core/pack.hpp"
+#include "net/http.hpp"
 #include "core/serial.hpp"
 #include "gfx/renderer.hpp"
 #include "ui/ui.hpp"
@@ -555,7 +556,9 @@ bool app_init(const char* pack_path, Platform* plat) {
         const std::string dir = cut == std::string::npos ? std::string(".") : p.substr(0, cut);
         set_radio_dirs({dir + "/radio", dir + "/Radio", save_dir() + "/radio"});
         apply_music();
-        // and it fetches its stations' episodes itself, over Wi-Fi, into the saves folder
+        // and it fetches its stations' episodes itself, over Wi-Fi, into the saves folder, trusting the certificate
+        // authorities the pack carries as well as the system's (an older Android's may lack the newer ones)
+        net::add_trusted(pack().get("data/cacert.pem").str());
         start_radio_fetch(pack().get("data/radio.json").str(), save_dir() + "/radio");
     } else if (const char* rd = getenv("QAHIRA_RADIO")) {   // pictures of the radio: a bot with episodes from here
         set_radio_dirs({rd});

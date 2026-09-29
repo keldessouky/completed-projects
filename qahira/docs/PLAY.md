@@ -94,6 +94,12 @@ comes on as soon as the first one has arrived (a minute or so). Until then the g
   the top of the screen names the station and the episode.
 - **Choosing a station, or turning it off:** in **Settings → Music**, pick a station or the game's own music. The tab
   also shows how the download is going.
+- **If it doesn't come on:**
+  - Open **Settings**. Below the list, it says what the radio is doing: "Downloading the radio: 3/18", or
+    "Radio: …" with what went wrong.
+  - Check that the **Music** row names the station, not "The game's music".
+  - The same messages, with times, are in `radio log.txt` in the `radio` folder, which you can open in the Files
+    app.
 - **Your own episodes (optional):** a `radio` folder beside the pack can hold more.
   - A folder inside it is a station of its own, named after the folder.
   - Loose files play on Radio Kafr El-Sheikh.

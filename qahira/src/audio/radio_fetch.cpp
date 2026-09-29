@@ -8,6 +8,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <ctime>
 #include <sys/stat.h>
 
 namespace q {
@@ -190,6 +191,24 @@ std::vector<RadioEpisode> rss_episodes(const std::string& xml) {
     return out;
 }
 
+void RadioFetch::note(const std::string& what, bool error) {
+    QLOG("radio: %s", what.c_str());
+    if (error) {
+        std::lock_guard<std::mutex> l(m_);
+        error_ = what;
+    }
+    // and in "radio log.txt" in the radio folder, for a player to read in the Files app (kept under 64 KB)
+    mkdir(dir_.c_str(), 0755);
+    const std::string log = dir_ + "/radio log.txt";
+    FILE* f = fopen(log.c_str(), file_size(log) > 65536 ? "w" : "a");
+    if (!f) return;
+    char when[32];
+    const time_t t = time(nullptr);
+    strftime(when, sizeof when, "%Y-%m-%d %H:%M:%S", localtime(&t));
+    fprintf(f, "%s  %s\n", when, what.c_str());
+    fclose(f);
+}
+
 void RadioFetch::set_status(const std::string& s) {
     std::lock_guard<std::mutex> l(m_);
     status_ = s;
@@ -207,7 +226,7 @@ bool RadioFetch::fetch(const RadioStation& st, const RadioEpisode& ep) {
     const std::string path = folder + "/" + ep.file(), part = path + ".part";
     uint64_t from = file_size(part);
     FILE* f = fopen(part.c_str(), from ? "ab" : "wb");
-    if (!f) { QLOG("radio: cannot write %s", part.c_str()); return false; }
+    if (!f) { note("cannot write " + part); return false; }
     bool wrote = true;
     net::Result r = net::get(ep.url, [&](const char* b, size_t n) {
         wrote = f && fwrite(b, 1, n, f) == n;
@@ -221,16 +240,20 @@ bool RadioFetch::fetch(const RadioStation& st, const RadioEpisode& ep) {
         r.status = 206;
     }
     if (!r.ok() || !wrote) {
-        if (!quit_) QLOG("radio: %s: %s", ep.file().c_str(), wrote ? r.error.c_str() : "the card is full");
+        if (!quit_) note(ep.file() + ": " + (wrote ? r.error : std::string("the card is full")));
         return false;
     }
-    if (rename(part.c_str(), path.c_str()) != 0) return false;
-    QLOG("radio: %s / %s", st.name.c_str(), ep.file().c_str());
+    if (rename(part.c_str(), path.c_str()) != 0) { note("cannot rename " + part); return false; }
+    note(st.name + " / " + ep.file() + " is here", false);
     arrived_++;
     return true;
 }
 
 bool RadioFetch::pass() {
+    {
+        std::lock_guard<std::mutex> l(m_);
+        error_.clear();
+    }
     // the episode lists that come from the Internet Archive or a feed, once per run
     bool listed = true;
     for (RadioStation& st : stations_) {
@@ -242,7 +265,7 @@ bool RadioFetch::pass() {
             st.episodes = rss_episodes(text);
         if (st.episodes.empty()) {
             listed = false;
-            if (!err.empty()) QLOG("radio: %s: %s", st.name.c_str(), err.c_str());
+            note(st.name + ": " + (err.empty() ? std::string("no episodes it can play") : err));
         }
     }
     // what is missing: every station's first missing episode, then the rest in order
@@ -267,6 +290,10 @@ bool RadioFetch::pass() {
         else {
             all = false;
             if (!exists(dir_)) break;   // nowhere to write
+            std::lock_guard<std::mutex> l(m_);   // no network: the others would fail the same way
+            if (error_.find("cannot find") != std::string::npos || error_.find("cannot connect") != std::string::npos ||
+                error_.find("TLS") != std::string::npos || error_.find("certificate") != std::string::npos)
+                break;
         }
     }
     set_status("");
@@ -281,12 +308,16 @@ void RadioFetch::start(const std::string& stations_json, const std::string& dir)
     quit_ = false;
     done_ = false;
     cancel_.stop = false;
+    note("fetching " + std::to_string(stations_.size()) + " station(s) into " + dir_, false);
     thread_ = std::thread([this] {
+        note(net::trust_summary(), false);
         // until everything is here: without Wi-Fi, again after half a minute, then less often, up to every 15 minutes
         for (int wait = 30; !quit_; wait = std::min(wait * 2, 900)) {
             if (pass()) break;
             std::unique_lock<std::mutex> l(m_);
+            if (!error_.empty()) status_ = "Radio: " + error_;   // shown in Settings until the next try
             cv_.wait_for(l, std::chrono::seconds(wait), [this] { return bool(quit_); });
+            status_.clear();
         }
         done_ = true;
     });

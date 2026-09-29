@@ -33,6 +33,10 @@ Result get(const std::string& url, const std::function<bool(const char*, size_t)
 // the whole body as text (up to max bytes)
 bool get_text(const std::string& url, std::string& out, Cancel* cancel = nullptr, std::string* err = nullptr,
               size_t max = size_t(32) << 20);
+// certificate authorities to trust besides the system's (PEM), such as the list the pack carries; before the first
+// https request, since they are read once
+void add_trusted(const std::string& pem);
+std::string trust_summary();   // "152 certificate authorities (121 from the pack, 31 from the system)"
 // percent-encodes what a URL's path may not hold as it is (spaces, Arabic, ?, #, %)
 std::string encode_path(const std::string& s);
 

@@ -64,10 +64,15 @@ struct Url {
     }
 };
 
-// the certificate authorities: the system's (Android keeps one PEM file per authority), or $SSL_CERT_FILE
+std::mutex g_extra_m;
+std::string g_extra;   // add_trusted()'s
+
+// the certificate authorities: the list given to add_trusted (the pack's, so an old Android's store doesn't matter),
+// and the system's (Android keeps one PEM file per authority) or $SSL_CERT_FILE
 struct Trust {
     mbedtls_x509_crt chain;
     int count = 0;
+    std::string summary;
     Trust() {
         mbedtls_x509_crt_init(&chain);
         auto add_pem = [&](const std::string& text) {
@@ -91,6 +96,11 @@ struct Trust {
             fclose(f);
             return true;
         };
+        {
+            std::lock_guard<std::mutex> l(g_extra_m);
+            add_pem(g_extra);
+        }
+        const int given = count;
         std::vector<std::string> files;
         if (const char* e = getenv("SSL_CERT_FILE")) files.push_back(e);
         for (const char* f : {"/etc/ssl/certs/ca-certificates.crt", "/etc/pki/tls/certs/ca-bundle.crt",
@@ -98,9 +108,9 @@ struct Trust {
             files.push_back(f);
         for (const std::string& f : files) {
             std::string t;
-            if (read(f, t)) { add_pem(t); if (count) break; }
+            if (read(f, t)) { add_pem(t); if (count > given) break; }
         }
-        if (!count)
+        if (count == given)
             for (const char* d : {"/apex/com.android.conscrypt/cacerts", "/system/etc/security/cacerts"}) {
                 DIR* dir = opendir(d);
                 if (!dir) continue;
@@ -110,9 +120,11 @@ struct Trust {
                     if (read(std::string(d) + "/" + e->d_name, t)) add_pem(t);
                 }
                 closedir(dir);
-                if (count) break;
+                if (count > given) break;
             }
-        QLOG("net: %d certificate authorities", count);
+        summary = std::to_string(count) + " certificate authorities (" + std::to_string(given) + " from the pack, " +
+                  std::to_string(count - given) + " from the system)";
+        QLOG("net: %s", summary.c_str());
     }
 };
 
@@ -366,6 +378,14 @@ Result get_file(const std::string& path, const std::function<bool(const char*, s
 }
 
 }  // namespace
+
+std::string trust_summary() { return trust().summary; }
+
+void add_trusted(const std::string& pem) {
+    std::lock_guard<std::mutex> l(g_extra_m);
+    g_extra += pem;
+    g_extra += "\n";
+}
 
 std::string encode_path(const std::string& s) {
     static const char* hex = "0123456789ABCDEF";
