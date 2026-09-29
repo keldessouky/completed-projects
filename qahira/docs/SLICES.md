@@ -1067,7 +1067,9 @@ notes after playing it, taken one at a time.*
   changes. Every other long run passes locally: `act1` to `act6` as the Warrior, `act1` and `act3` as the Mercenary,
   `act2` as the Ranger, `act3` and `act4` as the Shadow, `act5` and `act6` as the Templar, `falak`, `subyan`, `charts`
   and `reaches`.
-- Radio Kafr El-Sheikh is built and tested with generated tones. It is waiting on the show's YouTube links, in
-  `tools/radio/stations.json`. It has not been heard on the RP6 yet.
+- Radio Kafr El-Sheikh is built and tested with generated tones. `tools/radio/stations.json` points it at the
+  show's channel ([Radio Kafr ElSheikh](https://www.youtube.com/channel/UCCdqKbjhEp_ShkMakt3mQCw), 31 videos by
+  upload date, teasers and listener contributions included). The episodes have to be fetched at home or on the RP6,
+  because YouTube refuses cloud servers. It has not been heard on the RP6 yet.
 - The telegraphs (the magenta warnings of a monster's strike), the portal and the loot beams keep their smooth,
   glowing look: they are warnings and markers, not spells.
