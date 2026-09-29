@@ -159,25 +159,44 @@ RETRO_API bool retro_load_game(const retro_game_info* game) {
     if (!game || !game->path) return false;
     retro_pixel_format fmt = RETRO_PIXEL_FORMAT_XRGB8888;
     env_cb(RETRO_ENVIRONMENT_SET_PIXEL_FORMAT, &fmt);
-    memset(&hw, 0, sizeof(hw));
+    // the context: GL 3.3 core on the desktop; on Android, GLES 3 (the shaders are GLSL ES 3.00). RetroArch builds differ
+    // in which GLES requests they accept, so the plainest comes first: "GLES 3", then 3.2 and 3.1 by version
+    struct Try { retro_hw_context_type type; unsigned major, minor; const char* name; };
 #if defined(__ANDROID__)
-    hw.context_type = RETRO_HW_CONTEXT_OPENGLES_VERSION;
-    hw.version_major = 3;
-    hw.version_minor = 2;
+    static const Try tries[] = {{RETRO_HW_CONTEXT_OPENGLES3, 3, 0, "GLES 3"},
+                                {RETRO_HW_CONTEXT_OPENGLES_VERSION, 3, 2, "GLES 3.2"},
+                                {RETRO_HW_CONTEXT_OPENGLES_VERSION, 3, 1, "GLES 3.1"}};
 #else
-    hw.context_type = RETRO_HW_CONTEXT_OPENGL_CORE;
-    hw.version_major = 3;
-    hw.version_minor = 3;
+    static const Try tries[] = {{RETRO_HW_CONTEXT_OPENGL_CORE, 3, 3, "GL 3.3 core"}};
 #endif
-    hw.context_reset = context_reset;
-    hw.context_destroy = context_destroy;
-    hw.depth = false;  // the core renders into its own targets; the frontend FBO only receives the composite
-    hw.stencil = false;
-    hw.bottom_left_origin = true;
-    plat.has_gpu = env_cb(RETRO_ENVIRONMENT_SET_HW_RENDER, &hw);
+    plat.has_gpu = false;
+    for (const Try& t : tries) {
+        memset(&hw, 0, sizeof(hw));
+        hw.context_type = t.type;
+        hw.version_major = t.major;
+        hw.version_minor = t.minor;
+        hw.context_reset = context_reset;
+        hw.context_destroy = context_destroy;
+        hw.depth = false;  // the core renders into its own targets; the frontend FBO only receives the composite
+        hw.stencil = false;
+        hw.bottom_left_origin = true;
+        if (env_cb(RETRO_ENVIRONMENT_SET_HW_RENDER, &hw)) {
+            plat.has_gpu = true;
+            QLOG("hardware context: %s", t.name);
+            break;
+        }
+        QWARN("the frontend refused a %s context", t.name);
+    }
     if (!plat.has_gpu) {
         QWARN("no hardware context: running without video (headless)");
-        osd("Qahira needs the gl video driver: Settings > Drivers > Video > gl, then quit and restart RetroArch", 1200);
+        // which driver RetroArch says it is using: if it is not GL, the video driver setting did not stick
+        retro_hw_context_type pref = RETRO_HW_CONTEXT_NONE;
+        const bool known = env_cb(RETRO_ENVIRONMENT_GET_PREFERRED_HW_RENDER, &pref);
+        if (known && pref == RETRO_HW_CONTEXT_VULKAN)
+            osd("Qahira: RetroArch is still on the vulkan driver. Settings > Drivers > Video > gl, then Configuration File > "
+                "Save Current Configuration, and restart", 1200);
+        else
+            osd("Qahira: RetroArch refused every GLES 3 context. Please report this (Settings > Drivers > Video shows which driver)", 1200);
     }
     have_rumble = env_cb(RETRO_ENVIRONMENT_GET_RUMBLE_INTERFACE, &rumble_if);
     plat.rumble = do_rumble;
@@ -257,7 +276,7 @@ RETRO_API void retro_run(void) {
         static unsigned n = 0;
         if (n++ % 600 == 0)
             osd(plat.has_gpu ? "Qahira: waiting for the GL context (video driver gl?)"
-                             : "Qahira needs the gl video driver: Settings > Drivers > Video > gl, then quit and restart RetroArch", 540);
+                             : "Qahira: no GL context. Settings > Drivers > Video > gl, Configuration File > Save Current Configuration, restart", 540);
     }
 
     static int16_t audio[1200 * 2];
