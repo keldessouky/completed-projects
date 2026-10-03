@@ -41,8 +41,8 @@ vec2 site_screen(const Site& s) { return disc_pt(s.mx, s.my); }
 void MapScreen::show(const World& w) {
     open = true;
     view = 0;
-    picking = false;
-    go_site = go_chart = -1;
+    picking = pinnacles = false;
+    go_site = go_chart = go_pinnacle = -1;
     last_dir_ = -1;
     // start on the first revealed site not yet finished
     cursor = 0;
@@ -69,8 +69,22 @@ void MapScreen::update(World& w, const Input& in, float dt) {
     // the four-way step for the lists (the chart picker) reads the dominant axis
     const int step4 = step < 0 ? -1 : std::fabs(push.x) > std::fabs(push.y) ? (push.x < 0 ? D_LEFT : D_RIGHT) : (push.y < 0 ? D_UP : D_DOWN);
     if (in.hit(BTN_EAST)) {
-        if (picking) picking = false;
+        if (pinnacles) pinnacles = false;
+        else if (picking) picking = false;
         else hide();
+        return;
+    }
+    if (pinnacles) {   // the list: the cursor, then North or South sets out if the keys are there
+        if (step4 == D_UP) pin_cursor = (pin_cursor + PIN_COUNT - 1) % PIN_COUNT;
+        if (step4 == D_DOWN) pin_cursor = (pin_cursor + 1) % PIN_COUNT;
+        if (in.hit(BTN_NORTH) || in.hit(BTN_SOUTH)) {
+            const PinnacleDef& d = pinnacle_def(pin_cursor);
+            if (H.currency[d.currency] < d.cost) { say(std::string("Not enough keys: ") + d.where); return; }
+            H.currency[d.currency] -= d.cost;
+            go_pinnacle = pin_cursor;
+            pinnacles = false;
+            open = false;
+        }
         return;
     }
     if (!picking && (in.hit(BTN_L1) || in.hit(BTN_R1))) { view ^= 1; w.emit(Ev::Craft, w.actors[0].pos, 0); return; }
@@ -81,14 +95,15 @@ void MapScreen::update(World& w, const Input& in, float dt) {
         open = false;
         return;
     }
-    if (!picking && view == 0 && in.hit(BTN_NORTH)) {   // four King's Pearls: the Marid King's throne
-        if (w.hero.currency[CUR_PEARL] < kPearlsPerThrone) {
+    if (!picking && view == 0 && in.hit(BTN_NORTH)) {   // the pinnacles: the cursor starts on the first one the keys open
+        if (w.hero.currency[CUR_PEARL] <= 0 && w.hero.currency[CUR_SCALE] <= 0 && w.hero.currency[CUR_COMB] <= 0) {
             say("Four King's Pearls open the Marid King's throne: the masters of the last Reaches carry them");
             return;
         }
-        w.hero.currency[CUR_PEARL] -= kPearlsPerThrone;
-        go_throne = true;
-        open = false;
+        pinnacles = true;
+        pin_cursor = 0;
+        for (int p = PIN_COUNT - 1; p >= 0; p--)
+            if (H.currency[pinnacle_def(p).currency] >= pinnacle_def(p).cost && !pinnacle_def(p).uber) pin_cursor = p;
         return;
     }
     // the nearest candidate in the push direction (screen space: up is up)
@@ -152,6 +167,7 @@ void MapScreen::update(World& w, const Input& in, float dt) {
 void MapScreen::render(const World& w) const {
     if (!open) return;
     Ui& u = ui();
+    struct KeepEast { bool was = ui().set_mirror_enabled(false); ~KeepEast() { ui().set_mirror_enabled(was); } } keep;   // al-Idrisi's map is not mirrored
     const Hero& H = w.hero;
     u.rect(0, 0, 1920, 1080, pal::night.alpha(0.96f));
     // the round world: the encircling ocean, the land, the seas
@@ -295,11 +311,13 @@ void MapScreen::render(const World& w) const {
                 }
             }
         }
-        const bool seal = H.currency[CUR_RIFT_SEAL] > 0, pearls = H.currency[CUR_PEARL] >= kPearlsPerThrone;
+        const bool seal = H.currency[CUR_RIFT_SEAL] > 0,
+                   pearls = H.currency[CUR_PEARL] >= kPearlsPerThrone || H.currency[CUR_SCALE] >= kPearlsPerThrone ||
+                            H.currency[CUR_COMB] >= kPearlsPerThrone;
         if (!picking && seal && pearls)
-            legend(IX + 24, 986, {{BTN_SOUTH, "Chart"}, {BTN_WEST, "Seal"}, {BTN_NORTH, "Pearls"}, {BTN_R1, "Astrolabe"}});
+            legend(IX + 24, 986, {{BTN_SOUTH, "Chart"}, {BTN_WEST, "Seal"}, {BTN_NORTH, "Pinnacles"}, {BTN_R1, "Astrolabe"}});
         else if (!picking && pearls)
-            legend(IX + 24, 986, {{BTN_SOUTH, "Choose a chart"}, {BTN_NORTH, "The Throne"}, {BTN_R1, "Astrolabe"}, {BTN_EAST, "Close"}});
+            legend(IX + 24, 986, {{BTN_SOUTH, "Choose a chart"}, {BTN_NORTH, "Pinnacles"}, {BTN_R1, "Astrolabe"}, {BTN_EAST, "Close"}});
         else if (!picking && seal)
             legend(IX + 24, 986, {{BTN_SOUTH, "Choose a chart"}, {BTN_WEST, "Rift Seal"}, {BTN_R1, "Astrolabe"}, {BTN_EAST, "Close"}});
         else
@@ -343,6 +361,26 @@ void MapScreen::render(const World& w) const {
         u.text(IX + IW / 2, y + 66, std::string("on the pointer of ") + n.star, 22, pal::dim, Align::Center);
         u.wrap(IX + 50, y + 110, IW - 100, n.text, 26, pal::magic);
         legend(IX + 24, 986, {{BTN_SOUTH, "Set"}, {BTN_L1, "Map"}, {BTN_EAST, "Close"}});
+    }
+    if (pinnacles) {
+        const float x = IX + 24, wdt = IW - 48, y0 = 200;
+        u.rect(IX, 0, 1920 - IX, 1080, pal::night.alpha(0.9f));
+        u.text(IX + IW / 2, y0 - 80, "The Pinnacles", 40, pal::brass, Align::Center, 1.f);
+        for (int p = 0; p < PIN_COUNT; p++) {
+            const PinnacleDef& d = pinnacle_def(p);
+            const bool can = H.currency[d.currency] >= d.cost, cur = p == pin_cursor;
+            const float y = y0 + p * 106.f;
+            u.frame(x, y, wdt, 94, cur ? pal::panel2 : pal::panel2.alpha(0.5f), cur ? pal::amber : pal::brass.alpha(0.4f), 10, 2);
+            u.text(x + 24, y + 10, d.name, fit(d.name, 30, wdt - 48), d.uber ? Rgba::hex(0xE07AB0) : pal::bone, Align::Left, 1.f);
+            char k[96];
+            snprintf(k, sizeof k, "%d %s  (you hold %d)", d.cost,
+                     d.currency == CUR_PEARL ? "King's Pearls" : d.currency == CUR_SCALE ? "Scales of Falak" : "Combs of Umm al-Subyan",
+                     H.currency[d.currency]);
+            u.text(x + 24, y + 54, k, 22, can ? pal::magic : pal::dim);
+        }
+        const PinnacleDef& d = pinnacle_def(pin_cursor);
+        u.wrap(x + 12, y0 + PIN_COUNT * 106.f + 16, wdt - 24, std::string("Its keys: ") + d.where, 22, pal::soft);
+        legend(IX + 24, 986, {{BTN_SOUTH, "Set out"}, {BTN_UP, "Choose"}, {BTN_EAST, "Back"}});
     }
     if (msg_t > 0) {
         float a = std::min(1.f, msg_t / 0.3f);

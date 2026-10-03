@@ -1,4 +1,8 @@
 #include "game/view.hpp"
+#include "audio/audio.hpp"
+#include "ui/lang.hpp"
+#include "game/settings.hpp"
+#include <cctype>
 #include <cstdio>
 #include <cstdlib>
 #include "ui/ui.hpp"
@@ -27,8 +31,8 @@ void View::follow(const World& w, float dt, bool snap) {
     vec3 off{0, -d * std::cos(pitch), d * std::sin(pitch)};
     cam.target = snap ? target : lerp(cam.target, target, std::min(1.f, dt * 8.f));
     cam.eye = cam.target + off;
-    if (w.shake > 0) {
-        float s = w.shake * w.shake * 0.35f;
+    if (w.shake > 0 && shake_scale() > 0) {
+        float s = w.shake * w.shake * 0.35f * shake_scale();   // the screen shake setting
         vec3 j{std::sin(w.time * 71.f) * s, std::sin(w.time * 57.f + 1.f) * s, std::sin(w.time * 63.f + 2.f) * s * 0.5f};
         cam.eye += j;
         cam.target += j;
@@ -40,6 +44,11 @@ void View::follow(const World& w, float dt, bool snap) {
     shown_life = damp(shown_life, ha.life / std::max(1.f, ha.life_max), 10.f, dt);
     shown_mana = damp(shown_mana, ha.mana / std::max(1.f, ha.mana_max), 10.f, dt);
     banner_t = std::max(0.f, banner_t - dt);
+    radio_card_t = std::max(0.f, radio_card_t - dt);
+    if (audio().radio.tuned != radio_seen_) {
+        radio_seen_ = audio().radio.tuned;
+        if (audio().radio_on) radio_card_t = 5.f;
+    }
 }
 
 void View::on_events(const World& w) {
@@ -194,7 +203,47 @@ void View::render_world(Renderer& r, World& w) {
                 r.ground(vec3(it.pos, 0.02f), 1.2f + 0.08f * std::sin(w.time * 2.f), vec4(hex_lin(0xF2A541), near ? 0.7f : 0.3f), {1, 0.08f, 0, 2},
                          Blend::Additive);
                 break;
+            case Interactable::Veil: case Interactable::Door: {   // the choice: a column of sunlight, or a column of the eclipse's dark
+                const bool veil = it.kind == Interactable::Veil;
+                const vec3 c = veil ? hex_lin(0xFFD890) : hex_lin(0x8A5AE0);
+                for (int k = 0; k < 6; k++)
+                    r.billboard(vec3(it.pos, 0.4f + k * 0.55f), 0.9f - 0.08f * k, vec4(c, (near ? 0.5f : 0.3f) * (1.f - k / 7.f)), {0, 1.2f, 0, 3},
+                                Blend::Additive);
+                r.ground(vec3(it.pos, 0.02f), 1.4f + 0.1f * std::sin(w.time * 2.f), vec4(c, near ? 0.8f : 0.45f), {1, 0.1f, 0, 2}, Blend::Additive);
+                r.light(vec3(it.pos, 1.5f), 6.f, c * (near ? 12.f : 7.f));
+                break;
+            }
+            case Interactable::Toll: {   // a brass scale's pan on the ground, glowing by how brave the toll is
+                const vec3 c = hex_lin(it.target == EQ_WEAPON ? 0xFF7A3C : it.target == EQ_BODY ? 0xF2A541 : 0xE8D08A);
+                r.ground(vec3(it.pos, 0.02f), 1.0f + 0.08f * std::sin(w.time * 2.f + it.pos.x), vec4(c, near ? 0.8f : 0.4f), {1, 0.1f, 0, 2},
+                         Blend::Additive);
+                r.billboard(vec3(it.pos, 0.9f), 0.5f, vec4(c, near ? 0.6f : 0.3f), {0, 1.2f, 0, 3}, Blend::Additive);
+                r.light(vec3(it.pos, 1.2f), 4.f, c * (near ? 9.f : 4.f));
+                break;
+            }
             default: break;
+        }
+    }
+    // the objective: a gold chevron at the hero's feet, along the route (not through the walls)
+    if (obj_on && !w.actors.empty() && w.actors[0].alive()) {
+        const Actor& h = w.actors[0];
+        const float dist = length(obj_target - h.pos);
+        if (dist > 3.f) {
+            obj_t_ -= 1.f / 60.f;
+            if (obj_t_ <= 0 || length(obj_target - obj_goal_) > 1.f) {
+                obj_path_.clear();
+                if (!w.level.line_clear(h.pos, obj_target, h.radius)) w.level.find_path(h.pos, obj_target, h.radius + 0.1f, obj_path_);
+                obj_goal_ = obj_target;
+                obj_t_ = 0.5f;
+            }
+            vec2 aim = obj_target;
+            for (vec2 p : obj_path_) if (length(p - h.pos) > 1.5f) { aim = p; break; }
+            vec2 want = normalize(aim - h.pos + vec2{1e-4f, 0});
+            obj_dir_ = normalize(lerp(obj_dir_, want, 0.2f) + vec2{1e-4f, 0});   // turns, not snaps
+            const float pulse = 0.5f + 0.5f * std::sin(w.time * 4.f);
+            const float rot = std::atan2(-obj_dir_.x, obj_dir_.y);
+            r.ground(vec3(h.pos + obj_dir_ * (2.0f + 0.2f * pulse), 0.03f), 0.85f, vec4(hex_lin(0xF2C14E), 0.8f + 0.2f * pulse), {7, 0, 0, 1},
+                     Blend::Alpha, rot);
         }
     }
     // ground effects
@@ -226,17 +275,18 @@ void View::render_world(Renderer& r, World& w) {
             r.ground(vec3(g.pos, 0.01f), g.radius, vec4(0.2f, 0.4f, 0.8f, 0.18f * in_a), {0, 1.5f, 0, 1}, Blend::Additive);
             for (int i = 0; i < 8; i++) {  // the star: short bright points round the rim
                 float a = g.t * 0.4f + i * kTau / 8;
-                r.billboard(vec3(g.pos + from_angle(a) * g.radius * 0.78f, 0.1f), 0.22f, vec4(0.6f, 0.85f, 1.f, 0.8f * in_a), {0, 1.5f, 0, 3});
+                r.fx(vec3(g.pos + from_angle(a) * g.radius * 0.78f, 0.3f), 0.32f, FX_FROST, float((int(g.t * 10.f) + i) % 5), vec4(1, 1, 1, in_a));
             }
             r.light(vec3(g.pos, 1.0f), g.radius * 2.f, hex_lin(0x6FA8FF) * 6.f * in_a * beat);
         } else if (g.kind == GroundFx::Meteor) {
             // the telegraph on the ground and the star coming down onto it
-            r.ground(vec3(g.pos, 0.02f), g.radius, vec4(1.f, 0.55f, 0.2f, 0.3f + 0.5f * k), {2, 0.05f, 0, 1}, Blend::Additive);
-            r.ground(vec3(g.pos, 0.03f), g.radius * k, vec4(1.f, 0.7f, 0.3f, 0.7f), {1, 0.1f, 0, 1.5f}, Blend::Additive);
+            r.ground(vec3(g.pos, 0.02f), g.radius, vec4(0.9f, 0.45f, 0.15f, 0.06f + 0.14f * k), {2, 0.05f, 0, 1}, Blend::Alpha);
+            r.ground(vec3(g.pos, 0.03f), g.radius * k, vec4(0.9f, 0.6f, 0.25f, 0.6f), {1, 0.06f, 0, 1}, Blend::Alpha);
             vec3 p = vec3(g.pos, 0) + vec3{-3.f, 2.f, 12.f} * (1.f - k);
-            r.billboard(p, 0.9f, vec4(1.f, 0.85f, 0.5f, 1), {0, 1.5f, 0, 4});
-            r.billboard(p + vec3{-0.6f, 0.4f, 2.4f} * 0.5f, 0.6f, vec4(1.f, 0.5f, 0.2f, 0.6f), {0, 1.5f, 0, 4});
-            r.light(p, 8.f, hex_lin(0xFFB060) * 20.f);
+            const float fr = std::fmod(w.time * 14.f, 8.f);
+            r.fx(p, 1.3f, FX_FIREBALL, fr);   // the star, a ball of flame, and its tail
+            for (int i = 1; i <= 3; i++) r.fx(p + vec3{-0.6f, 0.4f, 2.4f} * (0.45f * i), 1.0f - 0.2f * i, FX_EMBER, float((int(fr) + i * 2) % 6));
+            r.light(p, 5.f, hex_lin(0xFFB060) * 3.f);
         } else if (g.kind == GroundFx::Grenade) {
             // a pot of naphtha in flight, its wick burning, and where it will land
             vec3 p = vec3(lerp(g.pos2, g.pos, k), 1.4f * (1.f - k) + 3.2f * k * (1.f - k) + 0.1f);
@@ -299,9 +349,8 @@ void View::render_world(Renderer& r, World& w) {
             float in_a = smoothstep(0.f, 0.3f, g.t) * (1.f - smoothstep(g.life - 0.6f, g.life, g.t));
             r.ground(vec3(g.pos, 0.02f), g.radius, vec4(1.f, 0.35f, 0.08f, 0.55f * in_a), {0, 1.2f, 0, 2}, Blend::Additive);
             r.ground(vec3(g.pos, 0.03f), g.radius * 0.6f, vec4(1.f, 0.7f, 0.25f, 0.5f * in_a), {0, 1.5f, 0, 2.5f}, Blend::Additive);
-            if (std::fmod(w.time * 13.f + g.pos.x, 1.f) < 0.5f)
-                r.billboard(vec3(g.pos + vec2{std::sin(w.time * 9.f) * g.radius * 0.5f, std::cos(w.time * 7.f) * g.radius * 0.5f}, 0.4f), 0.35f,
-                            vec4(1.f, 0.6f, 0.2f, 0.8f * in_a), {0, 1.5f, 0, 3});
+            r.fx(vec3(g.pos + vec2{std::sin(w.time * 9.f) * g.radius * 0.5f, std::cos(w.time * 7.f) * g.radius * 0.5f}, 0.4f), 0.4f,
+                 FX_EMBER, std::fmod(w.time * 10.f, 5.f), vec4(1, 1, 1, in_a));
             r.light(vec3(g.pos, 0.8f), g.radius * 3.f, hex_lin(0xFF7020) * 8.f * in_a);
         } else if (g.kind == GroundFx::Line) {
             // a telegraphed strip: discs along the line, filling as the strike nears
@@ -320,7 +369,7 @@ void View::render_world(Renderer& r, World& w) {
             for (int i = 0; i <= n; i++) {
                 float t = float(i) / n;
                 vec3 p = lerp(p0, p1, t) + vec3{jr.range(-0.25f, 0.25f), jr.range(-0.25f, 0.25f), jr.range(-0.2f, 0.2f)} * std::sin(t * kPi);
-                r.billboard(p, 0.22f, vec4(0.75f, 0.85f, 1.f, a), {0, 1.5f, 0, 4});
+                if (i % 2 == 0) r.fx(p, 0.45f, FX_ZAP, std::min(7.f, k * 8.f) + float((i / 2) % 2) * 8.f);
             }
             r.light(p1, 5.f, hex_lin(0x9FB8FF) * 14.f * a);
         }
@@ -426,13 +475,24 @@ void View::render_world(Renderer& r, World& w) {
             r.billboard(vec3(back, p.z), 0.18f, vec4(p.color, 0.5f), {0, 1.5f, 0, 4}, Blend::Additive);
             continue;
         }
-        r.billboard(vec3(p.pos, p.z), 0.35f, vec4(p.color, 1), {0, 1.5f, 0, 4});
-        r.light(vec3(p.pos, p.z), 4.f, p.color * 8.f);
+        // a pixel-art bolt of its element, turning over as it flies, and a little light on the ground under it
+        const int fx = fx_projectile(p.dmg_type, p.color);
+        const float frame = std::fmod(w.time * 14.f + float(size_t(&p - w.projectiles.data()) * 3), 8.f);
+        r.fx(vec3(p.pos, p.z), 0.5f, fx, frame + (p.vel.x < 0 ? 8.f : 0.f));
+        r.light(vec3(p.pos, p.z), 3.f, p.color * 3.f);
     }
     for (auto& p : w.particles) {
         float k = 1.f - p.life / p.max_life;
         vec4 c = p.c0 + (p.c1 + p.c0 * -1.f) * k;
         float s = lerpf(p.size0, p.size1, k);
+        if (p.fx >= 0) {   // a pixel-art flipbook: once over its life, or looping
+            const float frame = p.fx < kFxLooping ? std::fmod(w.time * 14.f, 8.f) : std::min(7.f, k * 8.f);
+            const float fade = p.fx < kFxLooping ? 1.f - smoothstep(0.6f, 1.f, k) : 1.f;
+            // dust, grit and blood keep the colour they were given (the sheet's greys and browns are their brightest)
+            vec3 tint = p.fx == FX_SMOKE || p.fx == FX_STONE ? minv(vec3(p.c0.x, p.c0.y, p.c0.z) * (1.f / 0.85f), vec3(1, 1, 1)) : vec3(1, 1, 1);
+            r.fx(p.pos, s, p.fx, frame + (int(p.max_life * 997.f) & 1 ? 8.f : 0.f), vec4(tint, fade));
+            continue;
+        }
         if (p.additive) r.billboard(p.pos, s, c, {0, 1.2f, 0, 3}, Blend::Additive);
         else r.billboard(p.pos, s, c, {0, 0.8f, 0, 1}, Blend::Alpha);
     }
@@ -942,6 +1002,16 @@ void View::render_hud(World& w, const Input& in, const Areas& areas) {
         draw_button_glyph(p.x - tw / 2 + 34, p.y - 1, 40, BTN_SOUTH);
         u.text(p.x - tw / 2 + 64, p.y - 20, it.label, 30, pal::bone, Align::Left, 0.6f);
     }
+    // the objective's name and distance, above the play (out of the way of a target's frame)
+    if (obj_on && h.alive() && !obj_label.empty()) {
+        const float d = length(obj_target - h.pos);
+        if (d > 3.f) {
+            char dm[32];
+            snprintf(dm, sizeof dm, "  \xC2\xB7  %d m", int(d + 0.5f));
+            const std::string label = std::string("\xE2\x96\xB2 ") + tr(obj_label) + dm;   // top right, clear of the toasts
+            u.text(1880, 20, label, 28, pal::rare.alpha(0.95f), Align::Right, 0.8f, true);
+        }
+    }
     // target frame
     if (const Actor* f = w.focus_enemy()) {
         float bw = 620, x = 960 - bw / 2, y = 40;
@@ -1057,6 +1127,17 @@ void View::render_hud(World& w, const Input& in, const Areas& areas) {
         u.text(960, 300, banner, 72, pal::amber.alpha(a), Align::Center, 2, true);
         u.text(960, 384, banner_sub, 30, pal::bone.alpha(a), Align::Center);
     }
+    // the station card, as the car radio shows it: the station, then the episode
+    if (radio_card_t > 0 && audio().radio_on) {
+        const float a = std::min(1.f, radio_card_t / 0.5f) * std::min(1.f, (5.f - radio_card_t) / 0.3f + 0.2f);
+        const std::string ep = audio().radio.title(audio().radio.current());
+        std::string st = audio().radio.station_name(audio().radio.station());
+        for (char& c : st) c = char(std::toupper((unsigned char)c));   // Latin letters only; Arabic has no case
+        const float tw = std::max(u.text_width(tr(st), 34), u.text_width(ep, 28)) + 80;
+        u.frame(960 - tw / 2, 120, tw, 110, pal::panel.alpha(0.88f * a), pal::brass.alpha(a), 12, 2);
+        u.text(960, 134, st, 34, pal::rare.alpha(a), Align::Center, 1.2f, true);
+        u.text(960, 184, ep, 28, pal::bone.alpha(a), Align::Center, 0.6f);
+    }
     // field hints: what the D-pad does here
     {
         float x = 40, y = 40;
@@ -1071,6 +1152,8 @@ void View::render_hud(World& w, const Input& in, const Areas& areas) {
             hint(BTN_DOWN, map_open ? "Hide map" : "Map");
         }
         hint(BTN_RIGHT, (std::string("Filter: ") + filter_name(H.filter)).c_str());
+        if (audio().radio.stations() > 0)
+            hint(BTN_R3, !audio().radio_on ? "Radio" : audio().radio.stations() > 1 ? "Next station" : "Next episode");
     }
     // death
     if (!h.alive()) {

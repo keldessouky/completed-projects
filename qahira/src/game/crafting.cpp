@@ -168,6 +168,9 @@ const std::vector<CodexEntry>& codex_entries() {
         {"res_penalty", CX_MECHANIC, "The eclipse and your resistances",
          "Past Act III the eclipse weighs on everything: all your resistances are 30% lower. Keep them up with gear and the sky."},
         // Slice 8: the Shadow, and Act IV
+        {"excavations", CX_MECHANIC, "Excavations",
+         "After Act III, a chart may hold a buried chamber. Set charges along the line to it and fire them; guardians climb out "
+         "of the dust. What you dig up is traded with Amm Ramadan, the antiquities dealer, for what he keeps under the counter."},
         {"traps", CX_MECHANIC, "Traps, Wither and Power Charges",
          "A trap is thrown, lands and arms; it bursts when an enemy comes near. Chaos spells Wither: each stack, 6% more chaos "
          "damage taken, poison included. A quarterstaff's crits grant Power Charges, 40% increased Critical Strike Chance each."},
@@ -177,6 +180,12 @@ const std::vector<CodexEntry>& codex_entries() {
          "Sarab: the jinn of the heat-shimmer, who shows travellers water on the horizon and walks them out onto the salt. They "
          "throw lightning from afar and are gone when you reach them."},
         // Slice 9: the Templar, and Act V
+        {"zar", CX_MECHANIC, "Zar Nights",
+         "After Act IV, a chart may hold a drum circle. Sit down at the drum and the Zar begins: the site's creatures come to the "
+         "drums, every death near the circle feeds the rhythm, and the rhythm runs down on its own. Each time it fills, the circle "
+         "falls into a trance and pays out. Play the song to its end for one more reward; let the rhythm fail and the night is over."},
+        {"iron_door", CX_MONSTER, "The Iron Door",
+         "One of the great studded doors of the medina, green and black under its arch, with a jinn in it. It is very hard to hurt."},
         {"auras", CX_MECHANIC, "The Beacon, totems and burning ground",
          "The Beacon is an aura: held up, it reserves a quarter of your Mana for as long as it stays up. A totem stands where "
          "you plant it and fights for you. Burning ground hurts what stands on it and mends you. Block turns a hit aside whole."},
@@ -198,15 +207,33 @@ const std::vector<CodexEntry>& codex_entries() {
          "The oldest and greatest of the marids, who holds court under the ocean at the rim of the world. Every marid you have "
          "met bows to him. He calls you to him across his hall, as the lady of the springs did, and in the second half of the "
          "fight his court rises from the water."},
-        {"zar", CX_MECHANIC, "Zar Nights",
-         "After Act IV, a chart may hold a drum circle. Sit down at the drum and the Zar begins: the site's creatures come to the "
-         "drums, every death near the circle feeds the rhythm, and the rhythm runs down on its own. Each time it fills, the circle "
-         "falls into a trance and pays out. Play the song to its end for one more reward; let the rhythm fail and the night is over."},
-        {"iron_door", CX_MONSTER, "The Iron Door",
-         "One of the great studded doors of the medina, green and black under its arch, with a jinn in it. It is very hard to hurt."},
-        {"excavations", CX_MECHANIC, "Excavations",
-         "After Act III, a chart may hold a buried chamber. Set charges along the line to it and fire them; guardians climb out "
-         "of the dust. What you dig up is traded with Amm Ramadan, the antiquities dealer, for what he keeps under the counter."},
+        {"coral_ghouls", CX_MONSTER, "Ghouls of the coral city",
+         "The ghouls of old Jeddah, crusted pink and white with the coral its houses are built from."},
+        {"duwais", CX_MONSTER, "Umm al-Duwais",
+         "In the stories of the Arabian coasts, a beautiful woman who smells of perfume and walks in gold, and leads the men who "
+         "follow her away; where one hand should be she has a sickle, the duwais. She calls you to her: be ready when you arrive."},
+        {"shiqq", CX_MONSTER, "Shiqq, the half-man",
+         "In the old lore of Arabia, a being split down the middle: one arm, one leg, one eye, who hops, and is fast. The nasnas "
+         "of the wadi are its kin."},
+        {"hatif", CX_MONSTER, "The Hawatif, voices of the sand",
+         "The hawatif are voices heard in the desert with no one to speak them. In Wabar, the city given to the jinn, one of them "
+         "calls travellers by name and draws them in."},
+        {"brass", CX_MONSTER, "The City of Brass",
+         "In the Thousand and One Nights, a city of brass in the desert, kept by a horseman of brass who points the way and "
+         "strikes those who take it. In Iram his guardians still stand their posts."},
+        {"apep", CX_MONSTER, "Apep, the serpent of the dark",
+         "The great serpent of ancient Egypt, who every night tries to swallow the sun. The eclipse was Apep, and above Luxor, at "
+         "the heart of totality, the sun is in its mouth."},
+        {"veil", CX_MECHANIC, "The Veil",
+         "When Apep lets go of the sun, the choice is yours: seal the Veil, and the sun comes back and the jinn go unseen again "
+         "(two more passive stars); or leave the door open, and keep the endless night: the charts are harder, and richer."},
+        {"falak", CX_MONSTER, "Falak, the serpent beneath the world",
+         "In the old cosmographies the earth rests on a bull, the bull on a fish, and under them all the serpent Falak, in the "
+         "dark water. Apep was only the part of it that reached for the sun. Four Scales of Falak open its lair."},
+        {"subyan", CX_MONSTER, "Umm al-Subyan",
+         "A jinniya of the old tales who creeps into houses at night and steals the sleep of everyone in them. In the long "
+         "night she has taken a whole house for herself, and lit every lamp in it. Take her combs and you have a hold on "
+         "her: four of them open her door."},
     };
     return c;
 }

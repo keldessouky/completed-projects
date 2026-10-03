@@ -1,0 +1,174 @@
+// Slice 10: Act VI across the Red Sea to the heart of totality, the choice after Apep, and the codex kept in order.
+#include "tests/check.hpp"
+#include "tests/fixture.hpp"
+#include "game/acts.hpp"
+#include "game/atlas.hpp"
+#include "game/inventory.hpp"
+#include "game/crafting.hpp"
+#include "game/items.hpp"
+#include "game/skills.hpp"
+#include "game/save.hpp"
+#include "game/zone.hpp"
+
+using namespace q;
+
+TEST(act_six_runs_from_jeddah_to_the_heart_of_totality) {
+    const char* road[] = {"balad", "harbour", "shibam", "wabar", "iram", "totality"};
+    const size_t n = sizeof road / sizeof *road;
+    int last = 55;
+    for (size_t i = 0; i < n; i++) {
+        int z = find_zone(road[i]);
+        CHECK(z >= 0 && z < 128);   // a waypoint bit
+        const ZoneDef& d = zone_def(z);
+        CHECK(d.act == 6 && d.level >= last && d.level <= 68);
+        last = d.level;
+        if (*d.boss) CHECK(boss_def(find_monster(d.boss)) != nullptr);
+        for (auto& s : d.spawns) if (s.monster) CHECK(std::string(monster_defs()[size_t(find_monster(s.monster))].id) == s.monster);
+    }
+    CHECK(std::string(zone_def(find_zone("strait")).next) == "balad");   // Act V leads on to it
+    CHECK(std::string(zone_def(find_zone("harbour")).boss) == "umm_duwais");
+    CHECK(std::string(zone_def(find_zone("wabar")).boss) == "al_hatif");
+    CHECK(std::string(zone_def(find_zone("iram")).boss) == "brass_horseman");
+    for (const char* rigid : {"brass_horseman", "apep", "brass_guard"}) CHECK(monster_defs()[size_t(find_monster(rigid))].rigid);
+    // after Apep every resistance is 60% lower, and the act gives two stars
+    CHECK(act_res_penalty(Q_ACT3 | Q_ACT6) == 60);
+    CHECK(act_res_penalty(Q_ACT3 | Q_ACT5) == 30);
+    CHECK(quest_passive_points(Q_ACT6) == 2);
+}
+
+TEST(the_choice_after_apep_is_kept_and_sealing_gives_two_stars) {
+    Hero h;
+    h.level = 10;
+    int open = h.passive_points();
+    h.ending = 1;
+    CHECK(h.passive_points() == open + 2);
+    h.ending = 2;
+    CHECK(h.passive_points() == open);
+    ByteWriter w;
+    write_character(w, h);
+    Hero r;
+    ByteReader br(w.buf.data(), w.buf.size());
+    CHECK(read_character(br, r));
+    CHECK(r.ending == 2);
+}
+
+// characters store codex entries as bits by index: the table only ever grows at the end
+TEST(the_codex_is_append_only) {
+    const char* order[] = {"ghouls", "possessed", "silah", "nasnas", "qutrub", "ifrit", "waypoints", "trial", "bench",
+                           "blends", "omens", "ember", "posters", "ascendancy", "charts", "haboob", "astrolabe",
+                           "sand_jinn", "marid", "naddaha", "statues", "tomb_ghouls", "marks", "rifts", "evasion",
+                           "bleeding", "hyenas", "salt_jinn", "desert_ghouls", "wraith", "mamluk", "res_penalty",
+                           "excavations", "traps", "salt_ghouls", "mirage", "zar", "iron_door", "auras", "dye_ghouls",
+                           "smoke", "presser", "qandisha", "reaches", "marid_king", "coral_ghouls", "duwais", "shiqq",
+                           "hatif", "brass", "apep", "veil", "falak", "subyan"};
+    const size_t n = sizeof order / sizeof *order;
+    auto& c = codex_entries();
+    CHECK(c.size() >= n && c.size() <= 64);   // they fit in Hero::codex
+    for (size_t i = 0; i < n; i++) CHECK(std::string(c[i].id) == order[i]);
+    // every family's codex key names an entry
+    for (auto& m : monster_defs()) if (*m.codex) CHECK(find_codex(m.codex) >= 0);
+}
+
+// past Act V the hero keeps growing: every weapon kind has a base near 56, every kind of armour one past 40 and
+// gloves and boots at 50, and Blank Talismans climb past 20 in the last areas
+TEST(bases_and_talismans_keep_growing_past_act_five) {
+    for (int wk = WK_MAUL; wk <= WK_SCEPTRE; wk++) {
+        int top = 0;
+        for (auto& b : item_bases()) if (b.slot == Slot::Weapon && b.wkind == wk) top = std::max(top, b.level);
+        CHECK(top >= 56);
+    }
+    // the six kinds of defence: armour, evasion, Hirz, and each pair
+    auto kind = [](const ItemBase& b) { return (b.armour > 0 ? 1 : 0) | (b.evasion > 0 ? 2 : 0) | (b.es > 0 ? 4 : 0); };
+    for (int k : {1, 2, 4, 3, 6, 5})
+        for (Slot s : {Slot::Helmet, Slot::Body, Slot::Gloves, Slot::Boots}) {
+            int top = 0;
+            for (auto& b : item_bases()) if (b.slot == s && kind(b) == k) top = std::max(top, b.level);
+            CHECK(top >= (s == Slot::Helmet || s == Slot::Body ? 38 : 50));
+        }
+    CHECK(blank_cap(20) == 20 && blank_cap(44) == 20 && blank_cap(56) == 23 && blank_cap(68) == 25);
+    // an area past Act V mostly drops the newer bases
+    Rng rng(11);
+    int late = 0;
+    for (int i = 0; i < 400; i++) if (random_drop(64, 0.1f, 0.3f, rng, Slot::Count).b().level >= 44) late++;
+    CHECK(late > 400 / 3);
+}
+
+// the Fourth Trial: a side zone of Iram that opens after the campaign; the hero chooses the toll; eight points in all
+TEST(the_gate_of_iram_is_the_fourth_trial_and_you_choose_the_toll) {
+    int g = find_zone("gate_iram");
+    CHECK(g >= 0 && g < 128);
+    const ZoneDef& d = zone_def(g);
+    CHECK(d.trial && d.toll_slot == kTollChosen && d.act == 6 && d.level == 68);
+    CHECK(std::string(zone_def(find_zone("iram")).side) == "gate_iram");
+    CHECK(std::string(d.boss) == "iram_keeper" && boss_def(find_monster("iram_keeper")) != nullptr);
+    CHECK(quest_asc_points(Q_TRIAL1 | Q_TRIAL2 | Q_TRIAL3 | Q_TRIAL4) == 8);
+    CHECK(quest_passive_points(Q_TRIAL4) == 0);
+}
+
+// the pinnacles: the Marid King and Falak, each for four keys, and their uber versions for eight; the Scales of Falak
+// come from the last two Reaches only after the campaign
+TEST(falak_and_the_uber_pinnacles) {
+    for (int p = 0; p < PIN_COUNT; p++) {
+        const PinnacleDef& d = pinnacle_def(p);
+        CHECK(find_zone(d.zone) >= 0 && zone_def(find_zone(d.zone)).act == 0);
+        CHECK(std::string(zone_def(find_zone(d.zone)).boss) == d.boss && boss_def(find_monster(d.boss)) != nullptr);
+        CHECK(d.cost == (d.uber ? 2 : 1) * kPearlsPerThrone);
+    }
+    CHECK(pinnacle_def(PIN_FALAK).currency == CUR_SCALE && pinnacle_def(PIN_KING).currency == CUR_PEARL);
+    CHECK(monster_defs()[size_t(find_monster("falak"))].rigid);
+    ChartMods m;
+    uber_mods(m);
+    CHECK(m.monster_life >= 200 && m.monster_damage > 0 && m.quantity > 0);
+    ChartRun r;
+    r.tier = kChartTiers;
+    Rng rng(5);
+    int before = 0, after = 0;
+    for (int i = 0; i < 400; i++) { before += scale_drops(r, false, rng); after += scale_drops(r, true, rng); }
+    CHECK(before == 0 && after > 60 && after < 200);
+    r.tier = kChartTiers - 2;
+    int low = 0;
+    for (int i = 0; i < 200; i++) low += scale_drops(r, true, rng);
+    CHECK(low == 0);
+}
+
+// Slice 11: the third pinnacle. Umm al-Subyan's Combs come from Falak and, after the campaign, from Zar Nights sung
+// to their end on the Twelfth Reach and up
+TEST(umm_al_subyan_the_third_pinnacle) {
+    const PinnacleDef& d = pinnacle_def(PIN_SUBYAN);
+    CHECK(d.currency == CUR_COMB && d.cost == kPearlsPerThrone && !d.uber && pinnacle_def(PIN_SUBYAN_UBER).uber);
+    CHECK(std::string(zone_def(find_zone("subyan_house")).boss) == "umm_subyan");
+    CHECK(find_codex("subyan") >= 0);
+    ChartRun r;
+    Rng rng(9);
+    r.tier = 11;
+    int low = 0, early = 0, late = 0;
+    for (int i = 0; i < 200; i++) low += comb_drops(r, true, rng);
+    r.tier = 14;
+    for (int i = 0; i < 200; i++) { early += comb_drops(r, false, rng); late += comb_drops(r, true, rng); }
+    CHECK(low == 0 && early == 0 && late > 60 && late < 140);
+}
+
+// the life flask climbs seven tiers at Amm Sayed's, and gear past Act III restores life over time
+TEST(flask_tiers_and_life_regeneration) {
+    CHECK(flask_charges(0) == 3 && flask_charges(kFlaskTiers - 1) == 6);
+    CHECK(flask_heal(0) == 0.5f && flask_heal(kFlaskTiers - 1) < 1.f);
+    for (int t = 0; t + 1 < kFlaskTiers; t++) CHECK(flask_upgrade_level(t + 1) > flask_upgrade_level(t) && flask_upgrade_price(t + 1) > flask_upgrade_price(t));
+    World w;
+    w.reset_hero("warrior");
+    w.hero.flask_tier = 4;
+    w.recompute_hero();
+    CHECK(w.hero.flask_max == 5.f);
+    // the character file keeps the tier
+    ByteWriter bw;
+    write_character(bw, w.hero);
+    Hero r;
+    ByteReader br(bw.buf.data(), bw.buf.size());
+    CHECK(read_character(br, r) && r.flask_tier == 4);
+    // regeneration: an affix that rolls only on high-level items, and three jewellery bases that carry it
+    const int sp = find_affix("spring");
+    CHECK(sp >= 0 && affix_defs()[size_t(sp)].tier_levels[0] >= 30);
+    Rng rng(3);
+    w.hero.equip[EQ_AMULET] = make_item(find_base("spring_amulet"), Rarity::Normal, 60, rng);
+    w.recompute_hero();
+    CHECK(w.hero.stats.value(S_LIFE_REGEN) >= 28.f);
+}

@@ -65,6 +65,22 @@ const std::vector<MonsterDef>& monster_defs() {
             {"qandisha", "Aisha Qandisha", "qandisha", 1.0f, {1, 1, 1}, 2500, 4.2f, 0.9f, AttackKind::Boss, 3.2f, 1.3f, 27, 40, DT_COLD, 130, 3600, 0},
             // Slice 9: the first pinnacle, on his throne under the Encircling Sea
             {"marid_king", "The Marid King", "marid", 2.4f, {0.42f, 0.72f, 1.3f}, 2200, 4.0f, 1.2f, AttackKind::Boss, 3.6f, 1.2f, 24, 36, DT_COLD, 200, 6000, 0},
+            // Act VI (Slice 10): Across the Red Sea
+            {"coral_ghoul", "Coral Ghoul", "ghoul", 1.1f, {1.25f, 0.82f, 0.76f}, 80, 4.4f, 0.45f, AttackKind::Claw, 1.5f, 1.3f, 13, 19, DT_PHYS, 60, 34, 0},
+            {"mud_nasnas", "Nasnas of the Wadi", "nasnas", 1.05f, {1.08f, 0.8f, 0.6f}, 70, 5.4f, 0.42f, AttackKind::Claw, 1.4f, 1.0f, 12, 18, DT_PHYS, 20, 32, 0},
+            {"brass_guard", "Brass Guardian", "timthal", 1.0f, {1.35f, 1.0f, 0.5f}, 150, 2.8f, 0.6f, AttackKind::Slam, 2.4f, 2.6f, 18, 26, DT_PHYS, 320, 48, 0},
+            {"eclipse_marid", "Marid of the Black Sun", "marid", 1.1f, {0.45f, 0.35f, 0.72f}, 90, 4.6f, 0.5f, AttackKind::Claw, 1.8f, 1.3f, 14, 21, DT_CHAOS, 30, 40, 0},
+            {"umm_duwais", "Umm al-Duwais", "duwais", 1.0f, {1, 1, 1}, 2600, 4.4f, 0.9f, AttackKind::Boss, 3.2f, 1.2f, 28, 41, DT_PHYS, 130, 3800, 0},
+            {"shiqq", "Shiqq, the Half-Man of Shibam", "nasnas", 1.8f, {1.12f, 0.78f, 0.56f}, 2400, 4.8f, 1.0f, AttackKind::Boss, 3.0f, 1.2f, 21, 31, DT_PHYS, 120, 4000, 0},
+            {"al_hatif", "al-Hatif, the Voice of the Sands", "wraith", 1.2f, {1.3f, 1.2f, 1.05f}, 2600, 3.8f, 1.0f, AttackKind::Boss, 3.4f, 1.3f, 27, 40, DT_CHAOS, 110, 4200, 0},
+            {"brass_horseman", "The Brass Horseman of Iram", "horseman", 1.0f, {1, 1, 1}, 3000, 4.0f, 1.6f, AttackKind::Boss, 3.8f, 1.5f, 27, 40, DT_PHYS, 450, 4500, 0},
+            {"apep", "Apep, the Serpent of the Dark", "apep", 1.0f, {1, 1, 1}, 4200, 3.2f, 2.0f, AttackKind::Boss, 4.5f, 1.4f, 34, 50, DT_CHAOS, 200, 6500, 0},
+            // the Fourth Trial's gatekeeper (Slice 10)
+            {"iram_keeper", "The Keeper of the Gate of Iram", "mamluk", 1.15f, {1.35f, 1.05f, 0.4f}, 2900, 3.4f, 1.0f, AttackKind::Boss, 3.4f, 1.5f, 27, 40, DT_PHYS, 450, 4800, 0},
+            // the second pinnacle (Slice 10): Falak, the serpent beneath the world; Apep's own mesh, vaster and darker
+            {"falak", "Falak, the Serpent beneath the World", "apep", 1.45f, {0.62f, 0.38f, 0.58f}, 2600, 3.2f, 2.2f, AttackKind::Boss, 5.0f, 1.3f, 21, 31, DT_CHAOS, 220, 9000, 0},
+            // the third pinnacle (Slice 11): the night-hag who steals the city's sleep; Qandisha's rig, ash-pale
+            {"umm_subyan", "Umm al-Subyan, Who Steals the Sleep", "qandisha", 1.15f, {0.82f, 0.78f, 0.95f}, 2500, 4.4f, 0.9f, AttackKind::Boss, 3.2f, 1.25f, 21, 32, DT_COLD, 140, 9000, 0},
         };
         auto set = [&](const char* id, bool rigid, const char* fam, const char* voice = "ghoul") {
             for (auto& m : v) if (std::string(m.id) == id) { m.rigid = rigid; m.family = fam; m.voice = voice; }
@@ -113,6 +129,18 @@ const std::vector<MonsterDef>& monster_defs() {
         set("bu_ghettat", false, "Bu Ghettat, the Presser", "whisper");
         set("qandisha", false, "Aisha Qandisha", "whisper");
         set("marid_king", false, "The Marid King", "whisper");
+        set("coral_ghoul", false, "Ghouls of the coral city");
+        set("umm_duwais", false, "Umm al-Duwais", "whisper");
+        set("mud_nasnas", false, "Nasnas, the half-men");
+        set("shiqq", false, "Shiqq, the half-man", "howl");
+        set("al_hatif", false, "The Hawatif, voices of the sand", "whisper");
+        set("brass_guard", true, "The City of Brass", "metal");
+        set("brass_horseman", true, "The City of Brass", "metal");
+        set("iram_keeper", false, "The City of Brass", "metal");
+        set("falak", true, "Falak", "fire");
+        set("umm_subyan", false, "Umm al-Subyan", "whisper");
+        set("eclipse_marid", false, "Apep, the serpent of the dark", "whisper");
+        set("apep", true, "Apep, the serpent of the dark", "fire");
         codex("Ghouls", "ghouls");
         codex("Possessed", "possessed");
         codex("Si'lah", "silah");
@@ -137,6 +165,14 @@ const std::vector<MonsterDef>& monster_defs() {
         codex("Bu Ghettat", "presser");
         codex("Aisha Qandisha", "qandisha");
         codex("The Marid King", "marid_king");
+        codex("Ghouls of the coral", "coral_ghouls");
+        codex("Umm al-Duwais", "duwais");
+        codex("Shiqq", "shiqq");
+        codex("The Hawatif", "hatif");
+        codex("The City of Brass", "brass");
+        codex("Apep", "apep");
+        codex("Falak", "falak");
+        codex("Umm al-Subyan", "subyan");
         return v;
     }();
     return d;
@@ -251,6 +287,49 @@ const BossDef* boss_def(int monster) {
           {MoveKind::Blink, "cast", 6.f, 5.f, 30, 0, 1}, {MoveKind::Volley, "cast", 3.2f, 5.f, 30, 0.8f, 0},
           {MoveKind::Combo, "combo", 1.1f, 0, 4.0f, 1.f, 0}},
          0.55f, "THE ENCIRCLING SEA KNEELS TO HIM", "sea_marid", 5, 12.f, 1.35f, {0.55f, 0.85f, 1.f}, true},
+        // Act VI: she draws you to her (a Call) and cuts; the half-man leaps and slams; the voice calls, vanishes and burns;
+        // the horseman charges (a rigid thing, like the Ram); Apep's coils crush, its dark pools spread, its court rises
+        {"umm_duwais",
+         {{MoveKind::Summon, "summon", 1e9f, 0, 99, 0, 1}, {MoveKind::Wail, "wail", 9.f, 0, 99, 0, 0},
+          {MoveKind::Leap, "leap", 4.2f, 4.5f, 25, 1.5f, 0}, {MoveKind::Volley, "cast", 4.5f, 5.f, 30, 0.7f, 1},
+          {MoveKind::Combo, "combo", 1.2f, 0, 3.6f, 1.f, 0}},
+         0.5f, "HER PERFUME FILLS THE LANES", "coral_ghoul", 4, 11.f, 1.3f, {1.f, 0.6f, 0.8f}, true},
+        {"shiqq",
+         {{MoveKind::Summon, "summon", 1e9f, 0, 99, 0, 1}, {MoveKind::Nova, "slam", 8.f, 0, 5.5f, 1.2f, 0},
+          {MoveKind::Leap, "leap", 4.5f, 4.5f, 25, 1.3f, 0}, {MoveKind::Combo, "combo", 1.2f, 0, 3.4f, 1.f, 0}},
+         0.5f, "THE OTHER HALF COMES OUT OF THE WALL", "mud_nasnas", 3, 11.f, 1.35f, {0.9f, 0.7f, 0.5f}},
+        {"al_hatif",
+         {{MoveKind::Summon, "summon", 1e9f, 0, 99, 0, 1}, {MoveKind::Wail, "wail", 8.5f, 0, 99, 0, 0},
+          {MoveKind::Pools, "cast", 7.f, 0, 30, 0.55f, 0}, {MoveKind::Blink, "cast", 5.5f, 5.f, 30, 0, 1},
+          {MoveKind::Volley, "cast", 3.4f, 5.f, 30, 0.8f, 0}, {MoveKind::Combo, "combo", 1.2f, 0, 3.8f, 1.f, 0}},
+         0.5f, "THE VOICE KNOWS YOUR NAME", "sand_shade", 4, 11.f, 1.3f, {1.f, 0.9f, 0.6f}, true},
+        {"brass_horseman",
+         {{MoveKind::Summon, "", 1e9f, 0, 99, 0, 1}, {MoveKind::Nova, "", 7.5f, 0, 5.5f, 1.15f, 0},
+          {MoveKind::Charge, "", 4.8f, 4.f, 30, 1.35f, 0}, {MoveKind::Combo, "", 1.5f, 0, 3.8f, 1.f, 0}},
+         0.5f, "THE CITY OF BRASS WAKES", "brass_guard", 2, 11.f, 1.3f, {1.f, 0.8f, 0.4f}},
+        {"apep",
+         {{MoveKind::Summon, "", 1e9f, 0, 99, 0, 1}, {MoveKind::Pools, "", 6.f, 0, 30, 0.6f, 0},
+          {MoveKind::Nova, "", 5.5f, 0, 6.5f, 1.4f, 0}, {MoveKind::Charge, "", 4.5f, 4.f, 30, 1.7f, 1},
+          {MoveKind::Combo, "", 1.4f, 0, 4.5f, 1.f, 0}},
+         0.55f, "THE SUN IS IN ITS MOUTH", "eclipse_marid", 5, 12.f, 1.3f, {0.6f, 0.4f, 1.f}},
+        // the Keeper of the Gate of Iram: the Bronze Mamluk's moves, and the city's brass guardians rise at the half
+        {"iram_keeper",
+         {{MoveKind::Summon, "summon", 1e9f, 0, 99, 0, 1}, {MoveKind::Nova, "slam", 6.5f, 0, 5.5f, 1.25f, 0},
+          {MoveKind::Leap, "leap", 4.5f, 4.5f, 25, 1.4f, 1}, {MoveKind::Combo, "combo", 1.3f, 0, 3.6f, 1.f, 0}},
+         0.5f, "THE GATE OF IRAM STANDS TO", "brass_guard", 3, 11.f, 1.25f, {1.f, 0.8f, 0.35f}},
+        // Falak: Apep's moves, slower and wider; it calls you across the dark water, and its court of marids rises
+        {"falak",
+         {{MoveKind::Summon, "", 1e9f, 0, 99, 0, 1}, {MoveKind::Wail, "", 10.f, 0, 99, 0, 1},
+          {MoveKind::Pools, "", 7.f, 0, 30, 0.5f, 0}, {MoveKind::Nova, "", 7.5f, 0, 7.f, 1.15f, 0},
+          {MoveKind::Charge, "", 5.5f, 4.f, 30, 1.35f, 1}, {MoveKind::Combo, "", 1.6f, 0, 5.f, 1.f, 0}},
+         0.55f, "THE WORLD SHIFTS ON ITS BACK", "eclipse_marid", 5, 12.f, 1.3f, {0.7f, 0.3f, 0.8f}, true},
+        // Umm al-Subyan: she calls you to her through the dark house, vanishes and comes back behind you, leaves pools of
+        // cold on the floor; at the half every lamp goes out and the shades of the unsleeping rise
+        {"umm_subyan",
+         {{MoveKind::Summon, "summon", 1e9f, 0, 99, 0, 1}, {MoveKind::Wail, "wail", 9.f, 0, 99, 0, 0},
+          {MoveKind::Pools, "cast", 7.f, 0, 30, 0.5f, 0}, {MoveKind::Blink, "cast", 5.5f, 5.f, 30, 0, 0},
+          {MoveKind::Volley, "cast", 3.6f, 5.f, 30, 0.7f, 0}, {MoveKind::Combo, "combo", 1.25f, 0, 3.6f, 1.f, 0}},
+         0.5f, "EVERY LAMP IN THE HOUSE GOES OUT", "sand_shade", 5, 11.f, 1.3f, {0.8f, 0.75f, 1.f}, true},
     };
     if (monster < 0 || monster >= int(monster_defs().size())) return nullptr;
     const char* id = monster_defs()[size_t(monster)].id;
@@ -379,6 +458,8 @@ HeroSummary summarize(const Hero& hero) {
 }
 
 void World::recompute_hero() {
+    hero.flask_max = float(flask_charges(hero.flask_tier));
+    hero.flask = std::min(hero.flask, hero.flask_max);
     Hero& H = hero;
     compute_hero_stats(H);
     Actor& a = actors[0];
@@ -528,8 +609,9 @@ void World::step(const Input& in, float dt) {
     for (auto& p : projectiles) {
         p.pos += p.vel * dt;
         p.life -= dt;
-        if (fx_rng.chance(0.6f)) {
-            Particle q{vec3(p.pos, p.z), {0, 0, 0}, 0.3f, 0.3f, 0.25f, 0.05f, 0, 1, vec4(p.color, 0.8f), vec4(p.color * 0.5f, 0), 0, true};
+        if (fx_rng.chance(0.6f) && !p.arrow && int(p.life * 60.f) % 3 == 0) {   // a trail of small flipbooks
+            Particle q{vec3(p.pos, p.z), {0, 0, 0}, 0.35f, 0.35f, 0.26f, 0.26f, 0, 1, vec4(p.color, 0.8f), vec4(p.color * 0.5f, 0), 0, false};
+            q.fx = int8_t(fx_for(vec4(p.color, 1), true, 0));
             particles.push_back(q);
         }
         if (p.team == TEAM_ENEMY && h.alive() && length(p.pos - h.pos) < p.radius + h.radius) {
@@ -554,6 +636,8 @@ void World::step(const Input& in, float dt) {
         if (level.blocked(p.pos, 0.05f)) p.life = 0;
         if (p.life <= 0) {
             burst(vec3(p.pos, 0.3f), 12, vec4(p.color, 1), vec4(p.color * 0.3f, 0), 3.f, 0.18f, 0.5f, true);
+            if (!p.arrow) sprite_fx(vec3(p.pos, p.z), fx_impact(p.dmg_type, p.color), 0.75f, 0.45f);
+            else sprite_fx(vec3(p.pos, p.z), FX_STAR, 0.4f, 0.3f);
             if (p.team == TEAM_ENEMY) emit(Ev::Splash, p.pos);
         }
     }
@@ -1052,6 +1136,12 @@ void World::zar_end() {
         loot.push_back(g);
     }
     if (z.trances > 0) drop_gold(level.resolve(z.pos + vec2{-1.4f, -1.2f}, 0.3f), (20 + area_level * 3) * z.trances);
+    // after the campaign, a song sung to its end on the last charts gives one of Umm al-Subyan's Combs
+    if (!failed && in_chart)
+        if (int n = comb_drops(chart, (hero.quests & Q_ACT6) != 0, rng); n > 0) {
+            drop_currency(level.resolve(z.pos + vec2{1.4f, -1.2f}, 0.3f), CUR_COMB, n);
+            notices.push_back("A Comb of Umm al-Subyan");
+        }
     char b[120];
     if (failed) snprintf(b, sizeof b, "The rhythm fails and the drummers stop. %d trance%s", z.trances, z.trances == 1 ? "" : "s");
     else snprintf(b, sizeof b, "The song is over: %d trance%s, and the circle is quiet", z.trances, z.trances == 1 ? "" : "s");
@@ -1292,7 +1382,7 @@ void World::hero_step(const Input& in, float dt) {
     if ((H.keystones & KS_OATH) && H.endurance > 0) h.life = std::min(h.life_max, h.life + h.life_max * 0.006f * H.endurance * dt);
     if (H.keystones & KS_QIRBA) H.flask = std::min(H.flask_max, H.flask + 0.125f * dt);   // Qirba of Plenty
     if (H.flask_heal_t > 0) {
-        float rate = h.life_max * 0.5f / 1.5f * (1.f + H.stats.sum(S_FLASK_RECOVERY).inc / 100.f);
+        float rate = h.life_max * flask_heal(H.flask_tier) / 1.5f * (1.f + H.stats.sum(S_FLASK_RECOVERY).inc / 100.f);
         h.life = std::min(h.life_max, h.life + rate * dt);
         H.flask_heal_t -= dt;
     }
@@ -1423,6 +1513,7 @@ float World::hit_enemy(Actor& e, const HeroHit& hh, vec2 from, float knock, floa
         emit(Ev::Crit, e.pos);
     }
     vec3 hp = vec3(e.pos, 1.0f * e.scale);
+    sprite_fx(hp + vec3{0, 0, 0.1f}, FX_STAR, res.crit ? 0.7f : 0.45f, 0.28f);
     burst(hp, 7, vec4(1.f, 0.7f, 0.4f, 0.8f), vec4(0.9f, 0.3f, 0.1f, 0), 5.f, 0.08f, 0.3f, true, -9.f);
     burst(hp, 3, vec4(0.2f, 0.17f, 0.18f, 0.55f), vec4(0.15f, 0.13f, 0.14f, 0), 2.f, 0.22f, 0.5f, false, -4.f, 1);
     if (e.life <= 0) {
@@ -1436,6 +1527,7 @@ float World::hit_enemy(Actor& e, const HeroHit& hh, vec2 from, float knock, floa
                 if (o.life <= 0) kill(o);
             }
             burst(vec3(e.pos, 0.6f), 24, vec4(1.f, 0.65f, 0.25f, 1), vec4(0.9f, 0.2f, 0.05f, 0), 6.f, 0.14f, 0.5f, true, -6.f);
+            sprite_fx(vec3(e.pos, 1.0f), FX_BLAST, 1.3f, 0.6f);
             emit(Ev::StarFall, e.pos, 0.5f);
         }
         if (res.crit && (H.keystones & KS_POWER_KILL)) gain_power(1);   // Night's Harvest
@@ -1542,6 +1634,7 @@ void World::star_fall(GroundFx& g) {
         emit(Ev::Glyph, gl.pos, 2.f);
     }
     burst(vec3(g.pos, 0.2f), 36, vec4(1.f, 0.8f, 0.4f, 1), vec4(1.f, 0.3f, 0.1f, 0), 8.f, 0.14f, 0.7f, true, -10.f);
+    sprite_fx(vec3(g.pos, 0.9f), FX_BLAST, std::max(1.2f, g.radius * 0.7f), 0.6f);
     burst(vec3(g.pos, 0.1f), 18, vec4(0.4f, 0.36f, 0.34f, 0.8f), vec4(0.3f, 0.27f, 0.25f, 0), 4.f, 0.4f, 1.0f, false, -5.f, 1);
     emit(Ev::StarFall, g.pos);
     hitstop = std::max(hitstop, 0.05f);
@@ -1554,6 +1647,7 @@ void World::grenade_burst(GroundFx& g) {
         if (e.alive() && length(e.pos - g.pos) <= g.radius + e.radius) hit_enemy(e, g.hh, g.pos, 3.f);
     }
     burst(vec3(g.pos, 0.3f), 30, vec4(1.f, 0.72f, 0.3f, 1), vec4(0.9f, 0.25f, 0.05f, 0), 7.f, 0.16f, 0.6f, true, -6.f);
+    sprite_fx(vec3(g.pos, 0.9f), FX_BLAST, std::max(1.2f, g.radius * 0.7f), 0.6f);
     burst(vec3(g.pos, 0.2f), 16, vec4(0.25f, 0.2f, 0.18f, 0.8f), vec4(0.15f, 0.12f, 0.1f, 0), 3.f, 0.45f, 1.1f, false, 1.5f, 1);
     burst(vec3(g.pos, 0.1f), 10, vec4(0.66f, 0.45f, 0.3f, 1), vec4(0.5f, 0.35f, 0.22f, 0), 5.f, 0.06f, 0.6f, false, -14.f);   // clay
     GroundFx r;
@@ -2122,7 +2216,7 @@ void World::drop_loot(const Actor& e) {
         for (int k = 0; k < 4; k++) drop_currency(e.pos + rotate(vec2{2.2f, 0}, k * 1.57f), k == 0 ? CUR_PIASTRE : roll_currency(rng, area_level + 2), 1);
         drop_gold(e.pos + vec2{0, -1.8f}, 60 + 12 * area_level);
         drop_special(e.pos + vec2{1.6f, -1.2f}, GroundItem::Wafq, rng.irange(0, WQ_COUNT - 1));
-        drop_special(e.pos + vec2{-1.6f, -1.2f}, GroundItem::Blank, std::min(20, area_level + 1));
+        drop_special(e.pos + vec2{-1.6f, -1.2f}, GroundItem::Blank, std::min(blank_cap(area_level), area_level + 1));
         if (in_chart)   // a site's master always carries charts
             for (int k = 0, n = boss_chart_drops(chart, rng); k < n; k++) {
                 GroundItem g;
@@ -2136,17 +2230,42 @@ void World::drop_loot(const Actor& e) {
                 drop_currency(level.resolve(e.pos + vec2{-2.4f, 1.4f}, 0.3f), CUR_PEARL, n);
                 notices.push_back(n == 1 ? "A King's Pearl" : "King's Pearls");
             }
+        if (in_chart && chart_site >= 0)   // and after the campaign, the last two Reaches' masters carry Scales of Falak
+            if (int n = scale_drops(chart, (hero.quests & Q_ACT6) != 0, rng); n > 0) {
+                drop_currency(level.resolve(e.pos + vec2{2.4f, 1.4f}, 0.3f), CUR_SCALE, n);
+                notices.push_back("A Scale of Falak");
+            }
         if (int u = random_unique(area_level + 2, rng); u >= 0) drop_special(e.pos + vec2{0, 1.8f}, GroundItem::Scrap, u);
         const std::string id = monster_defs()[size_t(e.def)].id;
-        const bool king = id == "marid_king";                // the Marid King: two uniques and a purse, always
+        if (id == "iram_keeper" && hero.sealed_slot >= 0) {   // the Gate of Iram pays by the toll: a braver one, a richer reward
+            const int n = hero.sealed_slot == EQ_WEAPON ? 2 : hero.sealed_slot == EQ_BODY ? 1 : 0;
+            for (int k = 0; k < n; k++)
+                if (int u = random_unique(area_level + 2, rng); u >= 0) {
+                    GroundItem g;
+                    g.item = make_unique(u, area_level + 2, rng);
+                    g.pos = level.resolve(e.pos + vec2{-1.8f + 1.8f * float(k), -2.6f}, 0.3f);
+                    g.id = next_id++;
+                    loot.push_back(g);
+                }
+            if (hero.sealed_slot == EQ_WEAPON) drop_currency(level.resolve(e.pos + vec2{2.4f, -1.4f}, 0.3f), CUR_PEARL, 1);
+        }
+        if (id == "falak") {   // and Falak one of Umm al-Subyan's Combs
+            drop_currency(level.resolve(e.pos + vec2{-2.4f, -1.4f}, 0.3f), CUR_COMB, 1);
+            notices.push_back("A Comb of Umm al-Subyan");
+        }
+        if (id == "iram_keeper") {   // the Keeper always carries a Scale of Falak
+            drop_currency(level.resolve(e.pos + vec2{-2.4f, -1.4f}, 0.3f), CUR_SCALE, 1);
+            notices.push_back("A Scale of Falak");
+        }
+        const bool king = id == "marid_king" || id == "falak" || id == "umm_subyan";   // the pinnacles: two uniques and a purse (an uber: three)
         const bool lord = id == "rift_lord" || king;         // the Rift Lord: a unique, always
         if (lord)
             for (int k = 0; k < (king ? 6 : 3); k++) drop_currency(e.pos + rotate(vec2{3.0f, 0}, 0.8f + k * 0.7f), roll_currency(rng, area_level + 4), 1);
-        for (int k = 0; k < (king ? 2 : 1); k++)
+        for (int k = 0; k < (king ? (chart.uber ? 3 : 2) : 1); k++)
             if (rng.chance(lord ? 1.f : 0.08f)) if (int u = random_unique(area_level + 2, rng); u >= 0) {
                 GroundItem g;
                 g.item = make_unique(u, area_level + 2, rng);
-                g.pos = level.resolve(e.pos + vec2{k ? 1.8f : 0.f, 2.6f}, 0.3f);
+                g.pos = level.resolve(e.pos + vec2{1.8f * float(k), 2.6f}, 0.3f);
                 g.id = next_id++;
                 loot.push_back(g);
             }
@@ -2179,7 +2298,7 @@ void World::drop_loot(const Actor& e) {
     float wq = e.rarity == Rarity::Rare ? 0.3f : e.rarity == Rarity::Magic ? 0.06f : 0.008f;
     if (rng.chance(wq)) drop_special(scatter(0.9f), GroundItem::Wafq, rng.irange(0, WQ_COUNT - 1));
     float bl = e.rarity == Rarity::Rare ? 0.35f : e.rarity == Rarity::Magic ? 0.07f : 0.012f;
-    if (rng.chance(bl)) drop_special(scatter(0.9f), GroundItem::Blank, std::clamp(area_level + rng.irange(-1, 1), 1, 20));
+    if (rng.chance(bl)) drop_special(scatter(0.9f), GroundItem::Blank, std::clamp(area_level + rng.irange(-1, 1), 1, blank_cap(area_level)));
     // currency and dinars
     float cur_chance = (e.rarity == Rarity::Rare ? 0.9f : e.rarity == Rarity::Magic ? 0.25f : 0.045f) * qty *
                        (in_chart ? 1.f + astro_value(chart.astro, AX_CURRENCY) / 100.f : 1.f);
@@ -2774,7 +2893,48 @@ void World::separate() {
     }
 }
 
+int fx_for(vec4 c, bool additive, uint8_t shape) {
+    const float r = c.x, g = c.y, b = c.z;
+    if (shape == 1) return FX_SMOKE;                                  // dust and smoke
+    if (g > r && g > b) return FX_BUBBLE;                             // poison
+    if (b > r + 0.1f) return FX_FROST;                                // cold, the river's light
+    if (r > g + 0.2f && b > g + 0.2f) return FX_VOID;                 // chaos
+    if (!additive && r > 0.3f && g < 0.15f) return FX_BLOOD;          // blood
+    if (!additive) return FX_STONE;                                   // clay, grit
+    return g >= 0.78f * r ? FX_HOLY : FX_EMBER;                       // gold, or fire
+}
+
+int fx_projectile(int dmg_type, vec3 color) {
+    switch (dmg_type) {
+        case DT_FIRE: return FX_FIREBALL;
+        case DT_COLD: return FX_ICE_SHARD;
+        case DT_LIGHTNING: return FX_SPARK_BALL;
+        case DT_PHYS: return FX_STONE;
+        default: return color.y > color.x && color.y > color.z ? FX_POISON_BLOB : FX_SHADOW_ORB;
+    }
+}
+
+int fx_impact(int dmg_type, vec3 color) {
+    switch (dmg_type) {
+        case DT_FIRE: return FX_BLAST;
+        case DT_COLD: return FX_SHATTER;
+        case DT_LIGHTNING: return FX_ZAP;
+        case DT_PHYS: return FX_STAR;
+        default: return color.y > color.x && color.y > color.z ? FX_BUBBLE : FX_VOID;
+    }
+}
+
+void World::sprite_fx(vec3 p, int fx, float size, float life, vec3 vel) {
+    if (particles.size() >= 3000) return;
+    Particle q{p, vel, life, life, size, size, 0, 1, vec4(1, 1, 1, 1), vec4(1, 1, 1, 1), 0, false};
+    q.fx = int8_t(fx);
+    particles.push_back(q);
+}
+
 void World::burst(vec3 p, int n, vec4 c0, vec4 c1, float speed, float size, float life, bool additive, float gravity, uint8_t shape) {
+    // drawn as pixel-art flipbooks: a third as many, larger. Every particle still draws its numbers from fx_rng, so
+    // what depends on that stream (a bolt's fork, a monster's pause) is as it was
+    const int fx = fx_for(c0, additive, shape);
     for (int i = 0; i < n && particles.size() < 3000; i++) {
         vec3 dir = normalize(vec3{fx_rng.range(-1, 1), fx_rng.range(-1, 1), fx_rng.range(0.1f, 1.2f)});
         Particle q;
@@ -2789,6 +2949,11 @@ void World::burst(vec3 p, int n, vec4 c0, vec4 c1, float speed, float size, floa
         q.c1 = c1;
         q.shape = shape;
         q.additive = additive;
+        if (i % 3) continue;
+        q.fx = int8_t(fx);
+        q.size0 = std::clamp(q.size0 * (shape == 1 ? 1.4f : 2.4f), 0.22f, shape == 1 ? 0.8f : 1.1f);
+        q.size1 = shape == 1 ? q.size0 * 1.3f : q.size0;
+        q.life = q.max_life = std::max(q.life, 0.35f);   // long enough to see its frames
         particles.push_back(q);
     }
 }

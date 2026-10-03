@@ -87,6 +87,23 @@ jobs:
       - name: Act V, played through by the bot (a Warrior as Act IV leaves one)
         timeout-minutes: 40
         run: ./build/linux/qhost build/Qahira.qpk --headless --bot act5 2>&1 | grep -E "^act5|TEST"; test ${PIPESTATUS[0]} -eq 0
+      - name: Act VI, played through by the bot (a Templar as Act V leaves one)
+        timeout-minutes: 40
+        run: QAHIRA_CLASS=templar ./build/linux/qhost build/Qahira.qpk --headless --bot act6 2>&1 | grep -E "^act6|TEST"; test ${PIPESTATUS[0]} -eq 0
+      - name: Falak, the second pinnacle (a Sorcerer after the campaign, four Scales of Falak)
+        timeout-minutes: 30
+        run: QAHIRA_CLASS=sorcerer ./build/linux/qhost build/Qahira.qpk --headless --bot falak 2>&1 | grep -E "^king|TEST"; test ${PIPESTATUS[0]} -eq 0
+      - name: Umm al-Subyan, the third pinnacle (a Sorcerer after the campaign, four Combs)
+        timeout-minutes: 30
+        run: QAHIRA_CLASS=sorcerer ./build/linux/qhost build/Qahira.qpk --headless --bot subyan 2>&1 | grep -E "^king|TEST"; test ${PIPESTATUS[0]} -eq 0
+      - name: Falak as the Warrior (nightly and on demand)
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        timeout-minutes: 30
+        run: ./build/linux/qhost build/Qahira.qpk --headless --bot falak 2>&1 | grep -E "^king|TEST"; test ${PIPESTATUS[0]} -eq 0
+      - name: Act VI as the Warrior (nightly and on demand)
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        timeout-minutes: 60
+        run: ./build/linux/qhost build/Qahira.qpk --headless --bot act6 2>&1 | grep -E "^act6|TEST"; test ${PIPESTATUS[0]} -eq 0
       - name: Act V as the Templar (nightly and on demand)
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         timeout-minutes: 40
@@ -132,3 +149,123 @@ jobs:
             qahira/build/chartsim_report.md
             qahira/build/tree_preview.png
             qahira/build/buildsim_report.md
+
+  device:
+    # The two files a player needs on the Retroid Pocket 6: the RetroArch core for Android (arm64-v8a) and the
+    # content pack. Pushes to `qahira` (and manual runs from it) republish them on the rolling `qahira-latest`
+    # prerelease, where a phone browser can download them directly (see qahira/docs/PLAY.md). Independent of the
+    # `build` job above, so a long bot run doesn't hold up a playable build and this job can't affect the tests.
+    name: RP6 core and pack (release qahira-latest)
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/qahira')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    permissions:
+      contents: write   # to move the qahira-latest tag and replace the release's files
+    concurrency:
+      group: qahira-device-${{ github.ref }}
+      cancel-in-progress: true
+    defaults:
+      run:
+        working-directory: qahira
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'   # bpy 5.0 is built for Python 3.11
+      - name: System packages
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq cmake ninja-build woff2
+      - name: Blender as a Python module (art, and the fonts the pack takes from it)
+        run: pip install -q bpy==5.0.1
+      - name: Cache the generated art and audio (shared with the build job)
+        id: art
+        uses: actions/cache@v4
+        with:
+          path: qahira/assets/generated
+          key: qahira-art-${{ hashFiles('qahira/tools/art/**', 'qahira/tools/audio/**') }}
+      - name: Generate art and audio
+        if: steps.art.outputs.cache-hit != 'true'
+        run: |
+          python tools/art/build.py 2>&1 | grep -E "EXPORT|BUILD|Error|Traceback" || true
+          test -f assets/generated/meshes/warrior.qmesh
+          python tools/audio/synth.py
+      - name: Passive tree
+        run: python tools/tree/build_tree.py
+      - name: Pack
+        run: |
+          python tools/pack.py
+          ls -l build/Qahira.qpk
+      - name: Android core (arm64-v8a, the runner's NDK)
+        run: |
+          NDK="${ANDROID_NDK_HOME:-${ANDROID_NDK_LATEST_HOME:-}}"
+          test -d "$NDK" || { echo "no Android NDK on this runner"; exit 1; }
+          echo "NDK: $NDK"
+          cmake -S . -B build/android -G Ninja -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_TOOLCHAIN_FILE="$NDK/build/cmake/android.toolchain.cmake" \
+            -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-29 \
+            -DQAHIRA_COMMIT="$GITHUB_SHA" -DQAHIRA_RUN="$GITHUB_RUN_NUMBER"
+          cmake --build build/android
+          BIN="$NDK/toolchains/llvm/prebuilt/linux-x86_64/bin"
+          "$BIN/llvm-strip" -o build/qahira_libretro_android.so build/android/qahira_libretro_android.so
+          "$BIN/llvm-readelf" -h build/qahira_libretro_android.so | grep -q AArch64
+          "$BIN/llvm-readelf" -d build/qahira_libretro_android.so | grep NEEDED
+          exports=$("$BIN/llvm-nm" -D --defined-only build/qahira_libretro_android.so | grep -c ' T retro_')
+          echo "retro_* exports: $exports"
+          test "$exports" -ge 25
+          ls -l build/qahira_libretro_android.so
+      - name: version.json (what the in-game update reads)
+        run: |
+          python - <<'EOF'
+          import hashlib, json, os
+          files = []
+          for name in ('qahira_libretro_android.so', 'Qahira.qpk'):
+              path = os.path.join('build', name)
+              h = hashlib.sha256()
+              with open(path, 'rb') as f:
+                  for block in iter(lambda: f.read(1 << 20), b''):
+                      h.update(block)
+              files.append({'name': name, 'size': os.path.getsize(path), 'sha256': h.hexdigest()})
+          info = {'commit': os.environ['GITHUB_SHA'], 'run': int(os.environ['GITHUB_RUN_NUMBER']), 'files': files}
+          with open('build/version.json', 'w') as f:
+              json.dump(info, f, indent=1)
+          EOF
+          cat build/version.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: qahira-rp6
+          path: |
+            qahira/build/qahira_libretro_android.so
+            qahira/build/Qahira.qpk
+            qahira/build/version.json
+          compression-level: 0
+          retention-days: 14
+      - name: Move the qahira-latest tag to this commit
+        if: github.ref == 'refs/heads/qahira'
+        run: |
+          git tag -f qahira-latest "$GITHUB_SHA"
+          git push -f origin refs/tags/qahira-latest
+      - name: Publish the qahira-latest prerelease
+        if: github.ref == 'refs/heads/qahira'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: qahira-latest
+          name: QAHIRA (latest build for the Retroid Pocket 6)
+          prerelease: true
+          make_latest: false
+          fail_on_unmatched_files: true
+          body: |
+            The newest build of QAHIRA from the `qahira` branch, rebuilt on every push.
+            Commit ${{ github.sha }} (run ${{ github.run_number }}).
+
+            Download both files. They must come from the same build:
+            - `qahira_libretro_android.so`: the RetroArch core (Android, arm64-v8a)
+            - `Qahira.qpk`: the game's content pack
+
+            Already playing? Start → Game → Update downloads these in the game (`version.json` tells it what's here).
+
+            How to install and play from the handheld: [qahira/docs/PLAY.md](https://github.com/${{ github.repository }}/blob/qahira/qahira/docs/PLAY.md)
+          files: |
+            qahira/build/qahira_libretro_android.so
+            qahira/build/Qahira.qpk
+            qahira/build/version.json

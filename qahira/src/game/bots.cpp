@@ -1,4 +1,5 @@
 #include "game/bots.hpp"
+#include "game/settings.hpp"
 #include "game/save.hpp"
 #include "platform/app_api.hpp"
 #include <cstdio>
@@ -24,10 +25,11 @@ void Bot::drive(World& w, Menu& m, Areas& a, Input& in, uint64_t frame) {
     else if (scenario == "tour3") tour3(w, m, a, in, frame);
     else if (scenario == "bestiary") bestiary(w, a, in, frame);
     else if (scenario == "tour4") tour4(w, m, a, in, frame);
-    else if (scenario == "act1" || scenario == "act2" || scenario == "act3" || scenario == "act4" || scenario == "act5") act1(w, m, a, in, frame);
+    else if (scenario == "act1" || scenario == "act2" || scenario == "act3" || scenario == "act4" || scenario == "act5" || scenario == "act6")
+        act1(w, m, a, in, frame);
     else if (scenario == "tour5") tour5(w, a, in, frame);
     else if (scenario == "charts" || scenario == "reaches") charts(w, m, a, in, frame);
-    else if (scenario == "king") king(w, m, a, in, frame);
+    else if (pinnacle_run()) king(w, m, a, in, frame);
     else if (scenario == "tour6") tour6(w, a, in, frame);
     else if (scenario == "rifts") rifts(w, m, a, in, frame);
     else if (scenario == "tour7") tour7(w, m, a, in, frame);
@@ -36,6 +38,9 @@ void Bot::drive(World& w, Menu& m, Areas& a, Input& in, uint64_t frame) {
     else if (scenario == "tour8") tour8(w, m, a, in, frame);
     else if (scenario == "tour9") tour9(w, m, a, in, frame);
     else if (scenario == "tour10") tour10(w, m, a, in, frame);
+    else if (scenario == "tour11") tour11(w, m, a, in, frame);
+    else if (scenario == "tour12") tour12(w, m, a, in, frame);
+    else if (scenario == "gallery") gallery(w, m, a, in, frame);
     else fail("unknown bot " + scenario);
 }
 
@@ -472,6 +477,16 @@ bool Bot::menu_nav(const World& w, const Menu& m, Input& in, uint64_t frame, Reg
     return false;
 }
 
+// A weapon is better only for the same skill: rated against the hand's weapon by the skill that weapon is rated by (a staff
+// that makes a spell strong does nothing for the knife the pilot fights with)
+static bool same_skill_better(const World& w, const Item& cand, const Item& hand, float margin) {
+    const char* now_skill = nullptr;
+    const char* new_skill = nullptr;
+    const float now = w.hero_dps(hand, &now_skill), d = w.hero_dps(cand, &new_skill);
+    if (now_skill && (!new_skill || std::string(now_skill) != new_skill)) return false;
+    return d > now + margin;
+}
+
 bool Bot::loot_and_equip(World& w, Menu& m, Input& in, uint64_t frame) {
     Hero& H = w.hero;
     auto inv_index = [&](uint32_t seed) {
@@ -515,6 +530,9 @@ bool Bot::loot_and_equip(World& w, Menu& m, Input& in, uint64_t frame) {
         }
         int g = ground_index(equip_target);
         if (g < 0) { equip_target = 0; return false; }  // gone
+        // one it cannot reach (a nook, another drop always selected first): left after six seconds, like any other
+        if (loot_seed_ != equip_target) { loot_seed_ = equip_target; loot_frame_ = frame; }
+        else if (frame - loot_frame_ > 360) { ignored_loot_.push_back(equip_target); equip_target = 0; loot_seed_ = 0; return false; }
         if (w.selected_loot == g) { if (frame % 6 == 0) press(in, BTN_LEFT); }
         else steer(w, in, w.loot[size_t(g)].pos);
         return true;
@@ -536,16 +554,16 @@ bool Bot::loot_and_equip(World& w, Menu& m, Input& in, uint64_t frame) {
         // it is compared with the weapon of its own kind, in hand or on the back
         const Item& same = !H.equip[EQ_WEAPON2].empty() && H.equip[EQ_WEAPON2].b().wkind == g.item.b().wkind ? H.equip[EQ_WEAPON2] : H.weapon();
         const uint8_t hk = same.b().wkind, gk = g.item.b().wkind;
-        bool better = g.item.b().slot == Slot::Weapon && w.hero_dps(g.item) > w.hero_dps(same) + 0.5f &&
-                      (hk == gk || (!own(hk) && !own(gk)));
+        bool better = g.item.b().slot == Slot::Weapon && same_skill_better(w, g.item, same, 0.5f) && (hk == gk || (!own(hk) && !own(gk)));
         bool fills = slot > EQ_WEAPON && H.equip[slot].empty();
         if (g.item.b().slot == Slot::Chart) {   // charts are the endgame's currency: always worth the space
             float d = length(g.pos - h.pos);
             if (d < bd) { bd = d; best = int(i); best_equip = false; }
             continue;
         }
-        if (scenario == "act1" || scenario == "act2" || scenario == "act3" || scenario == "act4" || scenario == "act5" || scenario == "charts" ||
-            scenario == "zar" || scenario == "reaches" || scenario == "king") {   // the long runs keep their bags for upgrades only
+        if (scenario == "act1" || scenario == "act2" || scenario == "act3" || scenario == "act4" || scenario == "act5" || scenario == "act6" ||
+            scenario == "charts" ||
+            scenario == "zar" || scenario == "reaches" || pinnacle_run()) {   // the long runs keep their bags for upgrades only
             if (slot < 0 || slot == H.sealed_slot) continue;
             better = better || (slot > EQ_WEAPON && upgrade(w, g.item));
             if (!better && !fills) continue;
@@ -624,10 +642,10 @@ void Bot::fight(World& w, Menu& m, Input& in, uint64_t frame) {
 }
 
 // ---------------------------------------------------------------- zone (Slice 2's exit)
-bool Bot::go_to_interact(World& w, Input& in, uint64_t frame, Interactable::Kind k) {
+bool Bot::go_to_interact(World& w, Input& in, uint64_t frame, Interactable::Kind k, int target) {
     for (size_t i = 0; i < w.interacts.size(); i++) {
         const Interactable& it = w.interacts[i];
-        if (it.kind != k || it.spent) continue;
+        if (it.kind != k || it.spent || (target >= 0 && it.target != target)) continue;
         if (w.near_interact == int(i)) {
             if (frame % 10 == 0) press(in, BTN_SOUTH);
         } else {
@@ -674,6 +692,21 @@ void Bot::zone(World& w, Menu& m, Areas& a, Input& in, uint64_t frame) {
                         L.center(L.cells[size_t(L.arena)]).x, L.center(L.cells[size_t(L.arena)]).y);
     }
     auto goto_zone = [&](vec2 goal) { steer(w, in, goal); };
+    // a save state in the middle of the boss fight, wherever it happens (with no landmark the first walk meets him)
+    auto boss_save_state = [&]() {
+        const Actor* boss = nullptr;
+        for (size_t i = 1; i < w.actors.size(); i++) if (w.actors[i].rarity == Rarity::Unique && w.actors[i].alive()) boss = &w.actors[i];
+        if (!in_zone || !boss || boss_state_ok || boss->ai_state <= 0 || boss->life >= boss->life_max * 0.97f || boss->act == Act::Skill) return true;
+        float life = boss->life;
+        int phase = boss->phase;
+        if (!state_round_trip(w)) { fail("save state in the middle of the boss failed"); return false; }
+        const Actor* b2 = nullptr;
+        for (size_t i = 1; i < w.actors.size(); i++) if (w.actors[i].rarity == Rarity::Unique) b2 = &w.actors[i];
+        if (!b2 || b2->life != life || b2->phase != phase) { fail("the boss did not survive the save state"); return false; }
+        boss_state_ok = true;
+        fprintf(stderr, "bot: save state mid-boss ok (boss life %.0f / %.0f)\n", life, boss->life_max);
+        return true;
+    };
     auto calm = [&](float r) {
         for (size_t i = 1; i < w.actors.size(); i++) if (w.actors[i].alive() && length(w.actors[i].pos - h.pos) < r) return false;
         return true;
@@ -684,6 +717,7 @@ void Bot::zone(World& w, Menu& m, Areas& a, Input& in, uint64_t frame) {
             go_to_interact(w, in, frame, Interactable::Stair);
             break;
         case 1: {  // fight toward the landmark; after a few packs, portal out
+            if (!boss_save_state()) return;
             if (combat(w, in, frame, 9.f)) break;
             if (loot_and_equip(w, m, in, frame)) break;
             if (H.kills - zone_kills0 >= 10 && calm(12.f)) {
@@ -728,16 +762,7 @@ void Bot::zone(World& w, Menu& m, Areas& a, Input& in, uint64_t frame) {
             if (frame == stage_frame + 30 || frame == stage_frame + 150) { press(in, BTN_DOWN); break; }
             const Actor* boss = nullptr;
             for (size_t i = 1; i < w.actors.size(); i++) if (w.actors[i].rarity == Rarity::Unique && w.actors[i].alive()) boss = &w.actors[i];
-            if (boss && boss->ai_state > 0 && boss->life < boss->life_max * 0.97f && !boss_state_ok && boss->act != Act::Skill) {
-                float life = boss->life;
-                int phase = boss->phase;
-                if (!state_round_trip(w)) { fail("save state in the middle of the boss failed"); return; }
-                const Actor* b2 = nullptr;
-                for (size_t i = 1; i < w.actors.size(); i++) if (w.actors[i].rarity == Rarity::Unique) b2 = &w.actors[i];
-                if (!b2 || b2->life != life || b2->phase != phase) { fail("the boss did not survive the save state"); return; }
-                boss_state_ok = true;
-                fprintf(stderr, "bot: save state mid-boss ok (boss life %.0f / %.0f)\n", life, boss->life_max);
-            }
+            if (!boss_save_state()) return;
             if (w.boss_killed || (!boss && a.zone.cleared)) { boss_frame = frame; next_stage(7); break; }
             if (combat(w, in, frame, boss && boss->ai_state > 0 ? 30.f : 9.f)) break;
             if (loot_and_equip(w, m, in, frame)) break;
@@ -1150,6 +1175,47 @@ bool Bot::upgrade(World& w, const Item& it) {
     return up;
 }
 
+// On the rooftop: the best weapon Amm Sayed has for the gold we carry, if it beats the one in hand, bought and worn. Each
+// stock is looked through once (it changes every time we come home).
+bool Bot::shop_weapon(World& w, Menu& m, Areas& a, Input& in, uint64_t frame) {
+    Hero& H = w.hero;
+    if (a.current != AreaId::Hub) return false;
+    if (m.open && m.vendor && !m.dealer) {
+        int want = -1;
+        for (size_t i = 0; i < m.stock.items.size(); i++) if (m.stock.items[i].item.seed == shop_want_) want = int(i);
+        if (want < 0) {   // bought (or gone): leave, and wear it
+            for (auto& e : H.inv.items) if (e.item.seed == shop_want_) equip_target = shop_want_;
+            shop_want_ = 0;
+            if (frame % 4 == 0) press(in, BTN_EAST);
+            return true;
+        }
+        if (++menu_guard > 1200) { shop_want_ = 0; press(in, BTN_EAST); return true; }
+        const InvItem& e = m.stock.items[size_t(want)];
+        if (H.gold < Menu::buy_price(e.item)) { shop_want_ = 0; return true; }
+        if (menu_nav(w, m, in, frame, Region::Stock, e.x, e.y) && frame % 4 == 0) press(in, BTN_SOUTH);
+        return true;
+    }
+    if (m.open || equip_target) return false;
+    if (!shop_want_) {
+        if (m.stock.items.empty() || m.stock.items[0].item.seed == shop_seen_) return false;
+        shop_seen_ = m.stock.items[0].item.seed;
+        const float now = w.hero_dps(H.weapon());
+        float best = now * 1.08f;
+        for (auto& e : m.stock.items) {
+            if (e.item.b().slot != Slot::Weapon || Menu::buy_price(e.item) > H.gold) continue;
+            int x, y;
+            if (!H.inv.find_space(e.item, x, y) || !same_skill_better(w, e.item, H.weapon(), 0.f)) continue;
+            const float d = w.hero_dps(e.item);
+            if (d > best) { best = d; shop_want_ = e.item.seed; }
+        }
+        if (!shop_want_) return false;
+        menu_guard = 0;
+        fprintf(stderr, "bot: shopping for a weapon (%.0f dps against %.0f), %d dinars\n", best, now, H.gold);
+    }
+    if (!go_to_interact(w, in, frame, Interactable::Vendor)) shop_want_ = 0;
+    return true;
+}
+
 void Bot::act1(World& w, Menu& m, Areas& a, Input& in, uint64_t frame) {
     Actor& h = w.actors[0];
     Hero& H = w.hero;
@@ -1165,14 +1231,16 @@ void Bot::act1(World& w, Menu& m, Areas& a, Input& in, uint64_t frame) {
     static const Step order4[] = {{"ghadames", 0}, {"chott", Q_SARAB}, {"tozeur", 0}, {"medina", Q_DOOR}, {"souq", 0}, {"sebkha", Q_SALT}};
     static const Step order5[] = {{"fes", 0}, {"fes_bali", 0}, {"chaouen", Q_PRESSER}, {"jemaa", Q_SMOKE}, {"bab_nasr", Q_TRIAL3},
                                   {"tangier", 0}, {"strait", Q_QANDISHA}};
-    const int act = scenario == "act5" ? 5 : scenario == "act4" ? 4 : scenario == "act3" ? 3 : scenario == "act2" ? 2 : 1;
+    static const Step order6[] = {{"balad", 0}, {"harbour", Q_DUWAIS}, {"shibam", Q_SHIQQ}, {"rub", 0}, {"wabar", Q_HATIF}, {"iram", Q_HORSEMAN},
+                                  {"totality", Q_ACT6}, {"gate_iram", Q_TRIAL4}};
+    const int act = scenario == "act6" ? 6 : scenario == "act5" ? 5 : scenario == "act4" ? 4 : scenario == "act3" ? 3 : scenario == "act2" ? 2 : 1;
     const bool two = act >= 2;
-    const Step* order = act == 5 ? order5 : act == 4 ? order4 : act == 3 ? order3 : two ? order2 : order1;
-    const size_t steps = act == 5 ? std::size(order5) : act == 4 ? std::size(order4) : act == 3 ? std::size(order3) : two ? std::size(order2)
-                                                                                                                         : std::size(order1);
-    static const char* tags[] = {"", "act1", "act2", "act3", "act4", "act5"};
+    const Step* order = act == 6 ? order6 : act == 5 ? order5 : act == 4 ? order4 : act == 3 ? order3 : two ? order2 : order1;
+    const size_t steps = act == 6 ? std::size(order6) : act == 5 ? std::size(order5) : act == 4 ? std::size(order4) : act == 3 ? std::size(order3)
+                       : two ? std::size(order2) : std::size(order1);
+    static const char* tags[] = {"", "act1", "act2", "act3", "act4", "act5", "act6"};
     const char* tag = tags[act];
-    static const char* roman[] = {"", "I", "II", "III", "IV", "V"};
+    static const char* roman[] = {"", "I", "II", "III", "IV", "V", "VI"};
     auto step_done = [&](const Step& st) {
         if (st.quest) return (H.quests & st.quest) != 0;
         const ZoneDef& zd = zone_def(find_zone(st.zone));
@@ -1197,14 +1265,33 @@ void Bot::act1(World& w, Menu& m, Areas& a, Input& in, uint64_t frame) {
         if (deaths > 30) fail("died more than 30 times");
         return;
     }
+    if (act == 6 && (H.quests & Q_ACT6) && H.ending == 0) {   // the choice at the heart of totality: the bot seals the Veil
+        if (m.open || equip_target) { loot_and_equip(w, m, in, frame); return; }
+        if (!go_to_interact(w, in, frame, Interactable::Veil) && frame % 600 == 0) fprintf(stderr, "act6: looking for the Veil\n");
+        if (frame > 60ull * 60 * 49) fail("Apep fell but the Veil was never sealed");
+        return;
+    }
+    if (act == 6 && a.current == AreaId::Zone && a.def() && std::string(a.def()->id) == "gate_iram" && H.sealed_slot < 0 && !m.open) {
+        // the Fourth Trial asks a toll: the bot gives its body armour (a unique on top of the two points)
+        if (go_to_interact(w, in, frame, Interactable::Toll, EQ_BODY)) return;
+    }
     int target = -1;
     bool way_on = false;   // this step ends at the way on (or the side gate), not a quest
     bool via_side = false;
     for (size_t k = 0; k < steps; k++)
         if (!step_done(order[k])) { target = find_zone(order[k].zone); way_on = order[k].quest == 0; via_side = order[k].side; break; }
     if (target < 0 && two) {
-        const uint32_t done = act == 5 ? Q_ACT5 : act == 4 ? Q_ACT4 : act == 3 ? Q_ACT3 : Q_ACT2;
+        const uint32_t done = act == 6 ? Q_ACT6 : act == 5 ? Q_ACT5 : act == 4 ? Q_ACT4 : act == 3 ? Q_ACT3 : Q_ACT2;
         if (!(H.quests & done)) { fail(std::string("every boss fell but Act ") + roman[act] + " is not marked over"); return; }
+        if (act == 6 && H.ending != 1) { fail("the Veil was not sealed"); return; }
+        if (act == 6)   // the Fourth Trial's two points, spent as it ends (the pilot's usual spending comes later in the frame)
+            if (const Ascendancy* asc = ascendancy_of(H.passives.cls, H.ascendancy))
+                for (size_t i = 1; i < asc->nodes.size() && H.asc_points() > 0; i++)
+                    if (asc_can_take(*asc, H.asc, int(i))) { H.asc |= 1u << i; fprintf(stderr, "%s: ascended: %s\n", tag, asc->nodes[i].name); }
+        if (act == 6 && (__builtin_popcount(H.asc & ~1u) < 8 || H.asc_points() > 0)) {
+            fail("Trial IV was passed but its ascendancy points were not spent");
+            return;
+        }
         if (act == 3 && __builtin_popcount(H.asc & ~1u) < 3) { fail("Trial II was passed but its ascendancy points were not spent"); return; }
         if (act == 5 && __builtin_popcount(H.asc & ~1u) < 5) { fail("Trial III was passed but its ascendancy points were not spent"); return; }
         char b[200];
@@ -1249,6 +1336,8 @@ void Bot::act1(World& w, Menu& m, Areas& a, Input& in, uint64_t frame) {
         if (const Ascendancy* asc = ascendancy_of(H.passives.cls, H.ascendancy))
             for (size_t i = 1; i < asc->nodes.size(); i++)
                 if (asc_can_take(*asc, H.asc, int(i))) { H.asc |= 1u << i; w.recompute_hero(); fprintf(stderr, "%s: ascended: %s\n", tag, asc->nodes[i].name); break; }
+    // at home: a better weapon from Amm Sayed, if he has one we can pay for
+    if (shop_weapon(w, m, a, in, frame)) return;
     // screens that open on the way: the bench (look, and leave), the loot menu, the waypoint list
     if (m.open && m.bench) { if (frame % 20 == 0) press(in, BTN_EAST); return; }
     if (m.open || equip_target) { loot_and_equip(w, m, in, frame); return; }
@@ -1260,6 +1349,7 @@ void Bot::act1(World& w, Menu& m, Areas& a, Input& in, uint64_t frame) {
         return;
     }
     bool in_zone = a.current == AreaId::Zone;
+    if (!in_zone) shop_home_ = false;
     if (!in_zone) {   // the rooftop: down the stair to the waypoint list
         go_to_interact(w, in, frame, Interactable::Stair);
         return;
@@ -1305,6 +1395,19 @@ void Bot::act1(World& w, Menu& m, Areas& a, Input& in, uint64_t frame) {
     const ZoneDef& zd = zone_def(a.zone.def);
     const Actor* boss = nullptr;
     for (size_t i = 1; i < w.actors.size(); i++) if (w.actors[i].rarity == Rarity::Unique && w.actors[i].alive()) boss = &w.actors[i];
+    // walled (twice dead here) with dinars in hand: home by portal, to see what Amm Sayed has for us; at most once in
+    // three minutes, and the way back is the waypoint
+    if ((zone_deaths_ >= 2 || grinding) && !shop_home_ && H.gold >= 20 && (shop_frame_ == 0 || frame - shop_frame_ > 60 * 60 * 3)) {
+        bool calm = true;
+        for (size_t i = 1; i < w.actors.size(); i++) if (w.actors[i].alive() && length(w.actors[i].pos - h.pos) < 10.f) calm = false;
+        if (calm) { shop_home_ = true; shop_frame_ = frame; fprintf(stderr, "%s: home to shop, %d dinars\n", tag, H.gold); }
+    }
+    if (shop_home_) {
+        if (combat(w, in, frame, 6.f)) return;
+        if (go_to_interact(w, in, frame, Interactable::Portal)) return;
+        if (frame % 30 == 0) press(in, BTN_UP);
+        return;
+    }
     if (grinding && !boss && a.zone.cleared) {   // swept and its boss dead: that is all this zone has; home, and back again
         bool left = false;
         for (size_t i = 0; i < L.cells.size(); i++) left = left || (!visited_[i] && int(i) != L.arena);
@@ -1386,18 +1489,118 @@ void Bot::tour5(World& w, Areas& a, Input& in, uint64_t frame) {
     if (t > 120) combat(w, in, frame, 30.f);
 }
 
+// ---------------------------------------------------------------- gallery: the art, posed for review
+// Not a test: a fixed schedule of poses, one picture each, for the art review page. Run it with --hidden and
+// --shot-every 130; every pose ends on a multiple of 130 frames, and stderr names it ("gallery: <frame> <kind> <id>").
+//   QAHIRA_GALLERY=1..6   that act's zones: each walked into (a street picture), then its far court and boss in a
+//                         fight (a second picture); run each with its own class (QAHIRA_CLASS) to show them all
+//   QAHIRA_GALLERY=end    the rooftop, every menu and screen, then the pinnacles' courts and bosses
+void Bot::gallery(World& w, Menu& m, Areas& a, Input& in, uint64_t frame) {
+    constexpr uint64_t P = 130;
+    Hero& H = w.hero;
+    Actor& h = w.actors[0];
+    const char* part = getenv("QAHIRA_GALLERY");
+    const std::string which = part ? part : "1";
+    auto name = [&](uint64_t f, const char* kind, const std::string& id) {
+        fprintf(stderr, "gallery: %llu %s %s\n", (unsigned long long)f, kind, id.c_str());
+    };
+    h.life = h.life_max;   // nothing dies here but monsters, and skills never run dry
+    h.mana = h.mana_max;
+    if (frame == 1) {
+        Rng r(77);
+        H.level = which == "end" ? 40 : 10 * std::max(1, atoi(which.c_str()));
+        H.gold = 4000;
+        for (int c = CUR_KHAMSA; c < CUR_COUNT; c++) H.currency[c] = 1 + c % 4;
+        for (int e = EQ_HELMET; e < EQ_COUNT; e++)   // dressed, so the doll and the sheet have something to show
+            if (H.equip[e].empty() && e != EQ_WEAPON2) H.equip[e] = random_drop(H.level, 0.5f, 0.5f, r, e == EQ_HELMET ? Slot::Helmet
+                : e == EQ_BODY ? Slot::Body : e == EQ_GLOVES ? Slot::Gloves : e == EQ_BOOTS ? Slot::Boots : e == EQ_BELT ? Slot::Belt
+                : e == EQ_AMULET ? Slot::Amulet : Slot::Ring);
+        for (int k = 0; k < 6; k++) H.inv.add(random_drop(H.level, 0.4f, 0.5f, r, Slot::Count));
+        if (const auto* rec = tree().recommended_for(H.passives.cls)) for (int t : *rec) plan_to(H, t);
+        for (int k = 0; k < 40 && H.passive_points() > 0; k++) if (place_next_planned(w) < 0) break;
+        if (H.ascendancy < 0 && !ascendancies_of(H.passives.cls).empty()) H.ascendancy = int8_t(ascendancies_of(H.passives.cls)[0]);
+        if (ascendancy_of(H.passives.cls, H.ascendancy)) H.asc = 0x1E;
+        H.codex = 0xFFFFFFFFFFFFFFFFull;
+        w.recompute_hero();
+        if (which != "end")
+            for (size_t i = 0; i < zone_defs().size(); i++) if (zone_defs()[i].act == atoi(which.c_str())) gallery_zones_.push_back(int(i));
+    }
+    if (which != "end") {   // a zone in two pictures: the street, then the far court with its boss in a fight
+        const uint64_t k = (frame - 1) / (2 * P), t = (frame - 1) % (2 * P);
+        if (k >= gallery_zones_.size()) { pass("gallery done"); return; }
+        const ZoneDef& zd = zone_defs()[size_t(gallery_zones_[k])];
+        if (t == 0) {
+            a.enter_zone(w, gallery_zones_[k], Arrival::Entrance);
+            w.level.bind_gpu();
+            name(k * 2 * P + P, "street", zd.id);
+            name(k * 2 * P + 2 * P, "court", zd.id);
+        }
+        if (t < 90) { in.lstick = {0, 0.4f}; return; }
+        if (t < P) { combat(w, in, frame, 9.f); return; }
+        const ZoneLayout& L = a.zone.layout;
+        if (t == P) {   // on to the far court, the crowd on the way left behind
+            h.pos = w.level.resolve(L.center(L.cells[size_t(L.arena)]) + vec2{0, -5.f}, h.radius);
+            for (size_t i = 1; i < w.actors.size(); i++)
+                if (w.actors[i].rarity != Rarity::Unique && length(w.actors[i].pos - h.pos) < 14.f) w.actors[i].life = 0, w.actors[i].act = Act::Dead, w.actors[i].dead_t = 3;
+        }
+        if (t > P + 10) combat(w, in, frame, 30.f);
+        return;
+    }
+    // the rooftop and the screens: one pose each, set up early in its slot and pictured at its end
+    const uint64_t k = (frame - 1) / P, t = (frame - 1) % P;
+    static const char* screens[] = {"rooftop", "inventory", "talismans", "character", "ascendancy", "journal", "settings", "game",
+                                    "vendor", "bench", "dealer", "stars", "map", "title"};
+    const uint64_t ns = sizeof screens / sizeof *screens;
+    if (k < ns) {
+        if (t != 4) return;
+        const std::string sc = screens[k];
+        name((k + 1) * P, "screen", sc);
+        m.hide();
+        if (sky_ui) sky_ui->open = false;
+        if (map_ui) map_ui->open = false;
+        if (sc == "inventory") { m.show(w, false); m.tab = MenuTab::Inventory; }
+        else if (sc == "talismans") { m.show(w, false); m.tab = MenuTab::Talismans; }
+        else if (sc == "character") { m.show(w, false); m.tab = MenuTab::Character; }
+        else if (sc == "ascendancy") { m.show(w, false); m.tab = MenuTab::Ascendancy; }
+        else if (sc == "journal") { m.show(w, false); m.tab = MenuTab::Journal; }
+        else if (sc == "settings") { m.show(w, false); m.tab = MenuTab::Settings; }
+        else if (sc == "game") { m.show(w, false); m.tab = MenuTab::Game; }
+        else if (sc == "vendor") m.show(w, true);
+        else if (sc == "bench") m.show_bench(w);
+        else if (sc == "dealer") { m.show(w, true); m.dealer = true; m.restock_dealer(w); }
+        else if (sc == "stars" && sky_ui) sky_ui->show(w);
+        else if (sc == "map" && map_ui) map_ui->show(w);
+        else if (sc == "title" && title_ui) { title_ui->scan(save_dir); title_ui->open = true; }
+        return;
+    }
+    if (title_ui) title_ui->open = false;
+    // the pinnacles: each court on arrival, then its boss in a fight
+    const uint64_t j = (k - ns) / 2, u = (frame - 1) - (ns + 2 * j) * P;
+    if (j >= PIN_COUNT) { pass("gallery done"); return; }
+    if (u == 0) {
+        m.hide();
+        a.enter_pinnacle(w, int(j));
+        w.level.bind_gpu();
+        name((ns + 2 * j + 1) * P, "court", pinnacle_def(int(j)).zone + std::string(j % 2 ? "-uber" : ""));
+        name((ns + 2 * j + 2) * P, "boss", pinnacle_def(int(j)).boss + std::string(j % 2 ? "-uber" : ""));
+    }
+    if (u < P - 30) { in.lstick = {0, 0.3f}; return; }
+    combat(w, in, frame, 40.f);
+}
+
 // ---------------------------------------------------------------- charts: the endgame loop, from where Act I ends
 void Bot::prepare(World& w) {
     if (scenario != "charts" && scenario != "tour6" && scenario != "act2" && scenario != "act3" && scenario != "act4" && scenario != "act5" &&
-        scenario != "rifts" && scenario != "digs" && scenario != "zar" && scenario != "reaches" && scenario != "king")
+        scenario != "act6" &&
+        scenario != "rifts" && scenario != "digs" && scenario != "zar" && scenario != "reaches" && !pinnacle_run())
         return;
     Hero& H = w.hero;
     Rng r(1404);
-    const bool late = scenario == "reaches" || scenario == "king";   // after Act V
+    const bool late = scenario == "reaches" || pinnacle_run();   // after Act V
     // Act II: as Act I leaves you; Act III and the rifts: as Act II does
-    H.level = scenario == "act2" ? 13 : scenario == "rifts" ? 25 : scenario == "act3" ? 24 : scenario == "digs" ? 34 : scenario == "act4" ? 34 : scenario == "zar" ? 44 : scenario == "act5" ? 43
-            : scenario == "reaches" ? 58 : scenario == "king" ? 70 : 14;
-    const int gear = scenario == "king" ? 60 : scenario == "reaches" ? 50 : scenario == "act5" ? 40 : scenario == "act4" || scenario == "zar" ? 32
+    H.level = scenario == "act2" ? 13 : scenario == "rifts" ? 25 : scenario == "act3" ? 24 : scenario == "digs" ? 34 : scenario == "act4" ? 34 : scenario == "zar" ? 44 : scenario == "act5" ? 43 : scenario == "act6" ? 53
+            : scenario == "reaches" ? 58 : pinnacle_run() ? 70 : 14;
+    const int gear = pinnacle_run() ? 60 : scenario == "reaches" ? 50 : scenario == "act6" ? 48 : scenario == "act5" ? 40 : scenario == "act4" || scenario == "zar" ? 32
                    : scenario == "act3" || scenario == "digs" ? 24 : 14;
     H.quests = Q_MICROBUS | Q_SILAH | Q_NASNAS | Q_TRIAL1 | Q_GHULA | Q_QUTRUB | Q_BENCH | Q_ACT1;
     H.recipes = kStarterRecipes;
@@ -1412,15 +1615,26 @@ void Bot::prepare(World& w) {
         H.quests |= Q_NADDAHA | Q_RAM | Q_MARID | Q_ACT2 | Q_DABA | Q_TRIAL2 | Q_WRAITH | Q_ACT3 | Q_SARAB | Q_DOOR | Q_SALT | Q_ACT4 | Q_PRESSER |
                     Q_TRIAL3 | Q_SMOKE | Q_QANDISHA | Q_ACT5;
         for (size_t i = 0; i < sites().size(); i++)
-            if (sites()[i].tier <= (scenario == "king" ? kChartTiers : kChartTiersEarly)) H.sites_done |= 1u << i;
+            if (sites()[i].tier <= (pinnacle_run() ? kChartTiers : kChartTiersEarly)) H.sites_done |= 1u << i;
         for (size_t i = 0; i < sites().size(); i++) if (H.sites_done >> i & 1) H.sites_revealed |= reveal_after(int(i));
         H.astro = (1u << 0) | (1u << 1) | (1u << 3) | (1u << 4) | (1u << 2) | (1u << 20);
         if (scenario == "reaches") for (int k = 0; k < 4; k++) H.inv.add(make_chart(kChartTiersEarly + 1, r, 0.25f, 0.f));
-        if (scenario == "king") H.currency[CUR_PEARL] = kPearlsPerThrone;
+        const PinnacleDef& pd = pinnacle_def(pinnacle_wanted());
+        if (pinnacle_run()) H.currency[pd.currency] = pd.cost;
+        if (scenario == "falak" || scenario == "subyan") {   // Falak and Umm al-Subyan are after the campaign: Act VI and the Fourth Trial behind you, the Veil sealed
+            H.quests |= Q_DUWAIS | Q_SHIQQ | Q_HATIF | Q_HORSEMAN | Q_ACT6 | Q_TRIAL4;
+            H.ending = 1;
+        }
     }
-    if (scenario == "act3" || scenario == "act4" || scenario == "act5") {
+    if (scenario == "act3" || scenario == "act4" || scenario == "act5" || scenario == "act6") {
         H.quests |= Q_NADDAHA | Q_RAM | Q_MARID | Q_ACT2;
         for (const char* z : {"nile_bank", "village", "canal", "karnak", "valley", "tomb"}) H.waypoints.add(find_zone(z));
+    }
+    if (scenario == "act6") {
+        H.quests |= Q_DABA | Q_TRIAL2 | Q_WRAITH | Q_ACT3 | Q_SARAB | Q_DOOR | Q_SALT | Q_ACT4 | Q_PRESSER | Q_TRIAL3 | Q_SMOKE | Q_QANDISHA | Q_ACT5;
+        for (const char* z : {"farafra", "sand_sea", "siwa", "bab_futuh", "shali", "oracle", "ghadames", "chott", "tozeur", "medina", "souq",
+                              "sebkha", "fes", "fes_bali", "chaouen", "jemaa", "bab_nasr", "tangier", "strait", "balad"})
+            H.waypoints.add(find_zone(z));
     }
     if (scenario == "act5") {
         H.quests |= Q_DABA | Q_TRIAL2 | Q_WRAITH | Q_ACT3 | Q_SARAB | Q_DOOR | Q_SALT | Q_ACT4;
@@ -1432,7 +1646,7 @@ void Bot::prepare(World& w) {
         H.quests |= Q_DABA | Q_TRIAL2 | Q_WRAITH | Q_ACT3;
         for (const char* z : {"farafra", "sand_sea", "siwa", "bab_futuh", "shali", "oracle", "ghadames"}) H.waypoints.add(find_zone(z));
     }
-    if (scenario == "act2" || scenario == "act3" || scenario == "act4" || scenario == "act5") {
+    if (scenario == "act2" || scenario == "act3" || scenario == "act4" || scenario == "act5" || scenario == "act6") {
         for (const char* z : {"downtown", "metro", "khan", "muizz", "necropolis", "mokattam", "nile_bank"}) H.waypoints.add(find_zone(z));
         if (scenario == "act3") H.waypoints.add(find_zone("farafra"));
         // QAHIRA_ACT_AT=<zone> (or QAHIRA_ACT2_AT): start further in, with what comes before it done (for working on one zone)
@@ -1447,6 +1661,8 @@ void Bot::prepare(World& w) {
                                                                      {"souq", 0}, {"sebkha", Q_SALT}};
             static const std::pair<const char*, uint32_t> path5[] = {{"fes", 0}, {"fes_bali", 0}, {"chaouen", Q_PRESSER}, {"jemaa", Q_SMOKE},
                                                                      {"bab_nasr", Q_TRIAL3}, {"tangier", 0}, {"strait", Q_QANDISHA}};
+            static const std::pair<const char*, uint32_t> path6[] = {{"balad", 0}, {"harbour", Q_DUWAIS}, {"shibam", Q_SHIQQ}, {"rub", 0},
+                                                                     {"wabar", Q_HATIF}, {"iram", Q_HORSEMAN}, {"totality", Q_ACT6}};
             auto walk = [&](auto& path) {
                 for (auto& [z, q] : path) {
                     if (std::string(z) == at) { H.level = zone_def(find_zone(z)).level - 1; break; }
@@ -1455,7 +1671,7 @@ void Bot::prepare(World& w) {
                     for (const char* n : {zd.next, zd.side}) if (find_zone(n) >= 0) H.waypoints.add(find_zone(n));
                 }
             };
-            if (scenario == "act5") walk(path5); else if (scenario == "act4") walk(path4); else if (scenario == "act3") walk(path3); else walk(path2);
+            if (scenario == "act6") walk(path6); else if (scenario == "act5") walk(path5); else if (scenario == "act4") walk(path4); else if (scenario == "act3") walk(path3); else walk(path2);
         }
     }
     else if (!late)
@@ -1493,8 +1709,10 @@ void Bot::prepare(World& w) {
     for (int k = 0; k < 150 && H.passive_points() > 0; k++) if (place_next_planned(w) < 0) break;
     if (H.ascendancy < 0 && !ascendancies_of(H.passives.cls).empty()) H.ascendancy = int8_t(ascendancies_of(H.passives.cls)[0]);
     if (ascendancy_of(H.passives.cls, H.ascendancy)) H.asc = (1u << 1) | (1u << 2);   // Trial I's two points
-    if ((scenario == "act4" || scenario == "act5" || late) && ascendancy_of(H.passives.cls, H.ascendancy)) H.asc |= (1u << 3) | (1u << 4);   // and Trial II's
-    if (late && ascendancy_of(H.passives.cls, H.ascendancy)) H.asc |= (1u << 5) | (1u << 6);   // and Trial III's
+    if ((scenario == "act4" || scenario == "act5" || scenario == "act6" || late) && ascendancy_of(H.passives.cls, H.ascendancy))
+        H.asc |= (1u << 3) | (1u << 4);   // and Trial II's
+    if ((late || scenario == "act6") && ascendancy_of(H.passives.cls, H.ascendancy)) H.asc |= (1u << 5) | (1u << 6);   // and Trial III's
+    if ((scenario == "falak" || scenario == "subyan") && ascendancy_of(H.passives.cls, H.ascendancy)) H.asc |= (1u << 7) | (1u << 8);   // and Trial IV's
     if (scenario == "tour6") {   // further on: a few sites done, some of the Astrolabe set, charts of every Clime
         H.level = 17;
         H.sites_done = (1u << find_site("iskandariya")) | (1u << find_site("qus")) | (1u << find_site("wahat"));
@@ -1753,7 +1971,8 @@ void Bot::king(World& w, Menu& m, Areas& a, Input& in, uint64_t frame) {
     Actor& h = w.actors[0];
     Hero& H = w.hero;
     MapScreen& M = *map_ui;
-    if (frame > 60ull * 60 * 20) { fail("the Marid King took longer than 20 minutes of play"); return; }
+    const PinnacleDef& pd = pinnacle_def(pinnacle_wanted());
+    if (frame > 60ull * 60 * 20) { fail(std::string(pd.name) + " took longer than 20 minutes of play"); return; }
     if (!h.alive()) {
         if (h.dead_t > 1.3f && frame % 10 == 0) {
             press(in, BTN_SOUTH);
@@ -1770,17 +1989,19 @@ void Bot::king(World& w, Menu& m, Areas& a, Input& in, uint64_t frame) {
     if (a.current == AreaId::Hub) {
         if (king_stage_ >= 1) { fail("back on the rooftop, and the throne not taken"); return; }
         if (!M.open) { go_to_interact(w, in, frame, Interactable::ChartTable); return; }
-        if (frame % 10 == 0) press(in, BTN_NORTH);   // the four pearls, at the table
+        // the pinnacles, at the table: North opens the list, the cursor down to the one wanted, North again sets out
+        if (frame % 10 == 0) press(in, M.pinnacles && M.pin_cursor != pinnacle_wanted() ? BTN_DOWN : BTN_NORTH);
         return;
     }
     const ZoneDef* zd = a.def();
-    if (!zd || std::string(zd->id) != "king_throne") { fail(std::string("somewhere else: ") + (zd ? zd->id : "?")); return; }
+    if (!zd || std::string(zd->id) != pd.zone) { fail(std::string("somewhere else: ") + (zd ? zd->id : "?")); return; }
+    if (w.chart.uber != pd.uber) { fail("the uber flag is not as chosen"); return; }
     if (king_stage_ < 1) {
         king_stage_ = 1;
         stage_frame = frame;
-        if (H.currency[CUR_PEARL] != 0) { fail("the pearls were not spent"); return; }
+        if (H.currency[pd.currency] != 0) { fail("the keys were not spent"); return; }
         const HeroSummary s = summarize(H);
-        fprintf(stderr, "king: t=%.0fs on the Marid King's throne (level %d: %.0f life, %.0f Hirz, %.0f DPS, %.0f EHP)\n", frame / 60.f,
+        fprintf(stderr, "king: t=%.0fs before %s (level %d: %.0f life, %.0f Hirz, %.0f DPS, %.0f EHP)\n", frame / 60.f, pd.name,
                 H.level, s.life, s.es, s.dps, s.ehp);
     }
     const Actor* boss = nullptr;
@@ -1788,9 +2009,9 @@ void Bot::king(World& w, Menu& m, Areas& a, Input& in, uint64_t frame) {
     if (getenv("QAHIRA_BOT_TRACE") && frame % 300 == 0) {
         int alive = 0;
         for (size_t i = 1; i < w.actors.size(); i++) alive += w.actors[i].alive();
-        fprintf(stderr, "king trace t=%.0f pos (%.1f,%.1f) life %.0f/%.0f alive %d boss %s at %.1f m, %.0f%%, state %d\n", frame / 60.f,
-                h.pos.x, h.pos.y, h.life, h.life_max, alive, boss ? "yes" : "no", boss ? length(boss->pos - h.pos) : 0.f,
-                boss ? 100.f * boss->life / boss->life_max : 0.f, boss ? boss->ai_state : -1);
+        fprintf(stderr, "king trace t=%.0f pos (%.1f,%.1f) life %.0f/%.0f alive %d boss %s at %.1f m, %.0f%%, state %d, menu %d, act %d\n",
+                frame / 60.f, h.pos.x, h.pos.y, h.life, h.life_max, alive, boss ? "yes" : "no", boss ? length(boss->pos - h.pos) : 0.f,
+                boss ? 100.f * boss->life / boss->life_max : 0.f, boss ? boss->ai_state : -1, int(m.open), int(h.act));
     }
     if (boss && king_stage_ < 2 && boss->ai_state > 0) { king_stage_ = 2; fprintf(stderr, "king: t=%.0fs he rises\n", frame / 60.f); }
     if (boss && king_stage_ < 3 && boss->life < boss->life_max * 0.55f) { king_stage_ = 3; fprintf(stderr, "king: t=%.0fs his court rises\n", frame / 60.f); }
@@ -1798,13 +2019,19 @@ void Bot::king(World& w, Menu& m, Areas& a, Input& in, uint64_t frame) {
         int uniques = 0;
         for (auto& g : w.loot) uniques += g.kind == GroundItem::Gear && g.item.rarity == Rarity::Unique;
         char b[200];
-        snprintf(b, sizeof b, "four King's Pearls spent at the table, the Marid King killed on his throne in %.1f minutes, %d deaths, "
-                 "%d uniques on the floor", frame / 3600.f, deaths, uniques);
+        snprintf(b, sizeof b, "%d %s spent at the table, %s killed in %.1f minutes, %d deaths, %d uniques on the floor", pd.cost,
+                 pd.currency == CUR_PEARL ? "King's Pearls" : pd.currency == CUR_SCALE ? "Scales of Falak" : "Combs of Umm al-Subyan", pd.name,
+                 frame / 3600.f, deaths, uniques);
         pass(b);
         return;
     }
     // a minute in and the King not yet woken: something out of reach is holding the pilot; go to him, fighting only what is close
     const bool to_him = boss && boss->ai_state == 0 && frame - stage_frame > 3600;
+    // stalled (eight seconds without moving, say after a death at the entrance, held by something it cannot reach):
+    // walk to the boss for five seconds, fighting nothing on the way
+    if (length(h.pos - pin_last_pos_) > 0.5f) { pin_last_pos_ = h.pos; pin_still_ = frame; }
+    if (boss && boss->ai_state == 0 && frame - pin_still_ > 480 && pin_walk_until_ < frame) pin_walk_until_ = frame + 300;
+    if (boss && frame < pin_walk_until_) { steer(w, in, boss->pos); return; }
     if (combat(w, in, frame, to_him ? 5.f : 30.f)) return;
     const ZoneLayout& L = a.zone.layout;
     steer(w, in, to_him ? boss->pos : L.center(L.cells[size_t(L.arena)]));
@@ -2138,6 +2365,177 @@ void Bot::tour10(World& w, Menu& m, Areas& a, Input& in, uint64_t frame) {
         return;
     }
     pass("tour10 done");
+}
+
+// ---------------------------------------------------------------- tour12: Slice 11's screens (run with QAHIRA_LANG=ar for Arabic)
+void Bot::tour12(World& w, Menu& m, Areas& a, Input& in, uint64_t frame) {
+    Hero& H = w.hero;
+    Actor& h = w.actors[0];
+    h.life = h.life_max;
+    (void)in;
+    auto at = [&](uint64_t f) { return frame == f; };
+    if (at(1)) {   // a character a little way in, with things in the bag to colour
+        Rng r(71);
+        H.level = 24;
+        H.gold = 1234;
+        H.weapon() = make_item(find_base("citadel_maul"), Rarity::Rare, 24, r);
+        H.equip[EQ_HELMET] = make_item(find_base("riveted_cap"), Rarity::Magic, 24, r);
+        H.equip[EQ_BODY] = make_item(find_base("riveted_breastplate"), Rarity::Rare, 24, r);
+        for (const char* b : {"mokattam_sledge", "work_coat", "brass_ring", "tooled_belt", "laced_boots"})
+            H.inv.add(make_item(find_base(b), b[0] == 'b' ? Rarity::Rare : Rarity::Magic, 24, r));
+        if (int u = random_unique(24, r); u >= 0) H.inv.add(make_unique(u, 24, r));
+        w.recompute_hero();
+    }
+    if (at(80)) m.show(w, false);                                    // the items
+    if (at(220)) m.tab = MenuTab::Character;
+    if (at(360)) { m.tab = MenuTab::Settings; m.settings_cursor = SET_LANG; }
+    if (at(460)) m.settings_cursor = SET_COLOURS;
+    if (at(500)) set_setting(SET_COLOURS, 1);                        // red-green safe
+    if (at(560)) { m.hide(); w.hero.gold = 5000; m.show(w, true); }   // Amm Sayed: the flask to upgrade
+    if (at(660)) { m.hide(); m.show(w, false); m.tab = MenuTab::Settings; m.settings_cursor = SET_TEXT; set_setting(SET_TEXT, 2); }
+    if (at(760)) { set_setting(SET_TEXT, 0); set_setting(SET_COLOURS, 0); m.hide(); }
+    if (frame > 760 && frame < 1000) {   // the HUD, on the rooftop
+        steer(w, in, a.zone.valid ? h.pos : h.pos + vec2{0.5f, 0.f});
+    }
+    if (at(1000)) {   // Umm al-Subyan in her house
+        H.level = 70;
+        H.quests |= Q_ACT6;
+        w.recompute_hero();
+        a.enter_pinnacle(w, PIN_SUBYAN);
+        w.level.bind_gpu();
+    }
+    if (frame > 1000 && frame < 1700) {
+        const ZoneLayout& L = a.zone.layout;
+        if (at(1060)) {
+            h.pos = w.level.resolve(L.center(L.cells[size_t(L.arena)]) + vec2{0, -6.f}, h.radius);
+            for (size_t i = 1; i < w.actors.size(); i++)
+                if (w.actors[i].rarity != Rarity::Unique) w.actors[i].life = 0, w.actors[i].act = Act::Dead, w.actors[i].dead_t = 3;
+        }
+        if (frame > 1060) combat(w, in, frame, 30.f);
+        return;
+    }
+    if (frame >= 1700) pass("tour12 done");
+}
+
+// ---------------------------------------------------------------- tour11: the Wanderer, Act VI, the choice, the Gate of Iram, Falak (screenshots)
+void Bot::tour11(World& w, Menu& m, Areas& a, Input& in, uint64_t frame) {
+    static const char* zones[] = {"balad", "harbour", "shibam", "rub", "iram", "totality"};
+    const uint64_t z0 = 60, each = 300;
+    // QAHIRA_TOUR_GATE=1: straight to the Gate of Iram (after the first frame's setup)
+    if (frame > 1 && getenv("QAHIRA_TOUR_GATE")) frame += z0 + 6 * each - 2;
+    Hero& H = w.hero;
+    Actor& h = w.actors[0];
+    h.life = h.life_max;   // a tour, not a test
+    (void)m;
+    if (frame == 1) {
+        Rng r(61);
+        H.level = 62;
+        H.quests = Q_MICROBUS | Q_SILAH | Q_NASNAS | Q_TRIAL1 | Q_GHULA | Q_QUTRUB | Q_BENCH | Q_ACT1 | Q_NADDAHA | Q_RAM | Q_MARID | Q_ACT2 |
+                   Q_DABA | Q_TRIAL2 | Q_WRAITH | Q_ACT3 | Q_SARAB | Q_DOOR | Q_SALT | Q_ACT4 | Q_PRESSER | Q_TRIAL3 | Q_SMOKE | Q_QANDISHA | Q_ACT5;
+        H.weapon() = make_item(find_base("caravan_staff"), Rarity::Rare, 60, r);
+        const char* armour[] = {"kettle_helm", "scale_hauberk", "mamluk_gauntlets", "mamluk_boots"};
+        const int eq[] = {EQ_HELMET, EQ_BODY, EQ_GLOVES, EQ_BOOTS};
+        for (int k = 0; k < 4; k++) H.equip[eq[k]] = make_item(find_base(armour[k]), Rarity::Rare, 60, r);
+        for (auto& t : H.talismans) t.level = 20;
+        if (const auto* rec = tree().recommended_for(H.passives.cls)) for (int t : *rec) plan_to(H, t);
+        for (int k = 0; k < 80 && H.passive_points() > 0; k++) if (place_next_planned(w) < 0) break;
+        if (!ascendancies_of(H.passives.cls).empty()) H.ascendancy = int8_t(ascendancies_of(H.passives.cls)[0]);
+        H.asc = (1u << 1) | (1u << 2) | (1u << 3) | (1u << 4) | (1u << 5) | (1u << 6);
+        w.recompute_hero();
+        return;
+    }
+    if (frame < z0) return;
+    const uint64_t zones_end = z0 + 6 * each;
+    if (frame < zones_end) {
+        int k = int((frame - z0) / each), t = int((frame - z0) % each);
+        if (t == 0) {
+            a.enter_zone(w, find_zone(zones[k]), Arrival::Entrance);
+            w.level.bind_gpu();
+            fprintf(stderr, "tour11: %s at frame %llu\n", a.name(), (unsigned long long)frame);
+        }
+        const ZoneLayout& L = a.zone.layout;
+        if (t == 110 && *zone_def(find_zone(zones[k])).boss) {   // boss zones: skip ahead to the far court
+            h.pos = w.level.resolve(L.center(L.cells[size_t(L.arena)]) + vec2{0, -5.f}, h.radius);
+            for (size_t i = 1; i < w.actors.size(); i++)
+                if (w.actors[i].rarity != Rarity::Unique && length(w.actors[i].pos - h.pos) < 10.f) w.actors[i].life = 0, w.actors[i].act = Act::Dead, w.actors[i].dead_t = 3;
+        }
+        if (std::string(zones[k]) == "totality" && t == 200) {   // Apep lets go: the two columns of the choice
+            H.quests |= Q_DUWAIS | Q_SHIQQ | Q_HATIF | Q_HORSEMAN | Q_ACT6;
+            for (size_t i = 1; i < w.actors.size(); i++) if (w.actors[i].alive()) w.actors[i].life = 0, w.actors[i].act = Act::Dead, w.actors[i].dead_t = 3;
+            w.interacts.push_back({Interactable::Veil, w.level.resolve(h.pos + vec2{-2.6f, 2.f}, 0.6f), 2.0f, "Seal the Veil"});
+            w.interacts.push_back({Interactable::Door, w.level.resolve(h.pos + vec2{2.6f, 2.f}, 0.6f), 2.0f, "Leave the door open"});
+        }
+        if (t >= 200 && std::string(zones[k]) == "totality") return;   // stand between them
+        combat(w, in, frame, t > 110 ? 30.f : 9.f);
+        return;
+    }
+    // the Gate of Iram: the three scales, then the Keeper
+    const uint64_t gate0 = zones_end, gate_len = 700;
+    if (frame < gate0 + gate_len) {
+        int t = int(frame - gate0);
+        if (t == 0) {
+            H.quests |= Q_DUWAIS | Q_SHIQQ | Q_HATIF | Q_HORSEMAN | Q_ACT6;
+            H.ending = 1;
+            a.enter_zone(w, find_zone("gate_iram"), Arrival::Entrance);
+            w.level.bind_gpu();
+            fprintf(stderr, "tour11: the Gate of Iram at frame %llu\n", (unsigned long long)frame);
+        }
+        if (t < 260) {   // walk up to the scales
+            for (auto& it : w.interacts) if (it.kind == Interactable::Toll && it.target == EQ_BODY && length(it.pos - h.pos) > 1.2f) steer(w, in, it.pos);
+            return;
+        }
+        if (t == 260) go_to_interact(w, in, frame, Interactable::Toll, EQ_BODY);
+        const ZoneLayout& L = a.zone.layout;
+        if (t == 330) {
+            h.pos = w.level.resolve(L.center(L.cells[size_t(L.arena)]) + vec2{0, -5.f}, h.radius);
+            for (size_t i = 1; i < w.actors.size(); i++)
+                if (w.actors[i].rarity != Rarity::Unique && length(w.actors[i].pos - h.pos) < 10.f) w.actors[i].life = 0, w.actors[i].act = Act::Dead, w.actors[i].dead_t = 3;
+        }
+        if (t > 260 && t < 330) { go_to_interact(w, in, frame, Interactable::Toll, EQ_BODY); return; }
+        combat(w, in, frame, 30.f);
+        return;
+    }
+    // the Pinnacles at the chart table
+    MapScreen& M = *map_ui;
+    const uint64_t map0 = gate0 + gate_len, map_len = 240;
+    if (frame < map0 + map_len) {
+        int t = int(frame - map0);
+        if (t == 0) {
+            H.currency[CUR_PEARL] = 9;
+            H.currency[CUR_SCALE] = 5;
+            a.close_zone(w);
+            a.enter_hub(w, Arrival::Entrance);
+            w.level.bind_gpu();
+            M.show(w);
+            M.pinnacles = true;
+            M.pin_cursor = PIN_FALAK;
+            fprintf(stderr, "tour11: the pinnacles at frame %llu\n", (unsigned long long)frame);
+        }
+        if (t == 150) M.pin_cursor = PIN_FALAK_UBER;
+        return;
+    }
+    // Falak, beneath the world
+    const uint64_t falak0 = map0 + map_len, falak_len = 1100;
+    if (frame < falak0 + falak_len) {
+        int t = int(frame - falak0);
+        if (t == 0) {
+            M.hide();
+            H.level = 70;
+            w.recompute_hero();
+            a.enter_pinnacle(w, PIN_FALAK);
+            w.level.bind_gpu();
+            fprintf(stderr, "tour11: Falak at frame %llu\n", (unsigned long long)frame);
+        }
+        const ZoneLayout& L = a.zone.layout;
+        if (t == 60) {
+            h.pos = w.level.resolve(L.center(L.cells[size_t(L.arena)]) + vec2{0, -6.f}, h.radius);
+            for (size_t i = 1; i < w.actors.size(); i++)
+                if (w.actors[i].rarity != Rarity::Unique) w.actors[i].life = 0, w.actors[i].act = Act::Dead, w.actors[i].dead_t = 3;
+        }
+        combat(w, in, frame, 30.f);
+        return;
+    }
+    pass("tour11 done");
 }
 
 // ---------------------------------------------------------------- tour8: the Mercenary, Act III, an Excavation (screenshots)

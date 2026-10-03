@@ -69,6 +69,9 @@ public:
     void quad(vec3 c, vec3 ax, vec3 ay, vec4 color, vec4 params, Blend blend);
     void ground(vec3 c, float r, vec4 color, vec4 params, Blend blend, float rot = 0.f);
     void billboard(vec3 c, float size, vec4 color, vec4 params, Blend blend = Blend::Additive);
+    // a frame of the pixel-art effects sheet facing the camera: its row, its frame (0-7, +8 mirrors it); the tint's alpha
+    // fades it out pixel by pixel
+    void fx(vec3 c, float size, int sheet_row, float frame, vec4 tint = {1, 1, 1, 1});
     void beam(vec3 base, float height, float width, vec4 color);
     void end(GLuint out_fbo, int out_w, int out_h, bool flip_y);
 
@@ -88,7 +91,7 @@ private:
     RenderTarget scene_;
     std::vector<RenderTarget> bloom_;
     GLuint empty_vao_ = 0, inst_vbo_ = 0, ubo_ = 0, sprite_vao_ = 0, sprite_vbo_ = 0;
-    Texture bones_, tiles_;
+    Texture bones_, tiles_, fx_;
     std::vector<float> palette_;
     int palette_used_ = 0;
     std::vector<Item> items_;

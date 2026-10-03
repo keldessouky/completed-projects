@@ -24,9 +24,10 @@ constexpr Rgba night = Rgba::hex(0x07060A), panel = Rgba::hex(0x0E0B14), panel2 
                line = Rgba::hex(0x2E2540), dusk = Rgba::hex(0x2B1E44), amber = Rgba::hex(0xF2A541),
                turquoise = Rgba::hex(0x2BB5AE), magenta = Rgba::hex(0xFF2E88), brass = Rgba::hex(0xD4A84B),
                sand = Rgba::hex(0xC9A27A), bone = Rgba::hex(0xEDE3D1), soft = Rgba::hex(0xBDB3C9),
-               dim = Rgba::hex(0x7D7390), life = Rgba::hex(0xC0392B), mana = Rgba::hex(0x2F6FD6),
-               magic = Rgba::hex(0x7AA8FF), rare = Rgba::hex(0xF5D76E), unique = Rgba::hex(0xE08A3C),
-               good = Rgba::hex(0x7BD389), bad = Rgba::hex(0xE0525C);
+               dim = Rgba::hex(0x7D7390), life = Rgba::hex(0xC0392B), mana = Rgba::hex(0x2F6FD6);
+// the loot and comparison colours change with the colour-blind setting (game/settings.cpp)
+inline Rgba magic = Rgba::hex(0x7AA8FF), rare = Rgba::hex(0xF5D76E), unique = Rgba::hex(0xE08A3C),
+            good = Rgba::hex(0x7BD389), bad = Rgba::hex(0xE0525C);
 }
 
 enum class Align { Left, Center, Right };
@@ -56,6 +57,14 @@ public:
     void pop_clip();
     float width() const { return w_; }
     float height() const { return h_; }
+    // Slice 11: in Arabic the whole layout is mirrored (x -> width - x, left and right alignment swapped), except where
+    // a screen turns it off (the Map of al-Idrisi and the sky keep their geography); text grows with the text size
+    void set_rtl(bool on) { rtl_ = on; }
+    bool rtl() const { return rtl_; }
+    bool set_mirror_enabled(bool on) { bool was = mirror_on_; mirror_on_ = on; return was; }
+    bool mirrored() const { return rtl_ && mirror_on_; }
+    void set_text_scale(float s) { text_scale_ = s; }
+    float text_scale() const { return text_scale_; }
 
 private:
     struct V { float x, y, u, v; uint8_t c[4]; float p[4]; };
@@ -71,6 +80,11 @@ private:
     std::vector<V> font_verts_;
     float w_ = 1920, h_ = 1080;
     std::vector<vec4> clips_;
+    bool rtl_ = false, mirror_on_ = true;
+    float text_scale_ = 1.f;
+    float mx(float x, float w = 0) const { return mirrored() ? w_ - x - w : x; }
+    float text_raw(float x, float y, const std::string& s, float size, Rgba c, Align a, float weight, bool outline);
+    float width_raw(const std::string& s, float size) const;
 };
 
 Ui& ui();

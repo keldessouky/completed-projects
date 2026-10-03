@@ -1,4 +1,5 @@
 #include "game/items.hpp"
+#include "ui/ui.hpp"
 #include "game/uniques.hpp"
 #include <algorithm>
 #include <array>
@@ -121,6 +122,66 @@ const std::vector<ItemBase>& item_bases() {
         {"acacia_staff", "Acacia Quarterstaff", Slot::Weapon, 6, 14, 29, 1.25f, 7, 0, 0, nullptr, 0, WK_QSTAFF},
         {"brass_bound_staff", "Brass-Bound Quarterstaff", Slot::Weapon, 18, 25, 50, 1.22f, 7.5f, 0, 0, "+10 to all Attributes", 0, WK_QSTAFF},
         {"tamarisk_staff", "Tamarisk Quarterstaff", Slot::Weapon, 34, 42, 84, 1.22f, 8, 0, 0, "+14% to Cold Resistance", 0, WK_QSTAFF},
+        // Slice 10: bases past Act V, so the hero keeps growing with the monsters (a weapon tier near 42 and near 56 for
+        // every kind; armour near 40 and gloves and boots at 28 and 50 for every kind of defence)
+        {"ayyubid_maul", "Ayyubid Maul", Slot::Weapon, 44, 84, 150, 0.95f, 5.5f, 0, 0, nullptr, 0, WK_MAUL},
+        {"qaitbay_maul", "Qaitbay's Maul", Slot::Weapon, 58, 112, 198, 0.95f, 6.f, 0, 0, nullptr, 0, WK_MAUL},
+        {"meteorite_staff", "Meteorite Staff", Slot::Weapon, 40, 38, 70, 1.2f, 8.f, 0, 0, "42% increased Spell Damage", 0, WK_STAFF},
+        {"armillary_staff", "Armillary Staff", Slot::Weapon, 56, 50, 92, 1.2f, 8.5f, 0, 0, "48% increased Spell Damage", 0, WK_STAFF},
+        {"mamluk_recurve", "Mamluk Recurve", Slot::Weapon, 42, 30, 62, 1.4f, 7.5f, 0, 0, "10% increased Projectile Speed", 0, WK_BOW},
+        {"sinew_bow", "Horn-and-Sinew Bow", Slot::Weapon, 56, 40, 84, 1.4f, 7.5f, 0, 0, "10% increased Projectile Speed", 0, WK_BOW},
+        {"kilij", "Kilij", Slot::Weapon, 40, 38, 70, 1.5f, 6.f, 0, 0, "15% chance to cause Bleeding", 0, WK_SWORD},
+        {"watered_sabre", "Watered-Steel Sabre", Slot::Weapon, 56, 50, 92, 1.5f, 6.5f, 0, 0, "15% chance to cause Bleeding", 0, WK_SWORD},
+        {"windlass_arbalest", "Windlass Arbalest", Slot::Weapon, 40, 46, 96, 0.85f, 7.f, 0, 0, "Bolts pierce an additional enemy", 0, WK_CROSSBOW},
+        {"bastion_arbalest", "Bastion Arbalest", Slot::Weapon, 56, 60, 126, 0.85f, 7.5f, 0, 0, "Bolts pierce an additional enemy", 0, WK_CROSSBOW},
+        {"janbiya", "Janbiya", Slot::Weapon, 40, 36, 72, 1.5f, 10.f, 0, 0, "30% increased Critical Strike Chance", 0, WK_DAGGER},
+        {"khanjar", "Khanjar", Slot::Weapon, 56, 48, 96, 1.5f, 10.5f, 0, 0, "30% increased Critical Strike Chance", 0, WK_DAGGER},
+        {"ironwood_staff", "Ironwood Quarterstaff", Slot::Weapon, 46, 52, 104, 1.2f, 8.f, 0, 0, "+14% to Cold Resistance", 0, WK_QSTAFF},
+        {"caravan_staff", "Caravan-Master's Staff", Slot::Weapon, 58, 64, 128, 1.22f, 8.5f, 0, 0, "+10 to all Attributes", 0, WK_QSTAFF},
+        {"bronze_mace", "Bronze Mace", Slot::Weapon, 40, 42, 78, 1.25f, 5.f, 0, 0, nullptr, 0, WK_MACE},
+        {"gatewarden_mace", "Gate-Warden's Mace", Slot::Weapon, 56, 55, 102, 1.25f, 5.f, 0, 0, nullptr, 0, WK_MACE},
+        {"lighthouse_sceptre", "Lighthouse Sceptre", Slot::Weapon, 42, 36, 68, 1.25f, 6.5f, 0, 0, "24% increased Elemental Damage", 0, WK_SCEPTRE},
+        {"pharos_sceptre", "Pharos Sceptre", Slot::Weapon, 56, 46, 86, 1.25f, 7.f, 0, 0, "28% increased Elemental Damage", 0, WK_SCEPTRE},
+        {"citadel_helm", "Citadel Helm", Slot::Helmet, 38, 0, 0, 0, 0, 85, 0, nullptr, 0, WK_NONE},
+        {"plated_hauberk", "Plated Hauberk", Slot::Body, 40, 0, 0, 0, 0, 210, 0, nullptr, 0, WK_NONE},
+        {"iron_gauntlets", "Iron Gauntlets", Slot::Gloves, 28, 0, 0, 0, 0, 36, 0, nullptr, 0, WK_NONE},
+        {"iron_boots", "Iron-Shod Boots", Slot::Boots, 28, 0, 0, 0, 0, 36, 0, nullptr, 0, WK_NONE},
+        {"siege_gauntlets", "Siege Gauntlets", Slot::Gloves, 50, 0, 0, 0, 0, 60, 0, nullptr, 0, WK_NONE},
+        {"siege_greaves", "Siege Greaves", Slot::Boots, 50, 0, 0, 0, 0, 60, 0, nullptr, 0, WK_NONE},
+        {"desert_wrap", "Desert Wrap", Slot::Helmet, 38, 0, 0, 0, 0, 0, 90, nullptr, 0, WK_NONE},
+        {"caravan_leathers", "Caravan Leathers", Slot::Body, 40, 0, 0, 0, 0, 0, 220, nullptr, 0, WK_NONE},
+        {"falconers_gloves", "Falconer's Gloves", Slot::Gloves, 28, 0, 0, 0, 0, 0, 40, nullptr, 0, WK_NONE},
+        {"dune_boots", "Dune Boots", Slot::Boots, 28, 0, 0, 0, 0, 0, 40, nullptr, 0, WK_NONE},
+        {"gazelle_gloves", "Gazelle-Hide Gloves", Slot::Gloves, 50, 0, 0, 0, 0, 0, 64, nullptr, 0, WK_NONE},
+        {"gazelle_boots", "Gazelle-Hide Boots", Slot::Boots, 50, 0, 0, 0, 0, 0, 64, nullptr, 0, WK_NONE},
+        {"astrolabe_circlet", "Astrolabe Circlet", Slot::Helmet, 38, 0, 0, 0, 0, 0, 0, nullptr, 70, WK_NONE},
+        {"star_chart_robe", "Star-Chart Robe", Slot::Body, 40, 0, 0, 0, 0, 0, 0, nullptr, 150, WK_NONE},
+        {"scribes_gloves", "Scribe's Gloves", Slot::Gloves, 28, 0, 0, 0, 0, 0, 0, nullptr, 28, WK_NONE},
+        {"observatory_slippers", "Observatory Slippers", Slot::Boots, 28, 0, 0, 0, 0, 0, 0, nullptr, 28, WK_NONE},
+        {"starlit_gloves", "Starlit Gloves", Slot::Gloves, 50, 0, 0, 0, 0, 0, 0, nullptr, 46, WK_NONE},
+        {"starlit_slippers", "Starlit Slippers", Slot::Boots, 50, 0, 0, 0, 0, 0, 0, nullptr, 46, WK_NONE},
+        {"kettle_helm", "Kettle Helm", Slot::Helmet, 38, 0, 0, 0, 0, 70, 65, nullptr, 0, WK_NONE},
+        {"scale_hauberk", "Scale Hauberk", Slot::Body, 40, 0, 0, 0, 0, 150, 140, nullptr, 0, WK_NONE},
+        {"lamellar_gauntlets", "Lamellar Gauntlets", Slot::Gloves, 28, 0, 0, 0, 0, 22, 20, nullptr, 0, WK_NONE},
+        {"riding_boots", "Riding Boots", Slot::Boots, 28, 0, 0, 0, 0, 22, 20, nullptr, 0, WK_NONE},
+        {"mamluk_gauntlets", "Mamluk Gauntlets", Slot::Gloves, 50, 0, 0, 0, 0, 36, 33, nullptr, 0, WK_NONE},
+        {"mamluk_boots", "Mamluk Riding Boots", Slot::Boots, 50, 0, 0, 0, 0, 36, 33, nullptr, 0, WK_NONE},
+        {"moonless_hood", "Moonless Hood", Slot::Helmet, 38, 0, 0, 0, 0, 0, 62, nullptr, 42, WK_NONE},
+        {"moonless_burnous", "Moonless Burnous", Slot::Body, 40, 0, 0, 0, 0, 0, 140, nullptr, 90, WK_NONE},
+        {"cat_silk_wraps", "Cat-Silk Wraps", Slot::Gloves, 28, 0, 0, 0, 0, 0, 20, nullptr, 14, WK_NONE},
+        {"tile_walkers", "Tile-Walker Slippers", Slot::Boots, 28, 0, 0, 0, 0, 0, 20, nullptr, 14, WK_NONE},
+        {"moonless_wraps", "Moonless Wraps", Slot::Gloves, 50, 0, 0, 0, 0, 0, 33, nullptr, 22, WK_NONE},
+        {"moonless_slippers", "Moonless Slippers", Slot::Boots, 50, 0, 0, 0, 0, 0, 33, nullptr, 22, WK_NONE},
+        {"fire_helmet", "Brass Fire Helmet", Slot::Helmet, 38, 0, 0, 0, 0, 66, 0, nullptr, 40, WK_NONE},
+        {"chiefs_greatcoat", "Chief's Greatcoat", Slot::Body, 40, 0, 0, 0, 0, 150, 0, nullptr, 90, WK_NONE},
+        {"brass_cuffed_gauntlets", "Brass-Cuffed Gauntlets", Slot::Gloves, 28, 0, 0, 0, 0, 22, 0, nullptr, 13, WK_NONE},
+        {"brass_toed_boots", "Brass-Toed Boots", Slot::Boots, 28, 0, 0, 0, 0, 22, 0, nullptr, 13, WK_NONE},
+        {"fire_chiefs_gauntlets", "Fire Chief's Gauntlets", Slot::Gloves, 50, 0, 0, 0, 0, 36, 0, nullptr, 21, WK_NONE},
+        {"fire_chiefs_boots", "Fire Chief's Boots", Slot::Boots, 50, 0, 0, 0, 0, 36, 0, nullptr, 21, WK_NONE},
+        // Slice 11 follow-up: late jewellery that restores life over time
+        {"caravanserai_belt", "Caravanserai Belt", Slot::Belt, 40, 0, 0, 0, 0, 0, 0, "Regenerate 18 Life per second", 0, WK_NONE},
+        {"spring_amulet", "Spring-Water Amulet", Slot::Amulet, 50, 0, 0, 0, 0, 0, 0, "Regenerate 28 Life per second", 0, WK_NONE},
+        {"oasis_ring", "Oasis Ring", Slot::Ring, 58, 0, 0, 0, 0, 0, 0, "Regenerate 22 Life per second", 0, WK_NONE},
     };
     return b;
 }
@@ -313,6 +374,16 @@ const std::vector<AffixDef>& affix_defs() {
             "+%d%% to Critical Strike Multiplier", S_CRIT_MULTI, MK_FLAT, 0, 0);
         return v;
     }();
+    // Slice 11 follow-up: high-level gear that restores life over time (rolled; append only)
+    static const std::vector<AffixDef> r11 = [&] {
+        std::vector<AffixDef> v;
+        AffixDef d{"spring", false, "of the Spring", AE_GENERIC, ARMOUR_SLOTS | JEWELLERY, {36, 50, 62}, {12, 22, 36}, {18, 32, 52},
+                   {0, 0, 0}, {0, 0, 0}, "Regenerate %d Life per second", 0};
+        d.gstat = S_LIFE_REGEN;
+        d.gkind = MK_FLAT;
+        v.push_back(d);
+        return v;
+    }();
     static const std::vector<AffixDef> all = [&] {
         std::vector<AffixDef> v = a;
         v.insert(v.end(), g.begin(), g.end());
@@ -320,6 +391,7 @@ const std::vector<AffixDef>& affix_defs() {
         v.insert(v.end(), r.begin(), r.end());
         v.insert(v.end(), r7.begin(), r7.end());
         v.insert(v.end(), r8.begin(), r8.end());
+        v.insert(v.end(), r11.begin(), r11.end());
         return v;
     }();
     return all;
@@ -463,7 +535,11 @@ Item random_drop(int area_level, float rare_chance, float magic_chance, Rng& rng
     auto& bases = item_bases();
     std::vector<int> pool;
     for (size_t i = 0; i < bases.size(); i++)
-        if (bases[i].level <= area_level && (only == Slot::Count ? bases[i].slot != Slot::Chart : bases[i].slot == only)) pool.push_back(int(i));
+        if (bases[i].level <= area_level && (only == Slot::Count ? bases[i].slot != Slot::Chart : bases[i].slot == only)) {
+            // past Act V, the bases of the last twenty levels come three times as often (the acts' drops are as they were)
+            const int copies = area_level > 56 && bases[i].level >= area_level - 20 ? 3 : 1;
+            for (int k = 0; k < copies; k++) pool.push_back(int(i));
+        }
     int base = pool.empty() ? 0 : pool[size_t(rng.irange(0, int(pool.size()) - 1))];
     float r = rng.uniform();
     Rarity rar = r < rare_chance ? Rarity::Rare : r < rare_chance + magic_chance ? Rarity::Magic : Rarity::Normal;
@@ -579,6 +655,8 @@ void Item::add_global_mods(Stats& s, uint16_t src) const {
     if (bb.implicit) {
         std::string imp = bb.implicit;
         if (imp.find("maximum Life") != std::string::npos) s.add(S_LIFE, MK_FLAT, 20, 0, src);
+        if (int n = 0; imp.find("Life per second") != std::string::npos && sscanf(bb.implicit, "Regenerate %d", &n) == 1)
+            s.add(S_LIFE_REGEN, MK_FLAT, float(n), 0, src);
         if (imp.find("all Attributes") != std::string::npos) { s.add(S_STR, MK_FLAT, 10, 0, src); s.add(S_DEX, MK_FLAT, 10, 0, src); s.add(S_INT, MK_FLAT, 10, 0, src); }
         if (imp.find("Fire Resistance") != std::string::npos) s.add(S_FIRE_RES, MK_FLAT, 15, 0, src);
         if (imp.find("Cold Resistance") != std::string::npos) s.add(S_COLD_RES, MK_FLAT, 14, 0, src);
@@ -648,10 +726,11 @@ std::vector<std::string> Item::lines() const {
 }
 
 uint32_t rarity_color(Rarity r) {
+    auto hex = [](Rgba c) { return uint32_t(c.r) << 16 | uint32_t(c.g) << 8 | c.b; };   // as the colour-blind setting has them
     switch (r) {
-        case Rarity::Magic: return 0x7AA8FF;
-        case Rarity::Rare: return 0xF5D76E;
-        case Rarity::Unique: return 0xE08A3C;
+        case Rarity::Magic: return hex(pal::magic);
+        case Rarity::Rare: return hex(pal::rare);
+        case Rarity::Unique: return hex(pal::unique);
         default: return 0xEDE3D1;
     }
 }

@@ -1,5 +1,9 @@
 # Running QAHIRA on the Retroid Pocket 6
 
+> **Just want to play?** Follow [PLAY.md](PLAY.md). It starts on the RP6 and uses the prebuilt files from the
+> [`qahira-latest` release](https://github.com/keldessouky/completed-projects/releases/tag/qahira-latest), so you
+> don't need a toolchain. This page is the developer view.
+
 The game is two files:
 
 | File | Where it goes |
@@ -7,7 +11,8 @@ The game is two files:
 | `Qahira.qpk` | Your roms folder, e.g. `ROMs/Qahira/Qahira.qpk` |
 | `qahira_libretro_android.so` | Installed once into RetroArch as a core |
 
-Both come out of `tools/build_all.sh` in `build/`.
+Both come out of `tools/build_all.sh` in `build/`. CI also builds them on every push to `qahira` (the *RP6 core and
+pack* job in `.github/workflows/qahira.yml`) and publishes them on the `qahira-latest` prerelease.
 
 ## One-time setup
 
@@ -19,7 +24,7 @@ Both come out of `tools/build_all.sh` in `build/`.
 4. **Settings → Drivers → Video** must be `gl`. This is the RetroArch default on Android, and the core needs a
    GLES 3.2 context. The Vulkan driver can't host a GL core.
 5. Optional: in the RP6's Android settings, map the rear buttons to the stick clicks: **M1 → L3** (life flask) and
-   **M2 → R3** (mana flask).
+   **M2 → R3** (the radio: a tap for the next station, a hold for the next episode; in the Book of Fixed Stars, build codes).
 
 ## Launching
 
@@ -28,9 +33,10 @@ Both come out of `tools/build_all.sh` in `build/`.
   with the Qahira core.
 - **Suspend anywhere:** RetroArch save states capture the whole simulation. Turning on *Auto Save State* and
   *Auto Load State* resumes mid-fight after sleep.
-- **Your character** is kept in `qahira.character` in RetroArch's save directory (by default
-  `RetroArch/saves/`). It's written when you get home, close the menu, level up or quit. Back it up by copying
-  that file.
+- **Your characters** are kept in `qahira_1.character` … `qahira_4.character` (one per title-screen slot) in
+  RetroArch's save directory (by default `RetroArch/saves/`). An old `qahira.character` moves into slot 1 if that
+  slot is empty. A character is written when you get home, close the menu, level up or quit. Back them up by
+  copying those files.
 
 ## Development over USB
 

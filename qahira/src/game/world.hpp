@@ -126,6 +126,19 @@ struct Actor {
     bool alive() const { return act != Act::Dead; }
 };
 
+// The life flask's tiers: each heals more of your life, over the same second and a half, and every second tier holds
+// one charge more. Amm Sayed upgrades it for dinars once you are strong enough to carry it.
+constexpr int kFlaskTiers = 7;
+inline const char* flask_name(int t) {
+    static const char* n[kFlaskTiers] = {"Clay Qulla", "Glazed Qulla", "Copper Flask", "Brass Flask", "Silver Flask", "Rosewater Flask",
+                                         "Sabil Flask"};
+    return n[t < 0 ? 0 : t >= kFlaskTiers ? kFlaskTiers - 1 : t];
+}
+inline int flask_charges(int t) { return 3 + t / 2; }                  // 3 3 4 4 5 5 6
+inline float flask_heal(int t) { return 0.5f + 0.08f * float(t); }     // 50% .. 98% of your life
+inline int flask_upgrade_level(int t) { return 8 + 10 * t; }         // the level the next tier (t + 1) needs
+inline int flask_upgrade_price(int t) { return 150 * (t + 1) * (t + 1); }
+
 // What a hero's delayed or travelling hit carries: the pipeline's numbers and the ailment chances.
 struct HeroHit {
     HitDamage hit;
@@ -219,12 +232,28 @@ struct Zar {
     float decay() const { return 4.f + t * 0.08f; }   // the drummers tire as the night goes on
 };
 
+// The spell effects' pixel-art flipbooks: rows of the effects sheet (tools/fx/fx_atlas.py). Append only, in step
+// with EFFECTS there. The first six loop (projectiles); the rest play once over a particle's life.
+enum FxSprite : int8_t {
+    FX_NONE = -1,
+    FX_FIREBALL, FX_ICE_SHARD, FX_SPARK_BALL, FX_POISON_BLOB, FX_SHADOW_ORB, FX_STONE,
+    FX_EMBER, FX_FROST, FX_ZAP, FX_BUBBLE, FX_SMOKE, FX_STAR, FX_BLAST, FX_BLOOD, FX_WATER, FX_SHATTER, FX_VOID, FX_HOLY,
+    FX_COUNT
+};
+constexpr int kFxLooping = FX_EMBER;   // rows below this loop
+// the flipbook a burst of this colour is drawn with: embers, frost, sparks of gold, poison, smoke, blood, the void
+int fx_for(vec4 c0, bool additive, uint8_t shape);
+// the flipbook a projectile of this damage type (and colour) is drawn with, and the one it bursts into
+int fx_projectile(int dmg_type, vec3 color);
+int fx_impact(int dmg_type, vec3 color);
+
 struct Particle {
     vec3 pos, vel;
     float life, max_life, size0, size1, gravity, drag;
     vec4 c0, c1;
     uint8_t shape;
     bool additive;
+    int8_t fx = FX_NONE;           // drawn as a pixel-art flipbook (FxSprite) instead of a soft disc
 };
 
 struct FloatText {
@@ -248,7 +277,9 @@ struct GroundItem {
 struct Interactable {
     enum Kind : uint8_t { Stair, Portal, Vendor, Exit, Chest, Waypoint, Next, Bench, Gate, ChartTable,
                           Charge, Detonator, Chamber, Dealer,   // Slice 7: an Excavation's, and Amm Ramadan
-                          Drum } kind;                          // Slice 8: a Zar Night's
+                          Drum,                                 // Slice 8: a Zar Night's
+                          Veil, Door,                           // Slice 10: the choice at the heart of totality
+                          Toll } kind;                          // the Gate of Iram: a toll to choose (target: the slot)
     // Next: the way on to zone `target`; Gate: a side zone (a trial); Waypoint: the waypoint list; Bench: the Coppersmith
     vec2 pos;
     float radius = 1.8f;
@@ -320,6 +351,7 @@ struct Hero {
     int frenzy = 0;                // Frenzy Charges (Slice 6): 4% more damage and speed each
     float frenzy_t = 0;
     bool aura = false;             // the Templar's Beacon is held up (Slice 9)
+    int8_t ending = 0;             // after Apep (Slice 10): 1 the Veil sealed, 2 the door left open
     int power = 0;                 // Power Charges (Slice 8): 40% increased Critical Strike Chance each
     float power_t = 0;
     int endurance = 0;             // Endurance Charges (Ironclad)
@@ -344,13 +376,16 @@ struct Hero {
     bool rally_hit = false;        // the hit being resolved spent one (it builds more Break)
     int combo = 0;                 // consecutive Crushing Blow hits
     float flask = 3, flask_max = 3;
+    uint8_t flask_tier = 0;        // the life flask, upgraded at Amm Sayed's (Slice 11 follow-up): kFlaskTiers
     float flask_heal_t = 0;
     float regen_acc = 0;
     int kills = 0;
 };
 
 inline int Hero::asc_points() const { return std::max(0, quest_asc_points(quests) - asc_spent(asc)); }
-inline int Hero::passive_points() const { return std::max(0, level - 1 + quest_passive_points(quests) - passives.spent()); }
+inline int Hero::passive_points() const {
+    return std::max(0, level - 1 + quest_passive_points(quests) + (ending == 1 ? 2 : 0) - passives.spent());   // (the Veil sealed: +2)
+}
 
 // The hero's numbers for a sheet or a preview (the tree screen compares two of these).
 struct HeroSummary {
@@ -454,6 +489,8 @@ public:
 
     void emit(Ev t, vec2 p, float mag = 1, int def = -1) { events.push_back({t, p, mag, def}); }
     void burst(vec3 p, int n, vec4 c0, vec4 c1, float speed, float size, float life, bool additive, float gravity = -6.f, uint8_t shape = 0);
+    // one pixel-art flipbook played once where something struck or burst (draws nothing from fx_rng)
+    void sprite_fx(vec3 p, int fx, float size, float life, vec3 vel = {0, 0, 0});
 
     // one hit on an enemy: mitigation, ailments, Break, knockback, leech, death. Returns the damage dealt.
     float hit_enemy(Actor& e, const HeroHit& hh, vec2 from, float knock, float extra_more = 1.f);

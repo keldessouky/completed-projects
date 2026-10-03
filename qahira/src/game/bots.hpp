@@ -90,6 +90,8 @@ private:
     void rifts(World& w, Menu& m, Areas& a, Input& in, uint64_t frame);
     void king(World& w, Menu& m, Areas& a, Input& in, uint64_t frame);
     int king_stage_ = 0;
+    vec2 pin_last_pos_{1e9f, 1e9f};   // the pinnacle pilot's stall breaker
+    uint64_t pin_still_ = 0, pin_walk_until_ = 0;
     uint64_t mark_frame_ = 0;   // the Wanderer's last Mark
     void tour7(World& w, Menu& m, Areas& a, Input& in, uint64_t frame);
     int rift_stage_ = 0, rift_splinters0_ = 0;
@@ -98,6 +100,10 @@ private:
     void tour8(World& w, Menu& m, Areas& a, Input& in, uint64_t frame);
     void tour9(World& w, Menu& m, Areas& a, Input& in, uint64_t frame);
     void tour10(World& w, Menu& m, Areas& a, Input& in, uint64_t frame);
+    void tour11(World& w, Menu& m, Areas& a, Input& in, uint64_t frame);
+    void tour12(World& w, Menu& m, Areas& a, Input& in, uint64_t frame);
+    void gallery(World& w, Menu& m, Areas& a, Input& in, uint64_t frame);
+    std::vector<int> gallery_zones_;
     int dig_stage_ = 0, dig_relics_ = 0;
     bool recovering_ = false;    // backed off from a site's master until life comes back (see combat)
     uint64_t recover_frame_ = 0;
@@ -113,6 +119,11 @@ private:
     vec2 act_last_pos_;
     int act_goal_ = -1, act_zones_ = 0;
     int zone_deaths_ = 0, grind_zone_ = -1, grind_until_ = 0, last_target_ = -1;
+    // shopping: Amm Sayed's stock last looked through (its first item), the weapon on its way, the last trip home for it
+    uint32_t shop_seen_ = 0, shop_want_ = 0;
+    uint64_t shop_frame_ = 0;
+    bool shop_home_ = false;
+    bool shop_weapon(World& w, Menu& m, Areas& a, Input& in, uint64_t frame);   // true while busy at the vendor
     std::vector<std::pair<uint32_t, bool>> judged_;   // gear already weighed: seed, upgrade?
     bool upgrade(World& w, const Item& it);
     // sky scenario
@@ -138,7 +149,9 @@ private:
     float chase_best_ = 0;
     uint64_t chase_frame_ = 0;
     bool unreachable(uint32_t id) const { for (uint32_t i : ignored_) if (i == id) return true; return false; }
-    bool go_to_interact(World& w, Input& in, uint64_t frame, Interactable::Kind k);
+    bool pinnacle_run() const { return scenario == "king" || scenario == "falak" || scenario == "uber" || scenario == "subyan"; }
+    int pinnacle_wanted() const { return scenario == "falak" ? PIN_FALAK : scenario == "subyan" ? PIN_SUBYAN : scenario == "uber" ? PIN_KING_UBER : PIN_KING; }
+    bool go_to_interact(World& w, Input& in, uint64_t frame, Interactable::Kind k, int target = -1);   // target: a Gate/Next zone, a toll slot
 };
 
 }  // namespace q

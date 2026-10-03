@@ -1,4 +1,6 @@
 #include "game/menu.hpp"
+#include "audio/audio.hpp"
+#include "game/settings.hpp"
 #include "game/view.hpp"
 #include "ui/ui.hpp"
 #include <cstdio>
@@ -173,6 +175,8 @@ void draw_item_icon(float x, float y, float w, float h, const Item& it, float al
 // ---------------------------------------------------------------- state
 void Menu::show(World& w, bool at_vendor) {
     open = true;
+    game_armed = -1;
+    request = Request::None;
     vendor = at_vendor;
     tab = MenuTab::Inventory;
     held = -1;
@@ -228,6 +232,20 @@ void Menu::hide() {
     held_recipe = -1;
 }
 
+int Menu::hand_base(const Item& weapon, int level, Rng& r) {
+    if (weapon.empty() || weapon.b().slot != Slot::Weapon) return -1;
+    const int kind = weapon.b().wkind;
+    int newest = -1, second = -1;   // by level, of this kind, that this level can carry
+    for (size_t i = 0; i < item_bases().size(); i++) {
+        const ItemBase& b = item_bases()[i];
+        if (b.slot != Slot::Weapon || b.wkind != kind || b.level > level) continue;
+        if (newest < 0 || b.level > item_bases()[size_t(newest)].level) { second = newest; newest = int(i); }
+        else if (second < 0 || b.level > item_bases()[size_t(second)].level) second = int(i);
+    }
+    if (newest < 0) return -1;
+    return second >= 0 && r.chance(0.35f) ? second : newest;
+}
+
 void Menu::restock(World& w) {
     stock.items.clear();
     int lvl = std::max(1, w.hero.level);
@@ -237,6 +255,9 @@ void Menu::restock(World& w) {
         Slot only = i < 2 ? Slot::Weapon : Slot::Count;
         Item it = random_drop(lvl + 1, i == 0 ? 0.35f : 0.08f, 0.75f, r, only);
         if (it.rarity == Rarity::Normal) it = make_item(it.base, Rarity::Magic, it.ilvl, r);
+        // the first is always for the hand you fight with: one of the two newest bases of its kind (a class whose skills
+        // want one kind of weapon would otherwise wait on luck for an upgrade)
+        if (i == 0) if (int b = hand_base(w.hero.weapon(), lvl + 1, r); b >= 0) it = make_item(b, it.rarity, it.ilvl, r);
         stock.add(it);
     }
 }
@@ -287,12 +308,25 @@ void Menu::update(World& w, const Input& in, float dt) {
     if (tab == MenuTab::Character && !vendor) { char_update(w, in, step); return; }
     if (tab == MenuTab::Ascendancy && !vendor) { asc_update(w, in, step); return; }
     if (tab == MenuTab::Journal && !vendor) { journal_update(w, in, step); return; }
+    if (tab == MenuTab::Game && !vendor) { game_update(w, in, step); return; }
     if (step >= 0) move(w, step);
     if (in.hit(BTN_SOUTH)) act_south(w);
     else if (in.hit(BTN_NORTH)) act_north(w);
 }
 
 void Menu::move(World& w, int dir) {
+    if (tab == MenuTab::Settings) {   // up and down the rows, left and right through a row's choices, kept at once
+        if (dir == D_UP) settings_cursor = (settings_cursor + SET_COUNT - 1) % SET_COUNT;
+        if (dir == D_DOWN) settings_cursor = (settings_cursor + 1) % SET_COUNT;
+        if (dir == D_LEFT || dir == D_RIGHT) {
+            // in Arabic the screen is mirrored: right on the stick is back through the choices
+            const bool fwd = (dir == D_RIGHT) != ui().mirrored();
+            set_setting(settings_cursor, setting_value(settings_cursor) + (fwd ? 1 : -1));
+            save_settings();
+            w.emit(Ev::Craft, w.actors[0].pos, 0);
+        }
+        return;
+    }
     if (tab == MenuTab::Filter) {
         if (dir == D_UP) filter_cursor = std::max(0, filter_cursor - 1);
         if (dir == D_DOWN) filter_cursor = std::min(int(FILTER_COUNT) - 1, filter_cursor + 1);
@@ -376,6 +410,7 @@ void Menu::move(World& w, int dir) {
 
 void Menu::act_south(World& w) {
     Hero& H = w.hero;
+    if (tab == MenuTab::Settings) { move(w, ui().mirrored() ? D_LEFT : D_RIGHT); return; }
     if (tab == MenuTab::Filter) {
         H.filter = uint8_t(filter_cursor);
         say(std::string("Loot filter: ") + filter_name(H.filter));
@@ -468,6 +503,20 @@ void Menu::act_south(World& w) {
 }
 
 void Menu::act_north(World& w) {
+    if (tab == MenuTab::Inventory && vendor && !dealer) {   // Amm Sayed upgrades the life flask
+        Hero& H = w.hero;
+        const int t = H.flask_tier;
+        if (t + 1 >= kFlaskTiers) { say("Your flask is the best there is"); return; }
+        if (H.level < flask_upgrade_level(t)) { say("Come back at level " + std::to_string(flask_upgrade_level(t))); return; }
+        if (H.gold < flask_upgrade_price(t)) { say("Not enough dinars"); return; }
+        H.gold -= flask_upgrade_price(t);
+        H.flask_tier = uint8_t(t + 1);
+        w.recompute_hero();
+        H.flask = H.flask_max;
+        say(std::string("Your flask is now a ") + flask_name(H.flask_tier));
+        w.emit(Ev::Craft, w.actors[0].pos, 1.f);
+        return;
+    }
     if (tab != MenuTab::Inventory || vendor || region != Region::Grid || held >= 0) return;
     int i = hovered_inv(w);
     if (i < 0) return;
@@ -540,7 +589,7 @@ void Menu::render(const World& w) const {
     if (vendor) {
         u.text(PX + PW / 2, PY + 22, "Your Belongings", 38, pal::bone, Align::Center, 1.2f, true);
     } else {
-        static const char* names[] = {"Items", "Talismans", "Character", "Ascendancy", "Journal", "Filter"};
+        static const char* names[] = {"Items", "Talismans", "Character", "Ascendancy", "Journal", "Filter", "Settings", "Game"};
         if (bench) {
             u.text(PX + PW / 2, PY + 22, "Your Belongings", 38, pal::bone, Align::Center, 1.2f, true);
         } else {
@@ -638,11 +687,24 @@ void Menu::render(const World& w) const {
         }
         // the vendor's wares
         if (vendor) {
-            u.frame(VX, VY, VW, 446, pal::panel.alpha(0.96f), pal::line, 16, 2);
+            u.frame(VX, VY, VW, 506, pal::panel.alpha(0.96f), pal::line, 16, 2);
             u.text(VX + VW / 2, VY + 22, dealer ? "Amm Ramadan's Antiquities" : "Amm Sayed's Wares", 38, pal::amber, Align::Center, 1.2f, true);
             u.text(VX + VW / 2, VY + 70, dealer ? "What the sand gave back. He takes relics, not money" : "Tools of the trade, and a glass of tea on the house",
                    22, pal::dim, Align::Center);
             grid_cells(SX, SY, stock, region == Region::Stock, cx, cy, false);
+            if (!dealer) {   // the flask, and what its next tier costs
+                const int t = H.flask_tier;
+                char fb[200];
+                snprintf(fb, sizeof fb, "%s: heals %d%%, %d charges", flask_name(t), int(flask_heal(t) * 100 + 0.5f), flask_charges(t));
+                u.text(VX + VW / 2, VY + 440, fb, 24, pal::bone, Align::Center, 0.6f);
+                if (t + 1 < kFlaskTiers) {
+                    snprintf(fb, sizeof fb, "Upgrade to a %s (%d%%, %d charges): %d dinars, level %d", flask_name(t + 1),
+                             int(flask_heal(t + 1) * 100 + 0.5f), flask_charges(t + 1), flask_upgrade_price(t), flask_upgrade_level(t));
+                    const bool can = H.level >= flask_upgrade_level(t) && H.gold >= flask_upgrade_price(t);
+                    u.text(VX + VW / 2, VY + 468, fb, std::min(22.f, 22.f * (VW - 40) / std::max(1.f, u.text_width(fb, 22))),
+                           can ? pal::rare : pal::dim, Align::Center);
+                }
+            }
             if (int i = hovered_stock(); i >= 0) {
                 tip = &stock.items[size_t(i)].item;
                 int slot = equip_slot_for(*tip, H.equip);
@@ -651,7 +713,7 @@ void Menu::render(const World& w) const {
                                       std::to_string(H.currency[CUR_RELIC]) + ")"
                                 : "Buy for " + std::to_string(buy_price(*tip)) + " dinars";
             }
-            tip_y = 540;
+            tip_y = 590;
         }
         if (bench) bench_render(w, tip, tip_y, footer);
         // tooltip, and the equipped piece it would replace
@@ -660,7 +722,7 @@ void Menu::render(const World& w) const {
             float x = vendor ? VX : PX - tw - 24;
             float h1 = draw_item_card(0, 0, tw, *tip, w, compare, footer, false);
             float y = std::clamp(tip_y, 20.f, 1060.f - h1);
-            if (vendor) y = 530;
+            if (vendor) y = 590;
             draw_item_card(x, y, tw, *tip, w, compare, footer, true);
             if (compare && compare != tip) {
                 float h2 = draw_item_card(0, 0, tw, *compare, w, nullptr, "", false);
@@ -674,6 +736,9 @@ void Menu::render(const World& w) const {
         // legend
         if (held >= 0 || held_recipe >= 0) legend(PX + 30, PY + PH - 58, {{BTN_SOUTH, held_recipe >= 0 ? "Craft on item" : "Use on item"}, {BTN_EAST, "Put back"}});
         else if (bench && region == Region::Bench) legend(PX + 30, PY + PH - 58, {{BTN_SOUTH, "Choose recipe"}, {BTN_EAST, "Leave"}});
+        else if (vendor && !dealer)
+            legend(PX + 30, PY + PH - 58, {{BTN_SOUTH, region == Region::Stock || region == Region::Purse ? "Buy" : "Sell"}, {BTN_NORTH, "Upgrade flask"},
+                                           {BTN_EAST, "Leave"}});
         else if (vendor) legend(PX + 30, PY + PH - 58, {{BTN_SOUTH, region == Region::Stock || region == Region::Purse ? "Buy" : "Sell"}, {BTN_EAST, "Leave"}});
         else if (region == Region::Grid) legend(PX + 30, PY + PH - 58, {{BTN_SOUTH, "Equip"}, {BTN_NORTH, "Drop"}, {BTN_EAST, "Close"}});
         else if (region == Region::Purse) legend(PX + 30, PY + PH - 58, {{BTN_SOUTH, "Pick up"}, {BTN_EAST, "Close"}});
@@ -701,6 +766,49 @@ void Menu::render(const World& w) const {
         }
         u.text(x, y + 10, "Quick switch in the field: D-pad Right", 24, pal::dim);
         legend(PX + 30, PY + PH - 58, {{BTN_SOUTH, "Apply"}, {BTN_EAST, "Close"}});
+    } else if (tab == MenuTab::Game) {
+        game_render();
+    } else if (tab == MenuTab::Settings) {
+        float x = PX + 60, y = PY + 130;
+        u.text(x, y, "Saved for every character on this device", 26, pal::dim);
+        y += 70;
+        for (int r = 0; r < SET_COUNT; r++) {
+            const bool cur = settings_cursor == r;
+            u.frame(x - 10, y, PW - 100, 86, cur ? pal::dusk : pal::panel2, cur ? pal::amber : pal::line, 12, cur ? 3.f : 1.f);
+            u.text(x + 20, y + 23, setting_label(r), 32, pal::bone, Align::Left, 0.8f);
+            const std::string v = setting_choice_name(r, setting_value(r));
+            const float vx = PX + PW - 110;
+            u.text(vx, y + 23, v, 32, cur ? pal::amber : pal::soft, Align::Right, 0.8f);
+            if (cur) {   // the arrows either side of the choice
+                const bool m = ui().mirrored();   // the arrows point outward on either side, mirrored or not
+                u.text(vx - u.text_width(v, 32) - 40, y + 21, m ? "\xE2\x86\x92" : "\xE2\x86\x90", 32, pal::amber, Align::Left);
+                u.text(vx + 14, y + 21, m ? "\xE2\x86\x90" : "\xE2\x86\x92", 32, pal::amber, Align::Left);
+            }
+            y += 98;
+        }
+        // the radio: what it has found, and where it looks
+        {
+            const Radio& rd = audio().radio;
+            const std::string fetching = radio_fetch_status();
+            if (rd.count() > 0)
+                u.text(x, y - 4, std::to_string(rd.count()) + (rd.count() == 1 ? " episode on the radio" : " episodes on the radio") +
+                       (audio().radio_on && rd.playing() ? "  \xC2\xB7  " + rd.title(rd.current()) : std::string()), 24, pal::dim);
+            else u.text(x, y - 4, fetching.empty() ? std::string("The radio downloads its episodes over Wi-Fi") : fetching, 24, pal::dim);
+            y += 34;
+            if (rd.count() > 0 && !fetching.empty()) {
+                u.text(x, y - 4, fetching, 24, pal::dim);
+                y += 34;
+            }
+        }
+        // the loot colours, as they are now
+        y += 10;
+        const char* names2[] = {"Magic", "Rare", "Unique"};
+        const Rgba cs[] = {pal::magic, pal::rare, pal::unique};
+        for (int k = 0; k < 3; k++) {
+            u.frame(x + k * 200.f, y, 180, 60, cs[k].mix(pal::panel, 0.8f), cs[k], 8, 2);
+            u.text(x + k * 200.f + 90, y + 14, names2[k], 28, cs[k], Align::Center, 0.8f);
+        }
+        legend(PX + 30, PY + PH - 58, {{BTN_SOUTH, "Change"}, {BTN_EAST, "Close"}});
     }
     if (toast_t > 0) {
         float a = std::min(1.f, toast_t / 0.3f);

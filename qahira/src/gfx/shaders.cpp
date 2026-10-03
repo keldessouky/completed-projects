@@ -146,9 +146,9 @@ void main() {
     }
     // rim light: amber on the player, magenta on enemies
     float rim = pow(1.0 - max(dot(N, V), 0.0), 3.0);
-    col += vRim.rgb * rim * vRim.a;
+    col += vRim.rgb * rim * vRim.a * 0.35;   // a hint of an outline, not a neon edge
     // emissive and hit flash
-    col += albedo * vMat.b * 18.0 * (1.0 + vExtra.y);
+    col += albedo * vMat.b * 3.6 * (1.0 + vExtra.y);   // emission (a fifth of what it was: less neon)
     col += vec3(1.0, 0.9, 0.8) * vExtra.z;
     // fog
     float dist = length(uCamPos.xyz - vWorld);
@@ -258,9 +258,11 @@ void main() {
 )";
 
 const char* sprite_fs = R"(
+uniform sampler2D uFx;   // the effects sheet: rows of eight 32 x 32 frames
 in vec2 vUV;
 in vec4 vColor;
-in vec4 vParams;   // x = shape (0 soft disc, 1 ring, 2 hard disc, 3 square glow, 4 sector), y/z shape params, w = intensity
+in vec4 vParams;   // x = shape (0 soft disc, 1 ring, 2 hard disc, 3 square glow, 4 sector, 5 cracks, 6 beam, 7 chevron, 8 pixel
+                   // effect: y its row, z its frame), y/z shape params, w = intensity
 in vec3 vWorld;
 out vec4 oColor;
 void main() {
@@ -292,6 +294,23 @@ void main() {
         }
         a = smoothstep(0.06, 0.0, best) * smoothstep(1.0, 0.85, r);
         a = max(a, smoothstep(0.35, 0.0, r) * 0.6);
+    } else if (shape == 7) {
+        // the objective chevron, pointing along +y (the quad's up axis)
+        float v = 0.45 - abs(p.x) * 0.95;
+        a = smoothstep(0.26, 0.18, abs(p.y - v)) * smoothstep(0.9, 0.8, abs(p.x));
+    } else if (shape == 8) {
+        // a pixel-art frame from the effects sheet: whole texels, no blending, and a fade that drops the art's pixels
+        // in a 4x4 ordered pattern (the handheld way) instead of making them translucent
+        vec2 px = floor(clamp(vUV, 0.0, 0.9999) * 32.0);
+        float fr = mod(floor(vParams.z), 16.0);
+        if (fr >= 8.0) { px.x = 31.0 - px.x; fr -= 8.0; }
+        vec2 tc = (vec2(fr * 32.0 + px.x, vParams.y * 32.0 + 31.0 - px.y) + 0.5) / vec2(textureSize(uFx, 0));
+        vec4 t = texture(uFx, tc);
+        int bi = (int(px.y) % 4) * 4 + int(px.x) % 4;
+        const float kBayer[16] = float[16](0.0, 8.0, 2.0, 10.0, 12.0, 4.0, 14.0, 6.0, 3.0, 11.0, 1.0, 9.0, 15.0, 7.0, 13.0, 5.0);
+        if (t.a < 0.5 || vColor.a * 16.0 <= kBayer[bi] + 0.5) discard;
+        oColor = vec4(pow(t.rgb, vec3(2.2)) * vColor.rgb * vParams.w, 1.0);
+        return;
     } else if (shape == 6) {
         // vertical loot beam: bright core fading upward
         a = pow(clamp(1.0 - abs(vUV.x * 2.0 - 1.0), 0.0, 1.0), 3.0) * pow(1.0 - vUV.y, 1.5);

@@ -10,11 +10,28 @@ already has, what's left, and what's worth knowing before you change anything.
   Slice 3 was finished after the handoff: the Stars screen, the Sorcerer, Talismans and Wafq, ailments, "Why?", the
   title screen, the build simulator and CI. The parked `qahira-slice3-wip` branch was never pushed; its two pieces
   (a stats preview and a QR encoder) were written again (`summarize` in `game/world.cpp`, `ui/qr.*`).
+- **After the first run on the RP6** (see the last entry in [SLICES.md](SLICES.md)): the glow is cut by 80%, an
+  objective arrow shows the way, the life flask upgrades through seven tiers at Amm Sayed's, and high-level gear
+  regenerates life, and the spells are pixel-art flipbooks (`tools/fx/fx_atlas.py`, packed as `textures/fx.qtex`)
+  instead of glowing discs. Radio Kafr El-Sheikh (Mohamed Andeel's show) replaces the music. The game
+  downloads the episodes itself from the Internet Archive into the saves folder (`audio/radio_fetch.*`, over
+  `net/http.*` with Mbed TLS). The stations are listed in `data/radio.json`, and adding one is adding an entry. Each
+  folder in `radio` is a station; R3 taps to the next station and holds for the next episode. The menu's Game tab
+  resumes, updates the game in place from the qahira-latest release (`game/updater.*`, reading the `version.json`
+  that CI publishes), quits to the title and exits.
+- **Slice 11 is done, and with it Slices 3–11:** Arabic text (shaped, right to left, the layout mirrored), the
+  Settings tab (language, text size, colour-blind loot colours, screen shake, L2 hold or toggle), the Balanced and
+  Battery performance modes as a core option, and Umm al-Ṣubyān, the third pinnacle. What is left is the device
+  checklist in [RP6.md](RP6.md) and the known gaps in the slice log.
+- **Slice 10 (Across the Red Sea) is done:** the Wanderer (the Pole start, Fragments), Act VI's seven zones to
+  Apep, the 60% resistance penalty and the Veil-or-door ending, bases past Act V, the Gate of Iram (the Fourth Trial,
+  a toll you choose), Falak and the uber pinnacles. `act6` (with the Gate) and `falak` run in CI. Every push also
+  publishes the RP6 core and pack on the `qahira-latest` prerelease (see [PLAY.md](PLAY.md)). Next is Slice 11.
 - **Slice 9 (the Atlas and the Strait) is done:** the Templar with the Beacon, the signal brazier, burning ground and
   Block, his sky and the keystone al-Iklil, the Zealot and the Warden, Act V's seven zones on four regions to Aisha
   Qandisha with Trial III at Bab al-Nasr, charts to the Sixteenth Reach over sixteen more sites, and the King's Pearls
   that open the Marid King's throne. The `act5` and `king` bots run in CI; `reaches` nightly. The weak spot is hero
-  scaling past Act V (see its Known gaps): Slice 10 should add higher-level bases.
+  scaling past Act V (see its Known gaps); Slice 10 added the higher-level bases.
 - **Slice 8 (the Maghreb Coast) is done:** the Shadow with traps, Wither and Power Charges, his sky and the keystone
   al-Sharatan, the Nightblade and the Mystic, Act IV's six zones on four regions with Sarab the Mirage, the Iron Door
   of the Souq and the Ghula of the Salt, and the Zar Nights. The `act4` and `zar` bots run in CI.
@@ -29,11 +46,12 @@ already has, what's left, and what's worth knowing before you change anything.
   `qchartsim` and the `charts` bot (nightly in CI).
 - **Slice 4 (Act I) is done too:** six regions, seven zones, the Bab Zuweila trial, two ascendancies, the bench,
   Blends, Omens, twenty uniques with Poster Scraps, and the Journal. See its SLICES.md entry for what is left over.
-- **The head is green on Linux and in CI** (`.github/workflows/qahira.yml`): the tree validator, shaders, 73 unit
+- **The head is green on Linux and in CI** (`.github/workflows/qahira.yml`): the tree validator, shaders, 104 unit
   tests, the build and chart simulators, and the `walk`, `fight`, `zone` (and as the Ranger, the Mercenary, the
   Shadow and the Templar), `sorcerer`, `sky`, `title`, `rifts`, `digs`, `zar`, `king`, `act1`, `act2`, `act3`, `act4`
-  and `act5` bots. Nightly adds `charts`, `reaches`, `act2` as the Ranger, `act1` and `act3` as the Mercenary, `act3`
-  and `act4` as the Shadow, and `act5` as the Templar.
+  and `act5` bots. Nightly adds `charts`, `reaches`, `act2` as the Ranger, `act1` as the Wanderer, `act1` and `act3`
+  as the Mercenary, `act3` and `act4` as the Shadow, and `act5` and `act6` as the Templar; every one of them passes
+  on this branch. The scheduled nightly runs on `master`, which lags until the branch is merged.
 - **Linux:** everything builds and runs there. Blender runs as the `bpy` module (`pip install bpy==5.0.1` into a
   Python 3.11); `tools/pack.py` finds Blender's fonts in the Mac app or the module. Screenshots need a GL context:
   run `qhost --hidden` under Xvfb.
@@ -83,6 +101,14 @@ already has, what's left, and what's worth knowing before you change anything.
 
 ## Things worth knowing
 
+- **The art review.** `tools/review/capture.sh` runs the `gallery` bot seven times (each act with its own class, then
+  the rooftop, every screen and the pinnacles), off-screen, about a minute in all: `QAHIRA_DRAW_EVERY=130` has the
+  core draw only the frames it keeps. `python3 tools/review/build.py` makes `build/review/` (the page and its
+  pictures), published as an Artifact where the owner marks each item Keep, Improve or Redo with a note. The marks
+  are in the Artifact's database, collection `reviews`, one document per item (`zone-<id>`, `pin-<zone>`,
+  `screen-<name>`, `fx-sheet`). Read them, change the art, capture and build again, and republish to the same
+  Artifact: https://claude.ai/artifact/8TnNL1AGKDW65RC9LtfktC (private to the owner).
+
 - **Enum names:** don't name enum values `M_E` and the like; `<math.h>` defines `M_E`. The zone masks are `DIR_N`,
   `DIR_E`, `DIR_S` and `DIR_W` for that reason.
 - **macOS sed:** BSD `sed` has no `\b`. Use Python for word-boundary renames.
@@ -122,7 +148,8 @@ already has, what's left, and what's worth knowing before you change anything.
   map has 32 sites: another site needs 64-bit masks and a character file bump. The tag mask (`T_*`) is full at 32.
 - **Chart tiers:** `kChartTiers` is 16, `kChartTiersEarly` (4) the cap before Act V (`ChartRun::max_tier`). The
   Reaches' climb (`kReachUp`, `kReachDown`) and the pearl rates (`pearl_drops`) are the knobs; `qchartsim` checks both
-  the early map and the road to the throne. `QAHIRA_TOUR_KING=1` starts `tour10` at the map of the Reaches.
+  the early map and the road to the throne. `QAHIRA_TOUR_KING=1` starts `tour10` at the map of the Reaches;
+  `QAHIRA_TOUR_GATE=1` starts `tour11` (the Wanderer, Act VI, the Gate, Falak) at the Gate of Iram.
 - **The weapon swap:** `EQ_WEAPON2` is the weapon on the back; it adds no stats until `World::swap_weapons` brings it
   into hand, which `start_skill` does when a skill needs its kind. Rate a skill with `hero_skill_ctx`, which uses the
   weapon it would really be used with.

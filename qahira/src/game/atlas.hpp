@@ -79,11 +79,30 @@ struct ChartRun {
     ChartMods mods;
     uint32_t astro = 0;
     int max_tier = kChartTiersEarly;   // what a drop can reach: all sixteen once Act V is over
+    bool uber = false;                 // a pinnacle's uber version (Slice 10)
 };
 float chart_drop_chance(const ChartRun& r, Rarity monster);   // per kill
 int roll_chart_tier(const ChartRun& r, Rng& rng);             // the tier of a dropped chart
 int boss_chart_drops(const ChartRun& r, Rng& rng);            // charts from the site's boss
 float haboob_chance(const ChartRun& r);
 int pearl_drops(const ChartRun& r, Rng& rng);                  // King's Pearls from the master of a site of T14 and up
+int scale_drops(const ChartRun& r, bool campaign_over, Rng& rng);   // Scales of Falak from T15 and T16, after Act VI
+int comb_drops(const ChartRun& r, bool campaign_over, Rng& rng);    // Combs of Umm al-Subyan: a Zar Night sung to its end, T12+
+
+// ---- the pinnacles (GDD §10), opened at the chart table with their keys. An uber version costs twice the keys: the
+// boss (and its court) has three times the life and hits half as hard again, and pays half as much again, and one
+// unique more
+enum Pinnacle : int { PIN_KING, PIN_KING_UBER, PIN_FALAK, PIN_FALAK_UBER, PIN_SUBYAN, PIN_SUBYAN_UBER, PIN_COUNT };
+struct PinnacleDef {
+    const char* name;
+    const char* zone;
+    const char* boss;
+    int currency;        // the key
+    int cost;
+    bool uber;
+    const char* where;   // where the keys come from
+};
+const PinnacleDef& pinnacle_def(int p);
+void uber_mods(ChartMods& m);   // what an uber pinnacle adds
 
 }  // namespace q

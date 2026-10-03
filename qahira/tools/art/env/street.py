@@ -101,14 +101,15 @@ def street_tile(name, seed=1, W=14.0, L=24.0, street=7.0):
             bd.box((face_x - sx * 0.06, y + bw / 2, 3.05), (0.08, shop_w, 0.7))
             m.add(bd, '#1A1420', rough=0.6, flat=True)
             hexc, lc = rnd.choice(NEON)
-            ns = Part()
             L1 = shop_w * rnd.uniform(0.55, 0.8)
-            ns.box((face_x - sx * 0.12, y + bw / 2, 3.1), (0.05, L1, 0.1))
-            for k in range(rnd.randint(2, 4)):
-                cx = y + bw / 2 - L1 / 2 + rnd.uniform(0.2, L1 - 0.2)
-                ns.box((face_x - sx * 0.12, cx, 2.92), (0.05, rnd.uniform(0.15, 0.5), 0.08))
-            m.add(ns, hexc, rough=0.3, emit=1.0, flat=True)
-            lights.append(dict(p=[face_x - sx * 1.0, y + bw / 2, 2.6], r=7.5, c=[x * 16 for x in lc]))
+            ticks = [(y + bw / 2 - L1 / 2 + rnd.uniform(0.2, L1 - 0.2), rnd.uniform(0.15, 0.5)) for _ in range(rnd.randint(2, 4))]
+            if rnd.random() < 0.2:   # a neon sign over one shop in five (the random draws above keep the street's layout)
+                ns = Part()
+                ns.box((face_x - sx * 0.12, y + bw / 2, 3.1), (0.05, L1, 0.1))
+                for cx, ln in ticks:
+                    ns.box((face_x - sx * 0.12, cx, 2.92), (0.05, ln, 0.08))
+                m.add(ns, hexc, rough=0.3, emit=1.0, flat=True)
+                lights.append(dict(p=[face_x - sx * 1.0, y + bw / 2, 2.6], r=7.5, c=[x * 16 for x in lc]))
             # an awning on some shops
             if rnd.random() < 0.5:
                 aw = Part()

@@ -2,7 +2,10 @@
 // behind a fade, keeps the character file, and implements app_api.
 #include "platform/app_api.hpp"
 #include "core/log.hpp"
+#include "game/settings.hpp"
 #include "core/pack.hpp"
+#include "net/http.hpp"
+#include "game/updater.hpp"
 #include "core/serial.hpp"
 #include "gfx/renderer.hpp"
 #include "ui/ui.hpp"
@@ -46,7 +49,10 @@ struct State {
     int slot = 0;                 // which character file is being played
     View view;
     float select_t = -1;          // how long Select has been held in the field (-1: not held)
+    float r3_t = -1;              // how long R3 has been held in the field: a tap changes station, a hold the episode
     Input last_input;
+    bool bar2_latched = false;    // the second skill bar, when L2 toggles it
+    float scene_scale = 0.75f;    // the 3D resolution: 0.75 (Balanced), 0.67 (Battery)
     uint64_t frame = 0;
     int wave = 0;
     float wave_t = 0;
@@ -57,6 +63,7 @@ struct State {
     int travel_zone = -1;         // where a ZoneEntrance goes
     Waypoints wp;
     MapScreen map;                // the Map of al-Idrisi, at the chart table
+    int pinnacle = 0;             // where a Throne travel goes (Pinnacle)
     int chart_site = -1;          // where a Chart travel goes, and the chart it spends
     Item chart_item;
     float storm_k = 0;            // how deep in the Haboob the camera's fog is
@@ -64,6 +71,8 @@ struct State {
     bool boss_music = false;
     bool zar_music = false;
     bool persist = true;          // write the character file (off for bots)
+    bool exit_requested = false;  // Game → Exit: the frontend closes the game
+    bool update_told = false;     // the toast that an update is ready, once
 };
 
 State* S = nullptr;
@@ -178,7 +187,7 @@ void do_travel(Travel t) {
             save_character();
             break;
         case Travel::Throne:
-            A.enter_throne(w);
+            A.enter_pinnacle(w, S->pinnacle);
             save_character();
             break;
         default: return;
@@ -319,6 +328,12 @@ uint32_t boss_quest(const ZoneDef& zd) {
     if (id == "bab_nasr") return Q_TRIAL3;
     if (id == "jemaa") return Q_SMOKE;
     if (id == "strait") return Q_QANDISHA | Q_ACT5;
+    if (id == "harbour") return Q_DUWAIS;
+    if (id == "shibam") return Q_SHIQQ;
+    if (id == "wabar") return Q_HATIF;
+    if (id == "iram") return Q_HORSEMAN;
+    if (id == "totality") return Q_ACT6;
+    if (id == "gate_iram") return Q_TRIAL4;
     return 0;
 }
 
@@ -357,17 +372,22 @@ void boss_state(World& w) {
     }
     if (w.boss_killed && !S->areas.zone.cleared) {
         S->areas.open_exit(w);
-        uint32_t q = boss_quest(*zd), fresh = q & ~w.hero.quests;
+        uint32_t q = boss_quest(*zd);
+        if ((q & Q_TRIAL4) && w.hero.sealed_slot < 0) q &= ~Q_TRIAL4;   // the gate asks a toll: no toll, no trial
+        const uint32_t fresh = q & ~w.hero.quests;
         w.hero.quests |= q;
         w.learn_recipe(recipe_for_zone(zd->id, true));
         for (const char* z : {zd->next, zd->side})   // the way on stays open: its waypoint is yours
-            if (int n = find_zone(z); n >= 0) w.hero.waypoints.add(n);
+            if (int n = find_zone(z); n >= 0 && !(zone_def(n).toll_slot == kTollChosen && !(w.hero.quests & Q_ACT6))) w.hero.waypoints.add(n);
         if (fresh & Q_TRIAL1) w.meet_codex("ascendancy");
         S->view.banner = zd->boss_line;
         int next = find_zone(zd->next);
         S->view.banner_sub = next >= 0 ? std::string("The way on to ") + zone_def(next).name + " is open" : "A portal home opens";
         if (fresh & Q_TRIAL1) S->view.banner_sub = "The trial is passed: two ascendancy points. Your amulet is returned when you leave";
         if (fresh & Q_TRIAL2) S->view.banner_sub = "The Second Trial is passed: two more ascendancy points. Your body armour is returned when you leave";
+        if (fresh & Q_TRIAL4) S->view.banner_sub = "The Fourth Trial is passed: two more ascendancy points. The toll is returned when you leave";
+        if ((q & Q_TRIAL4) == 0 && std::string(zd->id) == "gate_iram")
+            S->view.banner_sub = "The Keeper falls, but the gate asked a toll and was paid nothing. Come back, and choose one";
         for (auto& qd : quest_defs())
             if ((fresh & qd.bit) && qd.passive_points) S->view.banner_sub += "  \xC2\xB7  +1 passive star";
         if (fresh & Q_ACT1) {
@@ -412,7 +432,22 @@ void boss_state(World& w) {
             S->view.banner = "Act V is over";
             S->view.banner_sub = "The Strait is quiet. On the Map of al-Idrisi the far Climes open: charts to the Sixteenth tier.";
         }
-        S->view.banner_t = fresh & (Q_ACT2 | Q_ACT3 | Q_ACT4 | Q_ACT5) ? 9.f : 5.f;
+        if (fresh & Q_ACT6) {   // the campaign's end: the sun let go, and the choice (GDD §9.3)
+            S->view.banner = "Act VI is over";
+            S->view.banner_sub = "Apep lets go of the sun. Seal the Veil, or leave the door open. All your resistances are 60% lower now.";
+            w.meet_codex("veil");
+            if (int g = find_zone("gate_iram"); g >= 0) w.hero.waypoints.add(g);   // the Fourth Trial opens, in Iram
+            w.notices.push_back("The Gate of Iram opens: the Fourth Trial, by the waypoints");
+            if (w.hero.ending == 0) {
+                const ZoneLayout& L = S->areas.zone.layout;
+                const vec2 c = L.center(L.cells[size_t(L.arena)]);
+                w.interacts.push_back({Interactable::Veil, w.level.resolve(c + vec2{-3.f, -1.f}, 0.6f), 2.0f,
+                                       "Seal the Veil: the sun comes back, the jinn go unseen (two more passive stars)"});
+                w.interacts.push_back({Interactable::Door, w.level.resolve(c + vec2{3.f, -1.f}, 0.6f), 2.0f,
+                                       "Leave the door open: the night stays, and the charts are harder and richer"});
+            }
+        }
+        S->view.banner_t = fresh & (Q_ACT2 | Q_ACT3 | Q_ACT4 | Q_ACT5 | Q_ACT6) ? 9.f : 5.f;
         save_character();
     }
 }
@@ -498,6 +533,12 @@ bool app_init(const char* pack_path, Platform* plat) {
         remove(slot_path(S->plat->save_dir, 0).c_str());
     }
     S->bot.save_dir = save_dir();
+    // the settings are the device's: loaded for players, left at their defaults for the bots (QAHIRA_LANG=ar for
+    // pictures of the Arabic screens)
+    set_settings_dir(save_dir());
+    if (S->persist && !S->bot.uses_title()) load_settings();
+    if (const char* l = getenv("QAHIRA_LANG")) settings().lang = std::string(l) == "ar" ? 1 : 0;
+    apply_settings();
     // QAHIRA_CLASS picks a fresh character's class (the bots use it; players choose on the title screen)
     const char* cls = getenv("QAHIRA_CLASS");
     w.reset_hero(cls && *cls ? cls : S->bot.default_class());
@@ -511,6 +552,24 @@ bool app_init(const char* pack_path, Platform* plat) {
     else S->areas.enter_hub(w, Arrival::Entrance);
     S->menu.restock(w);
     audio().init();
+    // the radio: its stations, folders in a "radio" folder beside the pack (or beside the saves)
+    if (S->persist && !S->bot.uses_title()) {
+        const std::string p = pack_path;
+        const size_t cut = p.find_last_of("/\\");
+        const std::string dir = cut == std::string::npos ? std::string(".") : p.substr(0, cut);
+        set_radio_dirs({dir + "/radio", dir + "/Radio", save_dir() + "/radio"});
+        apply_music();
+        // and it fetches its stations' episodes itself, over Wi-Fi, into the saves folder, trusting the certificate
+        // authorities the pack carries as well as the system's (an older Android's may lack the newer ones)
+        net::add_trusted(pack().get("data/cacert.pem").str());
+        start_radio_fetch(pack().get("data/radio.json").str(), save_dir() + "/radio");
+        // and asks once whether a newer build is out (Start → Game → Update downloads it)
+        updater().configure(Updater::defaults(plat ? plat->core_path : std::string(), pack_path));
+        updater().check();
+    } else if (const char* rd = getenv("QAHIRA_RADIO")) {   // pictures of the radio: a bot with episodes from here
+        set_radio_dirs({rd});
+        apply_music();
+    }
     arrived();
     return true;
 }
@@ -518,6 +577,10 @@ bool app_init(const char* pack_path, Platform* plat) {
 void app_shutdown() {
     if (!S) return;
     save_character();
+    updater().stop();
+    stop_radio_fetch();
+    keep_radio_place();
+    audio().radio.stop();
     if (S->gpu) { S->renderer.shutdown(); assets().clear(); }
     delete S;
     S = nullptr;
@@ -525,7 +588,7 @@ void app_shutdown() {
 
 void app_gpu_init() {
     S->gpu = true;
-    S->renderer.init(1920, 1080, 0.75f);
+    S->renderer.init(1920, 1080, S->scene_scale);
     ui().init();
     for (auto& a : S->world.actors) a.model = a.def < 0 ? assets().character(hero_model()) : monster_model(a.def);
     assets().mesh("maul");
@@ -541,10 +604,17 @@ void app_gpu_lost() {
 void app_update(const Input& in_raw, float dt) {
     Input in = in_raw;
     S->frame++;
+    if (S->frame % (60 * 20) == 0) keep_radio_place();   // the show goes on where it was left
+    poll_radio();
     World& w = S->world;
     Areas& A = S->areas;
     Menu& M = S->menu;
     S->bot.drive(w, M, A, in, S->frame);
+    // the second skill bar: L2 held, or (a setting) L2 pressed to latch it; the menus and the sky keep the raw L2
+    if (settings().bar2_toggle && !M.open && !S->sky.open && !S->map.open && !S->title.open) {
+        if (in.hit(BTN_L2)) S->bar2_latched = !S->bar2_latched;
+        in.down = S->bar2_latched ? in.down | (1u << BTN_L2) : in.down & ~(1u << BTN_L2);
+    }
     S->last_input = in;
     S->storm_k = damp(S->storm_k, w.haboob.inside(w.actors[0].pos) ? 1.f : 0.f, 2.5f, dt);
     if (S->title.open) {
@@ -637,7 +707,7 @@ void app_update(const Input& in_raw, float dt) {
             S->map.go_site = S->map.go_chart = -1;
         }
         if (S->map.go_rift) { S->map.go_rift = false; begin_travel(Travel::Rift); }
-        if (S->map.go_throne) { S->map.go_throne = false; begin_travel(Travel::Throne); }
+        if (S->map.go_pinnacle >= 0) { S->pinnacle = S->map.go_pinnacle; S->map.go_pinnacle = -1; begin_travel(Travel::Throne); }
         if (!S->map.open) save_character();
         S->view.follow(w, dt);
         return;
@@ -648,11 +718,36 @@ void app_update(const Input& in_raw, float dt) {
         bool was_open = M.open;
         M.update(w, in, dt);
         presentation_events();
+        if (M.request == Menu::Request::Title) {   // Game → Quit to the title: saved, and back to the four slots
+            M.request = Menu::Request::None;
+            save_character();
+            keep_radio_place();
+            M.hide();
+            S->view.map_open = false;
+            S->title.scan(save_dir());
+            S->title.cursor = S->slot;
+            S->title.open = true;
+            audio().play("portal", 0.5f, 0, 1);
+            return;
+        }
+        if (M.request == Menu::Request::Exit) {    // Game → Exit: saved, and the frontend closes the game
+            M.request = Menu::Request::None;
+            save_character();
+            keep_radio_place();
+            M.hide();
+            S->exit_requested = true;
+            return;
+        }
         if (was_open && !M.open) save_character();
         S->view.follow(w, dt);
         return;
     }
     M.update(w, in, dt);  // toasts fade
+    if (!S->update_told && updater().state() == Updater::State::Available) {   // once, in the field
+        S->update_told = true;
+        M.say("A new build is ready: Start, then the Game tab");
+        M.toast_t = 4.f;
+    }
     if (!w.notices.empty() && M.toast_t <= 0.2f) {   // recipes, codex entries, posters: one at a time
         M.say(w.notices.front());
         M.toast_t = 3.2f;
@@ -672,6 +767,28 @@ void app_update(const Input& in_raw, float dt) {
     if (h.alive()) {
         if (in.hit(BTN_UP) && A.current == AreaId::Zone) A.cast_portal(w);
         if (in.hit(BTN_DOWN) && A.current == AreaId::Zone) S->view.map_open = !S->view.map_open;
+        // the radio: R3 tunes in; then a tap goes to the next station (the next episode, with only one) and a hold
+        // to the next episode on this one
+        Radio& r = audio().radio;
+        if (in.hit(BTN_R3)) {
+            if (!r.stations()) {
+                const std::string st = radio_fetch_status();
+                M.say(st.empty() ? std::string("The radio downloads its episodes over Wi-Fi") : st);
+            }
+            else if (!audio().radio_on) { set_setting(SET_MUSIC, r.station()); save_settings(); }
+            else S->r3_t = 0;
+        } else if (S->r3_t >= 0 && in.held(BTN_R3)) {
+            S->r3_t += dt;
+            if (S->r3_t >= 0.5f) { S->r3_t = -1; r.next(1); keep_radio_place(); }
+        } else if (S->r3_t >= 0) {   // let go: a tap (or R3 was let go somewhere else, and it is nothing)
+            const bool tap = in.up(BTN_R3) && audio().radio_on;
+            S->r3_t = -1;
+            if (tap) {
+                if (r.stations() > 1) r.next_station(1);
+                else r.next(1);
+                keep_radio_place();
+            }
+        }
         if (in.hit(BTN_RIGHT)) {
             w.hero.filter = uint8_t((w.hero.filter + 1) % FILTER_COUNT);
             M.say(std::string("Loot filter: ") + filter_name(w.hero.filter) + "  \xC2\xB7  " + filter_desc(w.hero.filter));
@@ -696,6 +813,38 @@ void app_update(const Input& in_raw, float dt) {
             case Interactable::Chest: A.open_chest(w, w.used_interact); break;
             case Interactable::Charge: case Interactable::Detonator: case Interactable::Chamber: w.dig_use(w.used_interact); break;
             case Interactable::Drum: w.zar_use(w.used_interact); break;
+            case Interactable::Veil: case Interactable::Door: {   // the choice, once, for this character
+                const bool seal = w.interacts[size_t(w.used_interact)].kind == Interactable::Veil;
+                w.hero.ending = seal ? 1 : 2;
+                w.interacts.erase(std::remove_if(w.interacts.begin(), w.interacts.end(), [](const Interactable& i) {
+                                      return i.kind == Interactable::Veil || i.kind == Interactable::Door; }), w.interacts.end());
+                S->view.banner = seal ? "The Veil is sealed" : "The door is left open";
+                S->view.banner_sub = seal ? "The sun comes back over Cairo, and the jinn go back to being unseen. Two more passive stars."
+                                          : "The eclipse stays. The jinn walk openly now, and the charts are harder, and richer.";
+                S->view.banner_t = 8.f;
+                w.emit(Ev::LevelUp, w.actors[0].pos);
+                save_character();
+                break;
+            }
+            case Interactable::Toll: {   // the Gate of Iram: the slot chosen is sealed until you leave, like the other gates'
+                Hero& H = w.hero;
+                const int slot = w.interacts[size_t(w.used_interact)].target;
+                if (H.sealed_slot < 0 && slot >= 0 && slot < EQ_COUNT) {
+                    H.sealed = H.equip[slot];
+                    H.sealed_slot = int8_t(slot);
+                    H.equip[slot] = Item{};
+                    w.recompute_hero();
+                }
+                w.interacts.erase(std::remove_if(w.interacts.begin(), w.interacts.end(), [](const Interactable& i) {
+                                      return i.kind == Interactable::Toll; }), w.interacts.end());
+                S->view.banner = "The gate takes its toll";
+                S->view.banner_sub = slot == EQ_WEAPON ? "Your weapon, the bravest toll. It is returned when you leave"
+                                   : slot == EQ_BODY ? "Your body armour. It is returned when you leave"
+                                                     : "Your helmet. It is returned when you leave";
+                S->view.banner_t = 5.f;
+                audio().play("portal", 0.4f, 0, 0.7f);
+                break;
+            }
             case Interactable::Dealer: M.show_dealer(w); w.meet_codex("excavations"); audio().play("ui_select", 0.4f, 0, 1); break;
         }
     }
@@ -707,6 +856,43 @@ void app_update(const Input& in_raw, float dt) {
     S->rumble_strong = std::max(0.f, S->rumble_strong - dt * 5.f);
     S->rumble_weak = std::max(0.f, S->rumble_weak - dt * 6.f);
     if (S->plat && S->plat->rumble) S->plat->rumble(int(S->rumble_strong * 65535), int(S->rumble_weak * 65535));
+}
+
+// where the player should go next: the choice to make if one is waiting, the boss if it stands, then the way on, the
+// way home; on the rooftop, the waypoint. The View draws it as a chevron at the hero's feet and a line at the top.
+static void update_objective() {
+    View& V = S->view;
+    World& w = S->world;
+    Areas& A = S->areas;
+    V.obj_on = false;
+    if (S->title.open || S->menu.open || S->map.open || S->sky.open || w.actors.empty()) return;
+    auto find = [&](Interactable::Kind k, int target = -1) -> const Interactable* {
+        for (auto& it : w.interacts) if (it.kind == k && !it.spent && (target < 0 || it.target == target)) return &it;
+        return nullptr;
+    };
+    auto go = [&](vec2 p, const std::string& label) { V.obj_on = true; V.obj_target = p; V.obj_label = label; };
+    if (A.current == AreaId::Hub) {
+        if (const Interactable* it = find(Interactable::Stair)) go(it->pos, "Waypoints");
+        else if (const Interactable* wp = find(Interactable::Waypoint)) go(wp->pos, "Waypoints");
+        return;
+    }
+    if (A.current != AreaId::Zone || !A.zone.valid) return;
+    if (const Interactable* t = find(Interactable::Toll, EQ_BODY)) { go(t->pos, "Choose the toll"); return; }
+    if (const Interactable* v = find(Interactable::Veil)) { go(v->pos, "Seal the Veil, or leave the door open"); return; }
+    const ZoneDef* zd = A.def();
+    if (zd && *zd->boss && !w.boss_killed) {
+        const ZoneLayout& L = A.zone.layout;
+        const int m = find_monster(zd->boss);
+        go(L.center(L.cells[size_t(L.arena)]), m >= 0 ? monster_defs()[size_t(m)].name : "The far court");
+        return;
+    }
+    if (const Interactable* n = find(Interactable::Next)) { go(n->pos, n->label); return; }
+    if (const Interactable* g = find(Interactable::Gate)) { go(g->pos, g->label); return; }
+    if (const Interactable* e = find(Interactable::Exit)) { go(e->pos, "Portal home"); return; }
+    if (!zd || !*zd->boss) {   // no boss: the rare in the far court guards the way on
+        const ZoneLayout& L = A.zone.layout;
+        go(L.center(L.cells[size_t(L.arena)]), "The far court");
+    }
 }
 
 void app_render(GLuint fbo, int w, int h) {
@@ -735,6 +921,7 @@ void app_render(GLuint fbo, int w, int h) {
         env.sky = lerp(env.sky, hex_lin(0xC09060) * 0.9f, k * 0.6f);
         env.sun_color = env.sun_color * (1.f - 0.5f * k);
     }
+    update_objective();
     r.begin(S->view.cam, env, S->world.time);
     S->view.render_world(r, S->world);
     r.end(fbo, w, h, false);
@@ -752,12 +939,13 @@ void app_render(GLuint fbo, int w, int h) {
 void app_audio(int16_t* stereo, int frames) { audio().mix(stereo, frames); }
 
 // ---- save states
-static const uint32_t kStateVersion = 14;  // 5: passives, Hirz, keystone state; 6: Talismans, ailments, glyphs; 7: Act I;
+static const uint32_t kStateVersion = 17;  // 5: passives, Hirz, keystone state; 6: Talismans, ailments, glyphs; 7: Act I;
                                            // 8: chart runs and the Haboob; 9: poison, marks, Frenzy, arrows;
                                            // 10: bleeding, piercing bolts, grenades, the weapon swap;
                                            // 11: traps, Wither, Power Charges; 12: Zar Nights;
                                            // 13: the Beacon, totems, burning ground; 14: charts to T16 (a chart run's
-                                           // highest tier), waypoints for 128 zones
+                                           // highest tier), waypoints for 128 zones; 15: the Veil and the Door;
+                                           // 16: a pinnacle's uber flag; 17: the flask's tier
 
 static ByteWriter save_state() {
     ByteWriter w;
@@ -796,7 +984,18 @@ bool app_unserialize(const void* data, size_t size) {
     return r.ok;
 }
 
-void app_set_option(const char*, const char*) {}
+bool app_exit_requested() { return S && S->exit_requested; }
+
+// the core options (Slice 11): the performance mode's 3D resolution; the frame rate is the libretro layer's
+void app_set_option(const char* key, const char* value) {
+    if (!S || !key || !value) return;
+    if (std::string(key) == "qahira_performance") {
+        const float scale = std::string(value) == "battery" ? 0.67f : 0.75f;
+        if (scale == S->scene_scale) return;
+        S->scene_scale = scale;
+        if (S->gpu) S->renderer.resize_scene(scale);
+    }
+}
 int app_test_status() { return S ? S->bot.status : 0; }
 const char* app_test_message() { return S ? S->bot.message.c_str() : ""; }
 

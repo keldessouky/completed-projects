@@ -1,10 +1,15 @@
 #include "gfx/renderer.hpp"
 #include "gfx/shaders.hpp"
 #include "core/log.hpp"
+#include "core/pack.hpp"
 #include <algorithm>
 #include <cstring>
 
 namespace q {
+
+// the glow of the whole game (bloom, and additive halos and sparks): a fifth of the look-dev's, which read as too neon
+constexpr float kGlow = 0.2f;
+
 
 static constexpr int kBoneTexW = 1024;
 static constexpr int kMaxLights = 64;
@@ -67,6 +72,14 @@ bool Renderer::init(int out_w, int out_h, float scale) {
     bones_.create(kBoneTexW, 64, GL_RGBA32F, GL_RGBA, GL_FLOAT, nullptr, false);
     tiles_.create(kTileSlots, tiles_x_ * tiles_y_, GL_R8UI, GL_RED_INTEGER, GL_UNSIGNED_BYTE, nullptr, false);
     palette_.resize(size_t(kBoneTexW) * 64 * 4);
+    // the spell effects' pixel-art sheet ("QTX1", u16 w, u16 h, RGBA8), sampled texel for texel
+    static const uint8_t kClear[4] = {0, 0, 0, 0};
+    Blob fx = pack().get("textures/fx.qtex");
+    if (fx && fx.size > 8 && std::memcmp(fx.data, "QTX1", 4) == 0) {
+        int w = fx.data[4] | fx.data[5] << 8, h = fx.data[6] | fx.data[7] << 8;
+        if (fx.size >= size_t(8 + w * h * 4)) fx_.create(w, h, GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE, fx.data + 8, false);
+    }
+    if (!fx_.id) { QLOG("no effects sheet in the pack: spells fall back to plain sprites"); fx_.create(1, 1, GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE, kClear, false); }
     resize_scene(scale);
     return true;
 }
@@ -94,6 +107,7 @@ void Renderer::shutdown() {
     scene_.destroy();
     for (auto& b : bloom_) b.destroy();
     bones_.destroy();
+    fx_.destroy();
     tiles_.destroy();
     GLuint bufs[] = {inst_vbo_, ubo_, sprite_vbo_};
     glDeleteBuffers(3, bufs);
@@ -131,7 +145,7 @@ void Renderer::draw(const GpuMesh* mesh, const Instance& inst) {
 void Renderer::light(vec3 pos, float radius, vec3 color) {
     if (int(light_pos_.size()) >= kMaxLights) return;
     light_pos_.push_back(vec4(pos, radius));
-    light_col_.push_back(vec4(color, 0));
+    light_col_.push_back(vec4(color * 0.6f, 0));   // softer pools of coloured light
 }
 
 static void put(std::vector<SpriteVertex>& v, vec3 p, vec2 uv, vec4 c, vec4 params) {
@@ -154,14 +168,22 @@ void Renderer::quad(vec3 c, vec3 ax, vec3 ay, vec4 color, vec4 params, Blend ble
 }
 
 void Renderer::ground(vec3 c, float r, vec4 color, vec4 params, Blend blend, float rot) {
+    if (blend == Blend::Additive) color.w *= 0.5f;   // glowing decals at half: telegraphs must still read
     vec3 ax{std::cos(rot) * r, std::sin(rot) * r, 0}, ay{-std::sin(rot) * r, std::cos(rot) * r, 0};
     quad(c + vec3{0, 0, 0.02f}, ax, ay, color, params, blend);
 }
 
 void Renderer::billboard(vec3 c, float size, vec4 color, vec4 params, Blend blend) {
+    if (blend == Blend::Additive) color.w *= kGlow;   // glowing halos and sparks at a fifth
     vec3 right{cam_.view(0, 0), cam_.view(0, 1), cam_.view(0, 2)};
     vec3 up{cam_.view(1, 0), cam_.view(1, 1), cam_.view(1, 2)};
     quad(c, right * size, up * size, color, params, blend);
+}
+
+void Renderer::fx(vec3 c, float size, int sheet_row, float frame, vec4 tint) {
+    vec3 right{cam_.view(0, 0), cam_.view(0, 1), cam_.view(0, 2)};
+    vec3 up{cam_.view(1, 0), cam_.view(1, 1), cam_.view(1, 2)};
+    quad(c, right * size, up * size, tint, {8, float(sheet_row), frame, 1.f}, Blend::Alpha);
 }
 
 void Renderer::beam(vec3 base, float height, float width, vec4 color) {
@@ -248,6 +270,10 @@ void Renderer::draw_sprites(std::vector<SpriteVertex>& v, Blend b) {
     glBindBuffer(GL_ARRAY_BUFFER, sprite_vbo_);
     glBufferData(GL_ARRAY_BUFFER, GLsizeiptr(v.size() * sizeof(SpriteVertex)), v.data(), GL_STREAM_DRAW);
     sprite_sh_.use();
+    sprite_sh_.set("uFx", 3);
+    glActiveTexture(GL_TEXTURE3);
+    glBindTexture(GL_TEXTURE_2D, fx_.id);
+    glActiveTexture(GL_TEXTURE0);
     glEnable(GL_BLEND);
     if (b == Blend::Alpha) glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ZERO, GL_ONE);
     else glBlendFuncSeparate(GL_SRC_ALPHA, GL_ONE, GL_ZERO, GL_ONE);
@@ -344,7 +370,7 @@ void Renderer::end(GLuint out_fbo, int out_w, int out_h, bool flip_y) {
     comp_sh_.use();
     comp_sh_.set("uScene", 0);
     comp_sh_.set("uBloom", 1);
-    comp_sh_.set("uBloomStrength", bloom_.empty() ? 0.f : env_.bloom_strength);
+    comp_sh_.set("uBloomStrength", bloom_.empty() ? 0.f : env_.bloom_strength * kGlow);
     comp_sh_.set("uExposure", env_.exposure);
     comp_sh_.set("uLift", env_.lift);
     comp_sh_.set("uGain", env_.gain);

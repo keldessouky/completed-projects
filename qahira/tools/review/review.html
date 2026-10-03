@@ -1,0 +1,308 @@
+<title>QAHIRA Art Review</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Reem+Kufi:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one column of review cards under a sticky progress bar, the game's own night palette (single dark theme,
+   as the game is), brass for structure, three verdict colours for state. */
+:root {
+  color-scheme: dark;
+  --night: #15121d;      /* page */
+  --panel: #1f1a2a;      /* cards */
+  --panel-2: #2a2338;    /* controls at rest */
+  --line: #3b3250;       /* hairlines */
+  --bone: #eee5d3;       /* text */
+  --dim: #a99fb6;        /* secondary text */
+  --brass: #d6a54a;      /* accent: the game's frames */
+  --keep: #6cc7a1;
+  --improve: #f0b23c;
+  --redo: #e5654f;
+  --display: "Reem Kufi", "Noto Kufi Arabic", "Segoe UI", sans-serif;
+  --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+* { box-sizing: border-box; }
+body { background: var(--night); color: var(--bone); font: 15px/1.55 var(--body); }
+.wrap { max-width: 1120px; margin: 0 auto; padding-inline: 16px; padding-block: 0 64px; }
+h1, h2, h3 { font-family: var(--display); font-weight: 700; text-wrap: balance; margin: 0; }
+a { color: var(--brass); }
+:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
+
+header.intro { padding-block: 40px 20px; display: grid; gap: 12px; }
+.mark { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+.mark .ar { font-family: var(--display); font-size: clamp(40px, 9vw, 64px); color: var(--brass); line-height: 1; }
+.mark .en { font-family: var(--display); font-size: clamp(22px, 4vw, 30px); letter-spacing: .06em; }
+.intro p { margin: 0; max-width: 64ch; color: var(--dim); }
+.intro p strong { color: var(--bone); font-weight: 600; }
+
+.bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: color-mix(in srgb, var(--night) 92%, transparent);
+  backdrop-filter: blur(6px); border-bottom: 1px solid var(--line); margin-inline: -16px; padding: 10px 16px; }
+.bar-in { max-width: 1120px; margin: 0 auto; display: grid; gap: 8px; }
+.tally { display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center; font: 13px/1.3 var(--mono); font-variant-numeric: tabular-nums; color: var(--dim); }
+.tally b { color: var(--bone); font-weight: 500; }
+.meter { flex: 1 1 160px; height: 6px; border-radius: 3px; background: var(--panel-2); overflow: hidden; display: flex; min-width: 120px; }
+.meter i { display: block; height: 100%; }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.chip { font: 500 12px/1 var(--mono); letter-spacing: .04em; text-transform: uppercase; color: var(--dim); background: var(--panel-2);
+  border: 1px solid var(--line); border-radius: 999px; padding: 7px 11px; cursor: pointer; }
+.chip[aria-pressed="true"] { color: var(--night); background: var(--brass); border-color: var(--brass); }
+.chips.sections .chip { text-decoration: none; display: inline-block; }
+.status { font: 12px/1.3 var(--mono); color: var(--dim); }
+.status.warn { color: var(--improve); }
+
+section.group { padding-block: 36px 0; display: grid; gap: 16px; }
+.group-head { display: grid; gap: 4px; border-top: 1px solid var(--line); padding-top: 18px; }
+.group-head .eyebrow { font: 500 12px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--brass); }
+.group-head h2 { font-size: clamp(24px, 4vw, 32px); }
+.group-head p { margin: 0; color: var(--dim); max-width: 70ch; }
+.cards { display: grid; gap: 16px; }
+
+article.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; display: grid; gap: 12px; min-width: 0; }
+article.card[data-verdict="keep"] { border-color: color-mix(in srgb, var(--keep) 55%, var(--line)); }
+article.card[data-verdict="improve"] { border-color: color-mix(in srgb, var(--improve) 60%, var(--line)); }
+article.card[data-verdict="redo"] { border-color: color-mix(in srgb, var(--redo) 60%, var(--line)); }
+.card-head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 12px; align-items: baseline; }
+.card-head h3 { font-size: 21px; }
+.card-head .sub { color: var(--dim); font-style: italic; flex-basis: 100%; }
+.meta { display: flex; flex-wrap: wrap; gap: 4px 14px; font: 12px/1.4 var(--mono); color: var(--dim); font-variant-numeric: tabular-nums; }
+.meta span b { color: var(--bone); font-weight: 500; }
+.shots { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); }
+.shot { margin: 0; display: grid; gap: 6px; min-width: 0; }
+.shot button { padding: 0; border: 0; background: none; cursor: zoom-in; border-radius: 6px; overflow: hidden; display: block; }
+.shot img { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; object-fit: cover; background: #0c0a10; }
+.shot.pixel img { image-rendering: pixelated; object-fit: contain; aspect-ratio: auto; }
+.shot figcaption { font: 12px/1.3 var(--mono); color: var(--dim); }
+
+.review { display: grid; gap: 8px; }
+.verdicts { display: flex; gap: 6px; flex-wrap: wrap; }
+.verdicts button { font: 600 14px/1 var(--body); color: var(--bone); background: var(--panel-2); border: 1px solid var(--line);
+  border-radius: 8px; padding: 10px 16px; cursor: pointer; min-width: 92px; }
+.verdicts button[data-v="keep"][aria-pressed="true"] { background: var(--keep); border-color: var(--keep); color: var(--night); }
+.verdicts button[data-v="improve"][aria-pressed="true"] { background: var(--improve); border-color: var(--improve); color: var(--night); }
+.verdicts button[data-v="redo"][aria-pressed="true"] { background: var(--redo); border-color: var(--redo); color: var(--night); }
+.verdicts button:disabled { opacity: .5; cursor: not-allowed; }
+textarea { width: 100%; min-height: 64px; resize: vertical; font: 14px/1.45 var(--body); color: var(--bone); background: var(--night);
+  border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+textarea::placeholder { color: var(--dim); }
+.saved { font: 12px/1 var(--mono); color: var(--dim); min-height: 1em; }
+.saved.err { color: var(--redo); }
+
+dialog { border: 0; padding: 0; background: transparent; max-width: 96vw; max-height: 94vh; }
+dialog::backdrop { background: rgba(8, 6, 12, .88); }
+dialog img { display: block; max-width: 96vw; max-height: 86vh; width: auto; height: auto; border-radius: 6px; }
+dialog img.pixel { image-rendering: pixelated; }
+dialog p { margin: 8px 0 0; color: var(--bone); font: 13px/1.3 var(--mono); text-align: center; }
+dialog form { text-align: center; margin-top: 8px; }
+dialog form button { font: 500 13px/1 var(--mono); color: var(--night); background: var(--brass); border: 0; border-radius: 6px; padding: 9px 14px; cursor: pointer; }
+.empty { color: var(--dim); font-style: italic; }
+@media (prefers-reduced-motion: no-preference) { article.card { transition: border-color .2s; } }
+@media (max-width: 700px) { .bar { position: static; } }
+</style>
+
+<div class="wrap">
+  <header class="intro">
+    <div class="mark"><span class="ar" lang="ar">قاهرة</span><span class="en">QAHIRA</span></div>
+    <h1>Art review</h1>
+    <p>Every zone, boss, screen and spell effect in the current build, as the game draws it. Mark each one
+      <strong>Keep</strong>, <strong>Improve</strong> or <strong>Redo</strong>, and write what should change. Your marks are
+      saved as you go, and Claude reads them to make the changes.</p>
+    <p id="build-line"></p>
+  </header>
+
+  <div class="bar" role="region" aria-label="Review progress and filters">
+    <div class="bar-in">
+      <div class="tally" id="tally"></div>
+      <div class="chips" id="filters" role="group" aria-label="Show">
+        <button class="chip" type="button" data-f="all" aria-pressed="true">All</button>
+        <button class="chip" type="button" data-f="todo" aria-pressed="false">Not reviewed</button>
+        <button class="chip" type="button" data-f="improve" aria-pressed="false">Improve</button>
+        <button class="chip" type="button" data-f="redo" aria-pressed="false">Redo</button>
+        <button class="chip" type="button" data-f="keep" aria-pressed="false">Keep</button>
+      </div>
+      <nav class="chips sections" id="sections" aria-label="Sections"></nav>
+      <div class="status" id="status">Connecting to the review store…</div>
+    </div>
+  </div>
+
+  <main id="groups"></main>
+</div>
+
+<dialog id="zoom" aria-label="Full-size picture">
+  <img id="zoom-img" alt="">
+  <p id="zoom-cap"></p>
+  <form method="dialog"><button type="submit">Close</button></form>
+</dialog>
+
+<script>
+const REVIEW = /*REVIEW_DATA*/{"build": "", "groups": []};
+const VERDICTS = [["keep", "Keep"], ["improve", "Improve"], ["redo", "Redo"]];
+const state = {};          // item id -> {verdict, note}
+const cards = {};          // item id -> {el, buttons, note, saved}
+const chains = {};         // item id -> the write in flight (one at a time per document)
+const timers = {};
+let db = null, writable = true, filter = "all";
+
+const items = REVIEW.groups.flatMap(g => g.items);
+document.getElementById("build-line").textContent = REVIEW.build;
+
+function el(tag, attrs = {}, ...kids) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === "class") e.className = v; else if (k === "text") e.textContent = v; else e.setAttribute(k, v);
+  }
+  for (const k of kids) if (k) e.append(k);
+  return e;
+}
+
+function build() {
+  const main = document.getElementById("groups"), nav = document.getElementById("sections");
+  for (const g of REVIEW.groups) {
+    nav.append(el("a", {class: "chip", href: "#" + g.id, text: g.short || g.title}));
+    const sec = el("section", {class: "group", id: g.id},
+      el("div", {class: "group-head"}, el("span", {class: "eyebrow", text: g.eyebrow || ""}), el("h2", {text: g.title}),
+        g.note ? el("p", {text: g.note}) : null));
+    const list = el("div", {class: "cards"});
+    for (const it of g.items) list.append(card(it));
+    sec.append(list);
+    main.append(sec);
+  }
+}
+
+function card(it) {
+  const a = el("article", {class: "card", id: "c-" + it.id, "data-verdict": ""});
+  const head = el("div", {class: "card-head"}, el("h3", {text: it.title}));
+  if (it.sub) head.append(el("span", {class: "sub", text: it.sub}));
+  a.append(head);
+  if (it.meta && it.meta.length) {
+    const m = el("div", {class: "meta"});
+    for (const [k, v] of it.meta) { const s = el("span", {text: k + " "}); s.append(el("b", {text: v})); m.append(s); }
+    a.append(m);
+  }
+  const shots = el("div", {class: "shots"});
+  for (const s of it.shots) {
+    const img = el("img", {src: s.src, alt: it.title + ": " + s.label, loading: "lazy", width: s.w || 1280, height: s.h || 720});
+    const btn = el("button", {type: "button", "aria-label": "Open full size: " + s.label}, img);
+    btn.addEventListener("click", () => zoom(s, it));
+    shots.append(el("figure", {class: "shot" + (s.pixel ? " pixel" : "")}, btn, el("figcaption", {text: s.label})));
+  }
+  a.append(shots);
+  const vb = el("div", {class: "verdicts", role: "group", "aria-label": "Verdict for " + it.title});
+  const buttons = {};
+  for (const [v, label] of VERDICTS) {
+    const b = el("button", {type: "button", "data-v": v, "aria-pressed": "false", text: label});
+    b.addEventListener("click", () => setVerdict(it, v));
+    buttons[v] = b;
+    vb.append(b);
+  }
+  const note = el("textarea", {id: "note-" + it.id, placeholder: "What should change? (colour, shape, mood, size…)", "aria-label": "Notes on " + it.title});
+  note.addEventListener("input", () => {
+    state[it.id] = {...(state[it.id] || {}), note: note.value};
+    clearTimeout(timers[it.id]);
+    timers[it.id] = setTimeout(() => save(it), 900);
+    cards[it.id].saved.textContent = "Typing…";
+  });
+  note.addEventListener("blur", () => { if (timers[it.id]) { clearTimeout(timers[it.id]); timers[it.id] = 0; save(it); } });
+  const saved = el("div", {class: "saved", "aria-live": "polite"});
+  a.append(el("div", {class: "review"}, vb, note, saved));
+  cards[it.id] = {el: a, buttons, note, saved};
+  return a;
+}
+
+function zoom(s, it) {
+  const d = document.getElementById("zoom"), img = document.getElementById("zoom-img");
+  img.src = s.src; img.alt = it.title + ": " + s.label; img.className = s.pixel ? "pixel" : "";
+  document.getElementById("zoom-cap").textContent = it.title + " · " + s.label;
+  if (d.showModal) d.showModal(); else d.setAttribute("open", "");
+}
+
+function setVerdict(it, v) {
+  if (!writable) return;
+  const cur = state[it.id] || {};
+  state[it.id] = {...cur, verdict: cur.verdict === v ? "" : v};
+  paint(it.id);
+  tally();
+  save(it);
+}
+
+function save(it) {
+  timers[it.id] = 0;
+  if (!db || !writable) return;
+  const s = state[it.id] || {};
+  const body = {verdict: s.verdict || "", note: (s.note || "").slice(0, 4000), title: it.title, section: it.section, at: Date.now()};
+  const c = cards[it.id];
+  c.saved.className = "saved"; c.saved.textContent = "Saving…";
+  chains[it.id] = (chains[it.id] || Promise.resolve()).then(() => db.doc("reviews/" + it.id).set(body)).then(
+    () => { c.saved.textContent = "Saved"; },
+    e => {
+      c.saved.className = "saved err";
+      if (e && e.code === "invalid_argument") { readOnly("This page is read-only for you, so marks can't be saved."); c.saved.textContent = "Not saved"; }
+      else c.saved.textContent = "Not saved: " + (e && e.message ? e.message : "the store didn't answer") + ". Try again in a moment.";
+    });
+}
+
+function paint(id) {
+  const c = cards[id]; if (!c) return;
+  const s = state[id] || {};
+  c.el.dataset.verdict = s.verdict || "";
+  for (const [v] of VERDICTS) c.buttons[v].setAttribute("aria-pressed", String(s.verdict === v));
+  if (document.activeElement !== c.note && (s.note || "") !== c.note.value) c.note.value = s.note || "";
+  applyFilter(id);
+}
+
+function applyFilter(id) {
+  const v = (state[id] || {}).verdict || "";
+  cards[id].el.hidden = !(filter === "all" || (filter === "todo" ? !v : v === filter));
+}
+
+function tally() {
+  const n = items.length, by = {keep: 0, improve: 0, redo: 0};
+  for (const it of items) { const v = (state[it.id] || {}).verdict; if (by[v] !== undefined) by[v]++; }
+  const done = by.keep + by.improve + by.redo;
+  const t = document.getElementById("tally");
+  t.replaceChildren();
+  const span = (label, val) => { const s = el("span", {text: label + " "}); s.append(el("b", {text: String(val)})); return s; };
+  t.append(span("Reviewed", done + " of " + n));
+  const meter = el("div", {class: "meter", role: "img", "aria-label": done + " of " + n + " reviewed"});
+  for (const [v, col] of [["keep", "var(--keep)"], ["improve", "var(--improve)"], ["redo", "var(--redo)"]]) {
+    const i = el("i"); i.style.width = (100 * by[v] / Math.max(1, n)) + "%"; i.style.background = col; meter.append(i);
+  }
+  t.append(meter, span("Keep", by.keep), span("Improve", by.improve), span("Redo", by.redo));
+}
+
+function readOnly(msg) {
+  writable = false;
+  for (const c of Object.values(cards)) { for (const b of Object.values(c.buttons)) b.disabled = true; c.note.readOnly = true; }
+  const st = document.getElementById("status"); st.textContent = msg; st.className = "status warn";
+}
+
+document.getElementById("filters").addEventListener("click", e => {
+  const b = e.target.closest("button[data-f]"); if (!b) return;
+  filter = b.dataset.f;
+  for (const x of document.querySelectorAll("#filters .chip")) x.setAttribute("aria-pressed", String(x === b));
+  for (const it of items) applyFilter(it.id);
+});
+
+build();
+tally();
+
+const use = window.claude && window.claude.use ? window.claude.use("db") : Promise.resolve(null);
+use.then(d => {
+  const st = document.getElementById("status");
+  if (!d) { readOnly("Open this page on claude.ai, signed in, to save your marks. You can look through everything here."); return; }
+  db = d;
+  st.textContent = "Marks save as you choose them.";
+  db.collection("reviews").onSnapshot(snap => {
+    for (const doc of snap.docs) {
+      const data = doc.data() || {};
+      if (!cards[doc.id]) continue;
+      const local = state[doc.id] || {};
+      state[doc.id] = {verdict: data.verdict || "", note: document.activeElement === cards[doc.id].note ? local.note : (data.note || "")};
+      paint(doc.id);
+    }
+    tally();
+  }, e => {
+    st.textContent = e && e.code === "revoked" ? "Saving is no longer available on this page." : "Live updates stopped. Reload the page to see the latest marks.";
+    st.className = "status warn";
+  });
+}).catch(() => readOnly("Open this page on claude.ai, signed in, to save your marks."));
+</script>

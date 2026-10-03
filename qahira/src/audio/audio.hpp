@@ -1,5 +1,6 @@
 // Software mixer: WAV samples from the pack, 32 voices, looping music and ambience beds, 48 kHz stereo out.
 #pragma once
+#include "audio/radio.hpp"
 #include <cstdint>
 #include <string>
 #include <unordered_map>
@@ -20,6 +21,10 @@ public:
     void ambience(const std::string& name, float gain = 0.45f, float fade = 2.f);
     void mix(int16_t* stereo, int frames);
     float master = 1.f, sfx_volume = 1.f, music_volume = 0.8f;
+    // Radio Kafr El-Sheikh in place of the game's music: while it plays, the music beds fade out under it
+    Radio radio;
+    bool radio_on = false;
+    float radio_gain = 0.9f;
 
 private:
     struct Voice { const Sound* s = nullptr; double pos = 0, step = 1; float gl = 0, gr = 0; bool loop = false; bool active = false; };
@@ -31,6 +36,7 @@ private:
     Bed music_[2], amb_[2];
     int music_cur_ = 0, amb_cur_ = 0;
     std::vector<float> acc_;
+    float radio_mix_ = 0;   // 0 the game's music .. 1 the radio
 };
 
 Audio& audio();

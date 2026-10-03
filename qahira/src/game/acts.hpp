@@ -14,6 +14,8 @@ namespace q {
 
 struct SpawnEntry { const char* monster; int weight; };
 
+constexpr int kTollChosen = -2;   // the Gate of Iram: the hero chooses the toll (GDD §9.2)
+
 struct ZoneDef {
     const char* id;
     const char* name;
@@ -32,7 +34,7 @@ struct ZoneDef {
     const char* landmark;         // what the landmark court holds: "cache", "bench", "poster"
     const char* side;             // an optional zone reached from the far court (Bab Zuweila from al-Muizz)
     bool trial;                   // an ascendancy trial: a toll slot, and two ascendancy points on the boss
-    int toll_slot;                // the equipment slot the gatekeeper seals (-1 none)
+    int toll_slot;                // the equipment slot the gatekeeper seals (-1 none, kTollChosen: you choose)
     float env_tint[3];            // fog and ambient mood of the region
 };
 

@@ -1,0 +1,30 @@
+{
+  "about": "The radio's stations. The game downloads each station's episodes by itself, over Wi-Fi, into a folder per station beside the saves, and plays them in order. To add a station, add an entry: its name (what the game shows), and where its episodes come from: an Internet Archive item (\"archive\", all its audio, or the \"episodes\" chosen from it by \"file\"), a podcast feed (\"rss\"), or \"episodes\" with a \"url\" each. \"n\" is an episode's number in the show; the game plays by it.",
+  "stations": [
+    {
+      "name": "Radio Kafr El-Sheikh",
+      "source": "Mohamed Andeel's show (2012-2017), as a fan archived it; aired order from TheTVDB; حلقة عبكويم is not in its list, so it has no number and plays last. Episodes 1, 3-7, 10, 11, 18, 27 and 28 are not in the archive.",
+      "archive": "radiokafrelshikh",
+      "episodes": [
+        {"n": 2, "title": "الحلقة الثانية", "file": "الثانية.mp3"},
+        {"n": 8, "title": "الحلقة الثامنة", "file": "الثامنة.mp3"},
+        {"n": 9, "title": "الحلقة التاسعة", "file": "التاسعة.mp3"},
+        {"n": 12, "title": "التفاهم في الحب", "file": "التفاهم في الحب.mp3"},
+        {"n": 13, "title": "الصبر في الحب", "file": "الصبر في الحب.mp3"},
+        {"n": 14, "title": "علي فين؟", "file": "علي فين؟.ogg"},
+        {"n": 15, "title": "أستاذ محمد الإنسان", "file": "أستاذ محمد الإنسان.ogg"},
+        {"n": 16, "title": "اللحمة في الحب", "file": "اللحمة في الحب.ogg"},
+        {"n": 17, "title": "البرد في الحب", "file": "البرد في الحب.ogg"},
+        {"n": 19, "title": "سيكولوجية الإنقلاب", "file": "سيكولوچية الا\u0655نقلاب.ogg"},
+        {"n": 20, "title": "الإعترافات في الحب", "file": "الا\u0655عترافات في الحب.ogg"},
+        {"n": 21, "title": "الصيام في الحب", "file": "الصيام في الحب.ogg"},
+        {"n": 22, "title": "على مين؟", "file": "على مين؟.ogg"},
+        {"n": 23, "title": "السعودية في الحب", "file": "السعودية في الحب.ogg"},
+        {"n": 24, "title": "التكنولوجيا في الحب", "file": "التكنولوچيا في الحب.ogg"},
+        {"n": 25, "title": "التجاوزات في الحب", "file": "التجاوزات في الحب.ogg"},
+        {"n": 26, "title": "على إيه؟", "file": "على ا\u0655يه؟.ogg"},
+        {"title": "حلقة عبكويم", "file": "حلقة عبكويم.mp3"}
+      ]
+    }
+  ]
+}

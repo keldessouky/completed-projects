@@ -792,3 +792,326 @@ first pinnacle.*
 - The Rift Lord's court costs the `rifts` bot 4 deaths and 5.5 minutes now (it was 1.5 minutes in Slice 8). The build
   from before the Reaches went in does the same, so it came with Slice 9's earlier work. Not yet looked into.
 - Audio is stored as 16-bit WAV: the pack is 170 MB.
+
+## Slice 10 · Across the Red Sea
+
+*The last act, the seventh class, the end of the campaign, the Fourth Trial, the second pinnacle and the uber
+bosses.*
+
+**Delivered**
+- **The Wanderer**, a seventh class (all three attributes; `tools/art/characters/wanderer.py`):
+  - a courier of the long roads, in a camel-hair coat and a sand-and-red headwrap, with a satchel, a waterskin and a
+    small brass astrolabe on the chest strap;
+  - he begins at **the Pole**, the centre of the sky, and walks through the other classes' starts (a point each) to
+    reach their ground. His Recommended Path is 23 stars;
+  - the **Traveller's Staff** (+10 to all Attributes), and a Talisman from four other classes: *Whirling Staff*, *Arc*,
+    *Rallying Shout* and *Falcon's Mark*. Three more quarterstaves (levels 6, 18 and 34);
+  - **Fragments**, his ascendancy: one notable from each of six others (the Ironclad, the Stormbinder, the Warden, the
+    Nightblade, the Outrider and the Duelist), of which three may be held;
+  - he wakes on the title screen once a character in any slot has finished Act VI. The seven classes lay out in two
+    rows.
+- **Act VI, Across the Red Sea** (`game/acts.cpp`), levels 56 to 66, seven zones on three new regions
+  (`tools/art/env/regions6.py`; no mosque stands in any of them):
+  - **Al-Balad, Old Jeddah**: coral houses five storeys high, their latticed rawashin watching. **The Old Harbour**:
+    **Umm al-Duwais**, who draws men down to the quay with her scent (a Call), and cuts;
+  - **Shibam, the Towers of Hadramawt**: the mud towers of the wadi, half a man in every doorway. **Shiqq**, the
+    half-man, leaps and slams, and brings his other halves out of the walls;
+  - **the Empty Quarter**, and **the Ruins of Wabar**, a city given to the jinn. **al-Hatif**, the voice of the sands,
+    calls you by name, vanishes and burns;
+  - **Iram of the Pillars**, the lost city: **the Brass Horseman** charges through its colonnades;
+  - **the Heart of Totality**, a temple in the sky above Luxor: **Apep**, the serpent of the dark, with the sun in its
+    mouth. Its coils crush, its dark pools spread, and its court of eclipse marids rises.
+  - New monsters: coral ghouls, the nasnas of the wadi, brass guardians and the marids of the black sun. Four pieces
+    of music in maqam sikah (`tools/audio/synth.py act6`). Seven codex entries.
+- **The end of the campaign.** When Apep lets go of the sun, every resistance is **60% lower** (30% after Act III),
+  and two columns stand in the temple: **seal the Veil** (the sun comes back and the jinn go unseen again; two more
+  passive stars), or **leave the door open** (the endless night: charts have 25% more monster life, 15% more monster
+  damage, and 25% more item quantity and rarity). The choice is kept in the character file and shown on the title
+  screen's slot. Act VI's five quests give six passive stars.
+- **The Gate of Iram, the Fourth Trial** (GDD §9.2). Once the campaign is over, a gate opens in Iram of the Pillars
+  (and on the waypoints). Three brass scales stand at its entrance, and **you choose the toll**: your helmet (the
+  trial's two ascendancy points), your body armour (and a unique) or your weapon (two uniques and a King's Pearl).
+  The toll is returned when you leave. **The Keeper of the Gate** is a gilded mamluk who leaps and slams, and raises
+  the city's brass guardians at half life. Kill him without paying and the trial is not passed. Four trials give 8
+  ascendancy points in all.
+- **Falak, the second pinnacle**: the serpent beneath the world of the old cosmographies (under the bull and the
+  fish that carry the earth), of which Apep was only the part that reached for the sun. Its lair is the Sea Beneath
+  the World (level 70). It has Apep's moves, slower and wider: it calls you across the dark water, its pools spread,
+  and its court of eclipse marids rises. It always drops two uniques.
+  - **Scales of Falak** open it, four at the chart table. The Keeper of the Gate of Iram always carries one; after the
+    campaign the masters of the Fifteenth and Sixteenth Reaches carry them too (15% and 30%).
+  - **The Pinnacles** list: North at the chart table lists the Marid King, the Marid King Unbound, Falak and Falak
+    Awake with the keys each needs; North or South again sets out.
+  - **The uber versions** cost eight keys: the boss and its court have three times the life and hit half as hard
+    again, and the arena pays half as much again and a third unique. A save state keeps a run's uber flag (state v16).
+- **Bases past Act V** (Slice 9's worst gap: hero power stopped growing while monster life kept climbing):
+  - two more tiers for every kind of weapon, near 42 and near 56: the Ayyubid Maul and Qaitbay's Maul, the Meteorite
+    and Armillary Staves, the Mamluk Recurve and the Horn-and-Sinew Bow, the Kilij and the Watered-Steel Sabre, the
+    Windlass and Bastion Arbalests, the Janbiya and the Khanjar, the Ironwood and Caravan-Master's Quarterstaves, the
+    Bronze and Gate-Warden's Maces, the Lighthouse and Pharos Sceptres;
+  - for each of the six kinds of defence, a helmet (38) and a body (40), and gloves and boots at 28 and 50 (until
+    now gloves and boots stopped at level 1);
+  - past Act V, the bases of the last twenty levels drop three times as often; the acts' drops are as they were;
+  - Blank Talismans climb past 20 in the last areas: one level more every four area levels past 44, to 25.
+- **Saves:** the character file v9 (the ending); save states v15.
+- **The bots:** they pilot the Wanderer (a Mark every eight seconds, a shout into crowds, Arc at range, the staff up
+  close). `act6`, `falak`, `uber` and `tour11` (the screenshots; `QAHIRA_TOUR_GATE=1` starts it at the Gate of Iram) are new. `act6`: a character as Act V leaves one plays Act VI through and seals the Veil. It runs in CI as
+  the Templar on every push, and as the Warrior nightly.
+- **Play it on the RP6 without a PC:** a CI job builds the Android core and the pack on every push to `qahira` and
+  publishes both on the rolling `qahira-latest` prerelease. [PLAY.md](PLAY.md) walks from the handheld's browser to
+  the title screen.
+
+**Verified**
+
+| Check | Result |
+|---|---|
+| Unit tests (`qtests`) | pass, 82 cases (new: the Wanderer's start, walk and kit; Fragments' three notables; he wakes after Act VI; Act VI's road, bosses and resistance penalty; the ending in the character file and its two stars; the codex table pinned in its order; bases and Talismans that keep growing past Act V; the Gate of Iram; the pinnacles, Falak's Scales and the uber rules) |
+| `act6` bot: Act VI, the Veil sealed, then the Gate of Iram with the body armour as the toll, and its two points spent | pass, 0 deaths each: the Warrior in 10.8 minutes, the Templar 10.3, the Sorcerer 10.5, the Ranger 10.4. Before the new bases, Act VI alone cost the Warrior 27.2 minutes and 11 deaths |
+| `king` bot (the Marid King, level 70, gear of level 60) | pass as the Warrior (1.0 minutes, 0 deaths), the Sorcerer (1.0, 0) and now the Ranger (0.7, 0), who could not before. DPS at the throne is 330 to 610 for every class (it was 180 to 270). Not yet as the Mercenary, the Shadow, the Templar or the Wanderer: see Still to do |
+| `falak` bot: four Scales of Falak at the table, the Pinnacles list, Falak | pass as the Sorcerer (0.7 minutes, 0 deaths), the Ranger (0.9, 0) and the Warrior (4.2, 4 deaths). The Templar does not beat it yet. In CI as the Sorcerer on every push, the Warrior nightly |
+| `uber` bot: eight King's Pearls, the Marid King Unbound | the Warrior does not beat him (9 deaths): an uber is meant to be beyond a bot's prepared gear. With half the added life and damage he fell in 1.2 minutes, so the numbers were raised |
+| `reaches` bot | pass: Ghana after 11 runs, level 63, 5 deaths |
+| The Wanderer | `zone` pass; `act1` pass (nightly in CI) |
+| Every earlier bot | pass: `walk`, `fight`, `zone` (all seven classes), `sorcerer`, `sky`, `title`, `rifts`, `digs`, `zar`, `king`, `act3` (8.5 minutes, 0 deaths), `act4` (13.8, 0), `act5` (the Warrior 7.8, 0; the Templar 8.6, 0) |
+| Simulators | `qbuildsim` 0 flags; `qchartsim` 0 flags (median 44 runs to the throne) |
+
+| | |
+|---|---|
+| ![The Old Harbour of Jeddah: Umm al-Duwais](img/slice10-harbour.jpg) | ![Shibam, the Towers of Hadramawt: Shiqq, the half-man](img/slice10-shiqq.jpg) |
+| ![The Empty Quarter](img/slice10-rub.jpg) | ![Iram of the Pillars: the Brass Horseman charges](img/slice10-horseman.jpg) |
+| ![The Heart of Totality: Apep, with the sun in its mouth](img/slice10-apep.jpg) | ![The choice: the Veil (sunlight) or the door (the eclipse's dark)](img/slice10-choice.jpg) |
+| ![The Gate of Iram: three brass scales, one for each toll](img/slice10-gate.jpg) | ![The Keeper of the Gate of Iram](img/slice10-keeper.jpg) |
+| ![The Pinnacles at the chart table](img/slice10-pinnacles.jpg) | ![Falak, the serpent beneath the world](img/slice10-falak.jpg) |
+
+**Known gaps (carried forward)**
+- The Mercenary, Shadow, Templar and Wanderer bots have the damage for the Marid King now, but die in reach of him
+  (9 or more deaths), and the Templar dies to Falak: their pilots fight face to face. A pilot that steps out of the
+  combo would fix it.
+- Falak is Apep's mesh, grown and darkened; it has no model of its own yet.
+- The bots' Talismans stay at 20. With them at 24 the Warrior lost to the King; the likely cause (not yet confirmed)
+  is a level-24 Talisman's attribute requirement of 89. Players who find the higher Blanks need the attributes to
+  use them.
+- The codex once had entries inserted in the middle of its table (Slices 8 and 9), and characters store it by index.
+  It is back in append order now, and a test pins it. A character saved by those builds may show the wrong entries
+  as met.
+
+## Slice 11 · Arabic, accessibility and polish
+
+*The last slice: the UI in Arabic laid out right to left, the accessibility settings, the third pinnacle, Umm
+al-Ṣubyān, and the performance modes. The device checks on the RP6 are still to be run.*
+
+**Delivered**
+- **Arabic text** (`ui/arabic.*`), without HarfBuzz: the letters take their contextual forms from Noto Sans Arabic's
+  Presentation Forms-B (isolated, final, initial, medial), lam and alef become one sign, the harakat are dropped (the
+  UI's text is unvowelled), and a line is put in visual order: Arabic runs right to left, numbers and Latin words left
+  to right inside them, neutrals and brackets on the right side. The Arabic glyphs are baked into the UI's SDF atlas
+  beside the Latin ones (315 glyphs).
+- **The UI in Arabic** (`ui/lang.*`): the UI still draws English strings, and in Arabic `Ui::text` looks each one up,
+  whole, by a leading prefix ("Level " and a number) or by a trailing suffix (a number and " stars to place"). About
+  180 entries cover the title screen, the menu's tabs and panels, the HUD, the map, the sky and the settings. Item,
+  zone and monster names, the codex and the tooltips' stat lines stay English.
+- **Right to left:** in Arabic the whole layout is mirrored (every x goes to width minus x, and left and right
+  alignment swap), so the menu's panel, its tabs, the HUD's orbs and the button prompts all read from the right. The
+  Map of al-Idrisi and the Book of Fixed Stars keep their geography and are not mirrored.
+- **The Settings tab** (the menu's seventh), kept for the device in `qahira.settings` beside the character files:
+  - **Language:** English or العربية;
+  - **Text size:** normal, larger (+8%) or largest (+16%);
+  - **Loot colours:** standard, red-green safe (Okabe and Ito's blue, yellow and vermilion) or blue-yellow safe. They
+    recolour the item rarities and the green and red of the comparisons;
+  - **Screen shake:** off, 25%, 50%, 75% or full;
+  - **Second skill bar:** hold L2, or press L2 to toggle it.
+  Rebinding is left to RetroArch's own remapping.
+- **Umm al-Ṣubyān, the third pinnacle** (GDD §10). In the old tales a jinniya who creeps into houses at night and
+  steals the sleep of everyone in them; in the long night she has taken a whole house, **the House of the Unsleeping**
+  (level 70), and lit every lamp in it. She calls you to her through the dark house, vanishes and comes back behind
+  you, and leaves pools of cold on the floor; at the half every lamp goes out and the shades of the unsleeping rise.
+  She is Qandisha's rig, ash-pale, and always drops two uniques. No child appears in her story or her house.
+  - **Combs of Umm al-Ṣubyān** open it, four at the chart table (the Pinnacles list; eight for the uber, *Umm
+    al-Ṣubyān, Unsleeping*). Falak always carries one; after the campaign a Zar Night sung to its end on a chart of
+    the Twelfth Reach and up gives one too (50%, 80% on the Sixteenth).
+  - The pinnacle pilot got a stall breaker: held at the entrance after a death by something it cannot reach, it walks
+    to the boss while the boss sleeps.
+- **Performance modes** as a RetroArch core option (GDD §11.6): *Balanced* (60 fps, the 3D at 75%) and *Battery*
+  (40 fps, which divides the RP6's 120 Hz evenly, the 3D at 67%). The simulation steps at 60 Hz in both: at 40 fps a
+  frame runs one or two steps (the second sees no new presses) and hands RetroArch 1200 audio frames instead of 800.
+  *Showcase* (120 fps) is left out: the game has no interpolation between steps, so it would show the same 60.
+- `tour12` takes the pictures (`QAHIRA_LANG=ar` for the Arabic screens); `subyan` is a new bot.
+
+**Verified**
+
+| Check | Result |
+|---|---|
+| Unit tests (`qtests`) | pass, 87 cases (new: letters joined by context, lam-alef and the harakat; a line's visual order with numbers, Latin and brackets; the translations whole, by prefix and by suffix, and none in English; the settings saved, read back and applied; Umm al-Ṣubyān's pinnacle and her Combs) |
+| `subyan` bot: four Combs at the table, Umm al-Ṣubyān | pass as the Sorcerer (0.6 minutes, 0 deaths), the Ranger (0.6, 0) and the Warrior (1.0, 0); in CI as the Sorcerer. The Templar dies to her, as to the King and Falak |
+| Every bot | pass: `walk`, `fight`, `zone` (all seven classes), `sorcerer`, `sky`, `title`, `rifts`, `digs`, `zar`, `king` |
+
+| | |
+|---|---|
+| ![The Settings tab in Arabic](img/slice11-settings-ar.jpg) | ![Largest text and the red-green safe loot colours](img/slice11-largest-ar.jpg) |
+| ![The inventory in Arabic, mirrored](img/slice11-items-ar.jpg) | ![The HUD in Arabic, mirrored](img/slice11-hud-ar.jpg) |
+| ![Umm al-Ṣubyān in the House of the Unsleeping](img/slice11-subyan.jpg) | |
+
+**Known gaps (carried forward)**
+- **The device checks on the RP6** (RP6.md's checklist): the core builds for Android in CI and is published on
+  `qahira-latest`, but nobody has launched it on the handheld yet, nor timed the performance modes.
+- Item, zone, monster and skill names, the tooltips' stat lines and the codex stay English in the Arabic UI.
+- The Mercenary, Shadow, Templar and Wanderer bots die to the pinnacles (a stricter dodge in the pinnacles was tried,
+  and was worse); the Templar dies to all three. The bot pilots, not the numbers: they fight face to face.
+- Falak is Apep's mesh and Umm al-Ṣubyān is Qandisha's rig, re-tinted; neither has a model of its own.
+
+---
+
+## After the first run on the RP6: the owner's notes
+
+*The game ran on the RP6 (RetroArch 1.22.2, the `gl` driver) once the core asked for GLES 3 before 3.2. The owner's
+notes after playing it, taken one at a time.*
+
+**Delivered**
+- **Less glow, by 80%** ("it looks too glowy"): emission in the mesh shader 18 → 3.6, the bloom at a fifth of each
+  region's strength, additive halos and sparks at a fifth, additive decals at half (a telegraph must still read),
+  point lights at 0.6 and the rim outline at 0.35. The street and Downtown generators hang a neon sign over one shop
+  in five instead of every shop or a third of them.
+- **An objective arrow:** a gold chevron at the hero's feet points along the path to the objective (the route is
+  found again every half second, so it turns round walls instead of pointing through them), and the top right names
+  the objective and its distance. The objective is the toll to choose, then the Veil or the door, then the zone's boss
+  while it stands, then the way on, a side gate and the portal home; on the rooftop it is the waypoints. It hides in
+  menus and within 3 m. The labels are translated into Arabic too.
+- **Upgradable life flask.** Amm Sayed (the top button at his wares) upgrades it through seven tiers, from the *Clay
+  Qulla* to the *Sabil Flask*:
+  - each tier heals more over the same second and a half (50% of your life, then +8% a tier, up to 98%);
+  - every second tier holds one charge more (3 up to 6);
+  - the next tier needs level 8, 18, 28 … 58 and costs 150 × (tier + 1)² dinars.
+
+  The vendor window shows the flask you have and the price of the next.
+- **Life regeneration on high-level gear:**
+  - the affix *of the Spring* (Regenerate 12–52 Life per second) rolls on items of level 36 and up;
+  - three bases carry it as their implicit: the *Caravanserai Belt* (level 40, 18 a second), the *Spring-Water
+    Amulet* (50, 28) and the *Oasis Ring* (58, 22).
+- **Spells as pixel art** ("they look like 3D glowing round dots"). The spell effects are now flipbooks drawn in the
+  manner of the handheld RPGs' move animations: 32 × 32 frames, four flat shades and a dark outline, ordered
+  dithering, and no soft glow. All of it is original art drawn by `tools/fx/fx_atlas.py` from simple shapes and noise;
+  nothing is taken from any game. It has 18 effects of 8 frames each, packed as `textures/fx.qtex`:
+  - **what flies:** a fireball, an ice shard, a ball of sparks, a blob of poison, a shadow orb and a stone. Each
+    projectile is drawn as the one for its damage type, with a trail of small flipbooks;
+  - **what bursts:** embers, frost, a zap, a poison bubble, smoke, a four-pointed hit star, an explosion, blood, a
+    splash, ice shards, the void and a gold twinkle.
+
+  How they are used:
+  - every hit flashes the star, bigger on a critical;
+  - a bolt bursts into its element's impact;
+  - the Meteor, grenades and Chain Reaction explode;
+  - the Arc is a chain of zaps and the Frost Glyph turns with snowflakes;
+  - every particle burst in the game picks its flipbook by its colour (fire, cold, poison, chaos, gold, dust, blood).
+    Bursts spawn a third as many sprites, larger, and still draw the same random numbers, so nothing in play
+    changes: every bot's result is identical.
+
+  The sprite shader samples the sheet texel for texel. Sprites fade out by dropping pixels in a 4×4 ordered pattern,
+  not by turning translucent. The meteor's ground marker is no longer a glowing disc.
+- **Radio Kafr El-Sheikh** ("this game's version of the GTA radio"): Mohamed Andeel's show in place of the music,
+  with nothing for the player to set up.
+  - **Formats:** MP3 (minimp3), Ogg Vorbis (stb_vorbis) or 16-bit WAV, at any rate, mono or stereo.
+  - **Playback:** each episode streams from its file, a chunk at a time, resampled to the mixer's 48 kHz, so an
+    hour-long episode costs a few kilobytes of memory. Episodes play in natural order (`2 - …` before `12 - …`),
+    and on to the next when one ends.
+  - **The game fetches the episodes itself** (`audio/radio_fetch.*`, `net/http.*`):
+    - **The list:** the stations are in the pack, in `data/radio.json`. Radio Kafr El-Sheikh takes 18 of the show's
+      28 episodes from the [Internet Archive](https://archive.org/details/radiokafrelshikh), where a fan uploaded
+      them, in the airing order from TheTVDB. The show is a fan work, so nothing is rehosted: the game downloads from
+      the archive as a listener would.
+    - **Adding a station:** add an entry to `data/radio.json`. Its episodes can come from an Internet Archive item
+      (all its audio, or chosen files), a podcast's RSS feed, or plain links.
+    - **The downloads:** a thread fetches over Wi-Fi into `radio/<station>/` in the saves folder: the first episode
+      of every station first, then the rest. Half-fetched files are `.part` (the radio skips them) and resume with a
+      Range request. Without Wi-Fi it tries again after 30 seconds, then less often (up to every 15 minutes). The
+      radio rescans as each episode lands, without interrupting the one playing, and comes on with the first.
+      Settings shows the progress ("Downloading the radio: 3/18"). All 18 take about 565 MB.
+    - **HTTPS:** Mbed TLS 3.6 (Apache-2.0, `third_party/mbedtls`), verified against Mozilla's certificate
+      authorities, which the pack carries (`data/cacert.pem`), and the system's (on Android,
+      `/system/etc/security/cacerts`).
+    - **Diagnosis:** a failure shows in Settings ("Radio: …") and goes into `radio log.txt` in the radio folder,
+      beside the RetroArch log, along with how many authorities it trusts. The client follows redirects and reads chunked
+      bodies. It honours `HTTPS_PROXY` on desktops.
+    - **Why not YouTube:** YouTube locks its audio behind player code that changes every few weeks and refuses cloud
+      servers, so an offline core would keep breaking.
+  - **Stations** (so more can be added later, like GTA's): each folder in `radio` is a station, named after it.
+    Loose episodes belong to Radio Kafr El-Sheikh, which always comes first. The folders beside the pack and in the
+    saves are merged, so players can still add their own.
+    - **Tuning:** a tap of R3 (M2 on the RP6) goes to the next station, through a burst of static, and a hold (half
+      a second) to the next episode. With one station, a tap is the next episode. A station card names the station
+      and the episode.
+    - **Settings:** the Music row lists the stations, then the game's music. The game's music fades out under the
+      radio over a second.
+    - **Places:** each station keeps its own episode and place, by station and file name, in `qahira.radio` beside
+      the settings, every twenty seconds and on exit. The settings' own place (v2, which still reads v1) is read
+      once, for Radio Kafr El-Sheikh, when that file isn't there yet.
+- **The Game tab** (the menu's last): Resume; Update; Quit to the title (saves, then back to the four slots); Exit
+  the game (saves, then asks RetroArch to close it with `RETRO_ENVIRONMENT_SHUTDOWN`). Quitting and exiting each ask
+  for a second press. The tab shows the build ("Build 48 (1a2b3c4)").
+- **Updating in the game** (`game/updater.*`):
+  - **Release:** CI now publishes `version.json` with qahira-latest: the commit, the run, and each file's size and
+    SHA-256. The Android core is built with its own commit and run baked in (`QAHIRA_COMMIT`, `QAHIRA_RUN`).
+  - **Check:** at start, the game fetches `version.json` and compares commits. A newer build shows as a toast in
+    the field and on the Update row.
+  - **Install:**
+    - It downloads the core and the pack beside the ones in use (`.part`, resumed with Range) and checks both
+      SHA-256s.
+    - Then it swaps them in, the core first (the old one kept as `.old` until the pack is in, and put back if the
+      pack can't follow).
+    - The running game keeps what it loaded: the pack is in memory and the old core stays mapped.
+    - The core's own path comes from `dladdr`.
+  - **Where it runs:** the Android core only. The dev host shows "Updates are for the RP6's core".
+- **Saves without a saves folder:** when RetroArch names none, the saves go beside the pack.
+- Character files are v10 (the flask's tier) and save states v17.
+- CI had been red since the glow change. The new art changed the drops and some layouts, which showed up two faults in
+  the bot pilot, not in the game:
+  - an item it had chosen to equip but could not reach held it for ever; it now leaves it after six seconds, like any
+    other drop;
+  - in a Downtown without a landmark, its first walk met the boss, so the mid-fight save-state check never ran; that
+    check now runs in whichever stage the boss is fought.
+
+- **Amm Sayed keeps a weapon for your hand.** The first of his two weapons is always of the kind you are holding,
+  one of the two newest bases of it your level can carry. A class whose skills want one kind of weapon (the
+  Wanderer's quarterstaff, the Ranger's bow) no longer waits on luck for an upgrade.
+- **The bot pilots shop.** Walled (twice dead in a zone, or sent back to gain a level) with dinars in hand, an act
+  bot takes a portal home, buys the best weapon Amm Sayed has that beats the one in hand, wears it and goes back by
+  the waypoint (at most once in three minutes). A weapon now counts as better only for the skill the hand's weapon
+  is rated by; a staff that made a spell strong had replaced the Shadow's dagger after a death and left it at a
+  sixth of its damage.
+
+- **An art review, ready for the owner:** the `gallery` bot poses every zone (the street, then the far court in a
+  fight, each act with its own class), the rooftop and every screen, and the three pinnacles with their uber
+  versions; `tools/review/` turns the pictures into a review page published as an Artifact, where each of its 58
+  items is marked Keep, Improve or Redo with a note, saved in the Artifact's database for Claude to act on.
+
+**Verified**
+
+| Check | Result |
+|---|---|
+| Unit tests (`qtests`) | pass, 104 cases (new: the update reads version.json, installs a newer build from files here, resumes a cut-off download, changes nothing when a download is damaged, and runs in the background; the Game tab asks twice before quitting; the radio coming on by itself when its first episode lands, the pack's station list in airing order, an Internet Archive item and a podcast feed listed, episodes fetched (from local files) and a cut-off one resumed, the radio going on playing as episodes arrive; a station for each folder in the radio folder, each keeping its own place by name, and the Music setting choosing among them; the radio finds its episodes in natural order and streams MP3, Ogg and WAV at 48 kHz, keeps its place and moves on at an episode's end; the settings keep the music and the radio's place and still read v1; the effects sheet's rows match the game's list, a burst's colour picks its flipbook and it draws the same random numbers as before, the flask's tiers, charges, heal and prices climb, the tier in the character file, the Spring affix and the Spring-Water Amulet's regeneration) |
+| Every bot | pass: `walk`, `fight`, `zone` (all seven classes), `sorcerer`, `sky`, `title`, `rifts`, `digs`, `zar`, `king` |
+| The nightly runs | pass, all nineteen: `act1` to `act6` as the Warrior, `act1` as the Wanderer (22 minutes, where it had run out of its 50 on the Traveller's Staff), `act1` and `act3` as the Mercenary, `act2` as the Ranger, `act3` and `act4` as the Shadow, `act5` and `act6` as the Templar, `falak` (Sorcerer and Warrior), `subyan`, `charts` and `reaches` |
+
+| | |
+|---|---|
+| ![Amm Sayed's wares with the flask upgrade](img/f3-flask.jpg) | ![The objective arrow and its label](img/f2-objective.jpg) |
+| ![The Sorcerer's fire, frost and smoke as pixel art](img/f4-fx-game.jpg) | ![The effects sheet: 18 effects of 8 frames](img/f4-fx-sheet.png) |
+| ![The radio's station card and the M2 hint](img/f5-radio-card.jpg) | ![Settings: Music, and the episodes found](img/f5-radio-settings.jpg) |
+
+**Known gaps (carried forward)**
+- The nightly workflow runs on `master`, which still holds the merge of the earlier pull request (`1171ec9`), so it
+  goes on failing there (the Wanderer's Act I) until this branch is merged.
+- The first try on the RP6 kept the game's music: the radio never came on, and nothing said why. The next build:
+  - shows the reason on screen and in `radio log.txt`;
+  - brings its own trusted authorities;
+  - puts the saves beside the pack when RetroArch names no saves folder (it had fallen back to ".", which is `/`
+    on Android).
+
+  Checked offline: Mbed TLS accepts the chain archive.org's download servers send (Let's Encrypt YE1 ← Root YE ←
+  ISRG Root X2 ← X1) with only ISRG Root X1 trusted.
+- Radio Kafr El-Sheikh fetches its 18 episodes from the Internet Archive by itself. This was tested on Linux: all 18
+  links answer, episodes arrive byte for byte, a cut-off download resumes to an identical file, and MP3 and Ogg
+  both play. It has not been heard on the RP6 yet, where it relies on Android's certificate store and RetroArch's
+  network permission. Episodes 1, 3–7, 10, 11, 18, 27 and 28 aren't in the archive; they are on Andeel's
+  SoundCloud, which has no stable download links.
+- The telegraphs (the magenta warnings of a monster's strike), the portal and the loot beams keep their smooth,
+  glowing look: they are warnings and markers, not spells.

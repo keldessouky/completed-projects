@@ -31,6 +31,11 @@ enum Currency : uint8_t { CUR_BEAD, CUR_SALT, CUR_GROUNDS, CUR_SAFFRON, CUR_PIAS
                           CUR_RELIC,
                           // Slice 9: the masters of the last Reaches drop them; four open the Marid King's throne
                           CUR_PEARL,
+                          // Slice 10: the Keeper of Iram and the last Reaches' masters drop them after the campaign;
+                          // four open Falak's lair
+                          CUR_SCALE,
+                          // Slice 11: Falak and the last Zar Nights after the campaign drop them; four open her house
+                          CUR_COMB,
                           CUR_COUNT };
 constexpr int kSplintersPerSeal = 50;
 constexpr int kPearlsPerThrone = 4;
