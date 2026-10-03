@@ -15,9 +15,9 @@ export const floor4: Deck = {
       title: 'Annotate the Power Bus',
       system: 'Power Bus',
       ...codeFiles('power-bus', 'ts'),
-      brief: `**ARIA:** Welcome aboard, engineer. Orrery Station has been dark for nine days. Every system aboard is written in TypeScript — and the compiler refuses to bring a system online while it has type errors.
+      brief: `**ARIA:** Floor 4: the Type Foundry. You can write JavaScript now: real programs, with loops and async and everything. Here we go deeper into the part you've been using since your first function: **types**.
 
-Let's start small. The power bus adds two voltages, but nobody told the compiler *what* they are.`,
+Let's start by seeing what happens without them. The power bus adds two voltages, but nobody told the compiler *what* they are.`,
       lesson: `## Type annotations
 
 TypeScript is JavaScript with **types**: labels that say what kind of value a variable holds. You write them after a colon.
