@@ -1,0 +1,55 @@
+name: Reactor Quest (macOS)
+
+on:
+  push:
+    branches: ['**']
+    paths:
+      - 'reactor-quest/**'
+      - '.github/workflows/reactor-quest.yml'
+  pull_request:
+    paths:
+      - 'reactor-quest/**'
+      - '.github/workflows/reactor-quest.yml'
+
+defaults:
+  run:
+    shell: bash
+    working-directory: reactor-quest
+
+jobs:
+  build:
+    name: Typecheck, level proofs, browser bot, .app bundle
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: reactor-quest/package-lock.json
+      - run: npm ci
+      - name: Typecheck and build
+        run: npm run build
+      - name: Every level, quiz and arcade card proven against the real compiler
+        run: npm test
+      - name: Headless Chrome plays every level through the UI
+        run: npm run smoke
+      - name: Package Reactor Quest.app
+        run: npm run app:mac -- --skip-build
+      - name: The bundled launcher server serves the game
+        run: |
+          node "Reactor Quest.app/Contents/Resources/server.mjs" "Reactor Quest.app/Contents/Resources/app" --no-open --port 4500 &
+          for i in $(seq 1 20); do curl -fs http://127.0.0.1:4500/__reactor && break; sleep 0.5; done
+          curl -fs http://127.0.0.1:4500/ | grep -q '<div id="root">'
+          plutil -lint "Reactor Quest.app/Contents/Info.plist"
+      - name: Zip app bundle
+        run: ditto -c -k --sequesterRsrc --keepParent "Reactor Quest.app" reactor-quest-macos.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: reactor-quest-macos
+          path: reactor-quest/reactor-quest-macos.zip
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: reactor-quest-screenshots
+          path: reactor-quest/test-results/
