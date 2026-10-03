@@ -4,6 +4,7 @@
 #include "audio/audio.hpp"
 #include "audio/radio.hpp"
 #include "game/settings.hpp"
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <vector>
@@ -178,9 +179,11 @@ TEST(the_pack_lists_radio_kafr_el_sheikh) {
     std::vector<std::string> names;
     for (const auto& ep : st[0].episodes) names.push_back(ep.file());
     for (size_t i = 0; i + 1 < names.size(); i++) CHECK(Radio::natural_less(names[i], names[i + 1]));
-    // Coast to Coast AM: the show's own podcast feed, its newest 10 only
+    // Coast to Coast AM: the show's own podcast feed, its newest 5 and the best-loved shows it carries
     const RadioStation& cc = st[1];
-    CHECK(cc.name == "Coast to Coast AM" && cc.episodes.empty() && cc.newest == 10);
+    CHECK(cc.name == "Coast to Coast AM" && cc.episodes.empty() && cc.newest == 5 && cc.keep.size() == 13);
+    CHECK(cc.keep[0].match == "artbell" && cc.keep[0].count == 3 && cc.keep[1].match == "ghosttoghost");
+    CHECK(std::any_of(cc.keep.begin(), cc.keep.end(), [](const RadioKeep& k) { return k.match == "melshole" && k.count == 1; }));
     CHECK(cc.rss.rfind("https://www.omnycontent.com/", 0) == 0 && cc.rss.find("podcast.rss") != std::string::npos);
 }
 
@@ -250,6 +253,27 @@ TEST(a_feed_keeps_its_newest_episodes_by_date) {
     CHECK(two.size() == 2 && two[0].title == "Bigfoot" && two[0].n == 20210101 && two[1].n == 20221207);
     CHECK(two[1].url == "https://x.org/c.mp3?a=1&b=2" && two[1].file() == "20221207 - Alien Abductions - 12 7 22.mp3");
     CHECK(rss_episodes(rss, 9).size() == 3);
+    // what keep names stays whatever its age: the newest count whose titles hold its match, alongside the newest
+    const char* feed = R"(<rss><channel>
+        <item><title>Open Lines - 3/1/26</title><pubDate>Sun, 01 Mar 2026 08:00:00 GMT</pubDate><enclosure url="https://x.org/7.mp3" type="audio/mpeg"/></item>
+        <item><title>Art Bell - 4/13/25</title><pubDate>Sun, 13 Apr 2025 08:00:00 GMT</pubDate><enclosure url="https://x.org/6.mp3" type="audio/mpeg"/></item>
+        <item><title>Ghost To Ghost Halloween Special - 10/31/24</title><pubDate>Thu, 31 Oct 2024 08:00:00 GMT</pubDate><enclosure url="https://x.org/5.mp3" type="audio/mpeg"/></item>
+        <item><title>Art Bell - 4/13/24</title><pubDate>Sat, 13 Apr 2024 08:00:00 GMT</pubDate><enclosure url="https://x.org/4.mp3" type="audio/mpeg"/></item>
+        <item><title>Ghost to Ghost - 10/31/23</title><pubDate>Tue, 31 Oct 2023 08:00:00 GMT</pubDate><enclosure url="https://x.org/3.mp3" type="audio/mpeg"/></item>
+        <item><title>Mel's Hole Revisited</title><pubDate>Mon, 01 May 2023 08:00:00 GMT</pubDate><enclosure url="https://x.org/2.mp3" type="audio/mpeg"/></item>
+        <item><title>Gardening</title><pubDate>Sun, 01 Jan 2023 08:00:00 GMT</pubDate><enclosure url="https://x.org/1.mp3" type="audio/mpeg"/></item>
+        </channel></rss>)";
+    const std::vector<RadioKeep> keep = {{"ghosttoghost", 2}, {"melshole", 1}, {"artbell", 1}, {"bigfoot", 1}};
+    const auto kept = rss_episodes(feed, 1, keep);
+    std::vector<std::string> urls;
+    for (const auto& ep : kept) urls.push_back(ep.url);
+    CHECK((urls == std::vector<std::string>{"https://x.org/2.mp3", "https://x.org/3.mp3", "https://x.org/5.mp3", "https://x.org/6.mp3",
+                                            "https://x.org/7.mp3"}));   // oldest first; not Gardening, nor the older Art Bell
+    CHECK(kept[0].n == 20230501 && kept[4].n == 20260301);
+    CHECK(rss_episodes(feed, 0, {{"artbell", 5}}).size() == 2);   // keep alone: only what it names
+    const auto parsed = parse_stations(R"({"stations": [{"name": "T", "rss": "https://x.org/f", "keep": ["Area 51", {"match": "Ghost to Ghost!", "count": 2}, {"match": "x", "count": 0}]}]})");
+    CHECK(parsed[0].keep.size() == 2 && parsed[0].keep[0].match == "area51" && parsed[0].keep[0].count == 1);
+    CHECK(parsed[0].keep[1].match == "ghosttoghost" && parsed[0].keep[1].count == 2 && parsed[0].newest == 0);
 }
 
 TEST(a_newest_station_deletes_what_fell_out_of_its_feed) {

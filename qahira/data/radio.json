@@ -1,5 +1,5 @@
 {
-  "about": "The radio's stations. The game downloads each station's episodes by itself, over Wi-Fi, into a folder per station beside the saves, and plays them in order. To add a station, add an entry: its name (what the game shows), and where its episodes come from: an Internet Archive item (\"archive\", all its audio, or the \"episodes\" chosen from it by \"file\"), a podcast feed (\"rss\"), or \"episodes\" with a \"url\" each. An episode can name its own \"archive\" item, and a \"match\" in place of a \"file\": a piece of the file's name there (letters and digits, case ignored), for items whose exact names are long. A feed's \"newest\" keeps only that many of its newest episodes. \"n\" is an episode's number in the show; the game plays by it.",
+  "about": "The radio's stations. The game downloads each station's episodes by itself, over Wi-Fi, into a folder per station beside the saves, and plays them in order. To add a station, add an entry: its name (what the game shows), and where its episodes come from: an Internet Archive item (\"archive\", all its audio, or the \"episodes\" chosen from it by \"file\"), a podcast feed (\"rss\"), or \"episodes\" with a \"url\" each. An episode can name its own \"archive\" item, and a \"match\" in place of a \"file\": a piece of the file's name there (letters and digits, case ignored), for items whose exact names are long. A feed's \"newest\" keeps only that many of its newest episodes, and its \"keep\" list adds, whatever their age, the newest \"count\" episodes whose titles hold each \"match\". \"n\" is an episode's number in the show; the game plays by it.",
   "stations": [
     {
       "name": "Radio Kafr El-Sheikh",
@@ -28,9 +28,24 @@
     },
     {
       "name": "Coast to Coast AM",
-      "source": "George Noory's late-night call-in show: aliens, ghosts, cryptids, prophecy and the people who call in about them. The game reads the show's own free podcast feed (The Best of Coast to Coast AM, from Premiere Networks and iHeartPodcasts) as any podcast app does, and keeps only the newest 10 episodes, deleting older ones as new ones come.",
+      "source": "The show's own free podcast feed, The Best of Coast to Coast AM (Premiere Networks and iHeartPodcasts), read on the player's device as any podcast app does. It keeps the 5 newest episodes and, whatever their age, the shows fans rank highest that the feed carries: the Art Bell tributes each April 13 (with the classic clips: the Area 51 caller, Mel's Hole, Father Malachi Martin), the Ghost to Ghost Halloween call-ins, Open Lines nights, and the subjects the show is famous for. Each keep is a piece of an episode's title and how many of its newest to keep. Older episodes it downloaded are deleted as they fall out. Art Bell's full 1990s shows are only in the paid Coast Insider Art Bell Vault, not in this feed.",
       "rss": "https://www.omnycontent.com/d/playlist/e73c998e-6e60-432f-8610-ae210140c5b1/61c1535a-56bb-431a-ad6b-ae2b00350f5c/b95f0c24-c199-4939-b52c-ae2b00350f65/podcast.rss",
-      "newest": 10
+      "newest": 5,
+      "keep": [
+        {"match": "Art Bell", "count": 3},
+        {"match": "Ghost to Ghost", "count": 3},
+        {"match": "Open Lines", "count": 2},
+        {"match": "Area 51", "count": 1},
+        {"match": "Mel's Hole", "count": 1},
+        {"match": "Roswell", "count": 1},
+        {"match": "Alien Abduction", "count": 1},
+        {"match": "Bigfoot", "count": 1},
+        {"match": "Dogman", "count": 1},
+        {"match": "Werewolf", "count": 1},
+        {"match": "Skinwalker", "count": 1},
+        {"match": "Shadow People", "count": 1},
+        {"match": "Time Travel", "count": 1}
+      ]
     }
   ]
 }
