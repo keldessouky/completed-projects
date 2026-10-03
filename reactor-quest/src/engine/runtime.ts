@@ -242,9 +242,17 @@ export class Stage {
     this.error ??= e.error ?? new Error(e.message);
   };
 
+  // A promise the player's code let fail with nothing to handle it.
+  private onRejection = (e: PromiseRejectionEvent) => {
+    e.preventDefault();
+    const reason = e.reason instanceof Error ? e.reason.message : String(e.reason);
+    this.error ??= new CheckFailure(`A promise failed and nothing handled it: ${reason}. Add a .catch() or a second .then() callback (or try/catch around await).`);
+  };
+
   constructor() {
     activity.stages++;
     window.addEventListener('error', this.onWindowError);
+    window.addEventListener('unhandledrejection', this.onRejection);
   }
 
   async render(el: React.ReactElement): Promise<View> {
@@ -352,6 +360,7 @@ export class Stage {
     this.roots = [];
     this.error = null;
     window.removeEventListener('error', this.onWindowError);
+    window.removeEventListener('unhandledrejection', this.onRejection);
     activity.stages--;
   }
 }

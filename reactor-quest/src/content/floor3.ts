@@ -1,6 +1,6 @@
 import type { Deck } from '../game/types';
 import { CheckFailure, wait } from '../engine/runtime';
-import { codeFiles, fnOf, mustNotUse, mustUse } from './helpers';
+import { codeFiles, fixtureError, fnOf, mustNotUse, mustUse } from './helpers';
 
 /**
  * A fake remote API for the async levels: answers after a short delay, can
@@ -16,7 +16,7 @@ function fakeApi(answers: Record<string, string>, delay = 15) {
     stats.maxInFlight = Math.max(stats.maxInFlight, stats.inFlight);
     await wait(delay);
     stats.inFlight--;
-    if (answers[id] === 'throw') throw new Error(`${id} is not responding`);
+    if (answers[id] === 'throw') throw fixtureError(`${id} is not responding`);
     return answers[id] ?? 'unknown';
   };
   return { api, stats };

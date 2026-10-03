@@ -8,9 +8,10 @@ import { floor6 } from './floor6';
 import { floor7 } from './floor7';
 import { floor8 } from './floor8';
 import { floor9 } from './floor9';
+import { floor10 } from './floor10';
 
 /** The floors of the station, in play order. */
-export const DECKS: Deck[] = [floor1, floor2, floor3, floor4, floor5, floor6, floor7, floor8, floor9];
+export const DECKS: Deck[] = [floor1, floor2, floor3, floor4, floor5, floor6, floor7, floor8, floor9, floor10];
 
 export const ALL_LEVELS: Level[] = DECKS.flatMap((d) => d.levels);
 

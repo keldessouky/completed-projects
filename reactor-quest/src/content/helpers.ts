@@ -48,3 +48,12 @@ export function mustUse(source: string, pattern: RegExp, message: string) {
 export function mustNotUse(source: string, pattern: RegExp, message: string) {
   if (pattern.test(code(source))) throw new CheckFailure(message);
 }
+
+/**
+ * An error a check throws on purpose (a fake server failing, say). It's tagged
+ * so the test runner can tell an expected rejection that a starter forgot to
+ * handle from a real bug.
+ */
+export function fixtureError(message: string): Error {
+  return Object.assign(new Error(message), { levelFixture: true });
+}
