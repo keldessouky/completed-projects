@@ -1,15 +1,17 @@
 import type { Deck } from '../game/types';
 import { codeFiles, fnOf } from './helpers';
 
-export const deck2: Deck = {
+export const floor5: Deck = {
   id: 'lab',
   name: 'Generics Lab',
   subtitle: 'TypeScript power tools',
+  outcome: 'You can write reusable, type-safe code with unions, generics and utility types.',
   hue: 275,
   levels: [
     {
       kind: 'code',
       id: 'literal-locks',
+      skills: ['types'],
       title: 'Literal Types',
       system: 'Airlock Doors',
       ...codeFiles('literal-locks', 'ts'),
@@ -60,6 +62,7 @@ Literal unions also work for numbers: \`type Dice = 1 | 2 | 3 | 4 | 5 | 6;\``,
     {
       kind: 'code',
       id: 'alarm-router',
+      skills: ['narrowing', 'types'],
       title: 'Discriminated Unions',
       system: 'Alarm Router',
       ...codeFiles('alarm-router', 'ts'),
@@ -114,6 +117,7 @@ default: {
     {
       kind: 'code',
       id: 'universal-adapter',
+      skills: ['generics'],
       title: 'Generics',
       system: 'Universal Adapter',
       ...codeFiles('universal-adapter', 'ts'),
@@ -166,6 +170,7 @@ Generics work for any shape: \`function pair<A, B>(a: A, b: B): [A, B]\`.`,
     {
       kind: 'code',
       id: 'constraint-field',
+      skills: ['generics', 'type-level'],
       title: 'Constraints and keyof',
       system: 'Constraint Field',
       ...codeFiles('constraint-field', 'ts'),
@@ -222,6 +227,7 @@ get(pilot, "rank"); // ✖ not a key of Pilot
     {
       kind: 'code',
       id: 'config-matrix',
+      skills: ['type-level', 'types'],
       title: 'Utility Types',
       system: 'Shield Config',
       ...codeFiles('config-matrix', 'ts'),
@@ -280,6 +286,7 @@ An **indexed access type** pulls a type out of another: \`ShieldConfig["mode"]\`
     {
       kind: 'quiz',
       id: 'quiz-types',
+      skills: ['type-level', 'generics'],
       title: 'Type Algebra',
       system: 'Navigation Core',
       brief: `**ARIA:** The navigation core thinks in types. Answer its questions and it will plot a course to the Component Bay.`,
@@ -331,6 +338,7 @@ An **indexed access type** pulls a type out of another: \`ShieldConfig["mode"]\`
     {
       kind: 'code',
       id: 'event-bus',
+      skills: ['generics', 'type-level'],
       title: 'BOSS: Typed Event Bus',
       system: 'Station Event Bus',
       boss: true,

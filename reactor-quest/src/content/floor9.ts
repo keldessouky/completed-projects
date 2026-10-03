@@ -5,15 +5,17 @@ import { codeFiles, comp, fnOf } from './helpers';
 const progressOf = (el: Element) => Number(el.getAttribute('value') ?? (el as HTMLProgressElement).value);
 const button = (view: { getByText(t: string, s?: string): HTMLElement }, text: string) => view.getByText(text, 'button') as HTMLButtonElement;
 
-export const deck5: Deck = {
+export const floor9: Deck = {
   id: 'core',
   name: 'Reactor Core',
   subtitle: 'Effects, refs, reducers and context',
+  outcome: 'You can wire components to timers, the DOM and shared state with hooks.',
   hue: 350,
   levels: [
     {
       kind: 'code',
       id: 'countdown',
+      skills: ['effects'],
       title: 'useEffect and Cleanup',
       system: 'Ignition Countdown',
       ...codeFiles('countdown', 'tsx'),
@@ -76,6 +78,7 @@ An effect sees the values from the render that created it. With \`[]\` deps, an 
     {
       kind: 'code',
       id: 'targeting',
+      skills: ['hooks'],
       title: 'useRef',
       system: 'Targeting Computer',
       ...codeFiles('targeting', 'tsx'),
@@ -130,6 +133,7 @@ If it's on screen, it's state. If it's bookkeeping, it can be a ref.`,
     {
       kind: 'code',
       id: 'sequencer',
+      skills: ['hooks', 'narrowing'],
       title: 'useReducer',
       system: 'Ignition Sequencer',
       ...codeFiles('sequencer', 'tsx'),
@@ -230,6 +234,7 @@ Now \`dispatch({ type: "add" })\` without an amount is a compile error, and insi
     {
       kind: 'code',
       id: 'use-toggle',
+      skills: ['hooks'],
       title: 'Custom Hooks',
       system: 'Lighting Grid',
       ...codeFiles('use-toggle', 'tsx'),
@@ -310,6 +315,7 @@ function useToggle(initial = false): [boolean, () => void] { … }
     {
       kind: 'code',
       id: 'theme-context',
+      skills: ['hooks'],
       title: 'Context',
       system: 'Station Lighting',
       ...codeFiles('theme-context', 'tsx'),
@@ -389,6 +395,7 @@ When the provided value changes, every component reading it re-renders. Context 
     {
       kind: 'code',
       id: 'generic-list',
+      skills: ['generics', 'components'],
       title: 'Generic Components',
       system: 'Universal Display',
       ...codeFiles('generic-list', 'tsx'),
@@ -461,6 +468,7 @@ Passing a function that returns JSX (\`render={(m) => <b>{m.name}</b>}\`) lets t
     {
       kind: 'quiz',
       id: 'quiz-effects',
+      skills: ['effects', 'hooks'],
       title: 'Effect Horizon',
       system: 'Core Diagnostics',
       brief: `**ARIA:** One last diagnostic before the core. Effects are where React meets the outside world, and where the subtlest bugs hide.`,
@@ -517,6 +525,7 @@ Passing a function that returns JSX (\`render={(m) => <b>{m.name}</b>}\`) lets t
     {
       kind: 'code',
       id: 'core-reboot',
+      skills: ['hooks', 'effects', 'state'],
       title: 'FINAL BOSS: Core Reboot',
       system: 'Reactor Core',
       boss: true,

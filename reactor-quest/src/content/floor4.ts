@@ -1,15 +1,17 @@
 import type { Deck } from '../game/types';
 import { codeFiles, fnOf } from './helpers';
 
-export const deck1: Deck = {
+export const floor4: Deck = {
   id: 'foundry',
   name: 'Type Foundry',
   subtitle: 'TypeScript basics',
+  outcome: 'You can describe data precisely with types, and the compiler catches your mistakes before they run.',
   hue: 190,
   levels: [
     {
       kind: 'code',
       id: 'power-bus',
+      skills: ['types', 'functions'],
       title: 'Annotate the Power Bus',
       system: 'Power Bus',
       ...codeFiles('power-bus', 'ts'),
@@ -56,6 +58,7 @@ Once \`a\` and \`b\` are numbers, the compiler will also **stop** anyone calling
     {
       kind: 'code',
       id: 'comms-relay',
+      skills: ['types'],
       title: 'Read the Compiler',
       system: 'Comms Relay',
       ...codeFiles('comms-relay', 'ts'),
@@ -112,6 +115,7 @@ Hover over a name in the editor to see what TypeScript inferred for it. The auto
     {
       kind: 'code',
       id: 'cargo-manifest',
+      skills: ['types', 'arrays'],
       title: 'Arrays and Tuples',
       system: 'Cargo Manifest',
       ...codeFiles('cargo-manifest', 'ts'),
@@ -160,6 +164,7 @@ Why not just \`number[]\`? Because a tuple knows its length: \`minMax(xs)[2]\` i
     {
       kind: 'code',
       id: 'crew-registry',
+      skills: ['types', 'objects'],
       title: 'Interfaces',
       system: 'Crew Registry',
       ...codeFiles('crew-registry', 'ts'),
@@ -209,6 +214,7 @@ const line = s.motto ? \`"\${s.motto}"\` : "";
     {
       kind: 'code',
       id: 'signal-decoder',
+      skills: ['types', 'narrowing'],
       title: 'Unions and Narrowing',
       system: 'Signal Decoder',
       ...codeFiles('signal-decoder', 'ts'),
@@ -261,6 +267,7 @@ Handy: \`String(42).padStart(4, "0")\` gives \`"0042"\`.`,
     {
       kind: 'quiz',
       id: 'quiz-inference',
+      skills: ['types'],
       title: 'Compiler Diagnostics',
       system: 'Diagnostics Bay',
       brief: `**ARIA:** Before I let you near the reactor telemetry, a quick calibration. Think like the compiler.`,
@@ -317,6 +324,7 @@ Handy: \`String(42).padStart(4, "0")\` gives \`"0042"\`.`,
     {
       kind: 'code',
       id: 'telemetry',
+      skills: ['types', 'narrowing', 'arrays'],
       title: 'BOSS: Reactor Telemetry',
       system: 'Reactor Telemetry',
       boss: true,

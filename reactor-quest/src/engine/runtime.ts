@@ -16,6 +16,8 @@ const MODULES: Record<string, unknown> = {
   'react/jsx-dev-runtime': JSXRuntime,
 };
 
+const LOOP_LIMIT_MS = 1500;
+
 /**
  * Everything the player's module can reach that we need to observe or undo:
  * console output, and timers — so a forgotten setInterval can be counted by a
@@ -36,7 +38,28 @@ export class Sandbox {
 
   globals() {
     const fmt = (args: unknown[]) => args.map((a) => (typeof a === 'string' ? a : show(a))).join(' ');
+    // Counts loop iterations within one synchronous run; a microtask resets it
+    // as soon as the code yields, so only a loop that never lets go trips it.
+    let iterations = 0;
+    let started = 0;
+    let armed = false;
+    const loopGuard = () => {
+      if (!armed) {
+        armed = true;
+        started = performance.now();
+        queueMicrotask(() => {
+          armed = false;
+          iterations = 0;
+        });
+      }
+      if ((++iterations & 0x3fff) === 0 && performance.now() - started > LOOP_LIMIT_MS) {
+        armed = false;
+        iterations = 0;
+        throw new RangeError(`A loop has been running for over ${LOOP_LIMIT_MS / 1000} seconds without stopping. Check that its condition eventually becomes false (or that the counter changes each time round).`);
+      }
+    };
     return {
+      __loopGuard: loopGuard,
       console: {
         log: (...a: unknown[]) => this.log(fmt(a)),
         info: (...a: unknown[]) => this.log(fmt(a)),
@@ -198,6 +221,9 @@ export interface View {
   submit(target?: Element | string): Promise<void>;
   rerender(el: React.ReactElement): Promise<void>;
   unmount(): Promise<void>;
+  /** Press a key on an element (keydown, then keyup), e.g. 'ArrowRight', 'Enter', 'Escape'. */
+  key(target: Element | string, key: string): Promise<void>;
+  focus(target: Element | string): Promise<void>;
 }
 
 type Target = Element | string;
@@ -287,6 +313,17 @@ export class Stage {
         await after();
       },
       rerender: (node) => commit(node),
+      key: async (t, key) => {
+        const el = find<HTMLElement>(t);
+        const init = { key, bubbles: true, cancelable: true };
+        el.dispatchEvent(new KeyboardEvent('keydown', init));
+        el.dispatchEvent(new KeyboardEvent('keyup', init));
+        await after();
+      },
+      focus: async (t) => {
+        find<HTMLElement>(t).focus();
+        await after();
+      },
       unmount: async () => {
         root.unmount();
         await settle();

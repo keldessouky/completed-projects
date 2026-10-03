@@ -65,7 +65,7 @@ export async function grade(level: CodeLevel, source: string, compile: Compile):
   const checks: CheckOutcome[] = [];
   for (const check of level.checks) {
     const stage = new Stage();
-    const kit: Kit = { mod, source, h: createElement, expect, fn, wait, render: (el) => stage.render(el), activeTimers: () => sandbox.activeTimers };
+    const kit: Kit = { mod, source, h: createElement, expect, fn, wait, render: (el) => stage.render(el), activeTimers: () => sandbox.activeTimers, logs };
     try {
       await withTimeout(Promise.resolve().then(() => check.run(kit)), CHECK_TIMEOUT_MS);
       checks.push({ label: check.label, pass: true });

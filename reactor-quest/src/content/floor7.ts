@@ -14,15 +14,17 @@ const CREW = [
   { id: 3, name: 'Cy', role: 'medic', onDuty: true },
 ];
 
-export const deck3: Deck = {
+export const floor7: Deck = {
   id: 'bay',
   name: 'Component Bay',
   subtitle: 'React fundamentals',
+  outcome: 'You can build user interfaces from typed React components.',
   hue: 150,
   levels: [
     {
       kind: 'code',
       id: 'first-light',
+      skills: ['components'],
       title: 'Your First Component',
       system: 'Status Lights',
       ...codeFiles('first-light', 'tsx'),
@@ -81,6 +83,7 @@ Text outside braces is literal text, so \`<h1>Hi NAME</h1>\` shows the word "NAM
     {
       kind: 'code',
       id: 'gauge-panel',
+      skills: ['components', 'types'],
       title: 'Typed Props',
       system: 'Gauge Panel',
       ...codeFiles('gauge-panel', 'tsx'),
@@ -144,6 +147,7 @@ Props are **read-only** inputs. A component never changes its own props.`,
     {
       kind: 'code',
       id: 'hull-plating',
+      skills: ['components'],
       title: 'Children and Composition',
       system: 'Bridge Dashboard',
       ...codeFiles('hull-plating', 'tsx'),
@@ -209,6 +213,7 @@ That's how React apps are built: small components **composed** into bigger ones.
     {
       kind: 'code',
       id: 'sensor-array',
+      skills: ['components', 'iteration'],
       title: 'Lists and Keys',
       system: 'Sensor Array',
       ...codeFiles('sensor-array', 'tsx'),
@@ -266,6 +271,7 @@ Any attribute can be an expression: \`className={s.online ? "online" : "offline"
     {
       kind: 'code',
       id: 'warning-lights',
+      skills: ['components', 'logic'],
       title: 'Conditional Rendering',
       system: 'Warning Lights',
       ...codeFiles('warning-lights', 'tsx'),
@@ -343,6 +349,7 @@ Make the left side of \`&&\` a real boolean.`,
     {
       kind: 'quiz',
       id: 'quiz-jsx',
+      skills: ['components'],
       title: 'JSX Inspection',
       system: 'Render Pipeline',
       brief: `**ARIA:** The render pipeline wants to be sure you can read JSX the way React does. Predict what reaches the screen.`,
@@ -398,6 +405,7 @@ Make the left side of \`&&\` a real boolean.`,
     {
       kind: 'code',
       id: 'crew-roster',
+      skills: ['components'],
       title: 'BOSS: Crew Roster',
       system: 'Crew Roster',
       boss: true,

@@ -1,11 +1,14 @@
 import type { Deck, Level } from '../game/types';
-import { deck1 } from './deck1';
-import { deck2 } from './deck2';
-import { deck3 } from './deck3';
-import { deck4 } from './deck4';
-import { deck5 } from './deck5';
+import { floor1 } from './floor1';
+import { floor2 } from './floor2';
+import { floor4 } from './floor4';
+import { floor5 } from './floor5';
+import { floor7 } from './floor7';
+import { floor8 } from './floor8';
+import { floor9 } from './floor9';
 
-export const DECKS: Deck[] = [deck1, deck2, deck3, deck4, deck5];
+/** The floors of the station, in play order. */
+export const DECKS: Deck[] = [floor1, floor2, floor4, floor5, floor7, floor8, floor9];
 
 export const ALL_LEVELS: Level[] = DECKS.flatMap((d) => d.levels);
 

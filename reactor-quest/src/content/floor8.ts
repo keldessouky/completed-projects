@@ -4,15 +4,17 @@ import { code, codeFiles, comp } from './helpers';
 
 const buttonByText = (root: { getByText(t: string, s?: string): HTMLElement }, text: string) => root.getByText(text, 'button');
 
-export const deck4: Deck = {
+export const floor8: Deck = {
   id: 'control',
   name: 'Control Room',
   subtitle: 'State and events',
+  outcome: 'You can build interactive screens: state, events, forms and lists that change.',
   hue: 35,
   levels: [
     {
       kind: 'code',
       id: 'thruster',
+      skills: ['state'],
       title: 'useState',
       system: 'Thruster Control',
       ...codeFiles('thruster', 'tsx'),
@@ -81,6 +83,7 @@ To clamp a value: \`Math.min(10, n)\` and \`Math.max(0, n)\`.`,
     {
       kind: 'code',
       id: 'airlock',
+      skills: ['state', 'types'],
       title: 'Typed State and Callbacks',
       system: 'Airlock Control',
       ...codeFiles('airlock', 'tsx'),
@@ -162,6 +165,7 @@ function toggle() {
     {
       kind: 'code',
       id: 'callsign',
+      skills: ['state'],
       title: 'Controlled Inputs',
       system: 'Nav Computer',
       ...codeFiles('callsign', 'tsx'),
@@ -231,6 +235,7 @@ Don't store what you can compute. The upper-cased version and the length come st
     {
       kind: 'code',
       id: 'docking-form',
+      skills: ['state'],
       title: 'Forms',
       system: 'Docking Requests',
       ...codeFiles('docking-form', 'tsx'),
@@ -316,6 +321,7 @@ const [error, setError] = useState(false);
     {
       kind: 'code',
       id: 'ledger',
+      skills: ['state', 'arrays'],
       title: 'Immutable Updates',
       system: 'Supply Ledger',
       ...codeFiles('ledger', 'tsx'),
@@ -393,6 +399,7 @@ An empty array can't tell TypeScript what it will hold — say it explicitly: \`
     {
       kind: 'code',
       id: 'shared-power',
+      skills: ['state', 'components'],
       title: 'Lifting State Up',
       system: 'Power Distribution',
       ...codeFiles('shared-power', 'tsx'),
@@ -466,6 +473,7 @@ setTemp((t) => Math.min(100, t + 10));
     {
       kind: 'quiz',
       id: 'quiz-state',
+      skills: ['state'],
       title: 'State of Mind',
       system: 'Control Logic',
       brief: `**ARIA:** State is where most React bugs live. The control logic wants proof you know when — and how — state actually changes.`,
@@ -522,6 +530,7 @@ setTemp((t) => Math.min(100, t + 10));
     {
       kind: 'code',
       id: 'checklist',
+      skills: ['state', 'components'],
       title: 'BOSS: Launch Checklist',
       system: 'Mission Control',
       boss: true,
