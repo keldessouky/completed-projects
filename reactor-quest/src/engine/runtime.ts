@@ -254,7 +254,8 @@ export class Stage {
     document.body.appendChild(host);
     const root = createRoot(host, {
       onUncaughtError: (e) => { this.error ??= e; },
-      onCaughtError: (e) => { this.error ??= e; },
+      // An error caught by the player's own error boundary is handled, not a failure.
+      onCaughtError: () => {},
     });
     this.roots.push({ root, host });
     // Registered after createRoot, so it runs after React's own listener: if the

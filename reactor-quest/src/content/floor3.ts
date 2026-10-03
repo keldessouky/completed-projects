@@ -387,7 +387,7 @@ function makeWallet() {
 Closures are everywhere in real code: event handlers, timers, and every React component you'll write. React's hooks are built on them.`,
       hints: [
         '`makeCounter`: put `let count = 0;` before the return, and make `increment` do `count++; return count;`.',
-        '`makeIdGenerator`: keep `let n = 0;` outside the returned arrow. Inside: `n++; return `${prefix}-${n}`;`.',
+        '`makeIdGenerator`: keep `let n = 0;` outside the returned arrow. Inside: ``n++; return `${prefix}-${n}`;``.',
         '`once`: keep `let called = false;` and `let result = 0;`. On the first call, set `called = true` and `result = fn()`. Always `return result`.',
       ],
       checks: [
@@ -718,7 +718,7 @@ try {
 
 (Inside \`try\`, write \`return await …\`. Without the \`await\`, the error escapes the \`try\`.)`,
       hints: [
-        '`statusLine`: `const status = await api(id); return `${id}: ${status}`;`',
+        '`statusLine`: ``const status = await api(id); return `${id}: ${status}`;``',
         '`allStatuses`: `return Promise.all(ids.map((id) => api(id)));`. `safeStatusLine`: wrap `return await statusLine(id, api);` in try/catch, returning ``\`${id}: offline\` `` from the catch.',
         '`firstHealthy`: `for (const id of ids) { if ((await api(id)) === "ok") return id; }` then `return null;`',
       ],
