@@ -9,6 +9,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <ctime>
+#include <dirent.h>
 #include <sys/stat.h>
 
 namespace q {
@@ -50,6 +51,14 @@ std::string ext_of(const std::string& name) {
 }
 
 bool playable(const std::string& ext) { return ext == ".mp3" || ext == ".ogg" || ext == ".wav"; }
+
+// letters and digits only, lower case: "Pictures Don't Lie" and "PicturesDontLie" are the same
+std::string squash(const std::string& s) {
+    std::string out;
+    for (char c : s)
+        if (std::isalnum((unsigned char)c)) out += char(std::tolower((unsigned char)c));
+    return out;
+}
 
 std::string xml_text(std::string s) {
     size_t a = s.find("<![CDATA[");
@@ -112,6 +121,7 @@ std::vector<RadioStation> parse_stations(const std::string& text) {
         st.name = s["name"].str_or(Radio::kHome);
         st.archive = s["archive"].str_or("");
         st.rss = s["rss"].str_or("");
+        st.newest = s["newest"].i(0);
         const Json& eps = s["episodes"];
         for (size_t k = 0; k < eps.size(); k++) {
             const Json& e = eps[k];
@@ -119,11 +129,13 @@ std::vector<RadioStation> parse_stations(const std::string& text) {
             ep.n = e["n"].i(0);
             const std::string file = e["file"].str_or("");
             ep.url = e["url"].str_or("");
-            if (ep.url.empty() && !file.empty() && !st.archive.empty())
-                ep.url = "https://archive.org/download/" + st.archive + "/" + net::encode_path(file);
+            ep.archive = e["archive"].str_or(st.archive.c_str());
+            ep.match = squash(e["match"].str_or(""));
+            if (ep.url.empty() && !file.empty() && !ep.archive.empty())
+                ep.url = "https://archive.org/download/" + ep.archive + "/" + net::encode_path(file);
             ep.ext = ext_of(file.empty() ? ep.url : file);
-            ep.title = e["title"].str_or(file.empty() ? "" : file.substr(0, file.size() - ep.ext.size()).c_str());
-            if (!ep.url.empty() && playable(ep.ext)) st.episodes.push_back(ep);
+            ep.title = e["title"].str_or(file.empty() ? ep.match.c_str() : file.substr(0, file.size() - ep.ext.size()).c_str());
+            if (!ep.url.empty() ? playable(ep.ext) : !ep.match.empty() && !ep.archive.empty()) st.episodes.push_back(ep);
         }
         out.push_back(st);
     }
@@ -131,7 +143,7 @@ std::vector<RadioStation> parse_stations(const std::string& text) {
 }
 
 std::vector<RadioEpisode> archive_episodes(const std::string& item, const std::string& metadata) {
-    struct F { std::string base, name, ext; int track; };
+    struct F { std::string base, name, ext; int track, rank; };   // rank: 0 Ogg, 1 the MP3 uploaded, 2 a derived MP3
     std::vector<F> files;
     const Json j = Json::parse(metadata);
     const Json& fs = j["files"];
@@ -139,13 +151,17 @@ std::vector<RadioEpisode> archive_episodes(const std::string& item, const std::s
         const std::string name = fs[i]["name"].str_or("");
         const std::string ext = ext_of(name);
         if (ext != ".mp3" && ext != ".ogg") continue;
-        const std::string base = name.substr(0, name.size() - ext.size());
+        // a derived copy ("x_64kb.mp3", "x.ogg") is the recording it was made from
+        const std::string original = fs[i]["source"].str_or("") == "derivative" ? fs[i]["original"].str_or("") : "";
+        const std::string from = playable(ext_of(original)) ? original : name;
+        const std::string base = from.substr(0, from.size() - ext_of(from).size());
+        const int rank = ext == ".ogg" ? 0 : from == name ? 1 : 2;
         const Json& tr = fs[i]["track"];
         const int track = tr.type == Json::String ? atoi(tr.str().c_str()) : tr.i(0);
         auto it = std::find_if(files.begin(), files.end(), [&](const F& f) { return f.base == base; });
-        if (it == files.end()) files.push_back({base, name, ext, track});
+        if (it == files.end()) files.push_back({base, name, ext, track, rank});
         else {
-            if (ext == ".ogg") { it->name = name; it->ext = ext; }   // the smaller of the two
+            if (rank < it->rank) { it->name = name; it->ext = ext; it->rank = rank; }   // Ogg is the smaller
             if (track) it->track = track;
         }
     }
@@ -156,12 +172,45 @@ std::vector<RadioEpisode> archive_episodes(const std::string& item, const std::s
     });
     std::vector<RadioEpisode> out;
     for (const F& f : files)
-        out.push_back({int(out.size()) + 1, f.base, "https://archive.org/download/" + item + "/" + net::encode_path(f.name), f.ext});
+        out.push_back({int(out.size()) + 1, f.base, "https://archive.org/download/" + item + "/" + net::encode_path(f.name), f.ext,
+                       item, ""});
     return out;
 }
 
-std::vector<RadioEpisode> rss_episodes(const std::string& xml) {
+void match_episodes(const std::string& item, const std::string& metadata, std::vector<RadioEpisode>& episodes) {
+    const std::vector<RadioEpisode> all = archive_episodes(item, metadata);
+    for (RadioEpisode& ep : episodes) {
+        if (!ep.url.empty() || ep.match.empty() || ep.archive != item) continue;
+        for (const RadioEpisode& a : all)
+            if (squash(a.title).find(ep.match) != std::string::npos) {
+                ep.url = a.url;
+                ep.ext = a.ext;
+                break;
+            }
+    }
+}
+
+int rss_date(const std::string& text) {
+    static const char* months[] = {"jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"};
+    std::vector<std::string> words;
+    std::string w;
+    for (char ch : text + " ") {
+        if (std::isalnum((unsigned char)ch)) w += char(std::tolower((unsigned char)ch));
+        else if (!w.empty()) { words.push_back(w); w.clear(); }
+        if (words.size() > 4) break;
+    }
+    for (size_t i = 1; i + 1 < words.size(); i++)
+        for (int m = 0; m < 12; m++)
+            if (words[i].compare(0, 3, months[m]) == 0) {
+                const int day = atoi(words[i - 1].c_str()), year = atoi(words[i + 1].c_str());
+                if (day >= 1 && day <= 31 && year >= 1900 && year < 3000) return year * 10000 + (m + 1) * 100 + day;
+            }
+    return 0;
+}
+
+std::vector<RadioEpisode> rss_episodes(const std::string& xml, int newest) {
     std::vector<RadioEpisode> out;
+    std::vector<int> dates;
     size_t p = 0;
     for (;;) {
         const size_t a = xml.find("<item", p);
@@ -176,6 +225,12 @@ std::vector<RadioEpisode> rss_episodes(const std::string& xml) {
             const size_t te = item.find("</title>", t);
             if (t != std::string::npos && te != std::string::npos) ep.title = xml_text(item.substr(t + 1, te - t - 1));
         }
+        int date = 0;
+        if (size_t d = item.find("<pubDate"); d != std::string::npos) {
+            d = item.find('>', d);
+            const size_t de = item.find("</pubDate>", d);
+            if (d != std::string::npos && de != std::string::npos) date = rss_date(item.substr(d + 1, de - d - 1));
+        }
         const size_t e = item.find("<enclosure");
         if (e == std::string::npos) continue;
         const std::string tag = item.substr(e, item.find('>', e) - e);
@@ -184,7 +239,27 @@ std::vector<RadioEpisode> rss_episodes(const std::string& xml) {
         ep.ext = type == "audio/mpeg" || type == "audio/mp3" ? ".mp3"
                  : type == "audio/ogg" || type == "audio/vorbis" ? ".ogg"
                  : type == "audio/wav" || type == "audio/x-wav" ? ".wav" : ext_of(ep.url);
-        if (!ep.url.empty() && playable(ep.ext)) out.push_back(ep);
+        if (!ep.url.empty() && playable(ep.ext)) {
+            out.push_back(ep);
+            dates.push_back(date);
+        }
+    }
+    if (newest > 0) {   // the newest first (by date when every episode has one, else as the feed has them), cut
+        std::vector<size_t> order(out.size());
+        for (size_t i = 0; i < order.size(); i++) order[i] = i;
+        if (std::find(dates.begin(), dates.end(), 0) == dates.end())
+            std::stable_sort(order.begin(), order.end(), [&](size_t a, size_t b) { return dates[a] > dates[b]; });
+        if (order.size() > size_t(newest)) order.resize(size_t(newest));
+        std::vector<RadioEpisode> keep;
+        for (size_t i : order) {
+            keep.push_back(out[i]);
+            keep.back().n = dates[i];
+        }
+        std::reverse(keep.begin(), keep.end());
+        bool dated = true;
+        for (const RadioEpisode& ep : keep) dated = dated && ep.n > 0;
+        if (!dated) for (size_t i = 0; i < keep.size(); i++) keep[i].n = int(i) + 1;
+        return keep;
     }
     std::reverse(out.begin(), out.end());   // feeds put the newest first; a show starts at its beginning
     for (size_t i = 0; i < out.size(); i++) out[i].n = int(i) + 1;
@@ -249,6 +324,25 @@ bool RadioFetch::fetch(const RadioStation& st, const RadioEpisode& ep) {
     return true;
 }
 
+void RadioFetch::prune(const RadioStation& st) {
+    const std::string folder = dir_ + "/" + st.folder();
+    DIR* d = opendir(folder.c_str());
+    if (!d) return;
+    std::vector<std::string> gone;
+    while (dirent* e = readdir(d)) {
+        std::string name = e->d_name;
+        const bool part = name.size() > 5 && name.compare(name.size() - 5, 5, ".part") == 0;
+        if (!playable(ext_of(part ? name.substr(0, name.size() - 5) : name))) continue;
+        const std::string whole = part ? name.substr(0, name.size() - 5) : name;
+        if (std::none_of(st.episodes.begin(), st.episodes.end(), [&](const RadioEpisode& ep) { return ep.file() == whole; }))
+            gone.push_back(name);
+    }
+    closedir(d);
+    for (const std::string& name : gone)
+        if (remove((folder + "/" + name).c_str()) == 0) note(st.name + " / " + name + " is older than its newest " +
+                                                              std::to_string(st.newest) + ": deleted", false);
+}
+
 bool RadioFetch::pass() {
     {
         std::lock_guard<std::mutex> l(m_);
@@ -261,11 +355,34 @@ bool RadioFetch::pass() {
         std::string text, err;
         if (!st.archive.empty() && net::get_text("https://archive.org/metadata/" + st.archive, text, &cancel_, &err))
             st.episodes = archive_episodes(st.archive, text);
-        else if (!st.rss.empty() && net::get_text(st.rss, text, &cancel_, &err))
-            st.episodes = rss_episodes(text);
+        else if (!st.rss.empty() && net::get_text(st.rss, text, &cancel_, &err)) {
+            st.episodes = rss_episodes(text, st.newest);
+            if (st.newest > 0 && !st.episodes.empty()) prune(st);
+        }
         if (st.episodes.empty()) {
             listed = false;
             note(st.name + ": " + (err.empty() ? std::string("no episodes it can play") : err));
+        }
+    }
+    // the episodes named by a piece of their file name, found in their archive items' lists
+    for (RadioStation& st : stations_) {
+        std::vector<std::string> items;
+        for (const RadioEpisode& ep : st.episodes)
+            if (ep.url.empty() && std::find(items.begin(), items.end(), ep.archive) == items.end()) items.push_back(ep.archive);
+        for (const std::string& item : items) {
+            if (quit_) return false;
+            std::string text, err;
+            if (!net::get_text("https://archive.org/metadata/" + item, text, &cancel_, &err)) {
+                listed = false;   // tried again next round
+                note(st.name + ": " + err);
+                continue;
+            }
+            match_episodes(item, text, st.episodes);
+            st.episodes.erase(std::remove_if(st.episodes.begin(), st.episodes.end(), [&](const RadioEpisode& ep) {
+                if (!ep.url.empty() || ep.archive != item) return false;
+                note(st.name + ": nothing in " + item + " matches \"" + ep.match + "\" (" + ep.title + ")");
+                return true;
+            }), st.episodes.end());
         }
     }
     // what is missing: every station's first missing episode, then the rest in order
@@ -275,6 +392,7 @@ bool RadioFetch::pass() {
     for (const RadioStation& st : stations_) {
         bool any = false;
         for (const RadioEpisode& ep : st.episodes) {
+            if (ep.url.empty()) continue;   // its item's list didn't come
             total++;
             if (exists(dir_ + "/" + st.folder() + "/" + ep.file())) { have++; continue; }
             (any ? rest : first).push_back({&st, &ep});

@@ -80,10 +80,19 @@ Andeel's show one episode after another. There is nothing to set up: the game do
 Wi-Fi, in the background, from the [Internet Archive](https://archive.org/details/radiokafrelshikh), and the radio
 comes on as soon as the first one has arrived (a minute or so). Until then the game's own music plays.
 
-- **Storage:** the episodes go in a `radio` folder in RetroArch's saves folder, about 560 MB for all 18.
+A second station, **Coast to Coast AM**, is George Noory's late-night call-in show: aliens, ghosts, Bigfoot,
+prophecy and the people who phone in about them. The game reads the show's own free podcast feed, *The Best of
+Coast to Coast AM*, the way a podcast app does, and keeps the newest 10 episodes: as new ones come out, it
+downloads them and deletes the oldest.
+
+- **Storage:** the episodes go in a `radio` folder in RetroArch's saves folder, about 560 MB for Radio Kafr
+  El-Sheikh's 18, and for Coast to Coast AM's 10, roughly 0.5–1 GB (its episodes run an hour or two).
 - **Offline:** what has arrived keeps playing without Wi-Fi. A download that was cut off picks up where it stopped
   the next time the game runs with Wi-Fi.
-- **Order:** the show's own airing order.
+- **Order:** Radio Kafr El-Sheikh in the show's own airing order; Coast to Coast AM by date, the oldest of its 10
+  first.
+- **Which first:** the first episode of every station downloads before the rest, so each station has something to
+  play early.
 - **Where it picks up:** each station remembers its own episode and the place in it, so you can tune away and come
   back to where you were. When an episode ends, the next one starts.
 - **In the field, R3** (the right stick pressed in, or M2 if you mapped it):

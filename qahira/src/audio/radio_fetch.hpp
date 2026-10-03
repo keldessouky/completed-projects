@@ -8,6 +8,9 @@
 //   {"stations": [{"name": "Radio Kafr El-Sheikh", "archive": "radiokafrelshikh",
 //                  "episodes": [{"n": 2, "title": "The Second", "file": "second.mp3"}, ...]},
 //                 {"name": "Nile FM", "rss": "https://example.org/feed.xml"},
+//                 {"name": "Talk", "rss": "https://example.org/talk.rss", "newest": 20},
+//                 {"name": "Sci-Fi", "episodes": [{"n": 1, "title": "The Last Martian", "archive": "OTRR_X_Minus_One_Singles",
+//                                                  "match": "LastMartian"}, ...]},
 //                 {"name": "Other", "episodes": [{"n": 1, "title": "One", "url": "https://..."}]}]}
 #pragma once
 #include "net/http.hpp"
@@ -23,23 +26,33 @@ namespace q {
 struct RadioEpisode {
     int n = 0;                // its place in the show (the file name starts with it, so the radio plays in order)
     std::string title;
-    std::string url;
+    std::string url;          // empty until a "match" is found in its archive item
     std::string ext;          // ".mp3", ".ogg" or ".wav"
+    std::string archive;      // the Internet Archive item it comes from (its own, or the station's)
+    std::string match;        // a piece of its file name there, letters and digits only, case ignored ("LastMartian")
     std::string file() const; // "12 - The Canal.ogg", safe for the SD card
 };
 
 struct RadioStation {
     std::string name;
     std::string archive, rss;               // where the episode list comes from, when it isn't given
+    int newest = 0;                         // a feed's newest this many only (older ones it downloaded are deleted)
     std::vector<RadioEpisode> episodes;     // given, or found
     std::string folder() const;             // the name, safe for the SD card
 };
 
 std::vector<RadioStation> parse_stations(const std::string& json);
-// the audio in an Internet Archive item's metadata: Ogg where there is one (smaller), else MP3, by track and name
+// the audio in an Internet Archive item's metadata, one episode per recording (the Archive's derived copies of a file
+// count as that file): Ogg where there is one (smaller), else the MP3 uploaded, by track and name
 std::vector<RadioEpisode> archive_episodes(const std::string& item, const std::string& metadata_json);
-// a podcast feed's episodes, oldest first
-std::vector<RadioEpisode> rss_episodes(const std::string& xml);
+// the episodes of this item that name a "match" and have no url yet: each takes the first of the item's audio (as
+// archive_episodes lists it) whose name holds its match; those it finds no file for stay without a url
+void match_episodes(const std::string& item, const std::string& metadata_json, std::vector<RadioEpisode>& episodes);
+// a podcast feed's episodes, oldest first. With newest, only the newest that many, each numbered by its date
+// (20221207), so its file keeps its name as newer episodes come and older ones go.
+std::vector<RadioEpisode> rss_episodes(const std::string& xml, int newest = 0);
+// a feed's date ("Wed, 07 Dec 2022 08:00:00 GMT") as 20221207, or 0
+int rss_date(const std::string& text);
 
 class RadioFetch {
 public:
@@ -54,6 +67,7 @@ public:
 private:
     bool pass();                                    // one round; true when everything is here
     bool fetch(const RadioStation& st, const RadioEpisode& ep);
+    void prune(const RadioStation& st);             // a "newest" station's files no longer in its feed's newest
     void set_status(const std::string& s);
     void note(const std::string& what, bool error = true);   // to the log, the radio log and (errors) the status
     std::vector<RadioStation> stations_;
