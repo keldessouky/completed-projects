@@ -178,15 +178,10 @@ TEST(the_pack_lists_radio_kafr_el_sheikh) {
     std::vector<std::string> names;
     for (const auto& ep : st[0].episodes) names.push_back(ep.file());
     for (size_t i = 0; i + 1 < names.size(); i++) CHECK(Radio::natural_less(names[i], names[i + 1]));
-    // the sci-fi station: every episode named by a piece of its file name in one of two items, found when it fetches
-    const RadioStation& sf = st[1];
-    CHECK(sf.name == "Midnight Signal AM" && sf.archive.empty() && sf.episodes.size() == 18);
-    for (size_t i = 0; i < sf.episodes.size(); i++) {
-        const RadioEpisode& ep = sf.episodes[i];
-        CHECK(ep.n == int(i) + 1 && ep.url.empty() && !ep.match.empty() && !ep.title.empty());
-        CHECK(ep.archive == "OTRR_X_Minus_One_Singles" || ep.archive == "OTRR_Dimension_X_Singles");
-    }
-    CHECK(sf.episodes[0].match == "lastmartian" && sf.episodes[2].match == "picturesdont");
+    // Coast to Coast AM: the show's own podcast feed, its newest 10 only
+    const RadioStation& cc = st[1];
+    CHECK(cc.name == "Coast to Coast AM" && cc.episodes.empty() && cc.newest == 10);
+    CHECK(cc.rss.rfind("https://www.omnycontent.com/", 0) == 0 && cc.rss.find("podcast.rss") != std::string::npos);
 }
 
 TEST(the_radio_finds_episodes_by_a_piece_of_their_name) {
@@ -238,6 +233,46 @@ TEST(the_radio_lists_an_archive_item_and_a_feed) {
     CHECK(r.size() == 2);   // the M4A can't play
     CHECK(r[0].n == 1 && r[0].title == "The first \xD8\xA7" && r[0].url == "https://x.org/1.ogg" && r[0].ext == ".ogg");
     CHECK(r[1].n == 2 && r[1].title == "Newest: <b>" && r[1].ext == ".mp3" && r[1].file() == "2 - Newest - b.mp3");
+}
+
+TEST(a_feed_keeps_its_newest_episodes_by_date) {
+    CHECK(rss_date("Wed, 07 Dec 2022 08:00:00 -0000") == 20221207 && rss_date("1 Jan 2024") == 20240101);
+    CHECK(rss_date("Tue, 31 Sept 2024 10:00:00 GMT") == 20240931 && rss_date("tomorrow") == 0 && rss_date("") == 0);
+    const char* rss = R"(<rss><channel>
+        <item><title>Alien Abductions - 12/7/22</title><pubDate>Wed, 07 Dec 2022 08:00:00 GMT</pubDate>
+              <enclosure url="https://x.org/c.mp3?a=1&amp;b=2" type="audio/mpeg"/></item>
+        <item><title>Shroud of Turin</title><pubDate>Tue, 26 Jun 2018 08:00:00 GMT</pubDate><enclosure url="https://x.org/a.mp3" type="audio/mpeg"/></item>
+        <item><title>Bigfoot</title><pubDate>Fri, 01 Jan 2021 08:00:00 GMT</pubDate><enclosure url="https://x.org/b.mp3" type="audio/mpeg"/></item>
+        </channel></rss>)";
+    const auto all = rss_episodes(rss);
+    CHECK(all.size() == 3 && all[0].title == "Bigfoot" && all[0].n == 1);   // as the feed lists them, without a cut
+    const auto two = rss_episodes(rss, 2);   // the two newest by date, oldest first, each named by its date
+    CHECK(two.size() == 2 && two[0].title == "Bigfoot" && two[0].n == 20210101 && two[1].n == 20221207);
+    CHECK(two[1].url == "https://x.org/c.mp3?a=1&b=2" && two[1].file() == "20221207 - Alien Abductions - 12 7 22.mp3");
+    CHECK(rss_episodes(rss, 9).size() == 3);
+}
+
+TEST(a_newest_station_deletes_what_fell_out_of_its_feed) {
+    const std::string src = std::string(QAHIRA_SOURCE_DIR) + "/tests/data/radio/";
+    const std::string dir = std::string(QAHIRA_SOURCE_DIR) + "/build/radio_newest_test", st_dir = dir + "/Talk";
+    mkdir(dir.c_str(), 0755);
+    mkdir(st_dir.c_str(), 0755);
+    const std::string feed = dir + "/feed.rss", old = st_dir + "/20200101 - Old Show.mp3", half = st_dir + "/20200102 - Half.ogg.part",
+                      mine = st_dir + "/notes.txt", now = st_dir + "/20240301 - The Canal.mp3";
+    remove(now.c_str());
+    for (const std::string& f : {old, half, mine})
+        if (FILE* o = fopen(f.c_str(), "wb")) { fputs("x", o); fclose(o); }
+    if (FILE* o = fopen(feed.c_str(), "wb")) {
+        fputs(("<rss><channel><item><title>The Canal</title><pubDate>Fri, 01 Mar 2024 00:00:00 GMT</pubDate>"
+               "<enclosure url=\"file://" + src + "Episode_1-the_canal.mp3\" type=\"audio/mpeg\"/></item></channel></rss>").c_str(), o);
+        fclose(o);
+    }
+    RadioFetch rf;
+    rf.run_once_for_tests(R"({"stations": [{"name": "Talk", "rss": "file://)" + feed + R"(", "newest": 1}]})", dir);
+    struct stat sb {};
+    CHECK(stat(now.c_str(), &sb) == 0 && sb.st_size > 1000);   // the newest arrived
+    CHECK(stat(old.c_str(), &sb) != 0 && stat(half.c_str(), &sb) != 0);   // the older ones, whole or half, are gone
+    CHECK(stat(mine.c_str(), &sb) == 0);   // what isn't audio stays
 }
 
 TEST(the_radio_fetches_its_episodes_and_plays_them) {

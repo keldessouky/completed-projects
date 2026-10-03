@@ -1116,34 +1116,38 @@ notes after playing it, taken one at a time.*
 - The telegraphs (the magenta warnings of a monster's strike), the portal and the loot beams keep their smooth,
   glowing look: they are warnings and markers, not spells.
 
-## Midnight Signal AM: a sci-fi station
+## Coast to Coast AM on the radio
 
-The owner asked for a sci-fi channel of strange late-night interviews in the manner of Coast to Coast AM. That show
-is Premiere Networks' and can't be redistributed, so the station plays the closest thing in the public domain:
-1950s American sci-fi radio drama full of strange callers, saucers and men from Mars.
+The owner asked for a station of Coast to Coast AM's strange late-night interviews: callers on aliens, werewolves
+and the rest. The show is Premiere Networks', so nothing of it goes in the repository or the pack. Instead the game
+reads the show's own free podcast feed on the player's device, as any podcast app does.
+
+A first try (`0837b64`) put 1950s sci-fi radio dramas (*X Minus One*, *Dimension X*) on a station instead, as
+public domain. That was wrong twice over: the owner meant the call-in show, and under US law since 2018 (the
+Music Modernization Act's Title II) recordings from those years are protected into the 2060s, whatever the
+Internet Archive's items say. The station was replaced the next commit.
 
 **Delivered**
-- **Midnight Signal AM**, the second station in `data/radio.json`, has 18 episodes. Thirteen are from *X Minus One*
-  (1955–58) and five from *Dimension X* (1950–51). The order runs from "The Last Martian" (a reporter interviews a
-  man in a bar who says he is one) to "The Cold Equations". They come from the Old Time Radio Researchers Group's
-  items `OTRR_X_Minus_One_Singles` and `OTRR_Dimension_X_Singles`.
-- **An episode can name its own `archive` item**, so one station can draw on several items.
-- **An episode can give a `match` in place of a `file`:** a piece of its file name, letters and digits only, case
-  ignored (`"LastMartian"` finds `XMinusOne56-08-07…TheLastMartian.mp3`). The fetcher reads each item's file list
-  once per run, takes the first recording in natural order that holds the match, and leaves out, with a line in
-  `radio log.txt`, any match the item doesn't have.
-- **An item's listing counts the Archive's derived copies** (`x_64kb.mp3`, `x.ogg`) as the recording they were
-  made from. It still prefers the Ogg and otherwise takes the uploaded MP3, instead of listing each copy as an
-  episode of its own.
+- **Coast to Coast AM**, the second station in `data/radio.json`, reads *The Best of Coast to Coast AM*, the
+  show's free feed (George Noory; Premiere Networks and iHeartPodcasts, on Omny).
+- **A feed's `"newest": N`** keeps only its N newest episodes, by `pubDate`. This one keeps 10. Each episode is
+  numbered by its date (`20221207 - Alien Abductions ….mp3`), so its file keeps its name as newer episodes come
+  and older ones go. When the feed is read, the station's files (and half-downloads) that are no longer among the
+  newest are deleted, with a line in `radio log.txt`. Anything that isn't audio stays.
+- **An episode can name its own `archive` item**, and a **`match`** in place of a `file`: a piece of the file's
+  name there (letters and digits, case ignored). The fetcher looks it up in the item's file list once per run, and
+  leaves out, with a line in the log, any match the item doesn't have.
+- **An Internet Archive item's listing counts the Archive's derived copies** (`x_64kb.mp3`, `x.ogg`) as the
+  recording they were made from. It no longer lists each copy as an episode of its own.
 
 **Verified**
 | Check | Result |
 |---|---|
-| Unit tests (`qtests`) | pass, 105 cases. New: an item with derived copies lists one episode per recording, Ogg first; matches find their files whatever their case and punctuation, take the first broadcast when there are two, and leave alone another item's episodes and a match with no file; the pack lists both stations, the sci-fi one with 18 matched episodes in two items |
-| The two items | exist, found by web search (`OTRR_X_Minus_One_Singles`, `OTRR_Dimension_X_Singles`), with file names like `XMinusOne57-01-02082TheMoonIsGreen.mp3` |
+| Unit tests (`qtests`) | pass, 107 cases. New: feed dates read as 20221207; a feed cut to its newest by date, oldest first, numbered by date, `&amp;` in links decoded; a `newest` station downloading the newest from a local feed and deleting the older files and half-downloads but not other files; an item with derived copies listing one episode per recording, Ogg first; matches finding their files whatever their case and punctuation, and leaving alone another item's episodes and a match with no file; the pack listing both stations |
+| The feed | its address is the one podcast directories give for *The Best of Coast to Coast AM* (found by web search) |
 
 **Known gaps (carried forward)**
-- archive.org can't be reached from the build container, so the 18 matches were not checked against the items'
-  actual file lists. A match that doesn't fit is left out and named in `radio log.txt`, so the station plays
-  whatever the rest find. The first run with Wi-Fi will show which, if any, need a new match.
-- No real Coast to Coast AM audio: it isn't free to redistribute.
+- Omny can't be reached from the build container, so the feed itself wasn't read here. The game handles
+  `audio/mpeg` enclosures and up to 8 redirects, which is how podcast hosts serve them. The first run with Wi-Fi
+  will show in Settings and `radio log.txt` whether it arrives.
+- The feed's episodes' sizes weren't checked; 10 episodes of an hour or two are roughly 0.5–1 GB.

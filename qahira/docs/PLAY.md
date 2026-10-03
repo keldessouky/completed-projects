@@ -80,17 +80,17 @@ Andeel's show one episode after another. There is nothing to set up: the game do
 Wi-Fi, in the background, from the [Internet Archive](https://archive.org/details/radiokafrelshikh), and the radio
 comes on as soon as the first one has arrived (a minute or so). Until then the game's own music plays.
 
-A second station, **Midnight Signal AM**, is late-night sci-fi: a man in a bar who says he is the last Martian, a
-saucer that whispers to one woman on a beach, a radio crew sent to meet a ship from space, a phone call from the
-future. It plays 18 half-hour dramas from NBC's *Dimension X* (1950–51) and *X Minus One* (1955–58), which the game
-downloads from the [Old Time Radio Researchers' items](https://archive.org/details/OTRR_X_Minus_One_Singles) on the
-Internet Archive, where both series are listed as public domain.
+A second station, **Coast to Coast AM**, is George Noory's late-night call-in show: aliens, ghosts, Bigfoot,
+prophecy and the people who phone in about them. The game reads the show's own free podcast feed, *The Best of
+Coast to Coast AM*, the way a podcast app does, and keeps the newest 10 episodes: as new ones come out, it
+downloads them and deletes the oldest.
 
 - **Storage:** the episodes go in a `radio` folder in RetroArch's saves folder, about 560 MB for Radio Kafr
-  El-Sheikh's 18 and up to about 250 MB for Midnight Signal AM's.
+  El-Sheikh's 18, and for Coast to Coast AM's 10, roughly 0.5–1 GB (its episodes run an hour or two).
 - **Offline:** what has arrived keeps playing without Wi-Fi. A download that was cut off picks up where it stopped
   the next time the game runs with Wi-Fi.
-- **Order:** Radio Kafr El-Sheikh in the show's own airing order; Midnight Signal AM in its own running order.
+- **Order:** Radio Kafr El-Sheikh in the show's own airing order; Coast to Coast AM by date, the oldest of its 10
+  first.
 - **Which first:** the first episode of every station downloads before the rest, so each station has something to
   play early.
 - **Where it picks up:** each station remembers its own episode and the place in it, so you can tune away and come

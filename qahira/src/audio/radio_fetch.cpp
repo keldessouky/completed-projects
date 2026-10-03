@@ -9,6 +9,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <ctime>
+#include <dirent.h>
 #include <sys/stat.h>
 
 namespace q {
@@ -120,6 +121,7 @@ std::vector<RadioStation> parse_stations(const std::string& text) {
         st.name = s["name"].str_or(Radio::kHome);
         st.archive = s["archive"].str_or("");
         st.rss = s["rss"].str_or("");
+        st.newest = s["newest"].i(0);
         const Json& eps = s["episodes"];
         for (size_t k = 0; k < eps.size(); k++) {
             const Json& e = eps[k];
@@ -188,8 +190,27 @@ void match_episodes(const std::string& item, const std::string& metadata, std::v
     }
 }
 
-std::vector<RadioEpisode> rss_episodes(const std::string& xml) {
+int rss_date(const std::string& text) {
+    static const char* months[] = {"jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"};
+    std::vector<std::string> words;
+    std::string w;
+    for (char ch : text + " ") {
+        if (std::isalnum((unsigned char)ch)) w += char(std::tolower((unsigned char)ch));
+        else if (!w.empty()) { words.push_back(w); w.clear(); }
+        if (words.size() > 4) break;
+    }
+    for (size_t i = 1; i + 1 < words.size(); i++)
+        for (int m = 0; m < 12; m++)
+            if (words[i].compare(0, 3, months[m]) == 0) {
+                const int day = atoi(words[i - 1].c_str()), year = atoi(words[i + 1].c_str());
+                if (day >= 1 && day <= 31 && year >= 1900 && year < 3000) return year * 10000 + (m + 1) * 100 + day;
+            }
+    return 0;
+}
+
+std::vector<RadioEpisode> rss_episodes(const std::string& xml, int newest) {
     std::vector<RadioEpisode> out;
+    std::vector<int> dates;
     size_t p = 0;
     for (;;) {
         const size_t a = xml.find("<item", p);
@@ -204,6 +225,12 @@ std::vector<RadioEpisode> rss_episodes(const std::string& xml) {
             const size_t te = item.find("</title>", t);
             if (t != std::string::npos && te != std::string::npos) ep.title = xml_text(item.substr(t + 1, te - t - 1));
         }
+        int date = 0;
+        if (size_t d = item.find("<pubDate"); d != std::string::npos) {
+            d = item.find('>', d);
+            const size_t de = item.find("</pubDate>", d);
+            if (d != std::string::npos && de != std::string::npos) date = rss_date(item.substr(d + 1, de - d - 1));
+        }
         const size_t e = item.find("<enclosure");
         if (e == std::string::npos) continue;
         const std::string tag = item.substr(e, item.find('>', e) - e);
@@ -212,7 +239,27 @@ std::vector<RadioEpisode> rss_episodes(const std::string& xml) {
         ep.ext = type == "audio/mpeg" || type == "audio/mp3" ? ".mp3"
                  : type == "audio/ogg" || type == "audio/vorbis" ? ".ogg"
                  : type == "audio/wav" || type == "audio/x-wav" ? ".wav" : ext_of(ep.url);
-        if (!ep.url.empty() && playable(ep.ext)) out.push_back(ep);
+        if (!ep.url.empty() && playable(ep.ext)) {
+            out.push_back(ep);
+            dates.push_back(date);
+        }
+    }
+    if (newest > 0) {   // the newest first (by date when every episode has one, else as the feed has them), cut
+        std::vector<size_t> order(out.size());
+        for (size_t i = 0; i < order.size(); i++) order[i] = i;
+        if (std::find(dates.begin(), dates.end(), 0) == dates.end())
+            std::stable_sort(order.begin(), order.end(), [&](size_t a, size_t b) { return dates[a] > dates[b]; });
+        if (order.size() > size_t(newest)) order.resize(size_t(newest));
+        std::vector<RadioEpisode> keep;
+        for (size_t i : order) {
+            keep.push_back(out[i]);
+            keep.back().n = dates[i];
+        }
+        std::reverse(keep.begin(), keep.end());
+        bool dated = true;
+        for (const RadioEpisode& ep : keep) dated = dated && ep.n > 0;
+        if (!dated) for (size_t i = 0; i < keep.size(); i++) keep[i].n = int(i) + 1;
+        return keep;
     }
     std::reverse(out.begin(), out.end());   // feeds put the newest first; a show starts at its beginning
     for (size_t i = 0; i < out.size(); i++) out[i].n = int(i) + 1;
@@ -277,6 +324,25 @@ bool RadioFetch::fetch(const RadioStation& st, const RadioEpisode& ep) {
     return true;
 }
 
+void RadioFetch::prune(const RadioStation& st) {
+    const std::string folder = dir_ + "/" + st.folder();
+    DIR* d = opendir(folder.c_str());
+    if (!d) return;
+    std::vector<std::string> gone;
+    while (dirent* e = readdir(d)) {
+        std::string name = e->d_name;
+        const bool part = name.size() > 5 && name.compare(name.size() - 5, 5, ".part") == 0;
+        if (!playable(ext_of(part ? name.substr(0, name.size() - 5) : name))) continue;
+        const std::string whole = part ? name.substr(0, name.size() - 5) : name;
+        if (std::none_of(st.episodes.begin(), st.episodes.end(), [&](const RadioEpisode& ep) { return ep.file() == whole; }))
+            gone.push_back(name);
+    }
+    closedir(d);
+    for (const std::string& name : gone)
+        if (remove((folder + "/" + name).c_str()) == 0) note(st.name + " / " + name + " is older than its newest " +
+                                                              std::to_string(st.newest) + ": deleted", false);
+}
+
 bool RadioFetch::pass() {
     {
         std::lock_guard<std::mutex> l(m_);
@@ -289,8 +355,10 @@ bool RadioFetch::pass() {
         std::string text, err;
         if (!st.archive.empty() && net::get_text("https://archive.org/metadata/" + st.archive, text, &cancel_, &err))
             st.episodes = archive_episodes(st.archive, text);
-        else if (!st.rss.empty() && net::get_text(st.rss, text, &cancel_, &err))
-            st.episodes = rss_episodes(text);
+        else if (!st.rss.empty() && net::get_text(st.rss, text, &cancel_, &err)) {
+            st.episodes = rss_episodes(text, st.newest);
+            if (st.newest > 0 && !st.episodes.empty()) prune(st);
+        }
         if (st.episodes.empty()) {
             listed = false;
             note(st.name + ": " + (err.empty() ? std::string("no episodes it can play") : err));

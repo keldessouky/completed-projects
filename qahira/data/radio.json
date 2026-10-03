@@ -1,5 +1,5 @@
 {
-  "about": "The radio's stations. The game downloads each station's episodes by itself, over Wi-Fi, into a folder per station beside the saves, and plays them in order. To add a station, add an entry: its name (what the game shows), and where its episodes come from: an Internet Archive item (\"archive\", all its audio, or the \"episodes\" chosen from it by \"file\"), a podcast feed (\"rss\"), or \"episodes\" with a \"url\" each. An episode can name its own \"archive\" item, and a \"match\" in place of a \"file\": a piece of the file's name there (letters and digits, case ignored), for items whose exact names are long. \"n\" is an episode's number in the show; the game plays by it.",
+  "about": "The radio's stations. The game downloads each station's episodes by itself, over Wi-Fi, into a folder per station beside the saves, and plays them in order. To add a station, add an entry: its name (what the game shows), and where its episodes come from: an Internet Archive item (\"archive\", all its audio, or the \"episodes\" chosen from it by \"file\"), a podcast feed (\"rss\"), or \"episodes\" with a \"url\" each. An episode can name its own \"archive\" item, and a \"match\" in place of a \"file\": a piece of the file's name there (letters and digits, case ignored), for items whose exact names are long. A feed's \"newest\" keeps only that many of its newest episodes. \"n\" is an episode's number in the show; the game plays by it.",
   "stations": [
     {
       "name": "Radio Kafr El-Sheikh",
@@ -27,28 +27,10 @@
       ]
     },
     {
-      "name": "Midnight Signal AM",
-      "source": "Late-night sci-fi: strange callers, saucers, men from Mars and broadcasts that should not exist, from NBC's Dimension X (1950-51) and X Minus One (1955-58), as the Old Time Radio Researchers Group put them on the Internet Archive, which lists both series as public domain. Each match is a piece of the episode's file name in its item; one it can't find is left out (the radio log says which).",
-      "episodes": [
-        {"n": 1, "title": "The Last Martian", "archive": "OTRR_X_Minus_One_Singles", "match": "LastMartian"},
-        {"n": 2, "title": "Report on the Barnhouse Effect", "archive": "OTRR_Dimension_X_Singles", "match": "Barnhouse"},
-        {"n": 3, "title": "Pictures Don't Lie", "archive": "OTRR_X_Minus_One_Singles", "match": "PicturesDont"},
-        {"n": 4, "title": "Saucer of Loneliness", "archive": "OTRR_X_Minus_One_Singles", "match": "SaucerOf"},
-        {"n": 5, "title": "Inside Earth", "archive": "OTRR_X_Minus_One_Singles", "match": "InsideEarth"},
-        {"n": 6, "title": "The Parade", "archive": "OTRR_X_Minus_One_Singles", "match": "TheParade"},
-        {"n": 7, "title": "Knock", "archive": "OTRR_Dimension_X_Singles", "match": "Knock"},
-        {"n": 8, "title": "Sam, This Is You", "archive": "OTRR_X_Minus_One_Singles", "match": "SamThis"},
-        {"n": 9, "title": "The Tunnel Under the World", "archive": "OTRR_X_Minus_One_Singles", "match": "TunnelUnder"},
-        {"n": 10, "title": "Mars Is Heaven!", "archive": "OTRR_Dimension_X_Singles", "match": "MarsIsHeaven"},
-        {"n": 11, "title": "Almost Human", "archive": "OTRR_Dimension_X_Singles", "match": "AlmostHuman"},
-        {"n": 12, "title": "The Veldt", "archive": "OTRR_X_Minus_One_Singles", "match": "Veldt"},
-        {"n": 13, "title": "Hostess", "archive": "OTRR_X_Minus_One_Singles", "match": "Hostess"},
-        {"n": 14, "title": "The Discovery of Morniel Mathaway", "archive": "OTRR_X_Minus_One_Singles", "match": "Morniel"},
-        {"n": 15, "title": "A Gun for Dinosaur", "archive": "OTRR_X_Minus_One_Singles", "match": "GunForDinosaur"},
-        {"n": 16, "title": "Nightfall", "archive": "OTRR_X_Minus_One_Singles", "match": "Nightfall"},
-        {"n": 17, "title": "The Outer Limit", "archive": "OTRR_Dimension_X_Singles", "match": "OuterLimit"},
-        {"n": 18, "title": "The Cold Equations", "archive": "OTRR_X_Minus_One_Singles", "match": "ColdEquations"}
-      ]
+      "name": "Coast to Coast AM",
+      "source": "George Noory's late-night call-in show: aliens, ghosts, cryptids, prophecy and the people who call in about them. The game reads the show's own free podcast feed (The Best of Coast to Coast AM, from Premiere Networks and iHeartPodcasts) as any podcast app does, and keeps only the newest 10 episodes, deleting older ones as new ones come.",
+      "rss": "https://www.omnycontent.com/d/playlist/e73c998e-6e60-432f-8610-ae210140c5b1/61c1535a-56bb-431a-ad6b-ae2b00350f5c/b95f0c24-c199-4939-b52c-ae2b00350f65/podcast.rss",
+      "newest": 10
     }
   ]
 }
