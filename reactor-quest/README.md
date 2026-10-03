@@ -55,9 +55,18 @@ Pick one of these. Each one opens the game in your default browser at
   Dock. It opens the game in your browser, runs quietly in the background, and
   quits on its own about a minute after you close the game's tab.
 
-The first time you open the `.command` or the `.app`, macOS may say it's from an
-unidentified developer. **Right-click it and choose Open**, then click **Open**
-again. You only have to do this once.
+If you got the code with `git clone`, macOS opens the `.command` and the `.app`
+you build without complaint. If you downloaded a ZIP instead (of the repository,
+or of the ready-made app from CI), macOS may refuse the first time because it's
+"from an unidentified developer":
+
+- **macOS 15 (Sequoia) or newer:** click **Done** in the warning, open
+  **System Settings → Privacy & Security**, scroll down to the message about
+  Reactor Quest, and click **Open Anyway**.
+- **macOS 14 or older:** right-click the file, choose **Open**, then click
+  **Open** again.
+
+You only have to do this once.
 
 Your progress (stars, XP, achievements, and the code you've typed in every
 level) saves automatically in your browser. Use the same browser each time to

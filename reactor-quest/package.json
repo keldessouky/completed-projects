@@ -5,6 +5,9 @@
   "description": "An interactive game that teaches TypeScript and React: repair a dark space station one typed component at a time, with a real TypeScript compiler and React runtime in the browser.",
   "type": "module",
   "license": "MIT",
+  "engines": {
+    "node": ">=20.19"
+  },
   "scripts": {
     "gen:typings": "node tools/gen-typings.mjs",
     "predev": "npm run gen:typings",
