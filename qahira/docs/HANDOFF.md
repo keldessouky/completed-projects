@@ -107,7 +107,7 @@ already has, what's left, and what's worth knowing before you change anything.
   pictures), published as an Artifact where the owner marks each item Keep, Improve or Redo with a note. The marks
   are in the Artifact's database, collection `reviews`, one document per item (`zone-<id>`, `pin-<zone>`,
   `screen-<name>`, `fx-sheet`). Read them, change the art, capture and build again, and republish to the same
-  Artifact.
+  Artifact: https://claude.ai/artifact/8TnNL1AGKDW65RC9LtfktC (private to the owner).
 
 - **Enum names:** don't name enum values `M_E` and the like; `<math.h>` defines `M_E`. The zone masks are `DIR_N`,
   `DIR_E`, `DIR_S` and `DIR_W` for that reason.
