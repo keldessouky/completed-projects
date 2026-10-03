@@ -1069,12 +1069,22 @@ notes after playing it, taken one at a time.*
   - in a Downtown without a landmark, its first walk met the boss, so the mid-fight save-state check never ran; that
     check now runs in whichever stage the boss is fought.
 
+- **Amm Sayed keeps a weapon for your hand.** The first of his two weapons is always of the kind you are holding,
+  one of the two newest bases of it your level can carry. A class whose skills want one kind of weapon (the
+  Wanderer's quarterstaff, the Ranger's bow) no longer waits on luck for an upgrade.
+- **The bot pilots shop.** Walled (twice dead in a zone, or sent back to gain a level) with dinars in hand, an act
+  bot takes a portal home, buys the best weapon Amm Sayed has that beats the one in hand, wears it and goes back by
+  the waypoint (at most once in three minutes). A weapon now counts as better only for the skill the hand's weapon
+  is rated by; a staff that made a spell strong had replaced the Shadow's dagger after a death and left it at a
+  sixth of its damage.
+
 **Verified**
 
 | Check | Result |
 |---|---|
 | Unit tests (`qtests`) | pass, 104 cases (new: the update reads version.json, installs a newer build from files here, resumes a cut-off download, changes nothing when a download is damaged, and runs in the background; the Game tab asks twice before quitting; the radio coming on by itself when its first episode lands, the pack's station list in airing order, an Internet Archive item and a podcast feed listed, episodes fetched (from local files) and a cut-off one resumed, the radio going on playing as episodes arrive; a station for each folder in the radio folder, each keeping its own place by name, and the Music setting choosing among them; the radio finds its episodes in natural order and streams MP3, Ogg and WAV at 48 kHz, keeps its place and moves on at an episode's end; the settings keep the music and the radio's place and still read v1; the effects sheet's rows match the game's list, a burst's colour picks its flipbook and it draws the same random numbers as before, the flask's tiers, charges, heal and prices climb, the tier in the character file, the Spring affix and the Spring-Water Amulet's regeneration) |
 | Every bot | pass: `walk`, `fight`, `zone` (all seven classes), `sorcerer`, `sky`, `title`, `rifts`, `digs`, `zar`, `king` |
+| The nightly runs | pass, all nineteen: `act1` to `act6` as the Warrior, `act1` as the Wanderer (22 minutes, where it had run out of its 50 on the Traveller's Staff), `act1` and `act3` as the Mercenary, `act2` as the Ranger, `act3` and `act4` as the Shadow, `act5` and `act6` as the Templar, `falak` (Sorcerer and Warrior), `subyan`, `charts` and `reaches` |
 
 | | |
 |---|---|
@@ -1083,11 +1093,8 @@ notes after playing it, taken one at a time.*
 | ![The radio's station card and the M2 hint](img/f5-radio-card.jpg) | ![Settings: Music, and the episodes found](img/f5-radio-settings.jpg) |
 
 **Known gaps (carried forward)**
-- The nightly `act1` as the Wanderer runs out of its 50 minutes: the pilot's Wanderer is too weak for Umm al-Ghula and
-  the Ifrit at level 12 (about 32 DPS on a Traveller's Staff). It already failed that way on the nightly before these
-  changes. Every other long run passes locally: `act1` to `act6` as the Warrior, `act1` and `act3` as the Mercenary,
-  `act2` as the Ranger, `act3` and `act4` as the Shadow, `act5` and `act6` as the Templar, `falak`, `subyan`, `charts`
-  and `reaches`.
+- The nightly workflow runs on `master`, which still holds the merge of the earlier pull request (`1171ec9`), so it
+  goes on failing there (the Wanderer's Act I) until this branch is merged.
 - The first try on the RP6 kept the game's music: the radio never came on, and nothing said why. The next build:
   - shows the reason on screen and in `radio log.txt`;
   - brings its own trusted authorities;

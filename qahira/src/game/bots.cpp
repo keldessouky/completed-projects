@@ -476,6 +476,16 @@ bool Bot::menu_nav(const World& w, const Menu& m, Input& in, uint64_t frame, Reg
     return false;
 }
 
+// A weapon is better only for the same skill: rated against the hand's weapon by the skill that weapon is rated by (a staff
+// that makes a spell strong does nothing for the knife the pilot fights with)
+static bool same_skill_better(const World& w, const Item& cand, const Item& hand, float margin) {
+    const char* now_skill = nullptr;
+    const char* new_skill = nullptr;
+    const float now = w.hero_dps(hand, &now_skill), d = w.hero_dps(cand, &new_skill);
+    if (now_skill && (!new_skill || std::string(now_skill) != new_skill)) return false;
+    return d > now + margin;
+}
+
 bool Bot::loot_and_equip(World& w, Menu& m, Input& in, uint64_t frame) {
     Hero& H = w.hero;
     auto inv_index = [&](uint32_t seed) {
@@ -543,8 +553,7 @@ bool Bot::loot_and_equip(World& w, Menu& m, Input& in, uint64_t frame) {
         // it is compared with the weapon of its own kind, in hand or on the back
         const Item& same = !H.equip[EQ_WEAPON2].empty() && H.equip[EQ_WEAPON2].b().wkind == g.item.b().wkind ? H.equip[EQ_WEAPON2] : H.weapon();
         const uint8_t hk = same.b().wkind, gk = g.item.b().wkind;
-        bool better = g.item.b().slot == Slot::Weapon && w.hero_dps(g.item) > w.hero_dps(same) + 0.5f &&
-                      (hk == gk || (!own(hk) && !own(gk)));
+        bool better = g.item.b().slot == Slot::Weapon && same_skill_better(w, g.item, same, 0.5f) && (hk == gk || (!own(hk) && !own(gk)));
         bool fills = slot > EQ_WEAPON && H.equip[slot].empty();
         if (g.item.b().slot == Slot::Chart) {   // charts are the endgame's currency: always worth the space
             float d = length(g.pos - h.pos);
@@ -1165,6 +1174,47 @@ bool Bot::upgrade(World& w, const Item& it) {
     return up;
 }
 
+// On the rooftop: the best weapon Amm Sayed has for the gold we carry, if it beats the one in hand, bought and worn. Each
+// stock is looked through once (it changes every time we come home).
+bool Bot::shop_weapon(World& w, Menu& m, Areas& a, Input& in, uint64_t frame) {
+    Hero& H = w.hero;
+    if (a.current != AreaId::Hub) return false;
+    if (m.open && m.vendor && !m.dealer) {
+        int want = -1;
+        for (size_t i = 0; i < m.stock.items.size(); i++) if (m.stock.items[i].item.seed == shop_want_) want = int(i);
+        if (want < 0) {   // bought (or gone): leave, and wear it
+            for (auto& e : H.inv.items) if (e.item.seed == shop_want_) equip_target = shop_want_;
+            shop_want_ = 0;
+            if (frame % 4 == 0) press(in, BTN_EAST);
+            return true;
+        }
+        if (++menu_guard > 1200) { shop_want_ = 0; press(in, BTN_EAST); return true; }
+        const InvItem& e = m.stock.items[size_t(want)];
+        if (H.gold < Menu::buy_price(e.item)) { shop_want_ = 0; return true; }
+        if (menu_nav(w, m, in, frame, Region::Stock, e.x, e.y) && frame % 4 == 0) press(in, BTN_SOUTH);
+        return true;
+    }
+    if (m.open || equip_target) return false;
+    if (!shop_want_) {
+        if (m.stock.items.empty() || m.stock.items[0].item.seed == shop_seen_) return false;
+        shop_seen_ = m.stock.items[0].item.seed;
+        const float now = w.hero_dps(H.weapon());
+        float best = now * 1.08f;
+        for (auto& e : m.stock.items) {
+            if (e.item.b().slot != Slot::Weapon || Menu::buy_price(e.item) > H.gold) continue;
+            int x, y;
+            if (!H.inv.find_space(e.item, x, y) || !same_skill_better(w, e.item, H.weapon(), 0.f)) continue;
+            const float d = w.hero_dps(e.item);
+            if (d > best) { best = d; shop_want_ = e.item.seed; }
+        }
+        if (!shop_want_) return false;
+        menu_guard = 0;
+        fprintf(stderr, "bot: shopping for a weapon (%.0f dps against %.0f), %d dinars\n", best, now, H.gold);
+    }
+    if (!go_to_interact(w, in, frame, Interactable::Vendor)) shop_want_ = 0;
+    return true;
+}
+
 void Bot::act1(World& w, Menu& m, Areas& a, Input& in, uint64_t frame) {
     Actor& h = w.actors[0];
     Hero& H = w.hero;
@@ -1285,6 +1335,8 @@ void Bot::act1(World& w, Menu& m, Areas& a, Input& in, uint64_t frame) {
         if (const Ascendancy* asc = ascendancy_of(H.passives.cls, H.ascendancy))
             for (size_t i = 1; i < asc->nodes.size(); i++)
                 if (asc_can_take(*asc, H.asc, int(i))) { H.asc |= 1u << i; w.recompute_hero(); fprintf(stderr, "%s: ascended: %s\n", tag, asc->nodes[i].name); break; }
+    // at home: a better weapon from Amm Sayed, if he has one we can pay for
+    if (shop_weapon(w, m, a, in, frame)) return;
     // screens that open on the way: the bench (look, and leave), the loot menu, the waypoint list
     if (m.open && m.bench) { if (frame % 20 == 0) press(in, BTN_EAST); return; }
     if (m.open || equip_target) { loot_and_equip(w, m, in, frame); return; }
@@ -1296,6 +1348,7 @@ void Bot::act1(World& w, Menu& m, Areas& a, Input& in, uint64_t frame) {
         return;
     }
     bool in_zone = a.current == AreaId::Zone;
+    if (!in_zone) shop_home_ = false;
     if (!in_zone) {   // the rooftop: down the stair to the waypoint list
         go_to_interact(w, in, frame, Interactable::Stair);
         return;
@@ -1341,6 +1394,19 @@ void Bot::act1(World& w, Menu& m, Areas& a, Input& in, uint64_t frame) {
     const ZoneDef& zd = zone_def(a.zone.def);
     const Actor* boss = nullptr;
     for (size_t i = 1; i < w.actors.size(); i++) if (w.actors[i].rarity == Rarity::Unique && w.actors[i].alive()) boss = &w.actors[i];
+    // walled (twice dead here) with dinars in hand: home by portal, to see what Amm Sayed has for us; at most once in
+    // three minutes, and the way back is the waypoint
+    if ((zone_deaths_ >= 2 || grinding) && !shop_home_ && H.gold >= 20 && (shop_frame_ == 0 || frame - shop_frame_ > 60 * 60 * 3)) {
+        bool calm = true;
+        for (size_t i = 1; i < w.actors.size(); i++) if (w.actors[i].alive() && length(w.actors[i].pos - h.pos) < 10.f) calm = false;
+        if (calm) { shop_home_ = true; shop_frame_ = frame; fprintf(stderr, "%s: home to shop, %d dinars\n", tag, H.gold); }
+    }
+    if (shop_home_) {
+        if (combat(w, in, frame, 6.f)) return;
+        if (go_to_interact(w, in, frame, Interactable::Portal)) return;
+        if (frame % 30 == 0) press(in, BTN_UP);
+        return;
+    }
     if (grinding && !boss && a.zone.cleared) {   // swept and its boss dead: that is all this zone has; home, and back again
         bool left = false;
         for (size_t i = 0; i < L.cells.size(); i++) left = left || (!visited_[i] && int(i) != L.arena);

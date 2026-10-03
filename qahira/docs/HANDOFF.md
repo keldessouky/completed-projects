@@ -49,8 +49,9 @@ already has, what's left, and what's worth knowing before you change anything.
 - **The head is green on Linux and in CI** (`.github/workflows/qahira.yml`): the tree validator, shaders, 104 unit
   tests, the build and chart simulators, and the `walk`, `fight`, `zone` (and as the Ranger, the Mercenary, the
   Shadow and the Templar), `sorcerer`, `sky`, `title`, `rifts`, `digs`, `zar`, `king`, `act1`, `act2`, `act3`, `act4`
-  and `act5` bots. Nightly adds `charts`, `reaches`, `act2` as the Ranger, `act1` and `act3` as the Mercenary, `act3`
-  and `act4` as the Shadow, and `act5` as the Templar.
+  and `act5` bots. Nightly adds `charts`, `reaches`, `act2` as the Ranger, `act1` as the Wanderer, `act1` and `act3`
+  as the Mercenary, `act3` and `act4` as the Shadow, and `act5` and `act6` as the Templar; every one of them passes
+  on this branch. The scheduled nightly runs on `master`, which lags until the branch is merged.
 - **Linux:** everything builds and runs there. Blender runs as the `bpy` module (`pip install bpy==5.0.1` into a
   Python 3.11); `tools/pack.py` finds Blender's fonts in the Mac app or the module. Screenshots need a GL context:
   run `qhost --hidden` under Xvfb.

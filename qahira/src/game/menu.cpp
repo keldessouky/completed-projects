@@ -232,6 +232,20 @@ void Menu::hide() {
     held_recipe = -1;
 }
 
+int Menu::hand_base(const Item& weapon, int level, Rng& r) {
+    if (weapon.empty() || weapon.b().slot != Slot::Weapon) return -1;
+    const int kind = weapon.b().wkind;
+    int newest = -1, second = -1;   // by level, of this kind, that this level can carry
+    for (size_t i = 0; i < item_bases().size(); i++) {
+        const ItemBase& b = item_bases()[i];
+        if (b.slot != Slot::Weapon || b.wkind != kind || b.level > level) continue;
+        if (newest < 0 || b.level > item_bases()[size_t(newest)].level) { second = newest; newest = int(i); }
+        else if (second < 0 || b.level > item_bases()[size_t(second)].level) second = int(i);
+    }
+    if (newest < 0) return -1;
+    return second >= 0 && r.chance(0.35f) ? second : newest;
+}
+
 void Menu::restock(World& w) {
     stock.items.clear();
     int lvl = std::max(1, w.hero.level);
@@ -241,6 +255,9 @@ void Menu::restock(World& w) {
         Slot only = i < 2 ? Slot::Weapon : Slot::Count;
         Item it = random_drop(lvl + 1, i == 0 ? 0.35f : 0.08f, 0.75f, r, only);
         if (it.rarity == Rarity::Normal) it = make_item(it.base, Rarity::Magic, it.ilvl, r);
+        // the first is always for the hand you fight with: one of the two newest bases of its kind (a class whose skills
+        // want one kind of weapon would otherwise wait on luck for an upgrade)
+        if (i == 0) if (int b = hand_base(w.hero.weapon(), lvl + 1, r); b >= 0) it = make_item(b, it.rarity, it.ilvl, r);
         stock.add(it);
     }
 }

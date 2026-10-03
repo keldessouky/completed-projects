@@ -117,6 +117,11 @@ private:
     vec2 act_last_pos_;
     int act_goal_ = -1, act_zones_ = 0;
     int zone_deaths_ = 0, grind_zone_ = -1, grind_until_ = 0, last_target_ = -1;
+    // shopping: Amm Sayed's stock last looked through (its first item), the weapon on its way, the last trip home for it
+    uint32_t shop_seen_ = 0, shop_want_ = 0;
+    uint64_t shop_frame_ = 0;
+    bool shop_home_ = false;
+    bool shop_weapon(World& w, Menu& m, Areas& a, Input& in, uint64_t frame);   // true while busy at the vendor
     std::vector<std::pair<uint32_t, bool>> judged_;   // gear already weighed: seed, upgrade?
     bool upgrade(World& w, const Item& it);
     // sky scenario

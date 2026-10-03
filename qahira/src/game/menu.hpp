@@ -65,6 +65,8 @@ struct Menu {
     int hovered_inv(const World& w) const;       // index into hero.inv.items, -1 if none
     int hovered_stock() const;                   // index into stock.items, -1 if none
     static int buy_price(const Item& it) { return std::max(5, sell_price(it) * 4); }
+    // a weapon base for the hand this weapon is in: one of the two newest of its kind up to this level (-1: no weapon)
+    static int hand_base(const Item& weapon, int level, Rng& r);
 
 private:
     float repeat_t_ = 0;
