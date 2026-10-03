@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <string>
 #include <sys/stat.h>
+#include <unistd.h>
 
 using namespace q;
 
@@ -99,6 +100,59 @@ TEST(a_damaged_update_changes_nothing) {
     host.core_asset.clear();
     up.configure(host);
     CHECK(up.state() == Updater::State::Unsupported && !up.check_now());
+}
+
+// RetroArch won't let the core it runs be replaced (here: a folder where the core would go): the new core goes beside
+// the pack for Install or Restore a Core, and the pack waits for it as Qahira.qpk.next
+Updater::Config setup_locked(const std::string& core_dir) {
+    Updater::Config c = setup();
+    const std::string roms = kDir + "/roms";
+    mkdir(roms.c_str(), 0755);
+    for (const char* f : {"/roms/core.so", "/roms/core.so.part", "/roms/Qahira.qpk.part", "/roms/Qahira.qpk.next",
+                          "/roms/Qahira.qpk.next.commit"})
+        remove((kDir + f).c_str());
+    put(roms + "/Qahira.qpk", "OLD PACK");
+    c.pack_path = roms + "/Qahira.qpk";
+    c.core_path = core_dir + "/core.so";
+    return c;
+}
+
+TEST(an_update_that_cant_replace_the_running_core_leaves_it_to_retroarch) {
+    const std::string cores = kDir + "/cores";
+    mkdir(cores.c_str(), 0755);
+    mkdir((cores + "/core.so").c_str(), 0755);   // can't be renamed over
+    put(cores + "/core.so/keep", "x");
+    remove((cores + "/core.so.part").c_str());
+    Updater up;
+    up.configure(setup_locked(cores));
+    CHECK(up.install_now() && up.state() == Updater::State::NeedsCore);
+    CHECK(up.text() == "Downloaded: one step left, below" && up.manual_core() == kDir + "/roms/core.so");
+    CHECK(get(kDir + "/roms/core.so") == "NEW CORE" && !exists(cores + "/core.so.part"));
+    CHECK(get(kDir + "/roms/Qahira.qpk") == "OLD PACK");   // the old core goes on with its own pack
+    CHECK(get(kDir + "/roms/Qahira.qpk.next") == "NEW PACK, A LITTLE LONGER" && get(kDir + "/roms/Qahira.qpk.next.commit") == "new");
+    // asked again, it knows: nothing to download
+    Updater again;
+    again.configure(setup_locked(cores));
+    put(kDir + "/roms/core.so", "NEW CORE");
+    put(kDir + "/roms/Qahira.qpk.next", "NEW PACK, A LITTLE LONGER");
+    put(kDir + "/roms/Qahira.qpk.next.commit", "new");
+    CHECK(again.check_now() && again.state() == Updater::State::NeedsCore && again.manual_core() == kDir + "/roms/core.so");
+    // the old core starting again leaves the pack waiting; the new one puts it in place and tidies up
+    CHECK(!Updater::apply_staged(kDir + "/roms/Qahira.qpk", "old", "core.so") && get(kDir + "/roms/Qahira.qpk") == "OLD PACK");
+    CHECK(Updater::apply_staged(kDir + "/roms/Qahira.qpk", "new", "core.so"));
+    CHECK(get(kDir + "/roms/Qahira.qpk") == "NEW PACK, A LITTLE LONGER" && !exists(kDir + "/roms/Qahira.qpk.next"));
+    CHECK(!exists(kDir + "/roms/Qahira.qpk.next.commit") && !exists(kDir + "/roms/core.so"));
+    CHECK(!Updater::apply_staged(kDir + "/roms/Qahira.qpk", "new", "core.so"));   // nothing waiting
+    remove((cores + "/core.so/keep").c_str());
+    rmdir((cores + "/core.so").c_str());
+}
+
+TEST(an_update_downloads_the_core_beside_the_pack_when_the_cores_folder_is_shut) {
+    Updater up;
+    up.configure(setup_locked(kDir + "/no_such_folder"));
+    CHECK(up.install_now() && up.state() == Updater::State::NeedsCore);
+    CHECK(get(kDir + "/roms/core.so") == "NEW CORE" && !exists(kDir + "/roms/core.so.part"));
+    CHECK(get(kDir + "/roms/Qahira.qpk.next.commit") == "new" && get(kDir + "/roms/Qahira.qpk") == "OLD PACK");
 }
 
 #include "game/menu.hpp"

@@ -1,8 +1,10 @@
 #include "game/updater.hpp"
 #include "core/json.hpp"
 #include "core/log.hpp"
+#include <cerrno>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 #include <sys/stat.h>
 #include <sys/statvfs.h>
 
@@ -30,6 +32,46 @@ std::string dir_of(const std::string& p) {
 }
 
 std::string mb(uint64_t bytes) { return std::to_string((bytes + 500000) / 1000000) + " MB"; }
+
+bool exists(const std::string& p) {
+    struct stat st {};
+    return stat(p.c_str(), &st) == 0;
+}
+
+std::string read_text(const std::string& path) {
+    std::string s;
+    if (FILE* f = fopen(path.c_str(), "rb")) {
+        char b[256];
+        for (size_t n; (n = fread(b, 1, sizeof b, f)) > 0;) s.append(b, n);
+        fclose(f);
+    }
+    return s;
+}
+
+bool write_text(const std::string& path, const std::string& text) {
+    FILE* f = fopen(path.c_str(), "wb");
+    if (!f) return false;
+    const bool ok = fwrite(text.data(), 1, text.size(), f) == text.size();
+    return fclose(f) == 0 && ok;
+}
+
+// a rename, or (between file systems: the cores folder and the SD card) a copy and a delete
+bool move_file(const std::string& from, const std::string& to, std::string& err) {
+    if (rename(from.c_str(), to.c_str()) == 0) return true;
+    FILE* in = fopen(from.c_str(), "rb");
+    FILE* out = in ? fopen((to + ".part").c_str(), "wb") : nullptr;
+    bool ok = in && out;
+    if (!ok) err = strerror(errno);
+    static thread_local char buf[1 << 16];
+    for (size_t n; ok && (n = fread(buf, 1, sizeof buf, in)) > 0;)
+        if (fwrite(buf, 1, n, out) != n) { ok = false; err = "the card is full"; }
+    if (in) fclose(in);
+    if (out && fclose(out) != 0 && ok) { ok = false; err = strerror(errno); }
+    if (ok && rename((to + ".part").c_str(), to.c_str()) != 0) { ok = false; err = strerror(errno); }
+    if (!ok) { remove((to + ".part").c_str()); return false; }
+    remove(from.c_str());
+    return true;
+}
 
 }  // namespace
 
@@ -99,6 +141,24 @@ int Updater::available_run() const {
     return info_.run;
 }
 
+bool Updater::apply_staged(const std::string& pack_path, const std::string& commit, const std::string& core_asset) {
+    const std::string next = pack_path + ".next";
+    if (!exists(next) || read_text(next + ".commit") != commit) return false;
+    if (rename(next.c_str(), pack_path.c_str()) != 0) {
+        QLOG("update: can't put the new pack in place: %s", strerror(errno));
+        return false;
+    }
+    remove((next + ".commit").c_str());
+    if (!core_asset.empty()) remove((dir_of(pack_path) + "/" + core_asset).c_str());   // installed: the copy can go
+    QLOG("update: the pack for %s is in place", commit.c_str());
+    return true;
+}
+
+std::string Updater::manual_core() const {
+    std::lock_guard<std::mutex> l(m_);
+    return manual_;
+}
+
 std::string Updater::build() const {
     return "Build " + (cfg_.run ? std::to_string(cfg_.run) : std::string("dev")) + " (" + cfg_.commit.substr(0, 7) + ")";
 }
@@ -114,6 +174,7 @@ std::string Updater::text() const {
         case State::Available: return "Download the update: build " + std::to_string(info_.run) + ", " + mb(total);
         case State::Downloading: return "Downloading the update: " + std::to_string(int(progress_ * 100)) + "%";
         case State::Installed: return "Installed. Exit and start the game again";
+        case State::NeedsCore: return "Downloaded: one step left, below";
         case State::Failed: return "Update failed: " + error_;
         case State::Unsupported: return "Updates are for the RP6's core";
     }
@@ -147,6 +208,14 @@ bool Updater::check_now() {
         info_ = info;
     }
     state_ = info.commit == cfg_.commit ? State::UpToDate : State::Available;
+    // already downloaded, waiting for the player to install the core
+    const std::string beside = dir_of(cfg_.pack_path) + "/" + cfg_.core_asset;
+    if (state_ == State::Available && read_text(cfg_.pack_path + ".next.commit") == info.commit && exists(cfg_.pack_path + ".next") &&
+        sha256_file(beside) == info.file(cfg_.core_asset)->sha256) {
+        std::lock_guard<std::mutex> l(m_);
+        manual_ = beside;
+        state_ = State::NeedsCore;
+    }
     QLOG("update: this build %s, the release %s (run %d)", cfg_.commit.c_str(), info.commit.c_str(), info.run);
     return true;
 }
@@ -195,8 +264,13 @@ bool Updater::install_now() {
     }
     const UpdateFile& core = *info.file(cfg_.core_asset);
     const UpdateFile& pack = *info.file("Qahira.qpk");
-    // room for both beside the ones in use
-    for (const auto& [f, target] : {std::pair{&core, cfg_.core_path}, std::pair{&pack, cfg_.pack_path}}) {
+    // the core downloads beside the one in use, or (where RetroArch's cores folder can't be written) beside the pack
+    const std::string beside = dir_of(cfg_.pack_path) + "/" + cfg_.core_asset;
+    std::string core_dl = cfg_.core_path;
+    if (FILE* t = fopen((cfg_.core_path + ".part").c_str(), "ab")) fclose(t);
+    else core_dl = beside;
+    // room for both
+    for (const auto& [f, target] : {std::pair{&core, core_dl}, std::pair{&pack, cfg_.pack_path}}) {
         struct statvfs vs {};
         const uint64_t need = f->size - std::min(f->size, file_size(target + ".part"));
         if (statvfs(dir_of(target).c_str(), &vs) == 0 && uint64_t(vs.f_bavail) * vs.f_frsize < need + (8u << 20)) {
@@ -207,25 +281,47 @@ bool Updater::install_now() {
     state_ = State::Downloading;
     progress_ = 0;
     const uint64_t total = core.size + pack.size;
-    if (!fetch(core, cfg_.core_path, 0, total) || !fetch(pack, cfg_.pack_path, core.size, total)) {
+    if (!fetch(core, core_dl, 0, total) || !fetch(pack, cfg_.pack_path, core.size, total)) {
         if (cancel_.stop) state_ = State::Available;
         return false;
     }
-    // both here and sound: the core first (the old one kept until the pack is in), then the pack
-    const std::string old = cfg_.core_path + ".old";
-    remove(old.c_str());
-    if (rename(cfg_.core_path.c_str(), old.c_str()) != 0 || rename((cfg_.core_path + ".part").c_str(), cfg_.core_path.c_str()) != 0) {
-        rename(old.c_str(), cfg_.core_path.c_str());
-        fail("can't replace the core in " + dir_of(cfg_.core_path));
-        return false;
+    // both here and sound. The core: a rename over the one in use, which RetroArch goes on running from memory.
+    const std::string next = cfg_.pack_path + ".next";
+    remove((cfg_.core_path + ".old").c_str());   // an older build's way of doing it
+    if (rename((core_dl + ".part").c_str(), cfg_.core_path.c_str()) != 0) {
+        // not allowed here (Android may refuse to touch the core RetroArch is running): the player installs it
+        // with RetroArch's own Install or Restore a Core, from beside the pack, and the pack waits for it
+        const std::string why = strerror(errno);
+        QLOG("update: can't replace the core in use (%s); it goes to %s", why.c_str(), beside.c_str());
+        std::string err;
+        if (!move_file(core_dl + ".part", beside, err)) {
+            fail("can't replace the core (" + why + ") or put it in " + dir_of(beside) + " (" + err + ")");
+            return false;
+        }
+        remove(next.c_str());
+        if (rename((cfg_.pack_path + ".part").c_str(), next.c_str()) != 0 || !write_text(next + ".commit", info.commit)) {
+            fail("can't keep the new pack in " + dir_of(next) + " (" + strerror(errno) + ")");
+            return false;
+        }
+        {
+            std::lock_guard<std::mutex> l(m_);
+            manual_ = beside;
+        }
+        progress_ = 1;
+        state_ = State::NeedsCore;
+        QLOG("update: run %d (%s) downloaded; the core waits in %s", info.run, info.commit.c_str(), beside.c_str());
+        return true;
     }
+    // the pack: in place now, or (if it can't be) when the new core starts
     if (rename((cfg_.pack_path + ".part").c_str(), cfg_.pack_path.c_str()) != 0) {
-        rename(cfg_.core_path.c_str(), (cfg_.core_path + ".part").c_str());   // the new core waits for its pack
-        rename(old.c_str(), cfg_.core_path.c_str());
-        fail("can't replace the pack in " + dir_of(cfg_.pack_path));
-        return false;
+        const std::string why = strerror(errno);
+        remove(next.c_str());
+        if (rename((cfg_.pack_path + ".part").c_str(), next.c_str()) != 0 || !write_text(next + ".commit", info.commit)) {
+            fail("can't replace the pack in " + dir_of(cfg_.pack_path) + " (" + why + ")");
+            return false;
+        }
+        QLOG("update: can't replace the pack (%s); the new core puts it in place when it starts", why.c_str());
     }
-    remove(old.c_str());
     progress_ = 1;
     state_ = State::Installed;
     QLOG("update: installed run %d (%s)", info.run, info.commit.c_str());

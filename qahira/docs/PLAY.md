@@ -241,10 +241,21 @@ so any combination also reaches the game. Pick one you won't press during play.
    nothing.
 4. When the row says **Installed**, choose **Exit the game** and start the game again. If the Game tab still shows
    the old build number, close RetroArch completely (swipe it away) and open it again.
+5. Some RetroArch builds don't let a game replace the core RetroArch is running. Then the row says **Downloaded:
+   one step left** and shows the step:
+   1. Choose **Exit the game**.
+   2. In RetroArch: **Main Menu → Load Core → Install or Restore a Core**, and pick `qahira_libretro_android.so`
+      in the pack's folder (e.g. `ROMs/Qahira`), where the update put it.
+   3. Load `Qahira.qpk` as usual.
 
-The update needs room for a second copy of the pack (about 200 MB). It also needs RetroArch to be allowed to write
-where the core and the pack are, which it normally is. If it can't, the Update row says why, and the steps below
-still work.
+   The new pack waits beside the old one as `Qahira.qpk.next`. The new core puts it in place when it starts, and
+   deletes the `.so` copy. Until you install the new core, the old core goes on running with its own pack.
+
+The update needs room for a second copy of the pack (about 200 MB). If something else goes wrong, the Update row
+says why, and the steps below still work.
+
+**Builds from before 4 October 2026** have the older updater, which stops with an error when it can't replace the
+running core. Update by hand once (below); the build you get from that has the new updater.
 
 **By hand:**
 
