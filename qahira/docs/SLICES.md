@@ -1078,6 +1078,11 @@ notes after playing it, taken one at a time.*
   is rated by; a staff that made a spell strong had replaced the Shadow's dagger after a death and left it at a
   sixth of its damage.
 
+- **An art review, ready for the owner:** the `gallery` bot poses every zone (the street, then the far court in a
+  fight, each act with its own class), the rooftop and every screen, and the three pinnacles with their uber
+  versions; `tools/review/` turns the pictures into a review page published as an Artifact, where each of its 58
+  items is marked Keep, Improve or Redo with a note, saved in the Artifact's database for Claude to act on.
+
 **Verified**
 
 | Check | Result |

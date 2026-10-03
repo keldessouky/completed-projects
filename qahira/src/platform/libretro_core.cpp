@@ -1,4 +1,5 @@
 // libretro entry points: this is what RetroArch loads on the RP6.
+#include <cstdlib>
 #include "libretro.h"
 #include "platform/app_api.hpp"
 #include "core/log.hpp"
@@ -278,7 +279,14 @@ RETRO_API void retro_run(void) {
     }
     if (app_exit_requested() && !g_shutdown_asked) g_shutdown_asked = env_cb(RETRO_ENVIRONMENT_SHUTDOWN, nullptr);   // Game → Exit
 
-    if (gpu_ready) {
+    // QAHIRA_DRAW_EVERY=N (the dev host's picture runs only): draw every Nth frame and repeat the last in between, so a
+    // run that keeps one picture in N doesn't pay for the other N-1 on a software renderer
+    static const int draw_every = [] { const char* e = getenv("QAHIRA_DRAW_EVERY"); return e ? std::max(1, atoi(e)) : 1; }();
+    static unsigned long long run_n = 0;
+    const bool draw = ++run_n % unsigned(draw_every) == 0;
+    if (gpu_ready && !draw) {
+        video_cb(nullptr, kW, kH, 0);
+    } else if (gpu_ready) {
         app_render(GLuint(hw.get_current_framebuffer()), kW, kH);
         video_cb(RETRO_HW_FRAME_BUFFER_VALID, kW, kH, 0);
     } else if (video_cb) {

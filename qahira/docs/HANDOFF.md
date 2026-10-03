@@ -101,6 +101,14 @@ already has, what's left, and what's worth knowing before you change anything.
 
 ## Things worth knowing
 
+- **The art review.** `tools/review/capture.sh` runs the `gallery` bot seven times (each act with its own class, then
+  the rooftop, every screen and the pinnacles), off-screen, about a minute in all: `QAHIRA_DRAW_EVERY=130` has the
+  core draw only the frames it keeps. `python3 tools/review/build.py` makes `build/review/` (the page and its
+  pictures), published as an Artifact where the owner marks each item Keep, Improve or Redo with a note. The marks
+  are in the Artifact's database, collection `reviews`, one document per item (`zone-<id>`, `pin-<zone>`,
+  `screen-<name>`, `fx-sheet`). Read them, change the art, capture and build again, and republish to the same
+  Artifact.
+
 - **Enum names:** don't name enum values `M_E` and the like; `<math.h>` defines `M_E`. The zone masks are `DIR_N`,
   `DIR_E`, `DIR_S` and `DIR_W` for that reason.
 - **macOS sed:** BSD `sed` has no `\b`. Use Python for word-boundary renames.

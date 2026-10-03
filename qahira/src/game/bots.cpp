@@ -40,6 +40,7 @@ void Bot::drive(World& w, Menu& m, Areas& a, Input& in, uint64_t frame) {
     else if (scenario == "tour10") tour10(w, m, a, in, frame);
     else if (scenario == "tour11") tour11(w, m, a, in, frame);
     else if (scenario == "tour12") tour12(w, m, a, in, frame);
+    else if (scenario == "gallery") gallery(w, m, a, in, frame);
     else fail("unknown bot " + scenario);
 }
 
@@ -1486,6 +1487,105 @@ void Bot::tour5(World& w, Areas& a, Input& in, uint64_t frame) {
             if (w.actors[i].rarity != Rarity::Unique && length(w.actors[i].pos - h.pos) < 14.f) w.actors[i].life = 0, w.actors[i].act = Act::Dead, w.actors[i].dead_t = 3;
     }
     if (t > 120) combat(w, in, frame, 30.f);
+}
+
+// ---------------------------------------------------------------- gallery: the art, posed for review
+// Not a test: a fixed schedule of poses, one picture each, for the art review page. Run it with --hidden and
+// --shot-every 130; every pose ends on a multiple of 130 frames, and stderr names it ("gallery: <frame> <kind> <id>").
+//   QAHIRA_GALLERY=1..6   that act's zones: each walked into (a street picture), then its far court and boss in a
+//                         fight (a second picture); run each with its own class (QAHIRA_CLASS) to show them all
+//   QAHIRA_GALLERY=end    the rooftop, every menu and screen, then the pinnacles' courts and bosses
+void Bot::gallery(World& w, Menu& m, Areas& a, Input& in, uint64_t frame) {
+    constexpr uint64_t P = 130;
+    Hero& H = w.hero;
+    Actor& h = w.actors[0];
+    const char* part = getenv("QAHIRA_GALLERY");
+    const std::string which = part ? part : "1";
+    auto name = [&](uint64_t f, const char* kind, const std::string& id) {
+        fprintf(stderr, "gallery: %llu %s %s\n", (unsigned long long)f, kind, id.c_str());
+    };
+    h.life = h.life_max;   // nothing dies here but monsters, and skills never run dry
+    h.mana = h.mana_max;
+    if (frame == 1) {
+        Rng r(77);
+        H.level = which == "end" ? 40 : 10 * std::max(1, atoi(which.c_str()));
+        H.gold = 4000;
+        for (int c = CUR_KHAMSA; c < CUR_COUNT; c++) H.currency[c] = 1 + c % 4;
+        for (int e = EQ_HELMET; e < EQ_COUNT; e++)   // dressed, so the doll and the sheet have something to show
+            if (H.equip[e].empty() && e != EQ_WEAPON2) H.equip[e] = random_drop(H.level, 0.5f, 0.5f, r, e == EQ_HELMET ? Slot::Helmet
+                : e == EQ_BODY ? Slot::Body : e == EQ_GLOVES ? Slot::Gloves : e == EQ_BOOTS ? Slot::Boots : e == EQ_BELT ? Slot::Belt
+                : e == EQ_AMULET ? Slot::Amulet : Slot::Ring);
+        for (int k = 0; k < 6; k++) H.inv.add(random_drop(H.level, 0.4f, 0.5f, r, Slot::Count));
+        if (const auto* rec = tree().recommended_for(H.passives.cls)) for (int t : *rec) plan_to(H, t);
+        for (int k = 0; k < 40 && H.passive_points() > 0; k++) if (place_next_planned(w) < 0) break;
+        if (H.ascendancy < 0 && !ascendancies_of(H.passives.cls).empty()) H.ascendancy = int8_t(ascendancies_of(H.passives.cls)[0]);
+        if (ascendancy_of(H.passives.cls, H.ascendancy)) H.asc = 0x1E;
+        H.codex = 0xFFFFFFFFFFFFFFFFull;
+        w.recompute_hero();
+        if (which != "end")
+            for (size_t i = 0; i < zone_defs().size(); i++) if (zone_defs()[i].act == atoi(which.c_str())) gallery_zones_.push_back(int(i));
+    }
+    if (which != "end") {   // a zone in two pictures: the street, then the far court with its boss in a fight
+        const uint64_t k = (frame - 1) / (2 * P), t = (frame - 1) % (2 * P);
+        if (k >= gallery_zones_.size()) { pass("gallery done"); return; }
+        const ZoneDef& zd = zone_defs()[size_t(gallery_zones_[k])];
+        if (t == 0) {
+            a.enter_zone(w, gallery_zones_[k], Arrival::Entrance);
+            w.level.bind_gpu();
+            name(k * 2 * P + P, "street", zd.id);
+            name(k * 2 * P + 2 * P, "court", zd.id);
+        }
+        if (t < 90) { in.lstick = {0, 0.4f}; return; }
+        if (t < P) { combat(w, in, frame, 9.f); return; }
+        const ZoneLayout& L = a.zone.layout;
+        if (t == P) {   // on to the far court, the crowd on the way left behind
+            h.pos = w.level.resolve(L.center(L.cells[size_t(L.arena)]) + vec2{0, -5.f}, h.radius);
+            for (size_t i = 1; i < w.actors.size(); i++)
+                if (w.actors[i].rarity != Rarity::Unique && length(w.actors[i].pos - h.pos) < 14.f) w.actors[i].life = 0, w.actors[i].act = Act::Dead, w.actors[i].dead_t = 3;
+        }
+        if (t > P + 10) combat(w, in, frame, 30.f);
+        return;
+    }
+    // the rooftop and the screens: one pose each, set up early in its slot and pictured at its end
+    const uint64_t k = (frame - 1) / P, t = (frame - 1) % P;
+    static const char* screens[] = {"rooftop", "inventory", "talismans", "character", "ascendancy", "journal", "settings", "game",
+                                    "vendor", "bench", "dealer", "stars", "map", "title"};
+    const uint64_t ns = sizeof screens / sizeof *screens;
+    if (k < ns) {
+        if (t != 4) return;
+        const std::string sc = screens[k];
+        name((k + 1) * P, "screen", sc);
+        m.hide();
+        if (sky_ui) sky_ui->open = false;
+        if (map_ui) map_ui->open = false;
+        if (sc == "inventory") { m.show(w, false); m.tab = MenuTab::Inventory; }
+        else if (sc == "talismans") { m.show(w, false); m.tab = MenuTab::Talismans; }
+        else if (sc == "character") { m.show(w, false); m.tab = MenuTab::Character; }
+        else if (sc == "ascendancy") { m.show(w, false); m.tab = MenuTab::Ascendancy; }
+        else if (sc == "journal") { m.show(w, false); m.tab = MenuTab::Journal; }
+        else if (sc == "settings") { m.show(w, false); m.tab = MenuTab::Settings; }
+        else if (sc == "game") { m.show(w, false); m.tab = MenuTab::Game; }
+        else if (sc == "vendor") m.show(w, true);
+        else if (sc == "bench") m.show_bench(w);
+        else if (sc == "dealer") { m.show(w, true); m.dealer = true; m.restock_dealer(w); }
+        else if (sc == "stars" && sky_ui) sky_ui->show(w);
+        else if (sc == "map" && map_ui) map_ui->show(w);
+        else if (sc == "title" && title_ui) { title_ui->scan(save_dir); title_ui->open = true; }
+        return;
+    }
+    if (title_ui) title_ui->open = false;
+    // the pinnacles: each court on arrival, then its boss in a fight
+    const uint64_t j = (k - ns) / 2, u = (frame - 1) - (ns + 2 * j) * P;
+    if (j >= PIN_COUNT) { pass("gallery done"); return; }
+    if (u == 0) {
+        m.hide();
+        a.enter_pinnacle(w, int(j));
+        w.level.bind_gpu();
+        name((ns + 2 * j + 1) * P, "court", pinnacle_def(int(j)).zone + std::string(j % 2 ? "-uber" : ""));
+        name((ns + 2 * j + 2) * P, "boss", pinnacle_def(int(j)).boss + std::string(j % 2 ? "-uber" : ""));
+    }
+    if (u < P - 30) { in.lstick = {0, 0.3f}; return; }
+    combat(w, in, frame, 40.f);
 }
 
 // ---------------------------------------------------------------- charts: the endgame loop, from where Act I ends
