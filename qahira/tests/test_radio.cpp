@@ -165,7 +165,7 @@ static std::string slurp(const std::string& p) {
 
 TEST(the_pack_lists_radio_kafr_el_sheikh) {
     const auto st = parse_stations(slurp(std::string(QAHIRA_SOURCE_DIR) + "/data/radio.json"));
-    CHECK(st.size() == 1 && st[0].name == Radio::kHome && st[0].folder() == "Radio Kafr El-Sheikh");
+    CHECK(st.size() == 2 && st[0].name == Radio::kHome && st[0].folder() == "Radio Kafr El-Sheikh");
     CHECK(st[0].episodes.size() == 18);
     const RadioEpisode& e = st[0].episodes[0];
     CHECK(e.n == 2 && e.ext == ".mp3" && e.file() == "2 - \xD8\xA7\xD9\x84\xD8\xAD\xD9\x84\xD9\x82\xD8\xA9 \xD8\xA7\xD9\x84\xD8\xAB\xD8\xA7\xD9\x86\xD9\x8A\xD8\xA9.mp3");
@@ -178,6 +178,48 @@ TEST(the_pack_lists_radio_kafr_el_sheikh) {
     std::vector<std::string> names;
     for (const auto& ep : st[0].episodes) names.push_back(ep.file());
     for (size_t i = 0; i + 1 < names.size(); i++) CHECK(Radio::natural_less(names[i], names[i + 1]));
+    // the sci-fi station: every episode named by a piece of its file name in one of two items, found when it fetches
+    const RadioStation& sf = st[1];
+    CHECK(sf.name == "Midnight Signal AM" && sf.archive.empty() && sf.episodes.size() == 18);
+    for (size_t i = 0; i < sf.episodes.size(); i++) {
+        const RadioEpisode& ep = sf.episodes[i];
+        CHECK(ep.n == int(i) + 1 && ep.url.empty() && !ep.match.empty() && !ep.title.empty());
+        CHECK(ep.archive == "OTRR_X_Minus_One_Singles" || ep.archive == "OTRR_Dimension_X_Singles");
+    }
+    CHECK(sf.episodes[0].match == "lastmartian" && sf.episodes[2].match == "picturesdont");
+}
+
+TEST(the_radio_finds_episodes_by_a_piece_of_their_name) {
+    // an item with the Archive's derived copies: each recording is one episode, as Ogg when there is one
+    const char* meta = R"({"files": [
+        {"name": "XMinusOne56-08-07067TheLastMartian.mp3", "source": "original"},
+        {"name": "XMinusOne56-08-07067TheLastMartian_64kb.mp3", "source": "derivative", "original": "XMinusOne56-08-07067TheLastMartian.mp3"},
+        {"name": "XMinusOne56-10-24076PicturesDontLie.mp3", "source": "original"},
+        {"name": "XMinusOne56-10-24076PicturesDontLie_64kb.mp3", "source": "derivative", "original": "XMinusOne56-10-24076PicturesDontLie.mp3"},
+        {"name": "XMinusOne56-10-24076PicturesDontLie.ogg", "source": "derivative", "original": "XMinusOne56-10-24076PicturesDontLie.mp3"},
+        {"name": "XMinusOne57-01-09085SaucerOfLonliness.mp3", "source": "original"},
+        {"name": "XMinusOne57-09-05120SaucerOfLoneliness.mp3", "source": "original"},
+        {"name": "XMinusOne.jpg", "source": "original"}]})";
+    const auto all = archive_episodes("xm", meta);
+    CHECK(all.size() == 4 && all[0].title == "XMinusOne56-08-07067TheLastMartian" && all[0].ext == ".mp3");
+    CHECK(all[0].url == "https://archive.org/download/xm/XMinusOne56-08-07067TheLastMartian.mp3");
+    CHECK(all[1].ext == ".ogg" && all[1].url == "https://archive.org/download/xm/XMinusOne56-10-24076PicturesDontLie.ogg");
+    const auto st = parse_stations(R"({"stations": [{"name": "Sci-Fi", "archive": "xm", "episodes": [
+        {"n": 1, "title": "The Last Martian", "match": "Last Martian"},
+        {"n": 2, "title": "Pictures Don't Lie", "match": "picturesdont"},
+        {"n": 3, "title": "Saucer of Loneliness", "match": "SaucerOf"},
+        {"n": 4, "title": "Elsewhere", "archive": "dx", "match": "Knock"},
+        {"n": 5, "title": "Missing", "match": "NoSuchShow"},
+        {"n": 6, "title": "By file", "archive": "dx", "file": "Knock.mp3"},
+        {"n": 7, "title": "Nothing to find by"}]}]})");
+    CHECK(st.size() == 1 && st[0].episodes.size() == 6);   // the last names no file, link or match
+    auto eps = st[0].episodes;
+    CHECK(eps[3].archive == "dx" && eps[5].url == "https://archive.org/download/dx/Knock.mp3");
+    match_episodes("xm", meta, eps);
+    CHECK(eps[0].url == all[0].url && eps[0].ext == ".mp3" && eps[0].file() == "1 - The Last Martian.mp3");
+    CHECK(eps[1].url == all[1].url && eps[1].file() == "2 - Pictures Don't Lie.ogg");
+    CHECK(eps[2].url == "https://archive.org/download/xm/XMinusOne57-01-09085SaucerOfLonliness.mp3");   // the first broadcast
+    CHECK(eps[3].url.empty() && eps[4].url.empty());   // another item's, and one the item hasn't got
 }
 
 TEST(the_radio_lists_an_archive_item_and_a_feed) {

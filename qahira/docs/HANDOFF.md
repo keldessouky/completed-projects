@@ -15,7 +15,9 @@ already has, what's left, and what's worth knowing before you change anything.
   regenerates life, and the spells are pixel-art flipbooks (`tools/fx/fx_atlas.py`, packed as `textures/fx.qtex`)
   instead of glowing discs. Radio Kafr El-Sheikh (Mohamed Andeel's show) replaces the music. The game
   downloads the episodes itself from the Internet Archive into the saves folder (`audio/radio_fetch.*`, over
-  `net/http.*` with Mbed TLS). The stations are listed in `data/radio.json`, and adding one is adding an entry. Each
+  `net/http.*` with Mbed TLS). The stations are listed in `data/radio.json`, and adding one is adding an entry. Besides Radio Kafr
+  El-Sheikh, there is Midnight Signal AM: 18 old-time sci-fi dramas, each named by a `match`, a piece of its file
+  name in its Internet Archive item, which the fetcher looks up when it runs. Each
   folder in `radio` is a station; R3 taps to the next station and holds for the next episode. The menu's Game tab
   resumes, updates the game in place from the qahira-latest release (`game/updater.*`, reading the `version.json`
   that CI publishes), quits to the title and exits.

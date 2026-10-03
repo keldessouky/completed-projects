@@ -51,6 +51,14 @@ std::string ext_of(const std::string& name) {
 
 bool playable(const std::string& ext) { return ext == ".mp3" || ext == ".ogg" || ext == ".wav"; }
 
+// letters and digits only, lower case: "Pictures Don't Lie" and "PicturesDontLie" are the same
+std::string squash(const std::string& s) {
+    std::string out;
+    for (char c : s)
+        if (std::isalnum((unsigned char)c)) out += char(std::tolower((unsigned char)c));
+    return out;
+}
+
 std::string xml_text(std::string s) {
     size_t a = s.find("<![CDATA[");
     if (a != std::string::npos) {
@@ -119,11 +127,13 @@ std::vector<RadioStation> parse_stations(const std::string& text) {
             ep.n = e["n"].i(0);
             const std::string file = e["file"].str_or("");
             ep.url = e["url"].str_or("");
-            if (ep.url.empty() && !file.empty() && !st.archive.empty())
-                ep.url = "https://archive.org/download/" + st.archive + "/" + net::encode_path(file);
+            ep.archive = e["archive"].str_or(st.archive.c_str());
+            ep.match = squash(e["match"].str_or(""));
+            if (ep.url.empty() && !file.empty() && !ep.archive.empty())
+                ep.url = "https://archive.org/download/" + ep.archive + "/" + net::encode_path(file);
             ep.ext = ext_of(file.empty() ? ep.url : file);
-            ep.title = e["title"].str_or(file.empty() ? "" : file.substr(0, file.size() - ep.ext.size()).c_str());
-            if (!ep.url.empty() && playable(ep.ext)) st.episodes.push_back(ep);
+            ep.title = e["title"].str_or(file.empty() ? ep.match.c_str() : file.substr(0, file.size() - ep.ext.size()).c_str());
+            if (!ep.url.empty() ? playable(ep.ext) : !ep.match.empty() && !ep.archive.empty()) st.episodes.push_back(ep);
         }
         out.push_back(st);
     }
@@ -131,7 +141,7 @@ std::vector<RadioStation> parse_stations(const std::string& text) {
 }
 
 std::vector<RadioEpisode> archive_episodes(const std::string& item, const std::string& metadata) {
-    struct F { std::string base, name, ext; int track; };
+    struct F { std::string base, name, ext; int track, rank; };   // rank: 0 Ogg, 1 the MP3 uploaded, 2 a derived MP3
     std::vector<F> files;
     const Json j = Json::parse(metadata);
     const Json& fs = j["files"];
@@ -139,13 +149,17 @@ std::vector<RadioEpisode> archive_episodes(const std::string& item, const std::s
         const std::string name = fs[i]["name"].str_or("");
         const std::string ext = ext_of(name);
         if (ext != ".mp3" && ext != ".ogg") continue;
-        const std::string base = name.substr(0, name.size() - ext.size());
+        // a derived copy ("x_64kb.mp3", "x.ogg") is the recording it was made from
+        const std::string original = fs[i]["source"].str_or("") == "derivative" ? fs[i]["original"].str_or("") : "";
+        const std::string from = playable(ext_of(original)) ? original : name;
+        const std::string base = from.substr(0, from.size() - ext_of(from).size());
+        const int rank = ext == ".ogg" ? 0 : from == name ? 1 : 2;
         const Json& tr = fs[i]["track"];
         const int track = tr.type == Json::String ? atoi(tr.str().c_str()) : tr.i(0);
         auto it = std::find_if(files.begin(), files.end(), [&](const F& f) { return f.base == base; });
-        if (it == files.end()) files.push_back({base, name, ext, track});
+        if (it == files.end()) files.push_back({base, name, ext, track, rank});
         else {
-            if (ext == ".ogg") { it->name = name; it->ext = ext; }   // the smaller of the two
+            if (rank < it->rank) { it->name = name; it->ext = ext; it->rank = rank; }   // Ogg is the smaller
             if (track) it->track = track;
         }
     }
@@ -156,8 +170,22 @@ std::vector<RadioEpisode> archive_episodes(const std::string& item, const std::s
     });
     std::vector<RadioEpisode> out;
     for (const F& f : files)
-        out.push_back({int(out.size()) + 1, f.base, "https://archive.org/download/" + item + "/" + net::encode_path(f.name), f.ext});
+        out.push_back({int(out.size()) + 1, f.base, "https://archive.org/download/" + item + "/" + net::encode_path(f.name), f.ext,
+                       item, ""});
     return out;
+}
+
+void match_episodes(const std::string& item, const std::string& metadata, std::vector<RadioEpisode>& episodes) {
+    const std::vector<RadioEpisode> all = archive_episodes(item, metadata);
+    for (RadioEpisode& ep : episodes) {
+        if (!ep.url.empty() || ep.match.empty() || ep.archive != item) continue;
+        for (const RadioEpisode& a : all)
+            if (squash(a.title).find(ep.match) != std::string::npos) {
+                ep.url = a.url;
+                ep.ext = a.ext;
+                break;
+            }
+    }
 }
 
 std::vector<RadioEpisode> rss_episodes(const std::string& xml) {
@@ -268,6 +296,27 @@ bool RadioFetch::pass() {
             note(st.name + ": " + (err.empty() ? std::string("no episodes it can play") : err));
         }
     }
+    // the episodes named by a piece of their file name, found in their archive items' lists
+    for (RadioStation& st : stations_) {
+        std::vector<std::string> items;
+        for (const RadioEpisode& ep : st.episodes)
+            if (ep.url.empty() && std::find(items.begin(), items.end(), ep.archive) == items.end()) items.push_back(ep.archive);
+        for (const std::string& item : items) {
+            if (quit_) return false;
+            std::string text, err;
+            if (!net::get_text("https://archive.org/metadata/" + item, text, &cancel_, &err)) {
+                listed = false;   // tried again next round
+                note(st.name + ": " + err);
+                continue;
+            }
+            match_episodes(item, text, st.episodes);
+            st.episodes.erase(std::remove_if(st.episodes.begin(), st.episodes.end(), [&](const RadioEpisode& ep) {
+                if (!ep.url.empty() || ep.archive != item) return false;
+                note(st.name + ": nothing in " + item + " matches \"" + ep.match + "\" (" + ep.title + ")");
+                return true;
+            }), st.episodes.end());
+        }
+    }
     // what is missing: every station's first missing episode, then the rest in order
     struct Todo { const RadioStation* st; const RadioEpisode* ep; };
     std::vector<Todo> first, rest;
@@ -275,6 +324,7 @@ bool RadioFetch::pass() {
     for (const RadioStation& st : stations_) {
         bool any = false;
         for (const RadioEpisode& ep : st.episodes) {
+            if (ep.url.empty()) continue;   // its item's list didn't come
             total++;
             if (exists(dir_ + "/" + st.folder() + "/" + ep.file())) { have++; continue; }
             (any ? rest : first).push_back({&st, &ep});
