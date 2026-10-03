@@ -86,6 +86,18 @@ export function CodeLevelScreen({ level, deck, index }: { level: CodeLevel; deck
     }
   }, [code, level, running]);
 
+  // The Run shortcut works anywhere on the level screen, not only in the editor
+  // (the editor handles it itself and marks the event as handled).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Enter' || !(e.metaKey || e.ctrlKey) || e.defaultPrevented || modal || victory) return;
+      e.preventDefault();
+      void run();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [run, modal, victory]);
+
   function revealHint() {
     sfx.click();
     setSave((s) => {
@@ -198,7 +210,7 @@ export function CodeLevelScreen({ level, deck, index }: { level: CodeLevel; deck
             {running ? 'Running…' : 'Run'} <kbd>{RUN_SHORTCUT}</kbd>
           </button>
         </div>
-        <CodeEditor value={code} tsx={level.file.endsWith('tsx')} diagnostics={diagnostics} onChange={setCode} onRun={run} />
+        <CodeEditor value={code} path={mainPath} tsx={level.file.endsWith('tsx')} diagnostics={diagnostics} onChange={setCode} onRun={run} />
         <div className="status-line">
           {live.code === code && (live.diagnostics.length ? <span className="err">✗ {live.diagnostics.length} type error{live.diagnostics.length > 1 ? 's' : ''} — hover the red squiggles</span> : <span className="ok">✓ No type errors</span>)}
         </div>

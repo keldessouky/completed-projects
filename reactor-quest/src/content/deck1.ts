@@ -36,7 +36,9 @@ function double(n: number): number {
 
 With \`strict\` mode on (it always is on this station), a parameter with no annotation is an error: TypeScript won't silently treat it as \`any\` — "could be anything, check nothing".
 
-Once \`a\` and \`b\` are numbers, the compiler will also **stop** anyone calling \`addVoltage("2", 3)\` — that would have produced the string \`"23"\`, not \`5\`.`,
+Once \`a\` and \`b\` are numbers, the compiler will also **stop** anyone calling \`addVoltage("2", 3)\` — that would have produced the string \`"23"\`, not \`5\`.
+
+**Tip:** hover over any name in the editor to see the type TypeScript gave it. Try it on \`a\` before and after you annotate it.`,
       hints: [
         'The error says the parameters implicitly have an `any` type. Give each one a type after a colon.',
         'Voltages are numbers: `a: number`.',
@@ -89,7 +91,9 @@ let count = 3;        // count: number
 const ok = count > 2; // ok: boolean
 \`\`\`
 
-A good habit: annotate **function parameters and exported return types**, let inference handle the rest.`,
+A good habit: annotate **function parameters and exported return types**, let inference handle the rest.
+
+Hover over a name in the editor to see what TypeScript inferred for it. The autocomplete list (it pops up as you type, or press **Ctrl+Space**) comes from the same compiler.`,
       hints: [
         'Template strings (backticks) produce a `string`, so `hail` must return `string`.',
         '`isPriority` compares a number: `sector < 10` — that makes `sector` a `number` and the result a `boolean`.',

@@ -167,6 +167,9 @@ li.fail .mark { color: var(--red); }
 .editor .cm-focused { outline: none; }
 .editor .cm-matchingBracket { background: rgba(255, 179, 71, 0.2); outline: 1px solid rgba(255, 179, 71, 0.4); }
 .cm-tooltip { background: var(--panel2) !important; border: 1px solid var(--line) !important; color: var(--text); border-radius: 6px; }
+.cm-type-tip { padding: 6px 10px; max-width: 560px; }
+.cm-type-tip pre { margin: 0; font-family: var(--mono); font-size: 0.82rem; white-space: pre-wrap; }
+.cm-type-tip p { margin: 6px 0 0; color: var(--muted); font-size: 0.82rem; max-width: 520px; }
 .cm-tooltip-lint { font-family: var(--mono); font-size: 0.82rem; max-width: 520px; }
 .cm-diagnostic-error { border-left-color: var(--red) !important; }
 .cm-lintRange-error { background-image: none !important; text-decoration: wavy underline var(--red); text-underline-offset: 3px; }

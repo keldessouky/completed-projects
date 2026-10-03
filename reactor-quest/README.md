@@ -89,7 +89,16 @@ keep it.
    unfinished. Comments in it tell you what to build. Type errors get **red
    squiggles** as you type. Hover over one to read the compiler's message. The
    bar under the editor says whether your file currently has type errors.
-4. **Run** with the **Run** button, or press **⌘↵** (Cmd+Return). The right
+   - **Hover over any name** to see the type TypeScript gave it, like
+     `let count: number` or `const setN: React.Dispatch<React.SetStateAction<number>>`.
+     It's the fastest way to learn what the compiler infers.
+   - **Autocomplete** pops up as you type: members after a `.`, names in
+     scope, and a component's props inside JSX. Press **Ctrl+Space** to open it
+     yourself. It comes from the same compiler, so it only offers what's valid.
+
+   ![Hovering a function shows its type](docs/hover-type.png)
+4. **Run** with the **Run** button, or press **⌘↵** (Cmd+Return; Ctrl+Return
+   works too). The shortcut works anywhere on the level screen. The right
    panel then shows:
    - **Checks:** every objective, ticked ✓ or crossed ✗, with the reason for each
      failure. Checks tagged **TYPE** test your *types* (for example, "strings must
@@ -178,7 +187,8 @@ Each deck also has a quiz, and the arcade holds 40 compile-or-not cards.
 - **Real type checking.** `tools/gen-typings.mjs` collects every declaration file
   the compiler needs at build time. The worker's language service keeps the parsed
   library ASTs, so the first check takes about a second and later ones take tens
-  of milliseconds.
+  of milliseconds. The same language service answers the editor's hover types
+  (`getQuickInfoAtPosition`) and autocomplete (`getCompletionsAtPosition`).
 - **Type tests.** A level can require that your *types* are right, not just your
   output. Each type check is a hidden `.tsx` file that imports your module and
   marks lines your types must reject with `// @ts-expect-error`. If your types are
@@ -200,8 +210,8 @@ Each deck also has a quiz, and the arcade holds 40 compile-or-not cards.
 ## Proven playable
 
 ```bash
-npm test        # 165 tests
-npm run smoke   # 44 checks in headless Chromium/Chrome
+npm test        # 171 tests
+npm run smoke   # 45 checks in headless Chromium/Chrome
 ```
 
 - **`npm test`** checks every one of the 32 code levels both ways: the reference
@@ -215,9 +225,12 @@ npm run smoke   # 44 checks in headless Chromium/Chrome
   solve for ★★★ and the First Try achievement), checks locking, then opens *every*
   code level, types the solution into the editor, presses Run and waits for the
   victory screen. That covers the effect and timer levels in a real browser. It
-  also plays a quiz and an arcade round, checks the phone layout for horizontal
-  scroll, exercises the launcher server, and fails on any uncaught page error.
-  Screenshots land in `test-results/`.
+  also hovers a name and checks the type tooltip, checks autocomplete, plays a
+  quiz and an arcade round, checks the phone layout for horizontal scroll,
+  exercises the launcher server, and fails on any uncaught page error.
+  Screenshots land in `test-results/`. `SMOKE_PLATFORM=mac npm run smoke` makes
+  the page believe it's on macOS, so the ⌘ keyboard paths can be tested from any
+  machine.
 
 ![The final boss, beaten](docs/victory.png)
 

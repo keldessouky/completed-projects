@@ -46,13 +46,20 @@ async function step(name, fn) {
 }
 
 const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+// SMOKE_PLATFORM=mac makes the page believe it runs on macOS, so the Mac
+// keyboard paths (⌘ shortcuts) can be exercised from any machine.
+if (process.env.SMOKE_PLATFORM === 'mac') {
+  await context.addInitScript(() => Object.defineProperty(Navigator.prototype, 'platform', { get: () => 'MacIntel' }));
+}
 const page = await context.newPage();
+// The editor's primary modifier: ⌘ on a Mac, Ctrl elsewhere.
+const modKey = async () => ((await page.evaluate(() => /Mac/.test(navigator.platform))) ? 'Meta' : 'Control');
 const pageErrors = [];
 page.on('pageerror', (e) => pageErrors.push(e.message));
 
 async function setEditor(text) {
   await page.locator('.cm-content').click();
-  await page.keyboard.press(process.platform === 'darwin' ? 'Meta+A' : 'Control+A');
+  await page.keyboard.press(`${await modKey()}+A`);
   await page.keyboard.press('Delete');
   await page.keyboard.insertText(text);
   const got = await page.locator('.cm-content').evaluate((el) => el.cmView?.view?.state?.doc?.toString() ?? null);
@@ -103,7 +110,7 @@ await step('Next system → level 2, solved by typing: three stars and First Try
   await page.waitForURL(/#\/level\/comms-relay/);
   await setEditor(readFileSync(join(root, 'src/content/code/comms-relay/solution.ts'), 'utf8'));
   await page.getByText('✓ No type errors').waitFor({ timeout: 10_000 });
-  await page.keyboard.press('Control+Enter');
+  await page.keyboard.press(`${await modKey()}+Enter`);
   await page.locator('.victory').waitFor({ timeout: 10_000 });
   const on = await page.locator('.big-stars span.on').count();
   if (on !== 3) throw new Error(`expected 3 stars, got ${on}`);
@@ -130,6 +137,27 @@ await step('Open every system from Profile → Settings', async () => {
   await page.goto(`${url}#/profile`);
   await page.getByLabel(/Open every system/).check();
   await page.screenshot({ path: join(shots, '05-profile.png') });
+});
+
+await step('Hovering a name shows its type; typing a dot offers members', async () => {
+  await page.goto(`${url}#/level/telemetry`);
+  await waitCompiler();
+  await page.locator('.cm-content').getByText('summarize', { exact: true }).first().hover();
+  const tip = page.locator('.cm-type-tip');
+  await tip.waitFor({ timeout: 10_000 });
+  const sig = (await tip.textContent()) ?? '';
+  if (!sig.includes('function summarize(readings: Reading[]): Summary')) throw new Error(`unexpected hover: ${sig}`);
+  await page.screenshot({ path: join(shots, '11-hover-type.png') });
+  await page.locator('.cm-content').click();
+  await page.keyboard.press(`${await modKey()}+End`);
+  await page.keyboard.insertText('\nMath.');
+  await page.keyboard.type('ma');
+  const list = page.locator('.cm-tooltip-autocomplete');
+  await list.waitFor({ timeout: 10_000 });
+  const items = await list.locator('li').allTextContents();
+  if (!items.some((t) => t.includes('max'))) throw new Error(`no "max" in completions: ${items.slice(0, 8).join(', ')}`);
+  await page.screenshot({ path: join(shots, '12-autocomplete.png') });
+  await page.keyboard.press('Escape');
 });
 
 const ids = readdirSync(join(root, 'src/content/code'));

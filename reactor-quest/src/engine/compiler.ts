@@ -1,10 +1,10 @@
 // Main-thread handle on the compiler worker.
-import type { CheckResult } from './checker';
+import type { CheckResult, Completion, QuickInfo } from './checker';
 import type { WorkerRequest, WorkerResponse } from './compiler.worker';
 
 let worker: Worker | null = null;
 let nextId = 1;
-const pending = new Map<number, { resolve: (r: CheckResult) => void; reject: (e: Error) => void }>();
+const pending = new Map<number, { resolve: (r: any) => void; reject: (e: Error) => void }>();
 let ready = false;
 const readyListeners = new Set<() => void>();
 
@@ -21,8 +21,8 @@ function getWorker() {
     const p = pending.get(msg.id);
     if (!p) return;
     pending.delete(msg.id);
-    if (msg.result) p.resolve(msg.result);
-    else p.reject(new Error(msg.error ?? 'Compiler failed'));
+    if (msg.error !== undefined) p.reject(new Error(msg.error));
+    else p.resolve(msg.result);
   };
   return worker;
 }
@@ -42,10 +42,26 @@ export function onReady(listener: () => void): () => void {
   return () => readyListeners.delete(listener);
 }
 
-export function compile(files: Record<string, string>): Promise<CheckResult> {
+function request<T>(req: DistributiveOmit<WorkerRequest, 'id'>): Promise<T> {
   const id = nextId++;
-  return new Promise((resolve, reject) => {
+  return new Promise<T>((resolve, reject) => {
     pending.set(id, { resolve, reject });
-    getWorker().postMessage({ id, files } satisfies WorkerRequest);
+    getWorker().postMessage({ ...req, id } as WorkerRequest);
   });
+}
+
+type DistributiveOmit<T, K extends keyof any> = T extends unknown ? Omit<T, K> : never;
+
+export function compile(files: Record<string, string>): Promise<CheckResult> {
+  return request({ kind: 'check', files });
+}
+
+/** The type at a position in `path` — for hover tooltips. */
+export function quickInfo(files: Record<string, string>, path: string, pos: number): Promise<QuickInfo | null> {
+  return request({ kind: 'info', files, path, pos });
+}
+
+/** Completions at a position in `path` — for autocomplete. */
+export function completions(files: Record<string, string>, path: string, pos: number): Promise<Completion[]> {
+  return request({ kind: 'complete', files, path, pos });
 }

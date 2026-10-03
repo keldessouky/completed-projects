@@ -19,6 +19,21 @@ export interface CheckResult {
   js: Record<string, string>; // CommonJS output for each user file
 }
 
+/** What hovering a name shows: its type signature and any documentation. */
+export interface QuickInfo {
+  from: number;
+  to: number;
+  signature: string;
+  doc: string;
+}
+
+export interface Completion {
+  name: string;
+  kind: string;
+  /** Lower sorts first: locals, then members, then globals. */
+  sort: string;
+}
+
 export const COMPILER_OPTIONS: ts.CompilerOptions = {
   target: ts.ScriptTarget.ES2022,
   module: ts.ModuleKind.ESNext,
@@ -71,14 +86,19 @@ export class Checker {
     this.service = ts.createLanguageService(host, ts.createDocumentRegistry());
   }
 
-  /** Type-check `files` (paths like "/solution.tsx") and transpile each to CommonJS. */
-  check(files: Record<string, string>): CheckResult {
+  /** Swap in the player's files, bumping versions only for files that changed. */
+  private setFiles(files: Record<string, string>) {
     const next = new Map<string, { text: string; version: number }>();
     for (const [path, text] of Object.entries(files)) {
       const prev = this.user.get(path);
       next.set(path, { text, version: prev ? (prev.text === text ? prev.version : prev.version + 1) : 1 });
     }
     this.user = next;
+  }
+
+  /** Type-check `files` (paths like "/solution.tsx") and transpile each to CommonJS. */
+  check(files: Record<string, string>): CheckResult {
+    this.setFiles(files);
 
     const diagnostics: Diagnostic[] = [];
     const js: Record<string, string> = {};
@@ -89,6 +109,31 @@ export class Checker {
       js[path] = ts.transpileModule(files[path], { compilerOptions: EMIT_OPTIONS, fileName: path }).outputText;
     }
     return { diagnostics, js };
+  }
+
+  /** The type of whatever is at `pos` — what an IDE shows on hover. */
+  quickInfo(files: Record<string, string>, path: string, pos: number): QuickInfo | null {
+    this.setFiles(files);
+    const info = this.service.getQuickInfoAtPosition(path, pos);
+    if (!info) return null;
+    const signature = ts.displayPartsToString(info.displayParts);
+    if (!signature) return null;
+    return {
+      from: info.textSpan.start,
+      to: info.textSpan.start + info.textSpan.length,
+      signature,
+      doc: ts.displayPartsToString(info.documentation).split(/\n\s*\n/)[0].trim(),
+    };
+  }
+
+  /** Completions at `pos`: members after a dot, otherwise everything in scope. */
+  completions(files: Record<string, string>, path: string, pos: number): Completion[] {
+    this.setFiles(files);
+    const result = this.service.getCompletionsAtPosition(path, pos, { includeCompletionsWithInsertText: true });
+    if (!result) return [];
+    return result.entries
+      .filter((e) => !e.name.startsWith('__'))
+      .map((e) => ({ name: e.name, kind: e.kind, sort: e.sortText }));
   }
 }
 
