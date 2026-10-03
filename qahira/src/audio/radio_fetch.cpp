@@ -122,6 +122,14 @@ std::vector<RadioStation> parse_stations(const std::string& text) {
         st.archive = s["archive"].str_or("");
         st.rss = s["rss"].str_or("");
         st.newest = s["newest"].i(0);
+        const Json& keep = s["keep"];
+        for (size_t k = 0; k < keep.size(); k++) {
+            const Json& e = keep[k];
+            RadioKeep kp;
+            kp.match = squash(e.type == Json::String ? e.str() : e["match"].str_or(""));
+            kp.count = e.type == Json::String ? 1 : e["count"].i(1);
+            if (!kp.match.empty() && kp.count > 0) st.keep.push_back(kp);
+        }
         const Json& eps = s["episodes"];
         for (size_t k = 0; k < eps.size(); k++) {
             const Json& e = eps[k];
@@ -208,7 +216,7 @@ int rss_date(const std::string& text) {
     return 0;
 }
 
-std::vector<RadioEpisode> rss_episodes(const std::string& xml, int newest) {
+std::vector<RadioEpisode> rss_episodes(const std::string& xml, int newest, const std::vector<RadioKeep>& keep) {
     std::vector<RadioEpisode> out;
     std::vector<int> dates;
     size_t p = 0;
@@ -244,22 +252,31 @@ std::vector<RadioEpisode> rss_episodes(const std::string& xml, int newest) {
             dates.push_back(date);
         }
     }
-    if (newest > 0) {   // the newest first (by date when every episode has one, else as the feed has them), cut
+    if (newest > 0 || !keep.empty()) {   // the newest first (by date when every episode has one, else as the feed has them)
         std::vector<size_t> order(out.size());
         for (size_t i = 0; i < order.size(); i++) order[i] = i;
         if (std::find(dates.begin(), dates.end(), 0) == dates.end())
             std::stable_sort(order.begin(), order.end(), [&](size_t a, size_t b) { return dates[a] > dates[b]; });
-        if (order.size() > size_t(newest)) order.resize(size_t(newest));
-        std::vector<RadioEpisode> keep;
-        for (size_t i : order) {
-            keep.push_back(out[i]);
-            keep.back().n = dates[i];
+        std::vector<bool> chosen(out.size(), false);
+        for (size_t k = 0; k < order.size() && k < size_t(std::max(newest, 0)); k++) chosen[order[k]] = true;
+        for (const RadioKeep& kp : keep) {
+            int left = kp.count;
+            for (size_t k = 0; k < order.size() && left > 0; k++)
+                if (squash(out[order[k]].title).find(kp.match) != std::string::npos) {
+                    chosen[order[k]] = true;
+                    left--;
+                }
         }
-        std::reverse(keep.begin(), keep.end());
+        std::vector<RadioEpisode> picked;   // oldest first
+        for (size_t k = order.size(); k-- > 0;)
+            if (chosen[order[k]]) {
+                picked.push_back(out[order[k]]);
+                picked.back().n = dates[order[k]];
+            }
         bool dated = true;
-        for (const RadioEpisode& ep : keep) dated = dated && ep.n > 0;
-        if (!dated) for (size_t i = 0; i < keep.size(); i++) keep[i].n = int(i) + 1;
-        return keep;
+        for (const RadioEpisode& ep : picked) dated = dated && ep.n > 0;
+        if (!dated) for (size_t i = 0; i < picked.size(); i++) picked[i].n = int(i) + 1;
+        return picked;
     }
     std::reverse(out.begin(), out.end());   // feeds put the newest first; a show starts at its beginning
     for (size_t i = 0; i < out.size(); i++) out[i].n = int(i) + 1;
@@ -339,8 +356,7 @@ void RadioFetch::prune(const RadioStation& st) {
     }
     closedir(d);
     for (const std::string& name : gone)
-        if (remove((folder + "/" + name).c_str()) == 0) note(st.name + " / " + name + " is older than its newest " +
-                                                              std::to_string(st.newest) + ": deleted", false);
+        if (remove((folder + "/" + name).c_str()) == 0) note(st.name + " / " + name + " is no longer among its episodes: deleted", false);
 }
 
 bool RadioFetch::pass() {
@@ -356,8 +372,8 @@ bool RadioFetch::pass() {
         if (!st.archive.empty() && net::get_text("https://archive.org/metadata/" + st.archive, text, &cancel_, &err))
             st.episodes = archive_episodes(st.archive, text);
         else if (!st.rss.empty() && net::get_text(st.rss, text, &cancel_, &err)) {
-            st.episodes = rss_episodes(text, st.newest);
-            if (st.newest > 0 && !st.episodes.empty()) prune(st);
+            st.episodes = rss_episodes(text, st.newest, st.keep);
+            if ((st.newest > 0 || !st.keep.empty()) && !st.episodes.empty()) prune(st);
         }
         if (st.episodes.empty()) {
             listed = false;

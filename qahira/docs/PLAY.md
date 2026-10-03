@@ -82,15 +82,25 @@ comes on as soon as the first one has arrived (a minute or so). Until then the g
 
 A second station, **Coast to Coast AM**, is George Noory's late-night call-in show: aliens, ghosts, Bigfoot,
 prophecy and the people who phone in about them. The game reads the show's own free podcast feed, *The Best of
-Coast to Coast AM*, the way a podcast app does, and keeps the newest 10 episodes: as new ones come out, it
-downloads them and deletes the oldest.
+Coast to Coast AM*, the way a podcast app does. It keeps:
+
+- the 5 newest episodes; as new ones come out, it downloads them and deletes the oldest;
+- whatever their age, the best-loved shows the feed carries:
+  - the Art Bell tributes each April 13, which replay the classic clips (the Area 51 caller, Mel's Hole, Father
+    Malachi Martin);
+  - the Ghost to Ghost Halloween call-ins;
+  - Open Lines nights;
+  - the newest show on each of the subjects it is famous for: Area 51, Mel's Hole, Roswell, alien abductions,
+    Bigfoot, Dogman, werewolves, skinwalkers, shadow people and time travel.
+
+Art Bell's complete 1990s shows aren't in the free feed (they are in the paid Coast Insider "Art Bell Vault"), so
+the station can't play them whole.
 
 - **Storage:** the episodes go in a `radio` folder in RetroArch's saves folder, about 560 MB for Radio Kafr
-  El-Sheikh's 18, and for Coast to Coast AM's 10, roughly 0.5–1 GB (its episodes run an hour or two).
+  El-Sheikh's 18, and for Coast to Coast AM's 20 or so, roughly 1–2 GB (its episodes run an hour or two).
 - **Offline:** what has arrived keeps playing without Wi-Fi. A download that was cut off picks up where it stopped
   the next time the game runs with Wi-Fi.
-- **Order:** Radio Kafr El-Sheikh in the show's own airing order; Coast to Coast AM by date, the oldest of its 10
-  first.
+- **Order:** Radio Kafr El-Sheikh in the show's own airing order; Coast to Coast AM by date, the oldest first.
 - **Which first:** the first episode of every station downloads before the rest, so each station has something to
   play early.
 - **Where it picks up:** each station remembers its own episode and the place in it, so you can tune away and come

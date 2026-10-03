@@ -1151,3 +1151,40 @@ Internet Archive's items say. The station was replaced the next commit.
   `audio/mpeg` enclosures and up to 8 redirects, which is how podcast hosts serve them. The first run with Wi-Fi
   will show in Settings and `radio log.txt` whether it arrives.
 - The feed's episodes' sizes weren't checked; 10 episodes of an hour or two are roughly 0.5–1 GB.
+
+### The best-loved shows
+
+The owner asked for the best episodes of all time to be included.
+
+**Delivered**
+- **The research:** the shows fans rank highest are Art Bell's from the 1990s:
+  - the Area 51 caller (1997);
+  - Mel's Hole (February 1997);
+  - Father Malachi Martin on exorcism;
+  - the Ghost to Ghost Halloween call-ins;
+  - Open Lines nights;
+  - the shadow people and Bigfoot shows.
+
+  Whole, they are only in the paid Coast Insider "Art Bell Vault" (and the Saturday "Somewhere in Time" reruns).
+  Copies elsewhere are fan uploads, or "Art Bell Back in Time", a Patreon feed not from Premiere Networks. None of
+  them are used.
+- **What the free feed has:**
+  - the Art Bell tributes each April 13 (the 2026 one replays the Area 51 caller, Mel's Hole and Malachi Martin);
+  - the yearly Ghost to Ghost Halloween specials (back to 2017);
+  - Open Lines nights;
+  - shows on each famous subject.
+- **A feed's `"keep"` list** names them: each entry is a piece of the title and how many of its newest to keep,
+  whatever their age, besides the `newest` (now 5). Coast to Coast AM keeps 3 Art Bell, 3 Ghost to Ghost,
+  2 Open Lines, and one each of Area 51, Mel's Hole, Roswell, Alien Abduction, Bigfoot, Dogman, Werewolf,
+  Skinwalker, Shadow People and Time Travel: about 20 episodes in all, played oldest first. A keep the feed has
+  nothing for keeps nothing, and the deleting spares everything kept.
+
+**Verified**
+| Check | Result |
+|---|---|
+| Unit tests (`qtests`) | pass, 107 cases. New checks: a feed with a keep list keeps the newest, then each keep's newest count by title phrase whatever their age, oldest first and dated; a keep list without `newest` keeps only what it names; keeps parse as strings or `{match, count}` and a count of 0 drops one; the pack's station has 5 newest and 13 keeps |
+| The titles | from web search: "Ghost To Ghost Halloween Special - Best of Coast to Coast AM - 10/31/17", "Art Bell - Best of Coast to Coast AM - 4/13/26", "Ghosts - Best of Coast to Coast AM - 1/28/26" |
+
+**Known gaps (carried forward)**
+- The feed can't be read from the build container, so it isn't known yet how far back it goes or which keeps find
+  an episode. `radio log.txt` lists every episode as it arrives.
