@@ -11,56 +11,145 @@ It runs on macOS and opens in your browser.
 
 ![Title screen](docs/title.png)
 
-## Play it on a Mac
+## Setup (macOS)
 
-You need [Node.js](https://nodejs.org) 20.19 or newer (`brew install node` works).
+You only do this once.
 
-| How | What happens |
+1. **Install Node.js 20.19 or newer.** Download the macOS installer from
+   [nodejs.org](https://nodejs.org/en/download), or, if you use Homebrew, run
+   `brew install node`. To check, open Terminal and run `node --version`. It
+   should print `v20.19` or higher.
+2. **Get the code.** In Terminal:
+
+   ```bash
+   git clone https://github.com/keldessouky/completed-projects.git
+   cd completed-projects/reactor-quest
+   ```
+
+   (No git? Download the repository as a ZIP from GitHub, unzip it, and open the
+   `reactor-quest` folder.)
+3. **Install and build.** Still in the `reactor-quest` folder:
+
+   ```bash
+   npm install
+   npm run build
+   ```
+
+   You can skip this step if you launch with the `.command` file below. It
+   does this for you the first time.
+
+## Start the game
+
+Pick one of these. Each one opens the game in your default browser at
+`http://localhost:4310`.
+
+- **Double-click `Reactor Quest.command`** in Finder (inside `reactor-quest`).
+  A Terminal window opens. The first run installs and builds the game, which
+  takes about a minute, then your browser opens. Leave the Terminal window
+  open while you play, and close it when you're done.
+- **Or run `npm start`** in Terminal from the `reactor-quest` folder. It does
+  the same thing. Press `Ctrl+C` to stop.
+- **Or make a Mac app:** run `npm run app:mac`. This creates
+  **`Reactor Quest.app`** in the `reactor-quest` folder. Drag it to
+  Applications and open it like any other app, from Launchpad, Spotlight or the
+  Dock. It opens the game in your browser, runs quietly in the background, and
+  quits on its own about a minute after you close the game's tab.
+
+The first time you open the `.command` or the `.app`, macOS may say it's from an
+unidentified developer. **Right-click it and choose Open**, then click **Open**
+again. You only have to do this once.
+
+Your progress (stars, XP, achievements, and the code you've typed in every
+level) saves automatically in your browser. Use the same browser each time to
+keep it.
+
+### If something goes wrong
+
+| Problem | Fix |
 |---|---|
-| **Double-click `Reactor Quest.command`** in Finder | Installs dependencies on first run, builds the game if needed, and opens it in your default browser. Close the Terminal window to stop. |
-| `npm start` | The same thing, from a terminal. |
-| `npm run app:mac` | Builds **`Reactor Quest.app`**, a real app bundle with a code-drawn icon. Drag it to /Applications and launch it from Launchpad or the Dock. It carries its own copy of the game and a small local server, opens the game in your browser, and quits on its own about a minute after you close the tab. |
+| "Reactor needs Node.js" | Install Node.js (step 1), then launch again. |
+| "Reactor needs Node.js 20.19 or newer" | Update Node: download the latest version from nodejs.org, or run `brew upgrade node`. |
+| The browser didn't open | Open `http://localhost:4310` yourself. If that port was taken, the Terminal window prints the address it used instead. |
+| "Loading compiler…" stays for a few seconds | That's normal on the first level you open. The browser is loading the TypeScript compiler (about 7 MB). |
+| You want to start over | **Profile → Settings → Reset all progress**. |
 
-On first launch, macOS Gatekeeper may say the `.command` or `.app` is from an
-unidentified developer. Right-click it and choose **Open** once.
+## How to play
 
-Progress saves automatically in the browser: stars, XP, achievements, and the
-code you've typed in every level.
+![A level: mission on the left, editor in the middle, checks on the right](docs/level.png)
 
-## The game
+1. **Start.** On the title screen, click **Begin**. Once you have progress, it
+   says **Continue** and takes you to your next level.
+2. **Read the mission.** The left panel has three tabs:
+   - **Mission:** the story, plus the list of **objectives** your code must meet.
+   - **Lesson:** teaches the TypeScript or React idea you need, with examples.
+     Read this first if the topic is new to you.
+   - **Hints:** three hints, revealed one at a time. Each hint you reveal costs a
+     star (see below).
+3. **Write code** in the editor in the middle. The starter code is broken or
+   unfinished. Comments in it tell you what to build. Type errors get **red
+   squiggles** as you type. Hover over one to read the compiler's message. The
+   bar under the editor says whether your file currently has type errors.
+4. **Run** with the **Run** button, or press **⌘↵** (Cmd+Return). The right
+   panel then shows:
+   - **Checks:** every objective, ticked ✓ or crossed ✗, with the reason for each
+     failure. Checks tagged **TYPE** test your *types* (for example, "strings must
+     be rejected"). The others test what your code *does*.
+   - **Preview** (React levels): your component, live. Click it and type into
+     it like a real web page.
+   - **Console:** anything your code prints with `console.log`.
+5. **Pass every check with no type errors** and the system comes back online.
+   You get stars and XP. Click **Next system →**, or press Return, to go on.
 
-![A level](docs/level.png)
+![A React level, with the live preview at the top right](docs/react-level.png)
 
-Each level is one broken station system. The left panel holds the **mission**
-(story and objectives), a **lesson** that teaches the concept, and three
-**hints**. The middle is a CodeMirror editor with live type checking: errors get
-red squiggles as you type, and hovering one shows the compiler's message.
-**Run** (⌘↵) compiles your file, runs hidden type tests against it, runs
-behaviour checks against what it actually does, and, for React levels, renders
-your component live in the **Preview**, where you can click it.
+**Stars.** A level is worth ★★★ if you solve it without help. Revealing the
+first hint drops it to ★★, and the second to ★. Looking at the reference
+solution (**Hints → Show the solution…**) also caps it at ★. You can **replay**
+any level later to earn all three. Your best result is kept.
 
-![A React level, with a live preview](docs/react-level.png)
+**The station map** (**Map** at the top) shows all five decks, your stars, and
+what's next. Levels open in order. Each deck ends with a boss level (☢) that
+combines everything in that deck. Already know the basics? Go to **Profile →
+Settings** and turn on **Open every system** to jump ahead.
 
-- **Stars.** Three for a clean solve. Each hint you reveal costs a star (down to
-  one), and so does looking at the reference solution. You can replay any level
-  for three stars.
-- **XP and ranks.** From Cadet to Reactor Architect. XP is paid only when you
-  beat your best stars, so replays can't be farmed.
-- **Station power.** Every system you restore powers up the station. The reactor
-  on the title screen glows brighter with it.
-- **Bosses.** Each deck ends in a larger level that combines everything in it.
-- **Quizzes.** Short "think like the compiler" or "predict the render" rounds.
-- **Compiler Says (arcade).** 60 seconds and a stream of snippets. Does it compile
-  under `strict`? Arrow keys answer. A wrong answer pauses the clock and shows
-  why, along with the real `tsc` error message.
-- **Achievements**, including First Try, Persistence, Flawless Deck and
-  `tsc --strict`.
+![The station map](docs/map.png)
+
+**Quizzes** (the **?** levels) are multiple choice, and each answer comes with
+an explanation. Every wrong answer costs a star, but you always get at least one.
+
+**Arcade: Compiler Says** (**Arcade** at the top). You have 60 seconds. Each
+card shows a snippet of TypeScript. Decide whether it compiles:
+
+| Key | Answer |
+|---|---|
+| `→` or `Y` | It compiles |
+| `←` or `N` | It's a type error |
+| `Return` | Next card, after a wrong answer |
+
+A wrong answer pauses the clock and shows why, along with the compiler's real
+error message. Your score earns XP, and your best score is kept.
 
 ![Compiler Says: a wrong answer shows the real compiler error](docs/arcade.png)
 
-![Station map](docs/map.png)
+**Profile** shows your rank, stats and achievements. It also has the settings:
+sound, **Open every system**, and **Reset all progress**. The speaker icon at the
+top right mutes sound effects.
 
-### Curriculum: 5 decks, 37 levels
+The whole game is keyboard-friendly: **⌘↵** runs your code, **Return**
+continues after a win, and **Esc** closes dialogs.
+
+## Ranks and achievements
+
+- **XP and ranks.** You earn XP for every level, from Cadet up to Reactor
+  Architect. XP is only paid when you beat your best stars, so replaying a level
+  for the same result earns nothing.
+- **Station power.** Every system you restore powers up the station. The bar at
+  the top shows it, and the reactor on the title screen glows brighter.
+- **Achievements**, including First Try, Persistence, Sharp Eye, Flawless Deck
+  and `tsc --strict`. A banner pops up when you earn one. See them all under
+  **Profile**.
+
+## What you'll learn: 5 decks, 37 levels
 
 | Deck | Teaches | Boss |
 |---|---|---|
