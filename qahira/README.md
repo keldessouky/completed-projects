@@ -16,8 +16,9 @@ No PC needed. Every push to the `qahira` branch publishes the two files to the
 [`qahira-latest` release](https://github.com/keldessouky/completed-projects/releases/tag/qahira-latest):
 `qahira_libretro_android.so` (the RetroArch core) and `Qahira.qpk` (the game). **[docs/PLAY.md](docs/PLAY.md)**
 takes you from the handheld's browser to the title screen: download, install the core, place the pack, set the
-video driver, controls, saves, updates and troubleshooting. It also covers playing on a PC with `qhost`. The
-on-device checks haven't been run yet ([checklist](docs/RP6.md#device-checklist-slice-0-exit)).
+video driver, controls, saves, updates and troubleshooting. It also covers playing on a PC with `qhost`. The game
+runs on the RP6, and after that first install it updates itself from the menu's Game tab. The formal device
+checks are still to run ([checklist](docs/RP6.md#device-checklist-slice-0-exit)).
 
 ## Status
 
@@ -37,6 +38,7 @@ Work proceeds in vertical slices ([slice plan](../_bmad-output/planning-artifact
 | 9 · The Atlas and the Strait | **Done**. The Templar (maces and sceptres, fire converted from the blow, the Beacon aura, a signal brazier, burning ground, Block) with his piece of the sky and two ascendancies, Zealot and Warden; Act V through seven zones on four new regions, the tanneries of Fes to the sea walls of the Strait, past Bu Ghettat, Dukhan and the Third Trial at Bab al-Nasr to Aisha Qandisha; and in the endgame, charts to the Sixteenth Reach over sixteen more sites, and the King's Pearls that open the Marid King's throne. Bots play Act V, the Reaches and the King. See the [slice log](docs/SLICES.md). |
 | 10 · Across the Red Sea | **Done**. The Wanderer (a seventh class at the Pole of the sky, with Fragments of six other ascendancies); Act VI through seven zones on three new regions, Old Jeddah to Iram of the Pillars and Apep at the heart of totality, with resistances 60% lower after it and the choice to seal the Veil or leave the door open; bases past Act V so the hero keeps growing; the Gate of Iram, a Fourth Trial whose toll you choose; Falak, the second pinnacle; and uber versions of both pinnacles. Bots play Act VI with the Gate, Falak and the uber King. See the [slice log](docs/SLICES.md). |
 | 11 · Arabic, accessibility and polish | **Done** (device checks pending). The UI in Arabic, shaped and laid out right to left; a Settings tab with the language, the text size, colour-blind safe loot colours, the screen shake and L2 hold or toggle; Balanced and Battery performance modes as a core option; and Umm al-Ṣubyān, the third pinnacle. See the [slice log](docs/SLICES.md). |
+| After the first run on the RP6 | **Done**. The owner's notes from playing it: the glow cut by 80%, an objective arrow, a life flask upgraded through seven tiers, life regeneration on late gear, and spells as GBA-style pixel art. Also: Radio Kafr El-Sheikh in place of the music (the game downloads the show's episodes itself), a Game tab that updates the game in place from the latest release, and Amm Sayed always stocking a weapon for your hand. Every nightly bot passes, and an [art review page](https://claude.ai/artifact/8TnNL1AGKDW65RC9LtfktC) marks every zone, boss, screen and effect for the next art pass. See the [slice log](docs/SLICES.md). |
 
 ## Docs
 
@@ -46,7 +48,8 @@ Work proceeds in vertical slices ([slice plan](../_bmad-output/planning-artifact
 - [Playing on the RP6](docs/PLAY.md): the player's guide, from the release download to the controls
 - [Running on the RP6](docs/RP6.md): install, launch, adb workflow, device checklist
 - [Slice log](docs/SLICES.md): what each slice delivered and how it was verified
-- [Handoff notes](docs/HANDOFF.md): the state of Slice 3 and what to know before picking up Slices 3–11
+- [Handoff notes](docs/HANDOFF.md): where things stand, and what to know before changing anything (the art review
+  loop included)
 
 ## Build
 
@@ -113,7 +116,11 @@ QAHIRA_CLASS=ranger ./build/mac/qhost build/Qahira.qpk --hidden --bot tour7 --sh
 QAHIRA_CLASS=mercenary ./build/mac/qhost build/Qahira.qpk --hidden --bot tour8 --shot-every 50   # Act III, an Excavation
 QAHIRA_CLASS=shadow ./build/mac/qhost build/Qahira.qpk --hidden --bot tour9 --shot-every 30      # Act IV, a Zar Night
 QAHIRA_CLASS=templar ./build/mac/qhost build/Qahira.qpk --hidden --bot tour10 --shot-every 30    # Act V, the Reaches, the King
+./build/mac/qhost build/Qahira.qpk --headless --bot act6                         # Act VI, the Gate of Iram, the Veil sealed
+./build/mac/qhost build/Qahira.qpk --headless --bot falak                        # four Scales of Falak, Falak beneath the World
+./build/mac/qhost build/Qahira.qpk --headless --bot subyan                       # four Combs, Umm al-Subyan
 ./build/mac/qhost build/Qahira.qpk --hidden --frames 90 --shot build/shot.png    # render check
+tools/review/capture.sh && python3 tools/review/build.py                        # the art review's pictures and page
 python3 tools/check_shaders.py                                                   # all shaders as GLSL ES 3.00
 ```
 
@@ -126,6 +133,7 @@ python3 tools/check_shaders.py                                                  
 - **Dodge:** K (east)
 - **Use / talk / travel:** J (south), when no enemy is close
 - **Life flask:** 1 (L3 / M1)
+- **Radio:** 2 (R3 / M2): tap for the next station, hold for the next episode
 - **Pick up:** ← (D-pad left), or J when it's calm
 - **Portal:** ↑ (D-pad up, in a zone)
 - **Map:** ↓ (D-pad down, in a zone)
@@ -155,6 +163,10 @@ Gamepads work through SDL.
 | `tools/check_shaders.py` | Validates shaders with glslang |
 | `tools/tree/build_tree.py` | Lays out and validates the passive tree |
 | `tools/buildsim.cpp` | The build simulator (`qbuildsim`) |
-| `third_party` | libretro.h (MIT) and stb_truetype / stb_image_write (public domain) |
+| `tools/fx` | The spell effects' pixel-art sheet, drawn in Python |
+| `tools/review` | The art review: the gallery bot's pictures, made into a review page |
+| `src/audio` | The mixer, and Radio Kafr El-Sheikh (its stations and the episode downloads) |
+| `src/net` | HTTP and HTTPS for the radio and the in-game updates |
+| `third_party` | libretro.h (MIT), stb_truetype / stb_image_write / stb_vorbis (public domain), minimp3 (CC0), Mbed TLS (Apache-2.0) |
 
 Fonts are Inter and Noto Sans Arabic (SIL OFL), converted from the copies that ship with Blender.
