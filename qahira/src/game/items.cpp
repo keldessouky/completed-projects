@@ -106,17 +106,17 @@ const std::vector<ItemBase>& item_bases() {
         {"officers_greatcoat", "Officer's Greatcoat", Slot::Body, 15, 0, 0, 0, 0, 64, 0, nullptr, 38, WK_NONE},
         // Slice 9: the higher Climes, and the Reaches of the Encircling Sea beyond the Seventh (levels as chart_area_level)
         {"chart_clime_5", "Chart of the Fifth Clime", Slot::Chart, 54, 0, 0, 0, 0, 0, 0, nullptr, 0, WK_NONE},
-        {"chart_clime_6", "Chart of the Sixth Clime", Slot::Chart, 55, 0, 0, 0, 0, 0, 0, nullptr, 0, WK_NONE},
-        {"chart_clime_7", "Chart of the Seventh Clime", Slot::Chart, 56, 0, 0, 0, 0, 0, 0, nullptr, 0, WK_NONE},
-        {"chart_clime_8", "Chart of the Eighth Reach", Slot::Chart, 57, 0, 0, 0, 0, 0, 0, nullptr, 0, WK_NONE},
-        {"chart_clime_9", "Chart of the Ninth Reach", Slot::Chart, 58, 0, 0, 0, 0, 0, 0, nullptr, 0, WK_NONE},
-        {"chart_clime_10", "Chart of the Tenth Reach", Slot::Chart, 59, 0, 0, 0, 0, 0, 0, nullptr, 0, WK_NONE},
-        {"chart_clime_11", "Chart of the Eleventh Reach", Slot::Chart, 60, 0, 0, 0, 0, 0, 0, nullptr, 0, WK_NONE},
-        {"chart_clime_12", "Chart of the Twelfth Reach", Slot::Chart, 61, 0, 0, 0, 0, 0, 0, nullptr, 0, WK_NONE},
-        {"chart_clime_13", "Chart of the Thirteenth Reach", Slot::Chart, 62, 0, 0, 0, 0, 0, 0, nullptr, 0, WK_NONE},
-        {"chart_clime_14", "Chart of the Fourteenth Reach", Slot::Chart, 63, 0, 0, 0, 0, 0, 0, nullptr, 0, WK_NONE},
-        {"chart_clime_15", "Chart of the Fifteenth Reach", Slot::Chart, 64, 0, 0, 0, 0, 0, 0, nullptr, 0, WK_NONE},
-        {"chart_clime_16", "Chart of the Sixteenth Reach", Slot::Chart, 65, 0, 0, 0, 0, 0, 0, nullptr, 0, WK_NONE},
+        {"chart_clime_6", "Chart of the Sixth Clime", Slot::Chart, 56, 0, 0, 0, 0, 0, 0, nullptr, 0, WK_NONE},
+        {"chart_clime_7", "Chart of the Seventh Clime", Slot::Chart, 58, 0, 0, 0, 0, 0, 0, nullptr, 0, WK_NONE},
+        {"chart_clime_8", "Chart of the Eighth Reach", Slot::Chart, 60, 0, 0, 0, 0, 0, 0, nullptr, 0, WK_NONE},
+        {"chart_clime_9", "Chart of the Ninth Reach", Slot::Chart, 62, 0, 0, 0, 0, 0, 0, nullptr, 0, WK_NONE},
+        {"chart_clime_10", "Chart of the Tenth Reach", Slot::Chart, 64, 0, 0, 0, 0, 0, 0, nullptr, 0, WK_NONE},
+        {"chart_clime_11", "Chart of the Eleventh Reach", Slot::Chart, 67, 0, 0, 0, 0, 0, 0, nullptr, 0, WK_NONE},
+        {"chart_clime_12", "Chart of the Twelfth Reach", Slot::Chart, 70, 0, 0, 0, 0, 0, 0, nullptr, 0, WK_NONE},
+        {"chart_clime_13", "Chart of the Thirteenth Reach", Slot::Chart, 73, 0, 0, 0, 0, 0, 0, nullptr, 0, WK_NONE},
+        {"chart_clime_14", "Chart of the Fourteenth Reach", Slot::Chart, 76, 0, 0, 0, 0, 0, 0, nullptr, 0, WK_NONE},
+        {"chart_clime_15", "Chart of the Fifteenth Reach", Slot::Chart, 79, 0, 0, 0, 0, 0, 0, nullptr, 0, WK_NONE},
+        {"chart_clime_16", "Chart of the Sixteenth Reach", Slot::Chart, 82, 0, 0, 0, 0, 0, 0, nullptr, 0, WK_NONE},
         // Slice 10: the Wanderer's staff, walked with on every road
         {"travellers_staff", "Traveller's Staff", Slot::Weapon, 1, 12, 23, 1.3f, 7, 0, 0, "+10 to all Attributes", 0, WK_QSTAFF},
         {"acacia_staff", "Acacia Quarterstaff", Slot::Weapon, 6, 14, 29, 1.25f, 7, 0, 0, nullptr, 0, WK_QSTAFF},
@@ -182,6 +182,54 @@ const std::vector<ItemBase>& item_bases() {
         {"caravanserai_belt", "Caravanserai Belt", Slot::Belt, 40, 0, 0, 0, 0, 0, 0, "Regenerate 18 Life per second", 0, WK_NONE},
         {"spring_amulet", "Spring-Water Amulet", Slot::Amulet, 50, 0, 0, 0, 0, 0, 0, "Regenerate 28 Life per second", 0, WK_NONE},
         {"oasis_ring", "Oasis Ring", Slot::Ring, 58, 0, 0, 0, 0, 0, 0, "Regenerate 22 Life per second", 0, WK_NONE},
+        // The endgame's bases (after the first run on the RP6): a weapon tier at 68 and one at 80 for every kind, and armour
+        // and jewellery near 70, so the Reaches past the campaign still have something better to find
+        {"baybars_maul", "Baybars' Siege Maul", Slot::Weapon, 68, 143, 253, 0.95f, 6.f, 0, 0, nullptr, 0, WK_MAUL},
+        {"qalawun_hammer", "Hammer of the Qalawun Gate", Slot::Weapon, 80, 179, 317, 0.95f, 6.5f, 0, 0, nullptr, 0, WK_MAUL},
+        {"celestial_globe_staff", "Celestial-Globe Staff", Slot::Weapon, 68, 64, 118, 1.2f, 8.5f, 0, 0, "56% increased Spell Damage", 0, WK_STAFF},
+        {"al_sufi_staff", "Staff of the Fixed Stars", Slot::Weapon, 80, 80, 147, 1.2f, 9.f, 0, 0, "64% increased Spell Damage", 0, WK_STAFF},
+        {"khorasan_bow", "Khorasan Composite Bow", Slot::Weapon, 68, 51, 108, 1.4f, 7.5f, 0, 0, "14% increased Projectile Speed", 0, WK_BOW},
+        {"royal_archers_bow", "Bow of the Royal Archers", Slot::Weapon, 80, 64, 134, 1.42f, 8.f, 0, 0, "18% increased Projectile Speed", 0, WK_BOW},
+        {"damascene_sabre", "Damascene Sabre", Slot::Weapon, 68, 64, 118, 1.5f, 6.5f, 0, 0, "20% chance to cause Bleeding", 0, WK_SWORD},
+        {"crescent_blade", "Crescent-Moon Blade", Slot::Weapon, 80, 80, 147, 1.52f, 7.f, 0, 0, "25% chance to cause Bleeding", 0, WK_SWORD},
+        {"rampart_arbalest", "Rampart Arbalest", Slot::Weapon, 68, 77, 161, 0.85f, 7.5f, 0, 0, "Bolts pierce an additional enemy", 0, WK_CROSSBOW},
+        {"citadel_arbalest", "Citadel Arbalest", Slot::Weapon, 80, 96, 202, 0.87f, 8.f, 0, 0, "Bolts pierce 2 additional enemies", 0, WK_CROSSBOW},
+        {"jewelled_khanjar", "Jewelled Khanjar", Slot::Weapon, 68, 61, 123, 1.5f, 10.5f, 0, 0, "35% increased Critical Strike Chance", 0, WK_DAGGER},
+        {"sultans_khanjar", "Sultan's Khanjar", Slot::Weapon, 80, 77, 154, 1.52f, 11.f, 0, 0, "40% increased Critical Strike Chance", 0, WK_DAGGER},
+        {"lighthouse_keepers_staff", "Lighthouse-Keeper's Staff", Slot::Weapon, 68, 82, 164, 1.22f, 8.5f, 0, 0, "+14 to all Attributes", 0, WK_QSTAFF},
+        {"long_road_staff", "Staff of the Long Road", Slot::Weapon, 80, 102, 205, 1.25f, 9.f, 0, 0, "+18 to all Attributes", 0, WK_QSTAFF},
+        {"ayyubid_mace", "Ayyubid Flanged Mace", Slot::Weapon, 68, 70, 131, 1.25f, 5.f, 0, 0, nullptr, 0, WK_MACE},
+        {"citadel_mace", "Citadel Mace", Slot::Weapon, 80, 88, 163, 1.27f, 5.5f, 0, 0, nullptr, 0, WK_MACE},
+        {"astrolabe_sceptre", "Astrolabe Sceptre", Slot::Weapon, 68, 59, 110, 1.25f, 7.f, 0, 0, "32% increased Elemental Damage", 0, WK_SCEPTRE},
+        {"encircling_sea_sceptre", "Sceptre of the Encircling Sea", Slot::Weapon, 80, 74, 138, 1.25f, 7.5f, 0, 0, "36% increased Elemental Damage", 0, WK_SCEPTRE},
+        {"mamluk_great_helm", "Mamluk Great Helm", Slot::Helmet, 66, 0, 0, 0, 0, 153, 0, nullptr, 0, WK_NONE},
+        {"citadel_plate", "Citadel Plate", Slot::Body, 66, 0, 0, 0, 0, 378, 0, nullptr, 0, WK_NONE},
+        {"bastion_gauntlets", "Bastion Gauntlets", Slot::Gloves, 70, 0, 0, 0, 0, 90, 0, nullptr, 0, WK_NONE},
+        {"bastion_greaves", "Bastion Greaves", Slot::Boots, 70, 0, 0, 0, 0, 90, 0, nullptr, 0, WK_NONE},
+        {"bedouin_shemagh", "Bedouin Shemagh", Slot::Helmet, 66, 0, 0, 0, 0, 0, 162, nullptr, 0, WK_NONE},
+        {"nomads_leathers", "Nomad's Leathers", Slot::Body, 66, 0, 0, 0, 0, 0, 396, nullptr, 0, WK_NONE},
+        {"oryx_gloves", "Oryx-Hide Gloves", Slot::Gloves, 70, 0, 0, 0, 0, 0, 96, nullptr, 0, WK_NONE},
+        {"oryx_boots", "Oryx-Hide Boots", Slot::Boots, 70, 0, 0, 0, 0, 0, 96, nullptr, 0, WK_NONE},
+        {"star_map_circlet", "Star-Map Circlet", Slot::Helmet, 66, 0, 0, 0, 0, 0, 0, nullptr, 126, WK_NONE},
+        {"observatory_robe", "Observatory Robe", Slot::Body, 66, 0, 0, 0, 0, 0, 0, nullptr, 270, WK_NONE},
+        {"zodiac_gloves", "Zodiac Gloves", Slot::Gloves, 70, 0, 0, 0, 0, 0, 0, nullptr, 69, WK_NONE},
+        {"zodiac_slippers", "Zodiac Slippers", Slot::Boots, 70, 0, 0, 0, 0, 0, 0, nullptr, 69, WK_NONE},
+        {"turban_helm", "Turban Helm", Slot::Helmet, 66, 0, 0, 0, 0, 126, 117, nullptr, 0, WK_NONE},
+        {"horsemans_lamellar", "Horseman's Lamellar", Slot::Body, 66, 0, 0, 0, 0, 270, 252, nullptr, 0, WK_NONE},
+        {"cavalier_gauntlets", "Cavalier's Gauntlets", Slot::Gloves, 70, 0, 0, 0, 0, 54, 50, nullptr, 0, WK_NONE},
+        {"cavalier_boots", "Cavalier's Boots", Slot::Boots, 70, 0, 0, 0, 0, 54, 50, nullptr, 0, WK_NONE},
+        {"night_market_hood", "Night-Market Hood", Slot::Helmet, 66, 0, 0, 0, 0, 0, 112, nullptr, 76, WK_NONE},
+        {"eclipse_burnous", "Eclipse Burnous", Slot::Body, 66, 0, 0, 0, 0, 0, 252, nullptr, 162, WK_NONE},
+        {"eclipse_wraps", "Eclipse Wraps", Slot::Gloves, 70, 0, 0, 0, 0, 0, 50, nullptr, 33, WK_NONE},
+        {"eclipse_slippers", "Eclipse Slippers", Slot::Boots, 70, 0, 0, 0, 0, 0, 50, nullptr, 33, WK_NONE},
+        {"lighthouse_helm", "Lighthouse Helm", Slot::Helmet, 66, 0, 0, 0, 0, 119, 0, nullptr, 72, WK_NONE},
+        {"pashas_greatcoat", "Pasha's Greatcoat", Slot::Body, 66, 0, 0, 0, 0, 270, 0, nullptr, 162, WK_NONE},
+        {"pashas_gauntlets", "Pasha's Gauntlets", Slot::Gloves, 70, 0, 0, 0, 0, 54, 0, nullptr, 32, WK_NONE},
+        {"pashas_boots", "Pasha's Boots", Slot::Boots, 70, 0, 0, 0, 0, 54, 0, nullptr, 32, WK_NONE},
+        {"silk_road_belt", "Silk Road Belt", Slot::Belt, 68, 0, 0, 0, 0, 0, 0, "+40 to maximum Life", 0, WK_NONE},
+        {"coral_amulet", "Red-Sea Coral Amulet", Slot::Amulet, 70, 0, 0, 0, 0, 0, 0, "+12% to all Elemental Resistances", 0, WK_NONE},
+        {"carnelian_ring", "Carnelian Ring", Slot::Ring, 72, 0, 0, 0, 0, 0, 0, "+10% to all Elemental Resistances", 0, WK_NONE},
+        {"dhow_captains_ring", "Dhow Captain's Ring", Slot::Ring, 76, 0, 0, 0, 0, 0, 0, "Regenerate 34 Life per second", 0, WK_NONE},
     };
     return b;
 }
@@ -453,6 +501,30 @@ bool Item::has_crafted() const {
     return false;
 }
 
+int affix_tiers(const AffixDef& ad) {
+    return ad.effect == AE_CHART || ad.slots == 0 || ad.tier_levels[2] > 36 ? 3 : kAffixTiers;
+}
+
+int affix_tier_level(const AffixDef& ad, int tier) {
+    static const int high[3] = {36, 58, 78};
+    return tier < 3 ? ad.tier_levels[std::max(0, tier)] : high[std::min(tier, kAffixTiers - 1) - 3];
+}
+
+void affix_range(const AffixDef& ad, int tier, float& lo, float& hi, float& lo2, float& hi2) {
+    const int t = std::clamp(tier, 0, 2);
+    lo = ad.lo[t]; hi = ad.hi[t]; lo2 = ad.lo2[t]; hi2 = ad.hi2[t];
+    if (tier < 3) return;
+    static const float most[3] = {1.35f, 1.7f, 2.1f}, speed[3] = {1.15f, 1.3f, 1.45f}, res[3] = {1.3f, 1.6f, 1.9f};
+    const int k = std::min(tier, kAffixTiers - 1) - 3;
+    float s = most[k];
+    switch (ad.effect) {
+        case AE_LOCAL_SPEED_INC: case AE_MOVE_SPEED: case AE_ATTACK_SPEED_INC: case AE_CAST_SPEED_INC: s = speed[k]; break;
+        case AE_FIRE_RES: case AE_COLD_RES: case AE_LIGHTNING_RES: case AE_CHAOS_RES: case AE_ALL_RES: s = res[k]; break;
+        default: break;
+    }
+    lo = std::round(lo * s); hi = std::round(hi * s); lo2 = std::round(lo2 * s); hi2 = std::round(hi2 * s);
+}
+
 bool roll_affix(Item& it, Rng& rng, int want_prefix, const std::vector<int>* only) {
     if (it.rarity != Rarity::Magic && it.rarity != Rarity::Rare) return false;
     int limit = it.rarity == Rarity::Magic ? 1 : 3;
@@ -476,11 +548,14 @@ bool roll_affix(Item& it, Rng& rng, int want_prefix, const std::vector<int>* onl
     int d = cand[size_t(rng.irange(0, int(cand.size()) - 1))];
     const AffixDef& ad = defs[size_t(d)];
     int top = 0;
-    for (int t = 0; t < 3; t++) if (it.ilvl >= ad.tier_levels[t]) top = t;
-    int tier = rng.chance(0.55f) ? top : rng.irange(0, top);
+    for (int t = 0; t < affix_tiers(ad); t++) if (it.ilvl >= affix_tier_level(ad, t)) top = t;
+    // the best tier the item can hold half the time, else any (in the endgame, mostly one of the higher ones)
+    int tier = rng.chance(0.55f) ? top : rng.irange(top >= 3 ? 2 : 0, top);
     Affix af{uint16_t(d), uint8_t(tier), 0, 0};
-    af.v1 = std::round(rng.range(ad.lo[tier], ad.hi[tier]));
-    af.v2 = std::round(rng.range(ad.lo2[tier], ad.hi2[tier]));
+    float lo, hi, lo2, hi2;
+    affix_range(ad, tier, lo, hi, lo2, hi2);
+    af.v1 = std::round(rng.range(lo, hi));
+    af.v2 = std::round(rng.range(lo2, hi2));
     it.affixes.push_back(af);
     return true;
 }
@@ -490,8 +565,10 @@ void reroll_values(Item& it, Rng& rng) {
     for (auto& a : it.affixes) {
         if (a.flags & (AF_CRAFTED | AF_IMPLICIT)) continue;   // bench mods are fixed; implicits are the ember's
         const AffixDef& ad = affix_defs()[a.def];
-        a.v1 = std::round(rng.range(ad.lo[a.tier], ad.hi[a.tier]));
-        a.v2 = std::round(rng.range(ad.lo2[a.tier], ad.hi2[a.tier]));
+        float lo, hi, lo2, hi2;
+        affix_range(ad, a.tier, lo, hi, lo2, hi2);
+        a.v1 = std::round(rng.range(lo, hi));
+        a.v2 = std::round(rng.range(lo2, hi2));
     }
 }
 
@@ -654,19 +731,23 @@ void Item::add_global_mods(Stats& s, uint16_t src) const {
     if (bb.armour > 0 || armour_add > 0) s.add(S_ARMOUR, MK_FLAT, (bb.armour + armour_add) * (1 + armour_inc / 100.f), 0, src);
     if (bb.implicit) {
         std::string imp = bb.implicit;
-        if (imp.find("maximum Life") != std::string::npos) s.add(S_LIFE, MK_FLAT, 20, 0, src);
+        const float n = float(atoi(bb.implicit));   // the number the implicit leads with ("+14% to ...", "30% ...")
+        if (imp.find("maximum Life") != std::string::npos) s.add(S_LIFE, MK_FLAT, n, 0, src);
         if (int n = 0; imp.find("Life per second") != std::string::npos && sscanf(bb.implicit, "Regenerate %d", &n) == 1)
             s.add(S_LIFE_REGEN, MK_FLAT, float(n), 0, src);
-        if (imp.find("all Attributes") != std::string::npos) { s.add(S_STR, MK_FLAT, 10, 0, src); s.add(S_DEX, MK_FLAT, 10, 0, src); s.add(S_INT, MK_FLAT, 10, 0, src); }
-        if (imp.find("Fire Resistance") != std::string::npos) s.add(S_FIRE_RES, MK_FLAT, 15, 0, src);
-        if (imp.find("Cold Resistance") != std::string::npos) s.add(S_COLD_RES, MK_FLAT, 14, 0, src);
-        if (imp.find("maximum Hirz") != std::string::npos) s.add(S_ES, MK_FLAT, 20, 0, src);
+        if (imp.find("all Attributes") != std::string::npos) { s.add(S_STR, MK_FLAT, n, 0, src); s.add(S_DEX, MK_FLAT, n, 0, src); s.add(S_INT, MK_FLAT, n, 0, src); }
+        if (imp.find("Fire Resistance") != std::string::npos) s.add(S_FIRE_RES, MK_FLAT, n, 0, src);
+        if (imp.find("Cold Resistance") != std::string::npos) s.add(S_COLD_RES, MK_FLAT, n, 0, src);
+        if (imp.find("all Elemental Resistances") != std::string::npos)
+            for (Stat r : {S_FIRE_RES, S_COLD_RES, S_LIGHTNING_RES}) s.add(r, MK_FLAT, n, 0, src);
+        if (imp.find("maximum Hirz") != std::string::npos) s.add(S_ES, MK_FLAT, n, 0, src);
         if (imp.find("Spell Damage") != std::string::npos) s.add(S_DAMAGE, MK_INC, float(atoi(bb.implicit)), T_SPELL, src);
         if (imp.find("Elemental Damage") != std::string::npos) s.add(S_DAMAGE, MK_INC, float(atoi(bb.implicit)), T_ELEMENTAL, src);
-        if (imp.find("Projectile Speed") != std::string::npos) s.add(S_PROJ_SPEED, MK_INC, 10, 0, src);
-        if (imp.find("to Dexterity") != std::string::npos) s.add(S_DEX, MK_FLAT, 12, 0, src);
-        if (imp.find("cause Bleeding") != std::string::npos) s.add(S_BLEED, MK_FLAT, 15, 0, src);
+        if (imp.find("Projectile Speed") != std::string::npos) s.add(S_PROJ_SPEED, MK_INC, n, 0, src);
+        if (imp.find("to Dexterity") != std::string::npos) s.add(S_DEX, MK_FLAT, n, 0, src);
+        if (imp.find("cause Bleeding") != std::string::npos) s.add(S_BLEED, MK_FLAT, n, 0, src);
         if (imp.find("pierce an additional") != std::string::npos) s.add(S_PIERCE, MK_FLAT, 1, 0, src);
+        if (int p = 0; sscanf(bb.implicit, "Bolts pierce %d additional", &p) == 1) s.add(S_PIERCE, MK_FLAT, float(p), 0, src);
     }
 }
 

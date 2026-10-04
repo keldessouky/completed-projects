@@ -46,6 +46,15 @@ struct MonsterDef {
 };
 const std::vector<MonsterDef>& monster_defs();
 
+// how monsters grow with the area's level: steadily through the campaign, and faster past 66, where the endgame's
+// Reaches and pinnacles are (life and armour; damage)
+float monster_life_k(int area_level);
+float monster_damage_k(int area_level);
+// experience: what a level asks (steeper past 70, so the last thirty levels are the long road), and how many levels
+// above an area the hero can be before its monsters are worth less (more in the high Reaches)
+float level_xp_need(int level);
+int xp_allowance(int area_level);
+
 // Bosses are data: a list of moves in priority order, used when their cooldown is ready and the hero is in range.
 enum class MoveKind : uint8_t { Combo, Leap, Summon, Wail, Charge, Volley, Nova, Blink, Pools };
 struct BossMove {

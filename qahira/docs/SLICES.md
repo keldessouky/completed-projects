@@ -1251,3 +1251,66 @@ The owner asked to be able to set the game's audio, the effects and the radio se
 
 | ![The Settings tab with the three volumes](img/settings-volumes.jpg) | ![The same, in Arabic](img/settings-volumes-ar.jpg) |
 |---|---|
+
+## After the second run on the RP6: the endgame past 70
+
+The owner's notes:
+- the game stalls at about level 70, with no experience or gear to farm;
+- the base can't be upgraded;
+- the gear all looks the same;
+- the monsters fall short of Path of Exile's.
+
+This entry is the first of them. The rooftop, the gear icons and the monsters follow.
+
+**Why it stalled**
+- **Areas:** the Sixteenth Reach was area level 65 and the campaign's last zone 68.
+- **Experience:** monsters more than two levels below the hero gave 20% less experience a level, down to 15%. A
+  level-70 hero in a level-65 area got 40%.
+- **Gear:** the bases stopped between 38 and 58, and every affix's best tier came at item level 14-20. From the
+  middle of the campaign on, nothing could roll better numbers.
+
+**Delivered**
+- **The Reaches** (`chart_area_level`) climb two levels a tier from the Fifth Clime (54) to the Tenth Reach (64), then
+  three a tier to the Sixteenth Reach at 82. The charts' bases follow. The Marid King's throne is at 84, and Falak's and
+  Umm al-Subyan's lairs are at 85.
+- **Monsters** grow as before through the campaign, and a little faster past area level 66 (`monster_life_k`,
+  `monster_damage_k`: +0.06 life and +0.04 damage a level more). The throne at 84 is about a third harder than at its
+  old 68.
+  - A first try made the growth quadratic past 66. That made the king 1.8 times harder, and a level-80 bot died ten
+    times at the throne.
+- **Experience** (`level_xp_need`): each level past 69 asks (1 + 0.1 per level)² times what it did.
+  `xp_allowance` lets a hero be 2 levels above an area before its monsters are worth less, plus one for every three
+  area levels past 60, so 9 at the Sixteenth Reach.
+- **Affixes** have three more tiers above their table's best, from item levels 36, 58 and 78 (`affix_range`):
+  - most affixes get 1.35, 1.7 and 2.1 times the best range;
+  - speed gets 1.15, 1.3 and 1.45 times;
+  - resistances get 1.3, 1.6 and 1.9 times.
+
+  The bench's recipes, the Spring and chart mods keep their three. An item rolls its best possible tier half the time,
+  else (in the endgame) one from the table's best up. Values are stored on the item, so old items keep theirs.
+- **46 new bases**, appended to the table:
+  - two weapon tiers for each of the nine kinds, at 68 and 80, each the best of its kind;
+  - a tier of every defence type in every armour slot (helmets and body armour at 66, gloves and boots at 70);
+  - a belt, an amulet and two rings from 68 to 76.
+
+  Implicits now give the number their text says (they had been fixed per kind, all equal to their texts), which lets
+  the new ones be stronger. "+N% to all Elemental Resistances" and "Bolts pierce N additional enemies" are new.
+- **The pinnacle bots** start as the Reaches now leave you: level 80, with item-level 78 gear (they had been 70 and
+  60).
+- **The chart simulation** follows the Reaches' players' levels by the game's experience rules, over the real
+  spawner's monsters, to the throne and then farming the Sixteenth Reach. It flags level 80 under 30 runs or past
+  150, 90 past 700, and 100 under 500.
+
+**Verified**
+| Check | Result |
+|---|---|
+| Unit tests (`qtests`) | pass, 114 cases. New (`test_endgame.cpp`): the endgame tiers' levels and ranges (life 63-92 at the top, movement speed and resistances held back) and that level-82 items roll them while level-20 items never do; a tier at 66+ for all nine weapon kinds, all 24 armour slot and defence pairs, and four jewellery bases, the 80s the best of their kind, implicits giving their numbers, and the new bases dropping in the Reaches; the Reaches' and pinnacles' levels; monster growth as before to 66 and the throne under 1.4 times its old difficulty; the experience curve as before to 69 and steeper past it, and the allowance |
+| Chart simulation | 0 flags. After Act V: level 70 at 24 runs, 80 at 51, 90 at 115, 100 at 747 (median). The tiers' chart progression is unchanged: the throne at 44 runs |
+| Pinnacle bots (level 80, item-level 78 gear) | the Marid King (Warrior, Sorcerer, Ranger), Falak (Sorcerer, Warrior) and Umm al-Subyan pass, 0 deaths, under a minute each |
+| Build simulation | 0 flags |
+| Quick bots and the nightly suite | the 15 quick bots and all 19 nightly runs pass (acts I-VI for every class in the suite, the charts, the Reaches, Falak and Umm al-Subyan) |
+
+**Known gaps (carried forward)**
+- No bot plays the Sixteenth Reach itself. The `reaches` bot goes to the Eighth, and the pinnacles stand in for the
+  top.
+- The uber pinnacles weren't run by a bot at the new levels.

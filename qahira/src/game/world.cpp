@@ -7,6 +7,23 @@
 namespace q {
 
 // ============================================================ data tables
+float monster_life_k(int area_level) {
+    const float past = float(std::max(0, area_level - 66));
+    return 1.f + 0.14f * float(area_level - 1) + 0.06f * past;
+}
+
+float monster_damage_k(int area_level) {
+    const float past = float(std::max(0, area_level - 66));
+    return 1.f + 0.12f * float(area_level - 1) + 0.04f * past;
+}
+
+float level_xp_need(int level) {
+    const float steep = 1.f + 0.1f * float(std::max(0, level - 69));
+    return 90.f * std::pow(float(level), 1.55f) * steep * steep;
+}
+
+int xp_allowance(int area_level) { return 2 + std::max(0, area_level - 60) / 3; }
+
 const std::vector<MonsterDef>& monster_defs() {
     // append only: save states store the index
     static const std::vector<MonsterDef> d = [] {
@@ -534,7 +551,7 @@ Actor& World::spawn_monster(int def, vec2 pos, Rarity rarity, int lvl) {
     m.scale = d.scale;
     m.tint = d.tint;
     m.radius = d.radius;
-    float lvl_k = 1.f + 0.14f * (lvl - 1);
+    float lvl_k = monster_life_k(lvl);
     m.life_max = d.life * lvl_k;
     m.armour = d.armour * lvl_k;
     m.speed = d.speed * rng.range(0.92f, 1.08f);
@@ -2148,7 +2165,7 @@ void World::kill(Actor& e) {
     if (in_chart) xp *= 1.f + astro_value(chart.astro, AX_XP) / 100.f;
     if (haboob.inside(e.pos)) haboob.meter += (e.rarity >= Rarity::Rare ? 5.f : e.rarity == Rarity::Magic ? 2.5f : 1.5f) *
                                               (1.f + astro_value(chart.astro, AX_HABOOB_METER) / 100.f);
-    if (int over = hero.level - area_level - 2; over > 0)      // and little once you have outgrown them
+    if (int over = hero.level - area_level - xp_allowance(area_level); over > 0)   // and little once you have outgrown them
         xp *= std::max(0.15f, 1.f - 0.2f * float(over));
     if (d.attack == AttackKind::Boss) {
         boss_killed = true;
@@ -2188,7 +2205,7 @@ void World::kill(Actor& e) {
     for (size_t i = 0; i < 4; i++) if (e.mods[i] == MM_VAMPIRIC) {}
     // level up
     for (;;) {
-        float need = 90.f * std::pow(float(hero.level), 1.55f);
+        float need = level_xp_need(hero.level);
         if (hero.xp < need || hero.level >= 100) break;
         hero.xp -= need;
         hero.level++;
@@ -2389,7 +2406,7 @@ void World::monster_attack(Actor& m) {
     Actor& h = actors[0];
     if (!h.alive()) return;
     vec2 fwd = from_angle(m.facing);
-    float lo = d.dmg_min * m.dmg_mult * (1 + 0.12f * (area_level - 1)), hi = d.dmg_max * m.dmg_mult * (1 + 0.12f * (area_level - 1));
+    float lo = d.dmg_min * m.dmg_mult * monster_damage_k(area_level), hi = d.dmg_max * m.dmg_mult * monster_damage_k(area_level);
     switch (d.attack) {
         case AttackKind::Boss: break;  // boss_strike handles her
         case AttackKind::Claw: {
@@ -2595,7 +2612,7 @@ void World::boss_strike(Actor& m, const char* ev) {
     const BossDef* bd = boss_def(m.def);
     if (!bd || m.skill < 0 || m.skill >= int(bd->moves.size())) return;
     const BossMove& mv = bd->moves[size_t(m.skill)];
-    float k = 1 + 0.12f * (area_level - 1);
+    float k = monster_damage_k(area_level);
     float lo = d.dmg_min * k * m.dmg_mult * mv.dmg, hi = d.dmg_max * k * m.dmg_mult * mv.dmg;
     (void)ev;
     switch (mv.kind) {
@@ -2787,7 +2804,7 @@ void World::boss_step(Actor& m, float dt) {
                 m.pos = level.resolve(lerp(m.from, m.target, u), m.radius);
                 if (!m.struck && length(h.pos - m.pos) < m.radius + h.radius + 0.3f) {
                     m.struck = true;
-                    float k = 1 + 0.12f * (area_level - 1);
+                    float k = monster_damage_k(area_level);
                     damage_hero(d.dmg_min * k * mv.dmg, d.dmg_max * k * mv.dmg, DT_PHYS, m.pos, 40, m.id);
                     h.knock += normalize(h.pos - m.pos) * 6.f;
                     shake = std::max(shake, 0.6f);

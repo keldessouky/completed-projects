@@ -192,6 +192,21 @@ the screen names it and how far it is.
 seven tiers, each healing more and every second one holding a charge more, for dinars once you're at the level it
 asks. High-level belts, amulets and rings, and the affix *of the Spring*, regenerate life every second.
 
+**The endgame** goes on well past the campaign's level 68:
+
+- **The charts:** the Reaches of the Map of al-Idrisi climb two area levels a tier to the Tenth Reach (64), then
+  three a tier to the Sixteenth Reach at **82**.
+- **The pinnacles:** the Marid King's throne is at 84, and Falak and Umm al-Subyan are at 85.
+- **Gear keeps improving:**
+  - Every kind of weapon has new bases at item levels 68 and 80.
+  - Every kind of armour has new bases at 66 (helmets and body armour) and 70 (gloves and boots).
+  - There are new belts, amulets and rings from 68 to 76.
+  - Every affix has three more tiers above its old best, from item levels 36, 58 and 78. Speed and resistances grow
+    less than the rest.
+- **Levels:** past 70 they take longer and longer. Level 80 comes at about the time the Reaches are done, 90 after a
+  hundred or so runs more, and 100 is the long road. In the high Reaches you can be more levels above an area before
+  its monsters are worth less, so the Sixteenth Reach is worth running into your 90s.
+
 **Settings** (the menu's last tab):
 - the language (English, or Arabic laid out right to left);
 - the text size;

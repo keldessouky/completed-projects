@@ -12,7 +12,8 @@ using namespace q;
 TEST(sixteen_tiers_of_charts_each_with_its_own_base_and_level) {
     CHECK(kChartTiers == 16);
     CHECK(chart_area_level(1) == 14 && chart_area_level(4) == 17);
-    CHECK(chart_area_level(5) == 54 && chart_area_level(16) == 65);   // a level a tier, from near Act V's end (56)
+    CHECK(chart_area_level(5) == 54 && chart_area_level(10) == 64);   // two levels a tier, from near Act V's end (56)
+    CHECK(chart_area_level(11) == 67 && chart_area_level(16) == 82);  // then three, to the endgame's 82
     CHECK(tier_name(5) == "the Fifth Clime" && tier_name(7) == "the Seventh Clime" && tier_name(8) == "the Eighth Reach" &&
           tier_name(16) == "the Sixteenth Reach");
     std::set<int> bases;

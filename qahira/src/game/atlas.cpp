@@ -8,7 +8,10 @@ namespace q {
 
 int chart_area_level(int tier) {
     tier = std::clamp(tier, 1, kChartTiers);
-    return tier <= kChartTiersEarly ? 13 + tier : 49 + tier;   // the higher tiers begin near Act V's end (level 56), a level a tier
+    // the higher tiers begin near Act V's end (level 56): two levels a tier through the campaign's last levels, then
+    // three a tier up to the Sixteenth Reach at 82, where the endgame's gear and levels are
+    if (tier <= kChartTiersEarly) return 13 + tier;
+    return tier <= 10 ? 44 + 2 * tier : 34 + 3 * tier;
 }
 
 const char* tier_ordinal(int tier) {

@@ -1599,8 +1599,8 @@ void Bot::prepare(World& w) {
     const bool late = scenario == "reaches" || pinnacle_run();   // after Act V
     // Act II: as Act I leaves you; Act III and the rifts: as Act II does
     H.level = scenario == "act2" ? 13 : scenario == "rifts" ? 25 : scenario == "act3" ? 24 : scenario == "digs" ? 34 : scenario == "act4" ? 34 : scenario == "zar" ? 44 : scenario == "act5" ? 43 : scenario == "act6" ? 53
-            : scenario == "reaches" ? 58 : pinnacle_run() ? 70 : 14;
-    const int gear = pinnacle_run() ? 60 : scenario == "reaches" ? 50 : scenario == "act6" ? 48 : scenario == "act5" ? 40 : scenario == "act4" || scenario == "zar" ? 32
+            : scenario == "reaches" ? 58 : pinnacle_run() ? 80 : 14;   // the pinnacles: as the Reaches leave you (the throne at 84)
+    const int gear = pinnacle_run() ? 78 : scenario == "reaches" ? 50 : scenario == "act6" ? 48 : scenario == "act5" ? 40 : scenario == "act4" || scenario == "zar" ? 32
                    : scenario == "act3" || scenario == "digs" ? 24 : 14;
     H.quests = Q_MICROBUS | Q_SILAH | Q_NASNAS | Q_TRIAL1 | Q_GHULA | Q_QUTRUB | Q_BENCH | Q_ACT1;
     H.recipes = kStarterRecipes;

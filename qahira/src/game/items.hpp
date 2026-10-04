@@ -65,7 +65,7 @@ enum AffixFlag : uint8_t { AF_CRAFTED = 1, AF_IMPLICIT = 2 };   // from the benc
 
 struct Affix {
     uint16_t def;
-    uint8_t tier;           // 0 weakest .. 2 strongest
+    uint8_t tier;           // 0 weakest .. 2 the table's best; 3..5 the endgame's tiers above it (affix_range)
     float v1, v2;
     uint8_t flags = 0;      // AffixFlag
 };
@@ -92,6 +92,13 @@ struct Item {
     float local_evasion() const;              // evasion on an armour piece, local mods applied
     void add_global_mods(Stats& s, uint16_t source) const;
 };
+
+// an affix's tiers: the three in its table, then (for gear) three more for the endgame, from item level 36, 58 and
+// 78, each the table's best range made larger (less for speed and resistances)
+constexpr int kAffixTiers = 6;
+int affix_tiers(const AffixDef& ad);                 // 3, or kAffixTiers for gear
+int affix_tier_level(const AffixDef& ad, int tier);
+void affix_range(const AffixDef& ad, int tier, float& lo, float& hi, float& lo2, float& hi2);
 
 const std::vector<ItemBase>& item_bases();
 const std::vector<AffixDef>& affix_defs();

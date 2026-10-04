@@ -1106,7 +1106,7 @@ void View::render_hud(World& w, const Input& in, const Areas& areas) {
         u.text(sx + 20, 876, buf, 26, pal::amber, Align::Left, 1);
     }
     // xp bar
-    float need = 90.f * std::pow(float(H.level), 1.55f);
+    float need = level_xp_need(H.level);
     u.rect(300, 1068, 1320, 6, pal::night.alpha(0.9f), 3);
     u.rect(300, 1068, 1320 * std::min(1.f, H.xp / need), 6, pal::brass, 3);
     snprintf(buf, sizeof buf, "Level %d", H.level);

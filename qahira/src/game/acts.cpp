@@ -189,7 +189,7 @@ const std::vector<ZoneDef>& zone_defs() {
              "sea_marid", 5, "marid", 3, "salt_ghoul", 3, "sea_marid", "rift_lord", SITE_TINT(0.75f, 0.9f, 1.2f)),
 #undef SITE
         // the Marid King's throne: four King's Pearls open it at the chart table (act 0, above the Sixteenth Reach)
-        {"king_throne", "The Throne of the Marid King", "Under the Encircling Sea, a hall of columns in green water", "karnak", 0, 68, 2,
+        {"king_throne", "The Throne of the Marid King", "Under the Encircling Sea, a hall of columns in green water", "karnak", 0, 84, 2,
          5, 1, "mus_strait", "amb_sea", {{"sea_marid", 5}, {"marid", 3}, {"marid_caller", 2}}, "sea_marid",
          "marid_king", "The Marid King is unmade, and the sea lets go of the world", "", "cache", "", false, -1, {0.55f, 0.85f, 1.2f}},
         // Act VI (Slice 10): Across the Red Sea, to Apep at the heart of totality
@@ -221,13 +221,13 @@ const std::vector<ZoneDef>& zone_defs() {
          {1.2f, 1.0f, 0.7f}},
         // the second pinnacle: Falak, the serpent beneath the world (Apep's true form), opened with four Scales of Falak
         {"falak_lair", "The Sea Beneath the World", "Under the earth, the great serpent Falak holds the world in its coils", "karnak", 0,
-         70, 2, 5, 1, "mus_apep", "amb_temple", {{"eclipse_marid", 5}, {"sand_shade", 3}, {"marid_caller", 2}}, "eclipse_marid",
+         85, 2, 5, 1, "mus_apep", "amb_temple", {{"eclipse_marid", 5}, {"sand_shade", 3}, {"marid_caller", 2}}, "eclipse_marid",
          "falak", "Falak sinks into the dark water, and the world sits still on its back", "", "cache", "", false, -1,
          {0.45f, 0.3f, 0.55f}},
         // the third pinnacle (Slice 11): Umm al-Subyan, the night-hag who steals the city's sleep, in a house where every
         // lamp is lit; four of her Combs open it
         {"subyan_house", "The House of the Unsleeping", "Every lamp in the house is lit, and no one in it has slept for a year", "medina",
-         0, 70, 2, 5, 1, "mus_night", "amb_market", {{"sand_shade", 5}, {"smoke_jinn", 3}, {"blue_nasnas", 2}}, "sand_shade",
+         0, 85, 2, 5, 1, "mus_night", "amb_market", {{"sand_shade", 5}, {"smoke_jinn", 3}, {"blue_nasnas", 2}}, "sand_shade",
          "umm_subyan", "Umm al-Subyan lets go of the house, and every lamp in it goes out at last", "", "cache", "", false, -1,
          {0.7f, 0.62f, 0.85f}},
     };

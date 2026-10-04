@@ -162,7 +162,9 @@ already has, what's left, and what's worth knowing before you change anything.
 - **Landmark and arena set pieces** go where the cell's way in is not: a landmark opens to the north, so its pieces
   stand in the south half; an arena opens to the south. Leave no slot between a piece and the court's wall that a
   pilot can squeeze into (the Ram's court had one). `qtests` walks every zone and finds unreachable courts.
-- **Balance knobs:** XP per area level (`World::kill`), monster rows (`monster_defs`), boss move damage (`BossDef`), and
+- **Balance knobs:** XP per area level (`World::kill`), what a level asks and how far a hero can outgrow an area
+  (`level_xp_need`, `xp_allowance`), how monsters grow with the area (`monster_life_k`, `monster_damage_k`), the chart
+  tiers' levels (`chart_area_level`), affix tiers (`affix_range`), monster rows (`monster_defs`), boss move damage (`BossDef`), and
   the `act1` bot's death count and final level, which CI prints.
 - **Tests and the tree:** `qtests` reads the generated tree via `QAHIRA_SOURCE_DIR`, so run `tools/tree/build_tree.py`
   (or `build_all.sh`) first. The "data/tree.json missing" line in the test output is harmless: the save test runs
