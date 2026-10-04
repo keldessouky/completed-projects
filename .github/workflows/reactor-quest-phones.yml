@@ -115,6 +115,8 @@ jobs:
           target: google_apis
           arch: x86_64
           profile: pixel_7
+          ram-size: 4096M
+          heap-size: 512M
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           working-directory: reactor-quest
@@ -127,7 +129,7 @@ jobs:
             adb shell pm disable-user --user 0 com.google.android.apps.nexuslauncher || true
             adb shell ime disable com.google.android.inputmethod.latin/com.android.inputmethod.latin.LatinIME || true
             adb install -r Reactor-Quest.apk
-            node tools/smoke-android-app.mjs
+            node tools/smoke-android-app.mjs; status=$?; adb logcat -d > test-results/android-app/logcat.txt; grep -iE "renderer|crash|FATAL|lowmemory|killing|Reactor|chromium" test-results/android-app/logcat.txt | grep -v "^$" | tail -60; exit $status
       - uses: actions/upload-artifact@v4
         if: always()
         with:
