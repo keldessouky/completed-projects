@@ -40,7 +40,9 @@ async function step(name, fn) {
     results.push(`  ✓ ${name} (${Date.now() - t} ms)`);
   } catch (e) {
     failures++;
-    results.push(`  ✗ ${name}\n      ${String(e.message ?? e).split('\n').slice(0, 6).join('\n      ')}`);
+    await page.screenshot({ path: join(shots, `fail-${failures}.png`) }).catch(() => {});
+    const blocker = await page.evaluate(() => [...document.querySelectorAll('.modal-backdrop, .announcer .card-note')].map((el) => `${el.className}: ${el.textContent?.slice(0, 80)}`).join(' || ')).catch(() => '');
+    results.push(`  ✗ ${name}\n      ${String(e.message ?? e).split('\n').slice(0, 6).join('\n      ')}${blocker ? `\n      overlays: ${blocker}` : ''}`);
   }
   console.log(results.at(-1));
 }
@@ -71,28 +73,41 @@ async function waitCompiler() {
 }
 
 // ---------------------------------------------------------------- first run
+/** Close any offer dialog (pet, class) that pops up when a victory screen closes. */
+async function dismissModals() {
+  for (let i = 0; i < 4 && (await page.locator('.modal-backdrop .modal:not(.victory)').count()); i++) await page.keyboard.press('Escape');
+}
+
+/** Dismiss THE FEED's announcement cards so they never sit on top of what we click. */
+async function clearNotes() {
+  // Cards that were waiting their turn slide in as others go, so keep going until none are left.
+  for (let i = 0; i < 30 && (await page.locator('.note-close').count()); i++) await page.locator('.note-close').first().click({ timeout: 2000 }).catch(() => {});
+}
+
 await step('Title screen renders', async () => {
   await page.goto(url);
   await page.getByRole('button', { name: 'Begin' }).waitFor();
   await page.screenshot({ path: join(shots, '01-title.png') });
 });
 
-await step('Begin opens the first level; starter code fails with type errors', async () => {
+await step('Begin asks for a name, then opens Floor 1, level 1 — whose starter prints nothing', async () => {
   await page.getByRole('button', { name: 'Begin' }).click();
-  await page.waitForURL(/#\/level\/power-bus/);
+  await page.getByLabel('Your name').fill('Smoke Tester');
+  await page.getByRole('button', { name: 'Go live' }).click();
+  await page.waitForURL(/#\/level\/hello-world/);
+  await page.getByText('Smoke Tester').first().waitFor();
   await waitCompiler();
   await page.getByRole('button', { name: /^Run/ }).click();
-  await page.locator('.report .checks li').first().waitFor();
-  const typeErrors = await page.locator('.type-errors .diag').count();
-  if (typeErrors < 1) throw new Error('expected type errors from the starter');
-  await page.locator('.cm-lintRange-error').first().waitFor();
+  await page.locator('.checks li.fail').getByText('Nothing was printed').waitFor();
   await page.screenshot({ path: join(shots, '02-level-starter.png') });
 });
 
-await step('Hints, then the solution modal, then victory at one star', async () => {
+await step('A hint token reveals a hint for free; the solution caps the win at one star', async () => {
   await page.getByRole('tab', { name: /Hints/ }).click();
-  await page.getByRole('button', { name: /Reveal hint 1/ }).click();
+  await page.getByRole('button', { name: /Use a hint token/ }).click();
   await page.locator('.hint').first().waitFor();
+  const worth = await page.locator('.stars-line').textContent();
+  if (!worth?.includes('★★★')) throw new Error(`a token-paid hint should keep three stars, but it shows: ${worth}`);
   await page.getByRole('button', { name: /Show the solution/ }).click();
   await page.getByRole('button', { name: 'Reveal the solution' }).click();
   await page.getByRole('button', { name: 'Load it into the editor' }).click();
@@ -100,43 +115,67 @@ await step('Hints, then the solution modal, then victory at one star', async () 
   await page.locator('.victory').waitFor({ timeout: 10_000 });
   const on = await page.locator('.big-stars span.on').count();
   if (on !== 1) throw new Error(`expected 1 star after using the solution, got ${on}`);
-  await page.locator('.toast').filter({ hasText: 'First Light' }).waitFor();
+  await page.locator('.card-note').filter({ hasText: 'Hello, World' }).waitFor();
   await page.waitForTimeout(900); // let the stars land
   await page.screenshot({ path: join(shots, '03-victory.png') });
 });
 
+await step('Opening the loot boxes from the victory screen', async () => {
+  await page.locator('.victory').getByRole('button', { name: /Open \d* ?box/ }).click();
+  for (let i = 0; i < 12 && (await page.locator('.box-modal').count()); i++) {
+    await page.getByRole('button', { name: 'Open it' }).click();
+    await page.locator('.loot-list li').first().waitFor();
+    if (i === 0) {
+      await page.waitForTimeout(800);
+      await page.screenshot({ path: join(shots, '04-box.png') });
+    }
+    await page.locator('.box-modal .btn.primary').click();
+  }
+  if (await page.locator('.box-modal').count()) throw new Error('the box opener never closed');
+});
+
 await step('Next system → level 2, solved by typing: three stars and First Try', async () => {
+  await clearNotes();
   await page.getByRole('button', { name: /Next system/ }).click();
-  await page.waitForURL(/#\/level\/comms-relay/);
-  await setEditor(readFileSync(join(root, 'src/content/code/comms-relay/solution.ts'), 'utf8'));
+  await page.waitForURL(/#\/level\/strings/);
+  await setEditor(readFileSync(join(root, 'src/content/code/strings/solution.ts'), 'utf8'));
   await page.getByText('✓ No type errors').waitFor({ timeout: 10_000 });
   await page.keyboard.press(`${await modKey()}+Enter`);
   await page.locator('.victory').waitFor({ timeout: 10_000 });
   const on = await page.locator('.big-stars span.on').count();
   if (on !== 3) throw new Error(`expected 3 stars, got ${on}`);
-  await page.locator('.toast').filter({ hasText: 'First Try' }).waitFor();
+  await page.locator('.card-note').filter({ hasText: 'First Try' }).first().waitFor();
+  await page.locator('.card-note').filter({ hasText: 'Level up!' }).first().waitFor();
 });
 
-await step('Map shows progress and the next level', async () => {
+await step('Map: progress, daily quests (one claimable), floors and the next level', async () => {
   await page.goto(`${url}#/map`);
   await page.locator('.node.done').nth(1).waitFor();
   await page.locator('.node.next').waitFor();
+  await page.locator('.quests li').first().waitFor();
   const deckHeight = await page.locator('.deck').first().evaluate((el) => el.getBoundingClientRect().height);
-  if (deckHeight > 400) throw new Error(`deck panel is ${deckHeight}px tall — layout broken`);
-  await page.waitForTimeout(4600); // let the achievement toasts clear
-  await page.screenshot({ path: join(shots, '04-map.png') });
+  if (deckHeight > 460) throw new Error(`deck panel is ${deckHeight}px tall — layout broken`);
+  const claim = page.getByRole('button', { name: 'Claim 🎁' });
+  if (await claim.count()) {
+    await claim.first().click();
+    await page.locator('.quests li.claimed').first().waitFor();
+  }
+  await clearNotes();
+  await page.locator('main').evaluate((el) => el.scrollTo(0, 0));
+  await page.screenshot({ path: join(shots, '05-map.png') });
 });
 
-await step('Locked levels stay locked', async () => {
+await step('Locked levels stay locked; a floor\'s boss is open from the start', async () => {
   await page.goto(`${url}#/level/core-reboot`);
   await page.getByText('This system is still dark').waitFor();
+  await page.goto(`${url}#/level/boot-diagnostics`);
+  await page.locator('.boss-bar').waitFor();
 });
 
 // ---------------------------------------------------------------- every level
-await step('Open every system from Profile → Settings', async () => {
-  await page.goto(`${url}#/profile`);
+await step('Open every system from Character → Settings', async () => {
+  await page.goto(`${url}#/character/settings`);
   await page.getByLabel(/Open every system/).check();
-  await page.screenshot({ path: join(shots, '05-profile.png') });
 });
 
 await step('Hovering a name shows its type; typing a dot offers members', async () => {
@@ -160,7 +199,7 @@ await step('Hovering a name shows its type; typing a dot offers members', async 
   await page.keyboard.press('Escape');
 });
 
-const ids = readdirSync(join(root, 'src/content/code'));
+const ids = readdirSync(join(root, 'src/content/code')).filter((id) => !process.env.SMOKE_LEVELS || process.env.SMOKE_LEVELS.split(',').includes(id));
 for (const id of ids) {
   await step(`Level ${id}: the solution wins in the real UI`, async () => {
     const ext = existsSync(join(root, `src/content/code/${id}/solution.tsx`)) ? 'tsx' : 'ts';
@@ -175,19 +214,65 @@ for (const id of ids) {
       throw new Error(`no victory. ${failed.join(' | ')}`);
     }
     if (id === 'thruster') {
+      await clearNotes();
       await page.getByRole('button', { name: 'Stay here' }).click();
+      await dismissModals();
+      await clearNotes();
       const preview = page.locator('.preview-surface');
       await preview.getByRole('button', { name: 'Increase' }).click();
       await preview.getByRole('button', { name: 'Increase' }).click();
       await preview.getByText('Thrust: 2').waitFor();
       await page.screenshot({ path: join(shots, '06-react-level.png') });
     }
-    if (id === 'core-reboot') {
+    if (id === 'mission-dashboard') {
       await page.waitForTimeout(900);
       await page.screenshot({ path: join(shots, '07-final-victory.png') });
     }
   });
 }
+
+// ---------------------------------------------------------------- rewards
+await step('The companion and the class are offered, and chosen', async () => {
+  await page.goto(`${url}#/character`);
+  await clearNotes();
+  await page.getByRole('button', { name: 'Adopt your companion' }).click();
+  await page.getByRole('button', { name: /Octo/ }).click();
+  await page.getByLabel('Name it').fill('Inky');
+  await page.getByRole('button', { name: 'Adopt', exact: true }).click();
+  await page.locator('.companion .pet').waitFor();
+  await page.getByRole('button', { name: 'Choose your class' }).click();
+  await page.getByRole('button', { name: /Bug Hunter/ }).click();
+  await page.getByRole('button', { name: /Become a Bug Hunter/ }).click();
+  await page.getByText('Bug Hunter').first().waitFor();
+  await clearNotes();
+  await page.screenshot({ path: join(shots, '15-character.png') });
+});
+
+await step('Loot: a boss box guarantees a Codex scroll, which can be read', async () => {
+  await page.goto(`${url}#/loot/boxes`);
+  await clearNotes();
+  const bossBox = page.locator('.box-list li').filter({ hasText: 'Boss Box: Boot Sequence' });
+  await bossBox.getByRole('button', { name: 'Open' }).click();
+  await page.getByRole('button', { name: 'Open it' }).click();
+  await page.locator('.loot-list').getByText('Scroll of First Principles').waitFor();
+  await page.waitForTimeout(700);
+  await page.screenshot({ path: join(shots, '13-boss-box.png') });
+  await page.locator('.box-modal .btn.primary').click();
+  if (await page.locator('.box-modal').count()) await page.keyboard.press('Escape');
+  await page.goto(`${url}#/loot/codex`);
+  await page.locator('.codex-list li').filter({ hasText: 'Scroll of First Principles' }).getByRole('button', { name: 'Read' }).click();
+  await page.locator('.modal').getByText('Values and variables').waitFor();
+  await page.keyboard.press('Escape');
+});
+
+await step('The Safe Room sells things', async () => {
+  await page.goto(`${url}#/shop`);
+  const before = await page.locator('.wallet').textContent();
+  await page.locator('.ware').filter({ hasText: 'Hint Token' }).getByRole('button').click();
+  await page.waitForFunction((b) => document.querySelector('.wallet')?.textContent !== b, before);
+  await clearNotes();
+  await page.screenshot({ path: join(shots, '14-shop.png') });
+});
 
 // ---------------------------------------------------------------- quiz + arcade
 await step('A quiz plays through to victory', async () => {
@@ -224,6 +309,7 @@ await step('Arcade: a round starts, answers score, wrong answers explain', async
 });
 
 await step('Narrow (phone) layout renders without horizontal scroll', async () => {
+  await clearNotes();
   const phone = await browser.newPage({ viewport: { width: 390, height: 844 } });
   await phone.goto(`${url}#/map`);
   await phone.locator('.deck').first().waitFor();

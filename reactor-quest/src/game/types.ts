@@ -1,5 +1,6 @@
 import type { ReactElement, ReactNode, createElement } from 'react';
 import type { Module, View, Mock, expect as expectFn } from '../engine/runtime';
+import type { SkillId } from './skills';
 
 /** Everything a level check gets to work with. */
 export interface Kit {
@@ -14,6 +15,8 @@ export interface Kit {
   wait(ms: number): Promise<void>;
   /** How many timers the player's code has started and not yet cleared. */
   activeTimers(): number;
+  /** Every line the player's code has printed with console.log, so far. */
+  logs: string[];
 }
 
 export interface Check {
@@ -39,6 +42,8 @@ interface LevelBase {
   brief: string;
   /** The concept, taught. Mini-markdown with code blocks. */
   lesson: string;
+  /** The skills this level trains. */
+  skills: SkillId[];
 }
 
 export interface CodeLevel extends LevelBase {
@@ -73,6 +78,8 @@ export interface Deck {
   id: string;
   name: string;
   subtitle: string;
+  /** One line on what you can do once this floor is cleared — shown on the map. */
+  outcome: string;
   /** Accent colour for the deck on the map. */
   hue: number;
   levels: Level[];

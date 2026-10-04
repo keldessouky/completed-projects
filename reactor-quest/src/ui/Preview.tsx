@@ -43,8 +43,14 @@ export function Preview({ level, js, runId, log }: Props) {
       e.preventDefault();
       log(`✖ ${e.message}`);
     };
+    const onRejection = (e: PromiseRejectionEvent) => {
+      if (activity.stages > 0) return;
+      e.preventDefault();
+      log(`✖ Unhandled promise rejection: ${e.reason instanceof Error ? e.reason.message : String(e.reason)}`);
+    };
     mount.addEventListener('submit', onSubmit);
     window.addEventListener('error', onError);
+    window.addEventListener('unhandledrejection', onRejection);
     try {
       const mod = loadModule(js, sandbox);
       const node = level.preview?.(mod, createElement, log) ?? null;
@@ -54,6 +60,7 @@ export function Preview({ level, js, runId, log }: Props) {
     }
     return () => {
       window.removeEventListener('error', onError);
+      window.removeEventListener('unhandledrejection', onRejection);
       sandbox.clearAll();
       // Unmount after the current render pass finishes.
       setTimeout(() => root.unmount());

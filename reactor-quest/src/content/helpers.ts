@@ -26,3 +26,34 @@ export const comp = (mod: Module, name: string) => fnOf<ComponentType<any>>(mod,
 
 /** Source text with comments stripped, for checks like "uses useState". */
 export const code = (source: string) => source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+
+/** The nth line the player's code printed, or a clear failure if it never got that far. */
+export function line(logs: string[], n: number): string {
+  if (logs.length <= n) {
+    throw new CheckFailure(
+      logs.length === 0
+        ? 'Nothing was printed. Use console.log(...) to print something.'
+        : `Only ${logs.length} line${logs.length > 1 ? 's were' : ' was'} printed — expected at least ${n + 1}.`,
+    );
+  }
+  return logs[n];
+}
+
+/** Fail with a friendly message unless the (comment-free) source matches. */
+export function mustUse(source: string, pattern: RegExp, message: string) {
+  if (!pattern.test(code(source))) throw new CheckFailure(message);
+}
+
+/** Fail if the (comment-free) source contains something it shouldn't. */
+export function mustNotUse(source: string, pattern: RegExp, message: string) {
+  if (pattern.test(code(source))) throw new CheckFailure(message);
+}
+
+/**
+ * An error a check throws on purpose (a fake server failing, say). It's tagged
+ * so the test runner can tell an expected rejection that a starter forgot to
+ * handle from a real bug.
+ */
+export function fixtureError(message: string): Error {
+  return Object.assign(new Error(message), { levelFixture: true });
+}

@@ -1,7 +1,9 @@
-// The one piece of shared game state: the save. A tiny external store,
-// read with useSyncExternalStore and persisted on every change.
+// The one piece of shared game state: the save. A tiny external store, read
+// with useSyncExternalStore and persisted on every change. Reward events from
+// the engine are broadcast to the UI (for announcements) and logged in the inbox.
 import { useSyncExternalStore } from 'react';
-import { ACHIEVEMENTS, earnedIds, parseSave, type Achievement, type Save } from './progress';
+import { parseSave, type Save } from './progress';
+import { dayOf, ensureQuests, noticesFor, type Result, type Reward } from './rewards';
 
 const KEY = 'reactor-quest/save';
 
@@ -13,25 +15,37 @@ function load(): Save {
   }
 }
 
-let save = load();
+let save = ensureQuests(load(), dayOf(new Date()));
 const listeners = new Set<() => void>();
-const achievementListeners = new Set<(a: Achievement) => void>();
+const rewardListeners = new Set<(events: Reward[]) => void>();
 
 export function getSave() {
   return save;
 }
 
-export function setSave(update: (s: Save) => Save) {
-  const before = earnedIds(save);
-  save = update(save);
+function commit(next: Save) {
+  save = ensureQuests(next, dayOf(new Date()));
   try {
     localStorage.setItem(KEY, JSON.stringify(save));
   } catch {
     /* private mode: progress lasts for this session */
   }
   listeners.forEach((l) => l());
-  const after = earnedIds(save);
-  for (const a of ACHIEVEMENTS) if (after.has(a.id) && !before.has(a.id)) achievementListeners.forEach((l) => l(a));
+}
+
+/** Replace the save with a plain update (no rewards involved). */
+export function setSave(update: (s: Save) => Save) {
+  commit(update(save));
+}
+
+/** Run a reward-engine action: store the new save, log and announce its events. */
+export function act(action: (s: Save) => Result | null): Reward[] {
+  const result = action(save);
+  if (!result) return [];
+  const notices = noticesFor(result.events, Date.now());
+  commit(notices.length ? { ...result.save, inbox: [...result.save.inbox, ...notices].slice(-60) } : result.save);
+  if (result.events.length) rewardListeners.forEach((l) => l(result.events));
+  return result.events;
 }
 
 export function useSave(): Save {
@@ -44,9 +58,9 @@ export function useSave(): Save {
   );
 }
 
-export function onAchievement(listener: (a: Achievement) => void) {
-  achievementListeners.add(listener);
+export function onRewards(listener: (events: Reward[]) => void) {
+  rewardListeners.add(listener);
   return () => {
-    achievementListeners.delete(listener);
+    rewardListeners.delete(listener);
   };
 }

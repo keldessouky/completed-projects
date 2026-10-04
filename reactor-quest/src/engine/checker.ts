@@ -106,7 +106,11 @@ export class Checker {
       const sf = this.service.getProgram()?.getSourceFile(path);
       const all = [...this.service.getSyntacticDiagnostics(path), ...this.service.getSemanticDiagnostics(path)];
       for (const d of all) diagnostics.push(toDiagnostic(path, d, sf));
-      js[path] = ts.transpileModule(files[path], { compilerOptions: EMIT_OPTIONS, fileName: path }).outputText;
+      js[path] = ts.transpileModule(files[path], {
+        compilerOptions: EMIT_OPTIONS,
+        fileName: path,
+        transformers: { before: [loopGuard] },
+      }).outputText;
     }
     return { diagnostics, js };
   }
@@ -136,6 +140,30 @@ export class Checker {
       .map((e) => ({ name: e.name, kind: e.kind, sort: e.sortText }));
   }
 }
+
+/** The name of the sandbox function every loop calls on each iteration. */
+export const LOOP_GUARD = '__loopGuard';
+
+/**
+ * Rewrites every loop so its body starts with `__loopGuard();`. The sandbox's
+ * guard throws if one synchronous run has been looping for too long, so a
+ * beginner's `while (true)` stops with a message instead of freezing the tab.
+ */
+const loopGuard: ts.TransformerFactory<ts.SourceFile> = (context) => {
+  const f = context.factory;
+  const guard = () => f.createExpressionStatement(f.createCallExpression(f.createIdentifier(LOOP_GUARD), undefined, []));
+  const guarded = (body: ts.Statement) => f.createBlock([guard(), ...(ts.isBlock(body) ? body.statements : [body])], true);
+  const visit = (node: ts.Node): ts.Node => {
+    const n = ts.visitEachChild(node, visit, context);
+    if (ts.isWhileStatement(n)) return f.updateWhileStatement(n, n.expression, guarded(n.statement));
+    if (ts.isDoStatement(n)) return f.updateDoStatement(n, guarded(n.statement), n.expression);
+    if (ts.isForStatement(n)) return f.updateForStatement(n, n.initializer, n.condition, n.incrementor, guarded(n.statement));
+    if (ts.isForOfStatement(n)) return f.updateForOfStatement(n, n.awaitModifier, n.initializer, n.expression, guarded(n.statement));
+    if (ts.isForInStatement(n)) return f.updateForInStatement(n, n.initializer, n.expression, guarded(n.statement));
+    return n;
+  };
+  return (sf) => ts.visitNode(sf, visit) as ts.SourceFile;
+};
 
 function toDiagnostic(file: string, d: ts.Diagnostic, sf: ts.SourceFile | undefined): Diagnostic {
   const start = d.start ?? 0;

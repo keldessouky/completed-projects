@@ -1,7 +1,9 @@
 import { ALL_LEVELS } from '../content';
-import { isUnlocked, levelState, stationPower } from '../game/progress';
+import { crawlerLevel, isUnlocked, levelState, stationPower } from '../game/progress';
+import { formatViewers } from '../game/rewards';
 import { sfx } from '../game/sound';
 import { useSave } from '../game/store';
+import { overlays } from '../ui/overlays';
 import { go } from '../ui/router';
 
 export function TitleScreen() {
@@ -23,15 +25,19 @@ export function TitleScreen() {
       </h1>
       <p className="tagline">A TypeScript &amp; React quest</p>
       <p className="intro">
-        Orrery Station has been dark for nine days. Its every system is written in TypeScript and React — and the compiler refuses to bring any of
-        them back online until they're right. Write real code, in a real editor, checked by the real TypeScript compiler. Restore the station one
-        system at a time.
+        Orrery Station has been dark for nine days. Every system aboard runs on code, and none of it works. You've never written a line of code?
+        Perfect. Start from your very first <code>console.log</code> and climb ten floors, all the way to professional TypeScript and React.
+        Real code, a real editor, the real compiler.
+      </p>
+      <p className="intro feed-intro">
+        <b>THE FEED:</b> <i>And it's all being broadcast LIVE to four billion viewers. Loot boxes! Achievements! Sponsors! Bosses! Welcome to Repair Crew LIVE.</i>
       </p>
       <div className="title-actions">
         <button
           className="btn primary big"
           onClick={() => {
             sfx.unlock();
+            if (!save.name) overlays.offer('name');
             go(started && nextUp ? `/level/${nextUp.id}` : started ? '/map' : `/level/${ALL_LEVELS[0].id}`);
           }}
         >
@@ -42,6 +48,11 @@ export function TitleScreen() {
       </div>
       <p className="power-readout">
         Station power <b>{power}%</b>
+        {started && (
+          <>
+            {' '}· {save.name || 'Engineer'}, crawler level <b>{crawlerLevel(save.xp).level}</b> · 👁 <b>{formatViewers(save.viewers)}</b> viewers
+          </>
+        )}
       </p>
     </div>
   );

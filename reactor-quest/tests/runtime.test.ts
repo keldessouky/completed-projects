@@ -75,3 +75,22 @@ describe('stage', () => {
     stage.cleanup();
   });
 });
+
+describe('loop guard', () => {
+  test('an endless loop throws instead of hanging, and normal loops are untouched', async () => {
+    const { Checker } = await import('../src/engine/checker');
+    const typings = (await import('../src/generated/typings.json')).default as Record<string, string>;
+    const checker = new Checker(typings);
+    const { js } = checker.check({
+      '/s.ts': 'export function spin() { let n = 0; while (true) { n++; } }\nexport function sum(xs: number[]) { let t = 0; for (const x of xs) t += x; for (let i = 0; i < 3; i++) t++; return t; }\n',
+    });
+    const mod = loadModule(js['/s.ts']);
+    expect(mod.sum([1, 2, 3])).toBe(9);
+    const t0 = performance.now();
+    expect(() => mod.spin()).toThrow(/without stopping/);
+    expect(performance.now() - t0).toBeLessThan(5000);
+    // A long but finite loop (10 million iterations) still completes.
+    const big = loadModule(checker.check({ '/b.ts': 'export function big() { let t = 0; for (let i = 0; i < 1e7; i++) t += i; return t; }\n' }).js['/b.ts']);
+    expect(big.big()).toBe(49999995000000);
+  });
+});

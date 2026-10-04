@@ -4,7 +4,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { ARCADE_CARDS } from '../content/arcade';
 import { compile } from '../engine/compiler';
 import { sfx } from '../game/sound';
-import { getSave, setSave } from '../game/store';
+import { finishArcade } from '../game/rewards';
+import { act, getSave } from '../game/store';
 import type { ArcadeCard } from '../game/types';
 import { Code } from '../ui/highlight';
 import { inline } from '../ui/Markdown';
@@ -58,9 +59,9 @@ export function ArcadeScreen() {
 
   const finish = useCallback(() => {
     setPhase('over');
-    const xp = score * 5;
     const best = score > getSave().arcadeBest;
-    setSave((s) => ({ ...s, xp: s.xp + xp, arcadeBest: Math.max(s.arcadeBest, score), arcadeCombo: Math.max(s.arcadeCombo, bestCombo) }));
+    const events = act((s) => finishArcade(s, score, bestCombo));
+    const xp = events.reduce((n, e) => n + (e.kind === 'xp' ? e.amount : 0), 0);
     setResult({ best, xp });
     sfx.pass();
   }, [score, bestCombo]);

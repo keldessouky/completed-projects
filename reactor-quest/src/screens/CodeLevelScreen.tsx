@@ -2,16 +2,19 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Diagnostic } from '../engine/checker';
 import { compile, isReady, onReady } from '../engine/compiler';
 import { grade, type Report } from '../engine/grade';
-import { codeStars, complete, levelState } from '../game/progress';
+import { codeStars, isBoss, levelState } from '../game/progress';
+import { codeOutcome, completeLevel, parSeconds, PET_LINES, recordRun, replayLevel, revealHint as revealHintAction, revealSolution as revealSolutionAction, type Reward } from '../game/rewards';
 import { sfx } from '../game/sound';
-import { getSave, setSave, useSave } from '../game/store';
+import { act, getSave, setSave, useSave } from '../game/store';
 import type { CodeLevel, Deck } from '../game/types';
 import { CodeEditor } from '../ui/CodeEditor';
 import { Code } from '../ui/highlight';
 import { Markdown, inline } from '../ui/Markdown';
 import { Modal } from '../ui/Modal';
+import { overlays } from '../ui/overlays';
 import { Preview } from '../ui/Preview';
 import { Victory } from '../ui/Victory';
+import { useLevelTimer, formatClock } from '../ui/useLevelTimer';
 
 type Tab = 'mission' | 'lesson' | 'hints';
 
@@ -28,7 +31,9 @@ export function CodeLevelScreen({ level, deck, index }: { level: CodeLevel; deck
   const [logs, setLogs] = useState<string[]>([]);
   const [runId, setRunId] = useState(0);
   const [modal, setModal] = useState<'reset' | 'solution' | null>(null);
-  const [victory, setVictory] = useState<{ stars: number; xp: number } | null>(null);
+  const [victory, setVictory] = useState<{ stars: number; events: Reward[] } | null>(null);
+  const seconds = useLevelTimer(level.id, !victory);
+  const par = parSeconds(level, save.classId);
   const [compilerReady, setCompilerReady] = useState(isReady());
   const mainPath = `/${level.file}`;
 
@@ -59,24 +64,16 @@ export function CodeLevelScreen({ level, deck, index }: { level: CodeLevel; deck
       setReport(r);
       setLogs(r.logs);
       setRunId((n) => n + 1);
-      const before = levelState(getSave(), level.id);
-      const runs = before.runs + 1;
-      setSave((s) => ({ ...s, levels: { ...s.levels, [level.id]: { ...levelState(s, level.id), runs, code } } }));
+      act((st) => recordRun({ ...st, levels: { ...st.levels, [level.id]: { ...levelState(st, level.id), code } } }, level.id, r.passed));
       if (r.passed) {
-        const stars = codeStars(before);
-        let xp = 0;
-        setSave((s) => {
-          const res = complete(s, level, stars);
-          xp = res.xpGained;
-          return {
-            ...res.save,
-            flags: { ...res.save.flags, firstTry: res.save.flags.firstTry || runs === 1, persistence: res.save.flags.persistence || runs >= 6 },
-          };
-        });
+        const outcome = codeOutcome(getSave(), level, seconds, new Date().getHours());
+        const events = act((st) => completeLevel(st, level, outcome, Math.random));
         sfx.pass();
-        setVictory({ stars, xp });
+        overlays.petSay(PET_LINES.pass[Math.floor(Math.random() * PET_LINES.pass.length)]);
+        setVictory({ stars: outcome.stars, events });
       } else {
         sfx.fail();
+        if (Math.random() < 0.4) overlays.petSay(PET_LINES.fail[Math.floor(Math.random() * PET_LINES.fail.length)]);
       }
     } catch (e) {
       setLogs([`✖ ${(e as Error).message}`]);
@@ -84,7 +81,7 @@ export function CodeLevelScreen({ level, deck, index }: { level: CodeLevel; deck
     } finally {
       setRunning(false);
     }
-  }, [code, level, running]);
+  }, [code, level, running, seconds]);
 
   // The Run shortcut works anywhere on the level screen, not only in the editor
   // (the editor handles it itself and marks the event as handled).
@@ -98,16 +95,13 @@ export function CodeLevelScreen({ level, deck, index }: { level: CodeLevel; deck
     return () => window.removeEventListener('keydown', onKey);
   }, [run, modal, victory]);
 
-  function revealHint() {
+  function revealHint(useToken: boolean) {
     sfx.click();
-    setSave((s) => {
-      const p = levelState(s, level.id);
-      return { ...s, levels: { ...s.levels, [level.id]: { ...p, hints: Math.min(level.hints.length, p.hints + 1) } } };
-    });
+    act((s) => revealHintAction(s, level.id, level.hints.length, useToken));
   }
 
   function revealSolution() {
-    setSave((s) => ({ ...s, levels: { ...s.levels, [level.id]: { ...levelState(s, level.id), solution: true } } }));
+    act((s) => revealSolutionAction(s, level.id));
   }
 
   function loadSolution() {
@@ -116,7 +110,7 @@ export function CodeLevelScreen({ level, deck, index }: { level: CodeLevel; deck
   }
 
   function replay() {
-    setSave((s) => ({ ...s, levels: { ...s.levels, [level.id]: { ...levelState(s, level.id), hints: 0, solution: false, runs: 0, code: level.starter } } }));
+    setSave((s) => replayLevel(s, level.id, level.starter));
     setCode(level.starter);
     setReport(null);
     setVictory(null);
@@ -186,10 +180,17 @@ export function CodeLevelScreen({ level, deck, index }: { level: CodeLevel; deck
                 </div>
               ))}
               {progress.hints < level.hints.length ? (
-                <button className="btn" onClick={revealHint}>
-                  Reveal hint {progress.hints + 1}
-                  {progress.hints < 2 && !progress.solution && <span className="cost"> (−1 ★)</span>}
-                </button>
+                <div className="hint-buttons">
+                  {save.hintTokens > 0 && (
+                    <button className="btn" onClick={() => revealHint(true)}>
+                      🎟 Use a hint token <span className="muted small">(free · {save.hintTokens} left)</span>
+                    </button>
+                  )}
+                  <button className={`btn ${save.hintTokens > 0 ? 'ghost' : ''}`} onClick={() => revealHint(false)}>
+                    Reveal hint {progress.hints + 1}
+                    {potential > 1 && !progress.solution && <span className="cost"> (−1 ★)</span>}
+                  </button>
+                </div>
               ) : (
                 <p className="muted">That's every hint.</p>
               )}
@@ -205,6 +206,9 @@ export function CodeLevelScreen({ level, deck, index }: { level: CodeLevel; deck
           <span className="file">{level.file}</span>
           <span className="spacer" />
           {!compilerReady && <span className="muted small">Loading compiler…</span>}
+          <span className={`timer ${seconds <= par ? 'under' : ''}`} title={`Clear it within ${formatClock(par)} on your first try for a speed bonus`}>
+            ⏱ {formatClock(seconds)} <span className="muted">/ par {formatClock(par)}</span>
+          </span>
           <button className="btn ghost" onClick={() => setModal('reset')}>Reset</button>
           <button className="btn primary" onClick={run} disabled={running}>
             {running ? 'Running…' : 'Run'} <kbd>{RUN_SHORTCUT}</kbd>
@@ -217,6 +221,7 @@ export function CodeLevelScreen({ level, deck, index }: { level: CodeLevel; deck
       </section>
 
       <section className="panel results">
+        {isBoss(level) && <BossBar name={level.system} report={report} />}
         {level.preview && (
           <div className="preview">
             <h4>Preview</h4>
@@ -296,7 +301,24 @@ export function CodeLevelScreen({ level, deck, index }: { level: CodeLevel; deck
           )}
         </Modal>
       )}
-      {victory && <Victory level={level} stars={victory.stars} xp={victory.xp} onReplay={replay} onClose={() => setVictory(null)} />}
+      {victory && <Victory level={level} stars={victory.stars} events={victory.events} onReplay={replay} onClose={() => setVictory(null)} />}
+    </div>
+  );
+}
+
+/** A boss's health: every failing check is armour it still has. Each Run that passes more checks does damage. */
+function BossBar({ name, report }: { name: string; report: Report | null }) {
+  const total = report ? report.checks.length + report.typeChecks.length + 1 : 1;
+  const failing = report ? report.checks.filter((c) => !c.pass).length + report.typeChecks.filter((c) => !c.pass).length + (report.typeErrors.length ? 1 : 0) : total;
+  const hp = report ? Math.round((failing / total) * 100) : 100;
+  return (
+    <div className={`boss-bar ${hp === 0 ? 'defeated' : ''}`} role="meter" aria-label={`Boss health ${hp}%`} aria-valuenow={hp} aria-valuemin={0} aria-valuemax={100}>
+      <div className="boss-name">
+        <span>☢ BOSS: {name}</span>
+        <span>{hp === 0 ? 'DEFEATED' : `${hp}% HP`}</span>
+      </div>
+      <div className="boss-hp"><div style={{ width: `${hp}%` }} /></div>
+      {report && hp > 0 && <span className="muted small">Each check you pass is a hit. {failing} to go.</span>}
     </div>
   );
 }

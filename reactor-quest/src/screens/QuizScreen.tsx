@@ -1,7 +1,10 @@
 import { useState } from 'react';
-import { complete, levelState, quizStars } from '../game/progress';
+import { levelState, quizStars } from '../game/progress';
+import { completeLevel, PET_LINES, type Reward } from '../game/rewards';
 import { sfx } from '../game/sound';
-import { setSave, useSave } from '../game/store';
+import { act, useSave } from '../game/store';
+import { overlays } from '../ui/overlays';
+import { useLevelTimer } from '../ui/useLevelTimer';
 import type { Deck, QuizLevel } from '../game/types';
 import { Code } from '../ui/highlight';
 import { Markdown, inline } from '../ui/Markdown';
@@ -13,7 +16,8 @@ export function QuizScreen({ level, deck, index }: { level: QuizLevel; deck: Dec
   const [q, setQ] = useState(0);
   const [picked, setPicked] = useState<number | null>(null);
   const [mistakes, setMistakes] = useState(0);
-  const [victory, setVictory] = useState<{ stars: number; xp: number } | null>(null);
+  const [victory, setVictory] = useState<{ stars: number; events: Reward[] } | null>(null);
+  const seconds = useLevelTimer(level.id, !victory);
   const [attempt, setAttempt] = useState(0);
   const question = level.questions[q];
   const answered = picked !== null;
@@ -36,14 +40,12 @@ export function QuizScreen({ level, deck, index }: { level: QuizLevel; deck: Dec
       return;
     }
     const stars = quizStars(mistakes);
-    let xp = 0;
-    setSave((s) => {
-      const r = complete(s, level, stars);
-      xp = r.xpGained;
-      return { ...r.save, flags: { ...r.save.flags, quizPerfect: r.save.flags.quizPerfect || mistakes === 0 } };
-    });
+    const events = act((s) =>
+      completeLevel(s, level, { stars, firstTry: false, failedRuns: 0, clean: false, perfect: mistakes === 0, seconds, hour: new Date().getHours() }, Math.random),
+    );
     sfx.pass();
-    setVictory({ stars, xp });
+    overlays.petSay(PET_LINES.pass[Math.floor(Math.random() * PET_LINES.pass.length)]);
+    setVictory({ stars, events });
   }
 
   function replay() {
@@ -100,7 +102,7 @@ export function QuizScreen({ level, deck, index }: { level: QuizLevel; deck: Dec
           </div>
         )}
       </section>
-      {victory && <Victory level={level} stars={victory.stars} xp={victory.xp} onReplay={replay} onClose={() => setVictory(null)} />}
+      {victory && <Victory level={level} stars={victory.stars} events={victory.events} onReplay={replay} onClose={() => setVictory(null)} />}
     </div>
   );
 }
