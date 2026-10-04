@@ -71,7 +71,8 @@ jobs:
           Start-Process cmd -ArgumentList '/c', '"Reactor Quest.cmd" --no-open' -WindowStyle Hidden
           $ok = $false
           for ($i = 0; $i -lt 60 -and -not $ok; $i++) {
-            try { $ok = (Invoke-WebRequest -UseBasicParsing http://127.0.0.1:4310/__reactor).Content -eq 'reactor-quest' } catch { Start-Sleep -Milliseconds 500 }
+            try { $ok = "$((Invoke-WebRequest -UseBasicParsing http://127.0.0.1:4310/__reactor).Content)" -eq 'reactor-quest' } catch {}
+            if (-not $ok) { Start-Sleep -Milliseconds 500 }
           }
           if (-not $ok) { throw 'Reactor Quest.cmd did not start the server' }
           Get-Process node | Stop-Process -Force
@@ -95,7 +96,8 @@ jobs:
           powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "$dest\launch.ps1" --no-open --port 4500
           $ok = $false
           for ($i = 0; $i -lt 40 -and -not $ok; $i++) {
-            try { $ok = (Invoke-WebRequest -UseBasicParsing http://127.0.0.1:4500/__reactor).Content -eq 'reactor-quest' } catch { Start-Sleep -Milliseconds 500 }
+            try { $ok = "$((Invoke-WebRequest -UseBasicParsing http://127.0.0.1:4500/__reactor).Content)" -eq 'reactor-quest' } catch {}
+            if (-not $ok) { Start-Sleep -Milliseconds 500 }
           }
           if (-not $ok) { Get-Content "$env:LOCALAPPDATA\Reactor Quest\reactor-quest.log" -ErrorAction SilentlyContinue; throw 'the installed launcher did not start the server' }
           if ((Invoke-WebRequest -UseBasicParsing http://127.0.0.1:4500/).Content -notmatch '<div id="root">') { throw 'the game page is wrong' }

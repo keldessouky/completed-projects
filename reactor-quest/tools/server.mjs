@@ -43,7 +43,10 @@ export function startServer({ root, port = DEFAULT_PORT, idleExitMs = 0, quiet =
   let lastBeat = Date.now();
   const server = createServer(async (req, res) => {
     const url = new URL(req.url ?? '/', 'http://localhost');
-    if (url.pathname === '/__reactor') return res.end(SIGNATURE);
+    if (url.pathname === '/__reactor') {
+      res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
+      return res.end(SIGNATURE);
+    }
     if (url.pathname === '/__heartbeat') {
       lastBeat = Date.now();
       res.writeHead(204);
