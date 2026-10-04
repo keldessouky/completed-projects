@@ -37,8 +37,9 @@ export function KeyBar({ view, onDone }: { view: EditorView | null; onDone(): vo
             className={`key ${k.wide ? 'wide' : ''}`}
             aria-label={k.aria ?? k.label}
             tabIndex={-1}
-            // Don't take focus from the editor (that would close the keyboard).
-            onPointerDown={(e) => e.preventDefault()}
+            // Don't take focus from the editor (that would close the keyboard). Only
+            // the mouse-compatibility event is cancelled: cancelling the pointer or
+            // touch event would make iPhone Safari swallow the tap (and the bar's scroll).
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => {
               press(view, k);
@@ -49,7 +50,7 @@ export function KeyBar({ view, onDone }: { view: EditorView | null; onDone(): vo
           </button>
         ))}
       </div>
-      <button className="key done" tabIndex={-1} onPointerDown={(e) => e.preventDefault()} onClick={onDone} aria-label="Hide keyboard">
+      <button className="key done" tabIndex={-1} onMouseDown={(e) => e.preventDefault()} onClick={onDone} aria-label="Hide keyboard">
         ⌄
       </button>
     </div>

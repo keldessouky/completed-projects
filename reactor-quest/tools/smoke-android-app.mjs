@@ -1,7 +1,8 @@
 // CI: plays the installed Android app (Reactor-Quest.apk) on an emulator.
 // Playwright attaches to the app's own WebView over adb, so this taps through
 // the real native app, not a browser: launch, sign the register, write code
-// on Floor 1, Run, win. Screenshots land in test-results/android-app/.
+// on Floor 1, Run, win. (A WebView takes clicks, not Playwright's tap(); the
+// app sees the same events either way.) Screenshots land in test-results/android-app/.
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -49,27 +50,27 @@ await step('It knows it is the native app (no install hint, no service worker)',
 });
 
 await step('Begin → sign the register → Floor 1 in phone panes', async () => {
-  await page.getByRole('button', { name: /Begin|Continue/ }).tap();
+  await page.getByRole('button', { name: /Begin|Continue/ }).click();
   const name = page.getByLabel('Your name');
   if (await name.isVisible({ timeout: 5000 }).catch(() => false)) {
     await name.fill('Droid');
-    await page.getByRole('button', { name: 'Go live' }).tap();
+    await page.getByRole('button', { name: 'Go live' }).click();
   }
   await page.locator('.pane-bar').waitFor({ timeout: 30_000 });
   await snap('02-mission');
 });
 
 await step('TypeScript runs on the phone: write code, Run, win', async () => {
-  await page.getByRole('tab', { name: /Code/ }).tap();
+  await page.getByRole('tab', { name: /Code/ }).click();
   await page.waitForFunction(() => !document.body.textContent?.includes('Loading compiler…'), null, { timeout: 90_000 });
-  await page.locator('.cm-content').tap();
+  await page.locator('.cm-content').click();
   await page.locator('.keybar').waitFor();
   await page.keyboard.press('Control+A');
   await page.keyboard.press('Backspace');
   await page.keyboard.insertText('console.log("Hello, Orrery");');
   await page.waitForTimeout(800);
   await snap('03-code');
-  await page.locator('.run-fab').tap();
+  await page.locator('.run-fab').click();
   await page.locator('.victory').waitFor({ timeout: 60_000 });
   await page.waitForTimeout(1200);
   await snap('04-victory');

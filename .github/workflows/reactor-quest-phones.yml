@@ -34,8 +34,11 @@ jobs:
           npx playwright-core install webkit
           SMOKE_BROWSER=webkit npm run smoke:mobile
       - name: Make the Xcode project (icon, launch screen, status bar)
+        id: xcode
+        if: ${{ !cancelled() }}
         run: node tools/make-mobile.mjs ios --skip-build
       - name: Build the iPhone app for the Simulator
+        if: ${{ !cancelled() && steps.xcode.outcome == 'success' }}
         run: |
           UDID=$(xcrun simctl list devices available -j | node -e '
             const all = Object.entries(JSON.parse(require("fs").readFileSync(0)).devices)
@@ -50,6 +53,7 @@ jobs:
             -sdk iphonesimulator -destination "id=$UDID" -derivedDataPath ios-build \
             CODE_SIGNING_ALLOWED=NO build -quiet
       - name: Launch it on a simulated iPhone; TypeScript must start inside the app
+        if: ${{ !cancelled() && steps.xcode.outcome == 'success' }}
         run: |
           mkdir -p test-results/iphone-app
           xcrun simctl boot "$UDID" || true
@@ -87,18 +91,23 @@ jobs:
       - name: Play it as an Android phone in Chrome
         run: SMOKE_DEVICE=android npm run smoke:mobile
       - name: Build the Android app (APK)
+        id: apk
+        if: ${{ !cancelled() }}
         run: node tools/make-mobile.mjs android --skip-build --apk
       - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() && steps.apk.outcome == 'success' }}
         with:
           name: reactor-quest-android-apk
           path: reactor-quest/Reactor-Quest.apk
           if-no-files-found: error
       - name: Enable KVM for the emulator
+        if: ${{ !cancelled() && steps.apk.outcome == 'success' }}
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
       - name: Install the APK on an emulated phone and play it
+        if: ${{ !cancelled() && steps.apk.outcome == 'success' }}
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 34
