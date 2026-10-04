@@ -20,7 +20,8 @@ public:
     void music(const std::string& name, float gain = 0.55f, float fade = 2.f);
     void ambience(const std::string& name, float gain = 0.45f, float fade = 2.f);
     void mix(int16_t* stereo, int frames);
-    float master = 1.f, sfx_volume = 1.f, music_volume = 0.8f;
+    // the three volumes the Settings set: the game's music (and its ambience beds), the sound effects, the radio
+    float master = 1.f, sfx_volume = 1.f, music_volume = 0.8f, ambience_volume = 1.f, radio_volume = 0.8f;
     // Radio Kafr El-Sheikh in place of the game's music: while it plays, the music beds fade out under it
     Radio radio;
     bool radio_on = false;

@@ -1,6 +1,7 @@
 // The Settings (GDD §11 accessibility, Slice 11): the language (English, or Arabic laid out right to left), the text
 // size, loot colours safe for colour-blind players, the screen shake, and whether L2 holds or toggles the second skill
-// bar. They belong to the device, not a character: kept in qahira.settings beside the character files.
+// bar; the music, and the volumes of the game's music, the sound effects and the radio. They belong to the device, not
+// a character: kept in qahira.settings beside the character files.
 #pragma once
 #include <cstdint>
 #include <string>
@@ -18,12 +19,16 @@ struct Settings {
     uint16_t radio_ep = 0;    // the episode on the station tuned, and how far into it (seconds); every station's
                               // place is in qahira.radio beside this file, and these are read only when it is not
     uint32_t radio_pos = 0;
+    uint8_t vol_music = 8;    // in tenths: the game's music and its ambience
+    uint8_t vol_fx = 10;      // the sound effects
+    uint8_t vol_radio = 8;    // the radio
 };
 
-enum SettingRow { SET_LANG, SET_TEXT, SET_COLOURS, SET_SHAKE, SET_BAR2, SET_MUSIC, SET_COUNT };
+enum SettingRow { SET_LANG, SET_TEXT, SET_COLOURS, SET_SHAKE, SET_BAR2, SET_MUSIC, SET_VOL_MUSIC, SET_VOL_FX, SET_VOL_RADIO,
+                  SET_COUNT };
 
 Settings& settings();
-void apply_settings();                         // to the UI (language, mirroring, text size) and the palettes
+void apply_settings();                         // to the UI (language, mirroring, text size), the palettes and the mixer
 void set_settings_dir(const std::string& dir); // where qahira.settings lives
 bool load_settings();
 bool save_settings();

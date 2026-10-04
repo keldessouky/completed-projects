@@ -1563,7 +1563,7 @@ void Bot::gallery(World& w, Menu& m, Areas& a, Input& in, uint64_t frame) {
         else if (sc == "character") { m.show(w, false); m.tab = MenuTab::Character; }
         else if (sc == "ascendancy") { m.show(w, false); m.tab = MenuTab::Ascendancy; }
         else if (sc == "journal") { m.show(w, false); m.tab = MenuTab::Journal; }
-        else if (sc == "settings") { m.show(w, false); m.tab = MenuTab::Settings; }
+        else if (sc == "settings") { m.show(w, false); m.tab = MenuTab::Settings; m.settings_cursor = SET_VOL_MUSIC; }
         else if (sc == "game") { m.show(w, false); m.tab = MenuTab::Game; }
         else if (sc == "vendor") m.show(w, true);
         else if (sc == "bench") m.show_bench(w);

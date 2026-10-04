@@ -1221,3 +1221,33 @@ RetroArch. And it didn't say why.
 **Known gaps (carried forward)**
 - The device's builds from before this one have the old updater, so this one has to be installed by hand once.
 - Not yet tried on the RP6: whether the rename fails there, so the new step shows, or simply works.
+
+## Three volumes in Settings
+
+The owner asked to be able to set the game's audio, the effects and the radio separately.
+
+**Delivered**
+- **Three rows**, added after Music in the Settings tab, each from Off to 100% in tenths with a ten-step meter.
+  Unlike the other rows, a volume stops at its ends instead of wrapping round.
+  - **Music volume** sets the game's music beds, and the ambience with them (at 80%, the default, the ambience
+    plays at the level it always had).
+  - **Effects volume** sets every sound effect.
+  - **Radio volume** sets the radio. Until now the radio rode on the music volume; the two are now separate.
+- **The mixer:** `Audio` has `ambience_volume` and `radio_volume` beside `music_volume` and `sfx_volume`, and
+  `apply_settings` sets all four.
+- **The layout:** nine rows didn't fit at the old height, so the rows are 72 px apart instead of 98. The note under
+  them now follows the cursor:
+  - the radio's episodes on the Music and Radio volume rows;
+  - the loot swatches on Loot colours;
+  - a line saying what each volume covers.
+- **Saving:** settings are v3, three bytes longer. v1 and v2 files load with the volumes the game always had.
+- **Arabic** for the new rows and notes; the meter fills from the right in the mirrored layout.
+
+**Verified**
+| Check | Result |
+|---|---|
+| Unit tests (`qtests`) | pass, 110 cases. New: the defaults keep the old mix; each row sets its own gain in the mixer; Off and percentages; the ends hold; v3 kept and read back; a v2 file loads with the old volumes |
+| Pictures | the Settings tab in English and Arabic from the gallery bot, which now photographs it with the cursor on Music volume |
+
+| ![The Settings tab with the three volumes](img/settings-volumes.jpg) | ![The same, in Arabic](img/settings-volumes-ar.jpg) |
+|---|---|

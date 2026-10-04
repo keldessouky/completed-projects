@@ -169,6 +169,11 @@ const std::vector<std::pair<const char*, const char*>>& whole() {
         {"Unique", "فريد"},
         // Radio Kafr El-Sheikh
         {"Music", "الموسيقى"},
+        {"Music volume", "صوت الموسيقى"},
+        {"Effects volume", "صوت المؤثرات"},
+        {"Radio volume", "صوت الراديو"},
+        {"The game's own music and the sounds of each place", "موسيقى اللعبة نفسها وأصوات كل مكان"},
+        {"Spells, blows, footsteps and the menus", "التعاويذ والضربات والخطوات والقوائم"},
         {"Radio Kafr El-Sheikh", "راديو كفر الشيخ"},
         {"RADIO KAFR EL-SHEIKH", "راديو كفر الشيخ"},
         {"The game's music", "موسيقى اللعبة"},

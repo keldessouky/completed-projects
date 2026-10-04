@@ -110,7 +110,43 @@ TEST(the_settings_keep_the_music_and_the_radio_place) {
     fclose(f);
     settings() = Settings{};
     CHECK(load_settings() && settings().text == 1 && settings().shake == 3 && settings().music == 0);
+    CHECK(settings().vol_music == 8 && settings().vol_fx == 10 && settings().vol_radio == 8);   // the volumes as they were
     settings() = keep;
+    remove((std::string(QAHIRA_SOURCE_DIR) + "/build/qahira.settings").c_str());
+}
+
+TEST(the_game_music_the_effects_and_the_radio_each_have_a_volume) {
+    set_settings_dir(std::string(QAHIRA_SOURCE_DIR) + "/build");
+    Settings keep = settings();
+    settings() = Settings{};
+    apply_settings();
+    Audio& a = audio();
+    CHECK(a.music_volume == 0.8f && a.ambience_volume == 1.f && a.sfx_volume == 1.f && a.radio_volume == 0.8f);   // the old mix
+    CHECK(std::string(setting_label(SET_VOL_MUSIC)) == "Music volume" && setting_choices(SET_VOL_FX) == 11);
+    set_setting(SET_VOL_MUSIC, 3);
+    set_setting(SET_VOL_FX, 0);
+    set_setting(SET_VOL_RADIO, 10);
+    CHECK(a.music_volume == 0.3f && a.ambience_volume == 3 / 8.f && a.sfx_volume == 0.f && a.radio_volume == 1.f);
+    CHECK(setting_choice_name(SET_VOL_FX, 0) == "Off" && setting_choice_name(SET_VOL_MUSIC, 3) == "30%");
+    // a volume stops at its ends instead of wrapping round
+    set_setting(SET_VOL_RADIO, 11);
+    set_setting(SET_VOL_FX, -1);
+    CHECK(settings().vol_radio == 10 && settings().vol_fx == 0);
+    // kept, and read back
+    CHECK(save_settings());
+    settings() = Settings{};
+    CHECK(load_settings() && settings().vol_music == 3 && settings().vol_fx == 0 && settings().vol_radio == 10);
+    // a version 2 file (before the volumes) loads with the volumes as they were
+    FILE* f = fopen((std::string(QAHIRA_SOURCE_DIR) + "/build/qahira.settings").c_str(), "wb");
+    const uint32_t magic = 0x54455351;
+    const uint8_t v2[13] = {2, 0, 0, 0, 4, 0, 1, 7, 0, 0, 0, 0, 0};
+    fwrite(&magic, 4, 1, f);
+    fwrite(v2, 1, 13, f);
+    fclose(f);
+    settings() = Settings{};
+    CHECK(load_settings() && settings().music == 1 && settings().radio_ep == 7 && settings().vol_music == 8 && settings().vol_radio == 8);
+    settings() = keep;
+    apply_settings();
     remove((std::string(QAHIRA_SOURCE_DIR) + "/build/qahira.settings").c_str());
 }
 

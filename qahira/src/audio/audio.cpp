@@ -134,8 +134,8 @@ void Audio::mix(int16_t* stereo, int frames) {
     const bool live = radio_on && radio.playing();
     radio_mix_ = std::clamp(radio_mix_ + (live ? 1.f : -1.f) * float(frames) / 48000.f, 0.f, 1.f);
     for (auto& b : music_) mix_bed(b, out, frames, music_volume * (1.f - radio_mix_));
-    if (live) radio.mix(out, frames, music_volume * radio_gain * radio_mix_);
-    for (auto& b : amb_) mix_bed(b, out, frames, 1.f);
+    if (live) radio.mix(out, frames, radio_volume * radio_gain * radio_mix_);
+    for (auto& b : amb_) mix_bed(b, out, frames, ambience_volume);
     for (int i = 0; i < frames * 2; i++) {
         float x = out[i] * master;
         x = x / (1.f + std::fabs(x) * 0.35f);  // gentle limiter

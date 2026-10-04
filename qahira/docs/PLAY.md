@@ -198,8 +198,14 @@ asks. High-level belts, amulets and rings, and the affix *of the Spring*, regene
 - loot colours safe for colour-blind players;
 - the screen shake;
 - whether L2 holds or toggles the second skill bar;
-- the music: a station on the radio (Radio Kafr El-Sheikh first) or the game's own. Below the list, the tab says
-  how many episodes the station has.
+- the music: a station on the radio (Radio Kafr El-Sheikh first) or the game's own. On that row the tab says how
+  many episodes the station has;
+- three volumes, each from Off to 100% in tenths, with a meter, and set as you press left or right:
+  - **Music volume:** the game's own music and the sounds of each place;
+  - **Effects volume:** spells, blows, footsteps and the menus;
+  - **Radio volume:** the radio's stations.
+
+  They start where the game's sound always was (music 80%, effects 100%, radio 80%).
 
 **In the menu:** L1 / R1 switch tabs, the bottom button equips or uses, the top button drops (on the Character tab it
 shows "Why?" for any number), and the right button or Start closes it. The world is paused while any menu is open.

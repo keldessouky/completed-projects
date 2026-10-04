@@ -30,7 +30,7 @@ void load_radio_places() {
     }
 }
 constexpr uint32_t kMagic = 0x54455351;   // "QSET"
-constexpr uint8_t kVersion = 2;   // 2: the music and the radio's place
+constexpr uint8_t kVersion = 3;   // 2: the music and the radio's place; 3: the three volumes
 }  // namespace
 
 Settings& settings() { static Settings s; return s; }
@@ -55,15 +55,22 @@ void apply_settings() {
             pal::magic = Rgba::hex(0x7AA8FF); pal::rare = Rgba::hex(0xF5D76E); pal::unique = Rgba::hex(0xE08A3C);
             pal::good = Rgba::hex(0x7BD389); pal::bad = Rgba::hex(0xE0525C);
     }
+    // the volumes, each in tenths (the defaults are the mix the game always had)
+    Audio& a = audio();
+    a.music_volume = s.vol_music / 10.f;
+    a.ambience_volume = s.vol_music / 8.f;
+    a.sfx_volume = s.vol_fx / 10.f;
+    a.radio_volume = s.vol_radio / 10.f;
 }
 
 bool load_settings() {
     FILE* f = fopen(path().c_str(), "rb");
     if (!f) return false;
     uint32_t magic = 0;
-    uint8_t v[13] = {};
-    bool ok = fread(&magic, 4, 1, f) == 1 && magic == kMagic && fread(v, 1, 6, f) == 6 && (v[0] == 1 || v[0] == kVersion);
+    uint8_t v[16] = {};
+    bool ok = fread(&magic, 4, 1, f) == 1 && magic == kMagic && fread(v, 1, 6, f) == 6 && v[0] >= 1 && v[0] <= kVersion;
     if (ok && v[0] >= 2) ok = fread(v + 6, 1, 7, f) == 7;
+    if (ok && v[0] >= 3) ok = fread(v + 13, 1, 3, f) == 3;
     fclose(f);
     if (!ok) return false;
     Settings& s = settings();
@@ -77,6 +84,11 @@ bool load_settings() {
         s.radio_ep = uint16_t(v[7] | v[8] << 8);
         s.radio_pos = uint32_t(v[9] | v[10] << 8 | v[11] << 16 | uint32_t(v[12]) << 24);
     }
+    if (v[0] >= 3) {
+        s.vol_music = v[13] <= 10 ? v[13] : 8;
+        s.vol_fx = v[14] <= 10 ? v[14] : 10;
+        s.vol_radio = v[15] <= 10 ? v[15] : 8;
+    }
     return true;
 }
 
@@ -84,16 +96,18 @@ bool save_settings() {
     FILE* f = fopen(path().c_str(), "wb");
     if (!f) return false;
     const Settings& s = settings();
-    const uint8_t v[13] = {kVersion, s.lang, s.text, s.colours, s.shake, s.bar2_toggle, s.music,
+    const uint8_t v[16] = {kVersion, s.lang, s.text, s.colours, s.shake, s.bar2_toggle, s.music,
                            uint8_t(s.radio_ep), uint8_t(s.radio_ep >> 8),
-                           uint8_t(s.radio_pos), uint8_t(s.radio_pos >> 8), uint8_t(s.radio_pos >> 16), uint8_t(s.radio_pos >> 24)};
-    bool ok = fwrite(&kMagic, 4, 1, f) == 1 && fwrite(v, 1, 13, f) == 13;
+                           uint8_t(s.radio_pos), uint8_t(s.radio_pos >> 8), uint8_t(s.radio_pos >> 16), uint8_t(s.radio_pos >> 24),
+                           s.vol_music, s.vol_fx, s.vol_radio};
+    bool ok = fwrite(&kMagic, 4, 1, f) == 1 && fwrite(v, 1, 16, f) == 16;
     fclose(f);
     return ok;
 }
 
 const char* setting_label(int row) {
-    static const char* l[SET_COUNT] = {"Language", "Text size", "Loot colours", "Screen shake", "Second skill bar", "Music"};
+    static const char* l[SET_COUNT] = {"Language", "Text size", "Loot colours", "Screen shake", "Second skill bar", "Music",
+                                       "Music volume", "Effects volume", "Radio volume"};
     return l[row < 0 || row >= SET_COUNT ? 0 : row];
 }
 
@@ -102,7 +116,7 @@ static int music_stations() { return std::max(1, audio().radio.stations()); }
 
 int setting_choices(int row) {
     if (row == SET_MUSIC) return music_stations() + 1;
-    static const int n[SET_COUNT] = {2, 3, 3, 5, 2, 2};
+    static const int n[SET_COUNT] = {2, 3, 3, 5, 2, 2, 11, 11, 11};
     return n[row < 0 || row >= SET_COUNT ? 0 : row];
 }
 
@@ -115,6 +129,9 @@ int setting_value(int row) {
         case SET_SHAKE: return s.shake;
         case SET_BAR2: return s.bar2_toggle;
         case SET_MUSIC: return s.music == 1 ? music_stations() : audio().radio.station();
+        case SET_VOL_MUSIC: return s.vol_music;
+        case SET_VOL_FX: return s.vol_fx;
+        case SET_VOL_RADIO: return s.vol_radio;
         default: return 0;
     }
 }
@@ -122,7 +139,8 @@ int setting_value(int row) {
 void set_setting(int row, int v) {
     Settings& s = settings();
     const int n = setting_choices(row);
-    v = ((v % n) + n) % n;
+    if (row == SET_VOL_MUSIC || row == SET_VOL_FX || row == SET_VOL_RADIO) v = std::clamp(v, 0, n - 1);   // a volume stops at its ends
+    else v = ((v % n) + n) % n;
     switch (row) {
         case SET_LANG: s.lang = uint8_t(v); break;
         case SET_TEXT: s.text = uint8_t(v); break;
@@ -136,6 +154,9 @@ void set_setting(int row, int v) {
             apply_music();
             break;
         }
+        case SET_VOL_MUSIC: s.vol_music = uint8_t(v); break;
+        case SET_VOL_FX: s.vol_fx = uint8_t(v); break;
+        case SET_VOL_RADIO: s.vol_radio = uint8_t(v); break;
         default: break;
     }
     apply_settings();
@@ -151,6 +172,9 @@ std::string setting_choice_name(int row, int v) {
         case SET_MUSIC:
             if (v == music_stations()) return "The game's music";
             return audio().radio.stations() ? audio().radio.station_name(v) : std::string(Radio::kHome);
+        case SET_VOL_MUSIC:
+        case SET_VOL_FX:
+        case SET_VOL_RADIO: return v == 0 ? std::string("Off") : std::to_string(v * 10) + "%";
         default: return "";
     }
 }

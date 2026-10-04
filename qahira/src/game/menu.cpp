@@ -774,39 +774,48 @@ void Menu::render(const World& w) const {
         y += 70;
         for (int r = 0; r < SET_COUNT; r++) {
             const bool cur = settings_cursor == r;
-            u.frame(x - 10, y, PW - 100, 86, cur ? pal::dusk : pal::panel2, cur ? pal::amber : pal::line, 12, cur ? 3.f : 1.f);
-            u.text(x + 20, y + 23, setting_label(r), 32, pal::bone, Align::Left, 0.8f);
+            u.frame(x - 10, y, PW - 100, 64, cur ? pal::dusk : pal::panel2, cur ? pal::amber : pal::line, 12, cur ? 3.f : 1.f);
+            u.text(x + 20, y + 14, setting_label(r), 30, pal::bone, Align::Left, 0.8f);
             const std::string v = setting_choice_name(r, setting_value(r));
             const float vx = PX + PW - 110;
-            u.text(vx, y + 23, v, 32, cur ? pal::amber : pal::soft, Align::Right, 0.8f);
+            u.text(vx, y + 14, v, 30, cur ? pal::amber : pal::soft, Align::Right, 0.8f);
+            if (r == SET_VOL_MUSIC || r == SET_VOL_FX || r == SET_VOL_RADIO) {   // a meter of ten, filled to the level
+                const int lvl = setting_value(r);
+                const float mx = vx - 150 - 10 * 20.f;
+                for (int k = 0; k < 10; k++) {
+                    const bool on = k < lvl;
+                    u.frame(mx + k * 20.f, y + 22, 14, 20, on ? (cur ? pal::amber : pal::soft) : pal::panel, on ? pal::brass : pal::line, 3,
+                            1.f);
+                }
+            }
             if (cur) {   // the arrows either side of the choice
                 const bool m = ui().mirrored();   // the arrows point outward on either side, mirrored or not
-                u.text(vx - u.text_width(v, 32) - 40, y + 21, m ? "\xE2\x86\x92" : "\xE2\x86\x90", 32, pal::amber, Align::Left);
-                u.text(vx + 14, y + 21, m ? "\xE2\x86\x90" : "\xE2\x86\x92", 32, pal::amber, Align::Left);
+                u.text(vx - u.text_width(v, 30) - 40, y + 12, m ? "\xE2\x86\x92" : "\xE2\x86\x90", 30, pal::amber, Align::Left);
+                u.text(vx + 14, y + 12, m ? "\xE2\x86\x90" : "\xE2\x86\x92", 30, pal::amber, Align::Left);
             }
-            y += 98;
+            y += 72;
         }
-        // the radio: what it has found, and where it looks
-        {
+        y += 14;
+        if (settings_cursor == SET_MUSIC || settings_cursor == SET_VOL_RADIO) {   // the radio: what it has found
             const Radio& rd = audio().radio;
             const std::string fetching = radio_fetch_status();
             if (rd.count() > 0)
-                u.text(x, y - 4, std::to_string(rd.count()) + (rd.count() == 1 ? " episode on the radio" : " episodes on the radio") +
+                u.text(x, y, std::to_string(rd.count()) + (rd.count() == 1 ? " episode on the radio" : " episodes on the radio") +
                        (audio().radio_on && rd.playing() ? "  \xC2\xB7  " + rd.title(rd.current()) : std::string()), 24, pal::dim);
-            else u.text(x, y - 4, fetching.empty() ? std::string("The radio downloads its episodes over Wi-Fi") : fetching, 24, pal::dim);
+            else u.text(x, y, fetching.empty() ? std::string("The radio downloads its episodes over Wi-Fi") : fetching, 24, pal::dim);
             y += 34;
-            if (rd.count() > 0 && !fetching.empty()) {
-                u.text(x, y - 4, fetching, 24, pal::dim);
-                y += 34;
+            if (rd.count() > 0 && !fetching.empty()) u.text(x, y, fetching, 24, pal::dim);
+        } else if (settings_cursor == SET_COLOURS) {   // the loot colours, as they are now
+            const char* names2[] = {"Magic", "Rare", "Unique"};
+            const Rgba cs[] = {pal::magic, pal::rare, pal::unique};
+            for (int k = 0; k < 3; k++) {
+                u.frame(x + k * 200.f, y, 180, 60, cs[k].mix(pal::panel, 0.8f), cs[k], 8, 2);
+                u.text(x + k * 200.f + 90, y + 14, names2[k], 28, cs[k], Align::Center, 0.8f);
             }
-        }
-        // the loot colours, as they are now
-        y += 10;
-        const char* names2[] = {"Magic", "Rare", "Unique"};
-        const Rgba cs[] = {pal::magic, pal::rare, pal::unique};
-        for (int k = 0; k < 3; k++) {
-            u.frame(x + k * 200.f, y, 180, 60, cs[k].mix(pal::panel, 0.8f), cs[k], 8, 2);
-            u.text(x + k * 200.f + 90, y + 14, names2[k], 28, cs[k], Align::Center, 0.8f);
+        } else if (settings_cursor == SET_VOL_MUSIC) {
+            u.text(x, y, "The game's own music and the sounds of each place", 24, pal::dim);
+        } else if (settings_cursor == SET_VOL_FX) {
+            u.text(x, y, "Spells, blows, footsteps and the menus", 24, pal::dim);
         }
         legend(PX + 30, PY + PH - 58, {{BTN_SOUTH, "Change"}, {BTN_EAST, "Close"}});
     }
