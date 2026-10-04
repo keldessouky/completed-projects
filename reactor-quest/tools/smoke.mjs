@@ -308,6 +308,67 @@ await step('Arcade: a round starts, answers score, wrong answers explain', async
   if (!explained) throw new Error('six "compiles" answers and none were wrong? unlikely');
 });
 
+await step('Colour profiles: 🎨 previews on hover, Escape reverts, a click keeps it, and it survives a reload', async () => {
+  const theme = () => page.evaluate(() => document.documentElement.dataset.theme);
+  const bgLum = () =>
+    page.evaluate(() => {
+      const [r, g, b] = getComputedStyle(document.body).backgroundColor.match(/\d+/g).map(Number);
+      return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+    });
+  await page.goto(`${url}#/level/thruster`);
+  await page.locator('.cm-content').waitFor();
+  await waitCompiler();
+  // The starter (some checks red, some green) makes a colourful backdrop for the gallery.
+  await setEditor(readFileSync(join(root, 'src/content/code/thruster/starter.tsx'), 'utf8'));
+  await page.getByRole('button', { name: /^Run/ }).click();
+  await page.locator('.checks li.fail').first().waitFor();
+  const picker = page.getByRole('button', { name: /Colour profile/ });
+  await clearNotes();
+  await picker.click();
+  const options = page.getByRole('radio');
+  if ((await options.count()) !== 17) throw new Error(`expected 16 profiles + the original, got ${await options.count()}`);
+  await page.waitForTimeout(400); // let it fade in
+  await page.screenshot({ path: join(shots, '16-theme-menu.png') });
+  await options.filter({ hasText: 'Dracula' }).hover();
+  if ((await theme()) !== 'dracula') throw new Error('hovering a profile should preview it');
+  await page.keyboard.press('Escape');
+  if ((await theme()) !== 'reactor') throw new Error('Escape should put the old profile back');
+  await picker.click();
+  await options.filter({ hasText: 'GitHub Light' }).click();
+  if ((await theme()) !== 'github-light' || (await bgLum()) < 0.8) throw new Error('GitHub Light should make the page light');
+  await page.reload();
+  await page.locator('.cm-content').waitFor();
+  if ((await theme()) !== 'github-light') throw new Error('the profile should be remembered');
+  // Keyboard: arrows move through the list (previewing as they go), Return keeps one.
+  await picker.click();
+  await page.keyboard.press('Home');
+  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('Enter');
+  if ((await theme()) !== 'dracula') throw new Error('keyboard choice failed');
+  // A gallery of every profile, for the README.
+  await page.getByRole('button', { name: /^Run/ }).click();
+  await page.locator('.checks li').first().waitFor();
+  const cells = [];
+  for (let i = 1; i < 17; i++) {
+    await picker.click();
+    const opt = options.nth(i);
+    const name = (await opt.locator('.name').textContent()).replace('✓', '').trim();
+    await opt.click();
+    await page.waitForTimeout(150);
+    cells.push({ name, src: `data:image/jpeg;base64,${(await page.screenshot({ type: 'jpeg', quality: 85, clip: { x: 0, y: 0, width: 1012, height: 640 } })).toString('base64')}` });
+  }
+  await picker.click();
+  await options.filter({ hasText: 'Reactor' }).click();
+  if ((await theme()) !== 'reactor') throw new Error('could not switch back');
+  const gallery = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
+  await gallery.setContent(`<body style="margin:0;padding:16px;background:#05070d;font:600 15px system-ui;color:#dbe5f7">
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px">${cells
+      .map((c) => `<figure style="margin:0"><img src="${c.src}" style="width:100%;border-radius:8px;display:block;border:1px solid #22304f"><figcaption style="margin-top:6px">${c.name}</figcaption></figure>`)
+      .join('')}</div></body>`);
+  await gallery.screenshot({ path: join(shots, '17-themes.png'), fullPage: true });
+  await gallery.close();
+});
+
 await step('Narrow (phone) layout renders without horizontal scroll', async () => {
   await clearNotes();
   const phone = await browser.newPage({ viewport: { width: 390, height: 844 } });

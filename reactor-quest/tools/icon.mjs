@@ -1,5 +1,5 @@
 // Draws the app icon in code — a reactor core on a dark tile — and encodes it
-// as PNG and as a macOS .icns, with nothing but node:zlib.
+// as PNG, a macOS .icns and a Windows .ico, with nothing but node:zlib.
 import { deflateSync } from 'node:zlib';
 
 function crc32(buf) {
@@ -107,4 +107,27 @@ export function makeIcns() {
   head.write('icns', 0, 'ascii');
   head.writeUInt32BE(body.length + 8, 4);
   return Buffer.concat([head, body]);
+}
+
+/** A Windows .ico holding PNG renditions (16–256 px), which Windows Vista and later read directly. */
+export function makeIco() {
+  const sizes = [16, 24, 32, 48, 64, 128, 256];
+  const pngs = sizes.map((s) => drawIcon(s));
+  const head = Buffer.alloc(6);
+  head.writeUInt16LE(0, 0); // reserved
+  head.writeUInt16LE(1, 2); // 1 = icon
+  head.writeUInt16LE(sizes.length, 4);
+  let offset = 6 + 16 * sizes.length;
+  const entries = sizes.map((s, i) => {
+    const e = Buffer.alloc(16);
+    e[0] = s === 256 ? 0 : s; // 0 means 256
+    e[1] = s === 256 ? 0 : s;
+    e.writeUInt16LE(1, 4); // colour planes
+    e.writeUInt16LE(32, 6); // bits per pixel
+    e.writeUInt32LE(pngs[i].length, 8);
+    e.writeUInt32LE(offset, 12);
+    offset += pngs[i].length;
+    return e;
+  });
+  return Buffer.concat([head, ...entries, ...pngs]);
 }

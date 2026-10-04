@@ -5,3 +5,7 @@ test-results/
 *.app/
 tests/_explain.test.ts
 tests/_xp.test.ts
+Reactor Quest (Windows)/
+reactor-quest-linux/
+*.zip
+*.tar.gz

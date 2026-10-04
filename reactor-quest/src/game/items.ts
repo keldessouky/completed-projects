@@ -77,7 +77,7 @@ export const TITLES: Item[] = [
 const theme = (id: string, name: string, rarity: Rarity, description: string, price?: number): Item => ({ id, kind: 'theme', name, rarity, icon: '🎨', description, drops: true, price });
 
 export const THEMES: Item[] = [
-  { id: 'theme-reactor', kind: 'theme', name: 'Reactor Glow', rarity: 'common', icon: '🎨', description: 'The station\'s standard issue: cool blue, warm amber.' },
+  { id: 'theme-reactor', kind: 'theme', name: 'Standard Issue', rarity: 'common', icon: '🎨', description: 'The editor wears your colour profile (🎨 at the top right).' },
   theme('theme-phosphor', 'Phosphor Terminal', 'uncommon', 'Green on black, like the machines your grandparents swore at.', 250),
   theme('theme-solar', 'Solar Flare', 'uncommon', 'Hot ambers and oranges. Wear sunglasses.', 250),
   theme('theme-nebula', 'Nebula', 'rare', 'Deep purples and pinks from the edge of the galaxy.', 400),

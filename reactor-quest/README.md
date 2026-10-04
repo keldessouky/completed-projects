@@ -11,19 +11,26 @@ And, in the spirit of *Dungeon Crawler Carl*, the whole repair job is being
 broadcast live. **THE FEED** narrates your every move, viewers pile in when you
 show off, sponsors send gifts, and there are loot boxes. So many loot boxes.
 
-It runs on macOS and opens in your browser.
+It runs on **macOS, Windows and Linux** and opens in your browser. Pick from
+16 colour profiles modelled on the best VS Code and IntelliJ themes.
 
 ![Title screen](docs/title.png)
 
-## Setup (macOS)
+## Setup
 
 You only do this once.
 
-1. **Install Node.js 20.19 or newer.** Download the macOS installer from
-   [nodejs.org](https://nodejs.org/en/download), or, if you use Homebrew, run
-   `brew install node`. To check, open Terminal and run `node --version`. It
-   should print `v20.19` or higher.
-2. **Get the code.** In Terminal:
+1. **Install Node.js 20.19 or newer.** To check whether you already have it,
+   open a terminal (Terminal on macOS, PowerShell on Windows) and run
+   `node --version`. It should print `v20.19` or higher.
+
+   | System | How to install Node.js |
+   |---|---|
+   | **macOS** | The installer from [nodejs.org](https://nodejs.org/en/download), or `brew install node` |
+   | **Windows** | The installer from [nodejs.org](https://nodejs.org/en/download), or `winget install OpenJS.NodeJS.LTS` in PowerShell. Open a *new* terminal afterwards. |
+   | **Linux** | Ubuntu and friends: `sudo snap install node --classic`. Fedora: `sudo dnf install nodejs`. Arch: `sudo pacman -S nodejs npm`. Or [nvm](https://github.com/nvm-sh/nvm). Some distros' own `apt` packages are too old. |
+
+2. **Get the code:**
 
    ```bash
    git clone https://github.com/keldessouky/completed-projects.git
@@ -39,30 +46,29 @@ You only do this once.
    npm run build
    ```
 
-   You can skip this step if you launch with the `.command` file below. It
-   does this for you the first time.
+   You can skip this step if you launch with the double-click launchers below.
+   They do it for you the first time.
 
 ## Start the game
 
-Pick one of these. Each one opens the game in your default browser at
-`http://localhost:4310`.
+Each of these opens the game in your default browser at
+`http://localhost:4310`. The first run installs and builds the game, which
+takes about a minute.
+
+### macOS
 
 - **Double-click `Reactor Quest.command`** in Finder (inside `reactor-quest`).
-  A Terminal window opens. The first run installs and builds the game, which
-  takes about a minute, then your browser opens. Leave the Terminal window
-  open while you play, and close it when you're done.
-- **Or run `npm start`** in Terminal from the `reactor-quest` folder. It does
-  the same thing. Press `Ctrl+C` to stop.
+  A Terminal window opens, then your browser. Leave the Terminal window open
+  while you play, and close it when you're done.
 - **Or make a Mac app:** run `npm run app:mac`. This creates
-  **`Reactor Quest.app`** in the `reactor-quest` folder. Drag it to
-  Applications and open it like any other app, from Launchpad, Spotlight or the
-  Dock. It opens the game in your browser, runs quietly in the background, and
-  quits on its own about a minute after you close the game's tab.
+  **`Reactor Quest.app`**. Drag it to Applications and open it like any other
+  app, from Launchpad, Spotlight or the Dock. It runs quietly in the background
+  and quits on its own about a minute after you close the game's tab.
 
-If you got the code with `git clone`, macOS opens the `.command` and the `.app`
-you build without complaint. If you downloaded a ZIP instead (of the repository,
-or of the ready-made app from CI), macOS may refuse the first time because it's
-"from an unidentified developer":
+If you got the code with `git clone`, macOS opens these without complaint. If
+you downloaded a ZIP instead (of the repository, or of the ready-made app from
+CI), macOS may refuse the first time because it's "from an unidentified
+developer":
 
 - **macOS 15 (Sequoia) or newer:** click **Done** in the warning, open
   **System Settings → Privacy & Security**, scroll down to the message about
@@ -70,7 +76,44 @@ or of the ready-made app from CI), macOS may refuse the first time because it's
 - **macOS 14 or older:** right-click the file, choose **Open**, then click
   **Open** again.
 
-You only have to do this once.
+### Windows
+
+- **Double-click `Reactor Quest.cmd`** in File Explorer (inside
+  `reactor-quest`). A console window opens, then your browser. Leave the window
+  open while you play, and close it when you're done.
+- **Or make a Windows app:** run `npm run app:win`. This creates the folder
+  **`Reactor Quest (Windows)`**, which you can zip up and copy to any PC with
+  Node.js. Inside it:
+  - **`Reactor Quest.cmd`** plays, with no console window. The game's server
+    runs quietly in the background and stops on its own about a minute after
+    you close the game's tab.
+  - **`Install.cmd`** adds **Reactor Quest** (with its icon) to the Start menu
+    and the desktop. No administrator rights needed. **`Uninstall.cmd`** removes
+    it.
+
+If Windows shows **"Windows protected your PC"** the first time (it does for
+files downloaded from the internet), click **More info**, then **Run anyway**.
+
+### Linux
+
+- **Run `./reactor-quest.sh`** from the `reactor-quest` folder (or, in your file
+  manager, right-click it and choose **Run as a Program**). Press `Ctrl+C` to
+  stop.
+- **Or make a Linux app:** run `npm run app:linux`. This creates the folder
+  **`reactor-quest-linux`**. Inside it:
+  - **`./reactor-quest`** plays. The server runs in the background and stops on
+    its own about a minute after you close the game's tab.
+  - **`./install.sh`** adds **Reactor Quest** (with its icon) to your desktop's
+    app menu (GNOME, KDE, Xfce and others) and puts a `reactor-quest` command
+    in `~/.local/bin`. No `sudo` needed. **`./uninstall.sh`** removes it.
+
+### Any system
+
+- **`npm start`** in a terminal from the `reactor-quest` folder does the same as
+  the double-click launchers. Press `Ctrl+C` to stop.
+- CI builds the packages for all three systems on every push: download
+  `reactor-quest-macos`, `reactor-quest-windows` or `reactor-quest-linux` from
+  the workflow run's **Artifacts**.
 
 Your progress (stars, XP, loot, achievements, and the code you've typed in
 every level) saves automatically in your browser. Use the same browser each time to
@@ -81,8 +124,9 @@ keep it.
 | Problem | Fix |
 |---|---|
 | "Reactor needs Node.js" | Install Node.js (step 1), then launch again. |
-| "Reactor needs Node.js 20.19 or newer" | Update Node: download the latest version from nodejs.org, or run `brew upgrade node`. |
-| The browser didn't open | Open `http://localhost:4310` yourself. If that port was taken, the Terminal window prints the address it used instead. |
+| "Reactor needs Node.js 20.19 or newer" | Update Node: download the latest version from nodejs.org, or `brew upgrade node` (macOS), `winget upgrade OpenJS.NodeJS.LTS` (Windows), `sudo snap refresh node` (Linux). |
+| Windows: "node is not recognized" right after installing Node | Close the window and open a new one, so it picks up the new PATH. |
+| The browser didn't open | Open `http://localhost:4310` yourself. If that port was taken, the terminal window prints the address it used instead. The app versions log to `~/Library/Logs/reactor-quest.log` (macOS), `%LOCALAPPDATA%\Reactor Quest\reactor-quest.log` (Windows) and `~/.local/state/reactor-quest/reactor-quest.log` (Linux). |
 | "Loading compiler…" stays for a few seconds | That's normal on the first level you open. The browser is loading the TypeScript compiler (about 7 MB). |
 | You want to start over | **Character → Settings → Reset all progress**. |
 
@@ -167,6 +211,47 @@ The whole game is keyboard-friendly: **⌘↵** runs your code, **Return**
 continues after a win, and **Esc** closes dialogs. The speaker icon at the top
 right mutes sound effects.
 
+## Colour profiles
+
+Click **🎨** at the top right of any screen (the title screen too) to restyle
+the whole game, its code editor included. Hover over a profile, or move through
+the list with the arrow keys, to preview it live. Click it, or press Return, to
+keep it. Esc puts the old one back. Your choice is remembered on this computer,
+and **Reset all progress** leaves it alone.
+
+![The colour profile menu](docs/theme-menu.png)
+
+There are 16 profiles, each modelled on a much-loved VS Code or IntelliJ theme,
+plus **Reactor**, the game's original look. They were picked to look different
+from each other: no two share a background, signature colour and syntax palette
+(a test checks this, and also checks that every profile's text, buttons and code
+are readable).
+
+| Profile | From | Feel |
+|---|---|---|
+| Dracula | VS Code · IntelliJ | Hot pink and electric purple on vampire grey |
+| One Dark Pro | VS Code | Atom's classic: calm slate and soft blue |
+| Tokyo Night | VS Code | Neon signs reflected in a midnight street |
+| Catppuccin Mocha | VS Code · IntelliJ | Soothing pastels on warm, dark mocha |
+| Nord | VS Code · IntelliJ | Arctic frost and polar night |
+| Gruvbox Dark | VS Code · IntelliJ | Retro groove: earthy browns, toasted yellow |
+| Monokai Pro | VS Code · IntelliJ | Lime, pink and lemon on charcoal |
+| Night Owl | VS Code | Deep ocean blue and sea-glass teal |
+| SynthWave '84 | VS Code | Neon on a purple horizon, and the code glows |
+| Cobalt2 | VS Code | Punchy yellow on cobalt blue |
+| Darcula | IntelliJ | JetBrains' own: orange keywords, olive strings |
+| Rosé Pine | VS Code · IntelliJ | Muted rose, pine and gold |
+| Ayu Mirage | VS Code · IntelliJ | Dusky blue-grey with a marigold glow |
+| Everforest | VS Code · IntelliJ | A comfortable green forest |
+| GitHub Light | VS Code · IntelliJ | Crisp white, like reading code on GitHub |
+| Solarized Light | VS Code · IntelliJ | Warm parchment for daylight coding |
+
+![All sixteen colour profiles](docs/themes.png)
+
+The **editor skins** you win in loot boxes (Phosphor Terminal, Nebula and the
+rest) still work: a skin repaints just the code editor, on top of whichever
+profile you've picked.
+
 ## Rewards: why you'll keep playing
 
 Something good happens every few minutes, and most of it is announced by
@@ -184,7 +269,7 @@ right.
   achievement and every daily quest, and better ones for bosses, flawless runs
   and milestones. Open them one by one for the reveal, or all at once from
   **Loot**. Inside: gold, hint tokens, XP boosts, collectibles, titles, editor
-  themes and hats for your companion.
+  skins and hats for your companion.
 - **58 achievements**, each with its own Feed quip, from "Hello, World" to
   "Living Legend": first tries, flawless floors, speedruns, streaks, debugging
   persistence, late-night coding, hoarding boxes and more. See them all under
@@ -210,7 +295,7 @@ right.
   cards right in Compiler Says") each pay a Silver box and gold. Play on
   consecutive days to build a streak.
 - **The Safe Room** (the shop). Spend gold on hint tokens, XP boosts, boxes,
-  titles, editor themes and companion hats.
+  titles, editor skins and companion hats.
 - **Codex scrolls.** Every boss guarantees a scroll: a cheat sheet of that
   floor's material that you keep forever and can reread any time under
   **Loot → Codex**. Collect all fifteen.
@@ -279,15 +364,20 @@ code and predict what it does. The arcade holds 40 compile-or-not cards.
   started on each run, a guard stops any form from reloading the game, and the
   preview lives in a separate React root, so a crash in your component can't take
   the game down.
+- **Colour profiles** are data (`src/ui/themes.ts`): about two dozen colours
+  each, set as CSS custom properties on `<html>` before the first paint. The
+  stylesheet derives everything else from them (gradients, glows, tints, the
+  dark or light scheme), so a new profile is one object.
 - The **title, map, and every screen** are themselves React + TypeScript (Vite 8,
-  React 19, CodeMirror 6). All sound is synthesized with WebAudio. The `.app` icon
-  is drawn by `tools/icon.mjs` and encoded to PNG/ICNS with nothing but `node:zlib`.
+  React 19, CodeMirror 6). All sound is synthesized with WebAudio. The app icon
+  is drawn by `tools/icon.mjs` and encoded to PNG, ICNS (macOS) and ICO (Windows)
+  with nothing but `node:zlib`.
 
 ## Proven playable
 
 ```bash
-npm test        # 378 tests
-npm run smoke   # 96 checks in headless Chromium/Chrome
+npm test        # 399 tests
+npm run smoke   # 97 checks in headless Chromium/Chrome
 ```
 
 - **`npm test`** checks every one of the 79 code levels both ways: the reference
@@ -305,17 +395,23 @@ npm run smoke   # 96 checks in headless Chromium/Chrome
   victory screen, which covers the effect and timer levels in a real browser.
   It adopts a companion, picks a class, opens a boss box and reads its Codex
   scroll, shops in the Safe Room, hovers a name for its type, checks
-  autocomplete, plays a quiz and an arcade round, checks the phone layout for
-  horizontal scroll, exercises the launcher server, and fails on any uncaught
-  page error. Screenshots land in `test-results/`. `SMOKE_PLATFORM=mac npm run
+  autocomplete, plays a quiz and an arcade round, switches colour profiles
+  (hover preview, Esc to revert, click and keyboard to choose, remembered after
+  a reload) and photographs all sixteen, checks the phone layout for horizontal
+  scroll, exercises the launcher server, and fails on any uncaught page error. Screenshots land in `test-results/`. `SMOKE_PLATFORM=mac npm run
   smoke` makes the page believe it's on macOS, so the ⌘ keyboard paths can be
   tested from any machine.
 
 ![The final boss, beaten](docs/victory.png)
 
-CI (`.github/workflows/reactor-quest.yml`) runs all of this on **macOS**, packages
-`Reactor Quest.app`, checks that its bundled server serves the game, and uploads
-the zipped app as an artifact.
+CI (`.github/workflows/reactor-quest.yml`) runs all of this on **macOS, Windows
+and Linux**. On each one it also starts the game with that system's double-click
+launcher and builds its package. Then it **installs** the package, launches the
+installed copy the way the Start menu or app menu would, checks that the game is
+served, and **uninstalls** it again. (On macOS it plays a second time as a Mac,
+with ⌘ shortcuts, and lints the `.app`'s Info.plist.) The packages are uploaded
+as artifacts: `reactor-quest-macos.zip`, `reactor-quest-windows.zip` and
+`reactor-quest-linux.tar.gz`.
 
 ## Development
 
@@ -324,6 +420,7 @@ npm install
 npm run dev      # http://localhost:5173, with hot reload
 npm run build    # typecheck + production build → dist/
 npm start        # build if stale, serve dist/, open the browser
+npm run app:mac  # or app:win, app:linux: package for that system
 ```
 
 ```
@@ -337,9 +434,12 @@ src/
                    items, skills, store, sound
   screens/         Title, Map, CodeLevel, Quiz, Arcade, Loot, Shop, Character
   ui/              CodeEditor, Preview, Announcer, BoxOpener, Offers, Companion,
-                   Hud, Victory, Markdown, Modal, router
-tools/             gen-typings, launch, server (zero-dependency), make-mac-app, icon, smoke
-tests/             levels, arcade, progress, rewards, runtime, checker, markdown
+                   Hud, ThemePicker + themes (the colour profiles), Victory,
+                   Markdown, Modal, router
+tools/             gen-typings, launch, server (zero-dependency), packaging,
+                   make-mac-app, make-win-app, make-linux-app, icon, smoke
+Reactor Quest.command · Reactor Quest.cmd · reactor-quest.sh   double-click launchers
+tests/             levels, arcade, progress, rewards, themes, runtime, checker, markdown
 ```
 
 ### Adding a level
