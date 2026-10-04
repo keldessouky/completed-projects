@@ -102,7 +102,7 @@ export function LootScreen({ tab: initial }: { tab?: string }) {
         <section className="panel wardrobe">
           {(['title', 'theme', 'hat'] as const).map((kind) => (
             <div key={kind}>
-              <h3>{kind === 'title' ? 'Titles' : kind === 'theme' ? 'Editor themes' : 'Companion hats'}</h3>
+              <h3>{kind === 'title' ? 'Titles' : kind === 'theme' ? 'Editor skins' : 'Companion hats'}</h3>
               {kind === 'hat' && !save.pet && <p className="muted small">You'll meet your companion after Floor 1's boss.</p>}
               <ul className="item-grid">
                 {owned(kind).map((it) => {

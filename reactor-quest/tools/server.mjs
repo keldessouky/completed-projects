@@ -1,10 +1,11 @@
 // A tiny static server for the built game — no dependencies, so it can be
-// copied as-is into the macOS .app bundle. Serves one folder on localhost,
-// opens the default browser, and (with --app) exits a minute after the last
-// open game tab stops sending heartbeats.
+// copied as-is into the macOS, Windows and Linux app packages. Serves one
+// folder on localhost, opens the default browser, and (with --app) exits a
+// minute after the last open game tab stops sending heartbeats.
 import { createServer, request } from 'node:http';
+import { createWriteStream, mkdirSync } from 'node:fs';
 import { readFile, stat } from 'node:fs/promises';
-import { extname, join, normalize, resolve, sep } from 'node:path';
+import { dirname, extname, join, normalize, resolve, sep } from 'node:path';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
@@ -42,7 +43,10 @@ export function startServer({ root, port = DEFAULT_PORT, idleExitMs = 0, quiet =
   let lastBeat = Date.now();
   const server = createServer(async (req, res) => {
     const url = new URL(req.url ?? '/', 'http://localhost');
-    if (url.pathname === '/__reactor') return res.end(SIGNATURE);
+    if (url.pathname === '/__reactor') {
+      res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
+      return res.end(SIGNATURE);
+    }
     if (url.pathname === '/__heartbeat') {
       lastBeat = Date.now();
       res.writeHead(204);
@@ -101,13 +105,30 @@ export function openBrowser(url) {
   }
 }
 
-// Run directly: node server.mjs [folder] [--app] [--no-open] [--port N]
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+/** Is this module the script node was started with? (Case-insensitive on Windows, where drive letters vary.) */
+export function isMain(metaUrl) {
+  if (!process.argv[1]) return false;
+  const [a, b] = [resolve(process.argv[1]), fileURLToPath(metaUrl)];
+  return process.platform === 'win32' ? a.toLowerCase() === b.toLowerCase() : a === b;
+}
+
+// Run directly: node server.mjs [folder] [--app] [--no-open] [--port N] [--log FILE]
+if (isMain(import.meta.url)) {
   const args = process.argv.slice(2);
   const flag = (f) => args.includes(f);
-  const portArg = args.indexOf('--port');
-  const port = portArg >= 0 ? Number(args[portArg + 1]) : DEFAULT_PORT;
-  const root = args.find((a, i) => !a.startsWith('--') && args[i - 1] !== '--port') ?? join(fileURLToPath(new URL('.', import.meta.url)), 'app');
+  const value = (f) => (args.includes(f) ? args[args.indexOf(f) + 1] : undefined);
+  const port = Number(value('--port') ?? DEFAULT_PORT);
+  const root = args.find((a, i) => !a.startsWith('--') && !['--port', '--log'].includes(args[i - 1])) ?? join(fileURLToPath(new URL('.', import.meta.url)), 'app');
+  // Launchers that start the server without a console (the Windows and Linux
+  // apps) pass --log so its messages land somewhere you can read them.
+  const log = value('--log');
+  if (log) {
+    mkdirSync(dirname(log), { recursive: true });
+    const out = createWriteStream(log, { flags: 'a' });
+    const write = (...parts) => out.write(`[${new Date().toISOString()}] ${parts.join(' ')}\n`);
+    console.log = write;
+    console.error = write;
+  }
   if (await probe(port)) {
     console.log(`Reactor is already running — opening http://localhost:${port}/`);
     if (!flag('--no-open')) openBrowser(`http://localhost:${port}/`);

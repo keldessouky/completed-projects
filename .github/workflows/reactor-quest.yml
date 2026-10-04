@@ -1,4 +1,4 @@
-name: Reactor Quest (macOS)
+name: Reactor Quest (macOS, Windows, Linux)
 
 on:
   push:
@@ -18,8 +18,18 @@ defaults:
 
 jobs:
   build:
-    name: Typecheck, level proofs, browser bot, .app bundle
-    runs-on: macos-latest
+    name: ${{ matrix.label }} — typecheck, level proofs, browser bot, app package
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            label: macOS
+          - os: windows-latest
+            label: Windows
+          - os: ubuntu-latest
+            label: Linux
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -30,26 +40,116 @@ jobs:
       - run: npm ci
       - name: Typecheck and build
         run: npm run build
-      - name: Every level, quiz and arcade card proven against the real compiler
+      - name: Every level, quiz, arcade card and colour profile proven
         run: npm test
       - name: Headless Chrome plays every level through the UI
         run: npm run smoke
+      - name: Headless Chrome plays it again as a Mac (⌘ shortcuts)
+        if: runner.os == 'macOS'
+        run: SMOKE_PLATFORM=mac npm run smoke
+
+      # ---------------------------------------------------------------- macOS
       - name: Package Reactor Quest.app
+        if: runner.os == 'macOS'
         run: npm run app:mac -- --skip-build
-      - name: The bundled launcher server serves the game
+      - name: The .app's bundled server serves the game
+        if: runner.os == 'macOS'
         run: |
           node "Reactor Quest.app/Contents/Resources/server.mjs" "Reactor Quest.app/Contents/Resources/app" --no-open --port 4500 &
           for i in $(seq 1 20); do curl -fs http://127.0.0.1:4500/__reactor && break; sleep 0.5; done
           curl -fs http://127.0.0.1:4500/ | grep -q '<div id="root">'
           plutil -lint "Reactor Quest.app/Contents/Info.plist"
-      - name: Zip app bundle
+      - name: Zip the .app
+        if: runner.os == 'macOS'
         run: ditto -c -k --sequesterRsrc --keepParent "Reactor Quest.app" reactor-quest-macos.zip
+
+      # -------------------------------------------------------------- Windows
+      - name: Reactor Quest.cmd starts the game from the source folder
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Start-Process cmd -ArgumentList '/c', '"Reactor Quest.cmd" --no-open' -WindowStyle Hidden
+          $ok = $false
+          for ($i = 0; $i -lt 60 -and -not $ok; $i++) {
+            try { $ok = "$((Invoke-WebRequest -UseBasicParsing http://127.0.0.1:4310/__reactor).Content)" -eq 'reactor-quest' } catch {}
+            if (-not $ok) { Start-Sleep -Milliseconds 500 }
+          }
+          if (-not $ok) { throw 'Reactor Quest.cmd did not start the server' }
+          Get-Process node | Stop-Process -Force
+      - name: Package for Windows
+        if: runner.os == 'Windows'
+        run: npm run app:win -- --skip-build
+      - name: Install, launch, serve and uninstall the Windows package
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $pkg = Resolve-Path 'Reactor Quest (Windows)'
+          powershell -NoProfile -ExecutionPolicy Bypass -File "$pkg\install.ps1"
+          if ($LASTEXITCODE) { throw 'install failed' }
+          $dest = Join-Path $env:LOCALAPPDATA 'Programs\Reactor Quest'
+          foreach ($lnk in @((Join-Path ([Environment]::GetFolderPath('Programs')) 'Reactor Quest.lnk'), (Join-Path ([Environment]::GetFolderPath('Desktop')) 'Reactor Quest.lnk'))) {
+            if (-not (Test-Path $lnk)) { throw "missing shortcut $lnk" }
+            $target = (New-Object -ComObject WScript.Shell).CreateShortcut($lnk)
+            if ($target.Arguments -notlike "*$dest\launch.ps1*") { throw "shortcut points elsewhere: $($target.Arguments)" }
+          }
+          # Launch exactly as the shortcut does, minus the browser.
+          powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "$dest\launch.ps1" --no-open --port 4500
+          $ok = $false
+          for ($i = 0; $i -lt 40 -and -not $ok; $i++) {
+            try { $ok = "$((Invoke-WebRequest -UseBasicParsing http://127.0.0.1:4500/__reactor).Content)" -eq 'reactor-quest' } catch {}
+            if (-not $ok) { Start-Sleep -Milliseconds 500 }
+          }
+          if (-not $ok) { Get-Content "$env:LOCALAPPDATA\Reactor Quest\reactor-quest.log" -ErrorAction SilentlyContinue; throw 'the installed launcher did not start the server' }
+          if ((Invoke-WebRequest -UseBasicParsing http://127.0.0.1:4500/).Content -notmatch '<div id="root">') { throw 'the game page is wrong' }
+          Get-Content "$env:LOCALAPPDATA\Reactor Quest\reactor-quest.log"
+          Get-Process node | Stop-Process -Force
+          powershell -NoProfile -ExecutionPolicy Bypass -File "$dest\uninstall.ps1"
+          if (Test-Path $dest) { throw 'uninstall left files behind' }
+          if (Test-Path (Join-Path ([Environment]::GetFolderPath('Desktop')) 'Reactor Quest.lnk')) { throw 'uninstall left the shortcut' }
+      - name: Zip the Windows package
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: Compress-Archive -Path 'Reactor Quest (Windows)' -DestinationPath reactor-quest-windows.zip
+
+      # ---------------------------------------------------------------- Linux
+      - name: reactor-quest.sh starts the game from the source folder
+        if: runner.os == 'Linux'
+        run: |
+          ./reactor-quest.sh --no-open &
+          for i in $(seq 1 60); do curl -fs http://127.0.0.1:4310/__reactor && break; sleep 0.5; done
+          curl -fs http://127.0.0.1:4310/ | grep -q '<div id="root">'
+          kill %1
+      - name: Package for Linux
+        if: runner.os == 'Linux'
+        run: npm run app:linux -- --skip-build
+      - name: Install, launch, serve and uninstall the Linux package
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get install -y -qq desktop-file-utils >/dev/null
+          export HOME="$RUNNER_TEMP/home" && mkdir -p "$HOME"
+          ./reactor-quest-linux/install.sh
+          desktop-file-validate "$HOME/.local/share/applications/reactor-quest.desktop"
+          "$HOME/.local/bin/reactor-quest" --no-open --port 4500
+          for i in $(seq 1 40); do curl -fs http://127.0.0.1:4500/__reactor && break; sleep 0.5; done
+          curl -fs http://127.0.0.1:4500/ | grep -q '<div id="root">'
+          cat "$HOME/.local/state/reactor-quest/reactor-quest.log"
+          pkill -f 'reactor-quest/server.mjs'
+          "$HOME/.local/share/reactor-quest/uninstall.sh"
+          test ! -e "$HOME/.local/share/reactor-quest" && test ! -e "$HOME/.local/share/applications/reactor-quest.desktop"
+      - name: Tar the Linux package
+        if: runner.os == 'Linux'
+        run: tar -czf reactor-quest-linux.tar.gz reactor-quest-linux
+
       - uses: actions/upload-artifact@v4
         with:
-          name: reactor-quest-macos
-          path: reactor-quest/reactor-quest-macos.zip
+          name: reactor-quest-${{ runner.os == 'macOS' && 'macos' || runner.os == 'Windows' && 'windows' || 'linux' }}
+          path: |
+            reactor-quest/reactor-quest-macos.zip
+            reactor-quest/reactor-quest-windows.zip
+            reactor-quest/reactor-quest-linux.tar.gz
+          if-no-files-found: error
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: reactor-quest-screenshots
+          name: reactor-quest-screenshots-${{ matrix.label }}
           path: reactor-quest/test-results/

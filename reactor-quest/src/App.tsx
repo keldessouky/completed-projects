@@ -18,6 +18,7 @@ import { Hud } from './ui/Hud';
 import { Offers } from './ui/Offers';
 import { overlays } from './ui/overlays';
 import { go, useRoute } from './ui/router';
+import { ThemePicker } from './ui/ThemePicker';
 
 export function App() {
   const route = useRoute();
@@ -70,7 +71,13 @@ export function App() {
 
   return (
     <div className={`app ${save.equipped.theme}`}>
-      {route.name !== 'title' && <Hud route={route} />}
+      {route.name !== 'title' ? (
+        <Hud route={route} />
+      ) : (
+        <div className="title-corner">
+          <ThemePicker />
+        </div>
+      )}
       <main className={route.name === 'title' ? 'title-main' : ''}>{screen}</main>
       <Announcer />
       <BoxOpener />

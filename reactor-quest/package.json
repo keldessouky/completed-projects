@@ -2,7 +2,7 @@
   "name": "reactor-quest",
   "private": true,
   "version": "1.0.0",
-  "description": "An interactive game that teaches TypeScript and React: repair a dark space station one typed component at a time, with a real TypeScript compiler and React runtime in the browser.",
+  "description": "An interactive game that teaches TypeScript and React from zero to professional: repair a dark space station one typed component at a time, with a real TypeScript compiler and React runtime in the browser. Runs on macOS, Windows and Linux.",
   "type": "module",
   "license": "MIT",
   "engines": {
@@ -18,7 +18,9 @@
     "pretest": "npm run gen:typings",
     "test": "vitest run",
     "smoke": "node tools/smoke.mjs",
-    "app:mac": "node tools/make-mac-app.mjs"
+    "app:mac": "node tools/make-mac-app.mjs",
+    "app:win": "node tools/make-win-app.mjs",
+    "app:linux": "node tools/make-linux-app.mjs"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.3",

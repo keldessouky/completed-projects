@@ -4,6 +4,7 @@ import { classInfo, formatViewers } from '../game/rewards';
 import { setSave, useSave } from '../game/store';
 import { overlays } from './overlays';
 import { go, type Route } from './router';
+import { ThemePicker } from './ThemePicker';
 
 export function Hud({ route }: { route: Route }) {
   const save = useSave();
@@ -52,6 +53,7 @@ export function Hud({ route }: { route: Route }) {
       <button className="icon-btn" onClick={() => setSave((s) => ({ ...s, sound: !s.sound }))} aria-label={save.sound ? 'Mute sound' : 'Unmute sound'}>
         {save.sound ? '🔊' : '🔈'}
       </button>
+      <ThemePicker />
     </header>
   );
 }

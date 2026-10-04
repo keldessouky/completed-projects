@@ -2,6 +2,10 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
 import './styles.css';
+import { initTheme } from './ui/themes';
+
+// Paint the remembered colour profile before the first render, so it never flashes.
+initTheme();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -9,7 +13,7 @@ createRoot(document.getElementById('root')!).render(
   </StrictMode>,
 );
 
-// When the game is served by its macOS launcher, let the launcher know a tab
+// When the game is served by one of its app launchers, let the server know a tab
 // is still open; it shuts itself down a minute after the last one closes.
 // Anywhere else (the dev server, a static host) the first ping fails and stops.
 function heartbeat() {

@@ -4,34 +4,20 @@
 // starts the server and the game opens in your default browser. The server
 // stops by itself about a minute after you close the game's tab.
 // (Node.js must be installed; the app tells you if it isn't.)
-import { spawnSync } from 'node:child_process';
-import { chmodSync, cpSync, existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { chmodSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { makeIcns } from './icon.mjs';
+import { ensureBuild, outDir, pkg, stageApp } from './packaging.mjs';
 
-const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const out = process.argv.slice(2).find((a) => !a.startsWith('--')) ?? join(root, 'Reactor Quest.app');
-const pkg = JSON.parse(await import('node:fs').then((fs) => fs.readFileSync(join(root, 'package.json'), 'utf8')));
-
-if (!process.argv.includes('--skip-build')) {
-  const r = spawnSync(process.platform === 'win32' ? 'npm.cmd' : 'npm', ['run', 'build', '--silent'], { cwd: root, stdio: 'inherit' });
-  if (r.status !== 0) process.exit(r.status ?? 1);
-}
-if (!existsSync(join(root, 'dist', 'index.html'))) {
-  console.error('No build found in dist/. Run `npm run build` first.');
-  process.exit(1);
-}
+const out = outDir('Reactor Quest.app');
+ensureBuild();
 
 rmSync(out, { recursive: true, force: true });
 const contents = join(out, 'Contents');
 const macos = join(contents, 'MacOS');
 const resources = join(contents, 'Resources');
 mkdirSync(macos, { recursive: true });
-mkdirSync(resources, { recursive: true });
-
-cpSync(join(root, 'dist'), join(resources, 'app'), { recursive: true });
-cpSync(join(root, 'tools', 'server.mjs'), join(resources, 'server.mjs'));
+stageApp(resources);
 writeFileSync(join(resources, 'AppIcon.icns'), makeIcns());
 
 writeFileSync(
