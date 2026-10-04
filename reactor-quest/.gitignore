@@ -4,3 +4,4 @@ src/generated/
 test-results/
 *.app/
 tests/_explain.test.ts
+tests/_xp.test.ts
