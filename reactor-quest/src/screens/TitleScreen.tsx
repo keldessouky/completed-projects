@@ -5,6 +5,7 @@ import { sfx } from '../game/sound';
 import { useSave } from '../game/store';
 import { overlays } from '../ui/overlays';
 import { go } from '../ui/router';
+import { InstallHint } from '../ui/InstallHint';
 
 export function TitleScreen() {
   const save = useSave();
@@ -46,6 +47,7 @@ export function TitleScreen() {
         <button className="btn big" onClick={() => go('/map')}>Station map</button>
         <button className="btn big" onClick={() => go('/arcade')}>Compiler Says <span className="muted">arcade</span></button>
       </div>
+      <InstallHint />
       <p className="power-readout">
         Station power <b>{power}%</b>
         {started && (

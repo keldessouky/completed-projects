@@ -11,7 +11,7 @@ And, in the spirit of *Dungeon Crawler Carl*, the whole repair job is being
 broadcast live. **THE FEED** narrates your every move, viewers pile in when you
 show off, sponsors send gifts, and there are loot boxes. So many loot boxes.
 
-It runs on **macOS, Windows and Linux** and opens in your browser. Pick from
+It runs on **macOS, Windows and Linux**, and on **iPhone and Android** phones. Pick from
 16 colour profiles modelled on the best VS Code and IntelliJ themes.
 
 ![Title screen](docs/title.png)
@@ -113,11 +113,59 @@ files downloaded from the internet), click **More info**, then **Run anyway**.
   the double-click launchers. Press `Ctrl+C` to stop.
 - CI builds the packages for all three systems on every push: download
   `reactor-quest-macos`, `reactor-quest-windows` or `reactor-quest-linux` from
-  the workflow run's **Artifacts**.
+  the workflow run's **Artifacts**. (Phones: see [Play on your phone](#play-on-your-phone).)
 
 Your progress (stars, XP, loot, achievements, and the code you've typed in
 every level) saves automatically in your browser. Use the same browser each time to
 keep it.
+
+## Play on your phone
+
+![The game on an iPhone: mission, code with the coding keys, checks, and a swipe in the arcade](docs/phones.png)
+
+The phone version is the same game, reshaped for a thumb:
+- **Levels are three panes:** Mission, Code and Checks, with **▶ Run** always at the top. A failing run jumps you straight to the checks.
+- **Coding keys** sit on top of the keyboard: `{ } ( ) [ ] < > = ; : " ' => && ||`, Tab, undo and the arrow keys. Phone keyboards hide all of these. Brackets and quotes close themselves.
+- **Tap a name to see its type.** Phones can't hover, so the type shows under the editor instead. Tap a red squiggle to read the error.
+- **Arcade:** swipe right if it compiles, left if it's a type error.
+- **The rest:**
+  - the sections sit in a bottom tab bar;
+  - THE FEED shows as notification banners;
+  - the layout works in portrait and landscape, around the notch and the home bar;
+  - the phone buzzes when you win or fail (Android, and the native iPhone app).
+- **Offline:** once it has loaded, the whole game, TypeScript compiler included, works with no connection.
+
+Your progress is saved on the phone, separately from your computer's.
+
+### iPhone
+
+**The quickest way: add the web app to your Home Screen.** No App Store or Mac needed.
+
+1. On your iPhone, open **[keldessouky.github.io/completed-projects](https://keldessouky.github.io/completed-projects/)** in **Safari**.
+2. Tap **Share** (the square with an arrow), then **Add to Home Screen**, then **Add**.
+3. Open **Reactor** from your Home Screen. It runs full screen with its own icon, like any other app, and keeps working offline.
+
+**Or install the native iPhone app.** You need a Mac with Xcode (free from the Mac App Store).
+
+1. In the `reactor-quest` folder, run `npm install`, then `npm run app:ios`. This creates the Xcode project and opens it in Xcode. (The native apps need Node.js 22 or newer.)
+2. Plug in your iPhone (or pair it over Wi-Fi), and pick it at the top of the Xcode window.
+3. Click the **App** project, then **Signing & Capabilities**. Under **Team**, choose **Add an Account…**, sign in with your Apple ID, and pick your **Personal Team**. If Xcode says the bundle identifier is taken, add something of your own to the end of it, like `.yourname`.
+4. Press **▶ Run**. The first time, your iPhone asks you to:
+   - turn on **Settings → Privacy & Security → Developer Mode** (it restarts);
+   - trust your certificate under **Settings → General → VPN & Device Management**.
+
+With a free Apple ID, apps you install this way work for 7 days. Press Run in Xcode again to renew. A paid Apple Developer account lets you share it through TestFlight.
+
+### Android
+
+**The quickest way: install the app.**
+
+1. On your Android phone, open **[keldessouky.github.io/completed-projects/Reactor-Quest.apk](https://keldessouky.github.io/completed-projects/Reactor-Quest.apk)**, or open the game in Chrome and tap **Get the Android app** on the title screen.
+2. Open the download. If Android asks, allow your browser to **install unknown apps**, then tap **Install**.
+
+**Or add the web app:** open [the game](https://keldessouky.github.io/completed-projects/) in Chrome and tap **Install Reactor Quest as an app** on the title screen, or **⋮ → Install app**.
+
+**Or build the APK yourself:** install [Android Studio](https://developer.android.com/studio) and open it once, so it sets up the Android SDK. Then run `npm run app:android` in the `reactor-quest` folder. It makes `Reactor-Quest.apk`. To run it on a connected phone from Android Studio instead, use `npx cap open android`.
 
 ### If something goes wrong
 
@@ -364,6 +412,12 @@ code and predict what it does. The arcade holds 40 compile-or-not cards.
   started on each run, a guard stops any form from reloading the game, and the
   preview lives in a separate React root, so a crash in your component can't take
   the game down.
+- **Phones** get the same build. `tools/pwa.mjs` makes it an installable web
+  app: a manifest, icons drawn by `tools/icon.mjs`, and a service worker that
+  caches every file of the build, so it plays offline. [Capacitor](https://capacitorjs.com)
+  (`capacitor.config.json`) wraps the same files in native iPhone and Android
+  shells; `tools/make-mobile.mjs` gives those shells the game's icon, launch
+  screen and status bar.
 - **Colour profiles** are data (`src/ui/themes.ts`): about two dozen colours
   each, set as CSS custom properties on `<html>` before the first paint. The
   stylesheet derives everything else from them (gradients, glows, tints, the
@@ -376,8 +430,9 @@ code and predict what it does. The arcade holds 40 compile-or-not cards.
 ## Proven playable
 
 ```bash
-npm test        # 399 tests
-npm run smoke   # 97 checks in headless Chromium/Chrome
+npm test              # 399 tests
+npm run smoke         # 97 checks in headless Chromium/Chrome
+npm run smoke:mobile  # 14 checks as a phone (SMOKE_DEVICE=android, SMOKE_BROWSER=webkit)
 ```
 
 - **`npm test`** checks every one of the 79 code levels both ways: the reference
@@ -402,6 +457,16 @@ npm run smoke   # 97 checks in headless Chromium/Chrome
   smoke` makes the page believe it's on macOS, so the ⌘ keyboard paths can be
   tested from any machine.
 
+- **`npm run smoke:mobile`** plays the game as an iPhone 15 Pro, or with
+  `SMOKE_DEVICE=android` as a Pixel 7, by touch. It checks:
+  - the panes and bottom tabs;
+  - that no screen is wider than the phone, in portrait or landscape;
+  - typing with the coding keys, tapping a name for its type, Run, and the Checks pane;
+  - arcade swipes (and that a small nudge doesn't count);
+  - colour profiles;
+  - the web-app manifest and icons;
+  - that the game, compiler included, still plays **offline** once loaded.
+
 ![The final boss, beaten](docs/victory.png)
 
 CI (`.github/workflows/reactor-quest.yml`) runs all of this on **macOS, Windows
@@ -413,6 +478,19 @@ with ⌘ shortcuts, and lints the `.app`'s Info.plist.) The packages are uploade
 as artifacts: `reactor-quest-macos.zip`, `reactor-quest-windows.zip` and
 `reactor-quest-linux.tar.gz`.
 
+A second workflow (`.github/workflows/reactor-quest-phones.yml`) covers phones:
+
+- **iPhone** (macOS runner):
+  - plays the phone smoke in **WebKit**, the engine behind Safari and every iPhone app;
+  - builds the native app with Xcode and installs it on a simulated iPhone;
+  - launches it and waits for the TypeScript compiler to report it's running inside the app;
+  - screenshots it.
+- **Android** (Linux runner):
+  - plays the phone smoke in Chrome;
+  - builds `Reactor-Quest.apk` and installs it on an Android emulator;
+  - drives the **installed app** through its own WebView: sign the register, write code on Floor 1, Run, win.
+- **On every change to master**, it publishes the web app, with the APK beside it, to GitHub Pages.
+
 ## Development
 
 ```bash
@@ -421,6 +499,7 @@ npm run dev      # http://localhost:5173, with hot reload
 npm run build    # typecheck + production build → dist/
 npm start        # build if stale, serve dist/, open the browser
 npm run app:mac  # or app:win, app:linux: package for that system
+npm run app:ios  # or app:android: the native phone apps (Capacitor)
 ```
 
 ```
@@ -434,10 +513,13 @@ src/
                    items, skills, store, sound
   screens/         Title, Map, CodeLevel, Quiz, Arcade, Loot, Shop, Character
   ui/              CodeEditor, Preview, Announcer, BoxOpener, Offers, Companion,
-                   Hud, ThemePicker + themes (the colour profiles), Victory,
+                   Hud, ThemePicker + themes (the colour profiles), KeyBar
+                   (phone coding keys), InstallHint, device, Victory,
                    Markdown, Modal, router
 tools/             gen-typings, launch, server (zero-dependency), packaging,
-                   make-mac-app, make-win-app, make-linux-app, icon, smoke
+                   make-mac-app, make-win-app, make-linux-app, make-mobile,
+                   pwa (manifest, icons, offline service worker), icon,
+                   smoke, smoke-mobile, smoke-android-app
 Reactor Quest.command · Reactor Quest.cmd · reactor-quest.sh   double-click launchers
 tests/             levels, arcade, progress, rewards, themes, runtime, checker, markdown
 ```

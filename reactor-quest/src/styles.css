@@ -47,6 +47,12 @@
   --mono: 'SF Mono', ui-monospace, Menlo, Monaco, 'Cascadia Code', Consolas, 'DejaVu Sans Mono', monospace;
   --sans: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', system-ui, Ubuntu, Cantarell, sans-serif;
   --radius: 10px;
+  /* Safe areas (notch, home bar…): iOS reports them through env(); the Android
+     app injects --safe-area-inset-* instead, since its WebView may not. */
+  --sat: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+  --sar: var(--safe-area-inset-right, env(safe-area-inset-right, 0px));
+  --sab: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+  --sal: var(--safe-area-inset-left, env(safe-area-inset-left, 0px));
   color-scheme: dark;
 }
 :root[data-scheme='light'] {
@@ -609,3 +615,92 @@ pre.code code { background: none; border: 0; padding: 0; font-size: inherit; }
 @media (max-width: 760px) {
   .theme-grid { grid-template-columns: 1fr; }
 }
+
+/* ---------- phones and touch screens */
+html { -webkit-text-size-adjust: 100%; }
+body { -webkit-tap-highlight-color: transparent; overscroll-behavior: none; }
+button, input, select, textarea { touch-action: manipulation; }
+/* Fill exactly what's visible (main.tsx tracks it), so the keyboard never covers the game. */
+:root.touch .app { position: fixed; left: 0; right: 0; top: var(--vvt, 0px); height: var(--vvh, 100%); }
+/* Room for the notch, the Dynamic Island, the home bar and rounded corners. */
+.hud { padding-top: max(8px, var(--sat)); padding-left: max(16px, var(--sal)); padding-right: max(16px, var(--sar)); }
+.title-main { padding: var(--sat) var(--sar) var(--sab) var(--sal); }
+.title-corner { top: max(10px, var(--sat)); right: max(12px, var(--sar)); }
+/* iOS draws the status bar's (white) text over our top edge; light profiles get a dark strip behind it. */
+:root[data-scheme='light'] .hud { background: linear-gradient(#0b0f18 0 var(--sat), var(--hud-bg) var(--sat)); }
+:root[data-scheme='light'] .title-main { background: linear-gradient(#0b0f18 0 var(--sat), transparent var(--sat)); }
+.tabbar { display: none; }
+
+.keybar { flex: none; display: flex; gap: 4px; padding: 6px max(6px, var(--sar)) 6px max(6px, var(--sal)); border-top: 1px solid var(--line); background: var(--panel2); }
+.keybar-keys { flex: 1; display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; }
+.keybar-keys::-webkit-scrollbar { display: none; }
+.key { flex: none; min-width: 36px; height: 40px; padding: 0 6px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg2); color: var(--text); font: 600 1.05rem var(--mono); cursor: pointer; }
+.key.wide { min-width: 46px; }
+.key.done { min-width: 46px; color: var(--accent); }
+.key:active { background: var(--accent); color: var(--on-accent); }
+.tap-info { display: block; }
+.tap-info.error { color: var(--red); }
+.tap-info pre.code { display: inline; margin: 0; padding: 0; border: 0; background: none; font-size: 0.82rem; white-space: pre-wrap; }
+
+.arcade-card { position: relative; touch-action: pan-y; transition: transform 0.25s, border-color 0.2s, box-shadow 0.2s; }
+.arcade-card.dragging { transition: none; }
+.swipe-stamp { position: absolute; top: 14px; z-index: 2; font: 800 1.1rem var(--mono); letter-spacing: 0.08em; border: 3px solid currentColor; border-radius: 8px; padding: 2px 10px; background: var(--panel); pointer-events: none; }
+.swipe-stamp.yes { left: 16px; color: var(--green); transform: rotate(-10deg); }
+.swipe-stamp.no { right: 16px; color: var(--red); transform: rotate(10deg); }
+
+@media (pointer: coarse) {
+  /* 16px stops iOS zooming the page when you tap into the editor or a text field. */
+  .editor .cm-editor, .text-input, input, select, textarea { font-size: 16px; }
+  .btn { min-height: 44px; }
+  .btn.small-btn { min-height: 38px; }
+  kbd { display: none; }
+}
+
+@media (max-width: 760px) {
+  .hud { gap: 6px 10px; }
+  .hud { flex-wrap: nowrap; }
+  .hud .stats > span, .crawler .who, .crawler .bar { display: none; }
+  .crawler { padding: 2px; flex: none; }
+  .crawler .lvl, .stat-btn { white-space: nowrap; }
+  .hud .stats { flex: none; }
+  .brand { font-size: 1rem; letter-spacing: 0.12em; }
+  :root[data-keyboard] .hud { display: none; }
+  .tabbar { order: 1; flex: none; display: grid; grid-template-columns: repeat(5, 1fr); z-index: 44; background: var(--hud-bg); backdrop-filter: blur(10px); border-top: 1px solid var(--line); padding: 2px max(4px, var(--sar)) var(--sab) max(4px, var(--sal)); }
+  .tabbar button { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; min-height: 52px; padding: 6px 0 4px; background: none; border: 0; color: var(--muted); font-size: 0.7rem; cursor: pointer; }
+  .tabbar button.active { color: var(--accent); }
+  .tab-icon { font-size: 1.3rem; line-height: 1; }
+  .tabbar button.active .tab-icon { transform: translateY(-1px) scale(1.08); }
+  .tabbar .badge { top: 2px; right: calc(50% - 26px); }
+  .announcer { top: calc(var(--sat) + 6px); bottom: auto; right: 8px; width: calc(100vw - 16px); }
+  .card-note, .card-note.big { padding: 8px 30px 8px 10px; }
+  .card-note .note-text { display: none; }
+  .card-note.big .note-icon { font-size: 1.5rem; }
+  .announcer > .link { display: none; }
+  .companion { bottom: calc(66px + var(--sab)); left: 8px; }
+  .pet { font-size: 1.9rem; }
+  .modal-backdrop { padding: max(12px, var(--sat)) 10px max(12px, var(--sab)); }
+  .modal { max-height: calc(var(--vvh, 100dvh) - 32px); padding: 16px; }
+
+  /* A level is three panes, one at a time, with Run always in reach. */
+  .level.phone { display: flex; flex-direction: column; gap: 8px; height: 100%; min-height: 0; }
+  .level.phone > .panel { flex: 1; min-height: 0; }
+  .level.phone .brief { max-height: none; }
+  .level.phone .work { min-height: 0; }
+  .level.phone.pane-brief > .work, .level.phone.pane-brief > .results,
+  .level.phone.pane-code > .brief, .level.phone.pane-code > .results,
+  .level.phone.pane-results > .brief, .level.phone.pane-results > .work { display: none; }
+  .level.phone .work .toolbar .btn.primary { display: none; }
+  .level.phone.editing .work .toolbar { display: none; }
+  .pane-bar { flex: none; display: flex; gap: 4px; align-items: stretch; }
+  .pane-bar [role='tab'] { flex: 1; min-width: 0; min-height: 42px; padding: 6px 4px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg2); color: var(--muted); font-size: 0.78rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+  .pane-bar [role='tab'].active { color: var(--text); border-color: var(--accent); background: var(--panel2); }
+  .pane-bar [role='tab'].failing:not(.active) { color: var(--red); }
+  .pane-bar .run-fab { flex: none; min-height: 42px; padding: 0 14px; }
+  :root.touch main:has(.level.phone) { padding: 8px max(8px, var(--sar)) 8px max(8px, var(--sal)); }
+  .level.phone.editing { gap: 4px; }
+}
+
+.install-hint { max-width: 520px; margin: 0.4em auto 0; padding: 8px 12px; border: 1px dashed var(--line); border-radius: 10px; font-size: 0.9rem; color: var(--muted); }
+.install-hint a { color: var(--accent); }
+.ios-share { display: inline-block; padding: 0 6px; border: 1px solid var(--line); border-radius: 6px; font-weight: 600; color: var(--text); }
+.ios-share::before { content: '⬆︎ '; }
