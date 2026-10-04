@@ -134,6 +134,16 @@ await step('Code pane: the coding keys type brackets and quotes (auto-closed) fo
   if (got !== 'console.log("Hello, Orrery");') throw new Error(`typed ${JSON.stringify(got)}`);
   await page.locator('.keybar-keys').evaluate((el) => (el.scrollLeft = 0));
   await shot('03-keybar');
+  // Android shrinks the whole page when the keyboard opens (iOS only the visible
+  // part): the tab bar and top bar should step aside either way.
+  await page.setViewportSize({ width: device.viewport.width, height: Math.round(device.viewport.height * 0.55) });
+  try {
+    await page.waitForFunction(() => document.documentElement.hasAttribute('data-keyboard'), null, { timeout: 5000 });
+    if (await page.locator('.tabbar').isVisible()) throw new Error('the tab bar should hide while the keyboard is open');
+  } finally {
+    await page.setViewportSize(device.viewport);
+  }
+  await page.waitForFunction(() => !document.documentElement.hasAttribute('data-keyboard'), null, { timeout: 5000 });
 });
 
 await step('Tapping a name shows its type (phones have no hover)', async () => {

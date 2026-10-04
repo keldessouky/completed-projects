@@ -2,9 +2,10 @@
 // matching buzz: the iPhone's Taptic Engine in the native app, the vibration
 // motor on Android.
 import { Haptics, ImpactStyle, NotificationType } from '@capacitor/haptics';
+import { isTouch } from '../ui/device';
 import { getSave } from './store';
 
-const touch = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
+const touch = typeof matchMedia === 'function' && isTouch();
 
 function buzz(kind: 'tap' | 'thud' | 'success' | 'error') {
   if (!touch) return;

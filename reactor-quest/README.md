@@ -430,7 +430,7 @@ code and predict what it does. The arcade holds 40 compile-or-not cards.
 ## Proven playable
 
 ```bash
-npm test              # 399 tests
+npm test              # 385 tests
 npm run smoke         # 97 checks in headless Chromium/Chrome
 npm run smoke:mobile  # 14 checks as a phone (SMOKE_DEVICE=android, SMOKE_BROWSER=webkit)
 ```

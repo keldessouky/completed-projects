@@ -648,13 +648,12 @@ button, input, select, textarea { touch-action: manipulation; }
 .swipe-stamp.yes { left: 16px; color: var(--green); transform: rotate(-10deg); }
 .swipe-stamp.no { right: 16px; color: var(--red); transform: rotate(10deg); }
 
-@media (pointer: coarse) {
-  /* 16px stops iOS zooming the page when you tap into the editor or a text field. */
-  .editor .cm-editor, .text-input, input, select, textarea { font-size: 16px; }
-  .btn { min-height: 44px; }
-  .btn.small-btn { min-height: 38px; }
-  kbd { display: none; }
-}
+/* Touch screens (main.tsx sets .touch; see isTouch() in src/ui/device.ts). */
+/* 16px stops iOS zooming the page when you tap into the editor or a text field. */
+:root.touch .editor .cm-editor, :root.touch .text-input, :root.touch input, :root.touch select, :root.touch textarea { font-size: 16px; }
+:root.touch .btn { min-height: 44px; }
+:root.touch .btn.small-btn { min-height: 38px; }
+:root.touch kbd { display: none; }
 
 @media (max-width: 760px) {
   .hud { gap: 6px 10px; }

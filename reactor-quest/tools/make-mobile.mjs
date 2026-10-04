@@ -90,6 +90,22 @@ if (platform === 'ios') {
   const bg = join(res, 'values', 'ic_launcher_background.xml');
   if (existsSync(bg)) writeFileSync(bg, readFileSync(bg, 'utf8').replace(/>#[0-9A-Fa-f]{6,8}</, '>#0B1120<'));
   for (const img of pngs(res, (name) => name === 'splash.png')) splash(img);
+  // The window behind the status and navigation bars: the station's dark, not
+  // Android's default white (which would hide the white status-bar icons).
+  writeFileSync(join(res, 'values', 'reactor_colors.xml'), '<?xml version="1.0" encoding="utf-8"?>\n<resources>\n    <color name="reactor_bg">#070B16</color>\n</resources>\n');
+  const styles = join(res, 'values', 'styles.xml');
+  let xml = readFileSync(styles, 'utf8');
+  if (!xml.includes('reactor_bg')) {
+    xml = xml.replace(
+      /(<style name="AppTheme\.NoActionBar"[^>]*>)/,
+      `$1
+        <item name="android:windowBackground">@color/reactor_bg</item>
+        <item name="android:statusBarColor">@color/reactor_bg</item>
+        <item name="android:navigationBarColor">@color/reactor_bg</item>
+        <item name="android:windowLightStatusBar">false</item>`,
+    );
+    writeFileSync(styles, xml);
+  }
   console.log('\nThe Android Studio project is ready: android/');
 
   if (flag('--apk')) {
