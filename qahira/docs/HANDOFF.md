@@ -21,7 +21,9 @@ already has, what's left, and what's worth knowing before you change anything.
   named by its date; it deletes the rest. An episode can also name its own `archive` item
   and a `match` (a piece of its file name) in place of a `file`. Each
   folder in `radio` is a station; R3 taps to the next station and holds for the next episode. The menu's Game tab
-  resumes, updates the game in place from the qahira-latest release (`game/updater.*`, reading the `version.json`
+  resumes, updates the game in place from the qahira-latest release (where RetroArch won't let the running core be
+  replaced, it leaves the new core beside the pack for Install or Restore a Core, and the new pack waits as
+  `Qahira.qpk.next` until that core starts) (`game/updater.*`, reading the `version.json`
   that CI publishes), quits to the title and exits.
 - **Slice 11 is done, and with it Slices 3–11:** Arabic text (shaped, right to left, the layout mirrored), the
   Settings tab (language, text size, colour-blind loot colours, screen shake, L2 hold or toggle), the Balanced and

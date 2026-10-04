@@ -2,8 +2,12 @@
 // qahira-latest release on GitHub, which lists its files in version.json (the commit, the run, each file's size and
 // SHA-256). The game compares that commit with its own, and on the player's say-so downloads the RetroArch core and
 // the pack beside the ones in use (".part", resumed if cut off), checks both against their SHA-256, and only then
-// swaps them in, the core first and put back if the pack can't follow. The running game keeps what it loaded (the
-// pack is in memory, the old core stays mapped); the new build starts the next time the game does.
+// swaps them in. The running game keeps what it loaded (the pack is in memory, the old core stays mapped); the new
+// build starts the next time the game does.
+// Where the core in use can't be replaced while RetroArch runs it, the new core goes beside the pack for the player
+// to install with RetroArch's own Install or Restore a Core, and the new pack waits beside the old one
+// ("Qahira.qpk.next", with its commit in "Qahira.qpk.next.commit"): the new core puts it in place when it starts,
+// so an old core never runs a new pack.
 #pragma once
 #include "net/http.hpp"
 #include <atomic>
@@ -32,7 +36,8 @@ std::string sha256_file(const std::string& path);   // lowercase hex, empty if u
 
 class Updater {
 public:
-    enum class State { Idle, Checking, UpToDate, Available, Downloading, Installed, Failed, Unsupported };
+    enum class State { Idle, Checking, UpToDate, Available, Downloading, Installed, Failed, Unsupported,
+                       NeedsCore };   // downloaded; the player installs the core beside the pack (manual_core())
     struct Config {
         std::string base_url;     // where version.json and the files are
         std::string core_asset;   // the core's name in the release (empty: this platform isn't updated this way)
@@ -42,6 +47,9 @@ public:
         int run = 0;
     };
     static Config defaults(const std::string& core_path, const std::string& pack_path);
+    // at start, before the pack is read: a pack waiting for this build's core goes in place (and the core copy left
+    // beside it for the player is deleted); true when it did
+    static bool apply_staged(const std::string& pack_path, const std::string& commit, const std::string& core_asset);
 
     ~Updater() { stop(); }
     void configure(const Config& c);
@@ -52,6 +60,7 @@ public:
     int available_run() const;
     std::string text() const;     // the Update row: what it is doing, or what South will do
     std::string build() const;    // "Build 47 (8440256)"
+    std::string manual_core() const;   // NeedsCore: the new core, for Install or Restore a Core
     bool check_now();             // the same, on this thread (the tests)
     bool install_now();
 
@@ -65,6 +74,7 @@ private:
     std::atomic<float> progress_{0};
     mutable std::mutex m_;
     std::string error_;
+    std::string manual_;
     std::thread thread_;
     net::Cancel cancel_;
 };

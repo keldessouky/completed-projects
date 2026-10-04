@@ -27,7 +27,7 @@ void Menu::game_update(World& w, const Input& in, int dir) {
             const Updater::State s = up.state();
             if (s == Updater::State::Available) up.install();
             else if (s == Updater::State::Idle || s == Updater::State::UpToDate || s == Updater::State::Failed) up.check();
-            else if (s == Updater::State::Installed) { game_cursor = GAME_EXIT; game_armed = -1; }
+            else if (s == Updater::State::Installed || s == Updater::State::NeedsCore) { game_cursor = GAME_EXIT; game_armed = -1; }
             break;
         }
         case GAME_TITLE:
@@ -54,7 +54,8 @@ void Menu::game_render() const {
             case GAME_EXIT: label = game_armed == r ? "Exit the game? Press again" : "Exit the game"; break;
         }
         const bool warn = game_armed == r || (r == GAME_UPDATE && up.state() == Updater::State::Failed);
-        const bool news = r == GAME_UPDATE && (up.state() == Updater::State::Available || up.state() == Updater::State::Installed);
+        const bool news = r == GAME_UPDATE && (up.state() == Updater::State::Available || up.state() == Updater::State::Installed ||
+                                               up.state() == Updater::State::NeedsCore);
         u.frame(x - 10, y, PW - 100, 86, cur ? pal::dusk : pal::panel2, cur ? pal::amber : news ? pal::rare : pal::line, 12,
                 cur ? 3.f : 1.f);
         u.text(x + 20, y + 23, label, 32, warn ? pal::bad : news ? pal::rare : cur ? pal::amber : pal::bone, Align::Left, 0.8f);
@@ -67,6 +68,20 @@ void Menu::game_render() const {
                        : s == Updater::State::Installed ? "The new build starts the next time the game does"
                        : nullptr;
     if (help) { u.text(x, y, help, 24, pal::dim); y += 34; }
+    if (s == Updater::State::NeedsCore) {   // RetroArch won't let the running core be replaced: the player does it
+        const std::string core = up.manual_core();
+        const std::string name = core.substr(core.find_last_of('/') + 1);
+        u.text(x, y, "Exit the game, then in RetroArch:", 24, pal::bone);
+        y += 34;
+        u.text(x, y, "Load Core > Install or Restore a Core, and pick", 24, pal::bone);
+        y += 34;
+        u.text(x, y, name, 24, pal::rare);
+        y += 34;
+        u.text(x, y, "in " + core.substr(0, core.find_last_of('/')), 22, pal::dim, Align::Left, 0.8f);
+        y += 34;
+        u.text(x, y, "The new pack goes in by itself when the new core starts", 24, pal::dim);
+        y += 34;
+    }
     u.text(x, y, up.build(), 24, pal::dim);
     float lx = PX + 30;
     const float ly = PY + PH - 58;

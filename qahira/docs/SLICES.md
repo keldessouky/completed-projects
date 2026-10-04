@@ -1188,3 +1188,36 @@ The owner asked for the best episodes of all time to be included.
 **Known gaps (carried forward)**
 - The feed can't be read from the build container, so it isn't known yet how far back it goes or which keeps find
   an episode. `radio log.txt` lists every episode as it arrives.
+
+## The in-game update, when RetroArch won't let go of the core
+
+On the RP6, Update failed: it couldn't replace the core while RetroArch was running it. The old updater renamed
+the running `.so` aside and the new one into its place. That works on a desktop Linux, but not under the RP6's
+RetroArch. And it didn't say why.
+
+**Delivered**
+- **The core:** the updater tries one rename of the new core over the one in use. If that is refused, it uses
+  RetroArch's own way of replacing a core:
+  - It moves the new core (checked against its SHA-256) beside the pack, as `qahira_libretro_android.so`, copying
+    it across file systems if it must.
+  - The Update row says **Downloaded: one step left, below**. Under it the tab shows the step: exit the game, then
+    **Load Core > Install or Restore a Core**, and pick that file in that folder.
+  - If RetroArch's cores folder can't be written at all, the core downloads beside the pack in the first place.
+- **The pack follows its core:** it waits as `Qahira.qpk.next`, with the commit it belongs to in
+  `Qahira.qpk.next.commit`. When the game starts, a waiting pack goes in place only if that commit is the running
+  core's. Then the core copy beside the pack is deleted. So an old core never runs a new pack.
+  - A check while an update is waiting finds it already downloaded, by the commit and the core's SHA-256, and
+    shows the step again instead of downloading again.
+  - A pack that can't be replaced while the new core went in also waits as `.next` and goes in when the new core
+    starts.
+- **The reason:** every failure message now carries the system's reason (for example, "Permission denied").
+- **Arabic:** the new lines have Arabic text.
+
+**Verified**
+| Check | Result |
+|---|---|
+| Unit tests (`qtests`) | pass, 109 cases. New: a core that can't be replaced leaves the new core beside the pack and the pack waiting with its commit, a second check knows it's waiting without downloading again, the old core starting leaves the pack waiting, and the new core starting puts it in place and deletes the copy; a cores folder that can't be written gets the core downloaded beside the pack |
+
+**Known gaps (carried forward)**
+- The device's builds from before this one have the old updater, so this one has to be installed by hand once.
+- Not yet tried on the RP6: whether the rename fails there, so the new step shows, or simply works.

@@ -518,6 +518,11 @@ void waypoints_render() {
 bool app_init(const char* pack_path, Platform* plat) {
     S = new State();
     S->plat = plat;
+    // a pack an update left waiting for this build's core goes in place first
+    if (pack_path) {
+        const Updater::Config uc = Updater::defaults("", pack_path);
+        Updater::apply_staged(pack_path, uc.commit, uc.core_asset);
+    }
     if (!pack().open_file(pack_path)) return false;
     if (!assets().character("warrior").skel) return false;
     World& w = S->world;
