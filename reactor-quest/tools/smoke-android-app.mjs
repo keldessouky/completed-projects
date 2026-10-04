@@ -21,6 +21,7 @@ const snap = async (name) => writeFileSync(join(shots, `${name}.png`), await dev
 let failed = false;
 const step = async (name, fn) => {
   try {
+    await app();
     await fn();
     console.log(`  ✓ ${name}`);
   } catch (e) {
@@ -32,10 +33,17 @@ const step = async (name, fn) => {
 
 await device.shell(`am force-stop ${PKG}`);
 await device.shell(`am start -W -n ${PKG}/.MainActivity`);
-const webview = await device.webView({ pkg: PKG }, { timeout: 60_000 });
-const page = await webview.page();
 const errors = [];
-page.on('pageerror', (e) => errors.push(e.message));
+let page;
+/** The app's WebView page — reattached if the debugging connection drops (it can when Android's keyboard opens). */
+async function app() {
+  if (!page || page.isClosed()) {
+    page = await (await device.webView({ pkg: PKG }, { timeout: 60_000 })).page();
+    page.on('pageerror', (e) => errors.push(e.message));
+  }
+  return page;
+}
+await app();
 
 await step('The app opens on the title screen', async () => {
   await page.getByRole('button', { name: /Begin|Continue/ }).waitFor({ timeout: 60_000 });

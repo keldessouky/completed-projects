@@ -119,10 +119,13 @@ jobs:
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           working-directory: reactor-quest
           # The emulator's home screen sometimes stalls on a cold CI boot and throws an
-          # "isn't responding" dialog over everything; the game doesn't need it.
+          # "isn't responding" dialog over everything; the game doesn't need it. The
+          # on-screen keyboard is switched off too: opening it drops the debugger's
+          # connection to the WebView (the test types through that connection anyway).
           script: |
             adb shell settings put global hide_error_dialogs 1 || true
             adb shell pm disable-user --user 0 com.google.android.apps.nexuslauncher || true
+            adb shell ime disable com.google.android.inputmethod.latin/com.android.inputmethod.latin.LatinIME || true
             adb install -r Reactor-Quest.apk
             node tools/smoke-android-app.mjs
       - uses: actions/upload-artifact@v4
