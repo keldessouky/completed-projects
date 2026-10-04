@@ -305,10 +305,10 @@ def preview_sheets(sprite_list, font_glyph_count, icon_canvas, icon_pal):
 
 # ------------------------------------------------------------- backdrops ----
 
-#  The photographic backgrounds (tools/art/photo_bg.py renders them into
-#  assets/bg). Each is a full screen, 256 x 192, one byte a pixel into its own
-#  256-colour palette: forty-eight kilobytes, a quarter of what a straight
-#  15-bit screen would cost, and error-diffused so a photograph survives it.
+#  The backgrounds (tools/art/gba.py draws them into assets/bg). Each is a
+#  full screen, 256 x 192, one byte a pixel into its own palette of at most
+#  64 colours: forty-eight kilobytes, a quarter of what a straight 15-bit
+#  screen would cost.
 BACKDROPS = ('title', 'street', 'collapse', 'sky', 'stairs',
              'arena_a', 'arena_b', 'arena_c', 'arena_d', 'arena_e',
              'gameover', 'victory')
@@ -335,6 +335,15 @@ def emit_backdrops():
         src.append("const Backdrop bg_%s = { bgpal_%s, bgpix_%s };\n" % (name, name, name))
         hdr.append("extern const Backdrop bg_%s;" % name)
         total += w * h + 512
+    #  The terrain pads' colours, one row per arena (gba.py PAD_COLOURS):
+    #  rim, shaded front, face, lit lip.
+    sys.path.insert(0, os.path.join(ROOT, 'tools', 'art'))
+    import gba
+    src.append("const uint16_t arena_pad[5][4] = {")
+    for m in 'abcde':
+        src.append("    { %s }," % ", ".join("0x%04x" % rgb555(c) for c in gba.PAD_COLOURS[m]))
+    src.append("};")
+    hdr += ["extern const uint16_t arena_pad[5][4];"]
     hdr += ["", "#endif"]
     open(os.path.join(GEN, 'backdrops.h'), 'w').write("\n".join(hdr) + "\n")
     open(os.path.join(GEN, 'backdrops.c'), 'w').write("\n".join(src) + "\n")

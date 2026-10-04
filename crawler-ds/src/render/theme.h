@@ -80,6 +80,19 @@
 #define C_SEL_RED   RGB(0x8D, 0x30, 0x35)   /* blood 2  */
 #define C_SEL_GREEN RGB(0x38, 0x55, 0x2F)   /* grass 1  */
 
+/*  The battle boxes, as the GBA games drew them: cream card, a dark olive
+ *  edge, dark text with a pale shadow under it, and a health bar in a dark
+ *  frame whose fill is two flat tones -- a lit top row over the body. They
+ *  are the one place the System's blue glass gives way, because a box that
+ *  sits on the arena has to read against a background that is now light. */
+#define C_BOX_FILL  RGB(0xF8, 0xF4, 0xD8)
+#define C_BOX_SHADE RGB(0xD8, 0xD0, 0xA8)
+#define C_BOX_EDGE  RGB(0x38, 0x40, 0x38)
+#define C_BOX_INK   RGB(0x40, 0x40, 0x48)
+#define C_BOX_INKSH RGB(0xD0, 0xC8, 0xA8)
+#define C_BAR_EMPTY RGB(0x50, 0x60, 0x58)
+#define C_BAR_LABEL RGB(0xF8, 0xC8, 0x40)
+
 #define C_BG_TOP    RGB(0x26, 0x37, 0x42)
 #define C_BG_BOT    RGB(0x24, 0x23, 0x2A)
 

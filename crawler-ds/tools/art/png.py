@@ -1,6 +1,6 @@
 """Minimal PNG writer (8-bit RGB), so the art tools can show their work without
 a third-party imaging library -- and an indexed-colour writer and reader, so
-the build can read the photographic backgrounds in assets/bg without one
+the build can read the backgrounds in assets/bg without one
 either."""
 import struct
 import zlib

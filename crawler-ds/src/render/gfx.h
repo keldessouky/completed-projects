@@ -25,8 +25,8 @@ typedef struct {
     const uint8_t  *pix;
 } Sprite;
 
-/*  A photographic background: a whole screen, one byte a pixel into its own
- *  256-colour palette. */
+/*  A background: a whole screen, one byte a pixel into its own palette
+ *  (tools/art/gba.py draws them, 64 colours at most). */
 typedef struct {
     const uint16_t *pal;
     const uint8_t  *pix;
@@ -55,6 +55,9 @@ void gfx_trapezoid(Surface *s, int x0, int yt0, int yb0, int x1, int yt1, int yb
 /* --- sprites ----------------------------------------------------------- */
 void gfx_sprite(Surface *s, const Sprite *sp, int x, int y);
 void gfx_backdrop(Surface *s, const Backdrop *bg);
+/* A terrain pad: the ellipse a combatant stands on. c = rim, shaded front,
+   face, lit back lip. */
+void gfx_pad(Surface *s, int cx, int cy, int rx, int ry, const uint16_t c[4]);
 void gfx_sprite_flip(Surface *s, const Sprite *sp, int x, int y);
 void gfx_sprite_scaled(Surface *s, const Sprite *sp, int x, int y, int num, int den);
 void gfx_sprite_scaled_flip(Surface *s, const Sprite *sp, int x, int y, int num, int den);

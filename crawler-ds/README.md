@@ -204,20 +204,21 @@ licensed.
   spend on a material, each step has to be far enough from its neighbour to be
   a decision rather than a blend. Carl, Donut, Mordecai, the Bopca and the
   Goblin Trapper are hand-placed ASCII grids against a sixteen-colour palette
-  for exactly that reason. `Sprite.emit()` holds everything else to the same
-  rule, collapsing a bloated ramp to fit by merging its cheapest pair first.
+  for exactly that reason. `Sprite.emit()` holds everything else to a budget
+  of 64 colours a sprite (`PALETTE_LIMIT`), collapsing a bloated ramp to fit
+  by merging its cheapest pair first; the backgrounds get the same 64.
 - **`tools/art/cast.py`, `bestiary.py`, `props.py`** — the rest of the
   drawings: the party at 56×72, the bestiary at 72×72, the bosses at 96×96 and
   the furniture at 40×40.
-- **`tools/art/photo_bg.py`** — the backgrounds, which are photographs: views
-  framed out of 360-degree panoramas from Poly Haven (CC0) and Emil Persson
-  (Humus), graded, reduced to the DS's colours and written to `assets/bg`.
-  The title, chapter one's street, collapse, sky and staircase, one battle
-  arena per floor material, and the two endings. It also cuts the dungeon's
-  32×32 floor and wall tiles out of the same panoramas -- straight down for a
-  floor, square-on for a wall -- so a fight happens in the place it was
-  walked into. `tools/art/textures.py` reads those tiles; credits are in
-  `assets/CREDITS.txt`.
+- **`tools/art/gba.py`** — every background, drawn in the style of the Game
+  Boy Advance Pokémon games: flat colour, two or three tones to a material,
+  light from the top left, bands with a row of checker dither at each seam,
+  and an edge a step darker than every shape instead of a black line. The
+  title, chapter one's street, collapse, sky and staircase, one battle arena
+  per floor material with the terrain pads' colours to match, and the two
+  endings, each held to 64 colours; and the dungeon's 32×32 floor and
+  wall-top tiles, so a fight happens in the place it was walked into.
+  `tools/art/textures.py` reads the tiles.
 - **`tools/art/font5x7.py`** — the font, drawn as ASCII art, seven rows of five
   cells per glyph, 104 glyphs including the System's arrows and pips.
 - **`tools/art/overworld.py`** — the party as the dungeon sees them, and the

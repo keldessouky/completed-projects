@@ -39,7 +39,7 @@
 #define VIEW_H   WORLD_H
 #define TILE     16
 #define TEXELS   32
-#define WALL_LIP 4       /* how much of a wall's south face the camera sees */
+#define WALL_LIP 6       /* how much of a wall's south face the camera sees */
 
 /*  Light levels the tiles are drawn through. The DS keeps colour in a 16-bit
  *  halfword of which fifteen bits are colour, and this game draws into a direct
@@ -619,9 +619,15 @@ void view2d_draw(Surface *s) {
              *  sliver of the face pointing at it, so a wall with open floor
              *  below gets one, plus the shadow it throws. */
             if (!solid(mx, my + 1) && dungeon_seen(mx, my + 1)) {
-                gfx_rect(s, sx, sy + TILE, TILE, WALL_LIP,
-                         gfx_mix(t->wall_pal[0], t->fog, 9));
+                /*  The face the way the GBA drew one: flat, a lit row along
+                    its top edge and a dark one at its foot. The tile
+                    palettes run dark to light (tools/art/gba.py), so a
+                    third of the way up is the material in shade. */
+                uint16_t face = gfx_mix(t->wall_pal[t->wall_n / 3], t->fog, 6);
+                gfx_rect(s, sx, sy + TILE, TILE, WALL_LIP, face);
                 gfx_hline(s, sx, sx + TILE - 1, sy + TILE, t->edge_lit);
+                gfx_hline(s, sx, sx + TILE - 1, sy + TILE + WALL_LIP - 1,
+                          gfx_mix(t->wall_pal[0], t->fog, 6));
                 gfx_dither(s, sx, sy + TILE + WALL_LIP, TILE, 2, C_VOID, 6);
             }
             /*  Every exposed edge gets a line, so a block of wall has a shape

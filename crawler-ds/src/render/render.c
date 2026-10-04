@@ -689,49 +689,91 @@ static void draw_damage_pops(Surface *s) {
 /*  Which of the five materials a floor is built from. The same order the
  *  floor tiles (view2d.c) use, so a fight happens in the place it was
  *  walked into. */
-static const Backdrop *arena_for(int floor_index) {
+static int arena_slot(int floor_index) {
     static const uint8_t kOrder[18] = { 0, 3, 1, 3, 2, 0, 1, 4, 2, 3, 0, 4, 1, 2, 4, 0, 3, 2 };
-    static const Backdrop *const kArena[5] = { &bg_arena_a, &bg_arena_b, &bg_arena_c,
-                                               &bg_arena_d, &bg_arena_e };
-    int slot = floor_index >= 0 && floor_index < 18 ? kOrder[floor_index] : floor_index % 5;
-    return kArena[slot];
+    return floor_index >= 0 && floor_index < 18 ? kOrder[floor_index] : floor_index % 5;
 }
 
-/*  The battle arena: a photograph of the place, looked at from the height of
- *  someone standing in it, with the horizon where the foes stand. */
+static const Backdrop *arena_for(int floor_index) {
+    static const Backdrop *const kArena[5] = { &bg_arena_a, &bg_arena_b, &bg_arena_c,
+                                               &bg_arena_d, &bg_arena_e };
+    return kArena[arena_slot(floor_index)];
+}
+
+/*  The battle arena: a strip of the place across the top, drawn the way the
+ *  GBA games drew theirs (tools/art/gba.py), and the ground the foes stand
+ *  on under it. */
 static void draw_arena(Surface *s, int floor_index) {
     gfx_backdrop(s, arena_for(floor_index));
 }
 
+/*  A health bar the GBA way: a dark frame, the empty part a dark green-grey,
+ *  and the fill in two flat tones, a lit row along its top. Green, then
+ *  yellow at half, then red at a fifth, flashing. */
+static void gba_bar(Surface *s, int x, int y, int w, int hp, int hp_max) {
+    if (hp_max < 1) hp_max = 1;
+    if (hp < 0) hp = 0;
+    int pct = hp * 100 / hp_max;
+    uint16_t body = pct > 50 ? RGB(0x58, 0xD0, 0x80) : pct > 20 ? RGB(0xC8, 0xA8, 0x08) : RGB(0xD0, 0x40, 0x38);
+    uint16_t lit  = pct > 50 ? RGB(0x70, 0xF8, 0xA8) : pct > 20 ? RGB(0xF8, 0xE0, 0x38) : RGB(0xF8, 0x70, 0x58);
+    gfx_rect(s, x, y, w, 5, C_BOX_EDGE);
+    gfx_rect(s, x + 1, y + 1, w - 2, 3, C_BAR_EMPTY);
+    int filled = hp * (w - 2) / hp_max;
+    if (hp > 0 && filled < 1) filled = 1;
+    if (filled > 0) {
+        gfx_rect(s, x + 1, y + 1, filled, 3, body);
+        gfx_hline(s, x + 1, x + filled, y + 1, lit);
+    }
+    if (pct <= 20 && (g.anim & 16) && filled > 0) gfx_rect(s, x + 1, y + 2, filled, 2, lit);
+}
+
+/*  A cream card with its corners cut, a dark edge, and a shaded band along
+ *  the bottom: the GBA battle box. tail = -1 points it left (yours, at the
+ *  party), +1 right, 0 not at all. */
+static void gba_card(Surface *s, int x, int y, int w, int h, uint16_t edge, int tail) {
+    gfx_rect(s, x + 1, y + 1, w - 2, h - 2, C_BOX_FILL);
+    gfx_rect(s, x + 1, y + h - 4, w - 2, 3, C_BOX_SHADE);
+    gfx_hline(s, x + 2, x + w - 3, y, edge);
+    gfx_hline(s, x + 2, x + w - 3, y + h - 1, edge);
+    gfx_vline(s, x, y + 2, y + h - 3, edge);
+    gfx_vline(s, x + w - 1, y + 2, y + h - 3, edge);
+    gfx_pixel(s, x + 1, y + 1, edge);
+    gfx_pixel(s, x + w - 2, y + 1, edge);
+    gfx_pixel(s, x + 1, y + h - 2, edge);
+    gfx_pixel(s, x + w - 2, y + h - 2, edge);
+    if (tail) {                                     /* the tail along the bottom */
+        int tx = tail < 0 ? x - 6 : x + w - 1;
+        for (int k = 0; k < 6; k++) {
+            int px = tail < 0 ? tx + k : tx + 6 - k;
+            gfx_vline(s, px, y + h - 2 - k / 2, y + h - 1, k == 0 ? edge : C_BOX_SHADE);
+            gfx_pixel(s, px, y + h - 2 - k / 2 - 1, edge);
+        }
+        gfx_hline(s, tail < 0 ? tx : x + w - 1, tail < 0 ? x : tx + 6, y + h - 1, edge);
+    }
+    gfx_window_shadow(s, x, y, w, h);
+}
+
+static void box_text(Surface *s, int x, int y, uint16_t c, const char *t) {
+    gfx_text_shadow(s, x, y, c, C_BOX_INKSH, t);
+}
+
 /*  A Pokemon battle box: name, level, a health bar that changes colour as it
- *  empties, and — on your own side only — the numbers. The shape is doing the
- *  work here, so it is drawn rather than assembled out of panels: a slab with
- *  one corner cut, pointing at whoever it belongs to. */
+ *  empties, and -- on your own side -- the numbers, on cream card the way
+ *  the GBA games had it. */
 static void hp_box(Surface *s, int x, int y, int w, const char *name, int level,
                    int hp, int hp_max, int mine, int rank) {
-    const int h = 24;
-    window(s, x, y, w, h, 0);
-    /*  A boss's box says what it is: a gold rule across the top, and its
-        rank. */
-    if (rank) {
-        gfx_hline(s, x + 1, x + w - 2, y, rank >= 2 ? C_GOLD : C_AMBER);
-        gfx_hline(s, x + 1, x + w - 2, y + 1, gfx_scale_colour(rank >= 2 ? C_GOLD : C_AMBER, 7, 16));
-    }
-    gfx_hline(s, x + 1, x + w - 2, y + 1, gfx_scale_colour(C_INK, 3, 16));
-    gfx_text(s, x + 5, y + 4, rank ? C_GOLD : C_INK, name);
+    const int h = 25;
+    gba_card(s, x, y, w, h, rank ? C_SEL_GOLD : C_BOX_EDGE, mine ? -1 : 1);
+    box_text(s, x + 6, y + 4, rank ? C_SEL_GOLD : C_BOX_INK, name);
     if (!rank) {
-        gfx_text(s, x + w - 26, y + 4, C_DIM, "L");
-        gfx_text(s, x + w - 20, y + 4, C_AMBER, gfx_num(level));
+        const char *lv = gfx_num(level);
+        int lw = gfx_text_width(lv);
+        box_text(s, x + w - 8 - lw - 12, y + 4, C_BOX_INK, "Lv");
+        box_text(s, x + w - 6 - lw, y + 4, C_BOX_INK, lv);
     }
 
     if (hp_max < 1) hp_max = 1;
     if (hp < 0) hp = 0;
-
-    /*  Your own numbers sit on the bar's line rather than under it. Two of
-     *  these stack above the message box, and the row they used to take was
-     *  the band the foes stand in. */
-    /*  A boss gives up bar width for its tag: there is no room on the name
-        line once a name like "Goblin War Chieftain" is on it. */
     const char *tag = rank == 3 ? "CITY" : rank == 2 ? "BOROUGH" : rank == 1 ? "BLOCK" : 0;
     char num[16];
     int nw = tag ? gfx_text_width(tag) + 6 : 0;
@@ -741,17 +783,15 @@ static void hp_box(Surface *s, int x, int y, int w, const char *name, int level,
         num[o++] = '/';
         for (const char *p = gfx_num(hp_max); *p; p++) num[o++] = *p;
         num[o] = 0;
-        nw = gfx_text_width(num) + 4;
+        nw = gfx_text_width(num) + 6;
     }
-    int bx = x + 24, by = y + 15, bw = w - 30 - nw;
-    gfx_text(s, x + 5, by - 1, C_GOLD, "HP");
-    gfx_panel(s, bx, by, bw, 6, C_VOID, C_EDGE);
-    int filled = hp * (bw - 2) / hp_max;
-    int pct = hp * 100 / hp_max;
-    if (filled > 0) gfx_rect(s, bx + 1, by + 1, filled, 4, health_colour(hp, hp_max));
-    if (pct <= 20 && (g.anim & 16)) gfx_rect(s, bx + 1, by + 1, filled, 4, C_INK);
-    if (mine) gfx_text(s, x + w - 5 - gfx_text_width(num), by - 1, C_INK, num);
-    if (tag) gfx_text(s, x + w - 5 - gfx_text_width(tag), by - 1, C_AMBER, tag);
+    /*  The "HP" tag is a dark pill the bar runs out of, as on the GBA. */
+    int px = x + 6, py = y + 13, bx = px + 16, bw = w - (bx - x) - 6 - nw;
+    gfx_rect(s, px, py - 1, 17, 9, C_BOX_EDGE);
+    gfx_text(s, px + 3, py, C_BAR_LABEL, "HP");
+    gba_bar(s, bx, py + 1, bw, hp, hp_max);
+    if (mine) box_text(s, x + w - 6 - gfx_text_width(num), py, C_BOX_INK, num);
+    if (tag) box_text(s, x + w - 6 - gfx_text_width(tag), py, C_SEL_GOLD, tag);
 }
 
 /*  The message box across the bottom of the battle, typed out a couple of
@@ -772,6 +812,7 @@ static void message_box(Surface *s) {
         shown[n++] = *p;
     }
     shown[n] = 0;
+    gfx_text_wrapped(s, 11, y + 9, SCREEN_W - 20, C_SHADOW, shown);
     gfx_text_wrapped(s, 10, y + 8, SCREEN_W - 20, C_INK, shown);
     int done = reveal < 0 || !line[n];
     if (done && (g.anim & 16))
@@ -878,40 +919,32 @@ static void foe_plate(Surface *s, int cx, int y, int room,
                       const FoeDef *def, int hp, int hp_max) {
     const char *tag = def->rank == 3 ? "CITY" : def->rank == 2 ? "BOROUGH" : def->rank == 1 ? "BLOCK" : 0;
     char cut[32];
+    room -= 6;                                  /* the card's own margin */
     const char *name = render_fit_name(def->name, room, cut, (int)sizeof cut);
     int nw = gfx_text_width(name);
     int w = nw + 8;
     if (w > room) w = room;
     if (w < 34) w = 34;
     int x = cx - w / 2;
-    if (x < 2) x = 2;
-    if (x + w > SCREEN_W - 2) x = SCREEN_W - 2 - w;
+    if (x < 5) x = 5;
+    if (x + w > SCREEN_W - 5) x = SCREEN_W - 5 - w;
 
-    /*  A boss announces itself: the plate is gold-ruled and carries its
-        rank. */
-    if (def->rank) {
-        uint16_t gold = def->rank >= 2 ? C_GOLD : C_AMBER;
-        gfx_hline(s, x, x + w - 1, y - 2, gold);
-        /*  Beside the name: a boss banner sits at the very top of the screen,
-            so there is no room above it, and under the bar the tag sat on the
-            top rows of the tallest bosses -- which are their heads. */
-        if (tag) {
-            int tw = gfx_text_width(tag);
-            int tx = x + w + 4;
-            if (tx + tw > SCREEN_W - 2) tx = x - tw - 4;
-            gfx_text(s, tx + 1, y + 1, C_VOID, tag);
-            gfx_text(s, tx, y, gold, tag);
-        }
+    /*  A small cream card, the GBA box cut down to a name and a bar: on the
+        light arenas a shadowed name on the bare background stopped reading.
+        A boss's card is edged in gold and carries its rank on a dark tab
+        beside it -- beside, because a boss banner sits at the very top of
+        the screen and under the bar are the tallest bosses' heads. */
+    gba_card(s, x - 3, y - 3, w + 6, 18, def->rank ? C_SEL_GOLD : C_BOX_EDGE, 0);
+    if (tag) {
+        int tw = gfx_text_width(tag);
+        int tx = x + w + 7;
+        if (tx + tw + 3 > SCREEN_W - 2) tx = x - tw - 9;
+        gfx_rect(s, tx - 3, y - 2, tw + 6, 11, C_BOX_EDGE);
+        gfx_text(s, tx, y, def->rank >= 2 ? C_GOLD : C_AMBER, tag);
     }
-    /*  Drawn on the arena rather than in a window: a bordered box per foe was
-        three more frames competing with the sprites. A shadowed name and a
-        thin bar sit on the background without boxing it in. */
     int tx = x + (w - nw) / 2;
-    gfx_text(s, tx + 1, y + 1, C_VOID, name);
-    gfx_text(s, tx, y, def->rank ? C_GOLD : C_INK, name);
-    bar_meter(s, x, y + 9, w, 5, hp, hp_max, health_colour(hp, hp_max), 0);
-    if (hp * 100 / (hp_max < 1 ? 1 : hp_max) <= 20 && (g.anim & 16))
-        gfx_rect(s, x + 1, y + 10, (w - 2) * hp / (hp_max < 1 ? 1 : hp_max), 3, C_INK);
+    box_text(s, tx, y - 1, def->rank ? C_SEL_GOLD : C_BOX_INK, name);
+    gba_bar(s, x, y + 8, w, hp, hp_max);
 }
 
 static void draw_battle(Surface *top, Surface *bot) {
@@ -941,7 +974,7 @@ static void draw_battle(Surface *top, Surface *bot) {
     /*  The party's own boxes start at y=98, so a plate hung under a foe has to
      *  be finished by then -- the first cut of this put the names at 92 and
      *  the bars underneath them disappeared behind Carl's box. */
-    const int kBase = 78;             /* the floor a mob stands on */
+    const int kBase = 72;             /* the floor a mob stands on */
     /*  Four, not twelve. The band has to be tall enough that the biggest
         thing in the roster fits inside it without being clipped to the same
         height as the second biggest -- at a 66px ceiling a Screaming Sofa and
@@ -962,7 +995,7 @@ static void draw_battle(Surface *top, Surface *bot) {
             pixels of height that are most of what makes it read as a boss,
             and a single foe has the whole width to write on anyway. */
         int rank = foe_defs[f->def].rank;
-        int plate_y = kBase + 4, base = kBase, ceil_ = kCeil;
+        int plate_y = kBase + 10, base = kBase, ceil_ = kCeil;
         if (rank) { plate_y = 6; base = 96; ceil_ = 16; }
         /*  Height comes from what the thing is, not just from how many are
             in the room. Everything used to be normalised to one target, so a
@@ -1006,8 +1039,11 @@ static void draw_battle(Surface *top, Surface *bot) {
         if (fx < 2) fx = 2;
         if (fx + fw > SCREEN_W - 2) fx = SCREEN_W - 2 - fw;
 
-        for (int k = 0; k < 4; k++)                 /* the platform it stands on */
-            gfx_dither(top, fx + k, fy + fh + k - 2, fw - k * 2, 1, C_SHADOW, 12 - k * 3);
+        {                                           /* the pad it stands on */
+            int prx = fw / 2 + 10, pry = rank ? 9 : 6;
+            if (prx > slot_w / 2 - 2 && !rank) prx = slot_w / 2 - 2;
+            gfx_pad(top, fx + fw / 2, base - 1, prx, pry, arena_pad[arena_slot(floor_index)]);
+        }
         if (!f->alive) { gfx_shade(top, fx, fy, fw, fh, 11); continue; }
         gfx_sprite_scaled(top, sp, fx, fy, scale, 100);
         if (g.bat.shake && g.bat.target == i)
@@ -1039,8 +1075,8 @@ static void draw_battle(Surface *top, Surface *bot) {
         const Sprite *c = hero_sized(0, HERO_SMALL), *dn = hero_sized(1, HERO_SMALL);
         int cw = c->w, ch = c->h, dw = dn->w, dh = dn->h;
         int base = msg_top - 6;
-        for (int i = 0; i < 5; i++)
-            gfx_dither(top, 6 + i, base - 3 + i, cw - i * 2, 1, C_SHADOW, 13 - i * 2);
+        gfx_pad(top, 4 + (cw + 2 + dw) / 2, base - 1, (cw + 2 + dw) / 2 + 10, 7,
+                arena_pad[arena_slot(floor_index)]);
         gfx_sprite(top, c, 4, base - ch + bob);
         gfx_sprite(top, dn, 4 + cw + 2, base - dh - bob);
         if (g.hero[0].hp <= 0) gfx_shade(top, 4, base - ch, cw, ch, 9);
@@ -1272,10 +1308,10 @@ static void draw_draft(Surface *top, Surface *bot)
 
 /* -------------------------------------------------------------- cutscene -- */
 
-/*  The chapter's backdrops are photographs (tools/art/photo_bg.py): a city
- *  street after rain at 2:23 in the morning, the same city ninety seconds
- *  later with nothing standing, the sky when it starts talking, and the
- *  stone staircase down. What moves in them -- rain, dust, the cat -- is
+/*  The chapter's backdrops are drawn in the GBA style (tools/art/gba.py): a
+ *  Seattle street in the rain at 2:23 in the morning, the same city ninety
+ *  seconds later with nothing standing, the sky when it starts talking, and
+ *  the stone staircase down. What moves in them -- rain, dust, the cat -- is
  *  drawn over the top. */
 static void backdrop_street(Surface *s, int lit)
 {
@@ -1286,30 +1322,10 @@ static void backdrop_street(Surface *s, int lit)
         gfx_pixel(s, x, y, RGB(120, 132, 150));
         gfx_pixel(s, x + 1, y + 2, RGB(70, 80, 96));
     }
-    if (lit) {                                          /* the cat, up the tree */
-        /*  Black against the lit windows behind it, as a street tree is at
-            night: a trunk that narrows as it climbs, and bare branches. */
-        uint16_t bark = RGB(14, 12, 14);
-        for (int y = 30; y < SCREEN_H - 20; y++) {
-            int w = 3 + (y - 30) * 7 / (SCREEN_H - 50);
-            gfx_rect(s, 182 - w / 2, y, w, 1, bark);
-        }
-        static const uint8_t kBranch[][4] = {           /* x0, y0, x1, y1 */
-            { 182, 100, 148, 90 }, { 160, 94, 146, 80 }, { 182, 80, 214, 58 },
-            { 200, 67, 222, 60 }, { 182, 62, 160, 40 }, { 170, 50, 176, 32 },
-            { 182, 44, 200, 24 }, { 182, 118, 212, 104 }, { 154, 91, 140, 94 },
-        };
-        for (unsigned k = 0; k < sizeof kBranch / sizeof kBranch[0]; k++) {
-            int x0 = kBranch[k][0], y0 = kBranch[k][1], x1 = kBranch[k][2], y1 = kBranch[k][3];
-            int n = abs(x1 - x0) > abs(y1 - y0) ? abs(x1 - x0) : abs(y1 - y0);
-            for (int i = 0; i <= n; i++) {
-                int x = x0 + (x1 - x0) * i / n, y = y0 + (y1 - y0) * i / n;
-                int thick = i < n / 2 ? 2 : 1;
-                gfx_rect(s, x, y, thick, thick, bark);
-            }
-        }
+    /*  The tree is part of the street (tools/art/gba.py scene_street); the
+        bough at the left of its canopy, at y=93, is the one she is on. */
+    if (lit)
         gfx_sprite(s, &spr_donut_s, 150, 93 - spr_donut_s.h);
-    }
     gfx_sprite(s, &spr_carl_crocs_s, 40, SCREEN_H - 20 - spr_carl_crocs_s.h);
 }
 

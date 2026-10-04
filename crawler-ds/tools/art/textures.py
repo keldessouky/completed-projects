@@ -1,11 +1,9 @@
 """The dungeon's floor and wall tiles.
 
-They were drawn here once, by hand, as flat fills with a grain. They are
-photographs now: tools/art/photo_bg.py cuts each one out of the same
-360-degree panorama the floor's battle arena is framed from -- the camera
-pointed straight down for a floor, square-on at a wall for a wall -- makes it
-tile, and writes it to assets/tiles as a 32 x 32 indexed PNG of at most 32
-colours. This reads them, so the build needs no imaging library.
+tools/art/gba.py draws them, in the same flat GBA style as the battle
+arenas, and writes each to assets/tiles as a 32 x 32 indexed PNG of at most
+32 colours, sorted dark to light. This reads them, so the build needs no
+imaging library.
 
 The five materials, in the order view2d.c and the arenas pick them in:
 poured concrete (a parking garage), a tagged shelter, old stone, tenement

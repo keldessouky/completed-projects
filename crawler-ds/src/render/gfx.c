@@ -76,7 +76,9 @@ void gfx_window(Surface *s, int x, int y, int w, int h,
                 uint16_t edge) {
     if (w < 6 || h < 6) { gfx_panel(s, x, y, w, h, top, edge); return; }
 
-    gfx_vgradient(s, x + 1, y + 1, w - 2, h - 2, top, bottom);
+    /*  Flat, the way the GBA filled a window: the two ends of the gradient
+     *  this used to draw meet in the one tone between them. */
+    gfx_rect(s, x + 1, y + 1, w - 2, h - 2, gfx_mix(top, bottom, 8));
 
     /* the outline, with the four corner pixels cut away */
     gfx_hline(s, x + 2, x + w - 3, y, edge);
@@ -411,8 +413,37 @@ const char *gfx_numpad(int value, int digits) {
     return pad;
 }
 
-/*  A whole screen of photograph. Four pixels a pass: the palette lookups are
+/*  A whole screen of background. Four pixels a pass: the palette lookups are
  *  the cost, and there are forty-nine thousand of them. */
+/*  The pad is the one piece of the GBA battle screen that is not in the
+ *  background, because it has to go under however many foes there are at
+ *  whatever size they are. Four flat colours, divided the way
+ *  tools/art/gba.py describes: a rim a step darker than the ground, the front
+ *  in shade, the face, and a lip along the back that catches the light. The
+ *  regions are fractions of the ellipse in 1/1024ths so nothing here is
+ *  floating point. */
+void gfx_pad(Surface *s, int cx, int cy, int rx, int ry, const uint16_t c[4]) {
+    if (rx < 2 || ry < 2) return;
+    for (int y = -ry; y < ry; y++) {
+        int py = cy + y;
+        if (py < 0 || py >= s->h) continue;
+        int ny = (2 * y + 1) * 512 / ry;              /* -1024..1024 */
+        for (int x = -rx; x < rx; x++) {
+            int px = cx + x;
+            if (px < 0 || px >= s->w) continue;
+            int nx = (2 * x + 1) * 512 / rx;
+            int d = (nx * nx + ny * ny) >> 10;        /* 0..1024 inside */
+            if (d > 1024) continue;
+            uint16_t col;
+            if (d > 800)                     col = c[0];
+            else if (ny < -360 && d > 460)   col = c[3];
+            else if (ny > 256)               col = c[1];
+            else                             col = c[2];
+            s->px[py * s->w + px] = col;
+        }
+    }
+}
+
 void gfx_backdrop(Surface *s, const Backdrop *bg) {
     const uint8_t *src = bg->pix;
     const uint16_t *pal = bg->pal;

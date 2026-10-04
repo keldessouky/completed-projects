@@ -17,5 +17,6 @@ extern const Backdrop bg_arena_d;
 extern const Backdrop bg_arena_e;
 extern const Backdrop bg_gameover;
 extern const Backdrop bg_victory;
+extern const uint16_t arena_pad[5][4];
 
 #endif
