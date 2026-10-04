@@ -43,18 +43,22 @@ let reattached = 0;
 async function app() {
   if (page && !page.isClosed()) return page;
   if (page) {
+    // Android recreated the app's screen (an Activity relaunch): a new WebView
+    // appears as a new page on the same connection. Follow it.
     reattached++;
-    console.log('    (the WebView went away; waiting for its replacement)');
-    await new Promise((done) => setTimeout(done, 3000));
-  }
-  for (let i = 0; i < 3; i++) {
-    const webview = await device.webView({ pkg: PKG }, { timeout: 60_000 });
-    page = await webview.page();
-    if (!page.isClosed()) break;
-    await new Promise((done) => setTimeout(done, 3000));
+    console.log('    (Android relaunched the app screen; following it to its new WebView)');
+    const context = page.context();
+    const deadline = Date.now() + 60_000;
+    let next;
+    while (!(next = context.pages().find((p) => !p.isClosed())) && Date.now() < deadline) await new Promise((done) => setTimeout(done, 500));
+    if (!next) next = await (await device.webView({ pkg: PKG }, { timeout: 60_000 })).page();
+    page = next;
+  } else {
+    page = await (await device.webView({ pkg: PKG }, { timeout: 60_000 })).page();
   }
   page.on('pageerror', (e) => errors.push(e.message));
   page.on('crash', () => console.log('    (the WebView renderer crashed)'));
+  await page.waitForLoadState('domcontentloaded').catch(() => {});
   return page;
 }
 await app();
@@ -83,6 +87,9 @@ await step('Begin → sign the register → Floor 1 in phone panes', async () =>
 });
 
 await step('TypeScript runs on the phone: write code, Run, win', async () => {
+  // Start from the level itself (the save remembers who you are), whatever happened before.
+  await page.evaluate(() => (location.hash = '#/level/hello-world'));
+  await page.locator('.pane-bar').waitFor({ timeout: 30_000 });
   await page.getByRole('tab', { name: /Code/ }).click();
   await page.waitForFunction(() => !document.body.textContent?.includes('Loading compiler…'), null, { timeout: 90_000 });
   await page.locator('.cm-content').click();
