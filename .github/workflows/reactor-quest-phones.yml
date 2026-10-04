@@ -59,7 +59,8 @@ jobs:
           xcrun simctl boot "$UDID" || true
           xcrun simctl bootstatus "$UDID" -b
           xcrun simctl install "$UDID" ios-build/Build/Products/Debug-iphonesimulator/App.app
-          xcrun simctl launch --stdout="$PWD/test-results/iphone-app/app.log" --stderr="$PWD/test-results/iphone-app/app.log" "$UDID" io.github.keldessouky.reactorquest
+          # NSUnbufferedIO: the app's console lines (Swift print) reach the log at once, as in Xcode.
+          SIMCTL_CHILD_NSUnbufferedIO=YES xcrun simctl launch --stdout="$PWD/test-results/iphone-app/app.log" --stderr="$PWD/test-results/iphone-app/app.log" "$UDID" io.github.keldessouky.reactorquest
           for i in $(seq 1 90); do grep -q "\[reactor\] compiler ready" test-results/iphone-app/app.log && break; sleep 1; done
           sleep 2
           xcrun simctl io "$UDID" screenshot test-results/iphone-app/title.png
@@ -117,7 +118,11 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
           working-directory: reactor-quest
+          # The emulator's home screen sometimes stalls on a cold CI boot and throws an
+          # "isn't responding" dialog over everything; the game doesn't need it.
           script: |
+            adb shell settings put global hide_error_dialogs 1 || true
+            adb shell pm disable-user --user 0 com.google.android.apps.nexuslauncher || true
             adb install -r Reactor-Quest.apk
             node tools/smoke-android-app.mjs
       - uses: actions/upload-artifact@v4
