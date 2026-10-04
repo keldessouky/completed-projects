@@ -14,6 +14,7 @@
 #include "game/world.hpp"
 #include "game/menu.hpp"
 #include "game/atlas_ui.hpp"
+#include "game/roof_ui.hpp"
 #include "game/sky.hpp"
 #include "game/title.hpp"
 #include "game/view.hpp"
@@ -63,6 +64,7 @@ struct State {
     int travel_zone = -1;         // where a ZoneEntrance goes
     Waypoints wp;
     MapScreen map;                // the Map of al-Idrisi, at the chart table
+    RoofScreen roof;              // the rooftop's building board
     int pinnacle = 0;             // where a Throne travel goes (Pinnacle)
     int chart_site = -1;          // where a Chart travel goes, and the chart it spends
     Item chart_item;
@@ -530,6 +532,7 @@ bool app_init(const char* pack_path, Platform* plat) {
     S->bot.sky_ui = &S->sky;
     S->bot.wp_ui = &S->wp;
     S->bot.map_ui = &S->map;
+    S->bot.roof_ui = &S->roof;
     S->bot.title_ui = &S->title;
     S->persist = S->bot.scenario.empty() || S->bot.uses_title();
     if (S->bot.uses_title() && S->plat) {   // the title bot keeps its characters apart from yours
@@ -616,7 +619,7 @@ void app_update(const Input& in_raw, float dt) {
     Menu& M = S->menu;
     S->bot.drive(w, M, A, in, S->frame);
     // the second skill bar: L2 held, or (a setting) L2 pressed to latch it; the menus and the sky keep the raw L2
-    if (settings().bar2_toggle && !M.open && !S->sky.open && !S->map.open && !S->title.open) {
+    if (settings().bar2_toggle && !M.open && !S->sky.open && !S->map.open && !S->roof.open && !S->title.open) {
         if (in.hit(BTN_L2)) S->bar2_latched = !S->bar2_latched;
         in.down = S->bar2_latched ? in.down | (1u << BTN_L2) : in.down & ~(1u << BTN_L2);
     }
@@ -698,6 +701,14 @@ void app_update(const Input& in_raw, float dt) {
     }
     // the waypoint list and the Map of al-Idrisi pause the world
     if (waypoints_update(w, in)) { S->view.follow(w, dt); return; }
+    if (S->roof.open) {   // the rooftop's building board pauses the world too
+        w.events.clear();
+        S->roof.update(w, in, dt);
+        presentation_events();
+        if (S->roof.built) { S->roof.built = false; S->areas.refresh_roof(w); save_character(); }
+        S->view.follow(w, dt);
+        return;
+    }
     if (S->map.open) {
         w.events.clear();
         S->map.update(w, in, dt);
@@ -815,6 +826,7 @@ void app_update(const Input& in_raw, float dt) {
                 M.show_bench(w); audio().play("craft", 0.5f, 0, 1); break;
             case Interactable::Vendor: M.show(w, true); audio().play("ui_select", 0.4f, 0, 1); break;
             case Interactable::ChartTable: S->map.show(w); w.meet_codex("charts"); audio().play("portal", 0.4f, 0, 0.8f); break;
+            case Interactable::Roof: S->roof.show(w); audio().play("ui_select", 0.4f, 0, 1); break;
             case Interactable::Chest: A.open_chest(w, w.used_interact); break;
             case Interactable::Charge: case Interactable::Detonator: case Interactable::Chamber: w.dig_use(w.used_interact); break;
             case Interactable::Drum: w.zar_use(w.used_interact); break;
@@ -870,7 +882,7 @@ static void update_objective() {
     World& w = S->world;
     Areas& A = S->areas;
     V.obj_on = false;
-    if (S->title.open || S->menu.open || S->map.open || S->sky.open || w.actors.empty()) return;
+    if (S->title.open || S->menu.open || S->map.open || S->roof.open || S->sky.open || w.actors.empty()) return;
     auto find = [&](Interactable::Kind k, int target = -1) -> const Interactable* {
         for (auto& it : w.interacts) if (it.kind == k && !it.spent && (target < 0 || it.target == target)) return &it;
         return nullptr;
@@ -933,11 +945,12 @@ void app_render(GLuint fbo, int w, int h) {
     Ui& u = ui();
     u.begin();
     S->view.render_map(S->world, S->areas);
-    if (!S->menu.open) S->view.render_hud(S->world, S->last_input, S->areas);
+    if (!S->menu.open && !S->roof.open) S->view.render_hud(S->world, S->last_input, S->areas);
     S->menu.render(S->world);
     waypoints_render();
     S->sky.render(S->world);
     S->map.render(S->world);
+    S->roof.render(S->world);
     u.end(fbo, w, h);
 }
 

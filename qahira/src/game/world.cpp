@@ -1,4 +1,5 @@
 #include "game/world.hpp"
+#include "game/rooftop.hpp"
 #include "core/log.hpp"
 #include "game/classes.hpp"
 #include <algorithm>
@@ -475,7 +476,7 @@ HeroSummary summarize(const Hero& hero) {
 }
 
 void World::recompute_hero() {
-    hero.flask_max = float(flask_charges(hero.flask_tier));
+    hero.flask_max = float(flask_charges(hero.flask_tier) + roof_flask_extra(hero));
     hero.flask = std::min(hero.flask, hero.flask_max);
     Hero& H = hero;
     compute_hero_stats(H);
@@ -2163,6 +2164,7 @@ void World::kill(Actor& e) {
     float xp = d.xp * (e.rarity == Rarity::Rare ? 6.f : e.rarity == Rarity::Magic ? 2.f : 1.f);
     xp *= 1.f + 0.3f * float(area_level - 1);                  // deeper areas are worth more
     if (in_chart) xp *= 1.f + astro_value(chart.astro, AX_XP) / 100.f;
+    xp *= roof_xp_mult(hero);                                    // the rooftop's samovar
     if (haboob.inside(e.pos)) haboob.meter += (e.rarity >= Rarity::Rare ? 5.f : e.rarity == Rarity::Magic ? 2.5f : 1.5f) *
                                               (1.f + astro_value(chart.astro, AX_HABOOB_METER) / 100.f);
     if (int over = hero.level - area_level - xp_allowance(area_level); over > 0)   // and little once you have outgrown them
@@ -2201,7 +2203,7 @@ void World::kill(Actor& e) {
         }
         if (poisoned && (hero.keystones & KS_PLAGUE)) burst(vec3(e.pos, 0.6f), 16, vec4(0.45f, 0.9f, 0.3f, 0.9f), vec4(0.2f, 0.5f, 0.1f, 0), 4.f, 0.15f, 0.6f, true, 0.f);
     }
-    hero.flask = std::min(hero.flask_max, hero.flask + 0.25f);
+    hero.flask = std::min(hero.flask_max, hero.flask + 0.25f * roof_flask_mult(hero));   // faster with the rooftop's cistern
     for (size_t i = 0; i < 4; i++) if (e.mods[i] == MM_VAMPIRIC) {}
     // level up
     for (;;) {
@@ -2289,7 +2291,7 @@ void World::drop_loot(const Actor& e) {
         return;
     }
     // charts drop inside charts (and, rarely, in the act's last reaches)
-    if (in_chart && rng.chance(chart_drop_chance(chart, e.rarity))) {
+    if (in_chart && rng.chance(chart_drop_chance(chart, e.rarity) * roof_chart_mult(hero))) {   // more with the lamps
         GroundItem g;
         float mc = 0.3f * (1.f + astro_value(chart.astro, AX_MAGIC_CHARTS) / 100.f);
         g.item = make_chart(roll_chart_tier(chart, rng), rng, mc, 0.08f * (1.f + astro_value(chart.astro, AX_MAGIC_CHARTS) / 100.f));
@@ -2318,7 +2320,7 @@ void World::drop_loot(const Actor& e) {
     if (rng.chance(bl)) drop_special(scatter(0.9f), GroundItem::Blank, std::clamp(area_level + rng.irange(-1, 1), 1, blank_cap(area_level)));
     // currency and dinars
     float cur_chance = (e.rarity == Rarity::Rare ? 0.9f : e.rarity == Rarity::Magic ? 0.25f : 0.045f) * qty *
-                       (in_chart ? 1.f + astro_value(chart.astro, AX_CURRENCY) / 100.f : 1.f);
+                       (in_chart ? 1.f + astro_value(chart.astro, AX_CURRENCY) / 100.f : 1.f) * roof_currency_mult(hero);   // the loft
     if (rng.chance(cur_chance)) drop_currency(scatter(0.8f), roll_currency(rng, area_level), 1);
     float gold_chance = e.rarity == Rarity::Normal ? 0.22f : 1.f;
     if (rng.chance(gold_chance)) drop_gold(scatter(0.8f), int(rng.irange(2, 5) * (1 + area_level * 0.5f) * (e.rarity == Rarity::Rare ? 5 : 1)));

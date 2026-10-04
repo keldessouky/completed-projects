@@ -1314,3 +1314,46 @@ This entry is the first of them. The rooftop, the gear icons and the monsters fo
 - No bot plays the Sixteenth Reach itself. The `reaches` bot goes to the Eighth, and the pinnacles stand in for the
   top.
 - The uber pinnacles weren't run by a bot at the new levels.
+
+### Building up the roof
+
+The owner's second note: the base couldn't be upgraded.
+
+**Delivered**
+- **The building board** (a slate on two legs, by the stair) opens a screen of its own. It lists seven upgrades in
+  three tiers each, with what each tier gives, what the next costs (a level, dinars and, from the second tier, a
+  currency), and why it can't be built yet. The world pauses while the board is open, as at the Map. The board has
+  Arabic, mirrored.
+- **The upgrades** (`game/rooftop.*`, an append-only table) and where they act:
+
+  | Upgrade | Where it acts |
+  |---|---|
+  | The Samovar | experience per kill (`World::kill`) |
+  | The Pigeon Loft | the currency drop chance |
+  | Amm Sayed's Awning | his stock (`Menu::restock`): more wares, rares more often, two levels higher |
+  | Usta Hassan's Forge | the bench's prices (`recipe_price`); needs the bench on the roof |
+  | The Cistern | the flask's refill per kill, and a charge at the third tier |
+  | Lamps over the Map | the chart drop chance; needs the Map on the roof |
+  | Lights and Rugs | the look of the roof |
+- **The roof shows them:** 22 new meshes (`tools/art/props/roof.py`): the board, and a piece for each tier of each
+  upgrade, drawn as still props (an `Npc::prop` doesn't breathe or cast a blob shadow). They appear the moment
+  they're built. The pieces include:
+  - a brass samovar, then a tea bench with a copper tray, then a grand copper samovar and a lantern;
+  - a pigeon coop, a Cairo pigeon tower, and a perch rail with a flock above;
+  - the striped awning, crates and baskets, and lanterns and a sign;
+  - an anvil and bellows, a tool rack, and a clay kiln;
+  - clay water jars, a copper tank, and a tiled octagonal basin;
+  - a lamp post over the chart table, a line of lamps, and an armillary sphere;
+  - rugs and cushions, lanterns along the parapet, and a jasmine trellis with a canopy.
+- **Saving:** character files are v11, with a tier for up to 12 upgrades. Older files load with nothing built.
+- **The gallery bot** pictures the board and the roof with everything at its third tier, and the review page lists both.
+
+**Verified**
+| Check | Result |
+|---|---|
+| Unit tests (`qtests`) | pass, 117 cases. New (`test_rooftop.cpp`): each tier asks for its level, dinars and currency and takes them; the forge and the lamps wait for the bench and the Map; three tiers and no more; every effect at nothing built and at the third tier, the bench's price halved, and Amm Sayed's stock larger; a piece for every tier; the tiers kept in the character file |
+| Bots | the 15 quick bots; Act I (Warrior, Wanderer), the charts, the Reaches and Umm al-Subyan; the gallery |
+| Pictures | the board in English and Arabic, and the roof built up |
+
+| ![The building board](img/roof-board.jpg) | ![The roof with every upgrade at its third tier](img/roof-built.jpg) |
+|---|---|

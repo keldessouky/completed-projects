@@ -1,4 +1,6 @@
 #include "game/areas.hpp"
+#include "game/rooftop.hpp"
+#include <algorithm>
 #include "game/save.hpp"
 
 namespace q {
@@ -47,6 +49,28 @@ const char* Areas::subtitle() const {
 }
 
 // ---------------------------------------------------------------- the hub
+// the rooftop's building board, and what has been built on the roof
+static void roof_npcs(World& w) {
+    w.npcs.erase(std::remove_if(w.npcs.begin(), w.npcs.end(), [](const Npc& n) { return n.prop; }), w.npcs.end());
+    Npc board;
+    board.model = "roof_board";
+    board.pos = w.level.point("spawn") + roof_board_pos();
+    board.rigged = false;
+    board.prop = true;
+    w.npcs.push_back(board);
+    for (const RoofProp& p : roof_props(w.hero)) {
+        Npc n;
+        n.model = p.model;
+        n.pos = w.level.point("spawn") + p.at;
+        n.facing = p.facing;
+        n.rigged = false;
+        n.prop = true;
+        w.npcs.push_back(n);
+    }
+}
+
+void Areas::refresh_roof(World& w) { if (current == AreaId::Hub) roof_npcs(w); }
+
 static void hub_static(World& w) {
     w.level.clear();
     w.level.add_tile("rooftop", {0, 0});
@@ -77,6 +101,7 @@ static void hub_static(World& w) {
         smith.anim.play("idle", 0);
         w.npcs.push_back(smith);
     }
+    roof_npcs(w);
     if (w.hero.quests & Q_ACT3) {   // Amm Ramadan came up from Siwa with a sack of what he calls antiquities
         Npc dealer;
         dealer.model = "dealer";
@@ -99,6 +124,7 @@ void Areas::enter_hub(World& w, Arrival how) {
     vec2 stair = w.level.point("stair"), vendor = w.level.point("vendor");
     w.interacts.push_back({Interactable::Stair, stair, 2.0f, "Down into the city"});
     w.interacts.push_back({Interactable::Vendor, vendor, 2.0f, "Trade with Amm Sayed"});
+    w.interacts.push_back({Interactable::Roof, w.level.point("spawn") + roof_board_pos() + vec2{0.f, 1.1f}, 1.8f, "Build up the roof"});
     if (w.hero.quests & Q_BENCH)
         w.interacts.push_back({Interactable::Bench, w.level.point("spawn") + vec2{-4.2f, 3.6f}, 1.9f, "Usta Hassan's bench"});
     if (w.hero.quests & Q_ACT3)

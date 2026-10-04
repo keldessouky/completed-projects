@@ -40,6 +40,8 @@ SCREENS = [
     ('dealer', "Amm Ramadan's Antiquities", 'The relic dealer'),
     ('stars', 'The Book of Fixed Stars', 'The passive tree'),
     ('map', 'The Map of al-Idrisi', 'The endgame map, south at the top'),
+    ('roof', 'Build up the roof', 'The rooftop\'s building board: seven upgrades in three tiers'),
+    ('rooftop_built', 'The rooftop, built up', 'Every upgrade at its third tier'),
     ('title', 'Title screen', 'The four character slots under the eclipse'),
 ]
 

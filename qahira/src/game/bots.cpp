@@ -1,4 +1,6 @@
 #include "game/bots.hpp"
+#include "game/roof_ui.hpp"
+#include "game/rooftop.hpp"
 #include "game/settings.hpp"
 #include "game/save.hpp"
 #include "platform/app_api.hpp"
@@ -1549,7 +1551,7 @@ void Bot::gallery(World& w, Menu& m, Areas& a, Input& in, uint64_t frame) {
     // the rooftop and the screens: one pose each, set up early in its slot and pictured at its end
     const uint64_t k = (frame - 1) / P, t = (frame - 1) % P;
     static const char* screens[] = {"rooftop", "inventory", "talismans", "character", "ascendancy", "journal", "settings", "game",
-                                    "vendor", "bench", "dealer", "stars", "map", "title"};
+                                    "vendor", "bench", "dealer", "stars", "map", "roof", "rooftop_built", "title"};
     const uint64_t ns = sizeof screens / sizeof *screens;
     if (k < ns) {
         if (t != 4) return;
@@ -1558,6 +1560,14 @@ void Bot::gallery(World& w, Menu& m, Areas& a, Input& in, uint64_t frame) {
         m.hide();
         if (sky_ui) sky_ui->open = false;
         if (map_ui) map_ui->open = false;
+        if (roof_ui) roof_ui->open = false;
+        if (sc == "roof" && roof_ui) { roof_ui->cursor = 2; roof_ui->show(w); }
+        if (sc == "rooftop_built") {   // every upgrade built, and the hero in the middle of the roof to see it
+            for (int u = 0; u < ROOF_COUNT; u++) w.hero.roof[u] = kRoofTiers;
+            w.recompute_hero();
+            a.refresh_roof(w);
+            w.actors[0].pos = w.level.point("spawn") + vec2{1.f, 7.f};
+        }
         if (sc == "inventory") { m.show(w, false); m.tab = MenuTab::Inventory; }
         else if (sc == "talismans") { m.show(w, false); m.tab = MenuTab::Talismans; }
         else if (sc == "character") { m.show(w, false); m.tab = MenuTab::Character; }

@@ -37,6 +37,7 @@ struct Areas {
     AreaId current = AreaId::Hub;
     ZoneInstance zone;
 
+    void refresh_roof(World& w);   // the rooftop's upgrades, as built (on the roof only)
     void enter_hub(World& w, Arrival how);
     void enter_zone(World& w, int def, Arrival how);   // def -1: the kept instance
     void enter_chart(World& w, int site, const Item& chart);   // a chart consumed at the table: a fresh site

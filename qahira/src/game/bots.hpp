@@ -48,6 +48,7 @@ struct Bot {
     Title* title_ui = nullptr;   // and its title screen
     WaypointList* wp_ui = nullptr;
     MapScreen* map_ui = nullptr;
+    struct RoofScreen* roof_ui = nullptr;   // the rooftop's building board (game/roof_ui.hpp)
     std::string save_dir;
     void start(const char* s);
     bool uses_title() const { return scenario == "title"; }

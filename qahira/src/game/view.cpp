@@ -175,6 +175,13 @@ void View::render_world(Renderer& r, World& w) {
         Instance in;
         in.rim = vec4(hex_lin(0xF2A541), 0.12f);
         if (n.rigged) draw_skinned(r, n.cm, n.anim, n.pos, n.facing, n.scale, in);
+        else if (n.prop) {   // furniture: as it was built, and its shadow is in its own mesh
+            in.rim = vec4(0, 0, 0, 0);
+            in.model = mat4::translate(vec3(n.pos, 0)) * mat4::rot_z(n.facing) * mat4::scale({n.scale, n.scale, n.scale});
+            in.extra = {-1, 0, 0, 0};
+            r.draw(assets().mesh(n.model), in);
+            continue;
+        }
         else {
             float breathe = 1.f + 0.02f * std::sin(w.time * 2.1f);
             in.model = mat4::translate(vec3(n.pos, 0)) * mat4::rot_z(n.facing + kPi / 2) * mat4::scale({n.scale, n.scale, n.scale * breathe});

@@ -1,4 +1,5 @@
 #include "game/menu.hpp"
+#include "game/rooftop.hpp"
 #include "audio/audio.hpp"
 #include "game/settings.hpp"
 #include "game/view.hpp"
@@ -250,14 +251,17 @@ void Menu::restock(World& w) {
     stock.items.clear();
     int lvl = std::max(1, w.hero.level);
     Rng& r = w.rng;
-    // two weapons, then armour and jewellery; mostly magic, sometimes rare
-    for (int i = 0; i < 9; i++) {
+    // two weapons, then armour and jewellery; mostly magic, sometimes rare (more of them, and better, under the
+    // rooftop's awning)
+    const int n = 9 + roof_stock_extra(w.hero), above = 1 + roof_stock_level(w.hero);
+    const float rares = roof_stock_rare(w.hero);
+    for (int i = 0; i < n; i++) {
         Slot only = i < 2 ? Slot::Weapon : Slot::Count;
-        Item it = random_drop(lvl + 1, i == 0 ? 0.35f : 0.08f, 0.75f, r, only);
+        Item it = random_drop(lvl + above, (i == 0 ? 0.35f : 0.08f) + rares, 0.75f, r, only);
         if (it.rarity == Rarity::Normal) it = make_item(it.base, Rarity::Magic, it.ilvl, r);
         // the first is always for the hand you fight with: one of the two newest bases of its kind (a class whose skills
         // want one kind of weapon would otherwise wait on luck for an upgrade)
-        if (i == 0) if (int b = hand_base(w.hero.weapon(), lvl + 1, r); b >= 0) it = make_item(b, it.rarity, it.ilvl, r);
+        if (i == 0) if (int b = hand_base(w.hero.weapon(), lvl + above, r); b >= 0) it = make_item(b, it.rarity, it.ilvl, r);
         stock.add(it);
     }
 }

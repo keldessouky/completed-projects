@@ -192,6 +192,21 @@ the screen names it and how far it is.
 seven tiers, each healing more and every second one holding a charge more, for dinars once you're at the level it
 asks. High-level belts, amulets and rings, and the affix *of the Spring*, regenerate life every second.
 
+**Building up the roof:** a board by the stair, on the Rooftop Ahwa, lists seven things the roof can have. Each comes
+in three tiers, bought with dinars (and from the second tier, some currency), and each tier appears on the roof:
+
+| Upgrade | What its tiers give |
+|---|---|
+| The Samovar | +4%, +8%, +12% experience |
+| The Pigeon Loft | +10%, +20%, +30% currency drops |
+| Amm Sayed's Awning | 2, 4, 6 more wares; rares more often from the second tier; wares from two levels above you at the third |
+| Usta Hassan's Forge | bench mods 20%, 35% cheaper, then half price (once Usta Hassan is on the roof) |
+| The Cistern | kills fill the flask 25%, 50%, 75% more; a charge more at the third |
+| Lamps over the Map | +10%, +20%, +30% chart drops (once the Map is on the roof) |
+| Lights and Rugs | rugs and cushions, lanterns along the parapet, a jasmine trellis and a canopy |
+
+The tiers ask for character levels from 1 to 66, and they stay with the character that built them.
+
 **The endgame** goes on well past the campaign's level 68:
 
 - **The charts:** the Reaches of the Map of al-Idrisi climb two area levels a tier to the Tenth Reach (64), then

@@ -104,11 +104,12 @@ GroundItem read_ground_item(ByteReader& r) {
 
 // ---- the character: what persists between sessions
 static const uint32_t kCharMagic = 0x31484351;  // "QCH1"
-static const uint32_t kCharVersion = 10;   // 2: the class and its stars; 3: Talismans, Wafq, Blanks, currency count;
+static const uint32_t kCharVersion = 11;   // 2: the class and its stars; 3: Talismans, Wafq, Blanks, currency count;
                                           // 4: Act I (waypoints, quests, the toll, recipes, scraps, codex, omens,
                                           //    ascendancy) and item format 2; 5: the Map of al-Idrisi (sites, the
                                           //    Astrolabe); 6: the ascendancy chosen; 7: the weapon swap slot, 64-bit waypoints;
-                                          // 8: waypoints for 128 zones; 9: the ending chosen; 10: the flask's tier
+                                          // 8: waypoints for 128 zones; 9: the ending chosen; 10: the flask's tier;
+                                          // 11: the rooftop's upgrades
 
 void write_character(ByteWriter& w, const Hero& H) {
     w.put(kCharMagic);
@@ -149,6 +150,9 @@ void write_character(ByteWriter& w, const Hero& H) {
     // v9
     w.put(H.ending);
     w.put(H.flask_tier);
+    // v11
+    w.put(uint8_t(sizeof H.roof));
+    w.bytes(H.roof, sizeof H.roof);
 }
 
 bool read_character(ByteReader& r, Hero& H) {
@@ -249,6 +253,14 @@ bool read_character(ByteReader& r, Hero& H) {
     H.flask_tier = 0;
     if (version >= 10) r.get(H.flask_tier);
     if (H.flask_tier >= kFlaskTiers) H.flask_tier = 0;
+    for (uint8_t& t : H.roof) t = 0;
+    if (version >= 11) {
+        uint8_t n = r.get<uint8_t>();
+        for (uint8_t i = 0; i < n; i++) {
+            uint8_t t = r.get<uint8_t>();
+            if (i < sizeof H.roof) H.roof[i] = std::min<uint8_t>(t, 3);
+        }
+    }
     if (H.ascendancy >= int(ascendancies().size())) H.ascendancy = -1;
     if (H.quests & Q_BENCH) H.recipes |= kStarterRecipes;
     if (H.quests & Q_ACT1) H.sites_revealed |= starting_sites();   // an Act I finished before the map existed

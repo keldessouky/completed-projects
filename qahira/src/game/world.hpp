@@ -288,7 +288,8 @@ struct Interactable {
                           Charge, Detonator, Chamber, Dealer,   // Slice 7: an Excavation's, and Amm Ramadan
                           Drum,                                 // Slice 8: a Zar Night's
                           Veil, Door,                           // Slice 10: the choice at the heart of totality
-                          Toll } kind;                          // the Gate of Iram: a toll to choose (target: the slot)
+                          Toll,                                 // the Gate of Iram: a toll to choose (target: the slot)
+                          Roof } kind;                          // the rooftop's building board
     // Next: the way on to zone `target`; Gate: a side zone (a trial); Waypoint: the waypoint list; Bench: the Coppersmith
     vec2 pos;
     float radius = 1.8f;
@@ -304,6 +305,7 @@ struct Npc {
     float facing = 0;
     float scale = 1;
     bool rigged = true;
+    bool prop = false;             // a piece of furniture (the rooftop's upgrades): still, no shadow of its own
     Animator anim;
     CharacterModel cm;
 };
@@ -386,6 +388,7 @@ struct Hero {
     int combo = 0;                 // consecutive Crushing Blow hits
     float flask = 3, flask_max = 3;
     uint8_t flask_tier = 0;        // the life flask, upgraded at Amm Sayed's (Slice 11 follow-up): kFlaskTiers
+    uint8_t roof[12] = {};         // the rooftop's upgrades, each's tier (game/rooftop.hpp: kRoofSlots)
     float flask_heal_t = 0;
     float regen_acc = 0;
     int kills = 0;

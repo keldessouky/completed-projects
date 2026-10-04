@@ -1,6 +1,7 @@
 // Act I's screens in the menu: Usta Hassan's Bench (beside your belongings), the Ascendancy tab, and the Journal
 // (quests, the codex, and the film posters you are piecing together).
 #include "game/menu.hpp"
+#include "game/rooftop.hpp"
 #include "game/view.hpp"
 #include "ui/ui.hpp"
 #include <cmath>
@@ -75,7 +76,7 @@ bool Menu::bench_south(World& w) {
         if (!remove_crafted(*it, &why)) { say(why); return true; }
         say("The bench mod is off");
     } else {
-        int cost = recipes()[size_t(held_recipe)].cost;
+        int cost = recipe_price(H, held_recipe);
         if (!recipe_fits(held_recipe, *it, &why)) { say(why); return true; }
         if (H.gold < cost) { say("Not enough dinars"); return true; }
         H.gold -= cost;
@@ -106,7 +107,7 @@ void Menu::bench_render(const World& w, const Item*& tip, float& tip_y, std::str
             bool known = H.recipes >> r & 1;
             std::string t = known ? affix_text(recipe_affix(r)) : "?  " + std::string(recipes()[size_t(r)].where);
             u.text(BX + 30, y + 9, t, fit(t, 24, BW - 130), known ? pal::turquoise : pal::dim);
-            if (known) u.text(BX + BW - 30, y + 11, std::to_string(recipes()[size_t(r)].cost) + " d", 20, pal::rare, Align::Right);
+            if (known) u.text(BX + BW - 30, y + 11, std::to_string(recipe_price(w.hero, r)) + " d", 20, pal::rare, Align::Right);
         }
         y += ROW;
     }
@@ -114,7 +115,7 @@ void Menu::bench_render(const World& w, const Item*& tip, float& tip_y, std::str
     if (held_recipe >= 0 && tip) {
         std::string why;
         if (held_recipe == kTakeOff) footer = tip->has_crafted() ? "Take its bench mod off" : "It has no bench mod";
-        else footer = recipe_fits(held_recipe, *tip, &why) ? "Craft for " + std::to_string(recipes()[size_t(held_recipe)].cost) + " dinars" : why;
+        else footer = recipe_fits(held_recipe, *tip, &why) ? "Craft for " + std::to_string(recipe_price(w.hero, held_recipe)) + " dinars" : why;
     }
     (void)tip_y;
 }

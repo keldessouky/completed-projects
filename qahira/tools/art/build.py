@@ -15,7 +15,7 @@ geom.scene = bpy.context.scene
 from qart import rig, preview
 from characters import warrior, ghoul, npc, ghoula, sorcerer, jinn, ranger, nile, mercenary, desert, shadow, maghreb, templar, atlas, wanderer, redsea
 from env import street, souq, necro, rooftop, kit, regions, regions2, regions3, regions4, regions5, regions6
-from props import props, dig
+from props import props, dig, roof
 
 args = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else []
 PREVIEW = '--preview' in args
@@ -206,4 +206,6 @@ if want('props'):
     props.export_all(os.path.join(OUT, 'meshes'))
 if want('props') or want('dig'):
     dig.export_all(os.path.join(OUT, 'meshes'))
+if want('props') or want('roof'):
+    roof.export_all(os.path.join(OUT, 'meshes'))
 print('BUILD DONE')
