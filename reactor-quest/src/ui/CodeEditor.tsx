@@ -2,7 +2,7 @@ import { autocompletion, closeBrackets, closeBracketsKeymap, completionKeymap, t
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
 import { javascript } from '@codemirror/lang-javascript';
 import { bracketMatching, indentOnInput, syntaxHighlighting } from '@codemirror/language';
-import { forEachDiagnostic, lintGutter, setDiagnostics, type Diagnostic as CmDiagnostic } from '@codemirror/lint';
+import { lintGutter, setDiagnostics, type Diagnostic as CmDiagnostic } from '@codemirror/lint';
 import { EditorState } from '@codemirror/state';
 import { EditorView, drawSelection, highlightActiveLine, highlightActiveLineGutter, hoverTooltip, keymap, lineNumbers } from '@codemirror/view';
 import { tsxLanguage } from '@codemirror/lang-javascript';
@@ -10,7 +10,6 @@ import { classHighlighter, highlightCode } from '@lezer/highlight';
 import { useEffect, useRef } from 'react';
 import type { Diagnostic } from '../engine/checker';
 import { completions, quickInfo } from '../engine/compiler';
-import { isTouch } from './device';
 
 interface Props {
   value: string;
@@ -20,14 +19,6 @@ interface Props {
   diagnostics: Diagnostic[];
   onChange(value: string): void;
   onRun(): void;
-  /** The live editor, for the phone symbol bar. */
-  onView?(view: EditorView | null): void;
-  onFocusChange?(focused: boolean): void;
-  /**
-   * Touch screens have no hover, so tapping a name reports its type (or, on a
-   * red squiggle, the error) here instead.
-   */
-  onTapInfo?(info: { kind: 'type' | 'error'; text: string } | null): void;
 }
 
 // TypeScript's completion kinds → CodeMirror's icon types.
@@ -64,13 +55,12 @@ function typeCard(signature: string, doc: string) {
   return dom;
 }
 
-export function CodeEditor({ value, path, tsx, diagnostics, onChange, onRun, onView, onFocusChange, onTapInfo }: Props) {
+export function CodeEditor({ value, path, tsx, diagnostics, onChange, onRun }: Props) {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView | null>(null);
   // Latest callbacks, so the editor (created once) never calls stale ones.
-  const handlers = useRef({ onChange, onRun, onFocusChange, onTapInfo, path });
-  handlers.current = { onChange, onRun, onFocusChange, onTapInfo, path };
-  const tapTimer = useRef<number | undefined>(undefined);
+  const handlers = useRef({ onChange, onRun, path });
+  handlers.current = { onChange, onRun, path };
 
   useEffect(() => {
     const v = new EditorView({
@@ -133,34 +123,13 @@ export function CodeEditor({ value, path, tsx, diagnostics, onChange, onRun, onV
           ]),
           EditorView.updateListener.of((u) => {
             if (u.docChanged) handlers.current.onChange(u.state.doc.toString());
-            if (u.focusChanged) handlers.current.onFocusChange?.(u.view.hasFocus);
-            // A tap that moves the cursor: say what's under it (the touch-screen hover).
-            const tap = u.transactions.some((t) => t.isUserEvent('select.pointer'));
-            if (tap && isTouch() && handlers.current.onTapInfo) {
-              const pos = u.state.selection.main.head;
-              window.clearTimeout(tapTimer.current);
-              tapTimer.current = window.setTimeout(async () => {
-                let error: string | null = null;
-                forEachDiagnostic(u.state, (d, from, to) => {
-                  if (!error && pos >= from && pos <= to) error = d.message;
-                });
-                if (error) return handlers.current.onTapInfo?.({ kind: 'error', text: error });
-                const file = handlers.current.path;
-                const info = await quickInfo({ [file]: u.state.doc.toString() }, file, pos).catch(() => null);
-                handlers.current.onTapInfo?.(info ? { kind: 'type', text: info.signature } : null);
-              }, 200);
-            }
           }),
           EditorView.contentAttributes.of({ 'aria-label': 'Code editor', spellcheck: 'false' }),
         ],
       }),
     });
     view.current = v;
-    onView?.(v);
-    return () => {
-      onView?.(null);
-      v.destroy();
-    };
+    return () => v.destroy();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tsx]);
 

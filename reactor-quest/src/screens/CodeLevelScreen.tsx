@@ -1,4 +1,3 @@
-import type { EditorView } from '@codemirror/view';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Diagnostic } from '../engine/checker';
 import { compile, isReady, onReady } from '../engine/compiler';
@@ -9,8 +8,6 @@ import { sfx } from '../game/sound';
 import { act, getSave, setSave, useSave } from '../game/store';
 import type { CodeLevel, Deck } from '../game/types';
 import { CodeEditor } from '../ui/CodeEditor';
-import { usePhone, useTouch } from '../ui/device';
-import { KeyBar } from '../ui/KeyBar';
 import { Code } from '../ui/highlight';
 import { Markdown, inline } from '../ui/Markdown';
 import { Modal } from '../ui/Modal';
@@ -20,8 +17,6 @@ import { Victory } from '../ui/Victory';
 import { useLevelTimer, formatClock } from '../ui/useLevelTimer';
 
 type Tab = 'mission' | 'lesson' | 'hints';
-/** On a phone the three columns become panes, one at a time. */
-type Pane = 'brief' | 'code' | 'results';
 
 const RUN_SHORTCUT = /Mac|iPhone|iPad/.test(navigator.userAgent) ? '⌘ ↵' : 'Ctrl ↵';
 
@@ -41,13 +36,6 @@ export function CodeLevelScreen({ level, deck, index }: { level: CodeLevel; deck
   const par = parSeconds(level, save.classId);
   const [compilerReady, setCompilerReady] = useState(isReady());
   const mainPath = `/${level.file}`;
-  const phone = usePhone();
-  const touch = useTouch();
-  // First visit: read the mission. Coming back to code you've started: straight to it.
-  const [pane, setPane] = useState<Pane>(progress.code ? 'code' : 'brief');
-  const [editor, setEditor] = useState<EditorView | null>(null);
-  const [editing, setEditing] = useState(false);
-  const [tapInfo, setTapInfo] = useState<{ kind: 'type' | 'error'; text: string } | null>(null);
 
   useEffect(() => onReady(() => setCompilerReady(true)), []);
 
@@ -76,8 +64,6 @@ export function CodeLevelScreen({ level, deck, index }: { level: CodeLevel; deck
       setReport(r);
       setLogs(r.logs);
       setRunId((n) => n + 1);
-      setPane('results');
-      editor?.contentDOM.blur(); // put the keyboard away so the results are visible
       act((st) => recordRun({ ...st, levels: { ...st.levels, [level.id]: { ...levelState(st, level.id), code } } }, level.id, r.passed));
       if (r.passed) {
         const outcome = codeOutcome(getSave(), level, seconds, new Date().getHours());
@@ -95,7 +81,7 @@ export function CodeLevelScreen({ level, deck, index }: { level: CodeLevel; deck
     } finally {
       setRunning(false);
     }
-  }, [code, level, running, seconds, editor]);
+  }, [code, level, running, seconds]);
 
   // The Run shortcut works anywhere on the level screen, not only in the editor
   // (the editor handles it itself and marks the event as handled).
@@ -141,30 +127,7 @@ export function CodeLevelScreen({ level, deck, index }: { level: CodeLevel; deck
   );
 
   return (
-    <div className={`level ${phone ? `phone pane-${pane}` : ''} ${editing ? 'editing' : ''}`}>
-      {phone && (
-        <div className="pane-bar" role="tablist" aria-label="Level">
-          {([
-            ['brief', '📋', 'Mission'],
-            ['code', '⌨️', 'Code'],
-            ['results', report ? (report.passed ? '✅' : '❌') : '🧪', report ? `${passCount}/${allChecks.length}` : 'Checks'],
-          ] as [Pane, string, string][]).map(([p, icon, label]) => (
-            <button
-              key={p}
-              role="tab"
-              aria-selected={pane === p}
-              aria-label={p === 'results' && report ? `Checks ${label}` : label}
-              className={`${pane === p ? 'active' : ''} ${p === 'results' && report && !report.passed ? 'failing' : ''}`}
-              onClick={() => setPane(p)}
-            >
-              <span aria-hidden>{icon}</span> {label}
-            </button>
-          ))}
-          <button className="btn primary run-fab" onClick={run} disabled={running} aria-label="Run">
-            {running ? '…' : '▶ Run'}
-          </button>
-        </div>
-      )}
+    <div className="level">
       <aside className="panel brief">
         <div className="level-head">
           <span className="deck-tag" style={{ ['--hue' as string]: deck.hue }}>{deck.name} · {index + 1}</span>
@@ -251,32 +214,10 @@ export function CodeLevelScreen({ level, deck, index }: { level: CodeLevel; deck
             {running ? 'Running…' : 'Run'} <kbd>{RUN_SHORTCUT}</kbd>
           </button>
         </div>
-        <CodeEditor
-          value={code}
-          path={mainPath}
-          tsx={level.file.endsWith('tsx')}
-          diagnostics={diagnostics}
-          onChange={setCode}
-          onRun={run}
-          onView={setEditor}
-          onFocusChange={setEditing}
-          onTapInfo={setTapInfo}
-        />
+        <CodeEditor value={code} path={mainPath} tsx={level.file.endsWith('tsx')} diagnostics={diagnostics} onChange={setCode} onRun={run} />
         <div className="status-line">
-          {touch && tapInfo ? (
-            <span className={`tap-info ${tapInfo.kind}`}>{tapInfo.kind === 'error' ? `✗ ${tapInfo.text}` : <Code code={tapInfo.text} className="inline-code" />}</span>
-          ) : (
-            live.code === code &&
-            (live.diagnostics.length ? (
-              <span className="err">
-                ✗ {live.diagnostics.length} type error{live.diagnostics.length > 1 ? 's' : ''} — {touch ? 'tap' : 'hover'} the red squiggles
-              </span>
-            ) : (
-              <span className="ok">✓ No type errors{touch ? ' · tap a name to see its type' : ''}</span>
-            ))
-          )}
+          {live.code === code && (live.diagnostics.length ? <span className="err">✗ {live.diagnostics.length} type error{live.diagnostics.length > 1 ? 's' : ''} — hover the red squiggles</span> : <span className="ok">✓ No type errors</span>)}
         </div>
-        {touch && editing && <KeyBar view={editor} onDone={() => editor?.contentDOM.blur()} />}
       </section>
 
       <section className="panel results">

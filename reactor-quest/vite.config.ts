@@ -1,9 +1,8 @@
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vite';
-import { pwa } from './tools/pwa.mjs';
 
 export default defineConfig({
-  plugins: [react(), pwa()],
+  plugins: [react()],
   base: './',
   worker: { format: 'es' },
   build: {

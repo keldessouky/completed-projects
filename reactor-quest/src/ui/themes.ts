@@ -317,8 +317,6 @@ export function paintTheme(id: string) {
   else delete root.dataset.glow;
   root.style.colorScheme = t.scheme;
   document.querySelector('meta[name="color-scheme"]')?.setAttribute('content', t.scheme);
-  // The browser chrome / Android status bar follows the profile too.
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', t.palette.bg);
 }
 
 /** Choose a theme: paint it, remember it on this device, and tell subscribers. */

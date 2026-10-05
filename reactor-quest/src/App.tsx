@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { findLevel } from './content';
-import { onReady, warmUp } from './engine/compiler';
+import { warmUp } from './engine/compiler';
 import { isUnlocked } from './game/progress';
 import { onRewards, useSave } from './game/store';
 import { ArcadeScreen } from './screens/ArcadeScreen';
@@ -19,15 +19,12 @@ import { Offers } from './ui/Offers';
 import { overlays } from './ui/overlays';
 import { go, useRoute } from './ui/router';
 import { ThemePicker } from './ui/ThemePicker';
-import { isNativeApp } from './ui/device';
 
 export function App() {
   const route = useRoute();
   const save = useSave();
 
   useEffect(() => warmUp(), []);
-  // One line in the native apps' logs once TypeScript is running on the phone (CI looks for it).
-  useEffect(() => onReady(() => isNativeApp() && console.log('[reactor] compiler ready')), []);
   // Class and pet offers wait for the victory screen to close.
   useEffect(
     () =>
