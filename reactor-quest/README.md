@@ -415,6 +415,8 @@ as artifacts: `reactor-quest-macos.zip`, `reactor-quest-windows.zip` and
 
 ## Development
 
+To rebuild the whole game from nothing, without this repository, follow [`recipe.md`](recipe.md). It holds the full source of the engine, the rules, the editor, the launchers, the packagers, the tests and CI, plus specs for the screens and every level.
+
 ```bash
 npm install
 npm run dev      # http://localhost:5173, with hot reload
