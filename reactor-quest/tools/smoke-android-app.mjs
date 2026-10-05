@@ -21,15 +21,17 @@ const snap = async (name) => writeFileSync(join(shots, `${name}.png`), await dev
 let failed = false;
 const step = async (name, fn) => {
   try {
-    await app();
-    try {
-      await fn();
-    } catch (e) {
-      // The emulator can relaunch the app's screen once, early on (a one-time
-      // system change, not the app); a step it cut short is played again on the new screen.
-      if (!page.isClosed()) throw e;
+    // The emulator can relaunch the app's screen early on (system changes settling
+    // after boot, not the app), sometimes twice; a step it cuts short is played again
+    // on the new screen.
+    for (let attempt = 1; ; attempt++) {
       await app();
-      await fn();
+      try {
+        await fn();
+        break;
+      } catch (e) {
+        if (!page.isClosed() || attempt === 3) throw e;
+      }
     }
     console.log(`  ✓ ${name}`);
   } catch (e) {
