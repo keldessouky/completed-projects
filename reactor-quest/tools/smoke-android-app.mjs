@@ -22,7 +22,15 @@ let failed = false;
 const step = async (name, fn) => {
   try {
     await app();
-    await fn();
+    try {
+      await fn();
+    } catch (e) {
+      // The emulator can relaunch the app's screen once, early on (a one-time
+      // system change, not the app); a step it cut short is played again on the new screen.
+      if (!page.isClosed()) throw e;
+      await app();
+      await fn();
+    }
     console.log(`  ✓ ${name}`);
   } catch (e) {
     failed = true;
