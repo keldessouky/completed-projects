@@ -1,6 +1,6 @@
 # Reactor Quest: the recipe
 
-This file is everything you need to build **Reactor Quest** from an empty folder. You won't have the original repository, so it has the full source of every part that is easy to get subtly wrong: the in-browser compiler, the sandbox and test kit, the grading pipeline, the save format, the reward engine, the code editor, the colour profiles, the launchers, the app packagers, the tests and CI. The parts that are better written fresh, like most screens, the stylesheet and the 89 lessons, come as precise specs and worked examples.
+This file is everything you need to build **Reactor Quest** from an empty folder. You won't have the original repository, so it has the full source of every part that is easy to get subtly wrong: the in-browser compiler, the sandbox and test kit, the grading pipeline, the save format, the reward engine, the code editor, the colour profiles, the launchers, the app packagers, the tests and CI. The parts that are better written fresh, like most screens, the stylesheet and the 96 lessons, come as precise specs and worked examples.
 
 It is long. Read **Part 0** first, then work through the parts in order. Each part ends in something you can run and check.
 
@@ -11,7 +11,7 @@ It is long. Read **Part 0** first, then work through the parts in order. Each pa
 - [Part 2. The compiler in a Web Worker](#part-2-the-compiler-in-a-web-worker)
 - [Part 3. The sandbox and the testing kit](#part-3-the-sandbox-and-the-testing-kit)
 - [Part 4. The level format and grading](#part-4-the-level-format-and-grading)
-- [Part 5. The curriculum: 10 floors, 89 levels](#part-5-the-curriculum-10-floors-89-levels)
+- [Part 5. The curriculum: 10 floors, 96 levels](#part-5-the-curriculum-10-floors-96-levels)
 - [Part 6. Progress, the save file and the store](#part-6-progress-the-save-file-and-the-store)
 - [Part 7. The reward engine and the loot catalogue](#part-7-the-reward-engine-and-the-loot-catalogue)
 - [Part 8. The user interface](#part-8-the-user-interface)
@@ -32,7 +32,7 @@ It is long. Read **Part 0** first, then work through the parts in order. Each pa
 
 ### The game in one paragraph
 
-Reactor Quest teaches someone who has never written code to write professional TypeScript and React. The player is the new repair engineer on **Orrery Station**, a space station that has been dark for nine days. Every system aboard runs on code and none of it works. Each **level** is one broken system: the player reads a short story brief and a lesson, then fixes or writes real code in a real editor, and presses **Run**. The game type-checks the code with the **real TypeScript compiler** (running in the browser), runs it in a sandbox, and grades it with hidden checks, including **type-level checks** that grade the player's *types*. React levels render the player's components live. There are **89 levels on 10 floors** (79 code levels, 10 quizzes), from a first `console.log` to race conditions, accessibility and testing. Inspired by *Dungeon Crawler Carl*, the repair job is broadcast as a TV show: **THE FEED** narrates, viewers pile in, sponsors send gifts, and a reward engine pays out constantly. That means crawler levels and career titles, six tiers of loot boxes, 58 achievements, 21 skills, a companion pet with hats, five classes, daily quests and streaks, a shop, boss HP bars, par times, and collectible Codex cheat sheets.
+Reactor Quest teaches someone who has never written code to write professional TypeScript and React. The player is the new repair engineer on **Orrery Station**, a space station that has been dark for nine days. Every system aboard runs on code and none of it works. Each **level** is one broken system: the player reads a short story brief and a lesson, then fixes or writes real code in a real editor, and presses **Run**. The game type-checks the code with the **real TypeScript compiler** (running in the browser), runs it in a sandbox, and grades it with hidden checks, including **type-level checks** that grade the player's *types*. React levels render the player's components live. There are **96 levels on 10 floors** (86 code levels, 10 quizzes), from a first `console.log` to race conditions, accessibility and testing. Inspired by *Dungeon Crawler Carl*, the repair job is broadcast as a TV show: **THE FEED** narrates, viewers pile in, sponsors send gifts, and a reward engine pays out constantly. That means crawler levels and career titles, six tiers of loot boxes, 58 achievements, 21 skills, a companion pet with hats, five classes, daily quests and streaks, a shop, boss HP bars, par times, and collectible Codex cheat sheets.
 
 ### Characters and voice
 
@@ -92,7 +92,7 @@ reactor-quest/
     engine/   checker.ts  compiler.ts  compiler.worker.ts  runtime.ts  grade.ts
     game/     types.ts  skills.ts  progress.ts  rewards.ts  items.ts  store.ts  sound.ts
     content/  index.ts  helpers.ts  arcade.ts  floor1.ts … floor10.ts
-              code/<level-id>/starter.ts|tsx  and  solution.ts|tsx   (79 folders)
+              code/<level-id>/starter.ts|tsx  and  solution.ts|tsx   (86 folders)
     screens/  TitleScreen  MapScreen  CodeLevelScreen  QuizScreen  ArcadeScreen
               LootScreen  ShopScreen  CharacterScreen   (.tsx)
     ui/       router.ts  overlays.ts  themes.ts  ThemePicker.tsx  Hud.tsx  CodeEditor.tsx
@@ -1751,14 +1751,15 @@ export function Thruster() {
 
 ---
 
-## Part 5. The curriculum: 10 floors, 89 levels
+## Part 5. The curriculum: 10 floors, 96 levels
 
 ### Design principles
 
 - **Zero to professional, smoothly.** Floor 1 assumes nothing: not what a string is, not where the semicolon key is. Each level adds **one** idea. Floor 10 is what a professional React team expects.
 - **Three schools**: floors 1–3 are JavaScript (written as TypeScript), 4–6 TypeScript, 7–10 React. This decides class bonuses (Part 7).
-- **Every floor** has 5–9 code levels, one quiz (second to last) and a **boss** (last): a bigger, multi-part code level that combines the floor's ideas. The boss of floors 9 and 10 is titled "FINAL BOSS". A floor's boss is playable as soon as the player reaches the floor, which is the way to skip a floor they already know.
+- **Every floor** has 5–11 code levels, one quiz (second to last) and a **boss** (last): a bigger, multi-part code level that combines the floor's ideas. The boss of floors 9 and 10 is titled "FINAL BOSS". A floor's boss is playable as soon as the player reaches the floor, which is the way to skip a floor they already know.
 - **Fix, don't just write.** Most starters are broken systems: a bug, an `any`, a missing state hook, a race condition. Debugging is taught from day one.
+- **No cliffs.** Where an idea is big (lists, loops, reducers, data fetching, accessible forms, keyboard widgets), a smaller bridge level comes first and teaches half of it. When you measure solution size level by level, no regular level should be more than about twice the one before it.
 - **Make the compiler a teacher.** Several early levels ask the player to press Run, *read* the red squiggle, and fix what it says. Type checks grade types the way a reviewer would.
 - **React levels have a live preview** of the player's component, so they can click around before and after fixing it.
 
@@ -1874,54 +1875,62 @@ What follows is the complete curriculum: every level's id, title, station system
 
 *Lists, loops and objects.* Outcome shown on the map: “You can store collections of data and process them with loops and array methods.”
 
-1. **`arrays` — Arrays** · system *Cargo Racks* · `solution.ts` · skills arrays
+1. **`lists` — Lists** · system *Cargo Lift* · `solution.ts` · skills arrays
+   - Starter says: Floor 2 is all about lists. A list in code is called an *array*: values in order, between square brackets, separated by commas: const crates = ["coolant", "fuses", "rations"]; Each item has a position number, its *index*. Counting starts at 0, not 1: crates[0] is "coolant", crates[1] is "fuses", crates[2] is "rations" crates.length is how many items there are: 3 crates.push("tools") adds "tools" to the end of the list. The cargo lift's display prints the wrong things. Make it print, in order: fuses (the item at index 1) 3 (how many crates there are) rations (the last crate) Then add "tools" to the end of the list, and print the new length: 4 Read everything from the array: don't type the answers in yourself.
+   - Checks: Line 1 prints the crate at index 1 ("fuses"); Line 2 prints how many crates there are (3); Line 3 prints the last crate ("rations"); After pushing "tools", line 4 prints the new length (4); Reads the answers from the array
+
+2. **`arrays` — Arrays** · system *Cargo Racks* · `solution.ts` · skills arrays
    - Starter says: An *array* is a list of values, in order, inside square brackets: const crates = ["coolant", "fuses", "rations"]; Each item has a position number called its *index*, and indexes start at 0: crates[0] → "coolant" crates[2] → "rations" crates.length → 3 crates.push("tools"); adds "tools" to the end string[] is the type of a list of strings; number[] is a list of numbers.
    - Solution exports: `export function firstCrate(list: string[]): string`; `export function lastCrate(list: string[]): string`; `export function addCrate(list: string[], item: string): number`
    - Checks: firstCrate; lastCrate works for any length; addCrate adds to the end and returns the new length
 
-2. **`loops` — Loops** · system *Weighbridge* · `solution.ts` · skills iteration, arrays
+3. **`loop-basics` — Repeat After Me** · system *Roll Call* · `solution.ts` · skills iteration, arrays
+   - Starter says: A *loop* runs the same code once for every item in a list. A for...of loop looks like this: for (const name of crew) { console.log(name); // runs once for each name, in order } Inside the { }, \`name\` holds the current item: first "Ada", then "Bo", then "Cy". 1. The roll call below prints every name by hand. That breaks the moment someone joins the crew. Replace the three console.log lines with ONE loop that prints every name. 2. After the loop, print how many people answered, like this: Present: 3 (You don't need to count: the list knows its own length.) 3. Finally, add up the crate weights with a loop and print: Total: 59 Keep a running total in a variable: start it at 0, and add each weight to it.
+   - Checks: Prints every name, in order; Then prints "Present: 3"; Then prints "Total: 59"; Uses for…of loops, not one line per name
+
+4. **`loops` — Loops** · system *Weighbridge* · `solution.ts` · skills iteration, arrays
    - Starter says: A *loop* repeats code. A for...of loop runs once for each item in an array: for (const name of names) { console.log(name); // runs once per name } A common pattern: start a variable, then update it inside the loop. let total = 0; for (const n of numbers) { total = total + n; // or the shortcut: total += n; }
    - Solution exports: `export function totalWeight(weights: number[]): number`; `export function countHeavy(weights: number[], limit: number): number`; `export function longestName(names: string[]): string`
    - Checks: totalWeight adds everything; countHeavy counts weights over the limit; longestName; Uses for…of loops
 
-3. **`for-while` — Counting Loops** · system *Launch Sequencer* · `solution.ts` · skills iteration
+5. **`for-while` — Counting Loops** · system *Launch Sequencer* · `solution.ts` · skills iteration
    - Starter says: Sometimes you need a loop that counts, not one that walks through a list. A classic for loop has three parts: start; keep going while; step for (let i = 1; i &lt;= 3; i++) { // i++ means "add 1 to i" console.log(i); // 1, 2, 3 } A while loop repeats as long as its condition is true: let fuel = 10; while (fuel &gt; 0) { fuel = fuel - 4; } Careful: if the condition never becomes false, the loop never ends!
    - Solution exports: `export function countdown(from: number): number[]`; `export function evens(limit: number): number[]`; `export function burnsUntilEmpty(fuel: number, burn: number): number`
    - Checks: countdown(3) is [3, 2, 1]; countdown(1) is [1], countdown(0) is []; evens(7) is [2, 4, 6], evens(8) includes 8; burnsUntilEmpty
 
-4. **`objects` — Objects** · system *Ship Registry* · `solution.ts` · skills objects
+6. **`objects` — Objects** · system *Ship Registry* · `solution.ts` · skills objects
    - Starter says: An *object* groups related values under names, called *properties*: const ship = { name: "Kite", crew: 4, docked: true }; ship.name → "Kite" ship.crew = 5; changes a property Its type lists each property and its type: { name: string; crew: number; docked: boolean }
    - Solution exports: `export function describeShip(ship: { name: string; crew: number; docked: boolean }): string`; `export function newShip(name: string): { name: string; crew: number; docked: boolean }`; `export function refuel(ship: { fuel: number }, amount: number): number`
    - Checks: Describes a docked ship; Describes a ship in flight; newShip makes a fresh ship; refuel adds fuel and updates the ship; refuel never goes above 100
 
-5. **`crew-search` — Lists of Objects** · system *Crew Manifest* · `solution.ts` · skills objects, iteration
+7. **`crew-search` — Lists of Objects** · system *Crew Manifest* · `solution.ts` · skills objects, iteration
    - Starter says: Real data is usually a list of objects. A *type alias* gives a shape a name, so you don't have to repeat it:
    - Solution exports: `export type CrewMember = { name: string; role: string; age: number; onDuty: boolean };`; `export function findPilot(crew: CrewMember[]): string`; `export function onDutyNames(crew: CrewMember[]): string[]`; `export function averageAge(crew: CrewMember[]): number`
    - Checks: findPilot finds the first pilot; findPilot says "none" when there is no pilot; onDutyNames; averageAge
 
-6. **`map-method` — Transform with map** · system *Label Printer* · `solution.ts` · skills iteration, functions
+8. **`map-method` — Transform with map** · system *Label Printer* · `solution.ts` · skills iteration, functions
    - Starter says: Arrays have built-in *methods* that loop for you. .map() builds a NEW array by transforming every item with a function you give it: [1, 2, 3].map((n) =&gt; n * 10) → [10, 20, 30] ["a", "b"].map((s) =&gt; s + "!") → ["a!", "b!"] (n) =&gt; n * 10 is a short way to write a function: "take n, give back n * 10". The original array is not changed.
    - Solution exports: `export function shout(names: string[]): string[]`; `export function withTax(prices: number[]): number[]`; `export function labels(crew: { name: string; role: string }[]): string[]`
    - Checks: shout; withTax; labels; The original array is untouched; Uses .map() instead of loops
 
-7. **`filter-method` — Select with filter** · system *Sensor Filter* · `solution.ts` · skills iteration
+9. **`filter-method` — Select with filter** · system *Sensor Filter* · `solution.ts` · skills iteration
    - Starter says: .filter() builds a NEW array with only the items your function says yes to: [5, 12, 8, 20].filter((n) =&gt; n &gt; 10) → [12, 20] The function must return true (keep it) or false (drop it). Methods can be *chained* — filter first, then map what's left: items.filter((i) =&gt; i.qty &gt; 0).map((i) =&gt; i.name)
    - Solution exports: `export type Sensor = { id: string; online: boolean; reading: number };`; `export function onlineSensors(sensors: Sensor[]): Sensor[]`; `export function affordable(prices: number[], budget: number): number[]`; `export function overheatingIds(sensors: Sensor[]): string[]`
    - Checks: onlineSensors; affordable includes prices equal to the budget; overheatingIds: online AND above 900; Uses .filter()
 
-8. **`find-some` — find, some, every** · system *Door Control* · `solution.ts` · skills iteration, arrays
+10. **`find-some` — find, some, every** · system *Door Control* · `solution.ts` · skills iteration, arrays
    - Starter says: More questions you can ask an array: .find(fn) the FIRST item where fn says yes — or undefined if none .some(fn) true if AT LEAST ONE item passes .every(fn) true if ALL items pass .includes(x) true if x is in the array [3, 9, 14].find((n) =&gt; n &gt; 5) → 9 [3, 9, 14].some((n) =&gt; n &gt; 10) → true [3, 9, 14].every((n) =&gt; n &gt; 10) → false ["a", "b"].includes("b") → true
    - Solution exports: `export type Door = { id: string; sealed: boolean };`; `export function findDoor(doors: Door[], id: string): Door | undefined`; `export function anyCritical(readings: number[]): boolean`; `export function allSealed(doors: Door[]): boolean`; `export const ROLES = ["pilot", "engineer", "medic"];`; `export function isCertified(role: string): boolean`
    - Checks: findDoor finds by id, or gives undefined; anyCritical; allSealed; isCertified; Uses find, some, every and includes
 
-9. **`reduce-method` — Summarize with reduce** · system *Ledger Core* · `solution.ts` · skills iteration
+11. **`reduce-method` — Summarize with reduce** · system *Ledger Core* · `solution.ts` · skills iteration
    - Starter says: .reduce() boils a whole array down to ONE value. You give it a function and a starting value. The function receives the running result so far (often called acc, the "accumulator") and the next item, and returns the new result: [4, 5, 6].reduce((acc, n) =&gt; acc + n, 0) → 15 acc: 0 → 4 → 9 → 15 The starting value can be anything — even an empty object {}.
    - Solution exports: `export function sum(numbers: number[]): number`; `export function largest(numbers: number[]): number`; `export function countByRole(crew: { role: string }[]): Record<string, number>`
    - Checks: sum; largest, even with negative numbers; countByRole; Uses .reduce()
 
-10. **Quiz `quiz-collections` — Predict the Output** · system *Logistics Terminal* · skills arrays, iteration · 6 questions: What does this print?; What is `result`?; How many times does this loop print?; What is `found`?; What is `total`?; What does this print?
+12. **Quiz `quiz-collections` — Predict the Output** · system *Logistics Terminal* · skills arrays, iteration · 6 questions: What does this print?; What is `result`?; How many times does this loop print?; What is `found`?; What is `total`?; What does this print?
 
-11. **`inventory-audit` — BOSS: Inventory Audit** ☢ **BOSS** · system *Quartermaster* · `solution.ts` · skills iteration, objects, arrays
+13. **`inventory-audit` — BOSS: Inventory Audit** ☢ **BOSS** · system *Quartermaster* · `solution.ts` · skills iteration, objects, arrays
    - Starter says: BOSS — Inventory Audit. The quartermaster's records are a mess. Audit them with array methods.
    - Solution exports: `export type Item = { name: string; category: string; qty: number; price: number };`; `export function totalValue(items: Item[]): number`; `export function lowStock(items: Item[]): string[]`; `export function unitsByCategory(items: Item[]): Record<string, number>`; `export function audit(items: Item[])`
    - Checks: totalValue; lowStock: under 5, sorted A→Z; unitsByCategory; audit puts it all together; audit handles an empty inventory; audit doesn't change the items it was given
@@ -2075,51 +2084,56 @@ What follows is the complete curriculum: every level's id, title, station system
 
 *Advanced TypeScript.* Outcome shown on the map: “You can model untrusted data, failure and whole APIs in the type system: the TypeScript of senior engineers.”
 
-1. **`type-guards` — Type Guards** · system *Deep Scanner* · `solution.ts` · skills narrowing, type-level
+1. **`unknown-values` — unknown, Not any** · system *Signal Scrubber* · `solution.ts` · skills narrowing, types
+   - Starter says: Signals arrive from outside the station, so nobody knows their type in advance. The last engineer typed them as \`any\`, which switches type checking OFF: the compiler happily lets you call .toUpperCase() on a number, and the scrubber crashes at runtime. \`unknown\` is the safe opposite: anything can go IN, but you have to check what it is before you use it. Each check *narrows* the type: if (typeof x === "string") { x.toUpperCase(); } // x is a string in here if (Array.isArray(x)) { x.length; } // x is an array in here 1. Change both \`any\`s to \`unknown\`. Press Run and read the new errors: each one is a crash waiting to happen. 2. Fix them by narrowing. describeSignal(x) returns: a string → "text: HELLO" (upper-cased) a number → "number: 42.5" (one decimal place: x.toFixed(1)) a boolean → "flag: on" or "flag: off" an array → "list of 3" (its length) null → "empty" anything else → "unknown" 3. signalLength(x) returns the length of a string or an array, otherwise 0.
+   - Solution exports: `export function describeSignal(x: unknown): string`; `export function signalLength(x: unknown): number`
+   - Checks: Strings are upper-cased: "text: HELLO"; Numbers get one decimal place; Booleans, lists and null; Anything else is "unknown"; signalLength measures strings and arrays, and is 0 otherwise; No `any` left
+
+2. **`type-guards` — Type Guards** · system *Deep Scanner* · `solution.ts` · skills narrowing, type-level
    - Starter says: A *type guard* is a function that checks a value at runtime AND tells the compiler what it found. Its return type is a *type predicate*: function isString(x: unknown): x is string { return typeof x === "string"; } if (isString(v)) { v.toUpperCase(); } // v is string in here The \`in\` operator narrows unions by property: if ("crew" in thing) { … }
    - Solution exports: `export type Ship = { kind: "ship"; name: string; crew: number };`; `export type Cargo = { kind: "cargo"; label: string; mass: number };`; `export function isShip(x: unknown): x is Ship`; `export function isCargo(x: unknown): x is Cargo`; `export function describeScan(x: unknown): string`
    - Type checks: isShip narrows to Ship; isCargo narrows to Cargo
    - Checks: isShip accepts real ships; isShip rejects everything else; isCargo checks the shape too; describeScan
 
-2. **`unknown-parsing` — Parsing Untrusted Data** · system *Personnel Import* · `solution.ts` · skills narrowing, errors
+3. **`unknown-parsing` — Parsing Untrusted Data** · system *Personnel Import* · `solution.ts` · skills narrowing, errors
    - Starter says: Data from outside your program — a server, a file, a user — can't be trusted. JSON.parse returns \`any\`, which turns off type checking. Treat it as \`unknown\` instead, and *prove* its shape before you use it.
    - Solution exports: `export type Role = "pilot" | "engineer" | "medic";`; `export type CrewMember = { name: string; age: number; role: Role; callsign?: string };`; `export function parseCrew(json: string): CrewMember | null`
    - Type checks: parseCrew returns CrewMember | null
    - Checks: Parses a valid record; Keeps a callsign, drops extra fields; Invalid JSON gives null (no crash); Wrong shapes give null
 
-3. **`result-type` — Errors as Values** · system *Navigation Solver* · `solution.ts` · skills generics, type-level, errors
+4. **`result-type` — Errors as Values** · system *Navigation Solver* · `solution.ts` · skills generics, type-level, errors
    - Starter says: Throwing errors is invisible in types: nothing in \`parseAge(text: string): number\` warns the caller it might blow up. A *Result* type makes failure part of the return type, so the compiler forces callers to handle it: type Result&lt;T&gt; = { ok: true; value: T } \| { ok: false; error: string }; const r = parseAge("42"); if (r.ok) { r.value } else { r.error } // narrowed by the \`ok\` tag
    - Solution exports: `export type Result<T, E = string> = { ok: true; value: T } | { ok: false; error: E };`; `export function ok<T>(value: T): Result<T, never>`; `export function err<E>(error: E): Result<never, E>`; `export function divide(a: number, b: number): Result<number>`; `export function mapResult<T, U, E>(result: Result<T, E>, fn: (value: T) => U): Result<U, E>`; `export function unwrapOr<T, E>(result: Result<T, E>, fallback: T): T`
    - Type checks: Result is a union you must narrow; The error type defaults to string, and can be changed; mapResult changes the value type
    - Checks: divide; mapResult transforms successes and passes failures through; unwrapOr
 
-4. **`mapped-types` — Mapped Types** · system *Change Tracker* · `solution.ts` · skills type-level, generics
+5. **`mapped-types` — Mapped Types** · system *Change Tracker* · `solution.ts` · skills type-level, generics
    - Starter says: A *mapped type* builds a new object type by looping over the keys of another: type Optional&lt;T&gt; = { [K in keyof T]?: T[K] }; // that's how Partial works type Strings&lt;T&gt; = { [K in keyof T]: string }; // every value becomes a string Modifiers can be added (+?, +readonly) or removed (-?, -readonly).
    - Solution exports: `export type ShipConfig = { name: string; crew: number; armed: boolean };`; `export type Flags<T> = { [K in keyof T]: boolean };`; `export type Mutable<T> = { -readonly [K in keyof T]: T[K] };`; `export function changedFields<T extends object>(before: T, after: T): Flags<T>`
    - Type checks: Flags&lt;T&gt; has exactly T's keys, all boolean; Mutable&lt;T&gt; removes readonly; changedFields returns Flags of the input
    - Checks: changedFields flags exactly what changed; Nothing changed → all false
 
-5. **`conditional-types` — Conditional Types** · system *Type Refinery* · `solution.ts` · skills type-level, generics
+6. **`conditional-types` — Conditional Types** · system *Type Refinery* · `solution.ts` · skills type-level, generics
    - Starter says: A *conditional type* chooses a type based on another type: type IsText&lt;T&gt; = T extends string ? "yes" : "no"; IsText&lt;"hi"&gt; → "yes" IsText&lt;42&gt; → "no" \`infer\` captures a part of the type being matched: type ReturnOf&lt;F&gt; = F extends (...args: any[]) =&gt; infer R ? R : never; ReturnOf&lt;() =&gt; number&gt; → number Conditional types *distribute* over unions: IsText&lt;string \| number&gt; → "yes" \| "no"
    - Solution exports: `export type ElementOf<T> = T extends (infer U)[] ? U : never;`; `export type Unwrap<T> = T extends Promise<infer U> ? U : T;`; `export type NonNullish<T> = T extends null | undefined ? never : T;`; `export function toArray<T>(value: T | T[]): T[]`; `export function compact<T>(values: T[]): NonNullish<T>[]`
    - Type checks: ElementOf; Unwrap; NonNullish removes null and undefined; compact's type drops null and undefined
    - Checks: toArray; compact
 
-6. **`template-literal-types` — Template Literal Types** · system *Bay Allocator* · `solution.ts` · skills type-level
+7. **`template-literal-types` — Template Literal Types** · system *Bay Allocator* · `solution.ts` · skills type-level
    - Starter says: Template literal types build string types the way template strings build strings: type Deck = "A" \| "B"; type Level = 1 \| 2; type Code = \`${Deck}${Level}\`; // "A1" \| "A2" \| "B1" \| "B2" Built-in helpers transform them: Uppercase&lt;"a"&gt; → "A", Capitalize&lt;"dock"&gt; → "Dock". In a mapped type, \`as\` renames keys: type Getters&lt;T&gt; = { [K in keyof T & string as \`get${Capitalize&lt;K&gt;}\`]: () =&gt; T[K] };
    - Solution exports: `export type Deck = "A" | "B" | "C";`; `export type Bay = 1 | 2 | 3 | 4;`; `` export type BayCode = `${Deck}${Bay}`; ``; `export function isBayCode(s: string): s is BayCode`; `` export function handlerName<E extends string>(event: E): `on${Capitalize<E>}` ``; `` export type Handlers<E extends string> = { [K in E as `on${Capitalize<K>}`]: () => void }; ``
    - Type checks: BayCode is exactly the 12 real bays; isBayCode narrows; handlerName has a precise return type; Handlers maps event names to handler props
    - Checks: isBayCode at runtime; handlerName at runtime
 
-7. **`satisfies-const` — satisfies and as const** · system *Route Table* · `solution.ts` · skills type-level, types
+8. **`satisfies-const` — satisfies and as const** · system *Route Table* · `solution.ts` · skills type-level, types
    - Starter says: Two tools for configuration objects: as const — freeze a value into its narrowest, readonly literal type satisfies T — check a value matches T WITHOUT widening it to T const COLORS = { ok: "#0f0", bad: "#f00" } as const satisfies Record&lt;string, string&gt;; type ColorName = keyof typeof COLORS; // "ok" \| "bad" With a plain annotation (: Record&lt;string, string&gt;) you'd lose the key names.
    - Solution exports: `export type Route = { path: string; auth: boolean };`; `export const ROUTES =`; `export type RouteName = keyof typeof ROUTES;`; `export function link(name: RouteName, id?: string): string`; `export function protectedRoutes(): RouteName[]`
    - Type checks: RouteName is derived from ROUTES; Routes are still checked against Route
    - Checks: link fills in the id; protectedRoutes
 
-8. **Quiz `quiz-vault` — Type-Level Thinking** · system *Vault Lock* · skills type-level, narrowing · 6 questions: What is `A`?; What is `R`?; Why is a plain `boolean` return type not enough for a type guard?; What is the type of `Keys`?; What does this mapped type produce for `{ fuel: number }`?; Which is the safest type for the result of `JSON.parse(text)`?
+9. **Quiz `quiz-vault` — Type-Level Thinking** · system *Vault Lock* · skills type-level, narrowing · 6 questions: What is `A`?; What is `R`?; Why is a plain `boolean` return type not enough for a type guard?; What is the type of `Keys`?; What does this mapped type produce for `{ fuel: number }`?; Which is the safest type for the result of `JSON.parse(text)`?
 
-9. **`schema-forge` — BOSS: Schema Forge** ☢ **BOSS** · system *Schema Forge* · `solution.ts` · skills type-level, generics, narrowing
+10. **`schema-forge` — BOSS: Schema Forge** ☢ **BOSS** · system *Schema Forge* · `solution.ts` · skills type-level, generics, narrowing
    - Starter says: BOSS — Schema Forge. Build a tiny runtime validator whose types are INFERRED from the schemas, the way professional libraries (like zod) work: const Ship = object({ name: string(), crew: number(), tags: array(string()) }); type Ship = Infer&lt;typeof Ship&gt;; // { name: string; crew: number; tags: string[] } const ship = Ship.parse(JSON.parse(text)); // throws if the data is wrong; typed if it's right
    - Solution exports: `export class SchemaError extends Error {}`; `export interface Schema<T>`; `export function makeSchema<T>(check: (input: unknown, path: string) => T): Schema<T>`; `export function fail(path: string, expected: string): never`; `export type Infer<S> = S extends Schema<infer T> ? T : never;`; `export function string(): Schema<string>`; `export function number(): Schema<number>`; `export function boolean(): Schema<boolean>`; `export function array<T>(item: Schema<T>): Schema<T[]>`; `export function object<S extends Record<string, Schema<unknown>>>(shape: S): Schema<{ [K in keyof S]: Infer<S[K]> }>`; `export function optional<T>(schema: Schema<T>): Schema<T | undefined>`
    - Type checks: Infer extracts a schema's type; object() infers the full shape; parse returns the inferred type
@@ -2143,6 +2157,7 @@ What follows is the complete curriculum: every level's id, title, station system
    - Checks: Shows the label; Unit defaults to %; Uses a custom unit
 
 3. **`hull-plating` — Children and Composition** · system *Bridge Dashboard* · `solution.tsx` · skills components · live preview
+   - Starter says: A Panel draws a framed section with a title, and whatever is placed between &lt;Panel&gt; and &lt;/Panel&gt; inside it: &lt;section className="panel"&gt;&lt;h2&gt;{title}&lt;/h2&gt; …children… &lt;/section&gt;
    - Solution exports: `export function Panel({ title, children }: PanelProps)`; `export function Dashboard()`
    - Type checks: Panel accepts children; Panel requires a title
    - Checks: Panel renders its title and children; Dashboard shows a Power panel and an Air panel; Each panel holds its reading
@@ -2179,6 +2194,7 @@ What follows is the complete curriculum: every level's id, title, station system
    - Checks: Starts sealed; Clicking opens it; Clicking again seals it; initiallyOpen starts it open; onChange reports each new state
 
 3. **`callsign` — Controlled Inputs** · system *Nav Computer* · `solution.tsx` · skills state · live preview
+   - Starter says: &lt;input aria-label="Callsign" /&gt; &lt;p className="preview"&gt;Callsign: NOVA&lt;/p&gt; (upper-cased; "Callsign: —" when empty) &lt;p className="count"&gt;4/12&lt;/p&gt; Callsigns are at most 12 characters: typing past that is ignored.
    - Solution exports: `export function CallsignInput()`
    - Checks: Shows "—" and 0/12 when empty; Typing updates the preview in upper case; The input is controlled by state; Refuses a 13th character
 
@@ -2191,6 +2207,7 @@ What follows is the complete curriculum: every level's id, title, station system
    - Checks: Adds items and clears the input; Ignores blank items and trims names; Remove takes out exactly that item — immediately; Total reads "0 items", "1 item", "2 items"; State is never mutated (no push / splice)
 
 6. **`shared-power` — Lifting State Up** · system *Power Distribution* · `solution.tsx` · skills state, components · live preview
+   - Starter says: Two components, two copies of the power level. Boost in the controls, and the readout never hears about it. Lift the state up: Reactor owns \`power\` (starts at 50, stays within 0–100). Readout just displays what it's given. Controls just reports clicks.
    - Solution exports: `export function Readout({ power }: { power: number })`; `export function Controls({ onBoost, onVent }: ControlsProps)`; `export function Reactor()`
    - Type checks: Readout and Controls take typed props
    - Checks: Readout shows the power it is given; Controls report clicks through callbacks; Reactor: Boost raises the readout; Reactor: stays within 0–100%
@@ -2213,31 +2230,39 @@ What follows is the complete curriculum: every level's id, title, station system
    - Checks: Starts at T-3; Counts all the way down to T-0; Stops at T-0 and calls onDone exactly once; Unmounting stops the timer
 
 2. **`targeting` — useRef** · system *Targeting Computer* · `solution.tsx` · skills hooks · live preview
+   - Starter says: &lt;input aria-label="Target" /&gt; &lt;button&gt;Lock on&lt;/button&gt; → moves keyboard focus into the input &lt;button&gt;Fire&lt;/button&gt; → counts a shot; &lt;p className="shots"&gt;Shots: 3&lt;/p&gt; The ref isn't connected to anything yet, and TypeScript doesn't know what it will point at.
    - Solution exports: `export function Targeting()`
    - Checks: "Lock on" focuses the target input; Fire counts shots
 
-3. **`sequencer` — useReducer** · system *Ignition Sequencer* · `solution.tsx` · skills hooks, narrowing · live preview
+3. **`use-reducer` — useReducer** · system *Cargo Hold* · `solution.tsx` · skills hooks, state · live preview
+   - Starter says: useReducer keeps state, like useState, but every change goes through ONE function you write, the *reducer*: reducer(currentState, action) → nextState Components don't change the state themselves. They *dispatch* an action that describes what happened, and the reducer decides what it means: const [state, dispatch] = useReducer(holdReducer, { crates: 0 }); &lt;button onClick={() =&gt; dispatch({ type: 'load', crates: 5 })}&gt;Load 5&lt;/button&gt; The cargo hold's actions are already typed below. Your jobs: 1. Write the reducer: load → crates goes up by action.crates unload → crates goes down by action.crates, but never below 0 clear → crates goes back to 0 Always return a NEW object, like { ...state, crates: 7 }. Never change \`state\`. 2. Wire up the "Unload 2" and "Clear" buttons. "Load 5" is done for you.
+   - Solution exports: `export type HoldState = { crates: number };`; `export type HoldAction =`; `export function holdReducer(state: HoldState, action: HoldAction): HoldState`; `export function CargoHold()`
+   - Checks: load adds crates; unload removes crates, but never below 0; clear empties the hold; Returns a new object instead of changing the old one; The buttons dispatch actions
+
+4. **`sequencer` — Reducers with Rules** · system *Ignition Sequencer* · `solution.tsx` · skills hooks, narrowing · live preview
    - Solution exports: `export interface ReactorState`; `export type Action =`; `export function reactorReducer(state: ReactorState, action: Action): ReactorState`; `export const INITIAL: ReactorState = { status: 'offline', temp: 0 };`; `export function ReactorPanel()`
    - Type checks: Actions are a typed union
    - Checks: prime → ignite brings the core online; Out-of-order actions change nothing; heat raises the temperature while online; Above 1000° the core scrams; scram works from any status; The reducer never mutates state; The panel buttons dispatch actions
 
-4. **`use-toggle` — Custom Hooks** · system *Lighting Grid* · `solution.tsx` · skills hooks · live preview
+5. **`use-toggle` — Custom Hooks** · system *Lighting Grid* · `solution.tsx` · skills hooks · live preview
+   - Starter says: A custom hook: a boolean plus a function that flips it. const [on, toggle] = useToggle(); starts false const [on, toggle] = useToggle(true); starts true
    - Solution exports: `export function useToggle(initial = false): [boolean, () => void]`; `export function LightSwitch({ label }: { label: string })`
    - Type checks: useToggle returns a [boolean, function] tuple; useToggle takes an optional boolean
    - Checks: LightSwitch toggles ON and OFF; useToggle(true) starts on; Each component gets its own state; Calling toggle twice in one event flips twice
 
-5. **`theme-context` — Context** · system *Station Lighting* · `solution.tsx` · skills hooks · live preview
+6. **`theme-context` — Context** · system *Station Lighting* · `solution.tsx` · skills hooks · live preview
    - Solution exports: `export type Theme = 'day' | 'night';`; `export const ThemeContext = createContext<ThemeValue | null>(null);`; `export function ThemeProvider({ children }: { children: ReactNode })`; `export function useTheme(): ThemeValue`; `export function Screen({ children }: { children: ReactNode })`; `export function ThemeButton()`
    - Checks: Starts in day mode; The button switches every screen; Works through layers that pass no props; useTheme outside a ThemeProvider throws a helpful error
 
-6. **`generic-list` — Generic Components** · system *Universal Display* · `solution.tsx` · skills generics, components · live preview
+7. **`generic-list` — Generic Components** · system *Universal Display* · `solution.tsx` · skills generics, components · live preview
+   - Starter says: One list component for anything: crew, ships, sensors… &lt;List items={crew} keyOf={(m) =&gt; m.id} render={(m) =&gt; m.name} /&gt; The props are typed \`any\`, so the compiler can't help whoever uses it: \`render\` gets an \`any\`, and typos sail straight through. Make the component generic, so \`render\` and \`keyOf\` receive the real item type.
    - Solution exports: `export function List<T>({ items, keyOf, render, empty = 'Nothing here' }: ListProps<T>)`
    - Type checks: render and keyOf get the item type; Typos in render are caught; Item types flow through
    - Checks: Renders each item with its key function; render can return JSX; Empty list shows the default message; Empty list shows a custom message
 
-7. **Quiz `quiz-effects` — Effect Horizon** · system *Core Diagnostics* · skills effects, hooks · 6 questions: When does this effect run?; What's wrong with this?; Which of these does NOT need an effect?; Changing a ref's `.current`…; You call useState inside an `if`. What happens?; Which value does every component under this provider receive?
+8. **Quiz `quiz-effects` — Effect Horizon** · system *Core Diagnostics* · skills effects, hooks · 6 questions: When does this effect run?; What's wrong with this?; Which of these does NOT need an effect?; Changing a ref's `.current`…; You call useState inside an `if`. What happens?; Which value does every component under this provider receive?
 
-8. **`core-reboot` — FINAL BOSS: Core Reboot** ☢ **BOSS** · system *Reactor Core* · `solution.tsx` · skills hooks, effects, state · live preview
+9. **`core-reboot` — FINAL BOSS: Core Reboot** ☢ **BOSS** · system *Reactor Core* · `solution.tsx` · skills hooks, effects, state · live preview
    - Starter says: FINAL BOSS — reboot the reactor core.
    - Solution exports: `export type Phase = 'idle' | 'charging' | 'ready' | 'online';`; `export function CoreConsole({ chargeMs = 3000, onOnline }: CoreConsoleProps)`
    - Type checks: CoreConsole takes optional chargeMs and onOnline
@@ -2248,43 +2273,64 @@ What follows is the complete curriculum: every level's id, title, station system
 
 *Professional React.* Outcome shown on the map: “You build React apps the way professional teams do: resilient to slow and failing networks, fast, accessible and tested.”
 
-1. **`loading-states` — Loading and Error States** · system *Crew Directory* · `solution.tsx` · skills data, effects, state · live preview
+1. **`first-fetch` — Fetching Data** · system *Personnel Server* · `solution.tsx` · skills data, effects · live preview
+   - Starter says: Data from a server arrives *later*. \`load()\` returns a Promise: a value that isn't ready yet. \`.then(fn)\` runs fn with the crew list once it arrives. This component asks the server for the crew on EVERY render. Each answer updates state, which renders again, which asks again… forever. The personnel server is melting. Fix it: 1. Ask once, when the component appears: move the request into useEffect, with [load] as its list of dependencies. 2. Until the answer arrives, show &lt;p className="loading"&gt;Loading crew…&lt;/p&gt; (Tip: start the state as null, meaning "not loaded yet".) 3. Then show the names: a &lt;ul&gt; with an &lt;li&gt; for each name.
+   - Solution exports: `export function CrewList({ load }: { load: () => Promise<string[]> })`
+   - Checks: Shows "Loading crew…" while waiting; Shows the names when they arrive; Asks the server only once; Requests from an effect, not during render
+
+2. **`loading-states` — Loading and Error States** · system *Crew Directory* · `solution.tsx` · skills data, effects, state · live preview
+   - Starter says: Real data comes from a server, which takes time — and sometimes fails. Every screen that loads data has (at least) three states: loading → &lt;p className="loading"&gt;Loading crew…&lt;/p&gt; loaded → &lt;ul&gt; with an &lt;li&gt; per name failed → &lt;p role="alert"&gt;Couldn't load crew: &lt;error message&gt;&lt;/p&gt; plus a &lt;button&gt;Retry&lt;/button&gt; that loads again \`load\` is the request. Call it when the component appears (and on Retry).
    - Solution exports: `export function CrewLoader({ load }: { load: () => Promise<string[]> })`
    - Checks: Shows a loading message first; Shows the crew when the request succeeds; Shows the error when the request fails; Retry loads again
 
-2. **`race-conditions` — Race Conditions** · system *Ship Search* · `solution.tsx` · skills data, effects
+3. **`race-conditions` — Race Conditions** · system *Ship Search* · `solution.tsx` · skills data, effects
+   - Starter says: Search as you type. Each keystroke starts a new request — and requests can come back in ANY order. If "ka" is slow and "kite" is fast, the "ka" results can arrive LAST and overwrite the correct "kite" results. &lt;input aria-label="Search ships" /&gt; &lt;ul&gt; with an &lt;li&gt; per result An empty query shows no results and makes no request. Make sure a stale response can never overwrite a newer one.
    - Solution exports: `export function ShipSearch({ search }: { search: (query: string) => Promise<string[]> })`
    - Checks: Shows the results for a search; An empty query makes no request; A slow, stale response never overwrites a newer one; Clearing the box clears the results
 
-3. **`debounce` — Debouncing** · system *Request Throttle* · `solution.tsx` · skills hooks, effects, performance
+4. **`debounce` — Debouncing** · system *Request Throttle* · `solution.tsx` · skills hooks, effects, performance
+   - Starter says: Typing "reactor" fires seven requests — one per letter. Wasteful, and rude to the server. *Debouncing* waits until the user pauses before acting.
    - Solution exports: `export function useDebouncedValue<T>(value: T, delayMs: number): T`; `export function SearchBox({ onSearch, delayMs = 300 }: { onSearch: (text: string) => void; delayMs?: number })`
    - Type checks: useDebouncedValue keeps the value's type
    - Checks: The hook returns the first value straight away; The hook waits for a pause before updating; A burst of typing triggers one search, for the final text; Never searches twice for the same text; No timers left running after unmount
 
-4. **`memoization` — Memoization** · system *Fleet Display* · `solution.tsx` · skills performance, hooks · live preview
+5. **`memoization` — Memoization** · system *Fleet Display* · `solution.tsx` · skills performance, hooks · live preview
    - Solution exports: `export type Ship = { id: string; name: string };`; `export const ShipRow = memo(function ShipRow({ ship, onSelect, onRender }: { ship: Ship; onSelect: (id: string) => void; onRender?: (id: string) => void })`; `export function Fleet({ ships, sortShips, onRowRender }: { ships: Ship[]; sortShips: (ships: Ship[]) => Ship[]; onRowRender?: (id: string) => void })`
    - Checks: Renders the fleet sorted, and selection works; An unrelated update doesn't re-sort; New ships do re-sort; Rows don't re-render when nothing about them changed
 
-5. **`accessible-form` — Accessible Forms** · system *Crew Registration* · `solution.tsx` · skills a11y, state · live preview
+6. **`oxygen-field` — Labels and Error Messages** · system *Oxygen Console* · `solution.tsx` · skills a11y, components · live preview
+   - Starter says: Lieutenant Osei uses a screen reader. To her, this console is an input with no name, and an error that is never read out. Fix both: 1. A real label, connected to the input with htmlFor → id: &lt;label htmlFor="oxygen"&gt;Oxygen level (%)&lt;/label&gt; &lt;input id="oxygen" … /&gt; A &lt;p&gt; that just happens to sit nearby isn't connected to anything. 2. An error people can perceive. When the value is out of range, show &lt;p id="oxygen-error"&gt;Oxygen must be between 19 and 23&lt;/p&gt; and give the input aria-invalid="true" and aria-describedby="oxygen-error". That links the message to the field, so it's read out when the field has focus. When the value is fine (or empty), show no error and no aria-invalid.
+   - Solution exports: `export function OxygenField()`
+   - Checks: The input has a connected &lt;label&gt;; No error while the value is fine; An out-of-range value shows the error message; The error is linked to the input with ARIA; Fixing the value clears the error
+
+7. **`accessible-form` — Accessible Forms** · system *Crew Registration* · `solution.tsx` · skills a11y, state · live preview
+   - Starter says: A registration form that works for everyone — including people using a screen reader or only a keyboard. Fields (each with a real &lt;label&gt; connected by htmlFor/id): Callsign id="callsign" required, 3–12 characters Email id="email" must contain "@" Errors: - show a field's error after the user leaves it (blur), or on submit - the error is &lt;p id="callsign-error"&gt; / &lt;p id="email-error"&gt; with the message - the input gets aria-invalid="true" and aria-describedby pointing at its error Messages: "Callsign must be 3–12 characters" and "Enter a valid email" On submit: - invalid → show all errors and move keyboard focus to the FIRST invalid field - valid → onRegister({ callsign, email })
    - Solution exports: `export function RegisterForm({ onRegister }: { onRegister: (data: { callsign: string; email: string }) => void })`
    - Checks: Each input has a connected &lt;label&gt;; No errors before the user has done anything; Leaving a field shows its error, linked with ARIA; A failed submit focuses the first invalid field; A valid form registers
 
-6. **`keyboard-tabs` — Keyboard Navigation** · system *Bridge Tabs* · `solution.tsx` · skills a11y, hooks · live preview
+8. **`disclosure` — ARIA States and Keys** · system *Incident Reports* · `solution.tsx` · skills a11y, hooks · live preview
+   - Starter says: The incident panel opens when you click its title… with a mouse. With a keyboard you can't even reach it: a &lt;div&gt; with onClick isn't focusable, and a screen reader has no idea it does anything. Make it a proper "disclosure" widget: 1. The toggle is a real &lt;button&gt;. Buttons are focusable, and Enter and Space press them, for free. 2. The button says whether it's open, and what it opens: aria-expanded={open} aria-controls="details-panel" 3. The panel is &lt;div id="details-panel"&gt;…&lt;/div&gt;, shown only while open. 4. Pressing Escape (on the button, or anywhere inside the panel) closes it and puts keyboard focus back on the button.
+   - Solution exports: `export function Details({ summary, children }: { summary: string; children: ReactNode })`
+   - Checks: The toggle is a real &lt;button&gt;; aria-expanded and aria-controls describe the panel; Clicking again closes it; Escape closes it and returns focus to the button
+
+9. **`keyboard-tabs` — Keyboard Navigation** · system *Bridge Tabs* · `solution.tsx` · skills a11y, hooks · live preview
+   - Starter says: Accessible tabs, following the WAI-ARIA "tabs" pattern used across the web. &lt;div role="tablist"&gt; &lt;button role="tab" id="tab-&lt;id&gt;" aria-selected aria-controls="panel-&lt;id&gt;" tabIndex={selected ? 0 : -1}&gt;label&lt;/button&gt; … &lt;/div&gt; &lt;div role="tabpanel" id="panel-&lt;id&gt;" aria-labelledby="tab-&lt;id&gt;"&gt;content&lt;/div&gt; Only the selected tab's panel is shown. Clicking a tab selects it. Keyboard, on a focused tab: ArrowRight / ArrowLeft → select AND focus the next / previous tab (wrapping around) Home / End → select and focus the first / last tab "Roving tabIndex": only the selected tab is in the Tab order (tabIndex 0).
    - Solution exports: `export type Tab = { id: string; label: string; content: ReactNode };`; `export function Tabs({ tabs }: { tabs: Tab[] })`
    - Checks: Roles and ARIA attributes; Roving tabIndex; Arrow keys move selection and focus, wrapping around; Home and End
 
-7. **`error-boundary` — Error Boundaries** · system *Bridge Widgets* · `solution.tsx` · skills components, errors
+10. **`error-boundary` — Error Boundaries** · system *Bridge Widgets* · `solution.tsx` · skills components, errors
+   - Starter says: One broken widget shouldn't take down the whole bridge. An *error boundary* catches errors thrown while rendering its children, and shows a fallback. (Error boundaries must be class components — React has no hook for this yet.) &lt;ErrorBoundary fallback={(error, reset) =&gt; &lt;button onClick={reset}&gt;Retry&lt;/button&gt;}&gt; &lt;Widget /&gt; &lt;/ErrorBoundary&gt; - render children normally while there is no error - after a child throws, render fallback(error, reset) - reset() clears the error, so the children render again - call onError(error) (if given) once for each error caught
    - Solution exports: `export class ErrorBoundary extends Component<Props, State>`
    - Checks: Renders children while nothing is wrong; Shows the fallback when a child throws; Reports each error once with onError; reset() recovers once the problem is fixed
 
-8. **`test-design` — Writing Good Tests** · system *Quality Control* · `solution.ts` · skills testing
+11. **`test-design` — Writing Good Tests** · system *Quality Control* · `solution.ts` · skills testing
    - Starter says: Professionals don't just write code — they write the tests that prove it works. Good tests are chosen carefully: they probe the *edges*, where bugs live. Here is the spec for the station's shipping calculator: shippingCost(weightKg, express) - weight must be greater than 0, otherwise it THROWS - cost is 5 credits plus 2 credits per kg - shipments of 50 kg or more get 10% off (50 itself counts!) - express doubles the final cost You don't write shippingCost. You write the TEST CASES. The station runs your cases against the real calculator (they must all pass) and against several broken versions written by a careless intern. Every broken version must fail at least one of your cases.
    - Solution exports: `export type Case = { weight: number; express: boolean; expected: number };`; `export const cases: Case[] = [`; `export const throwingWeights: number[] = [0, -5];`
    - Checks: Every case is correct for the real calculator; Every throwing weight really throws; Catches the bug: forgets the 5-credit base fee; Catches the bug: only discounts above 50 kg (not at 50); Catches the bug: discounts from 49 kg; Catches the bug: never discounts; Catches the bug: adds 5 for express instead of doubling; Catches the bug: skips the discount on express shipments; Catches the bug: rounds to whole credits; Catches the bug: accepts a weight of 0; Catches the bug: never throws at all
 
-9. **Quiz `quiz-production` — Production Readiness** · system *Launch Review* · skills data, performance, a11y, testing · 6 questions: A user types "a", then "ab". The "a" request is slower. What can go wrong without a cleanup?; `Row` is wrapped in `memo`, but still re-renders on every parent render. Why?; Which of these is accessible to a screen reader?; The spec says "orders of 100 or more ship free". Which pair of test inputs best checks the boundary?; Where should error boundaries go?; A screen loads data. Which states must it handle?
+12. **Quiz `quiz-production` — Production Readiness** · system *Launch Review* · skills data, performance, a11y, testing · 6 questions: A user types "a", then "ab". The "a" request is slower. What can go wrong without a cleanup?; `Row` is wrapped in `memo`, but still re-renders on every parent render. Why?; Which of these is accessible to a screen reader?; The spec says "orders of 100 or more ship free". Which pair of test inputs best checks the boundary?; Where should error boundaries go?; A screen loads data. Which states must it handle?
 
-10. **`mission-dashboard` — FINAL BOSS: Mission Control** ☢ **BOSS** · system *Mission Control* · `solution.tsx` · skills data, state, a11y, performance, components · live preview
+13. **`mission-dashboard` — FINAL BOSS: Mission Control** ☢ **BOSS** · system *Mission Control* · `solution.tsx` · skills data, state, a11y, performance, components · live preview
    - Starter says: FINAL BOSS — Mission Control Dashboard. Everything a real production screen needs, in one component.
    - Solution exports: `export type Ship = { id: string; name: string; status: 'docked' | 'in-flight'; crew: number };`; `export function MissionDashboard({ loadShips }: { loadShips: () => Promise<Ship[]> })`
    - Type checks: MissionDashboard is a valid component
@@ -2331,7 +2377,7 @@ Key rules:
 
 - **Stars (code levels)**: 3 − (hints revealed without a token), minimum 1. Seeing the solution caps the attempt at 1 star. **Stars (quizzes)**: 3 − mistakes, minimum 1.
 - **XP per level**: quiz 60, code 100, boss 250, × (1 + 0.1 × floor index), × stars/3. Only *improvements* pay, so replaying for the same stars pays nothing.
-- **Crawler level**: the XP needed to reach level L is `25n² + 75n`, where n = L − 1. Level 2 arrives with the first clear. Max level 50. **Career titles**: Intern (1), Junior Developer (3), Developer (6), Senior Developer (10), Staff Engineer (14), Principal Engineer (18), Reactor Architect (22), Living Legend (28). Clearing everything perfectly lands around Reactor Architect.
+- **Crawler level**: going from level L to L+1 costs `100 + 25n` XP while n = L − 1 ≤ 10, then `350 + 6(n − 10)`. So the first clear is the first level-up, and because later levels pay more XP, **every floor brings a level-up every two or three clears** (a test enforces this). Max level 50. **Career titles**: Intern (1), Junior Developer (4), Developer (9), Senior Developer (16), Staff Engineer (22), Principal Engineer (29), Reactor Architect (36), Living Legend (45). Clearing everything perfectly ends around level 41, as a Reactor Architect.
 - **Unlocking**: levels open in order. A floor's boss is open as soon as the floor's first level is, and beating it opens the next floor. Settings has an "Open every system" switch.
 - **Station power** = the percentage of levels done. The title screen's reactor core glows brighter with it.
 - `parseSave` validates untrusted JSON field by field and falls back to defaults. (It also migrates a version-1 save from before the reward systems existed. A fresh build can keep that branch, since it is harmless.)
@@ -2540,23 +2586,35 @@ export function floorCleared(save: Save, floorIndex: number): boolean {
 
 // ---------------------------------------------------------------- crawler level
 
-/** Total XP needed to reach crawler level L. Level 2 comes after your first level clear. */
-export function xpToReach(level: number): number {
+/**
+ * XP to go from crawler level L to L+1. It starts at 100 (so your first level
+ * clear is your first level-up) and rises by 25 a level until level 11. After
+ * that it rises by only 6 a level: later levels pay more XP, so every floor
+ * brings a level-up every two or three clears.
+ */
+export function xpForNext(level: number): number {
   const n = level - 1;
-  return 25 * n * n + 75 * n;
+  return n <= 10 ? 100 + 25 * n : 350 + 6 * (n - 10);
+}
+
+/** Total XP needed to reach crawler level L. */
+export function xpToReach(level: number): number {
+  let total = 0;
+  for (let l = 1; l < level; l++) total += xpForNext(l);
+  return total;
 }
 
 export const MAX_LEVEL = 50;
 
 export const CAREER = [
   { level: 1, title: 'Intern' },
-  { level: 3, title: 'Junior Developer' },
-  { level: 6, title: 'Developer' },
-  { level: 10, title: 'Senior Developer' },
-  { level: 14, title: 'Staff Engineer' },
-  { level: 18, title: 'Principal Engineer' },
-  { level: 22, title: 'Reactor Architect' },
-  { level: 28, title: 'Living Legend' },
+  { level: 4, title: 'Junior Developer' },
+  { level: 9, title: 'Developer' },
+  { level: 16, title: 'Senior Developer' },
+  { level: 22, title: 'Staff Engineer' },
+  { level: 29, title: 'Principal Engineer' },
+  { level: 36, title: 'Reactor Architect' },
+  { level: 45, title: 'Living Legend' },
 ];
 
 export function careerTitle(level: number): string {
@@ -2772,7 +2830,7 @@ This is the *Dungeon Crawler Carl* layer, and the source of most of the fun. It 
 
 What happens when a level is cleared (`completeLevel`):
 
-1. **XP** for improved stars. +25% if the player's class matches the level's school (Type Sorcerer for TypeScript, Component Artificer for React). +50% if an XP boost is active, which uses one boost. Each level-up gives a box (bronze; silver every 5th level; gold every 10th) and 10 × level gold.
+1. **XP** for improved stars. +25% if the player's class matches the level's school (Type Sorcerer for TypeScript, Component Artificer for React). +50% if an XP boost is active, which uses one boost. Each level-up gives a box (bronze; silver every 5th level; gold every 10th) and 10 + 5 × level gold.
 2. **Gold**: on first clear, 10 (quiz 6, boss 40) + 5 per star, plus a **speed bonus** of 15 (30 for Speedrunners) if cleared under par: 6 min for a level, 3 for a quiz, 15 for a boss (×1.5 for Speedrunners). Bug Hunters get +20% gold.
 3. **Viewers**: (30 + 20 × floor index) × stars. ×2 on a first-try pass, ×3 for a boss, halved on replays, ×1.5 for Crowd Favourites. **Fan milestones** at 100, 1K, 5K, 25K, 100K, 500K, 1M and 5M viewers each send a Fan Box.
 4. **Skill points** (Part 5).
@@ -2802,6 +2860,7 @@ import {
   levelSchool,
   levelState,
   xpFor,
+  xpToReach,
   type Box,
   type ClassId,
   type Counters,
@@ -3073,20 +3132,17 @@ export function addXp(save: Save, amount: number, detail: string): Result {
   const events: Reward[] = [{ kind: 'xp', amount, detail }];
   const after = crawlerLevel(s.xp);
   for (let level = before.level + 1; level <= after.level; level++) {
-    const title = crawlerLevel(xpReachedAt(level)).title;
-    const prevTitle = crawlerLevel(xpReachedAt(level - 1)).title;
+    const title = crawlerLevel(xpToReach(level)).title;
+    const prevTitle = crawlerLevel(xpToReach(level - 1)).title;
     events.push({ kind: 'level-up', level, title, newTitle: title !== prevTitle });
     const tier: Tier = level % 10 === 0 ? 'gold' : level % 5 === 0 ? 'silver' : 'bronze';
     const r = addBox(s, tier, `Level-Up Box: level ${level}`);
-    s = { ...r.save, gold: r.save.gold + 10 * level };
-    events.push(...r.events, { kind: 'gold', amount: 10 * level, detail: `Level ${level} bonus` });
+    // Level-ups come often, so the gold bonus grows gently with level.
+    const gold = 10 + 5 * level;
+    s = { ...r.save, gold: r.save.gold + gold };
+    events.push(...r.events, { kind: 'gold', amount: gold, detail: `Level ${level} bonus` });
   }
   return { save: s, events };
-}
-
-function xpReachedAt(level: number) {
-  const n = level - 1;
-  return 25 * n * n + 75 * n;
 }
 
 export function addSkillPoints(save: Save, skills: SkillId[], points: number): Result {
@@ -3341,7 +3397,7 @@ export const ACHIEVEMENTS: Achievement[] = [
   { id: 'level-5', name: 'Getting Started', icon: '5️⃣', tier: 'bronze', description: 'Reach crawler level 5.', quip: 'Level 5. Junior developers have been hired for less.', earned: (s) => level(s) >= 5 },
   { id: 'level-10', name: 'Double Digits', icon: '🔢', tier: 'silver', description: 'Reach crawler level 10.', quip: 'Level 10! Please hold while we update your LinkedIn.', earned: (s) => level(s) >= 10 },
   { id: 'level-20', name: 'Veteran', icon: '🎖', tier: 'gold', description: 'Reach crawler level 20.', quip: 'Level 20. You\'ve seen things. Terrible things. Like `any`.', earned: (s) => level(s) >= 20 },
-  { id: 'level-28', name: 'Living Legend', icon: '🗿', tier: 'platinum', description: 'Reach crawler level 28.', quip: 'Level 28. There are statues of you on several moons.', earned: (s) => level(s) >= 28 },
+  { id: 'level-45', name: 'Living Legend', icon: '🗿', tier: 'platinum', description: 'Reach crawler level 45.', quip: 'Level 45. There are statues of you on several moons.', earned: (s) => level(s) >= 45 },
   { id: 'unboxing', name: 'Unboxing Video', icon: '📦', tier: 'bronze', description: 'Open your first loot box.', quip: 'Your first box! Four billion viewers just watched you open a box. This is what the galaxy wants.', earned: (s) => s.counters.boxesOpened >= 1 },
   { id: 'hoarder', name: 'Hoarder', icon: '🗃', tier: 'bronze', description: 'Have 10 unopened boxes at once.', quip: 'Ten unopened boxes. Opening them is the fun part. Why are you like this?', earned: (s) => s.boxes.length >= 10 },
   { id: 'box-addict', name: 'Box Addict', icon: '🎁', tier: 'gold', description: 'Open 50 loot boxes.', quip: 'Fifty boxes. Our lawyers would like us to remind you that loot boxes are entirely free here. Unlike elsewhere.', earned: (s) => s.counters.boxesOpened >= 50 },
@@ -7004,7 +7060,7 @@ console.log(`Built ${out}\nRun ./reactor-quest to play, or ./install.sh to add i
 
 ## Part 13. Tests
 
-`npm test` runs Vitest in jsdom: 385 tests in 8 files. The level proofs are the most important, because they are what lets you write 79 levels with confidence.
+`npm test` runs Vitest in jsdom: 408 tests in 8 files. The level proofs are the most important, because they are what lets you write 86 code levels with confidence.
 
 | File | What it proves |
 |---|---|
@@ -7013,7 +7069,7 @@ console.log(`Built ${out}\nRun ./reactor-quest to play, or ./install.sh to add i
 | `tests/themes.test.ts` | 1 default + 16 profiles, with unique ids and names, and every value a `#rrggbb` colour. No two look alike (summed RGB distance of bg, panel, accent, keyword and string > 150). Every profile is **readable**: text ≥ 5.5:1 and muted ≥ 3.8:1 on every surface, accent/gold/green/red ≥ 3.4:1 on panels, button text ≥ 4.5:1, syntax ≥ 3.8:1 (comments ≥ 3:1), and `scheme` matches the background's luminance. |
 | `tests/checker.test.ts` | `quickInfo` shows inferred types and React hook docs, and nothing on whitespace. `completions` offers members after a dot, locals and React exports in scope, and the props of a typed component inside JSX. |
 | `tests/runtime.test.ts` | Matchers pass and fail with good messages. `deepEqual` ignores undefined-valued keys. The sandbox captures console output and counts timers (one-shot timeouts stop counting once fired). Only `react` can be required. The stage renders, clicks and reads updates. Handler errors, would-be page reloads and render errors fail the check. The loop guard stops `while (true)` and leaves normal loops alone. |
-| `tests/progress.test.ts` | Star rules. The first clear is the first level-up. The curve gets steadily (not wildly) harder. Perfect play reaches Reactor Architect. Unlocking order and boss skip. Station power hits 100%. Garbage saves fall back to defaults, fields are validated one by one, saves round-trip, and v1 saves migrate. |
+| `tests/progress.test.ts` | Star rules. The first clear is the first level-up. The curve gets steadily (not wildly) harder. Perfect play reaches Reactor Architect, and every floor gives a level-up at least every three clears. Unlocking order and boss skip. Station power hits 100%. Garbage saves fall back to defaults, fields are validated one by one, saves round-trip, and v1 saves migrate. |
 | `tests/rewards.test.ts` | With a seeded RNG: clearing pays XP, gold, viewers, skill points and a box; same-star replays pay nothing; improvements pay the difference. Boss boxes guarantee the floor scroll. Floor clears bring a sponsor and a platinum box. Pet and class offers appear at the right time. Class and boost bonuses apply. The station clear gives a celestial box. Perfect play takes every skill past level 1. Better boxes are better on average. Legendary and celestial guarantees hold. Duplicates are salvaged. Floor scrolls never drop at random. Viewer milestones and Crowd Favourite upgrades work. Achievements are awarded once each, with titles. Persistence counts. Tokens and stars work. Quests are deterministic per day, count from the day's start and pay once. Streaks grow and reset. Shop purchases, one-time cosmetics and the class change fee work, and so does the arcade payout. |
 | `tests/markdown.test.tsx` | Inline spans render, tables honour escaped pipes, HTML in the source stays text, and **every lesson, brief and hint in the game renders without leftover `**`, backticks or `*` markers**. |
 
@@ -7189,7 +7245,7 @@ export const perfect: Outcome = { stars: 3, firstTry: true, failedRuns: 0, clean
 
 ## Part 14. The browser bot
 
-`npm run smoke` (`tools/smoke.mjs`) builds nothing itself; run `npm run build` first. It serves `dist/` with `startServer` on port 4390, launches headless Chromium with `playwright-core` (it uses `CHROMIUM_PATH` if set, else Playwright's own Chromium, else installed Chrome), and plays the game through the real UI at 1440×900. It prints ✓/✗ per step, saves screenshots to `test-results/`, and exits non-zero on any failure. `SMOKE_PLATFORM=mac` makes it use ⌘ shortcuts. `SMOKE_LEVELS=a,b` limits which levels it plays. There are 97 steps:
+`npm run smoke` (`tools/smoke.mjs`) builds nothing itself; run `npm run build` first. It serves `dist/` with `startServer` on port 4390, launches headless Chromium with `playwright-core` (it uses `CHROMIUM_PATH` if set, else Playwright's own Chromium, else installed Chrome), and plays the game through the real UI at 1440×900. It prints ✓/✗ per step, saves screenshots to `test-results/`, and exits non-zero on any failure. `SMOKE_PLATFORM=mac` makes it use ⌘ shortcuts. `SMOKE_LEVELS=a,b` limits which levels it plays. There are 104 steps:
 
 1. The title screen renders.
 2. **Begin** asks for a name (fill **Your name**, click **Go live**), then opens Floor 1 level 1, whose starter prints nothing when run.
@@ -7200,7 +7256,7 @@ export const perfect: Outcome = { stars: 3, firstTry: true, failedRuns: 0, clean
 7. Locked levels stay locked, and a floor's boss is open from the start.
 8. Character → Settings → "Open every system" works.
 9. Hovering a name shows its type, and typing a dot offers members.
-10. **For every code level** (79 steps): open it, put the solution in the editor (select all + insert text), Run with the keyboard shortcut, and see the victory screen.
+10. **For every code level** (86 steps): open it, put the solution in the editor (select all + insert text), Run with the keyboard shortcut, and see the victory screen.
 11. The companion and the class are offered, and chosen.
 12. Loot: a boss box guarantees a Codex scroll, which can be read.
 13. The Safe Room sells things.
@@ -7437,8 +7493,8 @@ These are real bugs from building the original. The code above already handles e
 ## Part 18. Definition of done
 
 - [ ] `npm run build` typechecks and builds with no errors.
-- [ ] `npm test` passes: every one of the 79 code levels is proven both ways, all 10 quizzes are valid, all 40 arcade cards match the compiler, all 17 profiles are readable and distinct, and the rewards, progress, runtime, checker and markdown tests pass.
-- [ ] `npm run smoke` passes all 97 steps.
+- [ ] `npm test` passes: every one of the 86 code levels is proven both ways, all 10 quizzes are valid, all 40 arcade cards match the compiler, all 17 profiles are readable and distinct, and the rewards, progress, runtime, checker and markdown tests pass.
+- [ ] `npm run smoke` passes all 104 steps.
 - [ ] `npm start` and the double-click launcher for each OS open the game in the browser. A second launch just opens the browser.
 - [ ] `npm run app:mac`, `app:win` and `app:linux` produce packages that install, launch, serve the game and uninstall cleanly.
 - [ ] CI is green on macOS, Windows and Linux.

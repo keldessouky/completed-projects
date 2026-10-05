@@ -47,7 +47,17 @@ describe('the levelling curve', () => {
     for (const l of ALL_LEVELS) s = completeLevel(s, l, perfect, rng).save;
     const lvl = crawlerLevel(s.xp);
     expect(lvl.title).toBe('Reactor Architect');
-    expect(lvl.level).toBeGreaterThanOrEqual(22);
+    expect(lvl.level).toBeGreaterThanOrEqual(36);
+  });
+  test('every floor brings a level-up at least every three clears', () => {
+    let s = emptySave();
+    const rng = seeded();
+    for (const deck of DECKS) {
+      const before = crawlerLevel(s.xp).level;
+      for (const l of deck.levels) s = completeLevel(s, l, perfect, rng).save;
+      const ups = crawlerLevel(s.xp).level - before;
+      expect(deck.levels.length / ups, deck.name).toBeLessThanOrEqual(3);
+    }
   });
 });
 

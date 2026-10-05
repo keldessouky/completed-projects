@@ -199,23 +199,35 @@ export function floorCleared(save: Save, floorIndex: number): boolean {
 
 // ---------------------------------------------------------------- crawler level
 
-/** Total XP needed to reach crawler level L. Level 2 comes after your first level clear. */
-export function xpToReach(level: number): number {
+/**
+ * XP to go from crawler level L to L+1. It starts at 100 (so your first level
+ * clear is your first level-up) and rises by 25 a level until level 11. After
+ * that it rises by only 6 a level: later levels pay more XP, so every floor
+ * brings a level-up every two or three clears.
+ */
+export function xpForNext(level: number): number {
   const n = level - 1;
-  return 25 * n * n + 75 * n;
+  return n <= 10 ? 100 + 25 * n : 350 + 6 * (n - 10);
+}
+
+/** Total XP needed to reach crawler level L. */
+export function xpToReach(level: number): number {
+  let total = 0;
+  for (let l = 1; l < level; l++) total += xpForNext(l);
+  return total;
 }
 
 export const MAX_LEVEL = 50;
 
 export const CAREER = [
   { level: 1, title: 'Intern' },
-  { level: 3, title: 'Junior Developer' },
-  { level: 6, title: 'Developer' },
-  { level: 10, title: 'Senior Developer' },
-  { level: 14, title: 'Staff Engineer' },
-  { level: 18, title: 'Principal Engineer' },
-  { level: 22, title: 'Reactor Architect' },
-  { level: 28, title: 'Living Legend' },
+  { level: 4, title: 'Junior Developer' },
+  { level: 9, title: 'Developer' },
+  { level: 16, title: 'Senior Developer' },
+  { level: 22, title: 'Staff Engineer' },
+  { level: 29, title: 'Principal Engineer' },
+  { level: 36, title: 'Reactor Architect' },
+  { level: 45, title: 'Living Legend' },
 ];
 
 export function careerTitle(level: number): string {

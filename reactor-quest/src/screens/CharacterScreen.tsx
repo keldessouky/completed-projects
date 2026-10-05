@@ -42,7 +42,7 @@ export function CharacterScreen({ tab: initial }: { tab?: string }) {
           <div><b>{done}/{ALL_LEVELS.length}</b><span>systems online</span></div>
           <div><b>{stars}</b><span>stars of {ALL_LEVELS.length * 3}</span></div>
           <div><b>{formatViewers(save.viewers)}</b><span>viewers</span></div>
-          <div><b>{save.achievements.length}/{ACHIEVEMENTS.length}</b><span>achievements</span></div>
+          <div><b>{ACHIEVEMENTS.filter((a) => save.achievements.includes(a.id)).length}/{ACHIEVEMENTS.length}</b><span>achievements</span></div>
           <div><b>{save.streak.best}</b><span>best streak</span></div>
         </div>
       </section>

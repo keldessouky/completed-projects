@@ -259,11 +259,12 @@ Something good happens every few minutes, and most of it is announced by
 right.
 
 - **Crawler levels and career titles.** XP from every level, quiz and arcade
-  round fills your crawler level. The curve is gentle: your first clears level
-  you up almost every time, and later levels arrive steadily. Your career title
-  climbs with you: Intern → Junior Developer → Developer → Senior Developer →
-  Staff Engineer → Principal Engineer → **Reactor Architect** (which clearing
-  the whole station earns) → Living Legend.
+  round fills your crawler level. The curve is tuned so that every floor, the
+  first or the last, brings a level-up every two or three clears. Your career
+  title climbs with you: Intern → Junior Developer → Developer → Senior
+  Developer → Staff Engineer → Principal Engineer → **Reactor Architect**
+  (which clearing the whole station earns, around level 41) → Living Legend
+  (level 45, for those who keep going).
 - **Loot boxes** in six tiers, Bronze, Silver, Gold, Platinum, Legendary and
   Celestial. You get one for every first clear, every level-up, every
   achievement and every daily quest, and better ones for bosses, flawless runs
@@ -304,7 +305,7 @@ right.
 
 ![The character sheet: level, class, companion and skills](docs/character.png)
 
-## What you'll learn: 10 floors, 89 levels
+## What you'll learn: 10 floors, 96 levels
 
 The first three floors teach programming itself, assuming no prior knowledge.
 The rest take you through TypeScript and React to the standard professional
@@ -313,17 +314,17 @@ teams expect. Each floor's outcome is shown on the map.
 | Floor | You'll be able to… | Teaches | Boss |
 |---|---|---|---|
 | **1. Boot Sequence** | write small programs | `console.log`, strings, numbers and maths, variables, template strings, booleans, functions, `if`/`else`, `&&` `\|\|` `!` | Boot Diagnostics |
-| **2. Supply Lines** | process collections of data | arrays, `for`/`while` loops, objects, lists of objects, `map`, `filter`, `find`/`some`/`every`, `reduce` | Inventory Audit |
+| **2. Supply Lines** | process collections of data | lists and indexes, arrays, `for…of` and `for`/`while` loops, objects, lists of objects, `map`, `filter`, `find`/`some`/`every`, `reduce` | Inventory Audit |
 | **3. Modern Systems** | write JavaScript like a professional | functions as values, destructuring, spread/rest, optional chaining, closures, string methods, errors and `try`/`catch`, classes, `async`/`await` | Comms Decoder |
 | **4. Type Foundry** | describe data precisely with types | annotations, return types, inference, reading compiler errors, arrays and tuples, interfaces, unions and narrowing | Reactor Telemetry |
 | **5. Generics Lab** | write reusable, type-safe code | literal types, discriminated unions, generics, constraints and `keyof`, utility types | a fully typed event bus |
-| **6. Type Vault** | model untrusted data and whole APIs in types | type guards, parsing `unknown`, errors as values (`Result`), mapped, conditional and template literal types, `satisfies` and `as const` | Schema Forge |
+| **6. Type Vault** | model untrusted data and whole APIs in types | `unknown` instead of `any`, type guards, parsing `unknown`, errors as values (`Result`), mapped, conditional and template literal types, `satisfies` and `as const` | Schema Forge |
 | **7. Component Bay** | build UIs from typed components | components and JSX, typed props, `children` and composition, lists and keys, conditional rendering | Crew Roster |
 | **8. Control Room** | build interactive screens | `useState`, typed state and callbacks, controlled inputs, forms, immutable updates, lifting state up | Launch Checklist |
-| **9. Reactor Core** | wire components to timers, the DOM and shared state | `useEffect` and cleanup, `useRef`, `useReducer`, custom hooks, context, generic components | Core Reboot |
-| **10. Production Deck** | build React apps the way professional teams do | loading and error states, race conditions, debouncing, memoization, accessible forms, keyboard navigation, error boundaries, writing good tests | Mission Control |
+| **9. Reactor Core** | wire components to timers, the DOM and shared state | `useEffect` and cleanup, `useRef`, `useReducer` and reducers with rules, custom hooks, context, generic components | Core Reboot |
+| **10. Production Deck** | build React apps the way professional teams do | fetching data, loading and error states, race conditions, debouncing, memoization, labels and ARIA errors, accessible forms, ARIA states and keys, keyboard navigation, error boundaries, writing good tests | Mission Control |
 
-79 of the levels are code, written and run for real. The other 10 are quizzes
+86 of the levels are code, written and run for real. The other 10 are quizzes
 ("Read the Code", "Predict the Output", "JSX Inspection"…) that train you to read
 code and predict what it does. The arcade holds 40 compile-or-not cards.
 
@@ -376,11 +377,11 @@ code and predict what it does. The arcade holds 40 compile-or-not cards.
 ## Proven playable
 
 ```bash
-npm test        # 399 tests
-npm run smoke   # 97 checks in headless Chromium/Chrome
+npm test        # 408 tests
+npm run smoke   # 104 checks in headless Chromium/Chrome
 ```
 
-- **`npm test`** checks every one of the 79 code levels both ways: the reference
+- **`npm test`** checks every one of the 86 code levels both ways: the reference
   solution compiles cleanly and passes every type and behaviour check, *and* the
   starter code does not, so every level has something to do. Every arcade card's
   verdict is checked against the real compiler. Every quiz answer is valid. Every

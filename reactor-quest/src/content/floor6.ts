@@ -1,6 +1,6 @@
 import type { Deck } from '../game/types';
 import { CheckFailure } from '../engine/runtime';
-import { codeFiles, fnOf } from './helpers';
+import { codeFiles, fnOf, mustNotUse } from './helpers';
 
 /** Run fn and return the message it throws — or fail the check if it doesn't throw. */
 function thrown(fn: () => unknown, what: string): string {
@@ -21,12 +21,102 @@ export const floor6: Deck = {
   levels: [
     {
       kind: 'code',
+      id: 'unknown-values',
+      title: 'unknown, Not any',
+      system: 'Signal Scrubber',
+      skills: ['narrowing', 'types'],
+      ...codeFiles('unknown-values', 'ts'),
+      brief: `**ARIA:** Floor 6: the Type Vault, where the station keeps its most sophisticated code. It starts at the door. Everything arriving from outside the station is untrusted: we don't know what it is until we look.
+
+The signal scrubber treats incoming data as \`any\`. It crashes about twice a minute, and the compiler, which could have warned us, was told not to look.`,
+      lesson: `## any switches checking off
+
+\`any\` means "trust me". The compiler stops checking anything about that value:
+
+\`\`\`ts
+function shout(x: any) {
+  return x.toUpperCase();   // compiles…
+}
+shout(42);                  // …and crashes: 42 has no toUpperCase
+\`\`\`
+
+And \`any\` spreads: whatever you get *from* an \`any\` is \`any\` too.
+
+## unknown is the safe version
+
+\`unknown\` also accepts every value, but you can't *use* it until you've checked what it is:
+
+\`\`\`ts
+function shout(x: unknown) {
+  x.toUpperCase();          // ✗ 'x' is of type 'unknown'
+}
+\`\`\`
+
+That error is a gift. It's every crash, found before it happens.
+
+## Narrowing
+
+Each check teaches the compiler something. Inside the \`if\`, the type is **narrowed**:
+
+\`\`\`ts
+if (typeof x === "string") { x.toUpperCase(); }   // string
+if (typeof x === "number") { x.toFixed(1); }      // number
+if (typeof x === "boolean") { … }                 // boolean
+if (Array.isArray(x)) { x.length; }               // an array
+if (x === null) { … }                             // null
+\`\`\`
+
+Watch out: \`typeof null\` is \`"object"\`, a famous JavaScript quirk. Check for null with \`x === null\`.
+
+## Return early
+
+A chain of \`if\`s that each \`return\` reads top to bottom, with the fallback at the end:
+
+\`\`\`ts
+if (typeof x === "string") return "text";
+if (typeof x === "number") return "number";
+return "unknown";
+\`\`\``,
+      hints: [
+        'Change `x: any` to `x: unknown` in both functions. Now hover the red squiggles: the compiler refuses to call methods on a value it knows nothing about.',
+        'Check one type at a time and return: ``if (typeof x === "string") return `text: ${x.toUpperCase()}`;`` then the same for `"number"` (with `x.toFixed(1)`) and `"boolean"`, then `Array.isArray(x)` and `x === null`, and finally `return "unknown";`.',
+        '`signalLength`: `if (typeof x === "string" || Array.isArray(x)) return x.length;` then `return 0;`.',
+      ],
+      checks: [
+        { label: 'Strings are upper-cased: "text: HELLO"', run: ({ mod, expect }) => expect(fnOf(mod, 'describeSignal')('hello')).toBe('text: HELLO') },
+        { label: 'Numbers get one decimal place', run: ({ mod, expect }) => {
+          expect(fnOf(mod, 'describeSignal')(42.5)).toBe('number: 42.5');
+          expect(fnOf(mod, 'describeSignal')(7)).toBe('number: 7.0');
+        } },
+        { label: 'Booleans, lists and null', run: ({ mod, expect }) => {
+          const d = fnOf(mod, 'describeSignal');
+          expect(d(true)).toBe('flag: on');
+          expect(d(false)).toBe('flag: off');
+          expect(d([1, 2, 3])).toBe('list of 3');
+          expect(d(null)).toBe('empty');
+        } },
+        { label: 'Anything else is "unknown"', run: ({ mod, expect }) => {
+          expect(fnOf(mod, 'describeSignal')(undefined)).toBe('unknown');
+          expect(fnOf(mod, 'describeSignal')({ freq: 9 })).toBe('unknown');
+        } },
+        { label: 'signalLength measures strings and arrays, and is 0 otherwise', run: ({ mod, expect }) => {
+          const len = fnOf(mod, 'signalLength');
+          expect(len('abc')).toBe(3);
+          expect(len([1, 2])).toBe(2);
+          expect(len(5)).toBe(0);
+          expect(len(null)).toBe(0);
+        } },
+        { label: 'No `any` left', run: ({ source }) => mustNotUse(source, /\bany\b/, 'Replace every `any` with `unknown`, then narrow before you use the value.') },
+      ],
+    },
+    {
+      kind: 'code',
       id: 'type-guards',
       title: 'Type Guards',
       system: 'Deep Scanner',
       skills: ['narrowing', 'type-level'],
       ...codeFiles('type-guards', 'ts'),
-      brief: `**ARIA:** Floor 6: the Type Vault, where the station keeps its most sophisticated code. The deep scanner reports *things*. Ships, cargo, debris, once a very confused pigeon. It needs to work out what each thing is, and tell the compiler what it found.`,
+      brief: `**ARIA:** The deep scanner reports *things*. Ships, cargo, debris, once a very confused pigeon. It needs to work out what each thing is, and tell the compiler what it found.`,
       lesson: `## Narrowing you already know
 
 \`typeof x === "string"\`, \`Array.isArray(x)\`, \`x === null\` and checking a tag like \`x.kind === "ship"\` all **narrow** a type inside an \`if\`.

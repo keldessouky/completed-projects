@@ -86,14 +86,87 @@ export const floor10: Deck = {
   levels: [
     {
       kind: 'code',
+      id: 'first-fetch',
+      title: 'Fetching Data',
+      system: 'Personnel Server',
+      skills: ['data', 'effects'],
+      ...codeFiles('first-fetch', 'tsx'),
+      brief: `**ARIA:** The Production Deck. This is where code meets the real world: slow networks, failing servers, impatient users, screen readers, and thousands of ships. Everything on this floor is what professional teams do every day.
+
+First, the personnel server. The crew list asks it for names on every single render. It has asked four million times today. The server has started replying in all capitals.`,
+      lesson: `## Data arrives later
+
+A request to a server doesn't answer straight away. It returns a **Promise**: a placeholder for a value that isn't ready yet. \`.then(fn)\` runs \`fn\` with the value once it arrives:
+
+\`\`\`ts
+load().then((crew) => console.log(crew));   // runs later, when the answer comes
+\`\`\`
+
+## Never request during render
+
+React may call your component function many times: every time state or props change. Code in the function body runs **every time**. A request there, whose answer sets state, causes a render, which sends another request, which sets state… forever.
+
+## useEffect: after the render, when something changes
+
+Work that reaches outside React belongs in an **effect**, which runs after the component is on screen. The dependency list says when to run it again:
+
+\`\`\`tsx
+useEffect(() => {
+  load().then(setCrew);
+}, [load]);   // once when it appears, and again only if \`load\` changes
+\`\`\`
+
+## "Not loaded yet" is a state too
+
+Until the answer arrives, there's nothing to show. Use \`null\` to mean "not loaded yet", and show a message for it:
+
+\`\`\`tsx
+const [crew, setCrew] = useState<string[] | null>(null);
+
+if (crew === null) return <p className="loading">Loading crew…</p>;
+\`\`\`
+
+Next level: what happens when the server *fails*.`,
+      hints: [
+        'Move the request into an effect: `useEffect(() => { load().then(setCrew); }, [load]);`',
+        'Start the state as "not loaded yet": `useState<string[] | null>(null)`.',
+        'Before the list: `if (crew === null) return <p className="loading">Loading crew…</p>;`',
+      ],
+      preview: (mod, h) => h(comp(mod, 'CrewList'), { load: () => new Promise((r) => setTimeout(() => r(['Ada', 'Bo', 'Cy']), 1200)) }),
+      checks: [
+        { label: 'Shows "Loading crew…" while waiting', run: async ({ mod, h, render, expect }) => {
+          const { request } = controlled<string[]>();
+          const view = await render(h(comp(mod, 'CrewList'), { load: request }));
+          expect(view.get('.loading').textContent).toBe('Loading crew…');
+        } },
+        { label: 'Shows the names when they arrive', run: async ({ mod, h, render, expect }) => {
+          const { request, calls } = controlled<string[]>();
+          const view = await render(h(comp(mod, 'CrewList'), { load: request }));
+          calls[0].d.resolve(['Ada', 'Bo']);
+          await tick();
+          expect(view.queryAll('li').map((li) => li.textContent)).toEqual(['Ada', 'Bo']);
+          expect(view.query('.loading')).toBeNull();
+        } },
+        { label: 'Asks the server only once', run: async ({ mod, h, render, expect }) => {
+          const { request, calls } = controlled<string[]>();
+          await render(h(comp(mod, 'CrewList'), { load: request }));
+          calls[0].d.resolve(['Ada']);
+          await tick();
+          await tick();
+          if (calls.length > 1) throw new CheckFailure(`The server was asked ${calls.length} times. Ask once, from a useEffect with [load] as its dependencies.`);
+          expect(calls.length).toBe(1);
+        } },
+        { label: 'Requests from an effect, not during render', run: ({ source }) => mustUse(source, /useEffect\s*\(/, 'Put the request inside useEffect, so it runs after the render instead of during it.') },
+      ],
+    },
+    {
+      kind: 'code',
       id: 'loading-states',
       title: 'Loading and Error States',
       system: 'Crew Directory',
       skills: ['data', 'effects', 'state'],
       ...codeFiles('loading-states', 'tsx'),
-      brief: `**ARIA:** The Production Deck. This is where code meets the real world: slow networks, failing servers, impatient users, screen readers, and thousands of ships. Everything here is what professional teams do every day.
-
-The crew directory loads names from the personnel server. While it waits, it shows nothing. When the server fails, it shows nothing *forever*. Users assume it's broken. Because it is.`,
+      brief: `**ARIA:** The personnel server answers once now, on a good day. On a bad day it doesn't answer at all, and the crew directory shows "Loading…" *forever*. Users assume it's broken. Because it is.`,
       lesson: `## Three states, always
 
 Anything loaded over the network is in one of three states, and the UI must show all three:
@@ -440,12 +513,93 @@ memo + stable props = skipped renders. Each one is useless without the other.`,
     },
     {
       kind: 'code',
+      id: 'oxygen-field',
+      title: 'Labels and Error Messages',
+      system: 'Oxygen Console',
+      skills: ['a11y', 'components'],
+      ...codeFiles('oxygen-field', 'tsx'),
+      brief: `**ARIA:** The oxygen console works if you can see the screen. Lieutenant Osei uses a screen reader. To her, it's an input with no name, next to an error that is never read out. That's not just unkind. In many countries it's illegal, and it's always a bug.`,
+      lesson: `## Labels
+
+Every input needs a real \`<label>\`, connected to it with \`htmlFor\` → \`id\`:
+
+\`\`\`tsx
+<label htmlFor="email">Email</label>
+<input id="email" />
+\`\`\`
+
+A screen reader announces the label when the input gets focus. Clicking the label focuses the input, which also helps anyone with shaky hands. A \`<p>\` that just happens to sit nearby does neither: to assistive technology, it isn't connected to anything.
+
+(In JSX it's \`htmlFor\`, not \`for\`, because \`for\` is a keyword in JavaScript.)
+
+## Errors people can perceive
+
+Red text is invisible to someone who can't see it. When a field is invalid, say so in a way assistive technology understands:
+
+\`\`\`tsx
+<input id="email" aria-invalid="true" aria-describedby="email-error" />
+<p id="email-error">Enter a valid email</p>
+\`\`\`
+
+- \`aria-invalid\` marks the field as having a problem.
+- \`aria-describedby\` points at the element holding the message, by its \`id\`. The message is read out whenever the field has focus.
+
+## Only when it's true
+
+When the value is fine, remove both attributes. In React, an attribute set to \`undefined\` isn't rendered at all:
+
+\`\`\`tsx
+aria-invalid={invalid ? true : undefined}
+\`\`\``,
+      hints: [
+        'Swap the `<p>` for `<label htmlFor="oxygen">Oxygen level (%)</label>` and give the input `id="oxygen"`.',
+        'Replace the red `<span>` with `{invalid && <p id="oxygen-error">Oxygen must be between 19 and 23</p>}`.',
+        'On the input: `aria-invalid={invalid ? true : undefined}` and `aria-describedby={invalid ? "oxygen-error" : undefined}`.',
+      ],
+      preview: (mod, h) => h(comp(mod, 'OxygenField')),
+      checks: [
+        { label: 'The input has a connected <label>', run: async ({ mod, h, render, expect }) => {
+          const view = await render(h(comp(mod, 'OxygenField')));
+          if (!view.query('label[for="oxygen"]')) throw new CheckFailure('Add <label htmlFor="oxygen"> for the input.');
+          if (!view.query('input#oxygen')) throw new CheckFailure('Give the input id="oxygen", so the label points at it.');
+          expect(view.get('label[for="oxygen"]').textContent).toBe('Oxygen level (%)');
+        } },
+        { label: 'No error while the value is fine', run: async ({ mod, h, render, expect }) => {
+          const view = await render(h(comp(mod, 'OxygenField')));
+          expect(view.query('#oxygen-error')).toBeNull();
+          await view.type('input', '21');
+          expect(view.query('#oxygen-error')).toBeNull();
+          expect(view.get('input').getAttribute('aria-invalid')).toBeNull();
+        } },
+        { label: 'An out-of-range value shows the error message', run: async ({ mod, h, render, expect }) => {
+          const view = await render(h(comp(mod, 'OxygenField')));
+          await view.type('input', '30');
+          expect(view.get('#oxygen-error').textContent).toBe('Oxygen must be between 19 and 23');
+        } },
+        { label: 'The error is linked to the input with ARIA', run: async ({ mod, h, render, expect }) => {
+          const view = await render(h(comp(mod, 'OxygenField')));
+          await view.type('input', '12');
+          expect(view.get('input').getAttribute('aria-invalid')).toBe('true');
+          expect(view.get('input').getAttribute('aria-describedby')).toBe('oxygen-error');
+        } },
+        { label: 'Fixing the value clears the error', run: async ({ mod, h, render, expect }) => {
+          const view = await render(h(comp(mod, 'OxygenField')));
+          await view.type('input', '30');
+          await view.type('input', '20');
+          expect(view.query('#oxygen-error')).toBeNull();
+          expect(view.get('input').getAttribute('aria-invalid')).toBeNull();
+          expect(view.get('input').getAttribute('aria-describedby')).toBeNull();
+        } },
+      ],
+    },
+    {
+      kind: 'code',
       id: 'accessible-form',
       title: 'Accessible Forms',
       system: 'Crew Registration',
       skills: ['a11y', 'state'],
       ...codeFiles('accessible-form', 'tsx'),
-      brief: `**ARIA:** Crew registration works if you can see the screen and use a mouse. Lieutenant Osei uses a screen reader. To her, the form is two unlabelled boxes and a button that silently does nothing. That's not just unkind. In many countries it's illegal, and it's always a bug.`,
+      brief: `**ARIA:** The oxygen console now speaks to Lieutenant Osei's screen reader. Crew registration still doesn't: two unlabelled boxes, and a button that silently does nothing. This one has two fields, so the *timing* matters too: don't shout errors before anyone has typed, and after a failed submit, take the keyboard straight to the problem.`,
       lesson: `## Labels
 
 Every input needs a real \`<label>\`, connected by \`htmlFor\` → \`id\`:
@@ -481,7 +635,7 @@ After a failed submit, move keyboard focus to the **first invalid field** with a
 
 Errors come straight from the values: \`const errors = validate(values)\`. Don't keep them in their own state, where they can drift out of sync.`,
       hints: [
-        'Give each input an `id` and a matching `<label htmlFor>`. Keep `touched` state per field, set it in `onBlur`, and set both to true on submit.',
+        'Keep a `touched` flag per field: `useState({ callsign: false, email: false })`. Set a field\'s flag in its `onBlur`, and set both to true on submit.',
         'Compute the errors from the values on every render. When a field is touched and has an error, render `<p id="callsign-error">` and give the input `aria-invalid` and `aria-describedby="callsign-error"`.',
         'On submit, find the first invalid field and call `refs[field].current?.focus()`. If there are none, call `onRegister` with the trimmed values.',
       ],
@@ -529,6 +683,91 @@ Errors come straight from the values: \`const errors = validate(values)\`. Don't
           await view.type('#email', 'nova@orrery.space');
           await view.submit();
           expect(onRegister).toBeCalledWith({ callsign: 'Nova', email: 'nova@orrery.space' });
+        } },
+      ],
+    },
+    {
+      kind: 'code',
+      id: 'disclosure',
+      title: 'ARIA States and Keys',
+      system: 'Incident Reports',
+      skills: ['a11y', 'hooks'],
+      ...codeFiles('disclosure', 'tsx'),
+      brief: `**ARIA:** Incident reports fold away until you open them. With a mouse, anyway. With a keyboard you can't even reach the title, and a screen reader has no idea it opens anything. Before we fix the bridge's tabs, let's get one small widget exactly right.`,
+      lesson: `## Use the real element first
+
+A \`<div onClick>\` *looks* clickable, but a keyboard can't reach it and a screen reader doesn't know it does anything. A \`<button>\` gets all of that for free: it's in the Tab order, Enter and Space press it, and it's announced as a button. **The first rule of ARIA is: don't use ARIA when a real element does the job.**
+
+## ARIA states
+
+What a native element can't say, ARIA attributes can. A button that shows and hides a panel says whether the panel is open, and which element it controls:
+
+\`\`\`tsx
+<button aria-expanded={open} aria-controls="details-panel">Details</button>
+{open && <div id="details-panel">…</div>}
+\`\`\`
+
+A screen reader now announces "Details, button, collapsed" and then "expanded".
+
+## Keys
+
+Keyboard users expect **Escape** to close things. Listen for it with \`onKeyDown\` and check \`event.key\`:
+
+\`\`\`tsx
+function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+  if (event.key === "Escape") { … }
+}
+\`\`\`
+
+Put the handler on the wrapper and it hears keys pressed on the button *and* inside the panel, because key events **bubble** up through their parents.
+
+## Don't lose the user's place
+
+When the panel closes, whatever had focus inside it disappears. Move focus back to the button with a ref, so keyboard users carry on from where they were:
+
+\`\`\`tsx
+const button = useRef<HTMLButtonElement>(null);
+button.current?.focus();
+\`\`\``,
+      hints: [
+        'Replace `<div className="summary">` with a `<button>`, keeping the same `onClick` and text. Give the panel `id="details-panel"`.',
+        'On the button: `aria-expanded={open}` and `aria-controls="details-panel"`.',
+        'Make `const button = useRef<HTMLButtonElement>(null);`, attach it with `ref={button}`, and put `onKeyDown` on the wrapper `<div>`: if `event.key === "Escape"`, call `setOpen(false)` and `button.current?.focus()`.',
+      ],
+      preview: (mod, h) => h(comp(mod, 'Details'), { summary: 'Incident 7: coolant leak', children: 'Deck 4 sealed at 03:12. Repair crew dispatched. No injuries.' }),
+      checks: [
+        { label: 'The toggle is a real <button>', run: async ({ mod, h, render, expect }) => {
+          const view = await render(h(comp(mod, 'Details'), { summary: 'Incident 7', children: 'Report' }));
+          const b = view.query('button');
+          if (!b) throw new CheckFailure('Use a <button> for the toggle. A <div> with onClick can\'t be reached with the keyboard.');
+          expect(b.textContent).toBe('Incident 7');
+        } },
+        { label: 'aria-expanded and aria-controls describe the panel', run: async ({ mod, h, render, expect }) => {
+          const view = await render(h(comp(mod, 'Details'), { summary: 'Incident 7', children: 'Report' }));
+          const b = view.get('button');
+          expect(b.getAttribute('aria-expanded')).toBe('false');
+          expect(b.getAttribute('aria-controls')).toBe('details-panel');
+          expect(view.query('#details-panel')).toBeNull();
+          await view.click(b);
+          expect(b.getAttribute('aria-expanded')).toBe('true');
+          expect(view.get('#details-panel').textContent).toBe('Report');
+        } },
+        { label: 'Clicking again closes it', run: async ({ mod, h, render, expect }) => {
+          const view = await render(h(comp(mod, 'Details'), { summary: 'Incident 7', children: 'Report' }));
+          await view.click('button');
+          await view.click('button');
+          expect(view.query('#details-panel')).toBeNull();
+          expect(view.get('button').getAttribute('aria-expanded')).toBe('false');
+        } },
+        { label: 'Escape closes it and returns focus to the button', run: async ({ mod, h, render, expect }) => {
+          const view = await render(h(comp(mod, 'Details'), { summary: 'Incident 7', children: 'Report' }));
+          await view.click('button');
+          await view.key('#details-panel', 'Escape');
+          expect(view.query('#details-panel')).toBeNull();
+          expect(document.activeElement).toBe(view.get('button'));
+          await view.click('button');
+          await view.key('button', 'Escape');
+          expect(view.query('#details-panel')).toBeNull();
         } },
       ],
     },

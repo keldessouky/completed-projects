@@ -14,6 +14,7 @@ import {
   levelSchool,
   levelState,
   xpFor,
+  xpToReach,
   type Box,
   type ClassId,
   type Counters,
@@ -285,20 +286,17 @@ export function addXp(save: Save, amount: number, detail: string): Result {
   const events: Reward[] = [{ kind: 'xp', amount, detail }];
   const after = crawlerLevel(s.xp);
   for (let level = before.level + 1; level <= after.level; level++) {
-    const title = crawlerLevel(xpReachedAt(level)).title;
-    const prevTitle = crawlerLevel(xpReachedAt(level - 1)).title;
+    const title = crawlerLevel(xpToReach(level)).title;
+    const prevTitle = crawlerLevel(xpToReach(level - 1)).title;
     events.push({ kind: 'level-up', level, title, newTitle: title !== prevTitle });
     const tier: Tier = level % 10 === 0 ? 'gold' : level % 5 === 0 ? 'silver' : 'bronze';
     const r = addBox(s, tier, `Level-Up Box: level ${level}`);
-    s = { ...r.save, gold: r.save.gold + 10 * level };
-    events.push(...r.events, { kind: 'gold', amount: 10 * level, detail: `Level ${level} bonus` });
+    // Level-ups come often, so the gold bonus grows gently with level.
+    const gold = 10 + 5 * level;
+    s = { ...r.save, gold: r.save.gold + gold };
+    events.push(...r.events, { kind: 'gold', amount: gold, detail: `Level ${level} bonus` });
   }
   return { save: s, events };
-}
-
-function xpReachedAt(level: number) {
-  const n = level - 1;
-  return 25 * n * n + 75 * n;
 }
 
 export function addSkillPoints(save: Save, skills: SkillId[], points: number): Result {
@@ -553,7 +551,7 @@ export const ACHIEVEMENTS: Achievement[] = [
   { id: 'level-5', name: 'Getting Started', icon: '5️⃣', tier: 'bronze', description: 'Reach crawler level 5.', quip: 'Level 5. Junior developers have been hired for less.', earned: (s) => level(s) >= 5 },
   { id: 'level-10', name: 'Double Digits', icon: '🔢', tier: 'silver', description: 'Reach crawler level 10.', quip: 'Level 10! Please hold while we update your LinkedIn.', earned: (s) => level(s) >= 10 },
   { id: 'level-20', name: 'Veteran', icon: '🎖', tier: 'gold', description: 'Reach crawler level 20.', quip: 'Level 20. You\'ve seen things. Terrible things. Like `any`.', earned: (s) => level(s) >= 20 },
-  { id: 'level-28', name: 'Living Legend', icon: '🗿', tier: 'platinum', description: 'Reach crawler level 28.', quip: 'Level 28. There are statues of you on several moons.', earned: (s) => level(s) >= 28 },
+  { id: 'level-45', name: 'Living Legend', icon: '🗿', tier: 'platinum', description: 'Reach crawler level 45.', quip: 'Level 45. There are statues of you on several moons.', earned: (s) => level(s) >= 45 },
   { id: 'unboxing', name: 'Unboxing Video', icon: '📦', tier: 'bronze', description: 'Open your first loot box.', quip: 'Your first box! Four billion viewers just watched you open a box. This is what the galaxy wants.', earned: (s) => s.counters.boxesOpened >= 1 },
   { id: 'hoarder', name: 'Hoarder', icon: '🗃', tier: 'bronze', description: 'Have 10 unopened boxes at once.', quip: 'Ten unopened boxes. Opening them is the fun part. Why are you like this?', earned: (s) => s.boxes.length >= 10 },
   { id: 'box-addict', name: 'Box Addict', icon: '🎁', tier: 'gold', description: 'Open 50 loot boxes.', quip: 'Fifty boxes. Our lawyers would like us to remind you that loot boxes are entirely free here. Unlike elsewhere.', earned: (s) => s.counters.boxesOpened >= 50 },

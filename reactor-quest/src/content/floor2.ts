@@ -1,6 +1,6 @@
 import type { Deck } from '../game/types';
 import { CheckFailure } from '../engine/runtime';
-import { codeFiles, fnOf, mustNotUse, mustUse } from './helpers';
+import { codeFiles, fnOf, line, mustNotUse, mustUse } from './helpers';
 
 const CREW = [
   { name: 'Ada', role: 'engineer', age: 34, onDuty: true },
@@ -26,12 +26,82 @@ export const floor2: Deck = {
   levels: [
     {
       kind: 'code',
+      id: 'lists',
+      title: 'Lists',
+      system: 'Cargo Lift',
+      skills: ['arrays'],
+      ...codeFiles('lists', 'ts'),
+      brief: `**ARIA:** Floor 2: Supply Lines. Down here, nothing comes in ones. Crates, crew, sensors, invoices. Everything is a *list*.
+
+The cargo lift is holding a perfectly good list of crates. Its display just can't read it. It keeps announcing the wrong crate with great confidence.`,
+      lesson: `## Arrays
+
+A list of values in code is called an **array**. Write the values between square brackets, separated by commas:
+
+\`\`\`ts
+const crates = ["coolant", "fuses", "rations"];
+const weights = [12, 40, 7];
+\`\`\`
+
+## Reading one item
+
+Every item has a numbered position called its **index**. Counting starts at **0**, not 1:
+
+\`\`\`ts
+crates[0]   // "coolant"
+crates[1]   // "fuses"
+crates[2]   // "rations"
+\`\`\`
+
+Starting at 0 feels odd for about a week. Then it feels normal forever.
+
+## How many?
+
+\`.length\` is how many items the array holds:
+
+\`\`\`ts
+crates.length   // 3
+\`\`\`
+
+Since the first index is 0, the **last** index is always one less than the length. This works for a list of any size:
+
+\`\`\`ts
+crates[crates.length - 1]   // "rations"
+\`\`\`
+
+## Adding an item
+
+\`.push(item)\` adds an item to the end. The array grows, and its length goes up by one:
+
+\`\`\`ts
+crates.push("tools");
+crates.length   // 4
+\`\`\``,
+      hints: [
+        'The item at index 1 is `crates[1]`. Put that inside `console.log( )` instead of the word in quotes.',
+        '`crates.length` is the count. The last index is one less: `crates[crates.length - 1]`.',
+        'Add `crates.push("tools");` on its own line, then `console.log(crates.length);` after it.',
+      ],
+      checks: [
+        { label: 'Line 1 prints the crate at index 1 ("fuses")', run: ({ logs, expect }) => expect(line(logs, 0)).toBe('fuses') },
+        { label: 'Line 2 prints how many crates there are (3)', run: ({ logs, expect }) => expect(line(logs, 1)).toBe('3') },
+        { label: 'Line 3 prints the last crate ("rations")', run: ({ logs, expect }) => expect(line(logs, 2)).toBe('rations') },
+        { label: 'After pushing "tools", line 4 prints the new length (4)', run: ({ logs, expect }) => expect(line(logs, 3)).toBe('4') },
+        { label: 'Reads the answers from the array', run: ({ source }) => {
+          mustNotUse(source, /console\.log\(\s*["'`]/, 'Print values read from the array, like crates[1], not words typed in quotes.');
+          mustNotUse(source, /console\.log\(\s*\d/, 'Let the array count itself: crates.length, not a number you typed.');
+          mustUse(source, /crates\s*\.\s*push\s*\(/, 'Add "tools" with crates.push("tools").');
+        } },
+      ],
+    },
+    {
+      kind: 'code',
       id: 'arrays',
       title: 'Arrays',
       system: 'Cargo Racks',
       skills: ['arrays'],
       ...codeFiles('arrays', 'ts'),
-      brief: `**ARIA:** Floor 2: Supply Lines. Down here, nothing comes in ones. Crates, crew, sensors, invoices. Everything is a *list*. The cargo racks have forgotten how to read theirs.`,
+      brief: `**ARIA:** The cargo racks have forgotten how to read their lists. This time, wrap the reading in functions, so the racks can ask about *any* list: three crates or three thousand.`,
       lesson: `## Arrays
 
 An **array** is an ordered list of values, written in square brackets:
@@ -89,6 +159,66 @@ crates.push("tools");    // crates is now 4 items long
           const list = ['coolant', 'fuses'];
           expect(fnOf(mod, 'addCrate')(list, 'tools')).toBe(3);
           expect(list).toEqual(['coolant', 'fuses', 'tools']);
+        } },
+      ],
+    },
+    {
+      kind: 'code',
+      id: 'loop-basics',
+      title: 'Repeat After Me',
+      system: 'Roll Call',
+      skills: ['iteration', 'arrays'],
+      ...codeFiles('loop-basics', 'ts'),
+      brief: `**ARIA:** Roll call. Every shift, the station prints the name of everyone aboard. The last engineer wrote one line per crew member. When someone new arrived, they were simply never mentioned again. She is still upset about it.
+
+**THE FEED:** *Viewers, our engineer is about to discover loops. Experts agree this is the moment programming stops being typing and starts being magic.*`,
+      lesson: `## Doing something for every item
+
+A **loop** runs the same code again and again. A \`for…of\` loop runs once **for each item** in an array, in order:
+
+\`\`\`ts
+const crew = ["Ada", "Bo", "Cy"];
+
+for (const name of crew) {
+  console.log(name);
+}
+// Ada
+// Bo
+// Cy
+\`\`\`
+
+Read it as: *"for each name in crew, do what's inside the braces."* On the first run \`name\` is \`"Ada"\`, then \`"Bo"\`, then \`"Cy"\`. Then the loop ends and the program carries on below it.
+
+Add a fourth name to the array and the loop prints it too. You never touch the loop again.
+
+## A running total
+
+To add up a list, keep a variable **outside** the loop and add each item to it **inside**:
+
+\`\`\`ts
+let total = 0;               // let: this box gets refilled
+for (const w of [4, 5, 6]) {
+  total = total + w;         // 0+4, then 4+5, then 9+6
+}
+console.log(total);          // 15
+\`\`\`
+
+\`total = total + w\` means "work out total + w, then store it back in total". There's a shortcut that means exactly the same: \`total += w\`.`,
+      hints: [
+        'Replace the three `console.log` lines with: `for (const name of crew) { console.log(name); }`',
+        'After the loop\'s closing brace: ``console.log(`Present: ${crew.length}`);``',
+        'Make `let total = 0;`, loop with `for (const w of weights) { total = total + w; }`, then ``console.log(`Total: ${total}`);``',
+      ],
+      checks: [
+        { label: 'Prints every name, in order', run: ({ logs, expect }) => {
+          expect([line(logs, 0), line(logs, 1), line(logs, 2)]).toEqual(['Ada', 'Bo', 'Cy']);
+        } },
+        { label: 'Then prints "Present: 3"', run: ({ logs, expect }) => expect(line(logs, 3)).toBe('Present: 3') },
+        { label: 'Then prints "Total: 59"', run: ({ logs, expect }) => expect(line(logs, 4)).toBe('Total: 59') },
+        { label: 'Uses for…of loops, not one line per name', run: ({ source }) => {
+          mustUse(source, /for\s*\(\s*(const|let)\s+\w+\s+of\b/, 'Walk through the list with a for…of loop.');
+          mustNotUse(source, /console\.log\(\s*["'`](Ada|Bo|Cy)/, 'Let the loop print the names. Delete the lines that print them by hand.');
+          mustNotUse(source, /\b59\b|12\s*\+\s*40/, 'Let a loop add up the weights, instead of working out 59 yourself.');
         } },
       ],
     },

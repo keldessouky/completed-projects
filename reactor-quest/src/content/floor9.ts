@@ -133,12 +133,105 @@ If it's on screen, it's state. If it's bookkeeping, it can be a ref.`,
     },
     {
       kind: 'code',
+      id: 'use-reducer',
+      skills: ['hooks', 'state'],
+      title: 'useReducer',
+      system: 'Cargo Hold',
+      ...codeFiles('use-reducer', 'tsx'),
+      brief: `**ARIA:** The cargo hold counts crates in and out. Or it would, if the loading crew's buttons were connected to anything. The rules are simple, which makes this the perfect place to meet a new way of keeping state: one function that holds *every* rule.`,
+      lesson: `## One function for every change
+
+With \`useState\`, each event handler works out the next state itself. As the rules grow, they end up scattered across every button. **\`useReducer\`** gathers them into a single function, the **reducer**:
+
+\`\`\`tsx
+function reducer(state: State, action: Action): State {
+  // look at what happened, return the next state
+}
+
+const [state, dispatch] = useReducer(reducer, { crates: 0 });
+\`\`\`
+
+## Actions describe what happened
+
+Components don't set state. They **dispatch an action**: a small object saying what happened. The reducer decides what it means:
+
+\`\`\`tsx
+<button onClick={() => dispatch({ type: "load", crates: 5 })}>Load 5</button>
+\`\`\`
+
+Each kind of action is one member of a union type, told apart by \`type\`:
+
+\`\`\`ts
+type Action =
+  | { type: "load"; crates: number }
+  | { type: "clear" };
+\`\`\`
+
+## The switch
+
+A \`switch\` on \`action.type\` handles each case. Inside a \`case\`, TypeScript knows exactly which action it is, so \`action.crates\` only exists where it should:
+
+\`\`\`ts
+switch (action.type) {
+  case "load":
+    return { ...state, crates: state.crates + action.crates };
+  case "clear":
+    return { ...state, crates: 0 };
+}
+\`\`\`
+
+## Reducers are pure
+
+A reducer only *calculates*. It never changes the old state: it returns a **new object** (\`{ ...state, crates: 7 }\`). React compares old and new to decide what to re-render, so changing the old object in place would hide your change.`,
+      hints: [
+        'Start the reducer with `switch (action.type) { … }` and give each of `"load"`, `"unload"` and `"clear"` its own `case`.',
+        'Return new objects: `return { ...state, crates: state.crates + action.crates };`. For unload, keep it from going negative with `Math.max(0, state.crates - action.crates)`.',
+        "Wire the buttons: `onClick={() => dispatch({ type: 'unload', crates: 2 })}` and `onClick={() => dispatch({ type: 'clear' })}`.",
+      ],
+      preview: (mod, h) => h(comp(mod, 'CargoHold')),
+      checks: [
+        { label: 'load adds crates', run: ({ mod, expect }) => {
+          expect(fnOf(mod, 'holdReducer')({ crates: 3 }, { type: 'load', crates: 5 })).toEqual({ crates: 8 });
+        } },
+        { label: 'unload removes crates, but never below 0', run: ({ mod, expect }) => {
+          const r = fnOf(mod, 'holdReducer');
+          expect(r({ crates: 8 }, { type: 'unload', crates: 2 })).toEqual({ crates: 6 });
+          expect(r({ crates: 1 }, { type: 'unload', crates: 2 })).toEqual({ crates: 0 });
+        } },
+        { label: 'clear empties the hold', run: ({ mod, expect }) => {
+          expect(fnOf(mod, 'holdReducer')({ crates: 12 }, { type: 'clear' })).toEqual({ crates: 0 });
+        } },
+        { label: 'Returns a new object instead of changing the old one', run: ({ mod, expect }) => {
+          const r = fnOf(mod, 'holdReducer');
+          const before = Object.freeze({ crates: 3 });
+          let after: unknown;
+          try {
+            after = r(before, { type: 'load', crates: 1 });
+          } catch {
+            throw new CheckFailure('The reducer tried to change the state object. Return a new one instead: { ...state, crates }.');
+          }
+          expect(after === before).toBe(false);
+        } },
+        { label: 'The buttons dispatch actions', run: async ({ mod, h, render, expect }) => {
+          const view = await render(h(comp(mod, 'CargoHold')));
+          await view.click(button(view, 'Load 5'));
+          await view.click(button(view, 'Load 5'));
+          expect(view.get('.crates').textContent).toBe('Crates: 10');
+          await view.click(button(view, 'Unload 2'));
+          expect(view.get('.crates').textContent).toBe('Crates: 8');
+          await view.click(button(view, 'Clear'));
+          expect(view.get('.crates').textContent).toBe('Crates: 0');
+        } },
+      ],
+    },
+    {
+      kind: 'code',
       id: 'sequencer',
       skills: ['hooks', 'narrowing'],
-      title: 'useReducer',
+      title: 'Reducers with Rules',
       system: 'Ignition Sequencer',
       ...codeFiles('sequencer', 'tsx'),
-      brief: `**ARIA:** The ignition sequencer has rules: prime before you ignite, only heat a running core, scram if it overheats. Scattered across a dozen \`setState\` calls, those rules got broken. Put them all in one place.`,
+      brief: `**ARIA:** The ignition sequencer has rules: prime before you ignite, only heat a running core, scram if it overheats. Scattered across a dozen \`setState\` calls, those rules got broken. Put them all in one reducer, and this time, write the action types yourself.`,
       lesson: `## Reducers
 
 When the next state depends on the previous state *and* on what happened, gather every rule into one pure function — a **reducer**:

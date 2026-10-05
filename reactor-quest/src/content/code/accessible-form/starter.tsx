@@ -3,7 +3,7 @@ import { useRef, useState, type SubmitEvent } from 'react';
 // A registration form that works for everyone — including people using a
 // screen reader or only a keyboard.
 //
-// Fields (each with a real <label> connected by htmlFor/id):
+// Fields (the labels are done: you connected those on the oxygen console):
 //   Callsign   id="callsign"   required, 3–12 characters
 //   Email      id="email"      must contain "@"
 //
@@ -28,10 +28,10 @@ export function RegisterForm({ onRegister }: { onRegister: (data: { callsign: st
 
   return (
     <form onSubmit={submit} noValidate>
-      <p>Callsign</p>
-      <input value={callsign} onChange={(e) => setCallsign(e.target.value)} />
-      <p>Email</p>
-      <input value={email} onChange={(e) => setEmail(e.target.value)} />
+      <label htmlFor="callsign">Callsign</label>
+      <input id="callsign" value={callsign} onChange={(e) => setCallsign(e.target.value)} />
+      <label htmlFor="email">Email</label>
+      <input id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
       <button type="submit">Register</button>
     </form>
   );
