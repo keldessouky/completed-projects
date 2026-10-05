@@ -51,7 +51,8 @@ An effect sees the values from the render that created it. With \`[]\` deps, an 
       preview: (mod, h, log) => h(comp(mod, 'Countdown'), { from: 5, onDone: () => log('onDone()') }),
       checks: [
         { label: 'Starts at T-3', run: async ({ mod, h, render, expect }) => {
-          const view = await render(h(comp(mod, 'Countdown'), { from: 3, tickMs: 20 }));
+          // A slow tick: this only reads the first number, even on a busy machine.
+          const view = await render(h(comp(mod, 'Countdown'), { from: 3, tickMs: 10_000 }));
           expect(view.get('.countdown').textContent).toBe('T-3');
         } },
         { label: 'Counts all the way down to T-0', run: async ({ mod, h, render, expect, wait }) => {
