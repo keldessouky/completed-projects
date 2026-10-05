@@ -20,9 +20,14 @@
     "smoke": "node tools/smoke.mjs",
     "app:mac": "node tools/make-mac-app.mjs",
     "app:win": "node tools/make-win-app.mjs",
-    "app:linux": "node tools/make-linux-app.mjs"
+    "app:linux": "node tools/make-linux-app.mjs",
+    "smoke:mobile": "node tools/smoke-mobile.mjs",
+    "app:ios": "node tools/make-mobile.mjs ios --open",
+    "app:android": "node tools/make-mobile.mjs android --apk"
   },
   "dependencies": {
+    "@capacitor/core": "^8.5.2",
+    "@capacitor/haptics": "^8.0.2",
     "@codemirror/autocomplete": "^6.20.3",
     "@codemirror/commands": "^6.11.1",
     "@codemirror/lang-javascript": "^6.2.5",
@@ -37,6 +42,9 @@
     "typescript": "~6.0.3"
   },
   "devDependencies": {
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/cli": "^8.5.2",
+    "@capacitor/ios": "^8.5.2",
     "@types/node": "^26.6.4",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",

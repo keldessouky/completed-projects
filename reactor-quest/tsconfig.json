@@ -9,6 +9,7 @@
     "noUnusedLocals": true,
     "noFallthroughCasesInSwitch": true,
     "resolveJsonModule": true,
+    "allowJs": true,
     "isolatedModules": true,
     "skipLibCheck": true,
     "noEmit": true,

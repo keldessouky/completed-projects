@@ -9,3 +9,6 @@ Reactor Quest (Windows)/
 reactor-quest-linux/
 *.zip
 *.tar.gz
+ios/
+android/
+Reactor-Quest.apk

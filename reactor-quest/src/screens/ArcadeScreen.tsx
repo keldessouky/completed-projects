@@ -8,9 +8,12 @@ import { finishArcade } from '../game/rewards';
 import { act, getSave } from '../game/store';
 import type { ArcadeCard } from '../game/types';
 import { Code } from '../ui/highlight';
+import { useTouch } from '../ui/device';
 import { inline } from '../ui/Markdown';
 
 const ROUND_SECONDS = 60;
+/** How far (px) a card has to be swiped to count as an answer. */
+const SWIPE = 90;
 
 function shuffle<T>(xs: T[]): T[] {
   const a = [...xs];
@@ -36,6 +39,9 @@ export function ArcadeScreen() {
   const [result, setResult] = useState<{ best: boolean; xp: number } | null>(null);
   const card = deck[i];
   const timer = useRef<number | undefined>(undefined);
+  const touch = useTouch();
+  // Swipe right: it compiles. Swipe left: type error.
+  const [drag, setDrag] = useState<{ x0: number; y0: number; dx: number; id: number } | null>(null);
 
   const start = () => {
     setDeck(shuffle(ARCADE_CARDS));
@@ -141,9 +147,15 @@ export function ArcadeScreen() {
               <p>
                 You have <b>60 seconds</b>. Each card is a snippet of TypeScript, checked with <code>strict</code> on. Does it compile?
               </p>
-              <p className="muted">
-                <kbd>←</kbd> / <kbd>N</kbd> type error · <kbd>→</kbd> / <kbd>Y</kbd> compiles. A wrong answer pauses the clock and shows you why.
-              </p>
+              {touch ? (
+                <p className="muted">
+                  <b>Swipe right</b> if it compiles, <b>swipe left</b> if it's a type error (or tap the buttons). A wrong answer pauses the clock and shows you why.
+                </p>
+              ) : (
+                <p className="muted">
+                  <kbd>←</kbd> / <kbd>N</kbd> type error · <kbd>→</kbd> / <kbd>Y</kbd> compiles. A wrong answer pauses the clock and shows you why.
+                </p>
+              )}
               {best > 0 && <p>Personal best: <b>{best}</b></p>}
             </>
           )}
@@ -162,8 +174,39 @@ export function ArcadeScreen() {
         <div className="score">Score <b>{score}</b></div>
         <div className={`combo ${combo >= 3 ? 'hot' : ''}`}>{combo >= 2 ? `🔥 ${combo} streak` : ''}</div>
       </div>
-      <div className={`panel arcade-card ${feedback ? (feedback.right ? 'right' : 'wrong') : ''}`}>
-        <p className="kicker">Does this compile?</p>
+      <div
+        className={`panel arcade-card ${feedback ? (feedback.right ? 'right' : 'wrong') : ''} ${drag ? 'dragging' : ''}`}
+        style={drag ? { transform: `translateX(${drag.dx}px) rotate(${drag.dx / 25}deg)` } : undefined}
+        onPointerDown={(e) => {
+          if (feedback || e.pointerType === 'mouse') return;
+          setDrag({ x0: e.clientX, y0: e.clientY, dx: 0, id: e.pointerId });
+        }}
+        onPointerMove={(e) => {
+          if (!drag || e.pointerId !== drag.id) return;
+          const dx = e.clientX - drag.x0;
+          // Mostly vertical? That's a scroll, not a swipe.
+          if (Math.abs(e.clientY - drag.y0) > Math.abs(dx) + 12) return setDrag(null);
+          if (Math.abs(dx) > 8) {
+            try {
+              (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+            } catch {
+              /* the pointer is already gone */
+            }
+          }
+          setDrag({ ...drag, dx });
+        }}
+        onPointerUp={() => {
+          if (drag && Math.abs(drag.dx) >= SWIPE) answer(drag.dx > 0);
+          setDrag(null);
+        }}
+        onPointerCancel={() => setDrag(null)}
+      >
+        {drag && Math.abs(drag.dx) > 20 && (
+          <div className={`swipe-stamp ${drag.dx > 0 ? 'yes' : 'no'}`} style={{ opacity: Math.min(1, Math.abs(drag.dx) / SWIPE) }}>
+            {drag.dx > 0 ? 'COMPILES' : 'TYPE ERROR'}
+          </div>
+        )}
+        <p className="kicker">Does this compile?{touch && !feedback ? ' · swipe ← →' : ''}</p>
         {card && <Code code={card.code} />}
         {feedback && (
           <div className={`explain ${feedback.right ? 'right' : 'wrong'}`}>

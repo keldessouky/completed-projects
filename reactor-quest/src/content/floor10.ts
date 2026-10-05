@@ -321,32 +321,32 @@ Because effects only re-run when a dependency *changes*, typing "rea", then "rea
         } },
         { label: 'The hook waits for a pause before updating', run: async ({ mod, h, render, expect, wait }) => {
           const use = mod.useDebouncedValue;
-          const Probe = ({ v }: { v: string }) => h('p', null, use(v, 60));
+          const Probe = ({ v }: { v: string }) => h('p', null, use(v, 200));
           const view = await render(h(Probe, { v: 'a' }));
           await view.rerender(h(Probe, { v: 'b' }));
           expect(view.text()).toBe('a');
-          await wait(120);
+          await wait(450);
           expect(view.text()).toBe('b');
         } },
         { label: 'A burst of typing triggers one search, for the final text', run: async ({ mod, h, render, expect, fn, wait }) => {
           const onSearch = fn();
-          const view = await render(h(comp(mod, 'SearchBox'), { onSearch, delayMs: 60 }));
+          const view = await render(h(comp(mod, 'SearchBox'), { onSearch, delayMs: 300 }));
           await view.type('input', 'r');
           await view.type('input', 're');
           await view.type('input', 'rea');
           expect(onSearch).toBeCalledTimes(0);
-          await wait(150);
+          await wait(700);
           expect(onSearch).toBeCalledTimes(1);
           expect(onSearch).toBeCalledWith('rea');
         } },
         { label: 'Never searches twice for the same text', run: async ({ mod, h, render, expect, fn, wait }) => {
           const onSearch = fn();
-          const view = await render(h(comp(mod, 'SearchBox'), { onSearch, delayMs: 60 }));
+          const view = await render(h(comp(mod, 'SearchBox'), { onSearch, delayMs: 300 }));
           await view.type('input', 'rea');
-          await wait(150);
+          await wait(700);
           await view.type('input', 'reac');
           await view.type('input', 'rea');
-          await wait(150);
+          await wait(700);
           expect(onSearch).toBeCalledTimes(1);
         } },
         { label: 'No timers left running after unmount', run: async ({ mod, h, render, activeTimers, fn }) => {

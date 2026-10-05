@@ -82,8 +82,12 @@ function mergeBox(into: Card, fresh: Card): Card {
   return { ...boxCard(ids, ids.length === 1 ? fresh.title : undefined), key: into.key };
 }
 
-const MAX_SHOWN = 4;
-const MAX_WAITING = 12;
+// On a phone THE FEED behaves like the system's notifications: one compact
+// banner at a time, briefly, so it never buries the screen.
+const phone = () => matchMedia('(max-width: 760px)').matches;
+const maxShown = () => (phone() ? 1 : 4);
+const maxWaiting = () => (phone() ? 5 : 12);
+const lifetime = (c: Card) => (phone() ? (c.big ? 3200 : 2200) : c.big ? 7000 : 4500);
 
 export function Announcer({ quiet }: { quiet?: boolean }) {
   const [cards, setCards] = useState<Card[]>([]);
@@ -96,13 +100,13 @@ export function Announcer({ quiet }: { quiet?: boolean }) {
     let waiting: Card[] = [];
     const timers = new Set<ReturnType<typeof setTimeout>>();
     const sync = () => {
-      while (shown.length < MAX_SHOWN && waiting.length) {
+      while (shown.length < maxShown() && waiting.length) {
         const c = waiting.shift()!;
         shown.push(c);
         const t = setTimeout(() => {
           timers.delete(t);
           dismiss(c.key);
-        }, c.big ? 7000 : 4500);
+        }, lifetime(c));
         timers.add(t);
       }
       setCards([...shown]);
@@ -125,7 +129,7 @@ export function Announcer({ quiet }: { quiet?: boolean }) {
         else waiting.push(c);
       }
       // A long backlog sheds its small news first; everything is in the log anyway.
-      while (waiting.length > MAX_WAITING) {
+      while (waiting.length > maxWaiting()) {
         const small = waiting.findIndex((c) => !c.big && !c.action);
         waiting.splice(small === -1 ? 0 : small, 1);
       }
