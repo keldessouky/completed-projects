@@ -346,9 +346,11 @@ void main() {
 const char* ui_fs = R"(
 in vec2 vUV;
 in vec4 vColor;
-in vec4 vParams;   // x = mode: 0 textured/solid, 1 SDF text, 2 rounded rect (uv = local px, y/z half size, w radius), 3 ring
+in vec4 vParams;   // x = mode: 0 textured/solid, 1 SDF text, 2 rounded rect (uv = local px, y/z half size, w radius), 3 ring,
+                   //     4 an icon from the item icons' sheet (uv in it), tinted by the colour
 in vec2 vPos;
 uniform sampler2D uTex;
+uniform sampler2D uIcons;
 uniform float uPxRange;
 out vec4 oColor;
 void main() {
@@ -374,6 +376,8 @@ void main() {
         vec2 q = abs(vUV) - hs + r;
         float d = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0) - r;
         c.a *= clamp(0.5 - d, 0.0, 1.0);
+    } else if (mode == 4) {
+        c *= texture(uIcons, vUV);
     } else if (mode == 3) {
         float r = length(vUV);
         float outer = vParams.y, inner = vParams.z;

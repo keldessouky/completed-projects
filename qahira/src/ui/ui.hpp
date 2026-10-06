@@ -49,6 +49,10 @@ public:
     void disc(float cx, float cy, float r, Rgba c) { ring(cx, cy, r, 0, c); }
     void line(float x0, float y0, float x1, float y1, float w, Rgba c);
     void arc_fill(float cx, float cy, float r, float frac, Rgba c);  // orb fill from the bottom
+    // the item icons' pixel-art sheet (RGBA8), and a piece of it drawn into a box, texel for texel
+    void set_icons(int w, int h, const void* rgba);
+    bool has_icons() const { return icons_.id != 0; }
+    void icon(float x, float y, float w, float h, int sx, int sy, int sw, int sh, Rgba tint);
     float text(float x, float y, const std::string& s, float size, Rgba c, Align a = Align::Left, float weight = 0,
                bool outline = false);
     float text_width(const std::string& s, float size) const;
@@ -73,7 +77,7 @@ private:
     static uint32_t next_cp(const std::string& s, size_t& i);
     Shader sh_;
     GLuint vao_ = 0, vbo_ = 0;
-    Texture font_, white_;
+    Texture font_, white_, icons_;
     std::unordered_map<uint32_t, Glyph> glyphs_;
     float font_px_ = 48, ascent_ = 0, line_ = 0;
     std::vector<V> verts_;

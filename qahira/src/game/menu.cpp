@@ -1,4 +1,9 @@
 #include "game/menu.hpp"
+#include <cstring>
+#include <array>
+#include "core/log.hpp"
+#include "core/pack.hpp"
+#include "core/json.hpp"
 #include "game/rooftop.hpp"
 #include "audio/audio.hpp"
 #include "game/settings.hpp"
@@ -86,7 +91,55 @@ void draw_currency_icon(float cx, float cy, float s, int c, float alpha) {
     u.ring(cx, cy, s * 0.34f, s * 0.3f, pal::night.alpha(0.5f * alpha));
 }
 
+// the icons' sheet and where each base's and unique's picture is in it (tools/icons/icon_atlas.py, packed as
+// textures/icons.qtex and data/icons.json), read once; without them the vector silhouettes below stand in
+namespace {
+struct IconIndex {
+    bool tried = false, ok = false;
+    std::vector<std::array<int, 4>> bases, uniques;
+};
+IconIndex& icon_index() {
+    static IconIndex ix;
+    if (ix.tried) return ix;
+    ix.tried = true;
+    Blob tex = pack().get("textures/icons.qtex");
+    const Json j = Json::parse(pack().get("data/icons.json").str());
+    auto rows = [](const Json& a, std::vector<std::array<int, 4>>& out) {
+        for (size_t i = 0; i < a.size(); i++) out.push_back({a[i][0].i(), a[i][1].i(), a[i][2].i(), a[i][3].i()});
+    };
+    rows(j["bases"], ix.bases);
+    rows(j["uniques"], ix.uniques);
+    if (tex && tex.size > 8 && std::memcmp(tex.data, "QTX1", 4) == 0 && ix.bases.size() == item_bases().size()) {
+        const int w = tex.data[4] | tex.data[5] << 8, h = tex.data[6] | tex.data[7] << 8;
+        if (tex.size >= size_t(8 + w * h * 4)) {
+            ui().set_icons(w, h, tex.data + 8);
+            ix.ok = true;
+        }
+    }
+    if (!ix.ok) QLOG("no item icons in the pack (or they don't match the bases): the grid draws silhouettes");
+    return ix;
+}
+}  // namespace
+
+bool draw_item_picture(float x, float y, float w, float h, const Item& it, float alpha) {
+    IconIndex& ix = icon_index();
+    if (!ix.ok || it.empty()) return false;
+    const std::array<int, 4>* r = nullptr;
+    if (it.rarity == Rarity::Unique && it.unique != kNoItem && it.unique < ix.uniques.size() && ix.uniques[it.unique][2] > 0)
+        r = &ix.uniques[it.unique];
+    else if (it.base < ix.bases.size())
+        r = &ix.bases[it.base];
+    if (!r || (*r)[2] <= 0) return false;
+    // drawn texel for texel at a whole scale (2 in the inventory's 64 px cells), centred in the box
+    const float iw = float((*r)[2]), ih = float((*r)[3]);
+    const float s = std::max(1.f, std::floor(std::min((w + 4) / iw, (h + 4) / ih)));
+    ui().icon(x + (w - iw * s) / 2, y + (h - ih * s) / 2, iw * s, ih * s, (*r)[0], (*r)[1], (*r)[2], (*r)[3],
+              Rgba{255, 255, 255, uint8_t(255 * std::clamp(alpha, 0.f, 1.f))});
+    return true;
+}
+
 void draw_item_icon(float x, float y, float w, float h, const Item& it, float alpha) {
+    if (draw_item_picture(x, y, w, h, it, alpha)) return;
     Ui& u = ui();
     Rgba c = Rgba::hex(rarity_color(it.rarity)).alpha(alpha);
     Rgba d = c.mix(pal::night, 0.45f);

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Builds build/Qahira.qpk, the content pack ("ROM") the core loads."""
-import os, struct, subprocess, shutil, sys
+import json, os, struct, subprocess, shutil, sys
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 OUT = os.path.join(ROOT, 'build', 'Qahira.qpk')
@@ -72,6 +72,11 @@ def collect():
             full = os.path.join(dirpath, f)
             entries.append(('data/' + os.path.relpath(full, data).replace(os.sep, '/'), full))
     entries.append(('textures/fx.qtex', fx_sheet()))
+    # the item icons' sheet and its index, once a sourced set is in place; without them the grid draws silhouettes
+    for packed, path in (('textures/icons.qtex', os.path.join(ROOT, 'assets', 'icons', 'icons.qtex')),
+                         ('data/icons.json', os.path.join(ROOT, 'assets', 'icons', 'icons.json'))):
+        if os.path.isfile(path):
+            entries.append((packed, path))
     entries.append(('fonts/ui.ttf', font('Inter.woff2', 'ui.ttf')))
     entries.append(('fonts/arabic.ttf', font('NotoSansArabic-VariableFont_wdth,wght.woff2', 'arabic.ttf')))
     return entries

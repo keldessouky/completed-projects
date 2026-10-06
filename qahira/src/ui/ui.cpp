@@ -246,6 +246,19 @@ void Ui::pop_clip() {
     verts_.push_back(V{-1e9f, 0, 0, 0, {0, 0, 0, 0}, {c.x, c.y, c.z, c.w}});
 }
 
+void Ui::set_icons(int w, int h, const void* rgba) {
+    icons_.destroy();
+    icons_.create(w, h, GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE, rgba, false);
+}
+
+void Ui::icon(float x, float y, float w, float h, int sx, int sy, int sw, int sh, Rgba tint) {
+    if (!icons_.id || sw <= 0 || sh <= 0) return;
+    float p[4] = {4, 0, 0, 0};
+    const float iw = float(icons_.w), ih = float(icons_.h);
+    x = mx(x, w);   // where it goes mirrors with the screen; the picture keeps its way round
+    quad(x, y, x + w, y + h, sx / iw, sy / ih, (sx + sw) / iw, (sy + sh) / ih, tint, p);
+}
+
 void Ui::end(GLuint fbo, int w, int h) {
     glBindFramebuffer(GL_FRAMEBUFFER, fbo);
     glViewport(0, 0, w, h);
@@ -255,7 +268,10 @@ void Ui::end(GLuint fbo, int w, int h) {
     sh_.use();
     sh_.set("uScreen", vec2{w_, h_});
     sh_.set("uTex", 0);
+    sh_.set("uIcons", 1);
     sh_.set("uFlipY", 0.f);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, icons_.id ? icons_.id : white_.id);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, font_.id);
     glBindVertexArray(vao_);
