@@ -13,9 +13,15 @@ import { Victory } from '../ui/Victory';
 export function QuizScreen({ level, deck, index }: { level: QuizLevel; deck: Deck; index: number }) {
   const save = useSave();
   const progress = levelState(save, level.id);
-  const [q, setQ] = useState(0);
+  // Questions still to answer correctly. One you get wrong goes to the back of
+  // the line, so every quiz ends with every answer right; only first-try
+  // mistakes cost stars.
+  const [queue, setQueue] = useState(() => level.questions.map((_, i) => i));
+  const [missed, setMissed] = useState<number[]>([]);
   const [picked, setPicked] = useState<number | null>(null);
-  const [mistakes, setMistakes] = useState(0);
+  const q = queue[0];
+  const mistakes = missed.length;
+  const retry = missed.includes(q);
   const [victory, setVictory] = useState<{ stars: number; events: Reward[] } | null>(null);
   const seconds = useLevelTimer(level.id, !victory);
   const [attempt, setAttempt] = useState(0);
@@ -29,19 +35,20 @@ export function QuizScreen({ level, deck, index }: { level: QuizLevel; deck: Dec
     if (i === question.answer) sfx.right();
     else {
       sfx.wrong();
-      setMistakes((m) => m + 1);
+      if (!missed.includes(q)) setMissed((m) => [...m, q]);
     }
   }
 
   function next() {
-    if (q + 1 < level.questions.length) {
-      setQ(q + 1);
+    const rest = correct ? queue.slice(1) : [...queue.slice(1), q];
+    if (rest.length) {
+      setQueue(rest);
       setPicked(null);
       return;
     }
     const stars = quizStars(mistakes);
     const events = act((s) =>
-      completeLevel(s, level, { stars, firstTry: false, failedRuns: 0, clean: false, perfect: mistakes === 0, seconds, hour: new Date().getHours() }, Math.random),
+      completeLevel(s, level, { stars, firstTry: false, failedRuns: 0, clean: false, perfect: mistakes === 0, seconds }, Math.random),
     );
     sfx.pass();
     overlays.petSay(PET_LINES.pass[Math.floor(Math.random() * PET_LINES.pass.length)]);
@@ -49,9 +56,9 @@ export function QuizScreen({ level, deck, index }: { level: QuizLevel; deck: Dec
   }
 
   function replay() {
-    setQ(0);
+    setQueue(level.questions.map((_, i) => i));
     setPicked(null);
-    setMistakes(0);
+    setMissed([]);
     setVictory(null);
     setAttempt((a) => a + 1);
   }
@@ -74,9 +81,12 @@ export function QuizScreen({ level, deck, index }: { level: QuizLevel; deck: Dec
       <section className="panel quiz-card">
         <div className="quiz-progress">
           {level.questions.map((_, i) => (
-            <span key={i} className={i < q ? 'done' : i === q ? 'current' : ''} />
+            <span key={i} className={!queue.includes(i) ? 'done' : i === q ? 'current' : ''} />
           ))}
-          <span className="muted small">Question {q + 1} of {level.questions.length} · {mistakes === 0 ? 'no mistakes yet' : `${mistakes} mistake${mistakes > 1 ? 's' : ''}`}</span>
+          <span className="muted small">
+            {retry ? 'One more try' : `Question ${level.questions.length - queue.length + 1} of ${level.questions.length}`} ·{' '}
+            {mistakes === 0 ? 'no mistakes yet' : `${mistakes} to revisit`}
+          </span>
         </div>
         <h3 className="prompt">{inline(question.prompt)}</h3>
         {question.code && <Code code={question.code} />}
@@ -94,9 +104,10 @@ export function QuizScreen({ level, deck, index }: { level: QuizLevel; deck: Dec
         {answered && (
           <div className={`explain ${correct ? 'right' : 'wrong'}`}>
             <b>{correct ? 'Correct.' : 'Not quite.'}</b> {inline(question.explain)}
+            {!correct && !retry && <p className="muted small">This one comes back at the end, so you finish the quiz knowing it.</p>}
             <div className="modal-actions">
               <button className="btn primary" autoFocus onClick={next}>
-                {q + 1 < level.questions.length ? 'Next question →' : 'Finish'}
+                {queue.length > 1 || !correct ? 'Next question →' : 'Finish'}
               </button>
             </div>
           </div>

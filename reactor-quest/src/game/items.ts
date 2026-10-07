@@ -69,6 +69,7 @@ export const TITLES: Item[] = [
   title('title-a11y', 'Champion of Accessibility', 'epic', { drops: true }),
   title('title-boss', 'Boss Slayer', 'rare'),
   title('title-perfect', 'the Perfectionist', 'epic'),
+  title('title-recall', 'Total Recall', 'epic'),
   title('title-architect', 'Reactor Architect', 'legendary'),
   title('title-celebrity', 'Galactic Celebrity', 'legendary'),
   title('title-production', 'Production Engineer', 'legendary'),

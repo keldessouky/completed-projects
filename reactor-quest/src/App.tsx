@@ -3,12 +3,12 @@ import { findLevel } from './content';
 import { warmUp } from './engine/compiler';
 import { isUnlocked } from './game/progress';
 import { onRewards, useSave } from './game/store';
-import { ArcadeScreen } from './screens/ArcadeScreen';
 import { CharacterScreen } from './screens/CharacterScreen';
 import { CodeLevelScreen } from './screens/CodeLevelScreen';
 import { LootScreen } from './screens/LootScreen';
 import { MapScreen } from './screens/MapScreen';
 import { QuizScreen } from './screens/QuizScreen';
+import { ReviewScreen } from './screens/ReviewScreen';
 import { ShopScreen } from './screens/ShopScreen';
 import { TitleScreen } from './screens/TitleScreen';
 import { Announcer } from './ui/Announcer';
@@ -42,8 +42,8 @@ export function App() {
     case 'map':
       screen = <MapScreen />;
       break;
-    case 'arcade':
-      screen = <ArcadeScreen />;
+    case 'review':
+      screen = <ReviewScreen key={route.name} />;
       break;
     case 'loot':
       screen = <LootScreen tab={route.tab} />;

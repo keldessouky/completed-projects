@@ -85,9 +85,24 @@ export interface Deck {
   levels: Level[];
 }
 
-export interface ArcadeCard {
+/** A "does this compile?" review card. */
+export interface CompileCard {
   code: string;
   /** Does this compile under strict mode? */
   ok: boolean;
+  /** The level that teaches this card's idea: the card unlocks when it's cleared. */
+  after: string;
   why: string;
+}
+
+/** One spaced-review question. */
+export interface ReviewItem {
+  id: string;
+  /** The level whose clear unlocks this question. */
+  after: string;
+  prompt: string;
+  code?: string;
+  options: string[];
+  answer: number;
+  explain: string;
 }

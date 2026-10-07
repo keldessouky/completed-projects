@@ -138,16 +138,21 @@ keep it.
    with your name. Floor 1, level 1 opens. Once you have progress, the button
    says **Continue** and takes you to your next level.
 2. **Read the mission.** The left panel has three tabs:
-   - **Mission:** the story, plus the list of **objectives** your code must meet.
+   - **Mission:** the story, what you'll learn, and the list of **objectives**
+     your code must meet.
    - **Lesson:** teaches the idea you need, with examples. The first floors
      assume you know nothing at all, so read this first whenever a topic is new.
    - **Hints:** three hints, revealed one at a time. A hint costs a star, unless
      you pay for it with a **hint token** (you start with one, and earn more
-     from loot boxes and the shop).
+     from loot boxes and the shop). The reference solution opens only after all
+     three, and until you've solved the level you rebuild it yourself rather
+     than paste it.
 3. **Write code** in the editor in the middle. The starter code is broken or
    unfinished. Comments in it tell you what to build. Type errors get **red
-   squiggles** as you type. Hover over one to read the compiler's message. The
-   bar under the editor says whether your file currently has type errors.
+   squiggles** as you type. Hover over one to read the compiler's message, with
+   a plain-English line underneath for the common ones ("`x` might be
+   `undefined`. Check it first…"). The bar under the editor says whether your
+   file currently has type errors.
    - **Hover over any name** to see the type TypeScript gave it, like
      `let count: number` or `const setN: React.Dispatch<React.SetStateAction<number>>`.
      It's the fastest way to learn what the compiler infers.
@@ -165,9 +170,13 @@ keep it.
    - **Preview** (React levels): your component, live. Click it and type into
      it like a real web page.
    - **Console:** anything your code prints with `console.log`.
+   If two runs fail and you haven't opened the lesson yet, a note suggests it.
 5. **Pass every check with no type errors** and the system comes back online.
-   You get stars, XP, gold, viewers and a loot box. Click **Next system →**, or
-   press Return, to go on.
+   You get stars, XP, gold, viewers and a loot box. Before moving on, you can
+   **explain it back**: a sentence or two on what was wrong and why your fix
+   works. It goes in your **Notebook** (under **Character**), shows up again
+   when you revisit the level, and the first one for each level earns XP.
+   Click **Next system →**, or press Return, to go on.
 
 ![A React level, with the live preview at the top right](docs/react-level.png)
 
@@ -177,8 +186,9 @@ the reference solution (**Hints → Show the solution…**) caps it at ★. You 
 **replay** any level later to earn all three. Your best result is kept, and
 replays only pay out for stars you improve.
 
-**Par time.** Each level shows a clock and a par time. Clear it under par on the
-first try for a speed bonus.
+**Par time.** Clearing a level under par on the first try earns a speed bonus.
+There's no clock on screen while you work, though: time pressure gets in the
+way of thinking, so the bonus is a surprise, never a race.
 
 **The station map** (**Map** at the top) shows all ten floors, your stars, what
 each floor makes you able to do, and today's **daily quests**. Levels open in
@@ -191,21 +201,20 @@ straight to the next floor. Or go to **Character → Settings** and turn on
 ![The station map, with daily quests](docs/map.png)
 
 **Quizzes** (the **?** levels) are multiple choice, and each answer comes with
-an explanation. Every wrong answer costs a star, but you always get at least one.
+an explanation. A question you get wrong comes back at the end of the quiz, so
+you always finish knowing every answer. Each first-try mistake costs a star,
+but you always get at least one.
 
-**Arcade: Compiler Says** (**Arcade** at the top). You have 60 seconds. Each
-card shows a snippet of TypeScript. Decide whether it compiles:
+**Review** (**Review** at the top, with a badge when cards are due). Learning
+something once isn't enough to keep it. When you finish a quiz, or a level whose
+idea has a "does this compile?" card, those questions join your review deck.
+Each card comes back the next day, then after 3 days, a week, two weeks, a
+month and two months, as long as you keep remembering it. Miss one and it comes
+back at the end of the session (so you finish having got it right) and again
+tomorrow. A session is at most ten cards, takes a few minutes, has no timer,
+and every answer links back to the lesson it came from.
 
-| Key | Answer |
-|---|---|
-| `→` or `Y` | It compiles |
-| `←` or `N` | It's a type error |
-| `Return` | Next card, after a wrong answer |
-
-A wrong answer pauses the clock and shows why, along with the compiler's real
-error message. Your score earns XP and gold, and your best score is kept.
-
-![Compiler Says: a wrong answer shows the real compiler error](docs/arcade.png)
+![Review: a missed card explains why, and links back to its lesson](docs/review.png)
 
 The whole game is keyboard-friendly: **⌘↵** runs your code, **Return**
 continues after a win, and **Esc** closes dialogs. The speaker icon at the top
@@ -258,8 +267,8 @@ Something good happens every few minutes, and most of it is announced by
 **THE FEED**, the show's breathless announcer, in a stack of cards at the top
 right.
 
-- **Crawler levels and career titles.** XP from every level, quiz and arcade
-  round fills your crawler level. The curve is tuned so that every floor, the
+- **Crawler levels and career titles.** XP from every level, quiz, review and
+  notebook entry fills your crawler level. The curve is tuned so that every floor, the
   first or the last, brings a level-up every two or three clears. Your career
   title climbs with you: Intern → Junior Developer → Developer → Senior
   Developer → Staff Engineer → Principal Engineer → **Reactor Architect**
@@ -293,7 +302,7 @@ right.
   teaches, and each skill ranks up from Novice to Master, so your character
   sheet shows exactly what you've learned.
 - **Daily quests and streaks.** Three contracts a day ("clear 2 levels", "get 8
-  cards right in Compiler Says") each pay a Silver box and gold. Play on
+  cards", "explain a level back in your own words") each pay a Silver box and gold. Play on
   consecutive days to build a streak.
 - **The Safe Room** (the shop). Spend gold on hint tokens, XP boosts, boxes,
   titles, editor skins and companion hats.
@@ -326,7 +335,37 @@ teams expect. Each floor's outcome is shown on the map.
 
 86 of the levels are code, written and run for real. The other 10 are quizzes
 ("Read the Code", "Predict the Output", "JSX Inspection"…) that train you to read
-code and predict what it does. The arcade holds 40 compile-or-not cards.
+code and predict what it does. Spaced review draws on every quiz question plus
+40 compile-or-not cards, each unlocked by the level that teaches its idea.
+
+## How it teaches
+
+The game is built around a few well-established findings about how people
+learn, especially people learning to program for the first time.
+
+- **One new idea at a time, in order.** Every level teaches one concept and
+  only uses what earlier levels taught; where a step was big (lists, loops,
+  reducers, fetching data, accessible forms, keyboard widgets) a smaller
+  bridge level comes first. A floor's boss mixes the floor's ideas together.
+- **Know what you're about to learn.** Each level lists what it teaches before
+  you start, and the lesson is one click away (and suggested if you get stuck).
+- **Struggle a little, with support.** Hints come one at a time, each a little
+  more specific. The solution waits until you've seen them all, and you rebuild
+  it rather than paste it: working it out is what makes it stick.
+- **Fast, specific feedback.** Every check says exactly what failed and why;
+  compiler errors come with a plain-English line for the common ones.
+- **Retrieval, spaced out.** Remembering something on purpose strengthens it
+  far more than rereading. Quizzes check understanding right away, missed
+  questions come back until you get them, and spaced review brings each idea
+  back at growing intervals for months.
+- **Explain it back.** Putting what you just did into your own words is one of
+  the most reliable ways to understand it, and to notice what you don't.
+- **Mastery, not speed.** Every level's solution is proven to pass and its
+  starter to fail. You can replay any level for full marks, test out of a floor
+  by beating its boss, and there's no clock ticking while you work.
+- **Rewards follow learning.** Achievements and quests reward reviewing,
+  explaining, clearing without hints and coming back to improve, not late nights
+  or reflexes.
 
 ## How it works
 
@@ -377,13 +416,13 @@ code and predict what it does. The arcade holds 40 compile-or-not cards.
 ## Proven playable
 
 ```bash
-npm test        # 408 tests
-npm run smoke   # 104 checks in headless Chromium/Chrome
+npm test        # 440 tests
+npm run smoke   # 106 checks in headless Chromium/Chrome
 ```
 
 - **`npm test`** checks every one of the 86 code levels both ways: the reference
   solution compiles cleanly and passes every type and behaviour check, *and* the
-  starter code does not, so every level has something to do. Every arcade card's
+  starter code does not, so every level has something to do. Every review card's
   verdict is checked against the real compiler. Every quiz answer is valid. Every
   lesson renders without stray markdown. The reward engine (XP curve, loot, quests,
   shop, classes, achievements, save migration), grading kit and sandbox have their
@@ -396,7 +435,8 @@ npm run smoke   # 104 checks in headless Chromium/Chrome
   victory screen, which covers the effect and timer levels in a real browser.
   It adopts a companion, picks a class, opens a boss box and reads its Codex
   scroll, shops in the Safe Room, hovers a name for its type, checks
-  autocomplete, plays a quiz and an arcade round, switches colour profiles
+  autocomplete, plays a quiz (missing a question on purpose to see it come back),
+  runs a spaced-review session, writes a notebook entry, switches colour profiles
   (hover preview, Esc to revert, click and keyboard to choose, remembered after
   a reload) and photographs all sixteen, checks the phone layout for horizontal
   scroll, exercises the launcher server, and fails on any uncaught page error. Screenshots land in `test-results/`. `SMOKE_PLATFORM=mac npm run
@@ -428,21 +468,22 @@ npm run app:mac  # or app:win, app:linux: package for that system
 
 ```
 src/
-  content/         the curriculum: floor1–10.ts, arcade.ts, helpers.ts
+  content/         the curriculum: floor1–10.ts, review.ts (spaced review), helpers.ts
     code/<level>/  starter + reference solution for every code level, as real .ts/.tsx
-  engine/          checker.ts (TS language service), compiler.worker.ts, runtime.ts
+  engine/          checker.ts (TS language service), compiler.worker.ts, explain.ts
+                   (plain-English compiler errors), runtime.ts
                    (sandbox + test kit), grade.ts
   game/            types, progress (save, stars, XP curve, unlocking), rewards
                    (loot, achievements, quests, shop, classes, pets, THE FEED),
                    items, skills, store, sound
-  screens/         Title, Map, CodeLevel, Quiz, Arcade, Loot, Shop, Character
+  screens/         Title, Map, CodeLevel, Quiz, Review, Loot, Shop, Character
   ui/              CodeEditor, Preview, Announcer, BoxOpener, Offers, Companion,
                    Hud, ThemePicker + themes (the colour profiles), Victory,
                    Markdown, Modal, router
 tools/             gen-typings, launch, server (zero-dependency), packaging,
                    make-mac-app, make-win-app, make-linux-app, icon, smoke
 Reactor Quest.command · Reactor Quest.cmd · reactor-quest.sh   double-click launchers
-tests/             levels, arcade, progress, rewards, themes, runtime, checker, markdown
+tests/             levels, review, explain, progress, rewards, themes, runtime, checker, markdown
 ```
 
 ### Adding a level

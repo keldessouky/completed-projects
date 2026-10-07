@@ -1,6 +1,6 @@
 import { ALL_LEVELS } from '../content';
 import { crawlerLevel, isUnlocked, levelState, stationPower } from '../game/progress';
-import { formatViewers } from '../game/rewards';
+import { dayOf, dueReviews, formatViewers } from '../game/rewards';
 import { sfx } from '../game/sound';
 import { useSave } from '../game/store';
 import { overlays } from '../ui/overlays';
@@ -11,6 +11,7 @@ export function TitleScreen() {
   const power = stationPower(save);
   const started = Object.keys(save.levels).length > 0;
   const nextUp = ALL_LEVELS.find((l) => isUnlocked(save, l.id) && !levelState(save, l.id).done);
+  const due = dueReviews(save, dayOf(new Date())).length;
 
   return (
     <div className="title-screen">
@@ -44,7 +45,11 @@ export function TitleScreen() {
           {started ? (nextUp ? 'Continue' : 'Return to the station') : 'Begin'}
         </button>
         <button className="btn big" onClick={() => go('/map')}>Station map</button>
-        <button className="btn big" onClick={() => go('/arcade')}>Compiler Says <span className="muted">arcade</span></button>
+        {due > 0 && (
+          <button className="btn big" onClick={() => go('/review')}>
+            Review <span className="muted">{due} due</span>
+          </button>
+        )}
       </div>
       <p className="power-readout">
         Station power <b>{power}%</b>

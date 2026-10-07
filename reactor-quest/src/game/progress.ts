@@ -43,18 +43,40 @@ export interface Counters {
   failedRuns: number;
   tokensUsed: number;
   solutionsSeen: number;
-  arcadeRounds: number;
-  arcadeCorrect: number;
   speedBonuses: number;
   goldSpent: number;
-  nightClears: number;
+  /** Replays that raised a level's stars. */
+  improvedClears: number;
+  reviewSessions: number;
+  reviewsAnswered: number;
+  reviewsCorrect: number;
+  /** Review sessions of five or more cards with no mistakes. */
+  perfectReviews: number;
+  /** Levels explained back in the player's own words. */
+  notesWritten: number;
 }
 
 export const ZERO_COUNTERS: Counters = {
   levelsPassed: 0, threeStars: 0, firstTries: 0, cleanClears: 0, quizzesDone: 0, perfectQuizzes: 0, bossesBeaten: 0,
-  boxesOpened: 0, runs: 0, failedRuns: 0, tokensUsed: 0, solutionsSeen: 0, arcadeRounds: 0, arcadeCorrect: 0,
-  speedBonuses: 0, goldSpent: 0, nightClears: 0,
+  boxesOpened: 0, runs: 0, failedRuns: 0, tokensUsed: 0, solutionsSeen: 0, speedBonuses: 0, goldSpent: 0,
+  improvedClears: 0, reviewSessions: 0, reviewsAnswered: 0, reviewsCorrect: 0, perfectReviews: 0, notesWritten: 0,
 };
+
+/**
+ * A spaced-review card's place in the schedule (a Leitner box): box 0 is new
+ * or forgotten, and each right answer moves it up a box and further out.
+ */
+export interface ReviewState {
+  box: number;
+  /** The day it's next due, YYYY-MM-DD. */
+  due: string;
+}
+
+/** What the player wrote when they explained a level back in their own words. */
+export interface Note {
+  text: string;
+  at: number;
+}
 
 export type ClassId = 'type-sorcerer' | 'component-artificer' | 'bug-hunter' | 'speedrunner' | 'crowd-favourite';
 export type PetKind = 'drone' | 'cat' | 'octopus' | 'owl' | 'fox' | 'dragon';
@@ -90,8 +112,10 @@ export interface Save {
   quests: { day: string; ids: string[]; claimed: string[]; base: Counters } | null;
   streak: { day: string; count: number; best: number };
   counters: Counters;
-  arcadeBest: number;
-  arcadeCombo: number;
+  /** Spaced review: every card that has joined the review deck, by id. */
+  reviews: Record<string, ReviewState>;
+  /** The player's notebook: their own explanation of each level, by level id. */
+  notes: Record<string, Note>;
   inbox: Notice[];
   nextBoxId: number;
   sound: boolean;
@@ -119,8 +143,8 @@ export const emptySave = (): Save => ({
   quests: null,
   streak: { day: '', count: 0, best: 0 },
   counters: { ...ZERO_COUNTERS },
-  arcadeBest: 0,
-  arcadeCombo: 0,
+  reviews: {},
+  notes: {},
   inbox: [],
   nextBoxId: 1,
   sound: true,
@@ -279,7 +303,7 @@ function parseLevels(raw: unknown): Record<string, LevelProgress> {
 /**
  * Validate untrusted JSON from storage field by field. Anything odd falls back
  * to defaults; a version-1 save (from before the reward systems) is migrated,
- * keeping its levels, stars, XP and arcade record.
+ * keeping its levels, stars and XP.
  */
 export function parseSave(raw: string | null): Save {
   const base = emptySave();
@@ -296,8 +320,6 @@ export function parseSave(raw: string | null): Save {
     ...base,
     levels: parseLevels(data.levels),
     xp: num(data.xp, 0),
-    arcadeBest: num(data.arcadeBest, 0),
-    arcadeCombo: num(data.arcadeCombo, 0),
     sound: data.sound !== false,
     unlockAll: data.unlockAll === true,
   };
@@ -356,6 +378,14 @@ export function parseSave(raw: string | null): Save {
         : null,
     streak: { day: str(streak.day, ''), count: num(streak.count, 0), best: num(streak.best, 0) },
     counters: Object.fromEntries(Object.keys(ZERO_COUNTERS).map((k) => [k, num(counters[k], 0)])) as unknown as Counters,
+    reviews: Object.fromEntries(
+      Object.entries(obj(data.reviews)).flatMap(([id, r]) =>
+        r && typeof r.due === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(r.due) ? [[id, { box: Math.min(10, Math.floor(num(r.box, 0))), due: r.due }]] : [],
+      ),
+    ),
+    notes: Object.fromEntries(
+      Object.entries(obj(data.notes)).flatMap(([id, n]) => (n && typeof n.text === 'string' ? [[id, { text: n.text.slice(0, 600), at: num(n.at, 0) }]] : [])),
+    ),
     inbox: Array.isArray(data.inbox) ? data.inbox.filter((n: any) => n && typeof n.title === 'string').slice(-60) : [],
     nextBoxId: num(data.nextBoxId, 1),
   };

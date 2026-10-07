@@ -3,7 +3,7 @@
 // the engine are broadcast to the UI (for announcements) and logged in the inbox.
 import { useSyncExternalStore } from 'react';
 import { parseSave, type Save } from './progress';
-import { dayOf, ensureQuests, noticesFor, type Result, type Reward } from './rewards';
+import { dayOf, ensureQuests, noticesFor, syncReviews, type Result, type Reward } from './rewards';
 
 const KEY = 'reactor-quest/save';
 
@@ -15,7 +15,11 @@ function load(): Save {
   }
 }
 
-let save = ensureQuests(load(), dayOf(new Date()));
+const today = () => dayOf(new Date());
+// Every change also brings newly earned review cards into the deck, and today's quests.
+const settle = (s: Save) => ensureQuests(syncReviews(s, today()), today());
+
+let save = settle(load());
 const listeners = new Set<() => void>();
 const rewardListeners = new Set<(events: Reward[]) => void>();
 
@@ -24,7 +28,7 @@ export function getSave() {
 }
 
 function commit(next: Save) {
-  save = ensureQuests(next, dayOf(new Date()));
+  save = settle(next);
   try {
     localStorage.setItem(KEY, JSON.stringify(save));
   } catch {

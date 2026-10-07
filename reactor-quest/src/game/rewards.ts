@@ -4,6 +4,7 @@
 // Every function takes a save and returns a new one alongside a list of
 // events for the UI to announce. Randomness is injected, so it's testable.
 import { ALL_LEVELS, DECKS } from '../content';
+import { REVIEW_ITEMS } from '../content/review';
 import { ALL_ITEMS, FLOOR_SCROLLS, item, RARITY_ORDER, type Item, type Rarity } from './items';
 import {
   codeStars,
@@ -24,7 +25,7 @@ import {
   type Tier,
 } from './progress';
 import { MAX_SKILL_LEVEL, SKILLS, skillLevel, type SkillId } from './skills';
-import type { Level } from './types';
+import type { Level, ReviewItem } from './types';
 
 export type Rng = () => number;
 
@@ -191,7 +192,7 @@ export interface ClassInfo {
 }
 
 export const CLASSES: ClassInfo[] = [
-  { id: 'type-sorcerer', name: 'Type Sorcerer', icon: '🧙', perk: '+25% XP on TypeScript levels and in Compiler Says.', flavor: 'Bends the compiler to their will. The compiler has mixed feelings about this.' },
+  { id: 'type-sorcerer', name: 'Type Sorcerer', icon: '🧙', perk: '+25% XP on TypeScript levels.', flavor: 'Bends the compiler to their will. The compiler has mixed feelings about this.' },
   { id: 'component-artificer', name: 'Component Artificer', icon: '🛠', perk: '+25% XP on React levels.', flavor: 'Builds interfaces out of tiny reusable pieces. Has opinions about prop names.' },
   { id: 'bug-hunter', name: 'Bug Hunter', icon: '🔍', perk: '+20% gold from everything, and a free hint token for every boss you beat.', flavor: 'Tracks bugs across a codebase by scent alone. Smells faintly of coffee.' },
   { id: 'speedrunner', name: 'Speedrunner', icon: '⚡', perk: '50% longer par times, and double speed bonuses.', flavor: 'Types fast. Thinks faster. Occasionally both at once.' },
@@ -325,8 +326,6 @@ export interface Outcome {
   perfect?: boolean;
   /** Seconds spent on the level this visit. */
   seconds: number;
-  /** Local hour of day when the level was cleared (0–23). */
-  hour: number;
 }
 
 /** Par time for a speed bonus: a generous target, not a race. */
@@ -443,7 +442,7 @@ export function completeLevel(save: Save, level: Level, outcome: Outcome, rng: R
   if (outcome.perfect) c.perfectQuizzes++;
   if (firstClear && boss) c.bossesBeaten++;
   if (underPar) c.speedBonuses++;
-  if (outcome.hour >= 0 && outcome.hour < 4) c.nightClears++;
+  if (!firstClear && best > prev.stars) c.improvedClears++;
   s = { ...s, counters: c };
 
   // A whole floor cleared: the sponsor sends a gift.
@@ -472,7 +471,7 @@ export function completeLevel(save: Save, level: Level, outcome: Outcome, rng: R
 }
 
 /** Code levels: compute the outcome from the attempt's progress record. */
-export function codeOutcome(save: Save, level: Level, seconds: number, hour: number): Outcome {
+export function codeOutcome(save: Save, level: Level, seconds: number): Outcome {
   const p = levelState(save, level.id);
   return {
     stars: codeStars(p),
@@ -480,7 +479,6 @@ export function codeOutcome(save: Save, level: Level, seconds: number, hour: num
     failedRuns: Math.max(0, p.runs - 1),
     clean: p.hints === 0 && !p.solution,
     seconds,
-    hour,
   };
 }
 
@@ -553,7 +551,6 @@ export const ACHIEVEMENTS: Achievement[] = [
   { id: 'level-20', name: 'Veteran', icon: '🎖', tier: 'gold', description: 'Reach crawler level 20.', quip: 'Level 20. You\'ve seen things. Terrible things. Like `any`.', earned: (s) => level(s) >= 20 },
   { id: 'level-45', name: 'Living Legend', icon: '🗿', tier: 'platinum', description: 'Reach crawler level 45.', quip: 'Level 45. There are statues of you on several moons.', earned: (s) => level(s) >= 45 },
   { id: 'unboxing', name: 'Unboxing Video', icon: '📦', tier: 'bronze', description: 'Open your first loot box.', quip: 'Your first box! Four billion viewers just watched you open a box. This is what the galaxy wants.', earned: (s) => s.counters.boxesOpened >= 1 },
-  { id: 'hoarder', name: 'Hoarder', icon: '🗃', tier: 'bronze', description: 'Have 10 unopened boxes at once.', quip: 'Ten unopened boxes. Opening them is the fun part. Why are you like this?', earned: (s) => s.boxes.length >= 10 },
   { id: 'box-addict', name: 'Box Addict', icon: '🎁', tier: 'gold', description: 'Open 50 loot boxes.', quip: 'Fifty boxes. Our lawyers would like us to remind you that loot boxes are entirely free here. Unlike elsewhere.', earned: (s) => s.counters.boxesOpened >= 50 },
   { id: 'collector', name: 'Collector', icon: '🏺', tier: 'silver', description: 'Own 25 different items.', quip: 'Twenty-five items. Your quarters are starting to look like a museum of developer culture.', earned: (s) => ownedCount(s) >= 25 },
   { id: 'librarian', name: 'Librarian', icon: '📚', tier: 'gold', description: 'Collect 10 Codex scrolls.', quip: 'Ten scrolls. You now own more documentation than most codebases.', earned: (s) => ownedCount(s, 'scroll') >= 10 },
@@ -563,10 +560,12 @@ export const ACHIEVEMENTS: Achievement[] = [
   { id: 'token-gesture', name: 'Token Gesture', icon: '🎟', tier: 'bronze', description: 'Use a hint token.', quip: 'A hint, for free. Your stars remain un-besmirched.', earned: (s) => s.counters.tokensUsed >= 1 },
   { id: 'peeked', name: 'I Was Never Here', icon: '🙈', tier: 'bronze', description: 'Look at a reference solution.', quip: 'We saw that. The whole galaxy saw that. It\'s fine. Reading good code is how everyone learns.', earned: (s) => s.counters.solutionsSeen >= 1 },
   { id: 'fail-fast', name: 'Fail Fast', icon: '💥', tier: 'silver', description: 'Have 100 failed runs.', quip: 'One hundred failed runs. Every one of them taught you something. You have learned SO much.', earned: (s) => s.counters.failedRuns >= 100 },
-  { id: 'human-compiler', name: 'Human Compiler', icon: '🧮', tier: 'silver', description: 'Score 10 in Compiler Says.', quip: 'Ten right in a row-ish. tsc is worried about its job.', earned: (s) => s.arcadeBest >= 10 },
-  { id: 'strict-mode', name: 'tsc --strict', icon: '⚡', tier: 'gold', title: 'title-types', description: 'Score 20 in Compiler Says.', quip: 'Twenty. You don\'t run the compiler. The compiler runs you.', earned: (s) => s.arcadeBest >= 20 },
-  { id: 'on-a-roll', name: 'On a Roll', icon: '🔥', tier: 'silver', description: 'An 8-card streak in Compiler Says.', quip: 'Eight in a row. Somebody get this engineer a fire extinguisher.', earned: (s) => s.arcadeCombo >= 8 },
-  { id: 'arcade-regular', name: 'Arcade Regular', icon: '🕹', tier: 'bronze', description: 'Play 10 rounds of Compiler Says.', quip: 'Ten rounds. The arcade cabinet has learned your name. It\'s a little creepy.', earned: (s) => s.counters.arcadeRounds >= 10 },
+  { id: 'remember-when', name: 'Remember When', icon: '🧠', tier: 'bronze', description: 'Finish your first review session.', quip: 'Your first review. Remembering things on purpose: the closest thing programming has to a cheat code.', earned: (s) => s.counters.reviewSessions >= 1 },
+  { id: 'spaced-out', name: 'Spaced Out', icon: '📇', tier: 'silver', description: 'Answer 50 review cards.', quip: 'Fifty cards. Memory scientists have been saying this works since 1885. You are now one of their success stories.', earned: (s) => s.counters.reviewsAnswered >= 50 },
+  { id: 'clean-sweep', name: 'Clean Sweep', icon: '🧹', tier: 'silver', description: 'Finish a review of five or more cards without a mistake.', quip: 'Not one wrong. Last week\'s lessons are still in there, filed neatly.', earned: (s) => s.counters.perfectReviews >= 1 },
+  { id: 'long-term-memory', name: 'Long-Term Memory', icon: '🐘', tier: 'gold', title: 'title-recall', description: 'Remember 10 review cards for a month or more.', quip: 'Ten cards, remembered across a month. That\'s not cramming. That\'s knowing.', earned: (s) => Object.values(s.reviews).filter((r) => r.box >= REVIEW_MONTH_BOX).length >= 10 },
+  { id: 'second-wind', name: 'Second Wind', icon: '🔁', tier: 'silver', description: 'Replay a level and raise its stars.', quip: 'They came back to a level they\'d already cleared, and did it better. That\'s the whole job, really.', earned: (s) => s.counters.improvedClears >= 1 },
+  { id: 'rubber-duck', name: 'Rubber Duck', icon: '🦆', tier: 'silver', description: 'Explain 10 levels back in your own words.', quip: 'Ten explanations. If you can explain it, you understand it. The duck agrees.', earned: (s) => s.counters.notesWritten >= 10 },
   { id: 'going-viral', name: 'Going Viral', icon: '📈', tier: 'silver', description: 'Reach 10,000 viewers.', quip: 'Ten thousand viewers. Clip channels are making compilations of your semicolons.', earned: (s) => s.viewers >= 10_000 },
   { id: 'galactic-celebrity', name: 'Galactic Celebrity', icon: '🌌', tier: 'gold', title: 'title-celebrity', description: 'Reach 1,000,000 viewers.', quip: 'A MILLION viewers. You have fans on planets you can\'t pronounce.', earned: (s) => s.viewers >= 1_000_000 },
   { id: 'clocking-in', name: 'Clocking In', icon: '⏰', tier: 'bronze', description: 'Claim a daily quest.', quip: 'Your first daily quest. Consistency: the secret ingredient nobody wants to hear about.', earned: (s) => (s.quests?.claimed.length ?? 0) > 0 || s.streak.best >= 1 },
@@ -575,7 +574,6 @@ export const ACHIEVEMENTS: Achievement[] = [
   { id: 'speed-demon', name: 'Speed Demon', icon: '🏎', tier: 'silver', description: 'Earn 5 speed bonuses.', quip: 'Five levels under par. Your keyboard is smoking slightly.', earned: (s) => s.counters.speedBonuses >= 5 },
   { id: 'class-act', name: 'Class Act', icon: '🎭', tier: 'bronze', description: 'Choose a class.', quip: 'A class! Your character sheet is finally more than a name and a frown.', earned: (s) => !!s.classId },
   { id: 'best-friend', name: 'Best Friend', icon: '🐾', tier: 'bronze', description: 'Adopt a companion.', quip: 'A companion! It will love you unconditionally, even when your tests fail.', earned: (s) => !!s.pet },
-  { id: 'night-owl', name: 'Night Owl', icon: '🌙', tier: 'bronze', description: 'Clear a level between midnight and 4 am.', quip: 'Coding past midnight. A time-honoured tradition. Please drink some water.', earned: (s) => s.counters.nightClears >= 1 },
 ];
 
 export const achievement = (id: string) => ACHIEVEMENTS.find((a) => a.id === id);
@@ -615,7 +613,8 @@ export const QUESTS: Quest[] = [
   { id: 'first-try', text: 'Pass a level on your first run', counter: 'firstTries', goal: 1 },
   { id: 'clean', text: 'Clear a level without hints', counter: 'cleanClears', goal: 1 },
   { id: 'quiz', text: 'Finish a quiz', counter: 'quizzesDone', goal: 1 },
-  { id: 'arcade', text: 'Get 8 cards right in Compiler Says', counter: 'arcadeCorrect', goal: 8 },
+  { id: 'review', text: 'Answer 5 review cards', counter: 'reviewsAnswered', goal: 5 },
+  { id: 'explain', text: 'Explain a level back in your own words', counter: 'notesWritten', goal: 1 },
   { id: 'boxes', text: 'Open 2 loot boxes', counter: 'boxesOpened', goal: 2 },
   { id: 'runs', text: 'Run your code 5 times', counter: 'runs', goal: 5 },
 ];
@@ -635,7 +634,8 @@ function hash(text: string): number {
 /** Make sure today's three quests exist (the same three for everyone on the same day). */
 export function ensureQuests(save: Save, today: string): Save {
   if (save.quests?.day === today) return save;
-  const pool = [...QUESTS];
+  // Reviewing needs something to review: that quest waits until the deck has cards.
+  const pool = QUESTS.filter((q) => q.id !== 'review' || Object.keys(save.reviews).length > 0);
   const ids: string[] = [];
   let h = hash(today);
   while (ids.length < 3) {
@@ -786,29 +786,98 @@ export function replayLevel(save: Save, levelId: string, starter: string): Save 
   return withLevel(save, levelId, { hints: 0, freeHints: 0, solution: false, runs: 0, code: starter });
 }
 
-/** End of a Compiler Says round. */
-export function finishArcade(save: Save, score: number, bestCombo: number): Result {
+// ---------------------------------------------------------------- spaced review
+
+/**
+ * Days until a card comes back, by box. A right answer moves a card up a box;
+ * a wrong one sends it back to box 0 and tomorrow. Gaps that grow each time
+ * you remember are what move knowledge into long-term memory.
+ */
+export const REVIEW_INTERVALS = [1, 3, 7, 14, 30, 60];
+export const REVIEW_TOP = REVIEW_INTERVALS.length - 1;
+/** Cards in this box or above come back a month or more apart. */
+export const REVIEW_MONTH_BOX = 4;
+/** At most this many cards in one session. */
+export const REVIEW_SESSION = 10;
+
+export function addDays(day: string, n: number): string {
+  return dayOf(new Date(new Date(`${day}T12:00:00`).getTime() + n * 86_400_000));
+}
+
+/** Cards for levels you've cleared join the review deck, first due the next day. */
+export function syncReviews(save: Save, today: string): Save {
+  let reviews: Save['reviews'] | null = null;
+  for (const item of REVIEW_ITEMS) {
+    if (save.reviews[item.id] || !levelState(save, item.after).done) continue;
+    reviews ??= { ...save.reviews };
+    reviews[item.id] = { box: 0, due: addDays(today, 1) };
+  }
+  return reviews ? { ...save, reviews } : save;
+}
+
+/** Cards due today or earlier: the most overdue first, then the least known. */
+export function dueReviews(save: Save, today: string): ReviewItem[] {
+  return REVIEW_ITEMS.filter((r) => save.reviews[r.id] && save.reviews[r.id].due <= today).sort(
+    (a, b) => save.reviews[a.id].due.localeCompare(save.reviews[b.id].due) || save.reviews[a.id].box - save.reviews[b.id].box,
+  );
+}
+
+/** The next day anything is due, after today (or null if the deck is empty). */
+export function nextReviewDay(save: Save, today: string): string | null {
+  const days = Object.values(save.reviews).map((r) => r.due).filter((d) => d > today).sort();
+  return days[0] ?? null;
+}
+
+/** Answer a review card. Only the first answer in a session should be recorded. */
+export function answerReview(save: Save, id: string, correct: boolean, today: string): Result {
+  const state = save.reviews[id];
+  if (!state) return { save, events: [] };
+  const box = correct ? Math.min(REVIEW_TOP, state.box + 1) : 0;
   let s: Save = {
     ...save,
-    arcadeBest: Math.max(save.arcadeBest, score),
-    arcadeCombo: Math.max(save.arcadeCombo, bestCombo),
-    counters: { ...save.counters, arcadeRounds: save.counters.arcadeRounds + 1, arcadeCorrect: save.counters.arcadeCorrect + score },
+    reviews: { ...save.reviews, [id]: { box, due: addDays(today, REVIEW_INTERVALS[box]) } },
+    counters: { ...save.counters, reviewsAnswered: save.counters.reviewsAnswered + 1, reviewsCorrect: save.counters.reviewsCorrect + (correct ? 1 : 0) },
   };
-  const events: Reward[] = [];
-  const xp = Math.round(score * 5 * (s.classId === 'type-sorcerer' ? 1.25 : 1));
-  const gold = score * 2;
-  if (gold) {
-    s = { ...s, gold: s.gold + gold };
-    events.push({ kind: 'gold', amount: gold, detail: 'Compiler Says' });
-  }
-  const x = addXp(s, xp, 'Compiler Says');
+  // Effort counts too: a card you got wrong is a card you're about to learn.
+  const x = addXp(s, correct ? 12 : 4, 'review');
   s = x.save;
-  events.push(...x.events);
-  if (score >= 5) {
-    const v = addViewers(s, score * 25);
-    s = v.save;
-    events.push(...v.events);
-  }
   const a = checkAchievements(s);
-  return { save: a.save, events: [...events, ...a.events] };
+  return { save: a.save, events: [...x.events, ...a.events] };
+}
+
+/** The end of a review session. */
+export function finishReview(save: Save, answered: number, mistakes: number): Result {
+  const s: Save = {
+    ...save,
+    counters: {
+      ...save.counters,
+      reviewSessions: save.counters.reviewSessions + 1,
+      perfectReviews: save.counters.perfectReviews + (answered >= 5 && mistakes === 0 ? 1 : 0),
+    },
+  };
+  return checkAchievements(s);
+}
+
+// ---------------------------------------------------------------- the notebook
+
+/** A note needs a few words to count as explaining something. */
+export const NOTE_MIN_WORDS = 5;
+
+/**
+ * Save the player's own explanation of a level (empty text deletes it). The
+ * first real explanation of each level earns a little XP.
+ */
+export function saveNote(save: Save, levelId: string, text: string, at: number): Result {
+  const clean = text.trim().slice(0, 600);
+  if (!clean) {
+    const { [levelId]: _gone, ...notes } = save.notes;
+    return { save: { ...save, notes }, events: [] };
+  }
+  const first = !save.notes[levelId] && clean.split(/\s+/).length >= NOTE_MIN_WORDS;
+  let s: Save = { ...save, notes: { ...save.notes, [levelId]: { text: clean, at } } };
+  if (!first) return { save: s, events: [] };
+  s = { ...s, counters: { ...s.counters, notesWritten: s.counters.notesWritten + 1 } };
+  const x = addXp(s, 15, 'explained it back');
+  const a = checkAchievements(x.save);
+  return { save: a.save, events: [...x.events, ...a.events] };
 }

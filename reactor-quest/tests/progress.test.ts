@@ -12,7 +12,7 @@ export function seeded(seed = 1) {
   };
 }
 
-export const perfect: Outcome = { stars: 3, firstTry: true, failedRuns: 0, clean: true, perfect: true, seconds: 60, hour: 12 };
+export const perfect: Outcome = { stars: 3, firstTry: true, failedRuns: 0, clean: true, perfect: true, seconds: 60 };
 
 const first = ALL_LEVELS[0];
 const second = ALL_LEVELS[1];
@@ -109,11 +109,10 @@ describe('save parsing', () => {
     expect(parseSave(JSON.stringify(s))).toEqual(s);
   });
   test('a version-1 save is migrated, keeping progress and crediting skills', () => {
-    const v1 = { v: 1, xp: 450, arcadeBest: 12, arcadeCombo: 4, flags: { firstTry: true }, sound: true, unlockAll: false, levels: { 'power-bus': { done: true, stars: 3, hints: 0, solution: false, runs: 1 } } };
+    const v1 = { v: 1, xp: 450, flags: { firstTry: true }, sound: true, unlockAll: false, levels: { 'power-bus': { done: true, stars: 3, hints: 0, solution: false, runs: 1 } } };
     const s = parseSave(JSON.stringify(v1));
     expect(s.v).toBe(2);
     expect(s.xp).toBe(450);
-    expect(s.arcadeBest).toBe(12);
     expect(s.levels['power-bus'].stars).toBe(3);
     expect(s.skills.types).toBe(1);
     expect(s.counters.levelsPassed).toBe(1);

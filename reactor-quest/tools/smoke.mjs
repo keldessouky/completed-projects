@@ -2,7 +2,7 @@
 // real UI. It walks the first-run flow, then opens every code level, types the
 // reference solution into the editor, presses Run and waits for the victory
 // screen — proving each level is beatable in a real browser, timers and all.
-// It also plays a quiz and an arcade round, and screenshots each screen.
+// It also plays a quiz and a spaced-review session, and screenshots each screen.
 import { existsSync, mkdirSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -102,15 +102,31 @@ await step('Begin asks for a name, then opens Floor 1, level 1 — whose starter
   await page.screenshot({ path: join(shots, '02-level-starter.png') });
 });
 
-await step('A hint token reveals a hint for free; the solution caps the win at one star', async () => {
+await step('Two failed runs suggest the lesson; a plain-English line explains a compiler error', async () => {
+  await page.getByRole('button', { name: /^Run/ }).click();
+  await page.locator('.nudge').getByText('Stuck?').waitFor();
+  await setEditor('console.log("Hello, Orrery")\nconst x: number = "five";');
+  await page.getByRole('button', { name: /^Run/ }).click();
+  await page.locator('.diag .plain').getByText('the code promised').waitFor();
+  await page.locator('.nudge').getByRole('button', { name: 'Open the lesson' }).click();
+  await page.getByRole('heading', { name: 'What is code?' }).waitFor();
+});
+
+await step('A hint token reveals a hint for free; the solution waits for every hint, and caps the win at one star', async () => {
   await page.getByRole('tab', { name: /Hints/ }).click();
   await page.getByRole('button', { name: /Use a hint token/ }).click();
   await page.locator('.hint').first().waitFor();
   const worth = await page.locator('.stars-line').textContent();
   if (!worth?.includes('★★★')) throw new Error(`a token-paid hint should keep three stars, but it shows: ${worth}`);
   await page.getByRole('button', { name: /Show the solution/ }).click();
+  await page.getByRole('button', { name: 'Back to the hints' }).click();
+  await page.getByRole('button', { name: /Reveal hint 2/ }).click();
+  await page.getByRole('button', { name: /Reveal hint 3/ }).click();
+  await page.getByRole('button', { name: /Show the solution/ }).click();
   await page.getByRole('button', { name: 'Reveal the solution' }).click();
-  await page.getByRole('button', { name: 'Load it into the editor' }).click();
+  if (await page.getByRole('button', { name: 'Load it into the editor' }).count()) throw new Error('the solution should be retyped, not pasted, before the level is solved');
+  await page.locator('.modal').getByRole('button', { name: 'Close' }).click();
+  await setEditor('console.log("Hello, Orrery");');
   await page.getByRole('button', { name: /^Run/ }).click();
   await page.locator('.victory').waitFor({ timeout: 10_000 });
   const on = await page.locator('.big-stars span.on').count();
@@ -118,6 +134,12 @@ await step('A hint token reveals a hint for free; the solution caps the win at o
   await page.locator('.card-note').filter({ hasText: 'Hello, World' }).waitFor();
   await page.waitForTimeout(900); // let the stars land
   await page.screenshot({ path: join(shots, '03-victory.png') });
+});
+
+await step('Explaining the level back saves a note to the notebook, for XP', async () => {
+  await page.getByLabel(/Explain it back/).fill('The line was a comment, so it never ran. Removing the slashes made it a real instruction.');
+  await page.getByRole('button', { name: 'Save note' }).click();
+  await page.getByText('+15 XP for explaining it').waitFor();
 });
 
 await step('Opening the loot boxes from the victory screen', async () => {
@@ -274,38 +296,52 @@ await step('The Safe Room sells things', async () => {
   await page.screenshot({ path: join(shots, '14-shop.png') });
 });
 
-// ---------------------------------------------------------------- quiz + arcade
-await step('A quiz plays through to victory', async () => {
-  await page.goto(`${url}#/level/quiz-jsx`);
-  for (let q = 0; q < 10; q++) {
-    await page.locator('.option').first().click();
-    if (q === 0) await page.screenshot({ path: join(shots, '08-quiz.png') });
-    const next = page.getByRole('button', { name: /Next question|Finish/ });
-    const label = await next.textContent();
-    await next.click();
-    if (label?.includes('Finish')) break;
+// ---------------------------------------------------------------- quiz + review
+/**
+ * Answer multiple-choice cards until the screen moves on: the first option the
+ * first time (often wrong, on purpose), and the right one when a missed card
+ * comes back. Returns how many cards came back for another try.
+ */
+async function answerUntilDone(card, nextName, done, shot) {
+  const known = new Map();
+  let retries = 0;
+  for (let i = 0; i < 40 && !(await done()); i++) {
+    const key = await card.locator('.prompt, pre.code').allTextContents().then((t) => t.join('|'));
+    const option = known.has(key) ? card.locator('.option').filter({ hasText: known.get(key) }).first() : card.locator('.option').first();
+    if (known.has(key)) retries++;
+    await option.click();
+    known.set(key, (await card.locator('.option.right').textContent())?.replace(/^[A-D]/, '') ?? '');
+    if (i === 0 && shot) await page.screenshot({ path: join(shots, shot) });
+    await page.getByRole('button', { name: nextName }).click();
   }
+  return retries;
+}
+
+await step('A quiz plays through to victory; a missed question comes back until it is right', async () => {
+  await page.goto(`${url}#/level/quiz-jsx`);
+  const retries = await answerUntilDone(page.locator('.quiz-card'), /Next question|Finish/, () => page.locator('.victory').count(), '08-quiz.png');
   await page.locator('.victory').waitFor();
+  const missed = await page.locator('.victory .big-stars span.on').count() < 3;
+  if (missed && retries === 0) throw new Error('a question was missed, but never came back');
 });
 
-await step('Arcade: a round starts, answers score, wrong answers explain', async () => {
-  await page.goto(`${url}#/arcade`);
-  await page.getByRole('button', { name: /Start/ }).click();
-  let explained = false;
-  for (let i = 0; i < 6; i++) {
-    await page.locator('.arcade-card pre.code').waitFor();
-    await page.keyboard.press('ArrowRight');
-    await page.locator('.arcade-card .explain').waitFor();
-    if (await page.locator('.arcade-card.wrong').count()) {
-      explained = true;
-      await page.locator('.compiler-says').waitFor({ timeout: 10_000 });
-      if (i === 0 || !existsSync(join(shots, '09-arcade.png'))) await page.screenshot({ path: join(shots, '09-arcade.png') });
-      await page.keyboard.press('Enter');
-    } else {
-      await page.waitForTimeout(1000);
-    }
-  }
-  if (!explained) throw new Error('six "compiles" answers and none were wrong? unlikely');
+await step('Review: cleared quizzes become spaced-review cards; missed cards return within the session', async () => {
+  await page.goto(`${url}#/map`);
+  await page.locator('.review-panel').getByText(/All caught up|to review/).waitFor();
+  // Cards are first due the day after their level. Jump the deck forward a day.
+  await page.evaluate(() => {
+    const save = JSON.parse(localStorage.getItem('reactor-quest/save'));
+    for (const r of Object.values(save.reviews)) r.due = '2000-01-01';
+    localStorage.setItem('reactor-quest/save', JSON.stringify(save));
+  });
+  await page.goto(`${url}#/review`);
+  await page.reload();
+  await page.locator('.review-card').waitFor();
+  await answerUntilDone(page.locator('.review-card'), /Next card|Finish/, () => page.getByText('Session complete').count(), '09-review.png');
+  await page.getByText('Session complete').waitFor();
+  await page.getByText('remembered on the first try').waitFor();
+  await page.goto(`${url}#/character/notebook`);
+  await page.locator('.notebook li').filter({ hasText: 'Hello, Orrery' }).waitFor();
 });
 
 await step('Colour profiles: 🎨 previews on hover, Escape reverts, a click keeps it, and it survives a reload', async () => {

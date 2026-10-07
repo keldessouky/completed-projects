@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Diagnostic } from '../engine/checker';
 import { compile, isReady, onReady } from '../engine/compiler';
+import { explainDiagnostic } from '../engine/explain';
 import { grade, type Report } from '../engine/grade';
 import { codeStars, isBoss, levelState } from '../game/progress';
-import { codeOutcome, completeLevel, parSeconds, PET_LINES, recordRun, replayLevel, revealHint as revealHintAction, revealSolution as revealSolutionAction, type Reward } from '../game/rewards';
+import { codeOutcome, completeLevel, PET_LINES, recordRun, replayLevel, revealHint as revealHintAction, revealSolution as revealSolutionAction, type Reward } from '../game/rewards';
 import { sfx } from '../game/sound';
 import { act, getSave, setSave, useSave } from '../game/store';
 import type { CodeLevel, Deck } from '../game/types';
@@ -14,7 +15,7 @@ import { Modal } from '../ui/Modal';
 import { overlays } from '../ui/overlays';
 import { Preview } from '../ui/Preview';
 import { Victory } from '../ui/Victory';
-import { useLevelTimer, formatClock } from '../ui/useLevelTimer';
+import { useLevelTimer } from '../ui/useLevelTimer';
 
 type Tab = 'mission' | 'lesson' | 'hints';
 
@@ -24,7 +25,13 @@ export function CodeLevelScreen({ level, deck, index }: { level: CodeLevel; deck
   const save = useSave();
   const progress = levelState(save, level.id);
   const [code, setCode] = useState(() => progress.code ?? level.starter);
-  const [tab, setTab] = useState<Tab>('mission');
+  const [tab, setTabState] = useState<Tab>('mission');
+  const [lessonSeen, setLessonSeen] = useState(false);
+  const [failedRuns, setFailedRuns] = useState(0);
+  const setTab = (t: Tab) => {
+    if (t === 'lesson') setLessonSeen(true);
+    setTabState(t);
+  };
   const [report, setReport] = useState<Report | null>(null);
   const [running, setRunning] = useState(false);
   const [live, setLive] = useState<{ code: string; diagnostics: Diagnostic[] }>({ code: '', diagnostics: [] });
@@ -32,8 +39,9 @@ export function CodeLevelScreen({ level, deck, index }: { level: CodeLevel; deck
   const [runId, setRunId] = useState(0);
   const [modal, setModal] = useState<'reset' | 'solution' | null>(null);
   const [victory, setVictory] = useState<{ stars: number; events: Reward[] } | null>(null);
+  // Time is tracked quietly for the speed bonus, but never shown ticking:
+  // a visible clock adds pressure and pulls attention away from the problem.
   const seconds = useLevelTimer(level.id, !victory);
-  const par = parSeconds(level, save.classId);
   const [compilerReady, setCompilerReady] = useState(isReady());
   const mainPath = `/${level.file}`;
 
@@ -66,13 +74,14 @@ export function CodeLevelScreen({ level, deck, index }: { level: CodeLevel; deck
       setRunId((n) => n + 1);
       act((st) => recordRun({ ...st, levels: { ...st.levels, [level.id]: { ...levelState(st, level.id), code } } }, level.id, r.passed));
       if (r.passed) {
-        const outcome = codeOutcome(getSave(), level, seconds, new Date().getHours());
+        const outcome = codeOutcome(getSave(), level, seconds);
         const events = act((st) => completeLevel(st, level, outcome, Math.random));
         sfx.pass();
         overlays.petSay(PET_LINES.pass[Math.floor(Math.random() * PET_LINES.pass.length)]);
         setVictory({ stars: outcome.stars, events });
       } else {
         sfx.fail();
+        setFailedRuns((n) => n + 1);
         if (Math.random() < 0.4) overlays.petSay(PET_LINES.fail[Math.floor(Math.random() * PET_LINES.fail.length)]);
       }
     } catch (e) {
@@ -121,6 +130,11 @@ export function CodeLevelScreen({ level, deck, index }: { level: CodeLevel; deck
   const allChecks = report ? [...report.typeChecks.map((c) => ({ ...c, type: true })), ...report.checks.map((c) => ({ ...c, type: false }))] : [];
   const passCount = allChecks.filter((c) => c.pass).length;
 
+  // The lesson's sections, as a list of what this level teaches.
+  const goals = useMemo(() => [...level.lesson.matchAll(/^#{2,3}\s+(.+)$/gm)].map((m) => m[1].trim()), [level]);
+  const hintsLeft = level.hints.length - progress.hints;
+  const note = save.notes[level.id];
+
   const objectives = useMemo(
     () => [...(level.typeChecks ?? []).map((c) => ({ label: c.label, type: true })), ...level.checks.map((c) => ({ label: c.label, type: false }))],
     [level],
@@ -149,6 +163,15 @@ export function CodeLevelScreen({ level, deck, index }: { level: CodeLevel; deck
           {tab === 'mission' && (
             <>
               <Markdown text={level.brief} />
+              {goals.length > 0 && (
+                <div className="learn-goals">
+                  <h4>You'll learn</h4>
+                  <ul>
+                    {goals.map((g) => <li key={g}>{inline(g)}</li>)}
+                  </ul>
+                  <button className="link" onClick={() => setTab('lesson')}>Read the lesson first →</button>
+                </div>
+              )}
               <h4>Objectives</h4>
               <ul className="objectives">
                 {objectives.map((o) => {
@@ -168,6 +191,12 @@ export function CodeLevelScreen({ level, deck, index }: { level: CodeLevel; deck
                 </li>
               </ul>
               <p className="muted small">Stuck? The <button className="link" onClick={() => setTab('lesson')}>Lesson</button> tab teaches the idea; <button className="link" onClick={() => setTab('hints')}>Hints</button> nudge you toward the answer.</p>
+              {note && (
+                <div className="your-note">
+                  <b>Your note from last time</b>
+                  <p>{note.text}</p>
+                </div>
+              )}
             </>
           )}
           {tab === 'lesson' && <Markdown text={level.lesson} />}
@@ -196,6 +225,7 @@ export function CodeLevelScreen({ level, deck, index }: { level: CodeLevel; deck
               )}
               <hr />
               <button className="btn ghost danger" onClick={() => setModal('solution')}>Show the solution…</button>
+              {hintsLeft > 0 && !progress.done && !progress.solution && <p className="muted small">The solution opens once you've seen all three hints.</p>}
             </div>
           )}
         </div>
@@ -206,9 +236,6 @@ export function CodeLevelScreen({ level, deck, index }: { level: CodeLevel; deck
           <span className="file">{level.file}</span>
           <span className="spacer" />
           {!compilerReady && <span className="muted small">Loading compiler…</span>}
-          <span className={`timer ${seconds <= par ? 'under' : ''}`} title={`Clear it within ${formatClock(par)} on your first try for a speed bonus`}>
-            ⏱ {formatClock(seconds)} <span className="muted">/ par {formatClock(par)}</span>
-          </span>
           <button className="btn ghost" onClick={() => setModal('reset')}>Reset</button>
           <button className="btn primary" onClick={run} disabled={running}>
             {running ? 'Running…' : 'Run'} <kbd>{RUN_SHORTCUT}</kbd>
@@ -233,6 +260,12 @@ export function CodeLevelScreen({ level, deck, index }: { level: CodeLevel; deck
           </div>
         )}
         <div className="report">
+          {failedRuns >= 2 && !lessonSeen && !report?.passed && (
+            <div className="nudge">
+              💡 <b>Stuck?</b> The lesson explains exactly the idea this level needs, with an example.{' '}
+              <button className="link" onClick={() => setTab('lesson')}>Open the lesson</button>
+            </div>
+          )}
           <h4>
             Checks {report && <span className={report.passed ? 'ok' : 'err'}>{passCount}/{allChecks.length}</span>}
           </h4>
@@ -243,6 +276,7 @@ export function CodeLevelScreen({ level, deck, index }: { level: CodeLevel; deck
               {report.typeErrors.map((d, i) => (
                 <div key={i} className="diag">
                   <span className="loc">line {d.line}</span> {d.message}
+                  {explainDiagnostic(d.code, d.message) && <span className="plain">💡 {inline(explainDiagnostic(d.code, d.message)!)}</span>}
                 </div>
               ))}
             </div>
@@ -284,9 +318,21 @@ export function CodeLevelScreen({ level, deck, index }: { level: CodeLevel; deck
           {progress.solution || progress.done ? (
             <>
               <Code code={level.solution} />
+              {!progress.done && <p className="muted">Close it, then write it yourself. Rebuilding it from memory is what makes it stick; pasting it doesn't.</p>}
               <div className="modal-actions">
                 <button className="btn ghost" onClick={() => setModal(null)}>Close</button>
-                <button className="btn" onClick={loadSolution}>Load it into the editor</button>
+                {progress.done && <button className="btn" onClick={loadSolution}>Load it into the editor</button>}
+              </div>
+            </>
+          ) : hintsLeft > 0 ? (
+            <>
+              <p>
+                Try the hints first: {hintsLeft === level.hints.length ? 'there are three' : `${hintsLeft} left`}. Each one gets you closer without giving the answer away,
+                and working it out (even slowly) is what makes it stick.
+              </p>
+              <p className="muted">The solution opens once you've seen every hint.</p>
+              <div className="modal-actions">
+                <button className="btn primary" onClick={() => { setModal(null); setTab('hints'); }}>Back to the hints</button>
               </div>
             </>
           ) : (

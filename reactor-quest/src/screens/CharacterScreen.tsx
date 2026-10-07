@@ -9,12 +9,12 @@ import { Modal } from '../ui/Modal';
 import { overlays } from '../ui/overlays';
 import { go } from '../ui/router';
 
-type Tab = 'sheet' | 'achievements' | 'log' | 'settings';
+type Tab = 'sheet' | 'achievements' | 'notebook' | 'log' | 'settings';
 
 export function CharacterScreen({ tab: initial }: { tab?: string }) {
   const save = useSave();
   // The tab lives in the URL, so links and the back button work.
-  const tab: Tab = (['sheet', 'achievements', 'log', 'settings'] as Tab[]).find((t) => t === initial) ?? 'sheet';
+  const tab: Tab = (['sheet', 'achievements', 'notebook', 'log', 'settings'] as Tab[]).find((t) => t === initial) ?? 'sheet';
   const [confirmReset, setConfirmReset] = useState(false);
   const lvl = crawlerLevel(save.xp);
   const cls = classInfo(save.classId);
@@ -48,9 +48,9 @@ export function CharacterScreen({ tab: initial }: { tab?: string }) {
       </section>
 
       <div className="tabs pill-tabs" role="tablist">
-        {(['sheet', 'achievements', 'log', 'settings'] as Tab[]).map((t) => (
+        {(['sheet', 'achievements', 'notebook', 'log', 'settings'] as Tab[]).map((t) => (
           <button key={t} role="tab" aria-selected={tab === t} className={tab === t ? 'active' : ''} onClick={() => go(`/character/${t}`)}>
-            {t === 'sheet' ? 'Skills' : t === 'achievements' ? 'Achievements' : t === 'log' ? 'Log' : 'Settings'}
+            {t === 'sheet' ? 'Skills' : t === 'achievements' ? 'Achievements' : t === 'notebook' ? `Notebook (${Object.keys(save.notes).length})` : t === 'log' ? 'Log' : 'Settings'}
           </button>
         ))}
       </div>
@@ -119,6 +119,27 @@ export function CharacterScreen({ tab: initial }: { tab?: string }) {
               );
             })}
           </ul>
+        </section>
+      )}
+
+      {tab === 'notebook' && (
+        <section className="panel notebook">
+          <p className="muted small">
+            Your own explanations, written when you cleared each level. Rereading them is quick review; rewriting one when you understand it better is even better.
+          </p>
+          {Object.keys(save.notes).length === 0 ? (
+            <p className="muted">Nothing here yet. When you clear a level, the victory screen asks you to explain it back in a sentence or two.</p>
+          ) : (
+            <ol>
+              {ALL_LEVELS.filter((l) => save.notes[l.id]).map((l) => (
+                <li key={l.id}>
+                  <b>{l.title}</b> <span className="muted small">· {DECKS.find((d) => d.levels.includes(l))?.name}</span>{' '}
+                  <button className="link small" onClick={() => go(`/level/${l.id}`)}>revisit</button>
+                  <p>{save.notes[l.id].text}</p>
+                </li>
+              ))}
+            </ol>
+          )}
         </section>
       )}
 

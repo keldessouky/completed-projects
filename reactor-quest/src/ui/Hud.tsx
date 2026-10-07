@@ -1,6 +1,6 @@
 import { item } from '../game/items';
 import { crawlerLevel, stationPower } from '../game/progress';
-import { classInfo, formatViewers } from '../game/rewards';
+import { classInfo, dayOf, dueReviews, formatViewers } from '../game/rewards';
 import { setSave, useSave } from '../game/store';
 import { overlays } from './overlays';
 import { go, type Route } from './router';
@@ -11,9 +11,10 @@ export function Hud({ route }: { route: Route }) {
   const lvl = crawlerLevel(save.xp);
   const power = stationPower(save);
   const cls = classInfo(save.classId);
+  const due = dueReviews(save, dayOf(new Date())).length;
   const nav: [Route['name'], string, string][] = [
     ['map', '/map', 'Map'],
-    ['arcade', '/arcade', 'Arcade'],
+    ['review', '/review', 'Review'],
     ['loot', '/loot', 'Loot'],
     ['shop', '/shop', 'Safe Room'],
     ['character', '/character', 'Character'],
@@ -28,6 +29,7 @@ export function Hud({ route }: { route: Route }) {
           <button key={name} className={route.name === name ? 'active' : ''} onClick={() => go(path)}>
             {label}
             {name === 'loot' && save.boxes.length > 0 && <span className="badge">{save.boxes.length}</span>}
+            {name === 'review' && due > 0 && <span className="badge" title={`${due} card${due === 1 ? '' : 's'} due for review`}>{due}</span>}
           </button>
         ))}
       </nav>

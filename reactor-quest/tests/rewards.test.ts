@@ -13,7 +13,14 @@ import {
   completeLevel,
   ensureQuests,
   FAN_MILESTONES,
-  finishArcade,
+  addDays,
+  answerReview,
+  dueReviews,
+  finishReview,
+  NOTE_MIN_WORDS,
+  REVIEW_INTERVALS,
+  saveNote,
+  syncReviews,
   openBox,
   QUESTS,
   questProgress,
@@ -24,6 +31,7 @@ import {
   WARES,
 } from '../src/game/rewards';
 import { skillLevel } from '../src/game/skills';
+import { REVIEW_ITEMS } from '../src/content/review';
 import { perfect, seeded } from './progress.test';
 
 const first = ALL_LEVELS[0];
@@ -297,12 +305,94 @@ describe('the Safe Room', () => {
   });
 });
 
-describe('the arcade', () => {
-  test('a round pays XP and gold, and records bests', () => {
-    const r = finishArcade(emptySave(), 12, 9);
-    expect(r.save.arcadeBest).toBe(12);
-    expect(r.save.arcadeCombo).toBe(9);
-    expect(r.save.xp).toBe(60);
-    expect(r.save.achievements).toEqual(expect.arrayContaining(['human-compiler', 'on-a-roll']));
+describe('spaced review', () => {
+  const today = '2026-10-04';
+  const quiz = ALL_LEVELS.find((l) => l.kind === 'quiz')!;
+  const cleared = () => {
+    let s = emptySave();
+    for (const l of ALL_LEVELS.slice(0, ALL_LEVELS.indexOf(quiz) + 1)) s = completeLevel(s, l, perfect, seeded()).save;
+    return s;
+  };
+
+  test('clearing a quiz adds its questions to the deck, first due the next day', () => {
+    const s = syncReviews(cleared(), today);
+    const ids = REVIEW_ITEMS.filter((r) => r.after === quiz.id).map((r) => r.id);
+    expect(ids.length).toBeGreaterThan(0);
+    for (const id of ids) expect(s.reviews[id]).toEqual({ box: 0, due: addDays(today, 1) });
+    expect(dueReviews(s, today)).toHaveLength(0);
+    expect(dueReviews(s, addDays(today, 1)).map((r) => r.id)).toEqual(expect.arrayContaining(ids));
+    expect(syncReviews(s, today)).toBe(s);
+  });
+
+  test('nothing joins the deck before its level is cleared', () => {
+    expect(syncReviews(emptySave(), today).reviews).toEqual({});
+  });
+
+  test('remembering pushes a card further out; forgetting brings it back tomorrow', () => {
+    const tomorrow = addDays(today, 1);
+    let s = syncReviews(cleared(), today);
+    const id = dueReviews(s, tomorrow)[0].id;
+    s = answerReview(s, id, true, tomorrow).save;
+    expect(s.reviews[id]).toEqual({ box: 1, due: addDays(tomorrow, REVIEW_INTERVALS[1]) });
+    s = answerReview(s, id, true, s.reviews[id].due).save;
+    expect(s.reviews[id].box).toBe(2);
+    const missed = answerReview(s, id, false, s.reviews[id].due).save;
+    expect(missed.reviews[id]).toEqual({ box: 0, due: addDays(s.reviews[id].due, 1) });
+    expect(missed.counters.reviewsAnswered).toBe(3);
+    expect(missed.counters.reviewsCorrect).toBe(2);
+  });
+
+  test('reviewing pays a little XP, more for remembering', () => {
+    const s = syncReviews(cleared(), today);
+    const id = Object.keys(s.reviews)[0];
+    const right = answerReview(s, id, true, addDays(today, 1)).save.xp - s.xp;
+    const wrong = answerReview(s, id, false, addDays(today, 1)).save.xp - s.xp;
+    expect(right).toBeGreaterThan(wrong);
+    expect(wrong).toBeGreaterThan(0);
+  });
+
+  test('a session with no mistakes is a clean sweep', () => {
+    const r = finishReview(emptySave(), 6, 0).save;
+    expect(r.counters.reviewSessions).toBe(1);
+    expect(r.achievements).toEqual(expect.arrayContaining(['remember-when', 'clean-sweep']));
+    expect(finishReview(emptySave(), 6, 1).save.counters.perfectReviews).toBe(0);
+  });
+
+  test('the review quest only appears once there is a deck', () => {
+    const days = ['2026-10-01', '2026-10-02', '2026-10-03', '2026-10-04', '2026-10-05', '2026-10-06', '2026-10-07', '2026-10-08'];
+    for (const d of days) expect(ensureQuests(emptySave(), d).quests!.ids).not.toContain('review');
+  });
+});
+
+describe('the notebook', () => {
+  test('the first real explanation of a level earns XP once', () => {
+    const words = Array.from({ length: NOTE_MIN_WORDS }, () => 'word').join(' ');
+    const once = saveNote(emptySave(), first.id, words, 1);
+    expect(once.save.notes[first.id].text).toBe(words);
+    expect(once.save.counters.notesWritten).toBe(1);
+    expect(once.save.xp).toBeGreaterThan(0);
+    const edited = saveNote(once.save, first.id, `${words} more`, 2).save;
+    expect(edited.xp).toBe(once.save.xp);
+    expect(edited.notes[first.id].text).toBe(`${words} more`);
+  });
+
+  test('a note too short to explain anything is kept, but earns nothing', () => {
+    const r = saveNote(emptySave(), first.id, 'ok', 1).save;
+    expect(r.notes[first.id].text).toBe('ok');
+    expect(r.xp).toBe(0);
+  });
+
+  test('saving an empty note deletes it', () => {
+    const s = saveNote(emptySave(), first.id, 'one two three four five', 1).save;
+    expect(saveNote(s, first.id, '  ', 2).save.notes[first.id]).toBeUndefined();
+  });
+});
+
+describe('learning from mistakes', () => {
+  test('replaying a level for more stars earns Second Wind', () => {
+    const one = completeLevel(emptySave(), first, { ...perfect, stars: 1, firstTry: false }, seeded()).save;
+    const better = completeLevel(one, first, perfect, seeded()).save;
+    expect(better.counters.improvedClears).toBe(1);
+    expect(better.achievements).toContain('second-wind');
   });
 });

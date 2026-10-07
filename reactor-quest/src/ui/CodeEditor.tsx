@@ -10,6 +10,7 @@ import { classHighlighter, highlightCode } from '@lezer/highlight';
 import { useEffect, useRef } from 'react';
 import type { Diagnostic } from '../engine/checker';
 import { completions, quickInfo } from '../engine/compiler';
+import { explainDiagnostic } from '../engine/explain';
 
 interface Props {
   value: string;
@@ -147,7 +148,11 @@ export function CodeEditor({ value, path, tsx, diagnostics, onChange, onRun }: P
     const len = v.state.doc.length;
     const cm: CmDiagnostic[] = diagnostics
       .filter((d) => d.from <= len)
-      .map((d) => ({ from: d.from, to: Math.min(d.to, len), severity: 'error', message: d.message }));
+      .map((d) => {
+        // The compiler's words first, then what they mean, in plain English.
+        const plain = explainDiagnostic(d.code, d.message);
+        return { from: d.from, to: Math.min(d.to, len), severity: 'error' as const, message: plain ? `${d.message}\n\n💡 ${plain.replace(/`/g, '')}` : d.message };
+      });
     v.dispatch(setDiagnostics(v.state, cm));
   }, [diagnostics]);
 

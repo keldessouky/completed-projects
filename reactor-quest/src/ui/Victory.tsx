@@ -1,9 +1,9 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { ALL_LEVELS } from '../content';
 import { crawlerLevel, isBoss } from '../game/progress';
-import { formatViewers, type Reward } from '../game/rewards';
+import { formatViewers, NOTE_MIN_WORDS, saveNote, type Reward } from '../game/rewards';
 import { SKILLS, SKILL_RANKS } from '../game/skills';
-import { useSave } from '../game/store';
+import { act, useSave } from '../game/store';
 import type { Level } from '../game/types';
 import { overlays } from './overlays';
 import { go } from './router';
@@ -41,7 +41,8 @@ export function Victory({ level, stars, events, onReplay, onClose }: { level: Le
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Enter' && !e.metaKey && !e.ctrlKey && !(e.target instanceof HTMLButtonElement)) leave(next ? `/level/${next.id}` : '/map');
+      const typing = e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLInputElement;
+      if (e.key === 'Enter' && !e.metaKey && !e.ctrlKey && !typing && !(e.target instanceof HTMLButtonElement)) leave(next ? `/level/${next.id}` : '/map');
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -68,6 +69,7 @@ export function Victory({ level, stars, events, onReplay, onClose }: { level: Le
           <div className="reward"><b>{boxes.length || '—'}</b><span>box{boxes.length === 1 ? '' : 'es'}</span></div>
         </div>
         {xp === 0 && <p className="muted small">No new rewards: beat your best stars to earn more.</p>}
+        {events.some((e) => e.kind === 'gold' && e.detail.includes('speed bonus')) && <p className="muted small">⚡ Cleared under par time: speed bonus included.</p>}
 
         {(skillUps.length > 0 || levelUps.length > 0) && (
           <ul className="ups">
@@ -79,6 +81,8 @@ export function Victory({ level, stars, events, onReplay, onClose }: { level: Le
             ))}
           </ul>
         )}
+
+        <ExplainBack level={level} />
 
         <div className="rank-row">
           <span>Lv {lvl.level} · {lvl.title}</span>
@@ -100,6 +104,52 @@ export function Victory({ level, stars, events, onReplay, onClose }: { level: Le
             <button className="btn primary" autoFocus onClick={() => leave('/map')}>See the station</button>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Explaining what you just did, in your own words, is one of the most reliable
+ * ways to understand it (and to notice what you don't). Optional, kept in the
+ * notebook, and shown again next time you open the level.
+ */
+function ExplainBack({ level }: { level: Level }) {
+  const save = useSave();
+  const existing = save.notes[level.id]?.text ?? '';
+  const [text, setText] = useState(existing);
+  const [saved, setSaved] = useState<'' | 'saved' | 'rewarded'>('');
+  const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+  const prompt =
+    level.kind === 'code'
+      ? 'Explain it back: what was wrong, and why does your fix work? Write it as if to a crewmate.'
+      : "Explain it back: what's one thing from this quiz you want to remember?";
+
+  function save_() {
+    const events = act((s) => saveNote(s, level.id, text, Date.now()));
+    setSaved(events.some((e) => e.kind === 'xp') ? 'rewarded' : 'saved');
+  }
+
+  return (
+    <div className="explain-back">
+      <label htmlFor="explain-back">{prompt}</label>
+      <textarea
+        id="explain-back"
+        value={text}
+        maxLength={600}
+        placeholder="In a sentence or two… (optional)"
+        onChange={(e) => {
+          setText(e.target.value);
+          setSaved('');
+        }}
+      />
+      <div className="row">
+        <span className="muted small">
+          {saved === 'rewarded' ? 'Saved to your notebook. +15 XP for explaining it.' : saved ? 'Saved to your notebook.' : !existing && words > 0 && words < NOTE_MIN_WORDS ? `A few more words (${NOTE_MIN_WORDS}+) and it earns XP.` : 'Kept in Character → Notebook.'}
+        </span>
+        <button className="btn small-btn" disabled={!text.trim() || text.trim() === existing} onClick={save_}>
+          Save note
+        </button>
       </div>
     </div>
   );

@@ -40,7 +40,7 @@ jobs:
       - run: npm ci
       - name: Typecheck and build
         run: npm run build
-      - name: Every level, quiz, arcade card and colour profile proven
+      - name: Every level, quiz, review card and colour profile proven
         run: npm test
       - name: Headless Chrome plays every level through the UI
         run: npm run smoke

@@ -32,7 +32,24 @@ It is long. Read **Part 0** first, then work through the parts in order. Each pa
 
 ### The game in one paragraph
 
-Reactor Quest teaches someone who has never written code to write professional TypeScript and React. The player is the new repair engineer on **Orrery Station**, a space station that has been dark for nine days. Every system aboard runs on code and none of it works. Each **level** is one broken system: the player reads a short story brief and a lesson, then fixes or writes real code in a real editor, and presses **Run**. The game type-checks the code with the **real TypeScript compiler** (running in the browser), runs it in a sandbox, and grades it with hidden checks, including **type-level checks** that grade the player's *types*. React levels render the player's components live. There are **96 levels on 10 floors** (86 code levels, 10 quizzes), from a first `console.log` to race conditions, accessibility and testing. Inspired by *Dungeon Crawler Carl*, the repair job is broadcast as a TV show: **THE FEED** narrates, viewers pile in, sponsors send gifts, and a reward engine pays out constantly. That means crawler levels and career titles, six tiers of loot boxes, 58 achievements, 21 skills, a companion pet with hats, five classes, daily quests and streaks, a shop, boss HP bars, par times, and collectible Codex cheat sheets.
+Reactor Quest teaches someone who has never written code to write professional TypeScript and React. The player is the new repair engineer on **Orrery Station**, a space station that has been dark for nine days. Every system aboard runs on code and none of it works. Each **level** is one broken system: the player reads a short story brief and a lesson, then fixes or writes real code in a real editor, and presses **Run**. The game type-checks the code with the **real TypeScript compiler** (running in the browser), runs it in a sandbox, and grades it with hidden checks, including **type-level checks** that grade the player's *types*. React levels render the player's components live. There are **96 levels on 10 floors** (86 code levels, 10 quizzes), from a first `console.log` to race conditions, accessibility and testing. Inspired by *Dungeon Crawler Carl*, the repair job is broadcast as a TV show: **THE FEED** narrates, viewers pile in, sponsors send gifts, and a reward engine pays out constantly. That means crawler levels and career titles, six tiers of loot boxes, 58 achievements, 21 skills, a companion pet with hats, five classes, daily quests and streaks, a shop, boss HP bars, and collectible Codex cheat sheets. Underneath the show, it is built on how people actually learn: one idea per level in prerequisite order, hints before solutions, plain-English compiler errors, quizzes that re-ask what you missed, **spaced review** that brings every idea back at growing intervals, and a **notebook** where the player explains each level back in their own words.
+
+### How it teaches (the learning design)
+
+Every feature below exists for a learning reason. Keep these when you build it; they matter more than any single level.
+
+| Principle | How the game applies it |
+|---|---|
+| **Small steps in prerequisite order** (cognitive load) | One new idea per level; solutions only use constructs earlier lessons taught; where a step was big, a smaller bridge level comes first. Bosses interleave a floor's ideas. |
+| **Advance organisers** | The Mission tab lists "You'll learn" (the lesson's section headings) before the player starts, with a link to the lesson. |
+| **Instruction at the moment of need** | After two failed runs without opening the lesson, a note suggests it. |
+| **Productive struggle, scaffolded** | Three hints, each more specific. The reference solution only opens after all three, and until the level is solved it can't be pasted in: the player rebuilds it. |
+| **Immediate, specific feedback** | Every check explains its failure. Compiler errors get a plain-English line for the common ones (`src/engine/explain.ts`), in the results panel and the editor tooltip. |
+| **Retrieval practice** | A quiz on every floor. A wrong answer comes back at the end of the quiz until it's answered right (successive relearning); only first-try mistakes cost stars. |
+| **Spacing** | Spaced review (Leitner boxes): quiz questions and compiler-verified "does this compile?" cards join a deck when their level is cleared, first due the next day, then after 3, 7, 14, 30 and 60 days while remembered; a miss returns tomorrow and again at the end of the session. |
+| **Self-explanation** | After each clear, an optional "Explain it back" prompt; notes go to a Notebook and reappear when the level is revisited. |
+| **Mastery over speed** | Every level is proven passable and its starter failing. Replays for full stars, testing out of a floor by beating its boss, and no ticking clock while working (a hidden speed bonus remains). |
+| **Rewards aligned with learning** | Achievements and quests reward reviewing, explaining, clean clears and improving on a replay, never late nights or reflexes. |
 
 ### Characters and voice
 
@@ -91,15 +108,15 @@ reactor-quest/
     main.tsx  App.tsx  styles.css  vite-env.d.ts
     engine/   checker.ts  compiler.ts  compiler.worker.ts  runtime.ts  grade.ts
     game/     types.ts  skills.ts  progress.ts  rewards.ts  items.ts  store.ts  sound.ts
-    content/  index.ts  helpers.ts  arcade.ts  floor1.ts … floor10.ts
+    content/  index.ts  helpers.ts  review.ts  floor1.ts … floor10.ts
               code/<level-id>/starter.ts|tsx  and  solution.ts|tsx   (86 folders)
-    screens/  TitleScreen  MapScreen  CodeLevelScreen  QuizScreen  ArcadeScreen
+    screens/  TitleScreen  MapScreen  CodeLevelScreen  QuizScreen  ReviewScreen
               LootScreen  ShopScreen  CharacterScreen   (.tsx)
     ui/       router.ts  overlays.ts  themes.ts  ThemePicker.tsx  Hud.tsx  CodeEditor.tsx
               Preview.tsx  Markdown.tsx  highlight.tsx  Modal.tsx  Victory.tsx  Announcer.tsx
               BoxOpener.tsx  Offers.tsx  Companion.tsx  useLevelTimer.ts
     generated/typings.json   # built by tools/gen-typings.mjs, gitignored
-  tests/      levels  arcade  checker  runtime  progress  rewards  themes  markdown
+  tests/      levels  review  explain  checker  runtime  progress  rewards  themes  markdown
   tools/      gen-typings.mjs  server.mjs  launch.mjs  packaging.mjs  icon.mjs
               make-mac-app.mjs  make-win-app.mjs  make-linux-app.mjs  smoke.mjs
 ~~~~
@@ -1177,11 +1194,26 @@ export interface Deck {
   levels: Level[];
 }
 
-export interface ArcadeCard {
+/** A "does this compile?" review card. */
+export interface CompileCard {
   code: string;
   /** Does this compile under strict mode? */
   ok: boolean;
+  /** The level that teaches this card's idea: the card unlocks when it's cleared. */
+  after: string;
   why: string;
+}
+
+/** One spaced-review question. */
+export interface ReviewItem {
+  id: string;
+  /** The level whose clear unlocks this question. */
+  after: string;
+  prompt: string;
+  code?: string;
+  options: string[];
+  answer: number;
+  explain: string;
 }
 ~~~~
 
@@ -1383,6 +1415,76 @@ function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
     const t = setTimeout(() => reject(new CheckFailure(`Timed out after ${ms / 1000}s — is something waiting forever?`)), ms);
     p.then((v) => { clearTimeout(t); resolve(v); }, (e) => { clearTimeout(t); reject(e); });
   });
+}
+~~~~
+
+### Plain-English compiler errors
+
+The compiler's messages are exact but written for people who already know the vocabulary. For the mistakes beginners make most, one extra sentence says what went wrong and what to try. The original message is always shown too, because learning to read it is part of the point. It is shown under each type error in the results panel and in the editor's error tooltip. Unknown codes get nothing rather than a guess.
+
+**`src/engine/explain.ts`**
+
+~~~~ts
+// Compiler errors, in plain English. The TypeScript compiler is precise but
+// terse, and its messages are written for people who already know the
+// vocabulary. For the mistakes beginners make most, this adds one sentence
+// that says what went wrong and what to try. The original message is always
+// shown too: learning to read it is part of the point.
+
+type Explainer = (m: RegExpMatchArray | null, message: string) => string | null;
+
+const short = (type: string) => (type.length > 40 ? 'a different type' : `\`${type}\``);
+const didYouMean = (message: string) => message.match(/Did you mean '([^']+)'\?/)?.[1];
+
+const EXPLAIN: Record<number, [RegExp | null, Explainer]> = {
+  2322: [/^Type '(.+?)' is not assignable to type '(.+?)'\./, (m, msg) => {
+    const fix = didYouMean(msg);
+    if (fix) return `Probably a typo: did you mean \`${fix}\`?`;
+    if (m && m[1].endsWith('| undefined')) return 'This value might be `undefined`, but it has to be there. Check that it exists first (an `if`), or give a fallback with `??`.';
+    return m ? `This is ${short(m[1])}, but the code promised ${short(m[2])} here. Change the value, or the type it's going into.` : null;
+  }],
+  2345: [/^Argument of type '(.+?)' is not assignable to parameter of type '(.+?)'\./, (m) =>
+    m ? `You passed ${short(m[1])} to a function that expects ${short(m[2])}.` : null],
+  2339: [/^Property '(.+?)' does not exist on type '(.+?)'\./, (m) =>
+    m ? `\`${m[1]}\` isn't something this value has. Check the spelling (capitals count). If the value could be one of several types, check which one it is first.` : null],
+  2551: [/^Property '(.+?)' does not exist/, (m, msg) => `Probably a typo: you wrote \`${m?.[1]}\`, did you mean \`${didYouMean(msg)}\`?`],
+  2304: [/^Cannot find name '(.+?)'\./, (m) =>
+    m ? `Nothing called \`${m[1]}\` exists here. Check the spelling (capitals count), or create it before you use it.` : null],
+  2552: [/^Cannot find name '(.+?)'\./, (m, msg) => `Probably a typo: you wrote \`${m?.[1]}\`, did you mean \`${didYouMean(msg)}\`?`],
+  2588: [/^Cannot assign to '(.+?)'/, (m) =>
+    `\`${m?.[1]}\` was made with \`const\`, so it can never change. If it needs to change, make it with \`let\`.`],
+  7006: [/^Parameter '(.+?)'/, (m) =>
+    `Say what type \`${m?.[1]}\` is, like \`(${m?.[1]}: number)\`. Without it, TypeScript can't check anything you do with it.`],
+  7031: [/^Binding element '(.+?)'/, (m) => `Say what type \`${m?.[1]}\` is: add a type after the \`{ … }\`, like \`({ name }: { name: string })\`.`],
+  18046: [/^'(.+?)' is of type 'unknown'/, (m) =>
+    `\`${m?.[1]}\` could be anything, so you have to check what it is before you use it: \`typeof ${m?.[1]} === "string"\`, \`Array.isArray(${m?.[1]})\`, and so on.`],
+  18047: [/^'(.+?)' is possibly 'null'/, (m) =>
+    `\`${m?.[1]}\` might be \`null\`. Check it first (\`if (${m?.[1]}) { … }\`), or use \`?.\` to skip it when it's missing.`],
+  18048: [/^'(.+?)' is possibly 'undefined'/, (m) =>
+    `\`${m?.[1]}\` might be \`undefined\`. Check it first (\`if (${m?.[1]}) { … }\`), use \`?.\`, or give a fallback with \`??\`.`],
+  2532: [null, () => 'This might be `undefined`. Check it first, or use `?.` to skip it when it\'s missing.'],
+  2554: [/^Expected (\d+) arguments?, but got (\d+)/, (m) =>
+    m ? `This function takes ${m[1]} input${m[1] === '1' ? '' : 's'} and you gave it ${m[2]}.` : null],
+  2366: [null, () => 'Some way through this function ends without a `return`. Make sure every path (every `if` and `else`) returns a value.'],
+  7030: [null, () => 'Some way through this function ends without a `return`. Make sure every path (every `if` and `else`) returns a value.'],
+  2367: [null, () => 'These two can never be equal: they\'re different types. Are you comparing the right things? (A number and a string that looks like one aren\'t equal with `===`.)'],
+  2741: [/^Property '(.+?)' is missing/, (m) => `The object needs a \`${m?.[1]}\` too: its type says it's required.`],
+  2353: [/and '(.+?)' does not exist in type/, (m) => `\`${m?.[1]}\` isn't part of this type. Is it a typo, or does it not belong here?`],
+  2349: [null, () => 'You\'re calling something that isn\'t a function. Check the name, and whether you meant to put `()` after it.'],
+  2454: [/^Variable '(.+?)'/, (m) => `\`${m?.[1]}\` is used before it's been given a value. Give it one first.`],
+  2307: [null, () => 'On the station, only `react` can be imported. Everything else has to be written here.'],
+  1002: [null, () => 'A piece of text is missing its closing quote.'],
+  1005: [/^'(.+?)' expected/, (m) => `The compiler expected a \`${m?.[1]}\` here. Look for something unfinished just before this point: a missing bracket, comma or quote.`],
+  1109: [null, () => 'Something is missing here: the line stops in the middle. Check for a missing value after an operator, or an extra symbol.'],
+  1128: [null, () => 'The compiler got lost here. Often there\'s one bracket too many, or one missing, just before this point. Count your `{` and `}`.'],
+};
+
+/** One plain-English sentence about a compiler error, or null if there's nothing to add. */
+export function explainDiagnostic(code: number, message: string): string | null {
+  const entry = EXPLAIN[code];
+  if (!entry) return null;
+  const [pattern, explain] = entry;
+  return explain(pattern ? message.match(pattern) : null, message);
 }
 ~~~~
 
@@ -2336,35 +2438,84 @@ What follows is the complete curriculum: every level's id, title, station system
    - Type checks: MissionDashboard is a valid component
    - Checks: Loading, then the fleet sorted A→Z; Failure shows an alert, and Retry recovers; Search is case-insensitive; Status filters, with aria-pressed; Details open on click and close with Close or Escape; Hooks are called before the early returns
 
-### The Compiler Says arcade
+### Spaced review
 
-A 60-second arcade mode. The player sees a TypeScript snippet and answers **"Does this compile under strict mode?"** with ←/N (type error) or →/Y (compiles). A right answer scores and builds a streak. A wrong one pauses the clock, explains why, and shows the real compiler's first error message. Cards are `{ code, ok, why }` in `src/content/arcade.ts`: **40 cards, 14 of which compile**. Every verdict is verified against the real compiler by a test. Write cards that each teach one gotcha. Some examples:
+Learning something once isn't enough to keep it. Every quiz question, plus 40 "does this compile with `strict` on?" cards, form a **review deck**. Each item is tied to the level that teaches its idea (`after`) and joins the player's deck the day after that level is cleared. Every card's verdict is verified against the real compiler by a test, and a test checks that no card unlocks before the TypeScript floors. Write cards that each teach one gotcha, and only about things a lesson has taught. The scheduling rules are in Part 7, and the screen in Part 8.
+
+**`src/content/review.ts`**
 
 ~~~~ts
-import type { ArcadeCard } from '../game/types';
+import { ALL_LEVELS } from '.';
+import type { CompileCard, ReviewItem } from '../game/types';
 
-// "Compiles?" — every card's verdict is verified against the real compiler
-// (strict mode, same settings as the levels) by tests/arcade.test.ts.
-export const ARCADE_CARDS: ArcadeCard[] = [
-  { code: `let fuel: number = "80";`, ok: false, why: 'A string literal is not a number. Annotations are promises the compiler holds you to.' },
-  { code: `const names: string[] = ["Ada", "Bo"];\nnames.push("Cy");`, ok: true, why: '`const` stops reassigning the variable, not changing the array it points to.' },
-  { code: `function greet(name) {\n  return "Hi " + name;\n}`, ok: false, why: 'Under strict mode, an unannotated parameter is an implicit `any` — an error.' },
-  { code: `let id: string | number = 7;\nid = "seven";`, ok: true, why: 'Both values fit the union `string | number`.' },
-  { code: `function len(s: string | null) {\n  return s.length;\n}`, ok: false, why: '`s` is possibly `null`. Narrow it first.' },
-  { code: `function len(s: string | null) {\n  return s?.length ?? 0;\n}`, ok: true, why: '`?.` short-circuits on null and `??` supplies the fallback.' },
-  { code: `const pt: { x: number; y: number } = { x: 1 };`, ok: false, why: 'Property `y` is missing.' },
-  { code: `interface Ship { name: string }\nconst s: Ship = { name: "Kite", crew: 3 };`, ok: false, why: 'Object literals get an excess property check: `crew` isn\'t in `Ship`.' },
-  { code: `interface Ship { name: string }\nconst data = { name: "Kite", crew: 3 };\nconst s: Ship = data;`, ok: true, why: 'Gotcha! Excess property checks only apply to fresh object literals. `data` has a `name: string`, so it fits.' },
-  { code: `type Dir = "up" | "down";\nconst d: Dir = "left";`, ok: false, why: '"left" is not one of the literal members of `Dir`.' },
-  { code: `const pair: [string, number] = ["a", 1, 2];`, ok: false, why: 'A tuple has a fixed length. Three elements don\'t fit `[string, number]`.' },
-  { code: `const nums = [1, 2, 3];\nconst doubled: number[] = nums.map((n) => n * 2);`, ok: true, why: '`n` is inferred as `number`, so the result is `number[]`.' },
-  { code: `const nums = [1, 2, 3];\nconst hit: number = nums.find((n) => n > 1);`, ok: false, why: '`find` returns `number | undefined` — it might not find anything.' },
-  { code: `function first<T>(xs: T[]): T | undefined {\n  return xs[0];\n}\nconst s: string | undefined = first([1, 2]);`, ok: false, why: 'T is inferred as `number`, so the result is `number | undefined`, not string.' },
-~~~~
-~~~~ts
-  // … 26 more: excess property checks, readonly, never, keyof, satisfies,
-  //     discriminated unions, generic constraints, React prop types, useState inference …
+// Spaced review: short retrieval questions that come back on a schedule after
+// you've learned their topic. Two sources:
+//   - every quiz question, unlocked once you've finished that quiz;
+//   - "does this compile?" cards, each unlocked by the level that teaches its
+//     idea. Every card's verdict is checked against the real compiler (strict
+//     mode, the same settings as the levels) by tests/review.test.ts.
+// Card ids come from their position: add new cards at the end.
+export const COMPILE_CARDS: CompileCard[] = [
+  { code: `let fuel: number = "80";`, ok: false, after: 'power-bus', why: 'A string literal is not a number. Annotations are promises the compiler holds you to.' },
+  { code: `const names: string[] = ["Ada", "Bo"];\nnames.push("Cy");`, ok: true, after: 'cargo-manifest', why: '`const` stops reassigning the variable, not changing the array it points to.' },
+  { code: `function greet(name) {\n  return "Hi " + name;\n}`, ok: false, after: 'power-bus', why: 'Under strict mode, an unannotated parameter is an implicit `any` — an error.' },
+  { code: `let id: string | number = 7;\nid = "seven";`, ok: true, after: 'signal-decoder', why: 'Both values fit the union `string | number`.' },
+  { code: `function len(s: string | null) {\n  return s.length;\n}`, ok: false, after: 'signal-decoder', why: '`s` is possibly `null`. Narrow it first.' },
+  { code: `function len(s: string | null) {\n  return s?.length ?? 0;\n}`, ok: true, after: 'signal-decoder', why: '`?.` short-circuits on null and `??` supplies the fallback.' },
+  { code: `const pt: { x: number; y: number } = { x: 1 };`, ok: false, after: 'crew-registry', why: 'Property `y` is missing.' },
+  { code: `interface Ship { name: string }\nconst s: Ship = { name: "Kite", crew: 3 };`, ok: false, after: 'crew-registry', why: 'Object literals get an excess property check: `crew` isn\'t in `Ship`.' },
+  { code: `interface Ship { name: string }\nconst data = { name: "Kite", crew: 3 };\nconst s: Ship = data;`, ok: true, after: 'crew-registry', why: 'Gotcha! Excess property checks only apply to fresh object literals. `data` has a `name: string`, so it fits.' },
+  { code: `type Dir = "up" | "down";\nconst d: Dir = "left";`, ok: false, after: 'literal-locks', why: '"left" is not one of the literal members of `Dir`.' },
+  { code: `const pair: [string, number] = ["a", 1, 2];`, ok: false, after: 'cargo-manifest', why: 'A tuple has a fixed length. Three elements don\'t fit `[string, number]`.' },
+  { code: `const nums = [1, 2, 3];\nconst doubled: number[] = nums.map((n) => n * 2);`, ok: true, after: 'cargo-manifest', why: '`n` is inferred as `number`, so the result is `number[]`.' },
+  { code: `const nums = [1, 2, 3];\nconst hit: number = nums.find((n) => n > 1);`, ok: false, after: 'cargo-manifest', why: '`find` returns `number | undefined` — it might not find anything.' },
+  { code: `function first<T>(xs: T[]): T | undefined {\n  return xs[0];\n}\nconst s: string | undefined = first([1, 2]);`, ok: false, after: 'universal-adapter', why: 'T is inferred as `number`, so the result is `number | undefined`, not string.' },
+  { code: `const ro: readonly number[] = [1, 2];\nro.push(3);`, ok: false, after: 'config-matrix', why: 'Readonly arrays have no `push`.' },
+  { code: `let v: unknown = "hi";\nv.toUpperCase();`, ok: false, after: 'unknown-values', why: '`unknown` must be narrowed before you can use it.' },
+  { code: `let v: unknown = "hi";\nif (typeof v === "string") v.toUpperCase();`, ok: true, after: 'unknown-values', why: 'The `typeof` check narrows `unknown` to `string`.' },
+  { code: `let a: any = 4;\na.fly.to.the.moon();`, ok: true, after: 'unknown-values', why: '`any` turns checking off. It compiles — and crashes at runtime. That\'s why `any` is dangerous.' },
+  { code: `function sign(n: number): string {\n  if (n > 0) return "pos";\n}`, ok: false, after: 'comms-relay', why: 'Not every path returns a string: for n ≤ 0 it returns `undefined`.' },
+  { code: `const o = { level: 1 } as const;\no.level = 2;`, ok: false, after: 'satisfies-const', why: '`as const` makes every property readonly.' },
+  { code: `type User = { name: string; age?: number };\nconst u: User = { name: "Ada" };\nconst next = u.age + 1;`, ok: false, after: 'crew-registry', why: '`u.age` is possibly `undefined`.' },
+  { code: `const el = document.querySelector("input");\nel.value = "x";`, ok: false, after: 'targeting', why: '`querySelector` returns `HTMLInputElement | null`. It might not exist.' },
+  { code: `const el = document.querySelector("input");\nif (el) el.value = "x";`, ok: true, after: 'targeting', why: 'With a tag name, TypeScript knows it\'s an `HTMLInputElement`, and the `if` removes `null`.' },
+  { code: `const el = document.querySelector(".field");\nif (el) el.value = "x";`, ok: false, after: 'targeting', why: 'A class selector gives a plain `Element`, which has no `value`. You\'d need `querySelector<HTMLInputElement>(…)`.' },
+  { code: `import { useState } from "react";\nfunction Fuel() {\n  const [n, setN] = useState(0);\n  setN("full");\n  return null;\n}`, ok: false, after: 'thruster', why: '`useState(0)` holds a number; "full" is a string.' },
+  { code: `function Badge({ name }: { name: string }) {\n  return <b>{name}</b>;\n}\nconst el = <Badge />;`, ok: false, after: 'gauge-panel', why: 'The required prop `name` is missing.' },
+  { code: `function Badge({ name }: { name: string }) {\n  return <b>{name}</b>;\n}\nconst el = <Badge name="Ada" />;`, ok: true, after: 'gauge-panel', why: 'All required props are there, with the right types.' },
+  { code: `const el = <div class="panel" />;`, ok: false, after: 'first-light', why: 'In JSX it\'s `className`. The compiler even suggests it.' },
+  { code: `const el = (\n  <input onChange={(e) => console.log(e.target.value)} />\n);`, ok: true, after: 'callsign', why: 'The handler\'s event type is inferred from `onChange` on an `<input>`, so `e.target.value` is a string.' },
+  { code: `import { useState } from "react";\nfunction List() {\n  const [items, setItems] = useState([]);\n  setItems(["fuel"]);\n  return null;\n}`, ok: false, after: 'airlock', why: '`useState([])` infers `never[]` — an array that can hold nothing. Write `useState<string[]>([])`.' },
+  { code: `import { useRef } from "react";\nfunction Field() {\n  const r = useRef<HTMLInputElement>(null);\n  r.current.focus();\n  return <input ref={r} />;\n}`, ok: false, after: 'targeting', why: '`r.current` is `null` until React attaches it. Use `r.current?.focus()`.' },
+  { code: `type Shape =\n  | { kind: "sq"; size: number }\n  | { kind: "circ"; r: number };\nconst area = (s: Shape) =>\n  s.kind === "sq" ? s.size ** 2 : Math.PI * s.r ** 2;`, ok: true, after: 'alarm-router', why: 'Checking the `kind` tag narrows each branch to one member.' },
+  { code: `type Shape =\n  | { kind: "sq"; size: number }\n  | { kind: "circ"; r: number };\nconst size = (s: Shape) => s.size;`, ok: false, after: 'alarm-router', why: 'Without narrowing, `size` only exists on one member of the union.' },
+  { code: `function sum(...xs: number[]) {\n  return xs.reduce((a, b) => a + b, 0);\n}\nsum(1, 2, "3");`, ok: false, after: 'cargo-manifest', why: '"3" is a string; every rest argument must be a number.' },
+  { code: `const crew: string[] = [];\nconst first: string = crew[0];`, ok: true, after: 'cargo-manifest', why: 'Gotcha! Reading by index is typed as the element type, even though `crew[0]` is `undefined` here. TypeScript trusts you with indexes, so check the length first.' },
+  { code: `function pick<T, K extends keyof T>(o: T, k: K) {\n  return o[k];\n}\npick({ a: 1 }, "b");`, ok: false, after: 'constraint-field', why: '"b" is not a key of `{ a: number }`.' },
+  { code: `function shout(s?: string) {\n  return s.toUpperCase();\n}`, ok: false, after: 'signal-decoder', why: '`s?` means `s` may be `undefined`. Narrow it first, or give it a default: `s = ""`.' },
+  { code: `const n = "42".length;\nconst s: string = n;`, ok: false, after: 'power-bus', why: '`.length` is a number, and a number can\'t go where a string was promised.' },
+  { code: 'type Bay = `bay-${1 | 2}`;\nconst b: Bay = "bay-3";', ok: false, after: 'template-literal-types', why: '"bay-3" isn\'t one of the two codes `Bay` allows: "bay-1" and "bay-2".' },
+  { code: `import type { ReactNode } from "react";\nfunction Panel({ children }: { children: ReactNode }) {\n  return <section>{children}</section>;\n}\nconst p = <Panel>{42}{"text"}{null}</Panel>;`, ok: true, after: 'hull-plating', why: '`ReactNode` accepts numbers, strings, null, elements and arrays of them.' },
 ];
+
+export const REVIEW_ITEMS: ReviewItem[] = [
+  ...ALL_LEVELS.flatMap((level) =>
+    level.kind === 'quiz'
+      ? level.questions.map((q, i): ReviewItem => ({ id: `${level.id}/${i + 1}`, after: level.id, prompt: q.prompt, code: q.code, options: q.options, answer: q.answer, explain: q.explain }))
+      : [],
+  ),
+  ...COMPILE_CARDS.map((c, i): ReviewItem => ({
+    id: `compiles/${i + 1}`,
+    after: c.after,
+    prompt: 'Does this compile with `strict` on?',
+    code: c.code,
+    options: ['Yes, it compiles', "No, it's a type error"],
+    answer: c.ok ? 0 : 1,
+    explain: c.why,
+  })),
+];
+
+export const reviewItem = (id: string) => REVIEW_ITEMS.find((r) => r.id === id);
 ~~~~
 
 ---
@@ -2430,18 +2581,40 @@ export interface Counters {
   failedRuns: number;
   tokensUsed: number;
   solutionsSeen: number;
-  arcadeRounds: number;
-  arcadeCorrect: number;
   speedBonuses: number;
   goldSpent: number;
-  nightClears: number;
+  /** Replays that raised a level's stars. */
+  improvedClears: number;
+  reviewSessions: number;
+  reviewsAnswered: number;
+  reviewsCorrect: number;
+  /** Review sessions of five or more cards with no mistakes. */
+  perfectReviews: number;
+  /** Levels explained back in the player's own words. */
+  notesWritten: number;
 }
 
 export const ZERO_COUNTERS: Counters = {
   levelsPassed: 0, threeStars: 0, firstTries: 0, cleanClears: 0, quizzesDone: 0, perfectQuizzes: 0, bossesBeaten: 0,
-  boxesOpened: 0, runs: 0, failedRuns: 0, tokensUsed: 0, solutionsSeen: 0, arcadeRounds: 0, arcadeCorrect: 0,
-  speedBonuses: 0, goldSpent: 0, nightClears: 0,
+  boxesOpened: 0, runs: 0, failedRuns: 0, tokensUsed: 0, solutionsSeen: 0, speedBonuses: 0, goldSpent: 0,
+  improvedClears: 0, reviewSessions: 0, reviewsAnswered: 0, reviewsCorrect: 0, perfectReviews: 0, notesWritten: 0,
 };
+
+/**
+ * A spaced-review card's place in the schedule (a Leitner box): box 0 is new
+ * or forgotten, and each right answer moves it up a box and further out.
+ */
+export interface ReviewState {
+  box: number;
+  /** The day it's next due, YYYY-MM-DD. */
+  due: string;
+}
+
+/** What the player wrote when they explained a level back in their own words. */
+export interface Note {
+  text: string;
+  at: number;
+}
 
 export type ClassId = 'type-sorcerer' | 'component-artificer' | 'bug-hunter' | 'speedrunner' | 'crowd-favourite';
 export type PetKind = 'drone' | 'cat' | 'octopus' | 'owl' | 'fox' | 'dragon';
@@ -2477,8 +2650,10 @@ export interface Save {
   quests: { day: string; ids: string[]; claimed: string[]; base: Counters } | null;
   streak: { day: string; count: number; best: number };
   counters: Counters;
-  arcadeBest: number;
-  arcadeCombo: number;
+  /** Spaced review: every card that has joined the review deck, by id. */
+  reviews: Record<string, ReviewState>;
+  /** The player's notebook: their own explanation of each level, by level id. */
+  notes: Record<string, Note>;
   inbox: Notice[];
   nextBoxId: number;
   sound: boolean;
@@ -2506,8 +2681,8 @@ export const emptySave = (): Save => ({
   quests: null,
   streak: { day: '', count: 0, best: 0 },
   counters: { ...ZERO_COUNTERS },
-  arcadeBest: 0,
-  arcadeCombo: 0,
+  reviews: {},
+  notes: {},
   inbox: [],
   nextBoxId: 1,
   sound: true,
@@ -2666,7 +2841,7 @@ function parseLevels(raw: unknown): Record<string, LevelProgress> {
 /**
  * Validate untrusted JSON from storage field by field. Anything odd falls back
  * to defaults; a version-1 save (from before the reward systems) is migrated,
- * keeping its levels, stars, XP and arcade record.
+ * keeping its levels, stars and XP.
  */
 export function parseSave(raw: string | null): Save {
   const base = emptySave();
@@ -2683,8 +2858,6 @@ export function parseSave(raw: string | null): Save {
     ...base,
     levels: parseLevels(data.levels),
     xp: num(data.xp, 0),
-    arcadeBest: num(data.arcadeBest, 0),
-    arcadeCombo: num(data.arcadeCombo, 0),
     sound: data.sound !== false,
     unlockAll: data.unlockAll === true,
   };
@@ -2743,6 +2916,14 @@ export function parseSave(raw: string | null): Save {
         : null,
     streak: { day: str(streak.day, ''), count: num(streak.count, 0), best: num(streak.best, 0) },
     counters: Object.fromEntries(Object.keys(ZERO_COUNTERS).map((k) => [k, num(counters[k], 0)])) as unknown as Counters,
+    reviews: Object.fromEntries(
+      Object.entries(obj(data.reviews)).flatMap(([id, r]) =>
+        r && typeof r.due === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(r.due) ? [[id, { box: Math.min(10, Math.floor(num(r.box, 0))), due: r.due }]] : [],
+      ),
+    ),
+    notes: Object.fromEntries(
+      Object.entries(obj(data.notes)).flatMap(([id, n]) => (n && typeof n.text === 'string' ? [[id, { text: n.text.slice(0, 600), at: num(n.at, 0) }]] : [])),
+    ),
     inbox: Array.isArray(data.inbox) ? data.inbox.filter((n: any) => n && typeof n.title === 'string').slice(-60) : [],
     nextBoxId: num(data.nextBoxId, 1),
   };
@@ -2759,7 +2940,7 @@ The store is a tiny external store read with `useSyncExternalStore`. `act()` run
 // the engine are broadcast to the UI (for announcements) and logged in the inbox.
 import { useSyncExternalStore } from 'react';
 import { parseSave, type Save } from './progress';
-import { dayOf, ensureQuests, noticesFor, type Result, type Reward } from './rewards';
+import { dayOf, ensureQuests, noticesFor, syncReviews, type Result, type Reward } from './rewards';
 
 const KEY = 'reactor-quest/save';
 
@@ -2771,7 +2952,11 @@ function load(): Save {
   }
 }
 
-let save = ensureQuests(load(), dayOf(new Date()));
+const today = () => dayOf(new Date());
+// Every change also brings newly earned review cards into the deck, and today's quests.
+const settle = (s: Save) => ensureQuests(syncReviews(s, today()), today());
+
+let save = settle(load());
 const listeners = new Set<() => void>();
 const rewardListeners = new Set<(events: Reward[]) => void>();
 
@@ -2780,7 +2965,7 @@ export function getSave() {
 }
 
 function commit(next: Save) {
-  save = ensureQuests(next, dayOf(new Date()));
+  save = settle(next);
   try {
     localStorage.setItem(KEY, JSON.stringify(save));
   } catch {
@@ -2839,7 +3024,9 @@ What happens when a level is cleared (`completeLevel`):
 7. **Offers**: the companion pet is offered after Floor 1's boss, and the class after Floor 3's boss.
 8. **Achievements** are checked (58 in all, each with its own box, some with a title).
 
-Also included: opening boxes (loot tables per tier, duplicate cosmetics salvaged for gold, preferring items the player doesn't own), classes and pets, sponsors, daily quests (3 a day, picked by a hash of the date, so they're the same for everyone that day), streaks (boxes at 3, 7, 14 and 30 days), the **Safe Room** shop, the arcade payout, and the small actions: run, hint, solution, replay. Copy this file exactly; the numbers are tuned.
+After a clear, the player can also **explain it back** (`saveNote`): the first note of five or more words for a level earns 15 XP. **Spaced review** (`syncReviews`, `dueReviews`, `answerReview`, `finishReview`) uses Leitner boxes: a right answer moves a card up a box and due again after 3, 7, 14, 30 or 60 days; a wrong one sends it to box 0, due tomorrow. Only the first answer in a session counts. A right answer earns 12 XP and a wrong one 4, because effort counts too. The store syncs the deck on every change, so newly cleared levels add their cards straight away.
+
+Also included: opening boxes (loot tables per tier, duplicate cosmetics salvaged for gold, preferring items the player doesn't own), classes and pets, sponsors, daily quests (3 a day, picked by a hash of the date, so they're the same for everyone that day), streaks (boxes at 3, 7, 14 and 30 days), the **Safe Room** shop, and the small actions: run, hint, solution, replay. Copy this file exactly; the numbers are tuned.
 
 **`src/game/rewards.ts`**
 
@@ -2850,6 +3037,7 @@ Also included: opening boxes (loot tables per tier, duplicate cosmetics salvaged
 // Every function takes a save and returns a new one alongside a list of
 // events for the UI to announce. Randomness is injected, so it's testable.
 import { ALL_LEVELS, DECKS } from '../content';
+import { REVIEW_ITEMS } from '../content/review';
 import { ALL_ITEMS, FLOOR_SCROLLS, item, RARITY_ORDER, type Item, type Rarity } from './items';
 import {
   codeStars,
@@ -2870,7 +3058,7 @@ import {
   type Tier,
 } from './progress';
 import { MAX_SKILL_LEVEL, SKILLS, skillLevel, type SkillId } from './skills';
-import type { Level } from './types';
+import type { Level, ReviewItem } from './types';
 
 export type Rng = () => number;
 
@@ -3037,7 +3225,7 @@ export interface ClassInfo {
 }
 
 export const CLASSES: ClassInfo[] = [
-  { id: 'type-sorcerer', name: 'Type Sorcerer', icon: '🧙', perk: '+25% XP on TypeScript levels and in Compiler Says.', flavor: 'Bends the compiler to their will. The compiler has mixed feelings about this.' },
+  { id: 'type-sorcerer', name: 'Type Sorcerer', icon: '🧙', perk: '+25% XP on TypeScript levels.', flavor: 'Bends the compiler to their will. The compiler has mixed feelings about this.' },
   { id: 'component-artificer', name: 'Component Artificer', icon: '🛠', perk: '+25% XP on React levels.', flavor: 'Builds interfaces out of tiny reusable pieces. Has opinions about prop names.' },
   { id: 'bug-hunter', name: 'Bug Hunter', icon: '🔍', perk: '+20% gold from everything, and a free hint token for every boss you beat.', flavor: 'Tracks bugs across a codebase by scent alone. Smells faintly of coffee.' },
   { id: 'speedrunner', name: 'Speedrunner', icon: '⚡', perk: '50% longer par times, and double speed bonuses.', flavor: 'Types fast. Thinks faster. Occasionally both at once.' },
@@ -3171,8 +3359,6 @@ export interface Outcome {
   perfect?: boolean;
   /** Seconds spent on the level this visit. */
   seconds: number;
-  /** Local hour of day when the level was cleared (0–23). */
-  hour: number;
 }
 
 /** Par time for a speed bonus: a generous target, not a race. */
@@ -3289,7 +3475,7 @@ export function completeLevel(save: Save, level: Level, outcome: Outcome, rng: R
   if (outcome.perfect) c.perfectQuizzes++;
   if (firstClear && boss) c.bossesBeaten++;
   if (underPar) c.speedBonuses++;
-  if (outcome.hour >= 0 && outcome.hour < 4) c.nightClears++;
+  if (!firstClear && best > prev.stars) c.improvedClears++;
   s = { ...s, counters: c };
 
   // A whole floor cleared: the sponsor sends a gift.
@@ -3318,7 +3504,7 @@ export function completeLevel(save: Save, level: Level, outcome: Outcome, rng: R
 }
 
 /** Code levels: compute the outcome from the attempt's progress record. */
-export function codeOutcome(save: Save, level: Level, seconds: number, hour: number): Outcome {
+export function codeOutcome(save: Save, level: Level, seconds: number): Outcome {
   const p = levelState(save, level.id);
   return {
     stars: codeStars(p),
@@ -3326,7 +3512,6 @@ export function codeOutcome(save: Save, level: Level, seconds: number, hour: num
     failedRuns: Math.max(0, p.runs - 1),
     clean: p.hints === 0 && !p.solution,
     seconds,
-    hour,
   };
 }
 
@@ -3399,7 +3584,6 @@ export const ACHIEVEMENTS: Achievement[] = [
   { id: 'level-20', name: 'Veteran', icon: '🎖', tier: 'gold', description: 'Reach crawler level 20.', quip: 'Level 20. You\'ve seen things. Terrible things. Like `any`.', earned: (s) => level(s) >= 20 },
   { id: 'level-45', name: 'Living Legend', icon: '🗿', tier: 'platinum', description: 'Reach crawler level 45.', quip: 'Level 45. There are statues of you on several moons.', earned: (s) => level(s) >= 45 },
   { id: 'unboxing', name: 'Unboxing Video', icon: '📦', tier: 'bronze', description: 'Open your first loot box.', quip: 'Your first box! Four billion viewers just watched you open a box. This is what the galaxy wants.', earned: (s) => s.counters.boxesOpened >= 1 },
-  { id: 'hoarder', name: 'Hoarder', icon: '🗃', tier: 'bronze', description: 'Have 10 unopened boxes at once.', quip: 'Ten unopened boxes. Opening them is the fun part. Why are you like this?', earned: (s) => s.boxes.length >= 10 },
   { id: 'box-addict', name: 'Box Addict', icon: '🎁', tier: 'gold', description: 'Open 50 loot boxes.', quip: 'Fifty boxes. Our lawyers would like us to remind you that loot boxes are entirely free here. Unlike elsewhere.', earned: (s) => s.counters.boxesOpened >= 50 },
   { id: 'collector', name: 'Collector', icon: '🏺', tier: 'silver', description: 'Own 25 different items.', quip: 'Twenty-five items. Your quarters are starting to look like a museum of developer culture.', earned: (s) => ownedCount(s) >= 25 },
   { id: 'librarian', name: 'Librarian', icon: '📚', tier: 'gold', description: 'Collect 10 Codex scrolls.', quip: 'Ten scrolls. You now own more documentation than most codebases.', earned: (s) => ownedCount(s, 'scroll') >= 10 },
@@ -3409,10 +3593,12 @@ export const ACHIEVEMENTS: Achievement[] = [
   { id: 'token-gesture', name: 'Token Gesture', icon: '🎟', tier: 'bronze', description: 'Use a hint token.', quip: 'A hint, for free. Your stars remain un-besmirched.', earned: (s) => s.counters.tokensUsed >= 1 },
   { id: 'peeked', name: 'I Was Never Here', icon: '🙈', tier: 'bronze', description: 'Look at a reference solution.', quip: 'We saw that. The whole galaxy saw that. It\'s fine. Reading good code is how everyone learns.', earned: (s) => s.counters.solutionsSeen >= 1 },
   { id: 'fail-fast', name: 'Fail Fast', icon: '💥', tier: 'silver', description: 'Have 100 failed runs.', quip: 'One hundred failed runs. Every one of them taught you something. You have learned SO much.', earned: (s) => s.counters.failedRuns >= 100 },
-  { id: 'human-compiler', name: 'Human Compiler', icon: '🧮', tier: 'silver', description: 'Score 10 in Compiler Says.', quip: 'Ten right in a row-ish. tsc is worried about its job.', earned: (s) => s.arcadeBest >= 10 },
-  { id: 'strict-mode', name: 'tsc --strict', icon: '⚡', tier: 'gold', title: 'title-types', description: 'Score 20 in Compiler Says.', quip: 'Twenty. You don\'t run the compiler. The compiler runs you.', earned: (s) => s.arcadeBest >= 20 },
-  { id: 'on-a-roll', name: 'On a Roll', icon: '🔥', tier: 'silver', description: 'An 8-card streak in Compiler Says.', quip: 'Eight in a row. Somebody get this engineer a fire extinguisher.', earned: (s) => s.arcadeCombo >= 8 },
-  { id: 'arcade-regular', name: 'Arcade Regular', icon: '🕹', tier: 'bronze', description: 'Play 10 rounds of Compiler Says.', quip: 'Ten rounds. The arcade cabinet has learned your name. It\'s a little creepy.', earned: (s) => s.counters.arcadeRounds >= 10 },
+  { id: 'remember-when', name: 'Remember When', icon: '🧠', tier: 'bronze', description: 'Finish your first review session.', quip: 'Your first review. Remembering things on purpose: the closest thing programming has to a cheat code.', earned: (s) => s.counters.reviewSessions >= 1 },
+  { id: 'spaced-out', name: 'Spaced Out', icon: '📇', tier: 'silver', description: 'Answer 50 review cards.', quip: 'Fifty cards. Memory scientists have been saying this works since 1885. You are now one of their success stories.', earned: (s) => s.counters.reviewsAnswered >= 50 },
+  { id: 'clean-sweep', name: 'Clean Sweep', icon: '🧹', tier: 'silver', description: 'Finish a review of five or more cards without a mistake.', quip: 'Not one wrong. Last week\'s lessons are still in there, filed neatly.', earned: (s) => s.counters.perfectReviews >= 1 },
+  { id: 'long-term-memory', name: 'Long-Term Memory', icon: '🐘', tier: 'gold', title: 'title-recall', description: 'Remember 10 review cards for a month or more.', quip: 'Ten cards, remembered across a month. That\'s not cramming. That\'s knowing.', earned: (s) => Object.values(s.reviews).filter((r) => r.box >= REVIEW_MONTH_BOX).length >= 10 },
+  { id: 'second-wind', name: 'Second Wind', icon: '🔁', tier: 'silver', description: 'Replay a level and raise its stars.', quip: 'They came back to a level they\'d already cleared, and did it better. That\'s the whole job, really.', earned: (s) => s.counters.improvedClears >= 1 },
+  { id: 'rubber-duck', name: 'Rubber Duck', icon: '🦆', tier: 'silver', description: 'Explain 10 levels back in your own words.', quip: 'Ten explanations. If you can explain it, you understand it. The duck agrees.', earned: (s) => s.counters.notesWritten >= 10 },
   { id: 'going-viral', name: 'Going Viral', icon: '📈', tier: 'silver', description: 'Reach 10,000 viewers.', quip: 'Ten thousand viewers. Clip channels are making compilations of your semicolons.', earned: (s) => s.viewers >= 10_000 },
   { id: 'galactic-celebrity', name: 'Galactic Celebrity', icon: '🌌', tier: 'gold', title: 'title-celebrity', description: 'Reach 1,000,000 viewers.', quip: 'A MILLION viewers. You have fans on planets you can\'t pronounce.', earned: (s) => s.viewers >= 1_000_000 },
   { id: 'clocking-in', name: 'Clocking In', icon: '⏰', tier: 'bronze', description: 'Claim a daily quest.', quip: 'Your first daily quest. Consistency: the secret ingredient nobody wants to hear about.', earned: (s) => (s.quests?.claimed.length ?? 0) > 0 || s.streak.best >= 1 },
@@ -3421,7 +3607,6 @@ export const ACHIEVEMENTS: Achievement[] = [
   { id: 'speed-demon', name: 'Speed Demon', icon: '🏎', tier: 'silver', description: 'Earn 5 speed bonuses.', quip: 'Five levels under par. Your keyboard is smoking slightly.', earned: (s) => s.counters.speedBonuses >= 5 },
   { id: 'class-act', name: 'Class Act', icon: '🎭', tier: 'bronze', description: 'Choose a class.', quip: 'A class! Your character sheet is finally more than a name and a frown.', earned: (s) => !!s.classId },
   { id: 'best-friend', name: 'Best Friend', icon: '🐾', tier: 'bronze', description: 'Adopt a companion.', quip: 'A companion! It will love you unconditionally, even when your tests fail.', earned: (s) => !!s.pet },
-  { id: 'night-owl', name: 'Night Owl', icon: '🌙', tier: 'bronze', description: 'Clear a level between midnight and 4 am.', quip: 'Coding past midnight. A time-honoured tradition. Please drink some water.', earned: (s) => s.counters.nightClears >= 1 },
 ];
 
 export const achievement = (id: string) => ACHIEVEMENTS.find((a) => a.id === id);
@@ -3461,7 +3646,8 @@ export const QUESTS: Quest[] = [
   { id: 'first-try', text: 'Pass a level on your first run', counter: 'firstTries', goal: 1 },
   { id: 'clean', text: 'Clear a level without hints', counter: 'cleanClears', goal: 1 },
   { id: 'quiz', text: 'Finish a quiz', counter: 'quizzesDone', goal: 1 },
-  { id: 'arcade', text: 'Get 8 cards right in Compiler Says', counter: 'arcadeCorrect', goal: 8 },
+  { id: 'review', text: 'Answer 5 review cards', counter: 'reviewsAnswered', goal: 5 },
+  { id: 'explain', text: 'Explain a level back in your own words', counter: 'notesWritten', goal: 1 },
   { id: 'boxes', text: 'Open 2 loot boxes', counter: 'boxesOpened', goal: 2 },
   { id: 'runs', text: 'Run your code 5 times', counter: 'runs', goal: 5 },
 ];
@@ -3481,7 +3667,8 @@ function hash(text: string): number {
 /** Make sure today's three quests exist (the same three for everyone on the same day). */
 export function ensureQuests(save: Save, today: string): Save {
   if (save.quests?.day === today) return save;
-  const pool = [...QUESTS];
+  // Reviewing needs something to review: that quest waits until the deck has cards.
+  const pool = QUESTS.filter((q) => q.id !== 'review' || Object.keys(save.reviews).length > 0);
   const ids: string[] = [];
   let h = hash(today);
   while (ids.length < 3) {
@@ -3632,31 +3819,100 @@ export function replayLevel(save: Save, levelId: string, starter: string): Save 
   return withLevel(save, levelId, { hints: 0, freeHints: 0, solution: false, runs: 0, code: starter });
 }
 
-/** End of a Compiler Says round. */
-export function finishArcade(save: Save, score: number, bestCombo: number): Result {
+// ---------------------------------------------------------------- spaced review
+
+/**
+ * Days until a card comes back, by box. A right answer moves a card up a box;
+ * a wrong one sends it back to box 0 and tomorrow. Gaps that grow each time
+ * you remember are what move knowledge into long-term memory.
+ */
+export const REVIEW_INTERVALS = [1, 3, 7, 14, 30, 60];
+export const REVIEW_TOP = REVIEW_INTERVALS.length - 1;
+/** Cards in this box or above come back a month or more apart. */
+export const REVIEW_MONTH_BOX = 4;
+/** At most this many cards in one session. */
+export const REVIEW_SESSION = 10;
+
+export function addDays(day: string, n: number): string {
+  return dayOf(new Date(new Date(`${day}T12:00:00`).getTime() + n * 86_400_000));
+}
+
+/** Cards for levels you've cleared join the review deck, first due the next day. */
+export function syncReviews(save: Save, today: string): Save {
+  let reviews: Save['reviews'] | null = null;
+  for (const item of REVIEW_ITEMS) {
+    if (save.reviews[item.id] || !levelState(save, item.after).done) continue;
+    reviews ??= { ...save.reviews };
+    reviews[item.id] = { box: 0, due: addDays(today, 1) };
+  }
+  return reviews ? { ...save, reviews } : save;
+}
+
+/** Cards due today or earlier: the most overdue first, then the least known. */
+export function dueReviews(save: Save, today: string): ReviewItem[] {
+  return REVIEW_ITEMS.filter((r) => save.reviews[r.id] && save.reviews[r.id].due <= today).sort(
+    (a, b) => save.reviews[a.id].due.localeCompare(save.reviews[b.id].due) || save.reviews[a.id].box - save.reviews[b.id].box,
+  );
+}
+
+/** The next day anything is due, after today (or null if the deck is empty). */
+export function nextReviewDay(save: Save, today: string): string | null {
+  const days = Object.values(save.reviews).map((r) => r.due).filter((d) => d > today).sort();
+  return days[0] ?? null;
+}
+
+/** Answer a review card. Only the first answer in a session should be recorded. */
+export function answerReview(save: Save, id: string, correct: boolean, today: string): Result {
+  const state = save.reviews[id];
+  if (!state) return { save, events: [] };
+  const box = correct ? Math.min(REVIEW_TOP, state.box + 1) : 0;
   let s: Save = {
     ...save,
-    arcadeBest: Math.max(save.arcadeBest, score),
-    arcadeCombo: Math.max(save.arcadeCombo, bestCombo),
-    counters: { ...save.counters, arcadeRounds: save.counters.arcadeRounds + 1, arcadeCorrect: save.counters.arcadeCorrect + score },
+    reviews: { ...save.reviews, [id]: { box, due: addDays(today, REVIEW_INTERVALS[box]) } },
+    counters: { ...save.counters, reviewsAnswered: save.counters.reviewsAnswered + 1, reviewsCorrect: save.counters.reviewsCorrect + (correct ? 1 : 0) },
   };
-  const events: Reward[] = [];
-  const xp = Math.round(score * 5 * (s.classId === 'type-sorcerer' ? 1.25 : 1));
-  const gold = score * 2;
-  if (gold) {
-    s = { ...s, gold: s.gold + gold };
-    events.push({ kind: 'gold', amount: gold, detail: 'Compiler Says' });
-  }
-  const x = addXp(s, xp, 'Compiler Says');
+  // Effort counts too: a card you got wrong is a card you're about to learn.
+  const x = addXp(s, correct ? 12 : 4, 'review');
   s = x.save;
-  events.push(...x.events);
-  if (score >= 5) {
-    const v = addViewers(s, score * 25);
-    s = v.save;
-    events.push(...v.events);
-  }
   const a = checkAchievements(s);
-  return { save: a.save, events: [...events, ...a.events] };
+  return { save: a.save, events: [...x.events, ...a.events] };
+}
+
+/** The end of a review session. */
+export function finishReview(save: Save, answered: number, mistakes: number): Result {
+  const s: Save = {
+    ...save,
+    counters: {
+      ...save.counters,
+      reviewSessions: save.counters.reviewSessions + 1,
+      perfectReviews: save.counters.perfectReviews + (answered >= 5 && mistakes === 0 ? 1 : 0),
+    },
+  };
+  return checkAchievements(s);
+}
+
+// ---------------------------------------------------------------- the notebook
+
+/** A note needs a few words to count as explaining something. */
+export const NOTE_MIN_WORDS = 5;
+
+/**
+ * Save the player's own explanation of a level (empty text deletes it). The
+ * first real explanation of each level earns a little XP.
+ */
+export function saveNote(save: Save, levelId: string, text: string, at: number): Result {
+  const clean = text.trim().slice(0, 600);
+  if (!clean) {
+    const { [levelId]: _gone, ...notes } = save.notes;
+    return { save: { ...save, notes }, events: [] };
+  }
+  const first = !save.notes[levelId] && clean.split(/\s+/).length >= NOTE_MIN_WORDS;
+  let s: Save = { ...save, notes: { ...save.notes, [levelId]: { text: clean, at } } };
+  if (!first) return { save: s, events: [] };
+  s = { ...s, counters: { ...s.counters, notesWritten: s.counters.notesWritten + 1 } };
+  const x = addXp(s, 15, 'explained it back');
+  const a = checkAchievements(x.save);
+  return { save: a.save, events: [...x.events, ...a.events] };
 }
 ~~~~
 
@@ -3736,6 +3992,7 @@ export const TITLES: Item[] = [
   title('title-a11y', 'Champion of Accessibility', 'epic', { drops: true }),
   title('title-boss', 'Boss Slayer', 'rare'),
   title('title-perfect', 'the Perfectionist', 'epic'),
+  title('title-recall', 'Total Recall', 'epic'),
   title('title-architect', 'Reactor Architect', 'legendary'),
   title('title-celebrity', 'Galactic Celebrity', 'legendary'),
   title('title-production', 'Production Engineer', 'legendary'),
@@ -4040,7 +4297,7 @@ export const sfx = {
 
 ### Shell, routing and overlays
 
-Routing is hash-based (`#/map`, `#/level/<id>`, `#/arcade`, `#/loot/<tab>`, `#/shop`, `#/character/<tab>`), read with `useSyncExternalStore`. The app shell renders the HUD (except on the title screen, which instead shows only the 🎨 colour-profile button in its top-right corner), the current screen, and four global overlays: the announcer, the box opener, the offers and the companion.
+Routing is hash-based (`#/map`, `#/level/<id>`, `#/review`, `#/loot/<tab>`, `#/shop`, `#/character/<tab>`), read with `useSyncExternalStore`. The app shell renders the HUD (except on the title screen, which instead shows only the 🎨 colour-profile button in its top-right corner), the current screen, and four global overlays: the announcer, the box opener, the offers and the companion.
 
 **`src/ui/router.ts`**
 
@@ -4051,7 +4308,7 @@ export type Route =
   | { name: 'title' }
   | { name: 'map' }
   | { name: 'level'; id: string }
-  | { name: 'arcade' }
+  | { name: 'review' }
   | { name: 'loot'; tab?: string }
   | { name: 'shop' }
   | { name: 'character'; tab?: string };
@@ -4060,7 +4317,7 @@ export function parse(hash: string): Route {
   const parts = hash.replace(/^#\/?/, '').split('/').filter(Boolean);
   if (parts[0] === 'map') return { name: 'map' };
   if (parts[0] === 'level' && parts[1]) return { name: 'level', id: decodeURIComponent(parts[1]) };
-  if (parts[0] === 'arcade') return { name: 'arcade' };
+  if (parts[0] === 'review') return { name: 'review' };
   if (parts[0] === 'loot') return { name: 'loot', tab: parts[1] };
   if (parts[0] === 'shop') return { name: 'shop' };
   if (parts[0] === 'character' || parts[0] === 'profile') return { name: 'character', tab: parts[1] };
@@ -4142,12 +4399,12 @@ import { findLevel } from './content';
 import { warmUp } from './engine/compiler';
 import { isUnlocked } from './game/progress';
 import { onRewards, useSave } from './game/store';
-import { ArcadeScreen } from './screens/ArcadeScreen';
 import { CharacterScreen } from './screens/CharacterScreen';
 import { CodeLevelScreen } from './screens/CodeLevelScreen';
 import { LootScreen } from './screens/LootScreen';
 import { MapScreen } from './screens/MapScreen';
 import { QuizScreen } from './screens/QuizScreen';
+import { ReviewScreen } from './screens/ReviewScreen';
 import { ShopScreen } from './screens/ShopScreen';
 import { TitleScreen } from './screens/TitleScreen';
 import { Announcer } from './ui/Announcer';
@@ -4181,8 +4438,8 @@ export function App() {
     case 'map':
       screen = <MapScreen />;
       break;
-    case 'arcade':
-      screen = <ArcadeScreen />;
+    case 'review':
+      screen = <ReviewScreen key={route.name} />;
       break;
     case 'loot':
       screen = <LootScreen tab={route.tab} />;
@@ -4265,6 +4522,7 @@ import { classHighlighter, highlightCode } from '@lezer/highlight';
 import { useEffect, useRef } from 'react';
 import type { Diagnostic } from '../engine/checker';
 import { completions, quickInfo } from '../engine/compiler';
+import { explainDiagnostic } from '../engine/explain';
 
 interface Props {
   value: string;
@@ -4402,7 +4660,11 @@ export function CodeEditor({ value, path, tsx, diagnostics, onChange, onRun }: P
     const len = v.state.doc.length;
     const cm: CmDiagnostic[] = diagnostics
       .filter((d) => d.from <= len)
-      .map((d) => ({ from: d.from, to: Math.min(d.to, len), severity: 'error', message: d.message }));
+      .map((d) => {
+        // The compiler's words first, then what they mean, in plain English.
+        const plain = explainDiagnostic(d.code, d.message);
+        return { from: d.from, to: Math.min(d.to, len), severity: 'error' as const, message: plain ? `${d.message}\n\n💡 ${plain.replace(/`/g, '')}` : d.message };
+      });
     v.dispatch(setDiagnostics(v.state, cm));
   }, [diagnostics]);
 
@@ -4705,9 +4967,9 @@ export function formatClock(seconds: number): string {
 
 This is where the game is played, and where every system meets: editor, compiler, grader, preview, rewards, victory. It is a three-column layout:
 
-- **Left (brief)**: the floor tag, title, system, and "Worth ★★★" (the stars still available on this attempt). It has three tabs. **Mission** holds the brief and the objectives checklist, with type checks tagged `type` and a final "No type errors" line. **Lesson** holds the lesson. **Hints n/3** reveals hints one at a time, using a 🎟 hint token for free if the player has one, otherwise −1 ★. It also has "Show the solution…", behind a warning modal.
-- **Middle (work)**: a toolbar with the file name, "Loading compiler…" while needed, a ⏱ timer against par, Reset (with a confirm modal) and **Run** (with a ⌘↵/Ctrl↵ hint). Below it, the editor, then a status line ("✓ No type errors" or "✗ n type errors — hover the red squiggles").
-- **Right (results)**: the **boss HP bar** on boss levels (each passing check is a hit), the live **Preview** on React levels, and **Checks n/m** with ✓/✗, each failure's message, type errors with line numbers, a crash box, and the **Console** output.
+- **Left (brief)**: the floor tag, title, system, and "Worth ★★★" (the stars still available on this attempt). It has three tabs. **Mission** holds the brief, a "You'll learn" box (the lesson's `##` headings, with "Read the lesson first →"), the objectives checklist (type checks tagged `type`, plus a final "No type errors" line), and the player's note from last time if there is one. **Lesson** holds the lesson. **Hints n/3** reveals hints one at a time, using a 🎟 hint token for free if the player has one, otherwise −1 ★. It also has "Show the solution…": until all three hints are seen, that modal sends the player back to the hints. Once it's revealed, there's no "Load it into the editor" until the level is solved, because the player rebuilds it.
+- **Middle (work)**: a toolbar with the file name, "Loading compiler…" while needed (no clock: time is tracked silently for the speed bonus), Reset (with a confirm modal) and **Run** (with a ⌘↵/Ctrl↵ hint). Below it, the editor, then a status line ("✓ No type errors" or "✗ n type errors — hover the red squiggles").
+- **Right (results)**: the **boss HP bar** on boss levels (each passing check is a hit), the live **Preview** on React levels, and **Checks n/m** with ✓/✗, each failure's message, type errors with line numbers and a 💡 plain-English line, a crash box, and the **Console** output. After two failed runs without opening the lesson, a `.nudge` above the checks suggests it.
 
 The player's code autosaves 500 ms after typing stops. Leaving and coming back never loses work.
 
@@ -4717,9 +4979,10 @@ The player's code autosaves 500 ms after typing stops. Leaving and coming back n
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Diagnostic } from '../engine/checker';
 import { compile, isReady, onReady } from '../engine/compiler';
+import { explainDiagnostic } from '../engine/explain';
 import { grade, type Report } from '../engine/grade';
 import { codeStars, isBoss, levelState } from '../game/progress';
-import { codeOutcome, completeLevel, parSeconds, PET_LINES, recordRun, replayLevel, revealHint as revealHintAction, revealSolution as revealSolutionAction, type Reward } from '../game/rewards';
+import { codeOutcome, completeLevel, PET_LINES, recordRun, replayLevel, revealHint as revealHintAction, revealSolution as revealSolutionAction, type Reward } from '../game/rewards';
 import { sfx } from '../game/sound';
 import { act, getSave, setSave, useSave } from '../game/store';
 import type { CodeLevel, Deck } from '../game/types';
@@ -4730,7 +4993,7 @@ import { Modal } from '../ui/Modal';
 import { overlays } from '../ui/overlays';
 import { Preview } from '../ui/Preview';
 import { Victory } from '../ui/Victory';
-import { useLevelTimer, formatClock } from '../ui/useLevelTimer';
+import { useLevelTimer } from '../ui/useLevelTimer';
 
 type Tab = 'mission' | 'lesson' | 'hints';
 
@@ -4740,7 +5003,13 @@ export function CodeLevelScreen({ level, deck, index }: { level: CodeLevel; deck
   const save = useSave();
   const progress = levelState(save, level.id);
   const [code, setCode] = useState(() => progress.code ?? level.starter);
-  const [tab, setTab] = useState<Tab>('mission');
+  const [tab, setTabState] = useState<Tab>('mission');
+  const [lessonSeen, setLessonSeen] = useState(false);
+  const [failedRuns, setFailedRuns] = useState(0);
+  const setTab = (t: Tab) => {
+    if (t === 'lesson') setLessonSeen(true);
+    setTabState(t);
+  };
   const [report, setReport] = useState<Report | null>(null);
   const [running, setRunning] = useState(false);
   const [live, setLive] = useState<{ code: string; diagnostics: Diagnostic[] }>({ code: '', diagnostics: [] });
@@ -4748,8 +5017,9 @@ export function CodeLevelScreen({ level, deck, index }: { level: CodeLevel; deck
   const [runId, setRunId] = useState(0);
   const [modal, setModal] = useState<'reset' | 'solution' | null>(null);
   const [victory, setVictory] = useState<{ stars: number; events: Reward[] } | null>(null);
+  // Time is tracked quietly for the speed bonus, but never shown ticking:
+  // a visible clock adds pressure and pulls attention away from the problem.
   const seconds = useLevelTimer(level.id, !victory);
-  const par = parSeconds(level, save.classId);
   const [compilerReady, setCompilerReady] = useState(isReady());
   const mainPath = `/${level.file}`;
 
@@ -4782,13 +5052,14 @@ export function CodeLevelScreen({ level, deck, index }: { level: CodeLevel; deck
       setRunId((n) => n + 1);
       act((st) => recordRun({ ...st, levels: { ...st.levels, [level.id]: { ...levelState(st, level.id), code } } }, level.id, r.passed));
       if (r.passed) {
-        const outcome = codeOutcome(getSave(), level, seconds, new Date().getHours());
+        const outcome = codeOutcome(getSave(), level, seconds);
         const events = act((st) => completeLevel(st, level, outcome, Math.random));
         sfx.pass();
         overlays.petSay(PET_LINES.pass[Math.floor(Math.random() * PET_LINES.pass.length)]);
         setVictory({ stars: outcome.stars, events });
       } else {
         sfx.fail();
+        setFailedRuns((n) => n + 1);
         if (Math.random() < 0.4) overlays.petSay(PET_LINES.fail[Math.floor(Math.random() * PET_LINES.fail.length)]);
       }
     } catch (e) {
@@ -4837,6 +5108,11 @@ export function CodeLevelScreen({ level, deck, index }: { level: CodeLevel; deck
   const allChecks = report ? [...report.typeChecks.map((c) => ({ ...c, type: true })), ...report.checks.map((c) => ({ ...c, type: false }))] : [];
   const passCount = allChecks.filter((c) => c.pass).length;
 
+  // The lesson's sections, as a list of what this level teaches.
+  const goals = useMemo(() => [...level.lesson.matchAll(/^#{2,3}\s+(.+)$/gm)].map((m) => m[1].trim()), [level]);
+  const hintsLeft = level.hints.length - progress.hints;
+  const note = save.notes[level.id];
+
   const objectives = useMemo(
     () => [...(level.typeChecks ?? []).map((c) => ({ label: c.label, type: true })), ...level.checks.map((c) => ({ label: c.label, type: false }))],
     [level],
@@ -4865,6 +5141,15 @@ export function CodeLevelScreen({ level, deck, index }: { level: CodeLevel; deck
           {tab === 'mission' && (
             <>
               <Markdown text={level.brief} />
+              {goals.length > 0 && (
+                <div className="learn-goals">
+                  <h4>You'll learn</h4>
+                  <ul>
+                    {goals.map((g) => <li key={g}>{inline(g)}</li>)}
+                  </ul>
+                  <button className="link" onClick={() => setTab('lesson')}>Read the lesson first →</button>
+                </div>
+              )}
               <h4>Objectives</h4>
               <ul className="objectives">
                 {objectives.map((o) => {
@@ -4884,6 +5169,12 @@ export function CodeLevelScreen({ level, deck, index }: { level: CodeLevel; deck
                 </li>
               </ul>
               <p className="muted small">Stuck? The <button className="link" onClick={() => setTab('lesson')}>Lesson</button> tab teaches the idea; <button className="link" onClick={() => setTab('hints')}>Hints</button> nudge you toward the answer.</p>
+              {note && (
+                <div className="your-note">
+                  <b>Your note from last time</b>
+                  <p>{note.text}</p>
+                </div>
+              )}
             </>
           )}
           {tab === 'lesson' && <Markdown text={level.lesson} />}
@@ -4912,6 +5203,7 @@ export function CodeLevelScreen({ level, deck, index }: { level: CodeLevel; deck
               )}
               <hr />
               <button className="btn ghost danger" onClick={() => setModal('solution')}>Show the solution…</button>
+              {hintsLeft > 0 && !progress.done && !progress.solution && <p className="muted small">The solution opens once you've seen all three hints.</p>}
             </div>
           )}
         </div>
@@ -4922,9 +5214,6 @@ export function CodeLevelScreen({ level, deck, index }: { level: CodeLevel; deck
           <span className="file">{level.file}</span>
           <span className="spacer" />
           {!compilerReady && <span className="muted small">Loading compiler…</span>}
-          <span className={`timer ${seconds <= par ? 'under' : ''}`} title={`Clear it within ${formatClock(par)} on your first try for a speed bonus`}>
-            ⏱ {formatClock(seconds)} <span className="muted">/ par {formatClock(par)}</span>
-          </span>
           <button className="btn ghost" onClick={() => setModal('reset')}>Reset</button>
           <button className="btn primary" onClick={run} disabled={running}>
             {running ? 'Running…' : 'Run'} <kbd>{RUN_SHORTCUT}</kbd>
@@ -4949,6 +5238,12 @@ export function CodeLevelScreen({ level, deck, index }: { level: CodeLevel; deck
           </div>
         )}
         <div className="report">
+          {failedRuns >= 2 && !lessonSeen && !report?.passed && (
+            <div className="nudge">
+              💡 <b>Stuck?</b> The lesson explains exactly the idea this level needs, with an example.{' '}
+              <button className="link" onClick={() => setTab('lesson')}>Open the lesson</button>
+            </div>
+          )}
           <h4>
             Checks {report && <span className={report.passed ? 'ok' : 'err'}>{passCount}/{allChecks.length}</span>}
           </h4>
@@ -4959,6 +5254,7 @@ export function CodeLevelScreen({ level, deck, index }: { level: CodeLevel; deck
               {report.typeErrors.map((d, i) => (
                 <div key={i} className="diag">
                   <span className="loc">line {d.line}</span> {d.message}
+                  {explainDiagnostic(d.code, d.message) && <span className="plain">💡 {inline(explainDiagnostic(d.code, d.message)!)}</span>}
                 </div>
               ))}
             </div>
@@ -5000,9 +5296,21 @@ export function CodeLevelScreen({ level, deck, index }: { level: CodeLevel; deck
           {progress.solution || progress.done ? (
             <>
               <Code code={level.solution} />
+              {!progress.done && <p className="muted">Close it, then write it yourself. Rebuilding it from memory is what makes it stick; pasting it doesn't.</p>}
               <div className="modal-actions">
                 <button className="btn ghost" onClick={() => setModal(null)}>Close</button>
-                <button className="btn" onClick={loadSolution}>Load it into the editor</button>
+                {progress.done && <button className="btn" onClick={loadSolution}>Load it into the editor</button>}
+              </div>
+            </>
+          ) : hintsLeft > 0 ? (
+            <>
+              <p>
+                Try the hints first: {hintsLeft === level.hints.length ? 'there are three' : `${hintsLeft} left`}. Each one gets you closer without giving the answer away,
+                and working it out (even slowly) is what makes it stick.
+              </p>
+              <p className="muted">The solution opens once you've seen every hint.</p>
+              <div className="modal-actions">
+                <button className="btn primary" onClick={() => { setModal(null); setTab('hints'); }}>Back to the hints</button>
               </div>
             </>
           ) : (
@@ -5044,23 +5352,23 @@ function BossBar({ name, report }: { name: string; report: Report | null }) {
 
 Build these to the specs below. Copy class names and visible text exactly; the browser bot depends on them.
 
-**Title screen** (`TitleScreen`): an animated reactor core (three spinning rings and a glowing nucleus, brightness scaled by station power, minimum 8%), the logo `RE<span>ACT</span>OR` (the "ACT" in accent colour), the tagline "A TypeScript & React quest", two intro paragraphs (the story; a THE FEED line), and buttons: **Begin** (or **Continue** / **Return to the station**), **Station map**, **Compiler Says arcade**. Begin asks for a name first if there isn't one: the "Sign the crew register" modal, with an input labelled **Your name** and a **Go live** button. It then goes to the next unfinished level. Under the buttons: "Station power N%", plus name, crawler level and viewers once started.
+**Title screen** (`TitleScreen`): an animated reactor core (three spinning rings and a glowing nucleus, brightness scaled by station power, minimum 8%), the logo `RE<span>ACT</span>OR` (the "ACT" in accent colour), the tagline "A TypeScript & React quest", two intro paragraphs (the story; a THE FEED line), and buttons: **Begin** (or **Continue** / **Return to the station**), **Station map**, and **Review (n due)** when cards are due. Begin asks for a name first if there isn't one: the "Sign the crew register" modal, with an input labelled **Your name** and a **Go live** button. It then goes to the next unfinished level. Under the buttons: "Station power N%", plus name, crawler level and viewers once started.
 
-**HUD** (`Hud`, a `<header className="hud">`): the brand (back to the title), nav buttons **Map · Arcade · Loot · Safe Room · Character** (Loot shows a badge with the unopened box count), then a crawler chip (`Lv n`, name, class icon, career title · equipped title, XP bar) that links to Character. Then stats: 🪙 gold, 👁 viewers, 🎟 tokens, 🚀 boosts if any, a 🎁 button that opens all boxes, ⚡ power%. Then a sound toggle (🔊/🔈) and the 🎨 **ThemePicker** at the far right.
+**HUD** (`Hud`, a `<header className="hud">`): the brand (back to the title), nav buttons **Map · Review · Loot · Safe Room · Character** (Review shows a badge with the number of cards due, Loot with the unopened box count), then a crawler chip (`Lv n`, name, class icon, career title · equipped title, XP bar) that links to Character. Then stats: 🪙 gold, 👁 viewers, 🎟 tokens, 🚀 boosts if any, a 🎁 button that opens all boxes, ⚡ power%. Then a sound toggle (🔊/🔈) and the 🎨 **ThemePicker** at the far right.
 
-**Map** (`MapScreen`): a "Next up" card, then **Daily quests** ("Today's contracts", with a 🔥 streak). Each quest has a progress bar, n/goal, and a **Claim 🎁** button when done ("Reward: Silver box + 30 gold" before then). Then one panel per floor, tinted by its hue (`--hue`): "Floor n · subtitle", name, outcome, n/m online, ★ count, and the sponsor chip once cleared. Each level is a node button with an orb (number, `?` for quizzes, ☢ for bosses, 🔒 if locked), its title, and stars. A boss that is open early shows "skip ahead?".
+**Map** (`MapScreen`): a "Next up" card, then a **Review** panel once the deck has cards ("n cards to review" with **Start review →**, or "All caught up" and when the next cards come back, plus the deck size and how many are remembered for a month or more), then **Daily quests** ("Today's contracts", with a 🔥 streak). Each quest has a progress bar, n/goal, and a **Claim 🎁** button when done ("Reward: Silver box + 30 gold" before then). Then one panel per floor, tinted by its hue (`--hue`): "Floor n · subtitle", name, outcome, n/m online, ★ count, and the sponsor chip once cleared. Each level is a node button with an orb (number, `?` for quizzes, ☢ for bosses, 🔒 if locked), its title, and stars. A boss that is open early shows "skip ahead?".
 
-**Quiz** (`QuizScreen`): the brief and "Quick reference" (the lesson) on the left. On the right, a progress strip of dots, then the prompt, the code and options lettered A–D. After answering, the right answer turns green and a wrong pick turns red. An explanation box ("Correct." / "Not quite.") has a **Next question →** / **Finish** button. Finishing calls `completeLevel` with quiz stars.
+**Quiz** (`QuizScreen`): the brief and "Quick reference" (the lesson) on the left. On the right, a progress strip of dots, then the prompt, the code and options lettered A–D. After answering, the right answer turns green and a wrong pick turns red. An explanation box ("Correct." / "Not quite.") has a **Next question →** / **Finish** button. A missed question goes to the back of the queue ("This one comes back at the end…") and is asked again until it's right; stars count first-try mistakes only. Finishing calls `completeLevel` with quiz stars.
 
-**Arcade** (`ArcadeScreen`): an intro or game-over panel ("Compiler Says", rules, personal best, **Start ↵** / **Play again**). Playing shows a HUD (clock turning red under 10 s, score, 🔥 streak), a card ("Does this compile?" plus code), and two big buttons, **← Type error** and **Compiles →**. A right answer advances after 0.9 s. A wrong answer pauses the clock and shows `why` plus `tsc: line n: …` from the real compiler, with a **Next card ↵** button. Cards reshuffle when exhausted. The end calls `finishArcade`.
+**Review** (`ReviewScreen`, given in full below): a session of at most 10 due cards, no timer. Each card shows where it came from ("From <floor>: <level>"), the prompt, code and options (shuffled per day), then an explanation with **Revisit the lesson: <level>** and **Next card →**. A missed card returns at the end of the session ("One more try"). The end screen shows first-try score and when cards come back, with empty-deck and all-caught-up states that explain spacing.
 
 **Loot** (`LootScreen`, tabs in the URL): **Boxes** (list with source and tier colour; "Open all n"), **Collection** (collectibles sorted by rarity; unfound shown as ❔ ???), **Codex** (scrolls; **Read** opens the scroll's markdown in a modal), **Wardrobe** (titles, editor skins and companion hats, with Equip/Equipped/Take off; locked ones show their shop price).
 
 **Safe Room** (`ShopScreen`): the shopkeeper's welcome, a wallet line, a grid of **wares** (hint token 60, XP boost ×3 for 150, bronze/silver/gold boxes for 50/120/300, priced cosmetics), **Retraining** (change class for 300 gold) and **Companion** (rename the pet).
 
-**Character** (`CharacterScreen`, tabs in the URL): a header with a portrait (the class icon, or 🧑‍🚀), the equipped title, name with **rename**, crawler level, career title, an XP bar, and buttons to choose a class or adopt a pet if eligible and not yet done. Then a stat grid: power, systems online, stars, viewers, achievements, best streak. Tabs: **Skills** (21 skills grouped by school with pips, rank and points/next, plus the career ladder and class/companion), **Achievements** (all 58; unearned ones dimmed), **Log** (the inbox, newest first), **Settings** (sound, "Open every system", "Reset all progress…" with a confirm modal).
+**Character** (`CharacterScreen`, tabs in the URL): a header with a portrait (the class icon, or 🧑‍🚀), the equipped title, name with **rename**, crawler level, career title, an XP bar, and buttons to choose a class or adopt a pet if eligible and not yet done. Then a stat grid: power, systems online, stars, viewers, achievements, best streak. Tabs: **Skills** (21 skills grouped by school with pips, rank and points/next, plus the career ladder and class/companion), **Achievements** (all 58; unearned ones dimmed), **Notebook** (the player's own explanations, in curriculum order, each with a "revisit" link), **Log** (the inbox, newest first), **Settings** (sound, "Open every system", "Reset all progress…" with a confirm modal).
 
-**Victory** (`Victory` modal, after a pass): a kicker (`<system> — online`, or `☢ BOSS DEFEATED · <system>`), three big stars animating in, an ARIA line (rotating; special for bosses and for the final level), THE FEED's line, a reward row (+XP with detail, +gold, +viewers, boxes), crawler level-ups and skill-ups, a rank bar, and actions: **Replay for ★★★** (if under 3 stars), **🎁 Open box(es)**, **Stay here**, **Next system →** (autofocused; Enter also works). When it closes, pending offers (pet or class) are shown.
+**Victory** (`Victory` modal, after a pass; given in full below): a kicker (`<system> — online`, or `☢ BOSS DEFEATED · <system>`), three big stars animating in, an ARIA line (rotating; special for bosses and for the final level), THE FEED's line, a reward row (+XP with detail, +gold, +viewers, boxes), crawler level-ups and skill-ups, an **Explain it back** textarea with **Save note**, a rank bar, and actions: **Replay for ★★★** (if under 3 stars), **🎁 Open box(es)**, **Stay here**, **Next system →** (autofocused; Enter also works). When it closes, pending offers (pet or class) are shown.
 
 **Announcer** (THE FEED's cards, top right): every reward event becomes a card. Achievements, level-ups, sponsors and fan milestones get big cards (7 s, with a fanfare sound). Skill-ups, streaks and FEED lines get slim cards (4.5 s). An achievement's own box rides on its card with an **Open** button. All other boxes merge into one "You received … **Open**" card. At most 4 cards show at once and the rest queue (maximum 12, shedding small news first). A "See everything in your log" link appears when busy.
 
@@ -5072,12 +5380,202 @@ Build these to the specs below. Copy class names and visible text exactly; the b
 
 The three components below show the expected style of the rest. They are given in full because the browser bot drives them closely.
 
+**`src/screens/ReviewScreen.tsx`**
+
+~~~~tsx
+// Spaced review: a short session of questions about things you've already
+// learned, each due on its own schedule. Remembering on purpose, with growing
+// gaps in between, is what moves knowledge into long-term memory. Cards you
+// miss come back at the end of the session (so you finish having got them
+// right) and again tomorrow; cards you know come back later and less often.
+import { useState } from 'react';
+import { findLevel } from '../content';
+import { addDays, answerReview, dayOf, dueReviews, finishReview, nextReviewDay, REVIEW_INTERVALS, REVIEW_MONTH_BOX, REVIEW_SESSION } from '../game/rewards';
+import { sfx } from '../game/sound';
+import { act, getSave, useSave } from '../game/store';
+import type { ReviewItem } from '../game/types';
+import { Code } from '../ui/highlight';
+import { inline } from '../ui/Markdown';
+import { go } from '../ui/router';
+
+/** A stable shuffle of a card's options for today, so the answer isn't always in the same place. */
+function order(item: ReviewItem, today: string): number[] {
+  const idx = item.options.map((_, i) => i);
+  let h = 2166136261;
+  for (const ch of item.id + today) h = Math.imul(h ^ ch.charCodeAt(0), 16777619) >>> 0;
+  for (let i = idx.length - 1; i > 0; i--) {
+    h = Math.imul(h ^ (h >>> 13), 0x5bd1e995) >>> 0;
+    const j = h % (i + 1);
+    [idx[i], idx[j]] = [idx[j], idx[i]];
+  }
+  return idx;
+}
+
+function when(day: string | null, today: string): string {
+  if (!day) return 'when you clear more levels';
+  if (day === addDays(today, 1)) return 'tomorrow';
+  const days = Math.round((new Date(`${day}T12:00:00`).getTime() - new Date(`${today}T12:00:00`).getTime()) / 86_400_000);
+  return `in ${days} days`;
+}
+
+export function ReviewScreen() {
+  // Each round is a fresh session of whatever is due.
+  const [round, setRound] = useState(0);
+  return <ReviewSession key={round} onAgain={() => setRound((r) => r + 1)} />;
+}
+
+function ReviewSession({ onAgain }: { onAgain(): void }) {
+  const save = useSave();
+  const today = dayOf(new Date());
+  const [queue, setQueue] = useState<ReviewItem[]>(() => dueReviews(getSave(), today).slice(0, REVIEW_SESSION));
+  const [size] = useState(queue.length);
+  const [recorded, setRecorded] = useState<Record<string, boolean>>({});
+  const [picked, setPicked] = useState<number | null>(null);
+  const [finished, setFinished] = useState(false);
+  /** Cards missed this session, waiting at the back of the line for another try. */
+  const [retrying, setRetrying] = useState<string[]>([]);
+  /** Cards seen for the first time so far, counting the one on screen. */
+  const [position, setPosition] = useState(1);
+  const deckSize = Object.keys(save.reviews).length;
+
+  const item = queue[0];
+  const firstTry = Object.values(recorded).filter(Boolean).length;
+  const mistakes = Object.values(recorded).filter((r) => !r).length;
+
+  if (!item || finished) {
+    const due = dueReviews(save, today).length;
+    const next = nextReviewDay(save, today);
+    return (
+      <div className="review">
+        <section className="panel review-intro">
+          <p className="kicker">Review</p>
+          {size > 0 ? (
+            <>
+              <h2>Session complete</h2>
+              <div className="final-score">{firstTry}/{size}</div>
+              <p>remembered on the first try.</p>
+              <p className="muted">
+                Cards you knew come back in {REVIEW_INTERVALS[1]} to {REVIEW_INTERVALS[REVIEW_INTERVALS.length - 1]} days, a little later each time you remember them.
+                {mistakes > 0 && ` The ${mistakes} you missed come back tomorrow.`}
+              </p>
+            </>
+          ) : deckSize === 0 ? (
+            <>
+              <h2>Nothing to review yet</h2>
+              <p>
+                When you finish a quiz, or a TypeScript or React level, its key ideas join your review deck. They come back the next day,
+                then again a few days later, then a week, a month… each time you remember them, the gap grows.
+              </p>
+              <p className="muted">Remembering on purpose, spaced out over days, is the most reliable way to make what you learn stick.</p>
+            </>
+          ) : (
+            <>
+              <h2>All caught up</h2>
+              <p>Nothing is due today. Your next review is {when(next, today)}.</p>
+            </>
+          )}
+          <p className="muted small">
+            {deckSize} card{deckSize === 1 ? '' : 's'} in your deck · {Object.values(save.reviews).filter((r) => r.box >= REVIEW_MONTH_BOX).length} remembered for a month or more
+          </p>
+          <div className="modal-actions">
+            <button className="btn ghost" onClick={() => go('/map')}>Back to the map</button>
+            {due > 0 && size > 0 && <button className="btn primary" autoFocus onClick={onAgain}>Review {Math.min(due, REVIEW_SESSION)} more</button>}
+          </div>
+        </section>
+      </div>
+    );
+  }
+
+  const shown = order(item, today);
+  const answered = picked !== null;
+  const correct = answered && shown[picked] === item.answer;
+  const source = findLevel(item.after);
+  const box = save.reviews[item.id]?.box ?? 0;
+  const again = retrying.includes(item.id);
+
+  function pick(i: number) {
+    if (answered) return;
+    setPicked(i);
+    const right = shown[i] === item.answer;
+    if (right) sfx.right();
+    else sfx.wrong();
+    // Only the first answer in a session moves the card through its schedule.
+    if (!(item.id in recorded)) {
+      setRecorded((r) => ({ ...r, [item.id]: right }));
+      act((s) => answerReview(s, item.id, right, today));
+    }
+  }
+
+  function next() {
+    const rest = queue.slice(1);
+    // A missed card goes to the back of the line, until you get it right.
+    const nextQueue = correct ? rest : [...rest, item];
+    setPicked(null);
+    setQueue(nextQueue);
+    if (!correct && !again) setRetrying((r) => [...r, item.id]);
+    if (correct && again) setRetrying((r) => r.filter((id) => id !== item.id));
+    if (!again && nextQueue.length && !retrying.includes(nextQueue[0].id) && nextQueue[0].id !== item.id) setPosition((p) => p + 1);
+    if (!nextQueue.length) {
+      const all = { ...recorded };
+      act((s) => finishReview(s, Object.keys(all).length, Object.values(all).filter((r) => !r).length));
+      sfx.pass();
+      setFinished(true);
+    }
+  }
+
+  return (
+    <div className="review">
+      <div className="review-progress">
+        <span className="muted small">
+          {again ? 'One more try' : `Card ${Math.min(position, size)} of ${size}`}
+        </span>
+        <span className="pips" aria-label={`Known: box ${box} of ${REVIEW_INTERVALS.length - 1}`} title="How well you know this card">
+          {REVIEW_INTERVALS.slice(1).map((_, i) => <span key={i} className={i < box ? 'on' : ''} />)}
+        </span>
+      </div>
+      <section className="panel quiz-card review-card">
+        <p className="kicker">From {source ? `${source.deck.name}: ${source.level.title}` : 'an earlier level'}</p>
+        <h3 className="prompt">{inline(item.prompt)}</h3>
+        {item.code && <Code code={item.code} />}
+        <div className="options">
+          {shown.map((o, i) => {
+            const state = !answered ? '' : o === item.answer ? 'right' : i === picked ? 'wrong' : 'dim';
+            return (
+              <button key={o} className={`option ${state}`} onClick={() => pick(i)} disabled={answered && state !== 'right' && state !== 'wrong'}>
+                <span className="letter">{'ABCD'[i]}</span>
+                <span>{inline(item.options[o])}</span>
+              </button>
+            );
+          })}
+        </div>
+        {answered && (
+          <div className={`explain ${correct ? 'right' : 'wrong'}`}>
+            <b>{correct ? 'Correct.' : 'Not quite.'}</b> {inline(item.explain)}
+            {!correct && !again && <p className="muted small">You'll see this one again at the end of this session, and again tomorrow.</p>}
+            <div className="modal-actions">
+              {source && (
+                <button className="btn ghost" onClick={() => go(`/level/${source.level.id}`)}>
+                  Revisit the lesson: {source.level.title}
+                </button>
+              )}
+              <button className="btn primary" autoFocus onClick={next}>
+                {queue.length > 1 || !correct ? 'Next card →' : 'Finish'}
+              </button>
+            </div>
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
+~~~~
+
 **`src/ui/Hud.tsx`**
 
 ~~~~tsx
 import { item } from '../game/items';
 import { crawlerLevel, stationPower } from '../game/progress';
-import { classInfo, formatViewers } from '../game/rewards';
+import { classInfo, dayOf, dueReviews, formatViewers } from '../game/rewards';
 import { setSave, useSave } from '../game/store';
 import { overlays } from './overlays';
 import { go, type Route } from './router';
@@ -5088,9 +5586,10 @@ export function Hud({ route }: { route: Route }) {
   const lvl = crawlerLevel(save.xp);
   const power = stationPower(save);
   const cls = classInfo(save.classId);
+  const due = dueReviews(save, dayOf(new Date())).length;
   const nav: [Route['name'], string, string][] = [
     ['map', '/map', 'Map'],
-    ['arcade', '/arcade', 'Arcade'],
+    ['review', '/review', 'Review'],
     ['loot', '/loot', 'Loot'],
     ['shop', '/shop', 'Safe Room'],
     ['character', '/character', 'Character'],
@@ -5105,6 +5604,7 @@ export function Hud({ route }: { route: Route }) {
           <button key={name} className={route.name === name ? 'active' : ''} onClick={() => go(path)}>
             {label}
             {name === 'loot' && save.boxes.length > 0 && <span className="badge">{save.boxes.length}</span>}
+            {name === 'review' && due > 0 && <span className="badge" title={`${due} card${due === 1 ? '' : 's'} due for review`}>{due}</span>}
           </button>
         ))}
       </nav>
@@ -5139,12 +5639,12 @@ export function Hud({ route }: { route: Route }) {
 **`src/ui/Victory.tsx`**
 
 ~~~~tsx
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { ALL_LEVELS } from '../content';
 import { crawlerLevel, isBoss } from '../game/progress';
-import { formatViewers, type Reward } from '../game/rewards';
+import { formatViewers, NOTE_MIN_WORDS, saveNote, type Reward } from '../game/rewards';
 import { SKILLS, SKILL_RANKS } from '../game/skills';
-import { useSave } from '../game/store';
+import { act, useSave } from '../game/store';
 import type { Level } from '../game/types';
 import { overlays } from './overlays';
 import { go } from './router';
@@ -5182,7 +5682,8 @@ export function Victory({ level, stars, events, onReplay, onClose }: { level: Le
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Enter' && !e.metaKey && !e.ctrlKey && !(e.target instanceof HTMLButtonElement)) leave(next ? `/level/${next.id}` : '/map');
+      const typing = e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLInputElement;
+      if (e.key === 'Enter' && !e.metaKey && !e.ctrlKey && !typing && !(e.target instanceof HTMLButtonElement)) leave(next ? `/level/${next.id}` : '/map');
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -5209,6 +5710,7 @@ export function Victory({ level, stars, events, onReplay, onClose }: { level: Le
           <div className="reward"><b>{boxes.length || '—'}</b><span>box{boxes.length === 1 ? '' : 'es'}</span></div>
         </div>
         {xp === 0 && <p className="muted small">No new rewards: beat your best stars to earn more.</p>}
+        {events.some((e) => e.kind === 'gold' && e.detail.includes('speed bonus')) && <p className="muted small">⚡ Cleared under par time: speed bonus included.</p>}
 
         {(skillUps.length > 0 || levelUps.length > 0) && (
           <ul className="ups">
@@ -5220,6 +5722,8 @@ export function Victory({ level, stars, events, onReplay, onClose }: { level: Le
             ))}
           </ul>
         )}
+
+        <ExplainBack level={level} />
 
         <div className="rank-row">
           <span>Lv {lvl.level} · {lvl.title}</span>
@@ -5241,6 +5745,52 @@ export function Victory({ level, stars, events, onReplay, onClose }: { level: Le
             <button className="btn primary" autoFocus onClick={() => leave('/map')}>See the station</button>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Explaining what you just did, in your own words, is one of the most reliable
+ * ways to understand it (and to notice what you don't). Optional, kept in the
+ * notebook, and shown again next time you open the level.
+ */
+function ExplainBack({ level }: { level: Level }) {
+  const save = useSave();
+  const existing = save.notes[level.id]?.text ?? '';
+  const [text, setText] = useState(existing);
+  const [saved, setSaved] = useState<'' | 'saved' | 'rewarded'>('');
+  const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+  const prompt =
+    level.kind === 'code'
+      ? 'Explain it back: what was wrong, and why does your fix work? Write it as if to a crewmate.'
+      : "Explain it back: what's one thing from this quiz you want to remember?";
+
+  function save_() {
+    const events = act((s) => saveNote(s, level.id, text, Date.now()));
+    setSaved(events.some((e) => e.kind === 'xp') ? 'rewarded' : 'saved');
+  }
+
+  return (
+    <div className="explain-back">
+      <label htmlFor="explain-back">{prompt}</label>
+      <textarea
+        id="explain-back"
+        value={text}
+        maxLength={600}
+        placeholder="In a sentence or two… (optional)"
+        onChange={(e) => {
+          setText(e.target.value);
+          setSaved('');
+        }}
+      />
+      <div className="row">
+        <span className="muted small">
+          {saved === 'rewarded' ? 'Saved to your notebook. +15 XP for explaining it.' : saved ? 'Saved to your notebook.' : !existing && words > 0 && words < NOTE_MIN_WORDS ? `A few more words (${NOTE_MIN_WORDS}+) and it earns XP.` : 'Kept in Character → Notebook.'}
+        </span>
+        <button className="btn small-btn" disabled={!text.trim() || text.trim() === existing} onClick={save_}>
+          Save note
+        </button>
       </div>
     </div>
   );
@@ -5651,6 +6201,7 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 1.2em 0; }
 Syntax colours map CodeMirror/Lezer token classes to the profile:
 
 ~~~~css
+pre.code code { background: none; border: 0; padding: 0; font-size: inherit; }
 .tok-keyword, .tok-modifier, .tok-controlKeyword, .tok-definitionKeyword, .tok-moduleKeyword, .tok-operatorKeyword { color: var(--syn-keyword); }
 .tok-string, .tok-string2 { color: var(--syn-string); }
 .tok-number, .tok-bool, .tok-null, .tok-atom { color: var(--syn-number); }
@@ -5662,7 +6213,6 @@ Syntax colours map CodeMirror/Lezer token classes to the profile:
 .tok-tagName { color: var(--syn-tag); }
 .tok-attributeName { color: var(--syn-attr); }
 .tok-operator, .tok-punctuation { color: var(--syn-op); }
-.tok-angleBracket { color: var(--syn-op); }
 ~~~~
 
 The rest, as a spec:
@@ -7060,17 +7610,18 @@ console.log(`Built ${out}\nRun ./reactor-quest to play, or ./install.sh to add i
 
 ## Part 13. Tests
 
-`npm test` runs Vitest in jsdom: 408 tests in 8 files. The level proofs are the most important, because they are what lets you write 86 code levels with confidence.
+`npm test` runs Vitest in jsdom: 440 tests in 9 files. The level proofs are the most important, because they are what lets you write 86 code levels with confidence.
 
 | File | What it proves |
 |---|---|
 | `tests/levels.test.ts` | Level ids are unique. For **every code level**: the solution passes everything, the starter does not, and there are exactly 3 hints and ≥1 check. For every quiz: answers are valid and options distinct. |
-| `tests/arcade.test.ts` | Every arcade card's `ok` matches the real compiler, and between ¼ and ¾ of cards compile. |
+| `tests/review.test.ts` | Every compile card's `ok` matches the real compiler, between ¼ and ¾ of cards compile, and no card unlocks before the TypeScript floors. Review ids are unique, every item unlocks from a real level, every answer is an option, and every floor contributes cards. |
+| `tests/explain.test.ts` | For 18 common beginner mistakes, the real compiler's error gets the right plain-English explanation; unknown codes get none. |
 | `tests/themes.test.ts` | 1 default + 16 profiles, with unique ids and names, and every value a `#rrggbb` colour. No two look alike (summed RGB distance of bg, panel, accent, keyword and string > 150). Every profile is **readable**: text ≥ 5.5:1 and muted ≥ 3.8:1 on every surface, accent/gold/green/red ≥ 3.4:1 on panels, button text ≥ 4.5:1, syntax ≥ 3.8:1 (comments ≥ 3:1), and `scheme` matches the background's luminance. |
 | `tests/checker.test.ts` | `quickInfo` shows inferred types and React hook docs, and nothing on whitespace. `completions` offers members after a dot, locals and React exports in scope, and the props of a typed component inside JSX. |
 | `tests/runtime.test.ts` | Matchers pass and fail with good messages. `deepEqual` ignores undefined-valued keys. The sandbox captures console output and counts timers (one-shot timeouts stop counting once fired). Only `react` can be required. The stage renders, clicks and reads updates. Handler errors, would-be page reloads and render errors fail the check. The loop guard stops `while (true)` and leaves normal loops alone. |
 | `tests/progress.test.ts` | Star rules. The first clear is the first level-up. The curve gets steadily (not wildly) harder. Perfect play reaches Reactor Architect, and every floor gives a level-up at least every three clears. Unlocking order and boss skip. Station power hits 100%. Garbage saves fall back to defaults, fields are validated one by one, saves round-trip, and v1 saves migrate. |
-| `tests/rewards.test.ts` | With a seeded RNG: clearing pays XP, gold, viewers, skill points and a box; same-star replays pay nothing; improvements pay the difference. Boss boxes guarantee the floor scroll. Floor clears bring a sponsor and a platinum box. Pet and class offers appear at the right time. Class and boost bonuses apply. The station clear gives a celestial box. Perfect play takes every skill past level 1. Better boxes are better on average. Legendary and celestial guarantees hold. Duplicates are salvaged. Floor scrolls never drop at random. Viewer milestones and Crowd Favourite upgrades work. Achievements are awarded once each, with titles. Persistence counts. Tokens and stars work. Quests are deterministic per day, count from the day's start and pay once. Streaks grow and reset. Shop purchases, one-time cosmetics and the class change fee work, and so does the arcade payout. |
+| `tests/rewards.test.ts` | With a seeded RNG: clearing pays XP, gold, viewers, skill points and a box; same-star replays pay nothing; improvements pay the difference. Boss boxes guarantee the floor scroll. Floor clears bring a sponsor and a platinum box. Pet and class offers appear at the right time. Spaced review: cards join the deck the day after their level, remembering pushes them out and forgetting brings them back tomorrow, reviewing pays more for remembering, a clean session counts, and the review quest waits for a deck. The notebook pays XP once per level for a real explanation and deletes on empty. Replaying for more stars earns Second Wind. Class and boost bonuses apply. The station clear gives a celestial box. Perfect play takes every skill past level 1. Better boxes are better on average. Legendary and celestial guarantees hold. Duplicates are salvaged. Floor scrolls never drop at random. Viewer milestones and Crowd Favourite upgrades work. Achievements are awarded once each, with titles. Persistence counts. Tokens and stars work. Quests are deterministic per day, count from the day's start and pay once. Streaks grow and reset. Shop purchases, one-time cosmetics and the class change fee work. |
 | `tests/markdown.test.tsx` | Inline spans render, tables honour escaped pipes, HTML in the source stays text, and **every lesson, brief and hint in the game renders without leftover `**`, backticks or `*` markers**. |
 
 These three are worth copying exactly:
@@ -7135,27 +7686,53 @@ describe.each(ALL_LEVELS.filter((l) => l.kind === 'quiz').map((l) => [l.id, l] a
 });
 ~~~~
 
-**`tests/arcade.test.ts`**
+**`tests/review.test.ts`**
 
 ~~~~ts
-// Every arcade card's verdict is checked against the real compiler.
+// Every review card's verdict is checked against the real compiler, and every
+// review question is tied to a real level that comes before or with its topic.
 import { describe, expect, test } from 'vitest';
-import { ARCADE_CARDS } from '../src/content/arcade';
+import { ALL_LEVELS, DECKS } from '../src/content';
+import { COMPILE_CARDS, REVIEW_ITEMS } from '../src/content/review';
 import { Checker } from '../src/engine/checker';
 import typings from '../src/generated/typings.json';
 
 const checker = new Checker(typings as Record<string, string>);
 
-describe('arcade cards', () => {
-  test.each(ARCADE_CARDS.map((c, i) => [i, c] as const))('card %i', (_i, card) => {
+describe('compile cards', () => {
+  test.each(COMPILE_CARDS.map((c, i) => [i + 1, c] as const))('card %i', (_i, card) => {
     const { diagnostics } = checker.check({ '/card.tsx': `${card.code}\nexport {};\n` });
     expect({ compiles: diagnostics.length === 0, errors: diagnostics.map((d) => d.message) }).toMatchObject({ compiles: card.ok });
   });
 
   test('a healthy mix of yes and no', () => {
-    const yes = ARCADE_CARDS.filter((c) => c.ok).length;
-    expect(yes).toBeGreaterThan(ARCADE_CARDS.length / 4);
-    expect(yes).toBeLessThan((ARCADE_CARDS.length * 3) / 4);
+    const yes = COMPILE_CARDS.filter((c) => c.ok).length;
+    expect(yes).toBeGreaterThan(COMPILE_CARDS.length / 4);
+    expect(yes).toBeLessThan((COMPILE_CARDS.length * 3) / 4);
+  });
+
+  test('no card unlocks before the TypeScript floors', () => {
+    const firstTypeScriptLevel = ALL_LEVELS.findIndex((l) => l.id === 'power-bus');
+    for (const c of COMPILE_CARDS) expect(ALL_LEVELS.findIndex((l) => l.id === c.after), c.after).toBeGreaterThanOrEqual(firstTypeScriptLevel);
+  });
+});
+
+describe('review items', () => {
+  test('ids are unique and every item unlocks from a real level', () => {
+    expect(new Set(REVIEW_ITEMS.map((r) => r.id)).size).toBe(REVIEW_ITEMS.length);
+    const ids = new Set(ALL_LEVELS.map((l) => l.id));
+    for (const r of REVIEW_ITEMS) expect(ids.has(r.after), r.id).toBe(true);
+  });
+
+  test('every answer is one of the options', () => {
+    for (const r of REVIEW_ITEMS) {
+      expect(r.answer).toBeGreaterThanOrEqual(0);
+      expect(r.answer).toBeLessThan(r.options.length);
+    }
+  });
+
+  test('every floor contributes something to review', () => {
+    for (const deck of DECKS) expect(REVIEW_ITEMS.some((r) => deck.levels.some((l) => l.id === r.after)), deck.name).toBe(true);
   });
 });
 ~~~~
@@ -7245,27 +7822,29 @@ export const perfect: Outcome = { stars: 3, firstTry: true, failedRuns: 0, clean
 
 ## Part 14. The browser bot
 
-`npm run smoke` (`tools/smoke.mjs`) builds nothing itself; run `npm run build` first. It serves `dist/` with `startServer` on port 4390, launches headless Chromium with `playwright-core` (it uses `CHROMIUM_PATH` if set, else Playwright's own Chromium, else installed Chrome), and plays the game through the real UI at 1440×900. It prints ✓/✗ per step, saves screenshots to `test-results/`, and exits non-zero on any failure. `SMOKE_PLATFORM=mac` makes it use ⌘ shortcuts. `SMOKE_LEVELS=a,b` limits which levels it plays. There are 104 steps:
+`npm run smoke` (`tools/smoke.mjs`) builds nothing itself; run `npm run build` first. It serves `dist/` with `startServer` on port 4390, launches headless Chromium with `playwright-core` (it uses `CHROMIUM_PATH` if set, else Playwright's own Chromium, else installed Chrome), and plays the game through the real UI at 1440×900. It prints ✓/✗ per step, saves screenshots to `test-results/`, and exits non-zero on any failure. `SMOKE_PLATFORM=mac` makes it use ⌘ shortcuts. `SMOKE_LEVELS=a,b` limits which levels it plays. There are 106 steps:
 
 1. The title screen renders.
 2. **Begin** asks for a name (fill **Your name**, click **Go live**), then opens Floor 1 level 1, whose starter prints nothing when run.
-3. A hint token reveals a hint for free. Revealing the solution caps the win at one star.
-4. Opening the loot boxes from the victory screen works.
-5. **Next system →** goes to level 2, which is solved *by typing* (keyboard), earning three stars and First Try.
-6. The map shows progress, daily quests (one claimable), floors and the next level.
-7. Locked levels stay locked, and a floor's boss is open from the start.
-8. Character → Settings → "Open every system" works.
-9. Hovering a name shows its type, and typing a dot offers members.
-10. **For every code level** (86 steps): open it, put the solution in the editor (select all + insert text), Run with the keyboard shortcut, and see the victory screen.
-11. The companion and the class are offered, and chosen.
-12. Loot: a boss box guarantees a Codex scroll, which can be read.
-13. The Safe Room sells things.
-14. A quiz plays through to victory.
-15. The arcade: a round starts, answers score, and wrong answers explain.
-16. Colour profiles: 🎨 previews on hover, Escape reverts, a click keeps it, and the choice survives a reload.
-17. A narrow (420 px) layout renders without horizontal scroll.
-18. The launcher server answers its probe and heartbeat.
-19. There were no uncaught page errors during the whole run.
+3. Two failed runs bring up the lesson nudge, a compiler error shows its plain-English line, and the nudge opens the lesson.
+4. A hint token reveals a hint for free. The solution waits until all three hints are seen, can't be pasted in, and caps the win at one star.
+5. Explaining the level back saves a note to the notebook, for XP.
+6. Opening the loot boxes from the victory screen works.
+7. **Next system →** goes to level 2, which is solved *by typing* (keyboard), earning three stars and First Try.
+8. The map shows progress, daily quests (one claimable), floors and the next level.
+9. Locked levels stay locked, and a floor's boss is open from the start.
+10. Character → Settings → "Open every system" works.
+11. Hovering a name shows its type, and typing a dot offers members.
+12. **For every code level** (86 steps): open it, put the solution in the editor (select all + insert text), Run with the keyboard shortcut, and see the victory screen.
+13. The companion and the class are offered, and chosen.
+14. Loot: a boss box guarantees a Codex scroll, which can be read.
+15. The Safe Room sells things.
+16. A quiz plays through to victory, and a missed question comes back until it's right.
+17. Review: cleared quizzes become review cards (the bot moves their due date to today), a missed card returns within the session, the session completes, and the notebook lists the note from step 5.
+18. Colour profiles: 🎨 previews on hover, Escape reverts, a click keeps it, and the choice survives a reload.
+19. A narrow (420 px) layout renders without horizontal scroll.
+20. The launcher server answers its probe and heartbeat.
+21. There were no uncaught page errors during the whole run.
 
 Helpers worth having: `setEditor(text)` (focus `.cm-content`, select all, `insertText`), `waitCompiler()` (wait until "Loading compiler…" is gone), `dismissModals()`, and `clearNotes()` (close announcer cards so they don't cover buttons).
 
@@ -7320,7 +7899,7 @@ jobs:
       - run: npm ci
       - name: Typecheck and build
         run: npm run build
-      - name: Every level, quiz, arcade card and colour profile proven
+      - name: Every level, quiz, review card and colour profile proven
         run: npm test
       - name: Headless Chrome plays every level through the UI
         run: npm run smoke
@@ -7439,7 +8018,7 @@ jobs:
 
 ## Part 16. README and licences
 
-The README is for players first. It covers what the game is, **how to play on each OS** (install Node 20.19+; double-click the launcher, or `npm start`), the optional app packages and how to install and uninstall them, how progress is saved (per browser; Character → Settings to reset), the floors and what each teaches, the reward systems in brief, the colour profiles, and a short developer section (`npm run dev`, `npm test`, `npm run smoke`, how to add a level). Screenshots go in `docs/` (the original has title, map, level, hover-type, react-level, victory, box, character, arcade, theme-menu and themes images, taken by the browser bot).
+The README is for players first. It covers what the game is, **how to play on each OS** (install Node 20.19+; double-click the launcher, or `npm start`), the optional app packages and how to install and uninstall them, how progress is saved (per browser; Character → Settings to reset), the floors and what each teaches, how it teaches (the learning design in Part 0), the reward systems in brief, the colour profiles, and a short developer section (`npm run dev`, `npm test`, `npm run smoke`, how to add a level). Screenshots go in `docs/` (the original has title, map, level, hover-type, react-level, victory, box, character, review, theme-menu and themes images, taken by the browser bot).
 
 **`LICENSES.md`**
 
@@ -7487,14 +8066,15 @@ These are real bugs from building the original. The code above already handles e
 16. **Farming**: pay XP, gold and viewers only for improvements (first clear, or more stars than before). Replays can still earn the stars a player missed.
 17. **Don't let comments satisfy source checks**: strip comments before matching (`code()` in helpers).
 18. **StrictMode double-invokes effects in development.** Every effect in the UI must clean up after itself (timers, listeners, React roots).
+19. **Practice must only test what's been taught.** The old timed arcade showed every card from day one, so a Floor 1 beginner faced generics, and four cards tested things no lesson covered (`Map`, `enum`, `parseInt`, the `!` assertion). Tie every review item to the level that teaches it.
 
 ---
 
 ## Part 18. Definition of done
 
 - [ ] `npm run build` typechecks and builds with no errors.
-- [ ] `npm test` passes: every one of the 86 code levels is proven both ways, all 10 quizzes are valid, all 40 arcade cards match the compiler, all 17 profiles are readable and distinct, and the rewards, progress, runtime, checker and markdown tests pass.
-- [ ] `npm run smoke` passes all 104 steps.
+- [ ] `npm test` passes: every one of the 86 code levels is proven both ways, all 10 quizzes are valid, all 40 compile cards match the compiler and no review card tests untaught material, all 17 profiles are readable and distinct, and the rewards, progress, runtime, checker and markdown tests pass.
+- [ ] `npm run smoke` passes all 106 steps.
 - [ ] `npm start` and the double-click launcher for each OS open the game in the browser. A second launch just opens the browser.
 - [ ] `npm run app:mac`, `app:win` and `app:linux` produce packages that install, launch, serve the game and uninstall cleanly.
 - [ ] CI is green on macOS, Windows and Linux.

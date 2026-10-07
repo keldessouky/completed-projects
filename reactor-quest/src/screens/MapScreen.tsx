@@ -1,9 +1,39 @@
 import { ALL_LEVELS, DECKS } from '../content';
 import { isBoss, isUnlocked, levelState } from '../game/progress';
-import { claimQuest, dayOf, QUESTS, questProgress, SPONSORS } from '../game/rewards';
+import { addDays, claimQuest, dayOf, dueReviews, nextReviewDay, QUESTS, questProgress, REVIEW_MONTH_BOX, SPONSORS } from '../game/rewards';
 import { sfx } from '../game/sound';
 import { act, useSave } from '../game/store';
 import { go } from '../ui/router';
+
+/** Spaced review: what's due today, and how much you've kept. */
+function Review() {
+  const save = useSave();
+  const today = dayOf(new Date());
+  const deck = Object.values(save.reviews);
+  if (!deck.length) return null;
+  const due = dueReviews(save, today).length;
+  const next = nextReviewDay(save, today);
+  const kept = deck.filter((r) => r.box >= REVIEW_MONTH_BOX).length;
+  return (
+    <section className={`panel review-panel ${due ? 'due' : ''}`} aria-label="Review">
+      <div>
+        <p className="kicker">Review</p>
+        <h3>{due ? `${due} card${due === 1 ? '' : 's'} to review` : 'All caught up'}</h3>
+        <p className="muted small">
+          {due
+            ? 'A few minutes of remembering what you\'ve learned, spaced out over days, is what makes it stick.'
+            : `Next cards come back ${next === addDays(today, 1) ? 'tomorrow' : next ? `on ${next}` : 'as you clear more levels'}.`}{' '}
+          {deck.length} in your deck · {kept} remembered for a month or more.
+        </p>
+      </div>
+      {due > 0 && (
+        <button className="btn primary" onClick={() => go('/review')}>
+          Start review →
+        </button>
+      )}
+    </section>
+  );
+}
 
 function Quests() {
   const save = useSave();
@@ -60,6 +90,7 @@ export function MapScreen() {
           <span className="go-arrow">→</span>
         </button>
       )}
+      <Review />
       <Quests />
       {DECKS.map((deck, d) => {
         const done = deck.levels.filter((l) => levelState(save, l.id).done).length;
