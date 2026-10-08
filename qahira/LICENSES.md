@@ -8,6 +8,7 @@
 | `third_party/stb/stb_vorbis.c` (Sean Barrett) | Public domain / MIT | Ogg Vorbis decoding for Radio Kafr El-Sheikh |
 | `third_party/mbedtls/` (Mbed TLS 3.6.7) | Apache-2.0 | HTTPS for the radio's downloads |
 | `data/cacert.pem` (Mozilla's CA certificates, as curl extracts them) | MPL-2.0 | The authorities the radio's downloads trust, besides the system's |
+| Item icons: `assets/icons/` (from [game-icons.net](https://github.com/game-icons/icons): Lorc, Delapouite, Carl Olsen, Lucas, Skoll, Willdabeast) | CC BY 3.0 | Every base's and unique's picture in the inventory, coloured and placed by `tools/icons/game_icons.py`; each icon and its author is listed in `assets/icons/CREDITS.md` |
 | Inter (Rasmus Andersson), Noto Sans Arabic (Google) | SIL Open Font License 1.1 | UI text, converted from the copies that ship with Blender |
 | SDL2 (dev host only, not shipped) | zlib | Window, input and audio on the Mac |
 

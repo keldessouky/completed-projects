@@ -1357,3 +1357,24 @@ The owner's second note: the base couldn't be upgraded.
 
 | ![The building board](img/roof-board.jpg) | ![The roof with every upgrade at its third tier](img/roof-built.jpg) |
 |---|---|
+
+### An icon for every piece of gear
+
+The owner's third note: every piece of gear looked the same. A first try drew icons from scratch; the owner asked for
+art sourced fairly instead, so the icons come from [game-icons.net](https://game-icons.net) (CC BY 3.0, credited in
+`LICENSES.md` and `assets/icons/CREDITS.md`).
+
+**Delivered**
+- **85 of their icons** cover the 198 bases and 20 uniques (`tools/icons/game_icons.py`): each kind of item draws from
+  its own set (hammers, staves, bows, swords, crossbows, daggers, quarterstaves, maces, sceptres; helms, hoods and
+  crowns; plate, mail, robes and cloaks; gauntlets, boots, belts, necklaces, rings, and scrolls for charts), chosen
+  by a word in the base's name where one fits, otherwise in turn. The script colours each icon in its base's material
+  (iron, steel, bronze, brass, gold, wood, leather, cloth by defence), outlines it, stands long weapons upright and fits
+  it to the item's cells; a unique takes its base's icon in its film poster's colours with a glow. Nothing is drawn
+  by hand or by the script itself.
+- **The game** draws the sheet in the inventory, the equipment and the vendor (a new UI image mode, mirrored by
+  position in Arabic). The sheet is kept compressed in git (1.9 MB) and expanded into the pack. Without it, the old
+  silhouettes stand in.
+
+| ![Items with their icons](img/icons-inventory.jpg) |
+|---|

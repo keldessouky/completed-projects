@@ -73,10 +73,15 @@ def collect():
             entries.append(('data/' + os.path.relpath(full, data).replace(os.sep, '/'), full))
     entries.append(('textures/fx.qtex', fx_sheet()))
     # the item icons' sheet and its index, once a sourced set is in place; without them the grid draws silhouettes
-    for packed, path in (('textures/icons.qtex', os.path.join(ROOT, 'assets', 'icons', 'icons.qtex')),
-                         ('data/icons.json', os.path.join(ROOT, 'assets', 'icons', 'icons.json'))):
-        if os.path.isfile(path):
-            entries.append((packed, path))
+    sheet, index = os.path.join(ROOT, 'assets', 'icons', 'icons.qtex.z'), os.path.join(ROOT, 'assets', 'icons', 'icons.json')
+    if os.path.isfile(sheet) and os.path.isfile(index):
+        import zlib
+        out = os.path.join(ROOT, 'build', 'icons.qtex')
+        os.makedirs(os.path.dirname(out), exist_ok=True)
+        with open(sheet, 'rb') as f, open(out, 'wb') as g:
+            g.write(zlib.decompress(f.read()))
+        entries.append(('textures/icons.qtex', out))
+        entries.append(('data/icons.json', index))
     entries.append(('fonts/ui.ttf', font('Inter.woff2', 'ui.ttf')))
     entries.append(('fonts/arabic.ttf', font('NotoSansArabic-VariableFont_wdth,wght.woff2', 'arabic.ttf')))
     return entries
