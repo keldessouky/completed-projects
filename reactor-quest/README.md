@@ -318,7 +318,7 @@ right. While you're working on a level, the news waits until you finish.
 
 ![The character sheet: level, class, companion and skills](docs/character.png)
 
-## What you'll learn: 10 floors, 96 levels
+## What you'll learn: 10 floors, 106 levels
 
 The first three floors teach programming itself, assuming no prior knowledge.
 The rest take you through TypeScript and React to the standard professional
@@ -337,7 +337,8 @@ teams expect. Each floor's outcome is shown on the map.
 | **9. Reactor Core** | wire components to timers, the DOM and shared state | `useEffect` and cleanup, `useRef`, `useReducer` and reducers with rules, custom hooks, context, generic components | Core Reboot |
 | **10. Production Deck** | build React apps the way professional teams do | fetching data, loading and error states, race conditions, debouncing, memoization, labels and ARIA errors, accessible forms, ARIA states and keys, keyboard navigation, error boundaries, writing good tests | Mission Control |
 
-86 of the levels are code, written and run for real. The other 10 are quizzes
+96 of the levels are code, written and run for real. One on every floor,
+marked **From Scratch**, starts from an empty file and a spec, like real work. The other 10 are quizzes
 ("Read the Code", "Predict the Output", "JSX Inspection"…) that train you to read
 code and predict what it does. Spaced review draws on every quiz question plus
 40 compile-or-not cards, each unlocked by the level that teaches its idea.
@@ -353,6 +354,11 @@ learn, especially people learning to program for the first time.
   bridge level comes first. A floor's boss mixes the floor's ideas together.
 - **Know what you're about to learn.** Each level lists what it teaches before
   you start, and the lesson is one click away (and suggested if you get stuck).
+- **Support that fades.** The first floors explain everything in the starter
+  code. From Floor 4 on, starters say *what* to build and leave the *how* to
+  you (the first level of each new idea still guides you through it), and every
+  floor has a **From Scratch** level: an empty file, a spec, and nothing else.
+  Passing those means you can build it, not just follow along.
 - **Struggle a little, with support.** Hints come one at a time, each a little
   more specific. The solution waits until you've seen them all, and you rebuild
   it rather than paste it: working it out is what makes it stick.
@@ -420,11 +426,11 @@ learn, especially people learning to program for the first time.
 ## Proven playable
 
 ```bash
-npm test        # 443 tests
-npm run smoke   # 107 checks in headless Chromium/Chrome
+npm test        # 473 tests
+npm run smoke   # 117 checks in headless Chromium/Chrome
 ```
 
-- **`npm test`** checks every one of the 86 code levels both ways: the reference
+- **`npm test`** checks every one of the 96 code levels both ways: the reference
   solution compiles cleanly and passes every type and behaviour check, *and* the
   starter code does not, so every level has something to do. Every review card's
   verdict is checked against the real compiler. Every quiz answer is valid. Every

@@ -1,6 +1,6 @@
 import type { Deck } from '../game/types';
 import { CheckFailure } from '../engine/runtime';
-import { code, codeFiles, comp } from './helpers';
+import { blankPage, code, codeFiles, comp } from './helpers';
 
 const buttonByText = (root: { getByText(t: string, s?: string): HTMLElement }, text: string) => root.getByText(text, 'button');
 
@@ -467,6 +467,58 @@ setTemp((t) => Math.min(100, t + 10));
           expect(view.get('.readout').textContent).toBe('Power: 100%');
           for (let i = 0; i < 13; i++) await view.click(buttonByText(view, 'Vent'));
           expect(view.get('.readout').textContent).toBe('Power: 0%');
+        } },
+      ],
+    },
+    {
+      kind: 'code',
+      id: 'scratch-poll',
+      title: 'From Scratch: Crew Vote',
+      system: 'Mess Hall',
+      skills: ['state', 'components'],
+      ...codeFiles('scratch-poll', 'tsx'),
+      brief: `**ARIA:** The crew want to vote on a name for the new shuttle. The last vote was held by shouting, and the loudest engineer won. Build a fair one from a blank file: buttons, a running tally, the leader, and a reset.
+
+**THE FEED:** *Democracy, live! Viewers at home can't vote, but they can feel very strongly about it.*`,
+      lesson: blankPage(`- **State** for anything that changes: \`const [votes, setVotes] = useState<number[]>(…)\`.
+- **Immutable updates**: make a new array, never change the old one: \`votes.map((v, j) => (j === i ? v + 1 : v))\`.
+- **Derive, don't store**: the tally text and the leader are worked out from \`votes\` on every render.
+- **Lists of buttons**: \`options.map((option, i) => <button key={option} onClick={…}>{option}</button>)\`.`),
+      hints: [
+        'Plan: keep one piece of state, a vote count per option: `useState<number[]>(() => options.map(() => 0))`. Everything else is calculated from it.',
+        'A vote is a new array: `setVotes(votes.map((v, j) => (j === i ? v + 1 : v)))`. The tally is `` options.map((o, i) => `${o} ${votes[i]}`).join(" · ") ``.',
+        'For the leader: `const most = Math.max(0, ...votes)`, then the options with that many votes. None voted → "No votes yet"; more than one → "Tied"; otherwise "Leading: " + that option.',
+      ],
+      preview: (mod, h) => h(comp(mod, 'Poll'), { question: 'Name the new shuttle', options: ['Kite', 'Gull', 'Wren'] }),
+      checks: [
+        { label: 'Shows the question, a button per option, and an empty tally', run: async ({ mod, h, render, expect }) => {
+          const view = await render(h(comp(mod, 'Poll'), { question: 'Name it', options: ['Kite', 'Gull', 'Wren'] }));
+          expect(view.get('h3').textContent).toBe('Name it');
+          buttonByText(view, 'Kite');
+          buttonByText(view, 'Wren');
+          expect(view.get('.tally').textContent).toBe('Kite 0 · Gull 0 · Wren 0');
+          expect(view.get('.leader').textContent).toBe('No votes yet');
+        } },
+        { label: 'Votes add up, and the leader is named', run: async ({ mod, h, render, expect }) => {
+          const view = await render(h(comp(mod, 'Poll'), { question: 'Name it', options: ['Kite', 'Gull', 'Wren'] }));
+          await view.click(buttonByText(view, 'Kite'));
+          await view.click(buttonByText(view, 'Gull'));
+          await view.click(buttonByText(view, 'Kite'));
+          expect(view.get('.tally').textContent).toBe('Kite 2 · Gull 1 · Wren 0');
+          expect(view.get('.leader').textContent).toBe('Leading: Kite');
+        } },
+        { label: 'A shared lead is a tie', run: async ({ mod, h, render, expect }) => {
+          const view = await render(h(comp(mod, 'Poll'), { question: 'Name it', options: ['Kite', 'Gull'] }));
+          await view.click(buttonByText(view, 'Kite'));
+          await view.click(buttonByText(view, 'Gull'));
+          expect(view.get('.leader').textContent).toBe('Tied');
+        } },
+        { label: 'Reset sets every count back to 0', run: async ({ mod, h, render, expect }) => {
+          const view = await render(h(comp(mod, 'Poll'), { question: 'Name it', options: ['Kite', 'Gull'] }));
+          await view.click(buttonByText(view, 'Kite'));
+          await view.click(buttonByText(view, 'Reset'));
+          expect(view.get('.tally').textContent).toBe('Kite 0 · Gull 0');
+          expect(view.get('.leader').textContent).toBe('No votes yet');
         } },
       ],
     },

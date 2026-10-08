@@ -1,12 +1,4 @@
-// A *type guard* is a function that checks a value at runtime AND tells the
-// compiler what it found. Its return type is a *type predicate*:
-//
-//   function isString(x: unknown): x is string {
-//     return typeof x === "string";
-//   }
-//   if (isString(v)) { v.toUpperCase(); }    // v is string in here
-//
-// The `in` operator narrows unions by property:  if ("crew" in thing) { … }
+// Write real type guards: `x` could be anything at all. (Examples are in the Lesson tab.)
 
 export type Ship = { kind: "ship"; name: string; crew: number };
 export type Cargo = { kind: "cargo"; label: string; mass: number };

@@ -1,6 +1,6 @@
 import type { Deck } from '../game/types';
 import { CheckFailure } from '../engine/runtime';
-import { codeFiles, comp, fnOf } from './helpers';
+import { blankPage, codeFiles, comp, fnOf } from './helpers';
 
 const progressOf = (el: Element) => Number(el.getAttribute('value') ?? (el as HTMLProgressElement).value);
 const button = (view: { getByText(t: string, s?: string): HTMLElement }, text: string) => view.getByText(text, 'button') as HTMLButtonElement;
@@ -556,6 +556,60 @@ Passing a function that returns JSX (\`render={(m) => <b>{m.name}</b>}\`) lets t
         { label: 'Empty list shows a custom message', run: async ({ mod, h, render, expect }) => {
           const view = await render(h(comp(mod, 'List'), { items: [], keyOf: String, render: String, empty: 'No cargo' }));
           expect(view.get('p.empty').textContent).toBe('No cargo');
+        } },
+      ],
+    },
+    {
+      kind: 'code',
+      id: 'scratch-heartbeat',
+      title: 'From Scratch: Heartbeat Monitor',
+      system: 'Medical Bay',
+      skills: ['effects', 'hooks'],
+      ...codeFiles('scratch-heartbeat', 'tsx'),
+      brief: `**ARIA:** The medical bay's heartbeat monitor counts beats, and it has to pause while the doctor takes a reading. The old one paused the display but kept its timer running, so after a week it was counting several thousand imaginary hearts. Build it properly, from nothing, as a reusable hook.`,
+      lesson: blankPage(`- **Effects** start timers; their **cleanup** stops them: \`useEffect(() => { const id = setInterval(tick, ms); return () => clearInterval(id); }, [ms]);\`
+- **Dependencies** decide when an effect restarts. An effect can return early and start nothing.
+- **Updater functions** avoid stale values in timers: \`setCount((c) => c + 1)\`.
+- **Custom hooks** are functions starting with \`use\` that call other hooks and return a value.`),
+      hints: [
+        'Plan: write `useTicker` first; `Heartbeat` is then a few lines that use it. The hook needs one piece of state (the count) and one effect.',
+        'In the effect: `if (!running) return;` (start nothing while paused), otherwise `setInterval` with `setCount((c) => c + 1)`, and return a cleanup that clears it. Put both `ms` and `running` in the dependencies.',
+        '`Heartbeat` keeps `running` in state (start true), calls `useTicker(ms, running)`, and its button flips `running` and shows `running ? "Pause" : "Resume"`.',
+      ],
+      preview: (mod, h) => h(comp(mod, 'Heartbeat'), { ms: 600 }),
+      checks: [
+        { label: 'useTicker counts up while running', run: async ({ mod, h, render, expect, wait }) => {
+          const useTicker = fnOf(mod, 'useTicker');
+          const Probe = () => h('p', { className: 'n' }, String(useTicker(20, true)));
+          const view = await render(h(Probe));
+          await wait(300);
+          expect(Number(view.get('.n').textContent)).toBeGreaterThan(2);
+        } },
+        { label: 'Heartbeat shows the beats', run: async ({ mod, h, render, expect, wait }) => {
+          const view = await render(h(comp(mod, 'Heartbeat'), { ms: 20 }));
+          expect(view.get('.beats').textContent).toBe('Beats: 0');
+          await wait(300);
+          expect(Number(view.get('.beats').textContent?.replace('Beats: ', ''))).toBeGreaterThan(2);
+        } },
+        { label: 'Pause holds the count; Resume carries on', run: async ({ mod, h, render, expect, wait }) => {
+          const view = await render(h(comp(mod, 'Heartbeat'), { ms: 20 }));
+          await wait(150);
+          await view.click(button(view, 'Pause'));
+          const held = view.get('.beats').textContent;
+          await wait(200);
+          expect(view.get('.beats').textContent).toBe(held);
+          await view.click(button(view, 'Resume'));
+          await wait(300);
+          expect(view.get('.beats').textContent === held).toBe(false);
+        } },
+        { label: 'No timer is left running while paused, or after unmount', run: async ({ mod, h, render, expect, activeTimers }) => {
+          const view = await render(h(comp(mod, 'Heartbeat'), { ms: 20 }));
+          await view.click(button(view, 'Pause'));
+          if (activeTimers() > 0) throw new CheckFailure('A timer is still running while paused. Start nothing in the effect when running is false.');
+          await view.click(button(view, 'Resume'));
+          await view.unmount();
+          if (activeTimers() > 0) throw new CheckFailure('A timer is still running after the monitor was removed. Return a cleanup from the effect.');
+          expect(activeTimers()).toBe(0);
         } },
       ],
     },

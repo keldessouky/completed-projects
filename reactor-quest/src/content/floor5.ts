@@ -1,5 +1,5 @@
 import type { Deck } from '../game/types';
-import { codeFiles, fnOf } from './helpers';
+import { blankPage, codeFiles, fnOf } from './helpers';
 
 export const floor5: Deck = {
   id: 'lab',
@@ -281,6 +281,47 @@ An **indexed access type** pulls a type out of another: \`ShieldConfig["mode"]\`
           expect(mod.DEFAULTS).toEqual({ strength: 50, frequency: 3, mode: 'steady' });
         } },
         { label: 'summarize picks strength and mode', run: ({ mod, expect }) => expect(fnOf(mod, 'summarize')({ strength: 7, frequency: 1, mode: 'pulse' })).toEqual({ strength: 7, mode: 'pulse' }) },
+      ],
+    },
+    {
+      kind: 'code',
+      id: 'scratch-commands',
+      title: 'From Scratch: Command Queue',
+      system: 'Drone Bay',
+      skills: ['narrowing', 'generics', 'types'],
+      ...codeFiles('scratch-commands', 'ts'),
+      brief: `**ARIA:** The maintenance drones take orders: move, scan, speak. At the moment they take them as strings, and one of them recently tried to "move to banana". Give the commands real types, so a mistake like that can't even be written.`,
+      lesson: blankPage(`- **Discriminated unions**: \`type Shape = { kind: "sq"; size: number } | { kind: "circ"; r: number }\`. Checking \`kind\` narrows to one member.
+- **switch** on the tag, with a \`case\` per member.
+- **Indexed access types**: \`Command["kind"]\` is the union of all the tags.
+- **Record**: \`Record<"a" | "b", number>\` is an object with exactly those keys.
+- **Generics**: \`function first<T>(items: T[]): T | undefined\` keeps the element type.`),
+      hints: [
+        'Plan: the `Command` type comes first. Write one object type per kind and join them with `|`.',
+        '`describe` is a `switch (command.kind)`. Inside `case "move":`, TypeScript knows `command.x` exists. For `countByKind`, start from `{ move: 0, scan: 0, say: 0 }` and add 1 to `counts[c.kind]` for each command.',
+        '`lastOf` needs a type parameter: `export function lastOf<T>(items: T[]): T | undefined { return items[items.length - 1]; }`',
+      ],
+      typeChecks: [
+        { label: 'Command only allows real commands', code: `import { describe } from './solution';\ndescribe({ kind: 'move', x: 1, y: 2 });\ndescribe({ kind: 'scan' });\ndescribe({ kind: 'say', text: 'hi' });\n// @ts-expect-error\ndescribe({ kind: 'fly' });\n// @ts-expect-error\ndescribe({ kind: 'move', x: 1 });\n// @ts-expect-error\ndescribe({ kind: 'say', text: 7 });` },
+        { label: 'countByKind has a number for every kind', code: `import { countByKind } from './solution';\nconst c = countByKind([]);\nconst n: number = c.move + c.scan + c.say;` },
+        { label: 'lastOf keeps the element type', code: `import { lastOf } from './solution';\nconst n: number | undefined = lastOf([1, 2]);\n// @ts-expect-error\nconst s: string | undefined = lastOf([1, 2]);\n// @ts-expect-error\nconst m: number = lastOf([1, 2]);` },
+      ],
+      checks: [
+        { label: 'describe each kind of command', run: ({ mod, expect }) => {
+          const d = fnOf(mod, 'describe');
+          expect(d({ kind: 'move', x: 3, y: 4 })).toBe('Move to 3,4');
+          expect(d({ kind: 'scan' })).toBe('Scan');
+          expect(d({ kind: 'say', text: 'hello' })).toBe('Say "hello"');
+        } },
+        { label: 'countByKind counts each kind, zeros included', run: ({ mod, expect }) => {
+          const commands = [{ kind: 'move', x: 0, y: 0 }, { kind: 'say', text: 'hi' }, { kind: 'move', x: 1, y: 1 }];
+          expect(fnOf(mod, 'countByKind')(commands)).toEqual({ move: 2, scan: 0, say: 1 });
+          expect(fnOf(mod, 'countByKind')([])).toEqual({ move: 0, scan: 0, say: 0 });
+        } },
+        { label: 'lastOf returns the last item, or undefined', run: ({ mod, expect }) => {
+          expect(fnOf(mod, 'lastOf')([1, 2, 3])).toBe(3);
+          expect(fnOf(mod, 'lastOf')([])).toBe(undefined);
+        } },
       ],
     },
     {

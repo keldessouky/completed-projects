@@ -1,6 +1,6 @@
 import type { Deck } from '../game/types';
 import { CheckFailure } from '../engine/runtime';
-import { codeFiles, fnOf, mustNotUse } from './helpers';
+import { blankPage, codeFiles, fnOf, mustNotUse } from './helpers';
 
 /** Run fn and return the message it throws — or fail the check if it doesn't throw. */
 function thrown(fn: () => unknown, what: string): string {
@@ -588,6 +588,57 @@ This lets **one** declaration be the single source of truth. Add a route and the
           expect(fnOf(mod, 'link')('reactor')).toBe('/reactor');
         } },
         { label: 'protectedRoutes', run: ({ mod, expect }) => expect(fnOf(mod, 'protectedRoutes')()).toEqual(['crew', 'reactor']) },
+      ],
+    },
+    {
+      kind: 'code',
+      id: 'scratch-sensor-parser',
+      title: 'From Scratch: Sensor Parser',
+      system: 'Sensor Uplink',
+      skills: ['narrowing', 'errors', 'type-level'],
+      ...codeFiles('scratch-sensor-parser', 'ts'),
+      brief: `**ARIA:** The sensor uplink receives readings from probes all over the system. Most are fine. Some are missing fields, some are numbers dressed as strings, and one was just the word "help". Parse them all, keep the good ones, and explain the bad ones, without ever crashing.`,
+      lesson: blankPage(`- **unknown** must be narrowed before use: \`typeof\`, \`Array.isArray\`, \`=== null\`.
+- **Type guards**: \`function isRecord(x: unknown): x is Record<string, unknown>\`, so you can read \`x.sensor\` safely.
+- **Errors as values**: \`type Result<T> = { ok: true; value: T } | { ok: false; error: string }\`. Return failures instead of throwing them.
+- **NaN** is a number that isn't one: \`Number.isNaN(x)\`.`),
+      hints: [
+        'Plan: write the two types first, then `parseReading`, then `parseAll` (which just calls `parseReading` for each input).',
+        'A small guard helps: `function isRecord(x: unknown): x is Record<string, unknown> { return typeof x === "object" && x !== null && !Array.isArray(x); }`. Check each rule in the spec\'s order and `return { ok: false, error: "…" }` as soon as one fails.',
+        'On success, build a new object with only the two fields: `{ ok: true, value: { sensor: input.sensor, value: input.value } }`. In `parseAll`, push `r.value` or `r.error` depending on `r.ok`.',
+      ],
+      typeChecks: [
+        { label: 'A Result must be checked before use', code: `import { parseReading } from './solution';\nconst r = parseReading({});\nif (r.ok) {\n  const s: string = r.value.sensor;\n  const v: number = r.value.value;\n} else {\n  const e: string = r.error;\n}\n// @ts-expect-error\nr.value;` },
+        { label: 'parseReading accepts anything at all', code: `import { parseReading } from './solution';\nparseReading(1); parseReading(null); parseReading('x'); parseReading([1]);` },
+      ],
+      checks: [
+        { label: 'A good reading parses, keeping only sensor and value', run: ({ mod, expect }) => {
+          expect(fnOf(mod, 'parseReading')({ sensor: 'temp', value: 21.5, extra: true })).toEqual({ ok: true, value: { sensor: 'temp', value: 21.5 } });
+        } },
+        { label: '"Not an object" for anything that isn\'t one', run: ({ mod, expect }) => {
+          const p = fnOf(mod, 'parseReading');
+          for (const x of [null, 'help', 42, [1, 2], undefined]) expect(p(x)).toEqual({ ok: false, error: 'Not an object' });
+        } },
+        { label: '"Missing sensor" and "Value must be a number"', run: ({ mod, expect }) => {
+          const p = fnOf(mod, 'parseReading');
+          expect(p({ value: 3 })).toEqual({ ok: false, error: 'Missing sensor' });
+          expect(p({ sensor: 9, value: 3 })).toEqual({ ok: false, error: 'Missing sensor' });
+          expect(p({ sensor: 'temp', value: '21' })).toEqual({ ok: false, error: 'Value must be a number' });
+          expect(p({ sensor: 'temp', value: NaN })).toEqual({ ok: false, error: 'Value must be a number' });
+        } },
+        { label: 'parseAll separates good readings from errors, in order', run: ({ mod, expect }) => {
+          expect(fnOf(mod, 'parseAll')([{ sensor: 'a', value: 1 }, 'help', { sensor: 'b', value: 2 }, { value: 3 }])).toEqual({
+            readings: [{ sensor: 'a', value: 1 }, { sensor: 'b', value: 2 }],
+            errors: ['Not an object', 'Missing sensor'],
+          });
+        } },
+        { label: 'Never throws', run: ({ mod }) => {
+          try {
+            fnOf(mod, 'parseAll')([null, undefined, 0, '', [], {}, { sensor: {} }]);
+          } catch {
+            throw new CheckFailure('parseAll threw. Return errors as values instead.');
+          }
+        } },
       ],
     },
     {

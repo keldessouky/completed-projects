@@ -1,12 +1,4 @@
-// Template literal types build string types the way template strings build strings:
-//
-//   type Deck = "A" | "B";
-//   type Level = 1 | 2;
-//   type Code = `${Deck}${Level}`;      // "A1" | "A2" | "B1" | "B2"
-//
-// Built-in helpers transform them: Uppercase<"a"> → "A", Capitalize<"dock"> → "Dock".
-// In a mapped type, `as` renames keys:
-//   type Getters<T> = { [K in keyof T & string as `get${Capitalize<K>}`]: () => T[K] };
+// String types built like template strings. (Examples are in the Lesson tab.)
 
 export type Deck = "A" | "B" | "C";
 export type Bay = 1 | 2 | 3 | 4;

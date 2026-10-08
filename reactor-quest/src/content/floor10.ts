@@ -1,6 +1,6 @@
 import type { Deck } from '../game/types';
 import { CheckFailure, wait } from '../engine/runtime';
-import { codeFiles, comp, fixtureError, mustUse } from './helpers';
+import { blankPage, codeFiles, comp, fixtureError, mustUse } from './helpers';
 
 /** A promise the check controls: resolve or reject it whenever the test wants. */
 function deferred<T>() {
@@ -1031,6 +1031,75 @@ This level grades you the way serious teams grade their test suites: by delibera
             if (!caught(m.fn, cases, weights)) throw new CheckFailure('Every one of your tests passes against this broken version. Add a case that exposes it.');
           },
         })),
+      ],
+    },
+    {
+      kind: 'code',
+      id: 'scratch-station-search',
+      title: 'From Scratch: Station Search',
+      system: 'Navigation Index',
+      skills: ['data', 'a11y', 'effects'],
+      ...codeFiles('scratch-station-search', 'tsx'),
+      brief: `**ARIA:** The navigation index can find any station in the sector, if you can ask it. Build the search box from a blank file: properly labelled, honest about loading and failure, and immune to slow answers arriving late. Everything on this floor, in one small screen.`,
+      lesson: blankPage(`- **Labels**: \`<label htmlFor="id">\` with a matching \`id\` on the input.
+- **Requests in effects**, re-run when the query changes; a \`stale\` flag set by the cleanup throws away out-of-date answers.
+- **State as a union**: \`{ status: "idle" } | { status: "searching" } | { status: "done"; results: string[] } | { status: "failed"; message: string }\`.
+- **role="alert"** makes screen readers announce an error as it appears.`),
+      hints: [
+        'Plan: two pieces of state, the query and a status union. Render the label and input first, then one piece of UI per status.',
+        'In an effect on `[query, search]`: if the query is empty, go back to idle and return. Otherwise set "searching", call `search(query).then(onResults, onError)`, and guard both with `if (!stale)`; the cleanup sets `stale = true`.',
+        'Render: `searching` → the status paragraph; `failed` → `<p role="alert">Search failed: {state.message}</p>`; `done` → the list, or "No stations match" when it is empty. Idle shows nothing.',
+      ],
+      preview: (mod, h) => h(comp(mod, 'StationSearch'), { search: (q: string) => new Promise<string[]>((r) => setTimeout(() => r(['Vega Prime', 'Velan', 'Vesta Relay', 'Kepler Deep'].filter((s) => s.toLowerCase().includes(q.toLowerCase()))), 500)) }),
+      checks: [
+        { label: 'The input has a connected label', run: async ({ mod, h, render, expect }) => {
+          const { request } = controlled<string[]>();
+          const view = await render(h(comp(mod, 'StationSearch'), { search: request }));
+          if (!view.query('label[for="station-query"]') || !view.query('input#station-query')) throw new CheckFailure('Connect <label htmlFor="station-query"> to <input id="station-query">.');
+          expect(view.get('label[for="station-query"]').textContent).toBe('Search stations');
+        } },
+        { label: 'Empty input: no request, nothing shown', run: async ({ mod, h, render, expect }) => {
+          const { request, calls } = controlled<string[]>();
+          const view = await render(h(comp(mod, 'StationSearch'), { search: request }));
+          expect(calls.length).toBe(0);
+          expect(view.queryAll('ul, .status, [role=alert]')).toHaveLength(0);
+        } },
+        { label: 'Typing searches, shows "Searching…", then the results', run: async ({ mod, h, render, expect }) => {
+          const { request, calls } = controlled<string[]>();
+          const view = await render(h(comp(mod, 'StationSearch'), { search: request }));
+          await view.type('#station-query', 've');
+          expect(calls.at(-1)?.args).toEqual(['ve']);
+          expect(view.get('.status').textContent).toBe('Searching…');
+          calls.at(-1)!.d.resolve(['Vega Prime', 'Velan']);
+          await tick();
+          expect(view.queryAll('li').map((li) => li.textContent)).toEqual(['Vega Prime', 'Velan']);
+          expect(view.query('.status')).toBeNull();
+        } },
+        { label: 'No results, and a failure, each say so', run: async ({ mod, h, render, expect }) => {
+          const { request, calls } = controlled<string[]>();
+          const view = await render(h(comp(mod, 'StationSearch'), { search: request }));
+          await view.type('#station-query', 'zz');
+          calls.at(-1)!.d.resolve([]);
+          await tick();
+          expect(view.get('.status').textContent).toBe('No stations match');
+          await view.type('#station-query', 'zzz');
+          calls.at(-1)!.d.reject(fixtureError('Index offline'));
+          await tick();
+          expect(view.get('[role=alert]').textContent).toBe('Search failed: Index offline');
+        } },
+        { label: 'A late answer to an older query never replaces a newer one', run: async ({ mod, h, render, expect }) => {
+          const { request, calls } = controlled<string[]>();
+          const view = await render(h(comp(mod, 'StationSearch'), { search: request }));
+          await view.type('#station-query', 've');
+          await view.type('#station-query', 'veg');
+          const older = calls.find((c) => c.args[0] === 've')!;
+          const newer = calls.find((c) => c.args[0] === 'veg')!;
+          newer.d.resolve(['Vega Prime']);
+          await tick();
+          older.d.resolve(['Vega Prime', 'Velan', 'Vesta Relay']);
+          await tick();
+          expect(view.queryAll('li').map((li) => li.textContent)).toEqual(['Vega Prime']);
+        } },
       ],
     },
     {

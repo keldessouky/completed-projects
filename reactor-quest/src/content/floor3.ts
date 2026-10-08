@@ -1,6 +1,6 @@
 import type { Deck } from '../game/types';
 import { CheckFailure, wait } from '../engine/runtime';
-import { codeFiles, fixtureError, fnOf, mustNotUse, mustUse } from './helpers';
+import { blankPage, codeFiles, fixtureError, fnOf, mustNotUse, mustUse } from './helpers';
 
 /**
  * A fake remote API for the async levels: answers after a short delay, can
@@ -8,6 +8,12 @@ import { codeFiles, fixtureError, fnOf, mustNotUse, mustUse } from './helpers';
  * once and in what order they were made — so checks can tell sequential from
  * parallel code.
  */
+/** The player's Logbook class, or a clear failure if it isn't exported. */
+function logbookOf(mod: Record<string, any>): new () => any {
+  if (typeof mod.Logbook !== 'function') throw new CheckFailure('Export a class called Logbook.');
+  return mod.Logbook;
+}
+
 function fakeApi(answers: Record<string, string>, delay = 15) {
   const stats = { calls: [] as string[], inFlight: 0, maxInFlight: 0 };
   const api = async (id: string) => {
@@ -750,6 +756,63 @@ try {
         { label: 'firstHealthy gives null when nobody is healthy', run: async ({ mod, expect }) => {
           const { api } = fakeApi({ a: 'fault' });
           expect(await fnOf(mod, 'firstHealthy')(['a'], api)).toBeNull();
+        } },
+      ],
+    },
+    {
+      kind: 'code',
+      id: 'scratch-logbook',
+      title: "From Scratch: Captain's Log",
+      system: "Captain's Log",
+      skills: ['objects', 'modern', 'errors'],
+      ...codeFiles('scratch-logbook', 'ts'),
+      brief: `**ARIA:** The captain's log is a sticky note that says "log". The captain would like a real one: entries she can add, read back newest first, and search. She was very clear that empty entries are not entries.`,
+      lesson: blankPage(`- **Classes** bundle data with the methods that use it: \`class Tank { level = 0; fill(n: number) { this.level += n; } }\`. Each \`new Tank()\` has its own data.
+- **Errors**: \`throw new Error("Clear message")\` stops at once; the caller can \`try { … } catch (e) { … }\`.
+- **String methods**: \`.trim()\`, \`.toLowerCase()\`, \`.includes(word)\`.
+- **Array methods**: \`.push\`, \`.slice\` (a copy of part of an array), \`.reverse()\`, \`.filter\`.`),
+      hints: [
+        'Plan: `export class Logbook` with an array of strings inside (start it as `[]`) and three methods: `add`, `latest` and `search`.',
+        'In `add`, trim first, then `if (!entry) throw new Error("Entry can\'t be empty");` before pushing. Return the array\'s length.',
+        '`latest(n)`: take the last n with `slice(Math.max(0, entries.length - n))`, then `.reverse()` the copy. `search`: `filter` entries whose lower-case text `includes` the lower-case word.',
+      ],
+      checks: [
+        { label: 'add returns how many entries there are', run: ({ mod, expect }) => {
+          const log = new (logbookOf(mod))();
+          expect(log.add('Left dock')).toBe(1);
+          expect(log.add('Cleared debris')).toBe(2);
+        } },
+        { label: 'Entries are trimmed; empty ones throw and are not added', run: ({ mod, expect }) => {
+          const log = new (logbookOf(mod))();
+          log.add('  Engines warm  ');
+          let message = '';
+          try {
+            log.add('   ');
+          } catch (e) {
+            message = (e as Error).message;
+          }
+          if (!message) throw new CheckFailure('Adding an all-spaces entry should throw an Error.');
+          expect(message).toBe("Entry can't be empty");
+          expect(log.latest(5)).toEqual(['Engines warm']);
+        } },
+        { label: 'latest(n) gives the newest entries first', run: ({ mod, expect }) => {
+          const log = new (logbookOf(mod))();
+          for (const e of ['one', 'two', 'three', 'four']) log.add(e);
+          expect(log.latest(2)).toEqual(['four', 'three']);
+          expect(log.latest(10)).toEqual(['four', 'three', 'two', 'one']);
+        } },
+        { label: 'search ignores upper and lower case, oldest first', run: ({ mod, expect }) => {
+          const log = new (logbookOf(mod))();
+          for (const e of ['Docked at Vega', 'Refuelled', 'Left VEGA orbit']) log.add(e);
+          expect(log.search('vega')).toEqual(['Docked at Vega', 'Left VEGA orbit']);
+          expect(log.search('mars')).toEqual([]);
+        } },
+        { label: 'Each logbook keeps its own entries', run: ({ mod, expect }) => {
+          const Logbook = logbookOf(mod);
+          const a = new Logbook();
+          const b = new Logbook();
+          a.add('only in a');
+          expect(b.latest(5)).toEqual([]);
         } },
       ],
     },

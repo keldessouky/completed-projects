@@ -57,3 +57,25 @@ export function mustNotUse(source: string, pattern: RegExp, message: string) {
 export function fixtureError(message: string): Error {
   return Object.assign(new Error(message), { levelFixture: true });
 }
+
+/**
+ * The lesson for a "from a blank file" level: how to begin with nothing but a
+ * spec, then a reminder of the floor's tools. Every floor has one, so writing
+ * code from scratch is practised all the way up, not only fixing starters.
+ */
+export function blankPage(tools: string): string {
+  return `## Starting from nothing
+
+No starter code this time: just a spec, like real work. You've already used every tool you need. What's new is deciding where to begin. Professionals do it like this:
+
+1. **Read the whole spec first.** List what you must export, and what each piece takes and gives back.
+2. **Write the outlines.** Each function or component, with its types and a placeholder result (\`return 0;\`, \`return "";\`, \`return null;\`). Press **Run**: the checks now tell you exactly what's left.
+3. **One check at a time.** Make the simplest one pass, run, then the next. Small steps, run often.
+4. **Edge cases last.** Empty lists, ties, exact limits, missing values: specs hide their bugs at the edges.
+
+Stuck? Look back at a level that used the same tool. Rebuilding it from memory is the point, so try that before the hints.
+
+## Tools from this floor
+
+${tools}`;
+}

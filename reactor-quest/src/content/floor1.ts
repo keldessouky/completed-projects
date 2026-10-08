@@ -1,5 +1,5 @@
 import type { Deck } from '../game/types';
-import { codeFiles, fnOf, line, mustNotUse, mustUse } from './helpers';
+import { blankPage, codeFiles, fnOf, line, mustNotUse, mustUse } from './helpers';
 
 export const floor1: Deck = {
   id: 'boot',
@@ -510,6 +510,43 @@ You can chain as many as you like: \`a && b && c\` is true only if all three are
         { label: 'Off duty means NOT on shift', run: ({ mod, expect }) => {
           expect(fnOf(mod, 'isOffDuty')(true)).toBe(false);
           expect(fnOf(mod, 'isOffDuty')(false)).toBe(true);
+        } },
+      ],
+    },
+    {
+      kind: 'code',
+      id: 'scratch-rations',
+      title: 'From Scratch: Rations',
+      system: 'Galley',
+      skills: ['functions', 'logic', 'output'],
+      ...codeFiles('scratch-rations', 'ts'),
+      brief: `**ARIA:** The galley's ration planner was written by the previous cook, who has since been reassigned to a station with no kitchen. There is no code to fix. There is no code at all. Just a spec, and you.
+
+**THE FEED:** *A blank file! Viewers, this is the moment every programmer remembers. Some of them still have nightmares. Fond ones.*`,
+      lesson: blankPage(`- **Functions** take inputs and \`return\` a result: \`function double(n: number): number { return n * 2; }\`
+- **Maths**: \`*\` multiplies; a function can call another function you wrote.
+- **Decisions**: \`if (a >= b) { … }\` and \`return\` early.
+- **Template strings** build text: \`\` \`Short by \${missing} rations\` \`\`.`),
+      hints: [
+        'Plan: two `export function`s. Start each with a placeholder return, then Run to see which checks are left.',
+        '`rationsNeeded` is one line of maths: crew × days × 3. In `supplyReport`, call `rationsNeeded` first and keep its answer in a `const`.',
+        'Compare: `if (stock >= needed) return "Enough rations";` and otherwise return a template string with `needed - stock` in it.',
+      ],
+      typeChecks: [
+        { label: 'Both functions take numbers', code: `import { rationsNeeded, supplyReport } from './solution';\nconst n: number = rationsNeeded(2, 3);\nconst s: string = supplyReport(1, 1, 1);\n// @ts-expect-error\nrationsNeeded("2", 3);` },
+      ],
+      checks: [
+        { label: 'rationsNeeded(4, 2) is 24', run: ({ mod, expect }) => expect(fnOf(mod, 'rationsNeeded')(4, 2)).toBe(24) },
+        { label: 'rationsNeeded works for any crew and days', run: ({ mod, expect }) => {
+          expect(fnOf(mod, 'rationsNeeded')(1, 1)).toBe(3);
+          expect(fnOf(mod, 'rationsNeeded')(0, 5)).toBe(0);
+          expect(fnOf(mod, 'rationsNeeded')(7, 10)).toBe(210);
+        } },
+        { label: 'supplyReport says "Enough rations" when the stock covers it', run: ({ mod, expect }) => expect(fnOf(mod, 'supplyReport')(4, 2, 30)).toBe('Enough rations') },
+        { label: 'Exactly enough counts as enough', run: ({ mod, expect }) => expect(fnOf(mod, 'supplyReport')(4, 2, 24)).toBe('Enough rations') },
+        { label: 'Otherwise it says how many are missing', run: ({ mod, expect }) => {
+          expect(fnOf(mod, 'supplyReport')(4, 2, 20)).toBe('Short by 4 rations');
+          expect(fnOf(mod, 'supplyReport')(1, 3, 0)).toBe('Short by 9 rations');
         } },
       ],
     },

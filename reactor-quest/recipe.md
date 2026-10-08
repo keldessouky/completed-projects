@@ -1,6 +1,6 @@
 # Reactor Quest: the recipe
 
-This file is everything you need to build **Reactor Quest** from an empty folder. You won't have the original repository, so it has the full source of every part that is easy to get subtly wrong: the in-browser compiler, the sandbox and test kit, the grading pipeline, the save format, the reward engine, the code editor, the colour profiles, the launchers, the app packagers, the tests and CI. The parts that are better written fresh, like most screens, the stylesheet and the 96 lessons, come as precise specs and worked examples.
+This file is everything you need to build **Reactor Quest** from an empty folder. You won't have the original repository, so it has the full source of every part that is easy to get subtly wrong: the in-browser compiler, the sandbox and test kit, the grading pipeline, the save format, the reward engine, the code editor, the colour profiles, the launchers, the app packagers, the tests and CI. The parts that are better written fresh, like most screens, the stylesheet and the 106 lessons, come as precise specs and worked examples.
 
 It is long. Read **Part 0** first, then work through the parts in order. Each part ends in something you can run and check.
 
@@ -11,7 +11,7 @@ It is long. Read **Part 0** first, then work through the parts in order. Each pa
 - [Part 2. The compiler in a Web Worker](#part-2-the-compiler-in-a-web-worker)
 - [Part 3. The sandbox and the testing kit](#part-3-the-sandbox-and-the-testing-kit)
 - [Part 4. The level format and grading](#part-4-the-level-format-and-grading)
-- [Part 5. The curriculum: 10 floors, 96 levels](#part-5-the-curriculum-10-floors-96-levels)
+- [Part 5. The curriculum: 10 floors, 106 levels](#part-5-the-curriculum-10-floors-106-levels)
 - [Part 6. Progress, the save file and the store](#part-6-progress-the-save-file-and-the-store)
 - [Part 7. The reward engine and the loot catalogue](#part-7-the-reward-engine-and-the-loot-catalogue)
 - [Part 8. The user interface](#part-8-the-user-interface)
@@ -32,7 +32,7 @@ It is long. Read **Part 0** first, then work through the parts in order. Each pa
 
 ### The game in one paragraph
 
-Reactor Quest teaches someone who has never written code to write professional TypeScript and React. The player is the new repair engineer on **Orrery Station**, a space station that has been dark for nine days. Every system aboard runs on code and none of it works. Each **level** is one broken system: the player reads a short story brief and a lesson, then fixes or writes real code in a real editor, and presses **Run**. The game type-checks the code with the **real TypeScript compiler** (running in the browser), runs it in a sandbox, and grades it with hidden checks, including **type-level checks** that grade the player's *types*. React levels render the player's components live. There are **96 levels on 10 floors** (86 code levels, 10 quizzes), from a first `console.log` to race conditions, accessibility and testing. Inspired by *Dungeon Crawler Carl*, the repair job is broadcast as a TV show: **THE FEED** narrates, viewers pile in, sponsors send gifts, and a reward engine pays out constantly. That means crawler levels and career titles, six tiers of loot boxes, 58 achievements, 21 skills, a companion pet with hats, five classes, daily quests and streaks, a shop, boss HP bars, and collectible Codex cheat sheets. Underneath the show, it is built on how people actually learn: one idea per level in prerequisite order, hints before solutions, plain-English compiler errors, quizzes that re-ask what you missed, **spaced review** that brings every idea back at growing intervals, and a **notebook** where the player explains each level back in their own words.
+Reactor Quest teaches someone who has never written code to write professional TypeScript and React. The player is the new repair engineer on **Orrery Station**, a space station that has been dark for nine days. Every system aboard runs on code and none of it works. Each **level** is one broken system: the player reads a short story brief and a lesson, then fixes or writes real code in a real editor, and presses **Run**. The game type-checks the code with the **real TypeScript compiler** (running in the browser), runs it in a sandbox, and grades it with hidden checks, including **type-level checks** that grade the player's *types*. React levels render the player's components live. There are **106 levels on 10 floors** (96 code levels, 10 quizzes), from a first `console.log` to race conditions, accessibility and testing. Inspired by *Dungeon Crawler Carl*, the repair job is broadcast as a TV show: **THE FEED** narrates, viewers pile in, sponsors send gifts, and a reward engine pays out constantly. That means crawler levels and career titles, six tiers of loot boxes, 58 achievements, 21 skills, a companion pet with hats, five classes, daily quests and streaks, a shop, boss HP bars, and collectible Codex cheat sheets. Underneath the show, it is built on how people actually learn: one idea per level in prerequisite order, hints before solutions, plain-English compiler errors, quizzes that re-ask what you missed, **spaced review** that brings every idea back at growing intervals, and a **notebook** where the player explains each level back in their own words.
 
 ### How it teaches (the learning design)
 
@@ -43,6 +43,7 @@ Every feature below exists for a learning reason. Keep these when you build it; 
 | **Small steps in prerequisite order** (cognitive load) | One new idea per level; solutions only use constructs earlier lessons taught; where a step was big, a smaller bridge level comes first. Bosses interleave a floor's ideas. |
 | **Advance organisers** | The Mission tab lists "You'll learn" (the lesson's section headings) before the player starts, with a link to the lesson. |
 | **Instruction at the moment of need** | After two failed runs without opening the lesson, a note suggests it. |
+| **Fading scaffolding** | Floors 1–3 starters explain everything; from Floor 4 on they state *what* to build, not *how*, except for the first level of a new idea. Every floor has a **From Scratch** level (before its quiz): an empty file with only a spec, so players practise starting from nothing. Its lesson (`blankPage()` in `src/content/helpers.ts`) teaches how: read the spec, write outlines with placeholder results, make one check pass at a time, edge cases last. |
 | **Productive struggle, scaffolded** | Three hints, each more specific. The reference solution only opens after all three, and until the level is solved it can't be pasted in: the player rebuilds it. |
 | **Immediate, specific feedback** | Every check explains its failure. Compiler errors get a plain-English line for the common ones (`src/engine/explain.ts`), in the results panel and the editor tooltip. |
 | **Retrieval practice** | A quiz on every floor. A wrong answer comes back at the end of the quiz until it's answered right (successive relearning); only first-try mistakes cost stars. |
@@ -109,7 +110,7 @@ reactor-quest/
     engine/   checker.ts  compiler.ts  compiler.worker.ts  runtime.ts  grade.ts
     game/     types.ts  skills.ts  progress.ts  rewards.ts  items.ts  store.ts  sound.ts
     content/  index.ts  helpers.ts  review.ts  floor1.ts … floor10.ts
-              code/<level-id>/starter.ts|tsx  and  solution.ts|tsx   (86 folders)
+              code/<level-id>/starter.ts|tsx  and  solution.ts|tsx   (96 folders)
     screens/  TitleScreen  MapScreen  CodeLevelScreen  QuizScreen  ReviewScreen
               LootScreen  ShopScreen  CharacterScreen   (.tsx)
     ui/       router.ts  overlays.ts  themes.ts  ThemePicker.tsx  Hud.tsx  CodeEditor.tsx
@@ -1283,6 +1284,28 @@ export function mustNotUse(source: string, pattern: RegExp, message: string) {
 export function fixtureError(message: string): Error {
   return Object.assign(new Error(message), { levelFixture: true });
 }
+
+/**
+ * The lesson for a "from a blank file" level: how to begin with nothing but a
+ * spec, then a reminder of the floor's tools. Every floor has one, so writing
+ * code from scratch is practised all the way up, not only fixing starters.
+ */
+export function blankPage(tools: string): string {
+  return `## Starting from nothing
+
+No starter code this time: just a spec, like real work. You've already used every tool you need. What's new is deciding where to begin. Professionals do it like this:
+
+1. **Read the whole spec first.** List what you must export, and what each piece takes and gives back.
+2. **Write the outlines.** Each function or component, with its types and a placeholder result (\`return 0;\`, \`return "";\`, \`return null;\`). Press **Run**: the checks now tell you exactly what's left.
+3. **One check at a time.** Make the simplest one pass, run, then the next. Small steps, run often.
+4. **Edge cases last.** Empty lists, ties, exact limits, missing values: specs hide their bugs at the edges.
+
+Stuck? Look back at a level that used the same tool. Rebuilding it from memory is the point, so try that before the hints.
+
+## Tools from this floor
+
+${tools}`;
+}
 ~~~~
 
 **`src/content/index.ts`**
@@ -1506,7 +1529,7 @@ The deck header and first level in `src/content/floor1.ts`:
 
 ~~~~ts
 import type { Deck } from '../game/types';
-import { codeFiles, fnOf, line, mustNotUse, mustUse } from './helpers';
+import { blankPage, codeFiles, fnOf, line, mustNotUse, mustUse } from './helpers';
 
 export const floor1: Deck = {
   id: 'boot',
@@ -1694,7 +1717,7 @@ Floor 8 starts with a small helper, used by its checks:
 ~~~~ts
 import type { Deck } from '../game/types';
 import { CheckFailure } from '../engine/runtime';
-import { code, codeFiles, comp } from './helpers';
+import { blankPage, code, codeFiles, comp } from './helpers';
 
 const buttonByText = (root: { getByText(t: string, s?: string): HTMLElement }, text: string) => root.getByText(text, 'button');
 ~~~~
@@ -1853,13 +1876,14 @@ export function Thruster() {
 
 ---
 
-## Part 5. The curriculum: 10 floors, 96 levels
+## Part 5. The curriculum: 10 floors, 106 levels
 
 ### Design principles
 
 - **Zero to professional, smoothly.** Floor 1 assumes nothing: not what a string is, not where the semicolon key is. Each level adds **one** idea. Floor 10 is what a professional React team expects.
 - **Three schools**: floors 1–3 are JavaScript (written as TypeScript), 4–6 TypeScript, 7–10 React. This decides class bonuses (Part 7).
-- **Every floor** has 5–11 code levels, one quiz (second to last) and a **boss** (last): a bigger, multi-part code level that combines the floor's ideas. The boss of floors 9 and 10 is titled "FINAL BOSS". A floor's boss is playable as soon as the player reaches the floor, which is the way to skip a floor they already know.
+- **Every floor** has 6–12 code levels, one quiz (second to last) and a **boss** (last): a bigger, multi-part code level that combines the floor's ideas. The boss of floors 9 and 10 is titled "FINAL BOSS". A floor's boss is playable as soon as the player reaches the floor, which is the way to skip a floor they already know.
+- **Write, not only fix.** Every floor ends its teaching levels with a From Scratch level: the starter is only a spec comment, and the player writes every line.
 - **Fix, don't just write.** Most starters are broken systems: a bug, an `any`, a missing state hook, a race condition. Debugging is taught from day one.
 - **No cliffs.** Where an idea is big (lists, loops, reducers, data fetching, accessible forms, keyboard widgets), a smaller bridge level comes first and teaches half of it. When you measure solution size level by level, no regular level should be more than about twice the one before it.
 - **Make the compiler a teacher.** Several early levels ask the player to press Run, *read* the red squiggle, and fix what it says. Type checks grade types the way a reviewer would.
@@ -1965,9 +1989,15 @@ What follows is the complete curriculum: every level's id, title, station system
    - Solution exports: `export function canOpenAirlock(innerClosed: boolean, pressure: number): boolean`; `export function shouldAlarm(fire: boolean, oxygen: number): boolean`; `export function isOffDuty(onShift: boolean): boolean`
    - Checks: Airlock opens: door closed, pressure 100; Airlock opens at exactly 90 and 110; Airlock stays shut: unsafe pressure, or door open; Alarm: fire, or low oxygen; Off duty means NOT on shift
 
-10. **Quiz `quiz-basics` — Read the Code** · system *Boot Diagnostics Terminal* · skills output, logic · 6 questions: What does this print?; What does this print?; What does this print?; Which line is a mistake?; What does `check(5)` return?; What does this print?
+10. **`scratch-rations` — From Scratch: Rations** · system *Galley* · `solution.ts` · skills functions, logic, output
+   - Starter says: FROM A BLANK FILE. No starter code this time, just the spec. You've used every piece of this already; now you decide how to put them together. The galley needs two functions. Export both. rationsNeeded(crew, days) Each crew member eats 3 rations a day. Return how many rations the whole crew needs for that many days. The inputs and the result are numbers. supplyReport(crew, days, stock) Return "Enough rations" if the stock covers what's needed, otherwise "Short by N rations", where N is how many are missing. Exactly enough counts as enough.
+   - Solution exports: `export function rationsNeeded(crew: number, days: number): number`; `export function supplyReport(crew: number, days: number, stock: number): string`
+   - Type checks: Both functions take numbers
+   - Checks: rationsNeeded(4, 2) is 24; rationsNeeded works for any crew and days; supplyReport says "Enough rations" when the stock covers it; Exactly enough counts as enough; Otherwise it says how many are missing
 
-11. **`boot-diagnostics` — BOSS: Boot Diagnostics** ☢ **BOSS** · system *Boot Sequence* · `solution.ts` · skills functions, logic, output
+11. **Quiz `quiz-basics` — Read the Code** · system *Boot Diagnostics Terminal* · skills output, logic · 6 questions: What does this print?; What does this print?; What does this print?; Which line is a mistake?; What does `check(5)` return?; What does this print?
+
+12. **`boot-diagnostics` — BOSS: Boot Diagnostics** ☢ **BOSS** · system *Boot Sequence* · `solution.ts` · skills functions, logic, output
    - Starter says: BOSS — Boot Diagnostics. Everything from this floor, in one boot sequence.
    - Solution exports: `export function powerLevel(generators: number): number`; `export function systemReport(name: string, power: number): string`; `export function readyToBoot(power: number, crew: number, doorsSealed: boolean): boolean`
    - Checks: powerLevel(0) is 50, powerLevel(2) is 300; An OFFLINE report; A LOW report; An ONLINE report (100 counts as online); readyToBoot when everything is in order; readyToBoot refuses if anything is wrong; Prints the Reactor report
@@ -2030,9 +2060,15 @@ What follows is the complete curriculum: every level's id, title, station system
    - Solution exports: `export function sum(numbers: number[]): number`; `export function largest(numbers: number[]): number`; `export function countByRole(crew: { role: string }[]): Record<string, number>`
    - Checks: sum; largest, even with negative numbers; countByRole; Uses .reduce()
 
-12. **Quiz `quiz-collections` — Predict the Output** · system *Logistics Terminal* · skills arrays, iteration · 6 questions: What does this print?; What is `result`?; How many times does this loop print?; What is `found`?; What is `total`?; What does this print?
+12. **`scratch-rota` — From Scratch: Shift Rota** · system *Duty Roster* · `solution.ts` · skills arrays, iteration, objects
+   - Starter says: FROM A BLANK FILE. Just the spec: you choose the loops and methods. Each shift on the duty roster is an object like { name: "Ada", hours: 42 }. Export a type called Shift for those objects (name: string, hours: number), and: totalHours(shifts) → everyone's hours added up (0 for an empty list) overworked(shifts, limit) → the NAMES of everyone working MORE than limit hours, in their original order busiest(shifts) → the name of whoever works the most hours ("" for an empty list; if two tie, the first one)
+   - Solution exports: `export type Shift = { name: string; hours: number };`; `export function totalHours(shifts: Shift[]): number`; `export function overworked(shifts: Shift[], limit: number): string[]`; `export function busiest(shifts: Shift[]): string`
+   - Type checks: Shift describes a name and hours
+   - Checks: totalHours adds everyone up; overworked lists names over the limit, in order; busiest finds who works most; busiest: the first of a tie, and "" for nobody
 
-13. **`inventory-audit` — BOSS: Inventory Audit** ☢ **BOSS** · system *Quartermaster* · `solution.ts` · skills iteration, objects, arrays
+13. **Quiz `quiz-collections` — Predict the Output** · system *Logistics Terminal* · skills arrays, iteration · 6 questions: What does this print?; What is `result`?; How many times does this loop print?; What is `found`?; What is `total`?; What does this print?
+
+14. **`inventory-audit` — BOSS: Inventory Audit** ☢ **BOSS** · system *Quartermaster* · `solution.ts` · skills iteration, objects, arrays
    - Starter says: BOSS — Inventory Audit. The quartermaster's records are a mess. Audit them with array methods.
    - Solution exports: `export type Item = { name: string; category: string; qty: number; price: number };`; `export function totalValue(items: Item[]): number`; `export function lowStock(items: Item[]): string[]`; `export function unitsByCategory(items: Item[]): Record<string, number>`; `export function audit(items: Item[])`
    - Checks: totalValue; lowStock: under 5, sorted A→Z; unitsByCategory; audit puts it all together; audit handles an empty inventory; audit doesn't change the items it was given
@@ -2089,9 +2125,14 @@ What follows is the complete curriculum: every level's id, title, station system
    - Solution exports: `export type Api = (id: string) => Promise<string>;`; `export async function statusLine(id: string, api: Api): Promise<string>`; `export async function allStatuses(ids: string[], api: Api): Promise<string[]>`; `export async function safeStatusLine(id: string, api: Api): Promise<string>`; `export async function firstHealthy(ids: string[], api: Api): Promise<string | null>`
    - Checks: statusLine waits for the answer; allStatuses keeps the order; allStatuses asks everyone at once; safeStatusLine survives a failure; firstHealthy asks in order and stops at the first "ok"; firstHealthy gives null when nobody is healthy
 
-10. **Quiz `quiz-modern` — Modern JavaScript** · system *Systems Review* · skills modern, async · 6 questions: What does this print?; What does this print?; What is `x`?; What does `getStatus()` return, if `api()` resolves to "ok"?; Three requests each take 1 second. Roughly how long does this take?; What does this print?
+10. **`scratch-logbook` — From Scratch: Captain's Log** · system *Captain's Log* · `solution.ts` · skills objects, modern, errors
+   - Starter says: FROM A BLANK FILE. Just the spec. Export a class called Logbook. Each logbook keeps its own entries. new Logbook() starts empty log.add(text) adds an entry and returns how many entries there are now. Spaces around the text are trimmed off. An empty (or all-spaces) entry throws an Error with the message "Entry can't be empty", and isn't added. log.latest(n) the n most recent entries, newest first (fewer, if there aren't that many yet) log.search(word) every entry containing that word, ignoring upper and lower case, oldest first
+   - Solution exports: `export class Logbook`
+   - Checks: add returns how many entries there are; Entries are trimmed; empty ones throw and are not added; latest(n) gives the newest entries first; search ignores upper and lower case, oldest first; Each logbook keeps its own entries
 
-11. **`comms-decoder` — BOSS: Comms Decoder** ☢ **BOSS** · system *Long-Range Comms* · `solution.ts` · skills async, errors, modern, functions
+11. **Quiz `quiz-modern` — Modern JavaScript** · system *Systems Review* · skills modern, async · 6 questions: What does this print?; What does this print?; What is `x`?; What does `getStatus()` return, if `api()` resolves to "ok"?; Three requests each take 1 second. Roughly how long does this take?; What does this print?
+
+12. **`comms-decoder` — BOSS: Comms Decoder** ☢ **BOSS** · system *Long-Range Comms* · `solution.ts` · skills async, errors, modern, functions
    - Starter says: BOSS — Comms Decoder. Raw transmissions arrive as text: " NOVA\|3\|Docking at bay 7 " from \| priority \| body
    - Solution exports: `export type Message = { from: string; priority: number; body: string };`; `export function parseTransmission(raw: string): Message`; `export function decodeAll(raws: string[]): { messages: Message[]; corrupt: number }`; `export async function translateAll(`; `export function makeInbox()`; `export async function processBatch(raws: string[], translate: (text: string) => Promise<string>)`
    - Checks: parseTransmission cleans and converts; parseTransmission rejects corrupt input; decodeAll skips and counts corrupt ones; translateAll translates in parallel without changing the originals; The inbox ranks by priority (first one wins a tie); Two inboxes don't share messages; processBatch runs the whole pipeline
@@ -2131,9 +2172,15 @@ What follows is the complete curriculum: every level's id, title, station system
    - Type checks: formatId accepts strings and numbers only; channelLabel takes a string or a string[]
    - Checks: formatId(42) → "#0042"; formatId(12345) → "#12345"; formatId("kx-7") → "KX-7"; channelLabel("alpha") → "alpha"; channelLabel(["alpha", "beta"]) → "alpha, beta"
 
-6. **Quiz `quiz-inference` — Compiler Diagnostics** · system *Diagnostics Bay* · skills types · 6 questions: What does the compiler say?; What is the type of `mode`?; Inside this function, what is the type of `deck`?; What is inferred for `mixed`?; Which of these lets you call `.toUpperCase()` on it **without** checking first?; This program compiles. What happens when the JavaScript runs?
+6. **`scratch-fuel-log` — From Scratch: Fuel Log** · system *Fuel Depot* · `solution.ts` · skills types, narrowing, objects
+   - Starter says: FROM A BLANK FILE. This time you write the types too. Export an interface called Refuel: a ship name (string), the litres taken (number), and an optional note (string). totalFor(log, ship) → the total litres that ship took (0 if none) describe(entry) → entry is a Refuel, or null: null → "No refuel" { ship: "Kite", litres: 40 } → "Kite: 40 L" { ship: "Kite", litres: 40, note: "rush" } → "Kite: 40 L (rush)" biggest(log) → the Refuel with the most litres, or null for an empty log (if two tie, the first one)
+   - Solution exports: `export interface Refuel`; `export function totalFor(log: Refuel[], ship: string): number`; `export function describe(entry: Refuel | null): string`; `export function biggest(log: Refuel[]): Refuel | null`
+   - Type checks: Refuel: ship and litres required, note optional; describe accepts null; biggest might return null; totalFor takes a log and a ship name
+   - Checks: totalFor adds up one ship's litres; describe handles a refuel, a note, and null; biggest finds the largest refuel (the first of a tie); biggest of an empty log is null
 
-7. **`telemetry` — BOSS: Reactor Telemetry** ☢ **BOSS** · system *Reactor Telemetry* · `solution.ts` · skills types, narrowing, arrays
+7. **Quiz `quiz-inference` — Compiler Diagnostics** · system *Diagnostics Bay* · skills types · 6 questions: What does the compiler say?; What is the type of `mode`?; Inside this function, what is the type of `deck`?; What is inferred for `mixed`?; Which of these lets you call `.toUpperCase()` on it **without** checking first?; This program compiles. What happens when the JavaScript runs?
+
+8. **`telemetry` — BOSS: Reactor Telemetry** ☢ **BOSS** · system *Reactor Telemetry* · `solution.ts` · skills types, narrowing, arrays
    - Starter says: BOSS — Reactor Telemetry. Every sensor reports a value, or null when it's offline.
    - Solution exports: `export interface Reading`; `export interface Summary`; `export function summarize(readings: Reading[]): Summary`; `export function hottest(readings: Reading[]): Reading | undefined`
    - Type checks: Summary.average is number | null; hottest may return undefined
@@ -2173,9 +2220,15 @@ What follows is the complete curriculum: every level's id, title, station system
    - Type checks: DEFAULTS is read-only; configure accepts partial overrides; ShieldSummary has exactly strength and mode; LABELS covers exactly the modes
    - Checks: configure({ strength: 90 }) keeps the other defaults; configure doesn't change DEFAULTS; summarize picks strength and mode
 
-6. **Quiz `quiz-types` — Type Algebra** · system *Navigation Core* · skills type-level, generics · 5 questions: What is `keyof Pilot`?; What is `T` inferred as?; What is the type of `RANKS`?; In the `default` branch, what is the type of `s`?; What does `Omit<Ship, "id">` produce?
+6. **`scratch-commands` — From Scratch: Command Queue** · system *Drone Bay* · `solution.ts` · skills narrowing, generics, types
+   - Starter says: FROM A BLANK FILE. Design the types, then the functions. Drones take three kinds of command. Export a type called Command for them, a discriminated union on a \`kind\` field: kind "move" — also has x and y (numbers) kind "scan" — nothing else kind "say" — also has text (a string) describe(command) → "Move to 3,4" "Scan" 'Say "hello"' countByKind(commands) → how many of each kind: { move: 2, scan: 0, say: 1 } (every kind is always there, even with 0) lastOf(items) → the last item of ANY array, or undefined if it's empty. Typed precisely: lastOf([1, 2]) has type number \| undefined.
+   - Solution exports: `export type Command =`; `export function describe(command: Command): string`; `export function countByKind(commands: Command[]): Record<Command["kind"], number>`; `export function lastOf<T>(items: T[]): T | undefined`
+   - Type checks: Command only allows real commands; countByKind has a number for every kind; lastOf keeps the element type
+   - Checks: describe each kind of command; countByKind counts each kind, zeros included; lastOf returns the last item, or undefined
 
-7. **`event-bus` — BOSS: Typed Event Bus** ☢ **BOSS** · system *Station Event Bus* · `solution.ts` · skills generics, type-level
+7. **Quiz `quiz-types` — Type Algebra** · system *Navigation Core* · skills type-level, generics · 5 questions: What is `keyof Pilot`?; What is `T` inferred as?; What is the type of `RANKS`?; In the `default` branch, what is the type of `s`?; What does `Omit<Ship, "id">` produce?
+
+8. **`event-bus` — BOSS: Typed Event Bus** ☢ **BOSS** · system *Station Event Bus* · `solution.ts` · skills generics, type-level
    - Starter says: BOSS — the station event bus. \`E\` maps each event name to its payload type, for example: { dock: { ship: string }; undock: { ship: string; reason: string } } The compiler should then reject emit('dock', { ship: 7 }) and emit('warp', …).
    - Solution exports: `export interface Bus<E>`; `export function createBus<E>(): Bus<E>`
    - Type checks: Handlers receive the right payload type; Wrong payloads are rejected; Unknown events are rejected
@@ -2192,7 +2245,7 @@ What follows is the complete curriculum: every level's id, title, station system
    - Checks: Strings are upper-cased: "text: HELLO"; Numbers get one decimal place; Booleans, lists and null; Anything else is "unknown"; signalLength measures strings and arrays, and is 0 otherwise; No `any` left
 
 2. **`type-guards` — Type Guards** · system *Deep Scanner* · `solution.ts` · skills narrowing, type-level
-   - Starter says: A *type guard* is a function that checks a value at runtime AND tells the compiler what it found. Its return type is a *type predicate*: function isString(x: unknown): x is string { return typeof x === "string"; } if (isString(v)) { v.toUpperCase(); } // v is string in here The \`in\` operator narrows unions by property: if ("crew" in thing) { … }
+   - Starter says: Write real type guards: \`x\` could be anything at all. (Examples are in the Lesson tab.)
    - Solution exports: `export type Ship = { kind: "ship"; name: string; crew: number };`; `export type Cargo = { kind: "cargo"; label: string; mass: number };`; `export function isShip(x: unknown): x is Ship`; `export function isCargo(x: unknown): x is Cargo`; `export function describeScan(x: unknown): string`
    - Type checks: isShip narrows to Ship; isCargo narrows to Cargo
    - Checks: isShip accepts real ships; isShip rejects everything else; isCargo checks the shape too; describeScan
@@ -2204,7 +2257,7 @@ What follows is the complete curriculum: every level's id, title, station system
    - Checks: Parses a valid record; Keeps a callsign, drops extra fields; Invalid JSON gives null (no crash); Wrong shapes give null
 
 4. **`result-type` — Errors as Values** · system *Navigation Solver* · `solution.ts` · skills generics, type-level, errors
-   - Starter says: Throwing errors is invisible in types: nothing in \`parseAge(text: string): number\` warns the caller it might blow up. A *Result* type makes failure part of the return type, so the compiler forces callers to handle it: type Result&lt;T&gt; = { ok: true; value: T } \| { ok: false; error: string }; const r = parseAge("42"); if (r.ok) { r.value } else { r.error } // narrowed by the \`ok\` tag
+   - Starter says: Make failure part of the type, so callers can't forget it. (Examples are in the Lesson tab.)
    - Solution exports: `export type Result<T, E = string> = { ok: true; value: T } | { ok: false; error: E };`; `export function ok<T>(value: T): Result<T, never>`; `export function err<E>(error: E): Result<never, E>`; `export function divide(a: number, b: number): Result<number>`; `export function mapResult<T, U, E>(result: Result<T, E>, fn: (value: T) => U): Result<U, E>`; `export function unwrapOr<T, E>(result: Result<T, E>, fallback: T): T`
    - Type checks: Result is a union you must narrow; The error type defaults to string, and can be changed; mapResult changes the value type
    - Checks: divide; mapResult transforms successes and passes failures through; unwrapOr
@@ -2216,26 +2269,32 @@ What follows is the complete curriculum: every level's id, title, station system
    - Checks: changedFields flags exactly what changed; Nothing changed → all false
 
 6. **`conditional-types` — Conditional Types** · system *Type Refinery* · `solution.ts` · skills type-level, generics
-   - Starter says: A *conditional type* chooses a type based on another type: type IsText&lt;T&gt; = T extends string ? "yes" : "no"; IsText&lt;"hi"&gt; → "yes" IsText&lt;42&gt; → "no" \`infer\` captures a part of the type being matched: type ReturnOf&lt;F&gt; = F extends (...args: any[]) =&gt; infer R ? R : never; ReturnOf&lt;() =&gt; number&gt; → number Conditional types *distribute* over unions: IsText&lt;string \| number&gt; → "yes" \| "no"
+   - Starter says: Types that choose other types. (Examples of \`extends ? :\` and \`infer\` are in the Lesson tab.)
    - Solution exports: `export type ElementOf<T> = T extends (infer U)[] ? U : never;`; `export type Unwrap<T> = T extends Promise<infer U> ? U : T;`; `export type NonNullish<T> = T extends null | undefined ? never : T;`; `export function toArray<T>(value: T | T[]): T[]`; `export function compact<T>(values: T[]): NonNullish<T>[]`
    - Type checks: ElementOf; Unwrap; NonNullish removes null and undefined; compact's type drops null and undefined
    - Checks: toArray; compact
 
 7. **`template-literal-types` — Template Literal Types** · system *Bay Allocator* · `solution.ts` · skills type-level
-   - Starter says: Template literal types build string types the way template strings build strings: type Deck = "A" \| "B"; type Level = 1 \| 2; type Code = \`${Deck}${Level}\`; // "A1" \| "A2" \| "B1" \| "B2" Built-in helpers transform them: Uppercase&lt;"a"&gt; → "A", Capitalize&lt;"dock"&gt; → "Dock". In a mapped type, \`as\` renames keys: type Getters&lt;T&gt; = { [K in keyof T & string as \`get${Capitalize&lt;K&gt;}\`]: () =&gt; T[K] };
+   - Starter says: String types built like template strings. (Examples are in the Lesson tab.)
    - Solution exports: `export type Deck = "A" | "B" | "C";`; `export type Bay = 1 | 2 | 3 | 4;`; `` export type BayCode = `${Deck}${Bay}`; ``; `export function isBayCode(s: string): s is BayCode`; `` export function handlerName<E extends string>(event: E): `on${Capitalize<E>}` ``; `` export type Handlers<E extends string> = { [K in E as `on${Capitalize<K>}`]: () => void }; ``
    - Type checks: BayCode is exactly the 12 real bays; isBayCode narrows; handlerName has a precise return type; Handlers maps event names to handler props
    - Checks: isBayCode at runtime; handlerName at runtime
 
 8. **`satisfies-const` — satisfies and as const** · system *Route Table* · `solution.ts` · skills type-level, types
-   - Starter says: Two tools for configuration objects: as const — freeze a value into its narrowest, readonly literal type satisfies T — check a value matches T WITHOUT widening it to T const COLORS = { ok: "#0f0", bad: "#f00" } as const satisfies Record&lt;string, string&gt;; type ColorName = keyof typeof COLORS; // "ok" \| "bad" With a plain annotation (: Record&lt;string, string&gt;) you'd lose the key names.
+   - Starter says: Keep the route names exact AND checked. (Examples of \`as const\` and \`satisfies\` are in the Lesson tab.)
    - Solution exports: `export type Route = { path: string; auth: boolean };`; `export const ROUTES =`; `export type RouteName = keyof typeof ROUTES;`; `export function link(name: RouteName, id?: string): string`; `export function protectedRoutes(): RouteName[]`
    - Type checks: RouteName is derived from ROUTES; Routes are still checked against Route
    - Checks: link fills in the id; protectedRoutes
 
-9. **Quiz `quiz-vault` — Type-Level Thinking** · system *Vault Lock* · skills type-level, narrowing · 6 questions: What is `A`?; What is `R`?; Why is a plain `boolean` return type not enough for a type guard?; What is the type of `Keys`?; What does this mapped type produce for `{ fuel: number }`?; Which is the safest type for the result of `JSON.parse(text)`?
+9. **`scratch-sensor-parser` — From Scratch: Sensor Parser** · system *Sensor Uplink* · `solution.ts` · skills narrowing, errors, type-level
+   - Starter says: FROM A BLANK FILE. Readings arrive from outside the station as unknown data. Turn them into safe, typed values, and never throw. Export: Result&lt;T&gt; { ok: true; value: T } or { ok: false; error: string } Reading { sensor: string; value: number } parseReading(input: unknown): Result&lt;Reading&gt; not an object (or null, or an array) → error "Not an object" sensor missing, or not a string → error "Missing sensor" value not a number, or NaN → error "Value must be a number" otherwise → ok, holding ONLY sensor and value (drop any other fields) parseAll(inputs: unknown[]) → { readings: Reading[]; errors: string[] } every good reading, and every error message, each in order
+   - Solution exports: `export type Result<T> = { ok: true; value: T } | { ok: false; error: string };`; `export type Reading = { sensor: string; value: number };`; `export function parseReading(input: unknown): Result<Reading>`; `export function parseAll(inputs: unknown[]): { readings: Reading[]; errors: string[] }`
+   - Type checks: A Result must be checked before use; parseReading accepts anything at all
+   - Checks: A good reading parses, keeping only sensor and value; "Not an object" for anything that isn't one; "Missing sensor" and "Value must be a number"; parseAll separates good readings from errors, in order; Never throws
 
-10. **`schema-forge` — BOSS: Schema Forge** ☢ **BOSS** · system *Schema Forge* · `solution.ts` · skills type-level, generics, narrowing
+10. **Quiz `quiz-vault` — Type-Level Thinking** · system *Vault Lock* · skills type-level, narrowing · 6 questions: What is `A`?; What is `R`?; Why is a plain `boolean` return type not enough for a type guard?; What is the type of `Keys`?; What does this mapped type produce for `{ fuel: number }`?; Which is the safest type for the result of `JSON.parse(text)`?
+
+11. **`schema-forge` — BOSS: Schema Forge** ☢ **BOSS** · system *Schema Forge* · `solution.ts` · skills type-level, generics, narrowing
    - Starter says: BOSS — Schema Forge. Build a tiny runtime validator whose types are INFERRED from the schemas, the way professional libraries (like zod) work: const Ship = object({ name: string(), crew: number(), tags: array(string()) }); type Ship = Infer&lt;typeof Ship&gt;; // { name: string; crew: number; tags: string[] } const ship = Ship.parse(JSON.parse(text)); // throws if the data is wrong; typed if it's right
    - Solution exports: `export class SchemaError extends Error {}`; `export interface Schema<T>`; `export function makeSchema<T>(check: (input: unknown, path: string) => T): Schema<T>`; `export function fail(path: string, expected: string): never`; `export type Infer<S> = S extends Schema<infer T> ? T : never;`; `export function string(): Schema<string>`; `export function number(): Schema<number>`; `export function boolean(): Schema<boolean>`; `export function array<T>(item: Schema<T>): Schema<T[]>`; `export function object<S extends Record<string, Schema<unknown>>>(shape: S): Schema<{ [K in keyof S]: Infer<S[K]> }>`; `export function optional<T>(schema: Schema<T>): Schema<T | undefined>`
    - Type checks: Infer extracts a schema's type; object() infers the full shape; parse returns the inferred type
@@ -2273,9 +2332,15 @@ What follows is the complete curriculum: every level's id, title, station system
    - Solution exports: `export function Alert({ level, message }: { level: 'ok' | 'warn' | 'critical'; message?: string })`; `export function AlertBadge({ count }: { count: number })`
    - Checks: level "ok" renders nothing; level "warn" uses the default message; level "warn" shows a given message; level "critical"; AlertBadge with 3 alerts; AlertBadge with 0 alerts shows no "0"
 
-6. **Quiz `quiz-jsx` — JSX Inspection** · system *Render Pipeline* · skills components · 6 questions: What appears on screen?; Why does this render a plain, unknown HTML tag instead of your component?; Which is the correct way to set a CSS class in JSX?; This returns two sibling elements. What's the fix?; Which `key` is the best choice for a list of crew members?; A child component wants to change a value it received as a prop. What should happen?
+6. **`scratch-crew-cards` — From Scratch: Crew Cards** · system *Crew Quarters* · `solution.tsx` · skills components, types · live preview
+   - Starter says: FROM A BLANK FILE. Export two components. CrewCard props: name (string), role (string), onDuty (boolean) &lt;article className="crew-card"&gt; &lt;h3&gt;{name}&lt;/h3&gt; &lt;p&gt;{role}&lt;/p&gt; &lt;span className="badge"&gt;On duty&lt;/span&gt; ← only when on duty &lt;/article&gt; CrewList props: crew (an array of { name, role, onDuty }) no crew → &lt;p className="empty"&gt;No crew aboard&lt;/p&gt; otherwise → a &lt;ul&gt; with one &lt;li&gt; per crew member, each holding a CrewCard, then &lt;p className="count"&gt;2 on duty&lt;/p&gt; (how many are on duty)
+   - Solution exports: `export function CrewCard({ name, role, onDuty }: CrewMember)`; `export function CrewList({ crew }: { crew: CrewMember[] })`
+   - Type checks: CrewCard requires its props
+   - Checks: CrewCard shows the name and role; The "On duty" badge shows only when on duty; CrewList shows "No crew aboard" when empty; CrewList renders a card per crew member, and counts who is on duty
 
-7. **`crew-roster` — BOSS: Crew Roster** ☢ **BOSS** · system *Crew Roster* · `solution.tsx` · skills components · live preview
+7. **Quiz `quiz-jsx` — JSX Inspection** · system *Render Pipeline* · skills components · 6 questions: What appears on screen?; Why does this render a plain, unknown HTML tag instead of your component?; Which is the correct way to set a CSS class in JSX?; This returns two sibling elements. What's the fix?; Which `key` is the best choice for a list of crew members?; A child component wants to change a value it received as a prop. What should happen?
+
+8. **`crew-roster` — BOSS: Crew Roster** ☢ **BOSS** · system *Crew Roster* · `solution.tsx` · skills components · live preview
    - Starter says: BOSS — the crew roster screen.
    - Solution exports: `export interface Crew`; `export function CrewCard({ member }: { member: Crew })`; `export function Roster({ crew, title = 'Crew' }: { crew: Crew[]; title?: string })`
    - Type checks: CrewCard and Roster are valid, typed components
@@ -2314,9 +2379,14 @@ What follows is the complete curriculum: every level's id, title, station system
    - Type checks: Readout and Controls take typed props
    - Checks: Readout shows the power it is given; Controls report clicks through callbacks; Reactor: Boost raises the readout; Reactor: stays within 0–100%
 
-7. **Quiz `quiz-state` — State of Mind** · system *Control Logic* · skills state · 6 questions: count is 0. After one click, what does the screen show?; count is 0. After one click, what does the screen show?; name is "Ada". What gets logged when the button is clicked?; Why doesn't this re-render?; Where should state live when two sibling components both need it?; Which of these should **not** be stored in state?
+7. **`scratch-poll` — From Scratch: Crew Vote** · system *Mess Hall* · `solution.tsx` · skills state, components · live preview
+   - Starter says: FROM A BLANK FILE. Export a component called Poll. Props: question (string) and options (an array of strings). &lt;h3&gt;{question}&lt;/h3&gt; one &lt;button&gt; per option, labelled with the option: clicking it adds a vote &lt;p className="tally"&gt;Kite 2 · Gull 1 · Wren 0&lt;/p&gt; every option with its votes, in order, separated by " · " &lt;p className="leader"&gt;…&lt;/p&gt; "No votes yet" before any votes, "Leading: Kite" when one option has the most votes, or "Tied" when two or more share the most &lt;button&gt;Reset&lt;/button&gt; sets every count back to 0
+   - Solution exports: `export function Poll({ question, options }: { question: string; options: string[] })`
+   - Checks: Shows the question, a button per option, and an empty tally; Votes add up, and the leader is named; A shared lead is a tie; Reset sets every count back to 0
 
-8. **`checklist` — BOSS: Launch Checklist** ☢ **BOSS** · system *Mission Control* · `solution.tsx` · skills state, components · live preview
+8. **Quiz `quiz-state` — State of Mind** · system *Control Logic* · skills state · 6 questions: count is 0. After one click, what does the screen show?; count is 0. After one click, what does the screen show?; name is "Ada". What gets logged when the button is clicked?; Why doesn't this re-render?; Where should state live when two sibling components both need it?; Which of these should **not** be stored in state?
+
+9. **`checklist` — BOSS: Launch Checklist** ☢ **BOSS** · system *Mission Control* · `solution.tsx` · skills state, components · live preview
    - Starter says: BOSS — the launch checklist.
    - Solution exports: `export interface Task`; `export function Checklist({ initial = [] }: { initial?: string[] })`
    - Type checks: Checklist is a valid component with an optional initial list
@@ -2362,9 +2432,14 @@ What follows is the complete curriculum: every level's id, title, station system
    - Type checks: render and keyOf get the item type; Typos in render are caught; Item types flow through
    - Checks: Renders each item with its key function; render can return JSX; Empty list shows the default message; Empty list shows a custom message
 
-8. **Quiz `quiz-effects` — Effect Horizon** · system *Core Diagnostics* · skills effects, hooks · 6 questions: When does this effect run?; What's wrong with this?; Which of these does NOT need an effect?; Changing a ref's `.current`…; You call useState inside an `if`. What happens?; Which value does every component under this provider receive?
+8. **`scratch-heartbeat` — From Scratch: Heartbeat Monitor** · system *Medical Bay* · `solution.tsx` · skills effects, hooks · live preview
+   - Starter says: FROM A BLANK FILE. Export a custom hook and a component. useTicker(ms, running) returns a number that starts at 0 and goes up by 1 every \`ms\` milliseconds while \`running\` is true. Pausing keeps the count where it is. It must never leave a timer running: not while paused, not after unmount. Heartbeat props: ms (number) &lt;p className="beats"&gt;Beats: 3&lt;/p&gt; &lt;button&gt;Pause&lt;/button&gt; (it says "Resume" while paused, and starts it again)
+   - Solution exports: `export function useTicker(ms: number, running: boolean): number`; `export function Heartbeat({ ms }: { ms: number })`
+   - Checks: useTicker counts up while running; Heartbeat shows the beats; Pause holds the count; Resume carries on; No timer is left running while paused, or after unmount
 
-9. **`core-reboot` — FINAL BOSS: Core Reboot** ☢ **BOSS** · system *Reactor Core* · `solution.tsx` · skills hooks, effects, state · live preview
+9. **Quiz `quiz-effects` — Effect Horizon** · system *Core Diagnostics* · skills effects, hooks · 6 questions: When does this effect run?; What's wrong with this?; Which of these does NOT need an effect?; Changing a ref's `.current`…; You call useState inside an `if`. What happens?; Which value does every component under this provider receive?
+
+10. **`core-reboot` — FINAL BOSS: Core Reboot** ☢ **BOSS** · system *Reactor Core* · `solution.tsx` · skills hooks, effects, state · live preview
    - Starter says: FINAL BOSS — reboot the reactor core.
    - Solution exports: `export type Phase = 'idle' | 'charging' | 'ready' | 'online';`; `export function CoreConsole({ chargeMs = 3000, onOnline }: CoreConsoleProps)`
    - Type checks: CoreConsole takes optional chargeMs and onOnline
@@ -2406,7 +2481,7 @@ What follows is the complete curriculum: every level's id, title, station system
    - Checks: The input has a connected &lt;label&gt;; No error while the value is fine; An out-of-range value shows the error message; The error is linked to the input with ARIA; Fixing the value clears the error
 
 7. **`accessible-form` — Accessible Forms** · system *Crew Registration* · `solution.tsx` · skills a11y, state · live preview
-   - Starter says: A registration form that works for everyone — including people using a screen reader or only a keyboard. Fields (each with a real &lt;label&gt; connected by htmlFor/id): Callsign id="callsign" required, 3–12 characters Email id="email" must contain "@" Errors: - show a field's error after the user leaves it (blur), or on submit - the error is &lt;p id="callsign-error"&gt; / &lt;p id="email-error"&gt; with the message - the input gets aria-invalid="true" and aria-describedby pointing at its error Messages: "Callsign must be 3–12 characters" and "Enter a valid email" On submit: - invalid → show all errors and move keyboard focus to the FIRST invalid field - valid → onRegister({ callsign, email })
+   - Starter says: A registration form that works for everyone — including people using a screen reader or only a keyboard. Fields (the labels are done: you connected those on the oxygen console): Callsign id="callsign" required, 3–12 characters Email id="email" must contain "@" Errors: - show a field's error after the user leaves it (blur), or on submit - the error is &lt;p id="callsign-error"&gt; / &lt;p id="email-error"&gt; with the message - the input gets aria-invalid="true" and aria-describedby pointing at its error Messages: "Callsign must be 3–12 characters" and "Enter a valid email" On submit: - invalid → show all errors and move keyboard focus to the FIRST invalid field - valid → onRegister({ callsign, email })
    - Solution exports: `export function RegisterForm({ onRegister }: { onRegister: (data: { callsign: string; email: string }) => void })`
    - Checks: Each input has a connected &lt;label&gt;; No errors before the user has done anything; Leaving a field shows its error, linked with ARIA; A failed submit focuses the first invalid field; A valid form registers
 
@@ -2430,9 +2505,14 @@ What follows is the complete curriculum: every level's id, title, station system
    - Solution exports: `export type Case = { weight: number; express: boolean; expected: number };`; `export const cases: Case[] = [`; `export const throwingWeights: number[] = [0, -5];`
    - Checks: Every case is correct for the real calculator; Every throwing weight really throws; Catches the bug: forgets the 5-credit base fee; Catches the bug: only discounts above 50 kg (not at 50); Catches the bug: discounts from 49 kg; Catches the bug: never discounts; Catches the bug: adds 5 for express instead of doubling; Catches the bug: skips the discount on express shipments; Catches the bug: rounds to whole credits; Catches the bug: accepts a weight of 0; Catches the bug: never throws at all
 
-12. **Quiz `quiz-production` — Production Readiness** · system *Launch Review* · skills data, performance, a11y, testing · 6 questions: A user types "a", then "ab". The "a" request is slower. What can go wrong without a cleanup?; `Row` is wrapped in `memo`, but still re-renders on every parent render. Why?; Which of these is accessible to a screen reader?; The spec says "orders of 100 or more ship free". Which pair of test inputs best checks the boundary?; Where should error boundaries go?; A screen loads data. Which states must it handle?
+12. **`scratch-station-search` — From Scratch: Station Search** · system *Navigation Index* · `solution.tsx` · skills data, a11y, effects · live preview
+   - Starter says: FROM A BLANK FILE. Export a component called StationSearch. Props: search(query: string) → Promise&lt;string[]&gt;, which asks the server. &lt;label htmlFor="station-query"&gt;Search stations&lt;/label&gt; and its input While the input is empty: no request, and nothing else on screen While a request is out: &lt;p className="status"&gt;Searching…&lt;/p&gt; Results: a &lt;ul&gt; with one &lt;li&gt; per station No results: &lt;p className="status"&gt;No stations match&lt;/p&gt; A failed request: &lt;p role="alert"&gt;Search failed: {the error's message}&lt;/p&gt; An answer to an older query must never replace the answer to a newer one.
+   - Solution exports: `export function StationSearch({ search }: { search: (query: string) => Promise<string[]> })`
+   - Checks: The input has a connected label; Empty input: no request, nothing shown; Typing searches, shows "Searching…", then the results; No results, and a failure, each say so; A late answer to an older query never replaces a newer one
 
-13. **`mission-dashboard` — FINAL BOSS: Mission Control** ☢ **BOSS** · system *Mission Control* · `solution.tsx` · skills data, state, a11y, performance, components · live preview
+13. **Quiz `quiz-production` — Production Readiness** · system *Launch Review* · skills data, performance, a11y, testing · 6 questions: A user types "a", then "ab". The "a" request is slower. What can go wrong without a cleanup?; `Row` is wrapped in `memo`, but still re-renders on every parent render. Why?; Which of these is accessible to a screen reader?; The spec says "orders of 100 or more ship free". Which pair of test inputs best checks the boundary?; Where should error boundaries go?; A screen loads data. Which states must it handle?
+
+14. **`mission-dashboard` — FINAL BOSS: Mission Control** ☢ **BOSS** · system *Mission Control* · `solution.tsx` · skills data, state, a11y, performance, components · live preview
    - Starter says: FINAL BOSS — Mission Control Dashboard. Everything a real production screen needs, in one component.
    - Solution exports: `export type Ship = { id: string; name: string; status: 'docked' | 'in-flight'; crew: number };`; `export function MissionDashboard({ loadShips }: { loadShips: () => Promise<Ship[]> })`
    - Type checks: MissionDashboard is a valid component
@@ -7658,7 +7738,7 @@ console.log(`Built ${out}\nRun ./reactor-quest to play, or ./install.sh to add i
 
 ## Part 13. Tests
 
-`npm test` runs Vitest in jsdom: 443 tests in 9 files. The level proofs are the most important, because they are what lets you write 86 code levels with confidence.
+`npm test` runs Vitest in jsdom: 473 tests in 9 files. The level proofs are the most important, because they are what lets you write 96 code levels with confidence.
 
 | File | What it proves |
 |---|---|
@@ -7870,7 +7950,7 @@ export const perfect: Outcome = { stars: 3, firstTry: true, failedRuns: 0, clean
 
 ## Part 14. The browser bot
 
-`npm run smoke` (`tools/smoke.mjs`) builds nothing itself; run `npm run build` first. It serves `dist/` with `startServer` on port 4390, launches headless Chromium with `playwright-core` (it uses `CHROMIUM_PATH` if set, else Playwright's own Chromium, else installed Chrome), and plays the game through the real UI at 1440×900. It prints ✓/✗ per step, saves screenshots to `test-results/`, and exits non-zero on any failure. `SMOKE_PLATFORM=mac` makes it use ⌘ shortcuts. `SMOKE_LEVELS=a,b` limits which levels it plays. There are 107 steps:
+`npm run smoke` (`tools/smoke.mjs`) builds nothing itself; run `npm run build` first. It serves `dist/` with `startServer` on port 4390, launches headless Chromium with `playwright-core` (it uses `CHROMIUM_PATH` if set, else Playwright's own Chromium, else installed Chrome), and plays the game through the real UI at 1440×900. It prints ✓/✗ per step, saves screenshots to `test-results/`, and exits non-zero on any failure. `SMOKE_PLATFORM=mac` makes it use ⌘ shortcuts. `SMOKE_LEVELS=a,b` limits which levels it plays. There are 117 steps:
 
 1. The title screen renders.
 2. **Begin** asks for a name (fill **Your name**, click **Go live**), then opens Floor 1 level 1, whose starter prints nothing when run.
@@ -7883,7 +7963,7 @@ export const perfect: Outcome = { stars: 3, firstTry: true, failedRuns: 0, clean
 9. Locked levels stay locked, and a floor's boss is open from the start.
 10. Character → Settings → **Download a backup** produces a file holding the progress; after the save is wiped, **Restore from a backup…** brings it back. Then "Open every system" works.
 11. Hovering a name shows its type, and typing a dot offers members.
-12. **For every code level** (86 steps): open it, put the solution in the editor (select all + insert text), Run with the keyboard shortcut, and see the victory screen.
+12. **For every code level** (96 steps): open it, put the solution in the editor (select all + insert text), Run with the keyboard shortcut, and see the victory screen.
 13. The companion and the class are offered, and chosen.
 14. Loot: a boss box guarantees a Codex scroll, which can be read.
 15. The Safe Room sells things.
@@ -8122,8 +8202,8 @@ These are real bugs from building the original. The code above already handles e
 ## Part 18. Definition of done
 
 - [ ] `npm run build` typechecks and builds with no errors.
-- [ ] `npm test` passes: every one of the 86 code levels is proven both ways, all 10 quizzes are valid, all 40 compile cards match the compiler and no review card tests untaught material, all 17 profiles are readable and distinct, and the rewards, progress, runtime, checker and markdown tests pass.
-- [ ] `npm run smoke` passes all 107 steps.
+- [ ] `npm test` passes: every one of the 96 code levels is proven both ways, all 10 quizzes are valid, all 40 compile cards match the compiler and no review card tests untaught material, all 17 profiles are readable and distinct, and the rewards, progress, runtime, checker and markdown tests pass.
+- [ ] `npm run smoke` passes all 117 steps.
 - [ ] `npm start` and the double-click launcher for each OS open the game in the browser. A second launch just opens the browser.
 - [ ] `npm run app:mac`, `app:win` and `app:linux` produce packages that install, launch, serve the game and uninstall cleanly.
 - [ ] CI is green on macOS, Windows and Linux.

@@ -1,5 +1,5 @@
 import type { Deck } from '../game/types';
-import { codeFiles, fnOf } from './helpers';
+import { blankPage, codeFiles, fnOf } from './helpers';
 
 export const floor4: Deck = {
   id: 'foundry',
@@ -262,6 +262,47 @@ Handy: \`String(42).padStart(4, "0")\` gives \`"0042"\`.`,
         { label: 'formatId("kx-7") → "KX-7"', run: ({ mod, expect }) => expect(fnOf(mod, 'formatId')('kx-7')).toBe('KX-7') },
         { label: 'channelLabel("alpha") → "alpha"', run: ({ mod, expect }) => expect(fnOf(mod, 'channelLabel')('alpha')).toBe('alpha') },
         { label: 'channelLabel(["alpha", "beta"]) → "alpha, beta"', run: ({ mod, expect }) => expect(fnOf(mod, 'channelLabel')(['alpha', 'beta'])).toBe('alpha, beta') },
+      ],
+    },
+    {
+      kind: 'code',
+      id: 'scratch-fuel-log',
+      title: 'From Scratch: Fuel Log',
+      system: 'Fuel Depot',
+      skills: ['types', 'narrowing', 'objects'],
+      ...codeFiles('scratch-fuel-log', 'ts'),
+      brief: `**ARIA:** The fuel depot logs every refuel, or it will once someone writes the log. This time nobody has even decided what a refuel *is*. Start with the type, and let the compiler hold you to it.`,
+      lesson: blankPage(`- **Interfaces** describe objects; \`note?: string\` marks an optional property.
+- **Annotations** on every parameter and return: \`function totalFor(log: Refuel[], ship: string): number\`.
+- **Unions with null**: \`Refuel | null\` means "a Refuel, or nothing". Check \`if (entry === null)\` before using it.
+- **Optional properties** may be \`undefined\`: check them before you use them.`),
+      hints: [
+        'Plan: write `export interface Refuel { … }` first; every function signature uses it. `describe` takes `Refuel | null`; `biggest` returns `Refuel | null`.',
+        'In `describe`, handle `null` first and return early. After that check, TypeScript knows `entry` is a Refuel. Add the note in brackets only `if (entry.note)`.',
+        'For `biggest`, start with `let best: Refuel | null = null;` and replace it in a loop when `best === null || entry.litres > best.litres`.',
+      ],
+      typeChecks: [
+        { label: 'Refuel: ship and litres required, note optional', code: `import type { Refuel } from './solution';\nconst a: Refuel = { ship: 'Kite', litres: 40 };\nconst b: Refuel = { ship: 'Kite', litres: 40, note: 'rush' };\n// @ts-expect-error\nconst c: Refuel = { ship: 'Kite' };\n// @ts-expect-error\nconst d: Refuel = { ship: 'Kite', litres: '40' };` },
+        { label: 'describe accepts null; biggest might return null', code: `import { biggest, describe } from './solution';\nconst s: string = describe(null);\nconst b = biggest([]);\n// @ts-expect-error\nb.ship;` },
+        { label: 'totalFor takes a log and a ship name', code: `import { totalFor } from './solution';\nconst n: number = totalFor([], 'Kite');\n// @ts-expect-error\ntotalFor([], 7);` },
+      ],
+      checks: [
+        { label: 'totalFor adds up one ship\'s litres', run: ({ mod, expect }) => {
+          const log = [{ ship: 'Kite', litres: 40 }, { ship: 'Gull', litres: 10 }, { ship: 'Kite', litres: 5 }];
+          expect(fnOf(mod, 'totalFor')(log, 'Kite')).toBe(45);
+          expect(fnOf(mod, 'totalFor')(log, 'Wren')).toBe(0);
+        } },
+        { label: 'describe handles a refuel, a note, and null', run: ({ mod, expect }) => {
+          const d = fnOf(mod, 'describe');
+          expect(d({ ship: 'Kite', litres: 40 })).toBe('Kite: 40 L');
+          expect(d({ ship: 'Kite', litres: 40, note: 'rush' })).toBe('Kite: 40 L (rush)');
+          expect(d(null)).toBe('No refuel');
+        } },
+        { label: 'biggest finds the largest refuel (the first of a tie)', run: ({ mod, expect }) => {
+          const log = [{ ship: 'Kite', litres: 40 }, { ship: 'Gull', litres: 60 }, { ship: 'Wren', litres: 60 }];
+          expect(fnOf(mod, 'biggest')(log)).toEqual({ ship: 'Gull', litres: 60 });
+        } },
+        { label: 'biggest of an empty log is null', run: ({ mod, expect }) => expect(fnOf(mod, 'biggest')([])).toBeNull() },
       ],
     },
     {

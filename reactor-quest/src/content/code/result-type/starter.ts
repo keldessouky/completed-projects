@@ -1,12 +1,6 @@
-// Throwing errors is invisible in types: nothing in `parseAge(text: string): number`
-// warns the caller it might blow up. A *Result* type makes failure part of the
-// return type, so the compiler forces callers to handle it:
-//
-//   type Result<T> = { ok: true; value: T } | { ok: false; error: string };
-//   const r = parseAge("42");
-//   if (r.ok) { r.value }  else { r.error }     // narrowed by the `ok` tag
+// Make failure part of the type, so callers can't forget it. (Examples are in the Lesson tab.)
 
-// 1. Define Result<T, E = string> — a discriminated union on `ok`.
+// 1. Define Result<T, E = string>: a discriminated union on `ok`.
 //    (E = string is a *default* type parameter: Result<number> means Result<number, string>.)
 export type Result<T, E = string> = any;
 

@@ -1,12 +1,4 @@
-// A *conditional type* chooses a type based on another type:
-//   type IsText<T> = T extends string ? "yes" : "no";
-//   IsText<"hi">   → "yes"      IsText<42>  → "no"
-//
-// `infer` captures a part of the type being matched:
-//   type ReturnOf<F> = F extends (...args: any[]) => infer R ? R : never;
-//   ReturnOf<() => number>   → number
-//
-// Conditional types *distribute* over unions:  IsText<string | number> → "yes" | "no"
+// Types that choose other types. (Examples of `extends ? :` and `infer` are in the Lesson tab.)
 
 // 1. ElementOf<T>: the item type of an array type; never for anything else.
 //      ElementOf<string[]> → string      ElementOf<number> → never

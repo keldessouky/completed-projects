@@ -1,6 +1,6 @@
 import type { Deck } from '../game/types';
 import { CheckFailure } from '../engine/runtime';
-import { code, codeFiles, comp } from './helpers';
+import { blankPage, code, codeFiles, comp } from './helpers';
 
 const SENSORS = [
   { id: 'o2', name: 'Oxygen', online: true },
@@ -343,6 +343,54 @@ Make the left side of \`&&\` a real boolean.`,
         { label: 'AlertBadge with 0 alerts shows no "0"', run: async ({ mod, h, render, expect }) => {
           const view = await render(h(comp(mod, 'AlertBadge'), { count: 0 }));
           expect(view.text()).toBe('Alerts');
+        } },
+      ],
+    },
+    {
+      kind: 'code',
+      id: 'scratch-crew-cards',
+      title: 'From Scratch: Crew Cards',
+      system: 'Crew Quarters',
+      skills: ['components', 'types'],
+      ...codeFiles('scratch-crew-cards', 'tsx'),
+      brief: `**ARIA:** The crew quarters door panel should show who lives there and who's on duty. Right now it shows a blinking cursor. Build both components from nothing: a card for one crew member, and a list of cards.`,
+      lesson: blankPage(`- **Components** are functions that return JSX; props arrive as one object: \`function Card({ name }: { name: string }) { … }\`.
+- **Composition**: one component can render another, \`<CrewCard name={c.name} … />\`.
+- **Lists** need a \`key\` on each item: \`crew.map((c) => <li key={c.name}>…</li>)\`.
+- **Conditional rendering**: \`{onDuty && <span>…</span>}\`, or return early for the empty case.`),
+      hints: [
+        'Plan: write `CrewCard` first and check it in the preview, then `CrewList`, which uses it. Give the props one shared type.',
+        '`CrewCard` returns the `<article>`; the badge is `{onDuty && <span className="badge">On duty</span>}`. In `CrewList`, `if (crew.length === 0) return <p className="empty">No crew aboard</p>;`',
+        'Otherwise render `<ul>{crew.map((c) => <li key={c.name}><CrewCard … /></li>)}</ul>` and then the count, from `crew.filter((c) => c.onDuty).length`. Wrap both in a `<div>`.',
+      ],
+      preview: (mod, h) => h(comp(mod, 'CrewList'), { crew: [{ name: 'Ada', role: 'engineer', onDuty: true }, { name: 'Bo', role: 'pilot', onDuty: false }, { name: 'Cy', role: 'medic', onDuty: true }] }),
+      typeChecks: [
+        { label: 'CrewCard requires its props', code: `import { CrewCard } from './solution';\nconst ok = <CrewCard name="Ada" role="pilot" onDuty={true} />;\n// @ts-expect-error\nconst missing = <CrewCard role="pilot" onDuty={true} />;\n// @ts-expect-error\nconst wrong = <CrewCard name="Ada" role="pilot" onDuty="yes" />;` },
+      ],
+      checks: [
+        { label: 'CrewCard shows the name and role', run: async ({ mod, h, render, expect }) => {
+          const view = await render(h(comp(mod, 'CrewCard'), { name: 'Ada', role: 'engineer', onDuty: false }));
+          expect(view.get('article.crew-card h3').textContent).toBe('Ada');
+          expect(view.get('article.crew-card p').textContent).toBe('engineer');
+        } },
+        { label: 'The "On duty" badge shows only when on duty', run: async ({ mod, h, render, expect }) => {
+          const off = await render(h(comp(mod, 'CrewCard'), { name: 'Ada', role: 'engineer', onDuty: false }));
+          expect(off.query('.badge')).toBeNull();
+          const on = await render(h(comp(mod, 'CrewCard'), { name: 'Bo', role: 'pilot', onDuty: true }));
+          expect(on.get('.badge').textContent).toBe('On duty');
+        } },
+        { label: 'CrewList shows "No crew aboard" when empty', run: async ({ mod, h, render, expect }) => {
+          const view = await render(h(comp(mod, 'CrewList'), { crew: [] }));
+          expect(view.get('p.empty').textContent).toBe('No crew aboard');
+          expect(view.query('ul')).toBeNull();
+        } },
+        { label: 'CrewList renders a card per crew member, and counts who is on duty', run: async ({ mod, h, render, expect }) => {
+          const crew = [{ name: 'Ada', role: 'engineer', onDuty: true }, { name: 'Bo', role: 'pilot', onDuty: false }, { name: 'Cy', role: 'medic', onDuty: true }];
+          const view = await render(h(comp(mod, 'CrewList'), { crew }));
+          expect(view.queryAll('ul > li')).toHaveLength(3);
+          expect(view.queryAll('li article.crew-card h3').map((e) => e.textContent)).toEqual(['Ada', 'Bo', 'Cy']);
+          expect(view.queryAll('.badge')).toHaveLength(2);
+          expect(view.get('p.count').textContent).toBe('2 on duty');
         } },
       ],
     },

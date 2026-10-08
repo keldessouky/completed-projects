@@ -1,12 +1,4 @@
-// Two tools for configuration objects:
-//
-//   as const       — freeze a value into its narrowest, readonly literal type
-//   satisfies T    — check a value matches T WITHOUT widening it to T
-//
-//   const COLORS = { ok: "#0f0", bad: "#f00" } as const satisfies Record<string, string>;
-//   type ColorName = keyof typeof COLORS;            // "ok" | "bad"
-//
-// With a plain annotation (: Record<string, string>) you'd lose the key names.
+// Keep the route names exact AND checked. (Examples of `as const` and `satisfies` are in the Lesson tab.)
 
 export type Route = { path: string; auth: boolean };
 

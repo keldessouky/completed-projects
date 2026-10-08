@@ -1,6 +1,6 @@
 import type { Deck } from '../game/types';
 import { CheckFailure } from '../engine/runtime';
-import { codeFiles, fnOf, line, mustNotUse, mustUse } from './helpers';
+import { blankPage, codeFiles, fnOf, line, mustNotUse, mustUse } from './helpers';
 
 const CREW = [
   { name: 'Ada', role: 'engineer', age: 34, onDuty: true },
@@ -744,6 +744,45 @@ const tally = ["a", "b", "a"].reduce((counts: Record<string, number>, letter) =>
         { label: 'Uses .reduce()', run: ({ source }) => {
           const n = (source.match(/\.reduce\(/g) ?? []).length;
           if (n < 3) throw new CheckFailure('Use .reduce() in all three functions.');
+        } },
+      ],
+    },
+    {
+      kind: 'code',
+      id: 'scratch-rota',
+      title: 'From Scratch: Shift Rota',
+      system: 'Duty Roster',
+      skills: ['arrays', 'iteration', 'objects'],
+      ...codeFiles('scratch-rota', 'ts'),
+      brief: `**ARIA:** The duty roster has been kept on the back of a ration crate since the outage. Nobody knows who has worked too long, and two crew members have started a small war over who works hardest. Write the roster's code from nothing, and settle it.`,
+      lesson: blankPage(`- **Types for objects**: \`type Shift = { name: string; hours: number };\` and lists of them: \`Shift[]\`.
+- **Loops and accumulators**: \`let total = 0; for (const s of shifts) total += s.hours;\`
+- **Array methods**: \`filter\` keeps some items, \`map\` transforms them, \`reduce\` boils a list down to one value.
+- **Keeping the best so far**: a variable that a loop replaces whenever it finds something better.`),
+      hints: [
+        'Plan: one `export type` and three `export function`s, each taking `shifts: Shift[]`.',
+        '`overworked` is a `filter` (who is over the limit) followed by a `map` (just their names). `totalHours` can be a loop or a `reduce`.',
+        'For `busiest`, keep the best shift so far (start with none). Replace it only when `s.hours > best.hours`, so the first of a tie wins. Return `""` if there was none.',
+      ],
+      typeChecks: [
+        { label: 'Shift describes a name and hours', code: `import type { Shift } from './solution';\nconst s: Shift = { name: 'Ada', hours: 40 };\n// @ts-expect-error\nconst missing: Shift = { name: 'Bo' };\n// @ts-expect-error\nconst wrong: Shift = { name: 'Cy', hours: '40' };` },
+      ],
+      checks: [
+        { label: 'totalHours adds everyone up', run: ({ mod, expect }) => {
+          expect(fnOf(mod, 'totalHours')([{ name: 'Ada', hours: 42 }, { name: 'Bo', hours: 30 }])).toBe(72);
+          expect(fnOf(mod, 'totalHours')([])).toBe(0);
+        } },
+        { label: 'overworked lists names over the limit, in order', run: ({ mod, expect }) => {
+          const shifts = [{ name: 'Ada', hours: 50 }, { name: 'Bo', hours: 40 }, { name: 'Cy', hours: 41 }];
+          expect(fnOf(mod, 'overworked')(shifts, 40)).toEqual(['Ada', 'Cy']);
+          expect(fnOf(mod, 'overworked')(shifts, 60)).toEqual([]);
+        } },
+        { label: 'busiest finds who works most', run: ({ mod, expect }) => {
+          expect(fnOf(mod, 'busiest')([{ name: 'Ada', hours: 30 }, { name: 'Bo', hours: 55 }, { name: 'Cy', hours: 41 }])).toBe('Bo');
+        } },
+        { label: 'busiest: the first of a tie, and "" for nobody', run: ({ mod, expect }) => {
+          expect(fnOf(mod, 'busiest')([{ name: 'Ada', hours: 50 }, { name: 'Bo', hours: 50 }])).toBe('Ada');
+          expect(fnOf(mod, 'busiest')([])).toBe('');
         } },
       ],
     },
