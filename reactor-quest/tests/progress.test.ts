@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { ALL_LEVELS, DECKS } from '../src/content';
-import { codeStars, crawlerLevel, emptySave, isUnlocked, maxXp, parseSave, quizStars, stationPower, xpToReach } from '../src/game/progress';
+import { codeStars, crawlerLevel, emptySave, isUnlocked, maxXp, nextHintCosts, parseSave, quizStars, stationPower, xpToReach } from '../src/game/progress';
 import { completeLevel, type Outcome } from '../src/game/rewards';
 
 /** A deterministic random number generator, so loot and commentary are repeatable. */
@@ -18,13 +18,16 @@ const first = ALL_LEVELS[0];
 const second = ALL_LEVELS[1];
 
 describe('stars', () => {
-  test('hints and the solution cost stars; token-paid hints don\'t', () => {
+  test('the first hint is free; later hints and the solution cost stars; token-paid hints don\'t', () => {
     expect(codeStars({ hints: 0, freeHints: 0, solution: false })).toBe(3);
-    expect(codeStars({ hints: 1, freeHints: 0, solution: false })).toBe(2);
+    expect(codeStars({ hints: 1, freeHints: 0, solution: false })).toBe(3);
+    expect(codeStars({ hints: 2, freeHints: 0, solution: false })).toBe(2);
     expect(codeStars({ hints: 3, freeHints: 0, solution: false })).toBe(1);
-    expect(codeStars({ hints: 2, freeHints: 2, solution: false })).toBe(3);
-    expect(codeStars({ hints: 2, freeHints: 1, solution: false })).toBe(2);
+    expect(codeStars({ hints: 3, freeHints: 2, solution: false })).toBe(3);
+    expect(codeStars({ hints: 3, freeHints: 1, solution: false })).toBe(2);
     expect(codeStars({ hints: 0, freeHints: 0, solution: true })).toBe(1);
+    expect(nextHintCosts({ hints: 0, freeHints: 0, solution: false })).toBe(false);
+    expect(nextHintCosts({ hints: 1, freeHints: 0, solution: false })).toBe(true);
   });
   test('quiz mistakes cost stars, never below one', () => {
     expect([0, 1, 2, 5].map(quizStars)).toEqual([3, 2, 1, 1]);

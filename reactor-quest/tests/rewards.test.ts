@@ -38,14 +38,21 @@ const first = ALL_LEVELS[0];
 const kinds = (events: { kind: string }[]) => events.map((e) => e.kind);
 
 describe('clearing a level', () => {
-  test('pays XP, gold, viewers, skill points and a box — and the first clear levels you up', () => {
+  test('pays XP, gold, viewers and skill points — and the first clear levels you up', () => {
     const { save, events } = completeLevel(emptySave(), first, perfect, seeded());
     expect(save.xp).toBeGreaterThan(0);
     expect(save.gold).toBeGreaterThan(0);
     expect(save.viewers).toBeGreaterThan(0);
     for (const s of first.skills) expect(save.skills[s]).toBe(2); // first clear + three stars
     expect(kinds(events)).toEqual(expect.arrayContaining(['xp', 'level-up', 'gold', 'viewers', 'skill-up', 'box', 'achievement', 'feed']));
-    expect(save.boxes.map((b) => b.source)).toEqual(expect.arrayContaining([`Level clear: ${first.title}`, `Flawless: ${first.title}`]));
+    // Ordinary levels don't drop boxes of their own; the level-up and achievement do.
+    expect(save.boxes.some((b) => b.source.startsWith('Level clear') || b.source.startsWith('Flawless'))).toBe(false);
+  });
+
+  test('a whole perfect run brings a manageable number of boxes', () => {
+    let s = emptySave();
+    for (const l of ALL_LEVELS) s = completeLevel(s, l, perfect, seeded()).save;
+    expect(s.boxes.length).toBeLessThan(ALL_LEVELS.length * 1.5);
   });
 
   test('replaying for the same stars pays nothing', () => {
@@ -62,7 +69,7 @@ describe('clearing a level', () => {
     const three = completeLevel(one, first, perfect, seeded()).save;
     expect(three.xp).toBeGreaterThan(one.xp);
     expect(levelState(three, first.id).stars).toBe(3);
-    expect(three.boxes.some((b) => b.source.startsWith('Flawless'))).toBe(true);
+    expect(three.counters.threeStars).toBe(1);
   });
 
   test('a boss drops a Gold Boss Box guaranteeing that floor\'s Codex scroll', () => {
@@ -226,17 +233,22 @@ describe('runs, hints and the solution', () => {
     s = completeLevel(s, first, { ...perfect, firstTry: false, failedRuns: 5 }, seeded()).save;
     expect(s.achievements).toContain('persistence');
   });
-  test('a hint token reveals a hint without costing a star', () => {
+  test('the first hint is free, so it never spends a token', () => {
     const s = revealHint({ ...emptySave(), hintTokens: 1 }, first.id, 3, true).save;
+    expect(s.hintTokens).toBe(1);
+    expect(levelState(s, first.id)).toMatchObject({ hints: 1, freeHints: 0 });
+  });
+  test('a hint token pays for a hint that would cost a star', () => {
+    const one = revealHint({ ...emptySave(), hintTokens: 1 }, first.id, 3, false).save;
+    const s = revealHint(one, first.id, 3, true).save;
     expect(s.hintTokens).toBe(0);
-    expect(levelState(s, first.id)).toMatchObject({ hints: 1, freeHints: 1 });
+    expect(levelState(s, first.id)).toMatchObject({ hints: 2, freeHints: 1 });
     expect(s.achievements).toContain('token-gesture');
-    const paid = revealHint(emptySave(), first.id, 3, false).save;
-    expect(levelState(paid, first.id)).toMatchObject({ hints: 1, freeHints: 0 });
   });
   test('without a token, asking for one still costs a star', () => {
-    const s = revealHint({ ...emptySave(), hintTokens: 0 }, first.id, 3, true).save;
-    expect(levelState(s, first.id)).toMatchObject({ hints: 1, freeHints: 0 });
+    const one = revealHint(emptySave(), first.id, 3, false).save;
+    const s = revealHint({ ...one, hintTokens: 0 }, first.id, 3, true).save;
+    expect(levelState(s, first.id)).toMatchObject({ hints: 2, freeHints: 0 });
   });
   test('seeing the solution is noticed', () => {
     const s = revealSolution(emptySave(), first.id).save;
@@ -294,6 +306,17 @@ describe('the Safe Room', () => {
     const ware = WARES.find((w) => w.kind === 'item')!;
     const once = buy({ ...emptySave(), gold: 5000 }, ware.id)!.save;
     expect(buy(once, ware.id)).toBeNull();
+  });
+  test('the Archivist earns half again from review', () => {
+    const today = '2026-10-04';
+    let s = emptySave();
+    const quiz = ALL_LEVELS.find((l) => l.kind === 'quiz')!;
+    for (const l of ALL_LEVELS.slice(0, ALL_LEVELS.indexOf(quiz) + 1)) s = completeLevel(s, l, perfect, seeded()).save;
+    s = syncReviews(s, today);
+    const id = Object.keys(s.reviews)[0];
+    const plain = answerReview(s, id, true, today).save.xp - s.xp;
+    const archivist = answerReview({ ...s, classId: 'speedrunner' }, id, true, today).save.xp - s.xp;
+    expect(archivist).toBe(Math.round(plain * 1.5));
   });
   test('the first class is free; changing it costs gold', () => {
     const chosen = changeClass(emptySave(), 'bug-hunter')!;
@@ -365,21 +388,21 @@ describe('spaced review', () => {
 });
 
 describe('the notebook', () => {
-  test('the first real explanation of a level earns XP once', () => {
+  test('a real explanation counts once toward the notebook, and pays no XP', () => {
     const words = Array.from({ length: NOTE_MIN_WORDS }, () => 'word').join(' ');
     const once = saveNote(emptySave(), first.id, words, 1);
     expect(once.save.notes[first.id].text).toBe(words);
     expect(once.save.counters.notesWritten).toBe(1);
-    expect(once.save.xp).toBeGreaterThan(0);
+    expect(once.save.xp).toBe(0);
     const edited = saveNote(once.save, first.id, `${words} more`, 2).save;
-    expect(edited.xp).toBe(once.save.xp);
+    expect(edited.counters.notesWritten).toBe(1);
     expect(edited.notes[first.id].text).toBe(`${words} more`);
   });
 
-  test('a note too short to explain anything is kept, but earns nothing', () => {
+  test('a note too short to explain anything is kept, but doesn\'t count', () => {
     const r = saveNote(emptySave(), first.id, 'ok', 1).save;
     expect(r.notes[first.id].text).toBe('ok');
-    expect(r.xp).toBe(0);
+    expect(r.counters.notesWritten).toBe(0);
   });
 
   test('saving an empty note deletes it', () => {

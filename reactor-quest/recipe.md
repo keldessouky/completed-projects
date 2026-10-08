@@ -2526,7 +2526,7 @@ All game state is one plain `Save` object. Every rule is a pure function over it
 
 Key rules:
 
-- **Stars (code levels)**: 3 − (hints revealed without a token), minimum 1. Seeing the solution caps the attempt at 1 star. **Stars (quizzes)**: 3 − mistakes, minimum 1.
+- **Stars (code levels)**: the first hint on each attempt is free; after that, 3 − (hints revealed without a token), minimum 1 (`FREE_HINTS`, `nextHintCosts`). Seeing the solution caps the attempt at 1 star. **Stars (quizzes)**: 3 − mistakes, minimum 1.
 - **XP per level**: quiz 60, code 100, boss 250, × (1 + 0.1 × floor index), × stars/3. Only *improvements* pay, so replaying for the same stars pays nothing.
 - **Crawler level**: going from level L to L+1 costs `100 + 25n` XP while n = L − 1 ≤ 10, then `350 + 6(n − 10)`. So the first clear is the first level-up, and because later levels pay more XP, **every floor brings a level-up every two or three clears** (a test enforces this). Max level 50. **Career titles**: Intern (1), Junior Developer (4), Developer (9), Senior Developer (16), Staff Engineer (22), Principal Engineer (29), Reactor Architect (36), Living Legend (45). Clearing everything perfectly ends around level 41, as a Reactor Architect.
 - **Unlocking**: levels open in order. A floor's boss is open as soon as the floor's first level is, and beating it opens the next floor. Settings has an "Open every system" switch.
@@ -2696,9 +2696,17 @@ export function levelState(save: Save, id: string): LevelProgress {
 }
 
 /** Stars for a code level: hints you paid for with stars, and peeking at the solution, cost stars. */
+/** Hints you can see on each attempt before they start to cost stars: asking for help should never feel like losing. */
+export const FREE_HINTS = 1;
+
 export function codeStars(p: Pick<LevelProgress, 'hints' | 'freeHints' | 'solution'>): number {
   if (p.solution) return 1;
-  return 3 - Math.min(Math.max(0, p.hints - (p.freeHints ?? 0)), 2);
+  return 3 - Math.min(Math.max(0, p.hints - (p.freeHints ?? 0) - FREE_HINTS), 2);
+}
+
+/** Would revealing the next hint (without a token) cost a star? */
+export function nextHintCosts(p: Pick<LevelProgress, 'hints' | 'freeHints' | 'solution'>): boolean {
+  return codeStars({ ...p, hints: p.hints + 1 }) < codeStars(p);
 }
 
 /** Stars for a quiz: one off per wrong answer, never below 1. */
@@ -3016,15 +3024,15 @@ This is the *Dungeon Crawler Carl* layer, and the source of most of the fun. It 
 What happens when a level is cleared (`completeLevel`):
 
 1. **XP** for improved stars. +25% if the player's class matches the level's school (Type Sorcerer for TypeScript, Component Artificer for React). +50% if an XP boost is active, which uses one boost. Each level-up gives a box (bronze; silver every 5th level; gold every 10th) and 10 + 5 × level gold.
-2. **Gold**: on first clear, 10 (quiz 6, boss 40) + 5 per star, plus a **speed bonus** of 15 (30 for Speedrunners) if cleared under par: 6 min for a level, 3 for a quiz, 15 for a boss (×1.5 for Speedrunners). Bug Hunters get +20% gold.
+2. **Gold**: on first clear, 10 (quiz 6, boss 40) + 5 per star, plus a hidden **speed bonus** of 15 if cleared under par: 6 min for a level, 3 for a quiz, 15 for a boss. Bug Hunters get +20% gold.
 3. **Viewers**: (30 + 20 × floor index) × stars. ×2 on a first-try pass, ×3 for a boss, halved on replays, ×1.5 for Crowd Favourites. **Fan milestones** at 100, 1K, 5K, 25K, 100K, 500K, 1M and 5M viewers each send a Fan Box.
 4. **Skill points** (Part 5).
-5. **Boxes**: a bronze box for a first clear (a **gold Boss Box** for a boss, which always contains that floor's Codex scroll), a silver "Flawless" box for first reaching 3 stars, a **platinum Sponsor Box** when a whole floor is cleared (legendary for Floor 10), and the **Celestial Box** when the whole station is restored.
+5. **Boxes**, for bosses only (a box for every level piled up faster than anyone opened them: a perfect run now brings about 110 boxes instead of 280): a **gold Boss Box** on a boss's first clear, which always contains that floor's Codex scroll, a silver "Flawless" box for first reaching 3 stars on a boss, a **platinum Sponsor Box** when a whole floor is cleared (legendary for Floor 10), and the **Celestial Box** when the whole station is restored.
 6. **Counters** feed achievements and daily quests. **THE FEED** comments with a line chosen by how it went: boss, first try, flawless, struggle (5+ failed runs), peeked at the solution, or normal.
 7. **Offers**: the companion pet is offered after Floor 1's boss, and the class after Floor 3's boss.
 8. **Achievements** are checked (58 in all, each with its own box, some with a title).
 
-After a clear, the player can also **explain it back** (`saveNote`): the first note of five or more words for a level earns 15 XP. **Spaced review** (`syncReviews`, `dueReviews`, `answerReview`, `finishReview`) uses Leitner boxes: a right answer moves a card up a box and due again after 3, 7, 14, 30 or 60 days; a wrong one sends it to box 0, due tomorrow. Only the first answer in a session counts. A right answer earns 12 XP and a wrong one 4, because effort counts too. The store syncs the deck on every change, so newly cleared levels add their cards straight away.
+After a clear, the player can also **explain it back** (`saveNote`): notes earn no XP, deliberately (a reward for any five words invites five words). The first note of five or more words for a level counts toward the Rubber Duck achievement and the daily quest. The Archivist class earns +50% XP from review. **Spaced review** (`syncReviews`, `dueReviews`, `answerReview`, `finishReview`) uses Leitner boxes: a right answer moves a card up a box and due again after 3, 7, 14, 30 or 60 days; a wrong one sends it to box 0, due tomorrow. Only the first answer in a session counts. A right answer earns 12 XP and a wrong one 4, because effort counts too. The store syncs the deck on every change, so newly cleared levels add their cards straight away.
 
 Also included: opening boxes (loot tables per tier, duplicate cosmetics salvaged for gold, preferring items the player doesn't own), classes and pets, sponsors, daily quests (3 a day, picked by a hash of the date, so they're the same for everyone that day), streaks (boxes at 3, 7, 14 and 30 days), the **Safe Room** shop, and the small actions: run, hint, solution, replay. Copy this file exactly; the numbers are tuned.
 
@@ -3047,6 +3055,7 @@ import {
   isBoss,
   levelSchool,
   levelState,
+  nextHintCosts,
   xpFor,
   xpToReach,
   type Box,
@@ -3228,7 +3237,8 @@ export const CLASSES: ClassInfo[] = [
   { id: 'type-sorcerer', name: 'Type Sorcerer', icon: '🧙', perk: '+25% XP on TypeScript levels.', flavor: 'Bends the compiler to their will. The compiler has mixed feelings about this.' },
   { id: 'component-artificer', name: 'Component Artificer', icon: '🛠', perk: '+25% XP on React levels.', flavor: 'Builds interfaces out of tiny reusable pieces. Has opinions about prop names.' },
   { id: 'bug-hunter', name: 'Bug Hunter', icon: '🔍', perk: '+20% gold from everything, and a free hint token for every boss you beat.', flavor: 'Tracks bugs across a codebase by scent alone. Smells faintly of coffee.' },
-  { id: 'speedrunner', name: 'Speedrunner', icon: '⚡', perk: '50% longer par times, and double speed bonuses.', flavor: 'Types fast. Thinks faster. Occasionally both at once.' },
+  // (Stored as 'speedrunner' so older saves keep their class: it used to be about speed.)
+  { id: 'speedrunner', name: 'Archivist', icon: '📚', perk: '+50% XP from spaced review.', flavor: 'Never forgets a thing. Keeps notes on the notes.' },
   { id: 'crowd-favourite', name: 'Crowd Favourite', icon: '🌟', perk: '+50% viewers, and every Fan Box is one tier better.', flavor: 'The camera loves them. The audience loves them. The compiler is indifferent.' },
 ];
 
@@ -3362,9 +3372,8 @@ export interface Outcome {
 }
 
 /** Par time for a speed bonus: a generous target, not a race. */
-export function parSeconds(level: Level, classId: ClassId | null): number {
-  const base = level.kind === 'quiz' ? 180 : isBoss(level) ? 900 : 360;
-  return classId === 'speedrunner' ? base * 1.5 : base;
+export function parSeconds(level: Level): number {
+  return level.kind === 'quiz' ? 180 : isBoss(level) ? 900 : 360;
 }
 
 const FEED = {
@@ -3438,8 +3447,8 @@ export function completeLevel(save: Save, level: Level, outcome: Outcome, rng: R
 
   // Gold: a clear, its stars, and a speed bonus on first clears.
   let gold = firstClear ? (boss ? 40 : level.kind === 'quiz' ? 6 : 10) + best * 5 : Math.max(0, best - prev.stars) * 5;
-  const underPar = firstClear && outcome.seconds <= parSeconds(level, s.classId);
-  if (underPar) gold += s.classId === 'speedrunner' ? 30 : 15;
+  const underPar = firstClear && outcome.seconds <= parSeconds(level);
+  if (underPar) gold += 15;
   if (s.classId === 'bug-hunter') gold = Math.round(gold * 1.2);
   if (gold > 0) {
     s = { ...s, gold: s.gold + gold };
@@ -3461,8 +3470,11 @@ export function completeLevel(save: Save, level: Level, outcome: Outcome, rng: R
   if (best === 3 && prev.stars < 3) apply(addSkillPoints(s, level.skills, 1));
 
   // Loot.
-  if (firstClear) apply(addBox(s, boss ? 'gold' : 'bronze', boss ? `Boss Box: ${level.system}` : `Level clear: ${level.title}`, boss ? FLOOR_SCROLLS[floor.id] : undefined));
-  if (best === 3 && prev.stars < 3) apply(addBox(s, 'silver', `Flawless: ${level.title}`));
+  // Boxes are for bosses. Ordinary clears pay XP, gold and stars: a box for
+  // every one of them piled up faster than anyone opened them, and stopped
+  // meaning anything.
+  if (firstClear && boss) apply(addBox(s, 'gold', `Boss Box: ${level.system}`, FLOOR_SCROLLS[floor.id]));
+  if (boss && best === 3 && prev.stars < 3) apply(addBox(s, 'silver', `Flawless: ${level.title}`));
   if (firstClear && boss && s.classId === 'bug-hunter') s = { ...s, hintTokens: s.hintTokens + 1 };
 
   // Counters, for achievements and quests.
@@ -3800,7 +3812,8 @@ export function recordRun(save: Save, levelId: string, passed: boolean): Result 
 export function revealHint(save: Save, levelId: string, maxHints: number, useToken: boolean): Result {
   const p = levelState(save, levelId);
   if (p.hints >= maxHints) return { save, events: [] };
-  const token = useToken && save.hintTokens > 0;
+  // A token is only spent when the hint would otherwise cost a star.
+  const token = useToken && save.hintTokens > 0 && nextHintCosts(p);
   const s = withLevel(
     token ? { ...save, hintTokens: save.hintTokens - 1, counters: { ...save.counters, tokensUsed: save.counters.tokensUsed + 1 } } : save,
     levelId,
@@ -3872,7 +3885,7 @@ export function answerReview(save: Save, id: string, correct: boolean, today: st
     counters: { ...save.counters, reviewsAnswered: save.counters.reviewsAnswered + 1, reviewsCorrect: save.counters.reviewsCorrect + (correct ? 1 : 0) },
   };
   // Effort counts too: a card you got wrong is a card you're about to learn.
-  const x = addXp(s, correct ? 12 : 4, 'review');
+  const x = addXp(s, Math.round((correct ? 12 : 4) * (s.classId === 'speedrunner' ? 1.5 : 1)), 'review');
   s = x.save;
   const a = checkAchievements(s);
   return { save: a.save, events: [...x.events, ...a.events] };
@@ -3897,8 +3910,10 @@ export function finishReview(save: Save, answered: number, mistakes: number): Re
 export const NOTE_MIN_WORDS = 5;
 
 /**
- * Save the player's own explanation of a level (empty text deletes it). The
- * first real explanation of each level earns a little XP.
+ * Save the player's own explanation of a level (empty text deletes it). There
+ * is deliberately no XP for it: a reward for any five words invites five
+ * words. The first real note for each level counts toward the notebook
+ * achievement and the daily quest.
  */
 export function saveNote(save: Save, levelId: string, text: string, at: number): Result {
   const clean = text.trim().slice(0, 600);
@@ -3910,9 +3925,7 @@ export function saveNote(save: Save, levelId: string, text: string, at: number):
   let s: Save = { ...save, notes: { ...save.notes, [levelId]: { text: clean, at } } };
   if (!first) return { save: s, events: [] };
   s = { ...s, counters: { ...s.counters, notesWritten: s.counters.notesWritten + 1 } };
-  const x = addXp(s, 15, 'explained it back');
-  const a = checkAchievements(x.save);
-  return { save: a.save, events: [...x.events, ...a.events] };
+  return checkAchievements(s);
 }
 ~~~~
 
@@ -4351,9 +4364,11 @@ interface Overlays {
   boxes: string[] | null;
   offer: 'pet' | 'class' | 'name' | null;
   petSays: { text: string; at: number } | null;
+  /** The player is working on a level: announcements wait until they finish. */
+  focus: boolean;
 }
 
-let state: Overlays = { boxes: null, offer: null, petSays: null };
+let state: Overlays = { boxes: null, offer: null, petSays: null, focus: false };
 // Offers earned during a level wait until its victory screen closes.
 let pendingOffers: NonNullable<Overlays['offer']>[] = [];
 const listeners = new Set<() => void>();
@@ -4378,6 +4393,9 @@ export const overlays = {
     if (pendingOffers.length && !state.offer) set({ offer: pendingOffers.shift()! });
   },
   petSay: (text: string) => set({ petSays: { text, at: Date.now() } }),
+  setFocus: (focus: boolean) => {
+    if (state.focus !== focus) set({ focus });
+  },
 };
 
 export function useOverlays(): Overlays {
@@ -4981,7 +4999,7 @@ import type { Diagnostic } from '../engine/checker';
 import { compile, isReady, onReady } from '../engine/compiler';
 import { explainDiagnostic } from '../engine/explain';
 import { grade, type Report } from '../engine/grade';
-import { codeStars, isBoss, levelState } from '../game/progress';
+import { codeStars, isBoss, levelState, nextHintCosts } from '../game/progress';
 import { codeOutcome, completeLevel, PET_LINES, recordRun, replayLevel, revealHint as revealHintAction, revealSolution as revealSolutionAction, type Reward } from '../game/rewards';
 import { sfx } from '../game/sound';
 import { act, getSave, setSave, useSave } from '../game/store';
@@ -5025,6 +5043,12 @@ export function CodeLevelScreen({ level, deck, index }: { level: CodeLevel; deck
 
   useEffect(() => onReady(() => setCompilerReady(true)), []);
 
+  // Hold announcements while the player works; let them through on the victory screen.
+  useEffect(() => {
+    overlays.setFocus(!victory);
+    return () => overlays.setFocus(false);
+  }, [victory]);
+
   // Live type checking as you type, debounced.
   useEffect(() => {
     const t = setTimeout(() => {
@@ -5060,7 +5084,6 @@ export function CodeLevelScreen({ level, deck, index }: { level: CodeLevel; deck
       } else {
         sfx.fail();
         setFailedRuns((n) => n + 1);
-        if (Math.random() < 0.4) overlays.petSay(PET_LINES.fail[Math.floor(Math.random() * PET_LINES.fail.length)]);
       }
     } catch (e) {
       setLogs([`✖ ${(e as Error).message}`]);
@@ -5188,14 +5211,14 @@ export function CodeLevelScreen({ level, deck, index }: { level: CodeLevel; deck
               ))}
               {progress.hints < level.hints.length ? (
                 <div className="hint-buttons">
-                  {save.hintTokens > 0 && (
+                  {save.hintTokens > 0 && nextHintCosts(progress) && (
                     <button className="btn" onClick={() => revealHint(true)}>
                       🎟 Use a hint token <span className="muted small">(free · {save.hintTokens} left)</span>
                     </button>
                   )}
-                  <button className={`btn ${save.hintTokens > 0 ? 'ghost' : ''}`} onClick={() => revealHint(false)}>
+                  <button className={`btn ${save.hintTokens > 0 && nextHintCosts(progress) ? 'ghost' : ''}`} onClick={() => revealHint(false)}>
                     Reveal hint {progress.hints + 1}
-                    {potential > 1 && !progress.solution && <span className="cost"> (−1 ★)</span>}
+                    {nextHintCosts(progress) ? <span className="cost"> (−1 ★)</span> : !progress.solution && <span className="muted small"> (free)</span>}
                   </button>
                 </div>
               ) : (
@@ -5366,11 +5389,11 @@ Build these to the specs below. Copy class names and visible text exactly; the b
 
 **Safe Room** (`ShopScreen`): the shopkeeper's welcome, a wallet line, a grid of **wares** (hint token 60, XP boost ×3 for 150, bronze/silver/gold boxes for 50/120/300, priced cosmetics), **Retraining** (change class for 300 gold) and **Companion** (rename the pet).
 
-**Character** (`CharacterScreen`, tabs in the URL): a header with a portrait (the class icon, or 🧑‍🚀), the equipped title, name with **rename**, crawler level, career title, an XP bar, and buttons to choose a class or adopt a pet if eligible and not yet done. Then a stat grid: power, systems online, stars, viewers, achievements, best streak. Tabs: **Skills** (21 skills grouped by school with pips, rank and points/next, plus the career ladder and class/companion), **Achievements** (all 58; unearned ones dimmed), **Notebook** (the player's own explanations, in curriculum order, each with a "revisit" link), **Log** (the inbox, newest first), **Settings** (sound, "Open every system", "Reset all progress…" with a confirm modal).
+**Character** (`CharacterScreen`, tabs in the URL): a header with a portrait (the class icon, or 🧑‍🚀), the equipped title, name with **rename**, crawler level, career title, an XP bar, and buttons to choose a class or adopt a pet if eligible and not yet done. Then a stat grid: power, systems online, stars, viewers, achievements, best streak. Tabs: **Skills** (21 skills grouped by school with pips, rank and points/next, plus the career ladder and class/companion), **Achievements** (all 58; unearned ones dimmed), **Notebook** (the player's own explanations, in curriculum order, each with a "revisit" link), **Log** (the inbox, newest first), **Settings** (sound, "Open every system", **Download a backup** (a JSON file of the save) and **Restore from a backup…** (validated with `parseSave`, then confirmed in a modal showing what the backup holds), and "Reset all progress…" with a confirm modal).
 
 **Victory** (`Victory` modal, after a pass; given in full below): a kicker (`<system> — online`, or `☢ BOSS DEFEATED · <system>`), three big stars animating in, an ARIA line (rotating; special for bosses and for the final level), THE FEED's line, a reward row (+XP with detail, +gold, +viewers, boxes), crawler level-ups and skill-ups, an **Explain it back** textarea with **Save note**, a rank bar, and actions: **Replay for ★★★** (if under 3 stars), **🎁 Open box(es)**, **Stay here**, **Next system →** (autofocused; Enter also works). When it closes, pending offers (pet or class) are shown.
 
-**Announcer** (THE FEED's cards, top right): every reward event becomes a card. Achievements, level-ups, sponsors and fan milestones get big cards (7 s, with a fanfare sound). Skill-ups, streaks and FEED lines get slim cards (4.5 s). An achievement's own box rides on its card with an **Open** button. All other boxes merge into one "You received … **Open**" card. At most 4 cards show at once and the rest queue (maximum 12, shedding small news first). A "See everything in your log" link appears when busy.
+**Announcer** (THE FEED's cards, top right): every reward event becomes a card. Achievements, level-ups, sponsors and fan milestones get big cards (7 s, with a fanfare sound). Skill-ups, streaks and FEED lines get slim cards (4.5 s). An achievement's own box rides on its card with an **Open** button. All other boxes merge into one "You received … **Open**" card. **One card shows at a time**, and the rest queue (maximum 12, shedding small news first). While the player is working on a level (`overlays.focus`, set by the level screen until its victory modal opens), nothing is shown at all: news waits until they finish. An "n more · see everything in your log" link appears when cards are queued.
 
 **Box opener** (`BoxOpener` modal): the box's source, "<Tier> Box", a big animated box (it shakes for 0.7 s on **Open it**), then the loot lines animating in one by one: gold, tokens, boosts, and items with rarity colour, a NEW tag, and the description (scrolls say "Added to your Codex"). Buttons: **Next box (n left)** / **Collect**, and **Later**.
 
@@ -5642,7 +5665,7 @@ export function Hud({ route }: { route: Route }) {
 import { useEffect, useState } from 'react';
 import { ALL_LEVELS } from '../content';
 import { crawlerLevel, isBoss } from '../game/progress';
-import { formatViewers, NOTE_MIN_WORDS, saveNote, type Reward } from '../game/rewards';
+import { formatViewers, saveNote, type Reward } from '../game/rewards';
 import { SKILLS, SKILL_RANKS } from '../game/skills';
 import { act, useSave } from '../game/store';
 import type { Level } from '../game/types';
@@ -5759,16 +5782,15 @@ function ExplainBack({ level }: { level: Level }) {
   const save = useSave();
   const existing = save.notes[level.id]?.text ?? '';
   const [text, setText] = useState(existing);
-  const [saved, setSaved] = useState<'' | 'saved' | 'rewarded'>('');
-  const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+  const [saved, setSaved] = useState(false);
   const prompt =
     level.kind === 'code'
       ? 'Explain it back: what was wrong, and why does your fix work? Write it as if to a crewmate.'
       : "Explain it back: what's one thing from this quiz you want to remember?";
 
   function save_() {
-    const events = act((s) => saveNote(s, level.id, text, Date.now()));
-    setSaved(events.some((e) => e.kind === 'xp') ? 'rewarded' : 'saved');
+    act((s) => saveNote(s, level.id, text, Date.now()));
+    setSaved(true);
   }
 
   return (
@@ -5781,12 +5803,12 @@ function ExplainBack({ level }: { level: Level }) {
         placeholder="In a sentence or two… (optional)"
         onChange={(e) => {
           setText(e.target.value);
-          setSaved('');
+          setSaved(false);
         }}
       />
       <div className="row">
         <span className="muted small">
-          {saved === 'rewarded' ? 'Saved to your notebook. +15 XP for explaining it.' : saved ? 'Saved to your notebook.' : !existing && words > 0 && words < NOTE_MIN_WORDS ? `A few more words (${NOTE_MIN_WORDS}+) and it earns XP.` : 'Kept in Character → Notebook.'}
+          {saved ? 'Saved to your notebook.' : 'Kept in Character → Notebook, and shown next time you open this level.'}
         </span>
         <button className="btn small-btn" disabled={!text.trim() || text.trim() === existing} onClick={save_}>
           Save note
@@ -5807,7 +5829,7 @@ import { TIER_INFO, formatViewers, type Reward } from '../game/rewards';
 import { SKILLS, SKILL_RANKS } from '../game/skills';
 import { sfx } from '../game/sound';
 import { getSave, onRewards } from '../game/store';
-import { overlays } from './overlays';
+import { overlays, useOverlays } from './overlays';
 import { go } from './router';
 
 interface Card {
@@ -5884,12 +5906,20 @@ function mergeBox(into: Card, fresh: Card): Card {
   return { ...boxCard(ids, ids.length === 1 ? fresh.title : undefined), key: into.key };
 }
 
-const MAX_SHOWN = 4;
+// One card at a time: news should be noticed, not pile up over the work.
+const MAX_SHOWN = 1;
 const MAX_WAITING = 12;
 
 export function Announcer({ quiet }: { quiet?: boolean }) {
   const [cards, setCards] = useState<Card[]>([]);
+  const [queued, setQueued] = useState(0);
   const dismissRef = useRef<(key: number) => void>(() => {});
+  const { focus } = useOverlays();
+  const focusRef = useRef(focus);
+  focusRef.current = focus;
+  const syncRef = useRef<() => void>(() => {});
+  // While the player is working on a level, news waits; it arrives when they finish.
+  useEffect(() => syncRef.current(), [focus]);
 
   // At most four cards on screen; the rest wait their turn, so a burst of news
   // (a boss clear can bring a dozen) never buries a level-up or an achievement.
@@ -5898,7 +5928,7 @@ export function Announcer({ quiet }: { quiet?: boolean }) {
     let waiting: Card[] = [];
     const timers = new Set<ReturnType<typeof setTimeout>>();
     const sync = () => {
-      while (shown.length < MAX_SHOWN && waiting.length) {
+      while (!focusRef.current && shown.length < MAX_SHOWN && waiting.length) {
         const c = waiting.shift()!;
         shown.push(c);
         const t = setTimeout(() => {
@@ -5908,12 +5938,14 @@ export function Announcer({ quiet }: { quiet?: boolean }) {
         timers.add(t);
       }
       setCards([...shown]);
+      setQueued(waiting.length);
     };
     const dismiss = (key: number) => {
       shown = shown.filter((c) => c.key !== key);
       sync();
     };
     dismissRef.current = dismiss;
+    syncRef.current = sync;
     const off = onRewards((events) => {
       const fresh = cardsFor(events);
       if (!fresh.length) return;
@@ -5958,8 +5990,8 @@ export function Announcer({ quiet }: { quiet?: boolean }) {
           <button className="note-close" aria-label="Dismiss" onClick={() => dismissRef.current(c.key)}>×</button>
         </div>
       ))}
-      {cards.length > 3 && (
-        <button className="link small" onClick={() => go('/character/log')}>See everything in your log</button>
+      {cards.length > 0 && queued > 0 && (
+        <button className="link small" onClick={() => go('/character/log')}>{queued} more · see everything in your log</button>
       )}
     </div>
   );
@@ -6754,7 +6786,7 @@ The menu (`.theme-menu`) is a portal on `<body>`, fixed under the button, 560 px
 
 `tools/server.mjs` is a tiny static server with **no dependencies**, so it can be copied as-is into the app packages:
 
-- It serves one folder on `127.0.0.1`. The default port is **4310**; if that's taken it tries the next 20.
+- It serves one folder on `127.0.0.1`, always on port **4310**. If that's taken by another program it refuses to start and says why. It never moves to another port, because the browser keeps progress per address and a different port would make the save seem to vanish.
 - `GET /__reactor` answers `reactor-quest`. Launchers use it to detect an already-running game and just open the browser.
 - `POST /__heartbeat` is the game tab saying it's still open. With `--app`, the server exits a minute after the last heartbeat. That's how the packaged apps clean up after themselves.
 - It blocks path traversal, sends long-cache headers for hashed `assets/`, and `no-cache` for everything else.
@@ -6836,11 +6868,17 @@ export function startServer({ root, port = DEFAULT_PORT, idleExitMs = 0, quiet =
     }
   });
 
+  // Always the same port: the browser keeps progress per address, so moving
+  // to another port when this one is busy would make the save seem to vanish.
   return new Promise((resolveStart, reject) => {
-    const tryPort = (p, attempts) => {
+    const listen = (p) => {
       server.once('error', (e) => {
-        if (e.code === 'EADDRINUSE' && attempts > 0) tryPort(p + 1, attempts - 1);
-        else reject(e);
+        if (e.code === 'EADDRINUSE') {
+          reject(Object.assign(new Error(
+            `Port ${p} is being used by another program, so Reactor can't start there.\n` +
+              `Close that program and try again. (Reactor always uses the same port, because your progress is saved for that address.)`,
+          ), { code: 'EADDRINUSE' }));
+        } else reject(e);
       });
       server.listen(p, '127.0.0.1', () => {
         const url = `http://localhost:${p}/`;
@@ -6856,7 +6894,7 @@ export function startServer({ root, port = DEFAULT_PORT, idleExitMs = 0, quiet =
         resolveStart({ server, url, port: p });
       });
     };
-    tryPort(port, 20);
+    listen(port);
   });
 }
 
@@ -6898,8 +6936,13 @@ if (isMain(import.meta.url)) {
     console.log(`Reactor is already running — opening http://localhost:${port}/`);
     if (!flag('--no-open')) openBrowser(`http://localhost:${port}/`);
   } else {
-    const { url } = await startServer({ root, port, idleExitMs: flag('--app') ? 60_000 : 0 });
-    if (!flag('--no-open')) openBrowser(url);
+    try {
+      const { url } = await startServer({ root, port, idleExitMs: flag('--app') ? 60_000 : 0 });
+      if (!flag('--no-open')) openBrowser(url);
+    } catch (e) {
+      console.error(e.message);
+      process.exit(1);
+    }
   }
 }
 ~~~~
@@ -6961,8 +7004,13 @@ if (await probe(DEFAULT_PORT)) {
   console.log(`Reactor is already running — opening http://localhost:${DEFAULT_PORT}/`);
   if (!args.includes('--no-open')) openBrowser(`http://localhost:${DEFAULT_PORT}/`);
 } else {
-  const { url } = await startServer({ root: join(root, 'dist') });
-  if (!args.includes('--no-open')) openBrowser(url);
+  try {
+    const { url } = await startServer({ root: join(root, 'dist') });
+    if (!args.includes('--no-open')) openBrowser(url);
+  } catch (e) {
+    console.error(e.message);
+    process.exit(1);
+  }
 }
 ~~~~
 
@@ -7610,7 +7658,7 @@ console.log(`Built ${out}\nRun ./reactor-quest to play, or ./install.sh to add i
 
 ## Part 13. Tests
 
-`npm test` runs Vitest in jsdom: 440 tests in 9 files. The level proofs are the most important, because they are what lets you write 86 code levels with confidence.
+`npm test` runs Vitest in jsdom: 443 tests in 9 files. The level proofs are the most important, because they are what lets you write 86 code levels with confidence.
 
 | File | What it proves |
 |---|---|
@@ -7822,18 +7870,18 @@ export const perfect: Outcome = { stars: 3, firstTry: true, failedRuns: 0, clean
 
 ## Part 14. The browser bot
 
-`npm run smoke` (`tools/smoke.mjs`) builds nothing itself; run `npm run build` first. It serves `dist/` with `startServer` on port 4390, launches headless Chromium with `playwright-core` (it uses `CHROMIUM_PATH` if set, else Playwright's own Chromium, else installed Chrome), and plays the game through the real UI at 1440×900. It prints ✓/✗ per step, saves screenshots to `test-results/`, and exits non-zero on any failure. `SMOKE_PLATFORM=mac` makes it use ⌘ shortcuts. `SMOKE_LEVELS=a,b` limits which levels it plays. There are 106 steps:
+`npm run smoke` (`tools/smoke.mjs`) builds nothing itself; run `npm run build` first. It serves `dist/` with `startServer` on port 4390, launches headless Chromium with `playwright-core` (it uses `CHROMIUM_PATH` if set, else Playwright's own Chromium, else installed Chrome), and plays the game through the real UI at 1440×900. It prints ✓/✗ per step, saves screenshots to `test-results/`, and exits non-zero on any failure. `SMOKE_PLATFORM=mac` makes it use ⌘ shortcuts. `SMOKE_LEVELS=a,b` limits which levels it plays. There are 107 steps:
 
 1. The title screen renders.
 2. **Begin** asks for a name (fill **Your name**, click **Go live**), then opens Floor 1 level 1, whose starter prints nothing when run.
 3. Two failed runs bring up the lesson nudge, a compiler error shows its plain-English line, and the nudge opens the lesson.
-4. A hint token reveals a hint for free. The solution waits until all three hints are seen, can't be pasted in, and caps the win at one star.
-5. Explaining the level back saves a note to the notebook, for XP.
+4. The first hint is free (no token is offered for it), and a hint token pays for the second. The solution waits until all three hints are seen, can't be pasted in, and caps the win at one star.
+5. Explaining the level back saves a note to the notebook.
 6. Opening the loot boxes from the victory screen works.
 7. **Next system →** goes to level 2, which is solved *by typing* (keyboard), earning three stars and First Try.
 8. The map shows progress, daily quests (one claimable), floors and the next level.
 9. Locked levels stay locked, and a floor's boss is open from the start.
-10. Character → Settings → "Open every system" works.
+10. Character → Settings → **Download a backup** produces a file holding the progress; after the save is wiped, **Restore from a backup…** brings it back. Then "Open every system" works.
 11. Hovering a name shows its type, and typing a dot offers members.
 12. **For every code level** (86 steps): open it, put the solution in the editor (select all + insert text), Run with the keyboard shortcut, and see the victory screen.
 13. The companion and the class are offered, and chosen.
@@ -7843,7 +7891,7 @@ export const perfect: Outcome = { stars: 3, firstTry: true, failedRuns: 0, clean
 17. Review: cleared quizzes become review cards (the bot moves their due date to today), a missed card returns within the session, the session completes, and the notebook lists the note from step 5.
 18. Colour profiles: 🎨 previews on hover, Escape reverts, a click keeps it, and the choice survives a reload.
 19. A narrow (420 px) layout renders without horizontal scroll.
-20. The launcher server answers its probe and heartbeat.
+20. The launcher server answers its probe and heartbeat, and a second server on the same busy port refuses to start instead of moving.
 21. There were no uncaught page errors during the whole run.
 
 Helpers worth having: `setEditor(text)` (focus `.cm-content`, select all, `insertText`), `waitCompiler()` (wait until "Loading compiler…" is gone), `dismissModals()`, and `clearNotes()` (close announcer cards so they don't cover buttons).
@@ -8067,6 +8115,7 @@ These are real bugs from building the original. The code above already handles e
 17. **Don't let comments satisfy source checks**: strip comments before matching (`code()` in helpers).
 18. **StrictMode double-invokes effects in development.** Every effect in the UI must clean up after itself (timers, listeners, React roots).
 19. **Practice must only test what's been taught.** The old timed arcade showed every card from day one, so a Floor 1 beginner faced generics, and four cards tested things no lesson covered (`Map`, `enum`, `parseInt`, the `!` assertion). Tie every review item to the level that teaches it.
+20. **Saves live per address.** `localStorage` belongs to the exact origin, port included, so a server that hops to the next free port makes a player's progress seem to vanish. Use one fixed port, and give players a backup file.
 
 ---
 
@@ -8074,7 +8123,7 @@ These are real bugs from building the original. The code above already handles e
 
 - [ ] `npm run build` typechecks and builds with no errors.
 - [ ] `npm test` passes: every one of the 86 code levels is proven both ways, all 10 quizzes are valid, all 40 compile cards match the compiler and no review card tests untaught material, all 17 profiles are readable and distinct, and the rewards, progress, runtime, checker and markdown tests pass.
-- [ ] `npm run smoke` passes all 106 steps.
+- [ ] `npm run smoke` passes all 107 steps.
 - [ ] `npm start` and the double-click launcher for each OS open the game in the browser. A second launch just opens the browser.
 - [ ] `npm run app:mac`, `app:win` and `app:linux` produce packages that install, launch, serve the game and uninstall cleanly.
 - [ ] CI is green on macOS, Windows and Linux.

@@ -5,7 +5,7 @@ import { TIER_INFO, formatViewers, type Reward } from '../game/rewards';
 import { SKILLS, SKILL_RANKS } from '../game/skills';
 import { sfx } from '../game/sound';
 import { getSave, onRewards } from '../game/store';
-import { overlays } from './overlays';
+import { overlays, useOverlays } from './overlays';
 import { go } from './router';
 
 interface Card {
@@ -82,12 +82,20 @@ function mergeBox(into: Card, fresh: Card): Card {
   return { ...boxCard(ids, ids.length === 1 ? fresh.title : undefined), key: into.key };
 }
 
-const MAX_SHOWN = 4;
+// One card at a time: news should be noticed, not pile up over the work.
+const MAX_SHOWN = 1;
 const MAX_WAITING = 12;
 
 export function Announcer({ quiet }: { quiet?: boolean }) {
   const [cards, setCards] = useState<Card[]>([]);
+  const [queued, setQueued] = useState(0);
   const dismissRef = useRef<(key: number) => void>(() => {});
+  const { focus } = useOverlays();
+  const focusRef = useRef(focus);
+  focusRef.current = focus;
+  const syncRef = useRef<() => void>(() => {});
+  // While the player is working on a level, news waits; it arrives when they finish.
+  useEffect(() => syncRef.current(), [focus]);
 
   // At most four cards on screen; the rest wait their turn, so a burst of news
   // (a boss clear can bring a dozen) never buries a level-up or an achievement.
@@ -96,7 +104,7 @@ export function Announcer({ quiet }: { quiet?: boolean }) {
     let waiting: Card[] = [];
     const timers = new Set<ReturnType<typeof setTimeout>>();
     const sync = () => {
-      while (shown.length < MAX_SHOWN && waiting.length) {
+      while (!focusRef.current && shown.length < MAX_SHOWN && waiting.length) {
         const c = waiting.shift()!;
         shown.push(c);
         const t = setTimeout(() => {
@@ -106,12 +114,14 @@ export function Announcer({ quiet }: { quiet?: boolean }) {
         timers.add(t);
       }
       setCards([...shown]);
+      setQueued(waiting.length);
     };
     const dismiss = (key: number) => {
       shown = shown.filter((c) => c.key !== key);
       sync();
     };
     dismissRef.current = dismiss;
+    syncRef.current = sync;
     const off = onRewards((events) => {
       const fresh = cardsFor(events);
       if (!fresh.length) return;
@@ -156,8 +166,8 @@ export function Announcer({ quiet }: { quiet?: boolean }) {
           <button className="note-close" aria-label="Dismiss" onClick={() => dismissRef.current(c.key)}>×</button>
         </div>
       ))}
-      {cards.length > 3 && (
-        <button className="link small" onClick={() => go('/character/log')}>See everything in your log</button>
+      {cards.length > 0 && queued > 0 && (
+        <button className="link small" onClick={() => go('/character/log')}>{queued} more · see everything in your log</button>
       )}
     </div>
   );

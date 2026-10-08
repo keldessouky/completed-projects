@@ -79,6 +79,17 @@ async function dismissModals() {
 }
 
 /** Dismiss THE FEED's announcement cards so they never sit on top of what we click. */
+/** Wait for an announcement card. Cards arrive one at a time, so dismiss the ones ahead of it. */
+async function waitForNote(text) {
+  for (let i = 0; i < 40; i++) {
+    if (await page.locator('.card-note').filter({ hasText: text }).count()) return;
+    const close = page.locator('.note-close').first();
+    if (await close.count()) await close.click({ timeout: 2000 }).catch(() => {});
+    else await page.waitForTimeout(250);
+  }
+  throw new Error(`no "${text}" announcement arrived`);
+}
+
 async function clearNotes() {
   // Cards that were waiting their turn slide in as others go, so keep going until none are left.
   for (let i = 0; i < 30 && (await page.locator('.note-close').count()); i++) await page.locator('.note-close').first().click({ timeout: 2000 }).catch(() => {});
@@ -112,15 +123,18 @@ await step('Two failed runs suggest the lesson; a plain-English line explains a 
   await page.getByRole('heading', { name: 'What is code?' }).waitFor();
 });
 
-await step('A hint token reveals a hint for free; the solution waits for every hint, and caps the win at one star', async () => {
+await step('The first hint is free, a token pays for the next; the solution waits for every hint, and caps the win at one star', async () => {
+  const worth = () => page.locator('.stars-line').textContent();
   await page.getByRole('tab', { name: /Hints/ }).click();
-  await page.getByRole('button', { name: /Use a hint token/ }).click();
+  if (await page.getByRole('button', { name: /Use a hint token/ }).count()) throw new Error('the first hint is free, so no token should be offered for it');
+  await page.getByRole('button', { name: /Reveal hint 1/ }).click();
   await page.locator('.hint').first().waitFor();
-  const worth = await page.locator('.stars-line').textContent();
-  if (!worth?.includes('★★★')) throw new Error(`a token-paid hint should keep three stars, but it shows: ${worth}`);
+  if (!(await worth())?.includes('★★★')) throw new Error(`the first hint should be free, but it shows: ${await worth()}`);
   await page.getByRole('button', { name: /Show the solution/ }).click();
   await page.getByRole('button', { name: 'Back to the hints' }).click();
-  await page.getByRole('button', { name: /Reveal hint 2/ }).click();
+  await page.getByRole('button', { name: /Use a hint token/ }).click();
+  await page.locator('.hint').nth(1).waitFor();
+  if (!(await worth())?.includes('★★★')) throw new Error(`a token-paid hint should keep three stars, but it shows: ${await worth()}`);
   await page.getByRole('button', { name: /Reveal hint 3/ }).click();
   await page.getByRole('button', { name: /Show the solution/ }).click();
   await page.getByRole('button', { name: 'Reveal the solution' }).click();
@@ -131,15 +145,15 @@ await step('A hint token reveals a hint for free; the solution waits for every h
   await page.locator('.victory').waitFor({ timeout: 10_000 });
   const on = await page.locator('.big-stars span.on').count();
   if (on !== 1) throw new Error(`expected 1 star after using the solution, got ${on}`);
-  await page.locator('.card-note').filter({ hasText: 'Hello, World' }).waitFor();
+  await waitForNote('Hello, World');
   await page.waitForTimeout(900); // let the stars land
   await page.screenshot({ path: join(shots, '03-victory.png') });
 });
 
-await step('Explaining the level back saves a note to the notebook, for XP', async () => {
+await step('Explaining the level back saves a note to the notebook', async () => {
   await page.getByLabel(/Explain it back/).fill('The line was a comment, so it never ran. Removing the slashes made it a real instruction.');
   await page.getByRole('button', { name: 'Save note' }).click();
-  await page.getByText('+15 XP for explaining it').waitFor();
+  await page.getByText('Saved to your notebook.').waitFor();
 });
 
 await step('Opening the loot boxes from the victory screen', async () => {
@@ -166,8 +180,7 @@ await step('Next system → level 2, solved by typing: three stars and First Try
   await page.locator('.victory').waitFor({ timeout: 10_000 });
   const on = await page.locator('.big-stars span.on').count();
   if (on !== 3) throw new Error(`expected 3 stars, got ${on}`);
-  await page.locator('.card-note').filter({ hasText: 'First Try' }).first().waitFor();
-  await page.locator('.card-note').filter({ hasText: 'Level up!' }).first().waitFor();
+  await waitForNote('First Try');
 });
 
 await step('Map: progress, daily quests (one claimable), floors and the next level', async () => {
@@ -195,6 +208,22 @@ await step('Locked levels stay locked; a floor\'s boss is open from the start', 
 });
 
 // ---------------------------------------------------------------- every level
+await step('Settings: download a backup of your progress, and restore it', async () => {
+  await page.goto(`${url}#/character/settings`);
+  const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: 'Download a backup' }).click()]);
+  const file = join(shots, 'backup.json');
+  await download.saveAs(file);
+  const backup = JSON.parse(readFileSync(file, 'utf8'));
+  if (backup.game !== 'reactor-quest' || !backup.save?.levels?.['hello-world']?.done) throw new Error('the backup is missing the progress');
+  // Lose the progress, then bring it back from the file.
+  await page.evaluate(() => localStorage.removeItem('reactor-quest/save'));
+  await page.reload();
+  await page.locator('input[type=file]').setInputFiles(file);
+  await page.getByRole('button', { name: 'Restore it' }).click();
+  await page.goto(`${url}#/map`);
+  await page.locator('.node.done').nth(1).waitFor();
+});
+
 await step('Open every system from Character → Settings', async () => {
   await page.goto(`${url}#/character/settings`);
   await page.getByLabel(/Open every system/).check();
@@ -416,10 +445,16 @@ await step('Narrow (phone) layout renders without horizontal scroll', async () =
   if (overflow > 1) throw new Error(`page is ${overflow}px wider than the viewport`);
 });
 
-await step('Launcher server answers its probe and heartbeat', async () => {
+await step('Launcher server answers its probe and heartbeat, and never moves to another port', async () => {
   const sig = await (await fetch(`${url}__reactor`)).text();
   const beat = await fetch(`${url}__heartbeat`, { method: 'POST' });
   if (sig !== 'reactor-quest' || beat.status !== 204) throw new Error('server endpoints misbehaved');
+  // Progress is saved per address: a second server on a busy port must refuse, not drift to the next one.
+  const refused = await startServer({ root: join(root, 'dist'), port: 4390, quiet: true }).then(
+    (s) => (s.server.close(), false),
+    (e) => e.code === 'EADDRINUSE',
+  );
+  if (!refused) throw new Error('a second server started on another port instead of refusing');
 });
 
 await step('No uncaught page errors', async () => {

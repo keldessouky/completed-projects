@@ -48,6 +48,11 @@ if (await probe(DEFAULT_PORT)) {
   console.log(`Reactor is already running — opening http://localhost:${DEFAULT_PORT}/`);
   if (!args.includes('--no-open')) openBrowser(`http://localhost:${DEFAULT_PORT}/`);
 } else {
-  const { url } = await startServer({ root: join(root, 'dist') });
-  if (!args.includes('--no-open')) openBrowser(url);
+  try {
+    const { url } = await startServer({ root: join(root, 'dist') });
+    if (!args.includes('--no-open')) openBrowser(url);
+  } catch (e) {
+    console.error(e.message);
+    process.exit(1);
+  }
 }

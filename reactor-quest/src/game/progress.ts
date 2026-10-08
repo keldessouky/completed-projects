@@ -158,9 +158,17 @@ export function levelState(save: Save, id: string): LevelProgress {
 }
 
 /** Stars for a code level: hints you paid for with stars, and peeking at the solution, cost stars. */
+/** Hints you can see on each attempt before they start to cost stars: asking for help should never feel like losing. */
+export const FREE_HINTS = 1;
+
 export function codeStars(p: Pick<LevelProgress, 'hints' | 'freeHints' | 'solution'>): number {
   if (p.solution) return 1;
-  return 3 - Math.min(Math.max(0, p.hints - (p.freeHints ?? 0)), 2);
+  return 3 - Math.min(Math.max(0, p.hints - (p.freeHints ?? 0) - FREE_HINTS), 2);
+}
+
+/** Would revealing the next hint (without a token) cost a star? */
+export function nextHintCosts(p: Pick<LevelProgress, 'hints' | 'freeHints' | 'solution'>): boolean {
+  return codeStars({ ...p, hints: p.hints + 1 }) < codeStars(p);
 }
 
 /** Stars for a quiz: one off per wrong answer, never below 1. */

@@ -3,7 +3,7 @@ import type { Diagnostic } from '../engine/checker';
 import { compile, isReady, onReady } from '../engine/compiler';
 import { explainDiagnostic } from '../engine/explain';
 import { grade, type Report } from '../engine/grade';
-import { codeStars, isBoss, levelState } from '../game/progress';
+import { codeStars, isBoss, levelState, nextHintCosts } from '../game/progress';
 import { codeOutcome, completeLevel, PET_LINES, recordRun, replayLevel, revealHint as revealHintAction, revealSolution as revealSolutionAction, type Reward } from '../game/rewards';
 import { sfx } from '../game/sound';
 import { act, getSave, setSave, useSave } from '../game/store';
@@ -47,6 +47,12 @@ export function CodeLevelScreen({ level, deck, index }: { level: CodeLevel; deck
 
   useEffect(() => onReady(() => setCompilerReady(true)), []);
 
+  // Hold announcements while the player works; let them through on the victory screen.
+  useEffect(() => {
+    overlays.setFocus(!victory);
+    return () => overlays.setFocus(false);
+  }, [victory]);
+
   // Live type checking as you type, debounced.
   useEffect(() => {
     const t = setTimeout(() => {
@@ -82,7 +88,6 @@ export function CodeLevelScreen({ level, deck, index }: { level: CodeLevel; deck
       } else {
         sfx.fail();
         setFailedRuns((n) => n + 1);
-        if (Math.random() < 0.4) overlays.petSay(PET_LINES.fail[Math.floor(Math.random() * PET_LINES.fail.length)]);
       }
     } catch (e) {
       setLogs([`✖ ${(e as Error).message}`]);
@@ -210,14 +215,14 @@ export function CodeLevelScreen({ level, deck, index }: { level: CodeLevel; deck
               ))}
               {progress.hints < level.hints.length ? (
                 <div className="hint-buttons">
-                  {save.hintTokens > 0 && (
+                  {save.hintTokens > 0 && nextHintCosts(progress) && (
                     <button className="btn" onClick={() => revealHint(true)}>
                       🎟 Use a hint token <span className="muted small">(free · {save.hintTokens} left)</span>
                     </button>
                   )}
-                  <button className={`btn ${save.hintTokens > 0 ? 'ghost' : ''}`} onClick={() => revealHint(false)}>
+                  <button className={`btn ${save.hintTokens > 0 && nextHintCosts(progress) ? 'ghost' : ''}`} onClick={() => revealHint(false)}>
                     Reveal hint {progress.hints + 1}
-                    {potential > 1 && !progress.solution && <span className="cost"> (−1 ★)</span>}
+                    {nextHintCosts(progress) ? <span className="cost"> (−1 ★)</span> : !progress.solution && <span className="muted small"> (free)</span>}
                   </button>
                 </div>
               ) : (

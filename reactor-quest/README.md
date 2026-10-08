@@ -126,8 +126,10 @@ keep it.
 | "Reactor needs Node.js" | Install Node.js (step 1), then launch again. |
 | "Reactor needs Node.js 20.19 or newer" | Update Node: download the latest version from nodejs.org, or `brew upgrade node` (macOS), `winget upgrade OpenJS.NodeJS.LTS` (Windows), `sudo snap refresh node` (Linux). |
 | Windows: "node is not recognized" right after installing Node | Close the window and open a new one, so it picks up the new PATH. |
-| The browser didn't open | Open `http://localhost:4310` yourself. If that port was taken, the terminal window prints the address it used instead. The app versions log to `~/Library/Logs/reactor-quest.log` (macOS), `%LOCALAPPDATA%\Reactor Quest\reactor-quest.log` (Windows) and `~/.local/state/reactor-quest/reactor-quest.log` (Linux). |
+| The browser didn't open | Open `http://localhost:4310` yourself. |
+| "Port 4310 is being used by another program" | Close that program and launch again. Reactor always uses port 4310: your progress is saved for that address, so it never moves to another one. The app versions log to `~/Library/Logs/reactor-quest.log` (macOS), `%LOCALAPPDATA%\Reactor Quest\reactor-quest.log` (Windows) and `~/.local/state/reactor-quest/reactor-quest.log` (Linux). |
 | "Loading compiler…" stays for a few seconds | That's normal on the first level you open. The browser is loading the TypeScript compiler (about 7 MB). |
+| You want to keep your progress safe, or move it to another computer | **Character → Settings → Download a backup**, then **Restore from a backup…** on the other side. Progress lives in your browser, so clearing its site data erases it: keep a backup. |
 | You want to start over | **Character → Settings → Reset all progress**. |
 
 ## How to play
@@ -142,7 +144,8 @@ keep it.
      your code must meet.
    - **Lesson:** teaches the idea you need, with examples. The first floors
      assume you know nothing at all, so read this first whenever a topic is new.
-   - **Hints:** three hints, revealed one at a time. A hint costs a star, unless
+   - **Hints:** three hints, revealed one at a time. The first is always free:
+     asking for help is part of learning. After that a hint costs a star, unless
      you pay for it with a **hint token** (you start with one, and earn more
      from loot boxes and the shop). The reference solution opens only after all
      three, and until you've solved the level you rebuild it yourself rather
@@ -172,16 +175,16 @@ keep it.
    - **Console:** anything your code prints with `console.log`.
    If two runs fail and you haven't opened the lesson yet, a note suggests it.
 5. **Pass every check with no type errors** and the system comes back online.
-   You get stars, XP, gold, viewers and a loot box. Before moving on, you can
+   You get stars, XP, gold and viewers (bosses also drop a loot box). Before moving on, you can
    **explain it back**: a sentence or two on what was wrong and why your fix
    works. It goes in your **Notebook** (under **Character**), shows up again
-   when you revisit the level, and the first one for each level earns XP.
+   when you revisit the level. (It earns nothing but understanding, on purpose.)
    Click **Next system →**, or press Return, to go on.
 
 ![A React level, with the live preview at the top right](docs/react-level.png)
 
-**Stars.** A level is worth ★★★ if you solve it without help. Each hint you
-reveal for free drops it a star (hints bought with a token don't). Looking at
+**Stars.** A level is worth ★★★ if you solve it with at most one hint. Each
+hint after the first drops it a star (hints bought with a token don't). Looking at
 the reference solution (**Hints → Show the solution…**) caps it at ★. You can
 **replay** any level later to earn all three. Your best result is kept, and
 replays only pay out for stars you improve.
@@ -264,20 +267,21 @@ profile you've picked.
 ## Rewards: why you'll keep playing
 
 Something good happens every few minutes, and most of it is announced by
-**THE FEED**, the show's breathless announcer, in a stack of cards at the top
-right.
+**THE FEED**, the show's breathless announcer, one card at a time at the top
+right. While you're working on a level, the news waits until you finish.
 
-- **Crawler levels and career titles.** XP from every level, quiz, review and
-  notebook entry fills your crawler level. The curve is tuned so that every floor, the
+- **Crawler levels and career titles.** XP from every level, quiz and review
+  fills your crawler level. The curve is tuned so that every floor, the
   first or the last, brings a level-up every two or three clears. Your career
   title climbs with you: Intern → Junior Developer → Developer → Senior
   Developer → Staff Engineer → Principal Engineer → **Reactor Architect**
   (which clearing the whole station earns, around level 41) → Living Legend
   (level 45, for those who keep going).
 - **Loot boxes** in six tiers, Bronze, Silver, Gold, Platinum, Legendary and
-  Celestial. You get one for every first clear, every level-up, every
-  achievement and every daily quest, and better ones for bosses, flawless runs
-  and milestones. Open them one by one for the reveal, or all at once from
+  Celestial. They're for moments that matter: every level-up, achievement,
+  daily quest and boss, and better ones for flawless bosses, sponsors and
+  milestones. (Not for every level: a box per level piled up faster than
+  anyone opened them.) Open them one by one for the reveal, or all at once from
   **Loot**. Inside: gold, hint tokens, XP boosts, collectibles, titles, editor
   skins and hats for your companion.
 - **58 achievements**, each with its own Feed quip, from "Hello, World" to
@@ -295,7 +299,7 @@ right.
 - **Your class.** Beat Floor 3's boss and choose a class with a real perk:
   **Type Sorcerer** (+25% XP on TypeScript), **Component Artificer** (+25% XP
   on React), **Bug Hunter** (+20% gold, free hint tokens from bosses),
-  **Speedrunner** (longer par times, double speed bonuses) or **Crowd
+  **Archivist** (+50% XP from spaced review) or **Crowd
   Favourite** (+50% viewers, better Fan Boxes). You can retrain later for gold.
 - **21 skills**, from Output & Values and Logic through Generics, Effects,
   Performance, Accessibility and Testing. Each level trains the skills it
@@ -416,8 +420,8 @@ learn, especially people learning to program for the first time.
 ## Proven playable
 
 ```bash
-npm test        # 440 tests
-npm run smoke   # 106 checks in headless Chromium/Chrome
+npm test        # 443 tests
+npm run smoke   # 107 checks in headless Chromium/Chrome
 ```
 
 - **`npm test`** checks every one of the 86 code levels both ways: the reference

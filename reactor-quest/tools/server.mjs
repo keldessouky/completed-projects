@@ -71,11 +71,17 @@ export function startServer({ root, port = DEFAULT_PORT, idleExitMs = 0, quiet =
     }
   });
 
+  // Always the same port: the browser keeps progress per address, so moving
+  // to another port when this one is busy would make the save seem to vanish.
   return new Promise((resolveStart, reject) => {
-    const tryPort = (p, attempts) => {
+    const listen = (p) => {
       server.once('error', (e) => {
-        if (e.code === 'EADDRINUSE' && attempts > 0) tryPort(p + 1, attempts - 1);
-        else reject(e);
+        if (e.code === 'EADDRINUSE') {
+          reject(Object.assign(new Error(
+            `Port ${p} is being used by another program, so Reactor can't start there.\n` +
+              `Close that program and try again. (Reactor always uses the same port, because your progress is saved for that address.)`,
+          ), { code: 'EADDRINUSE' }));
+        } else reject(e);
       });
       server.listen(p, '127.0.0.1', () => {
         const url = `http://localhost:${p}/`;
@@ -91,7 +97,7 @@ export function startServer({ root, port = DEFAULT_PORT, idleExitMs = 0, quiet =
         resolveStart({ server, url, port: p });
       });
     };
-    tryPort(port, 20);
+    listen(port);
   });
 }
 
@@ -133,7 +139,12 @@ if (isMain(import.meta.url)) {
     console.log(`Reactor is already running — opening http://localhost:${port}/`);
     if (!flag('--no-open')) openBrowser(`http://localhost:${port}/`);
   } else {
-    const { url } = await startServer({ root, port, idleExitMs: flag('--app') ? 60_000 : 0 });
-    if (!flag('--no-open')) openBrowser(url);
+    try {
+      const { url } = await startServer({ root, port, idleExitMs: flag('--app') ? 60_000 : 0 });
+      if (!flag('--no-open')) openBrowser(url);
+    } catch (e) {
+      console.error(e.message);
+      process.exit(1);
+    }
   }
 }

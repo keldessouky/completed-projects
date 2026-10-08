@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ALL_LEVELS } from '../content';
 import { crawlerLevel, isBoss } from '../game/progress';
-import { formatViewers, NOTE_MIN_WORDS, saveNote, type Reward } from '../game/rewards';
+import { formatViewers, saveNote, type Reward } from '../game/rewards';
 import { SKILLS, SKILL_RANKS } from '../game/skills';
 import { act, useSave } from '../game/store';
 import type { Level } from '../game/types';
@@ -118,16 +118,15 @@ function ExplainBack({ level }: { level: Level }) {
   const save = useSave();
   const existing = save.notes[level.id]?.text ?? '';
   const [text, setText] = useState(existing);
-  const [saved, setSaved] = useState<'' | 'saved' | 'rewarded'>('');
-  const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+  const [saved, setSaved] = useState(false);
   const prompt =
     level.kind === 'code'
       ? 'Explain it back: what was wrong, and why does your fix work? Write it as if to a crewmate.'
       : "Explain it back: what's one thing from this quiz you want to remember?";
 
   function save_() {
-    const events = act((s) => saveNote(s, level.id, text, Date.now()));
-    setSaved(events.some((e) => e.kind === 'xp') ? 'rewarded' : 'saved');
+    act((s) => saveNote(s, level.id, text, Date.now()));
+    setSaved(true);
   }
 
   return (
@@ -140,12 +139,12 @@ function ExplainBack({ level }: { level: Level }) {
         placeholder="In a sentence or two… (optional)"
         onChange={(e) => {
           setText(e.target.value);
-          setSaved('');
+          setSaved(false);
         }}
       />
       <div className="row">
         <span className="muted small">
-          {saved === 'rewarded' ? 'Saved to your notebook. +15 XP for explaining it.' : saved ? 'Saved to your notebook.' : !existing && words > 0 && words < NOTE_MIN_WORDS ? `A few more words (${NOTE_MIN_WORDS}+) and it earns XP.` : 'Kept in Character → Notebook.'}
+          {saved ? 'Saved to your notebook.' : 'Kept in Character → Notebook, and shown next time you open this level.'}
         </span>
         <button className="btn small-btn" disabled={!text.trim() || text.trim() === existing} onClick={save_}>
           Save note

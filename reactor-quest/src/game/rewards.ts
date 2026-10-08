@@ -14,6 +14,7 @@ import {
   isBoss,
   levelSchool,
   levelState,
+  nextHintCosts,
   xpFor,
   xpToReach,
   type Box,
@@ -195,7 +196,8 @@ export const CLASSES: ClassInfo[] = [
   { id: 'type-sorcerer', name: 'Type Sorcerer', icon: '🧙', perk: '+25% XP on TypeScript levels.', flavor: 'Bends the compiler to their will. The compiler has mixed feelings about this.' },
   { id: 'component-artificer', name: 'Component Artificer', icon: '🛠', perk: '+25% XP on React levels.', flavor: 'Builds interfaces out of tiny reusable pieces. Has opinions about prop names.' },
   { id: 'bug-hunter', name: 'Bug Hunter', icon: '🔍', perk: '+20% gold from everything, and a free hint token for every boss you beat.', flavor: 'Tracks bugs across a codebase by scent alone. Smells faintly of coffee.' },
-  { id: 'speedrunner', name: 'Speedrunner', icon: '⚡', perk: '50% longer par times, and double speed bonuses.', flavor: 'Types fast. Thinks faster. Occasionally both at once.' },
+  // (Stored as 'speedrunner' so older saves keep their class: it used to be about speed.)
+  { id: 'speedrunner', name: 'Archivist', icon: '📚', perk: '+50% XP from spaced review.', flavor: 'Never forgets a thing. Keeps notes on the notes.' },
   { id: 'crowd-favourite', name: 'Crowd Favourite', icon: '🌟', perk: '+50% viewers, and every Fan Box is one tier better.', flavor: 'The camera loves them. The audience loves them. The compiler is indifferent.' },
 ];
 
@@ -329,9 +331,8 @@ export interface Outcome {
 }
 
 /** Par time for a speed bonus: a generous target, not a race. */
-export function parSeconds(level: Level, classId: ClassId | null): number {
-  const base = level.kind === 'quiz' ? 180 : isBoss(level) ? 900 : 360;
-  return classId === 'speedrunner' ? base * 1.5 : base;
+export function parSeconds(level: Level): number {
+  return level.kind === 'quiz' ? 180 : isBoss(level) ? 900 : 360;
 }
 
 const FEED = {
@@ -405,8 +406,8 @@ export function completeLevel(save: Save, level: Level, outcome: Outcome, rng: R
 
   // Gold: a clear, its stars, and a speed bonus on first clears.
   let gold = firstClear ? (boss ? 40 : level.kind === 'quiz' ? 6 : 10) + best * 5 : Math.max(0, best - prev.stars) * 5;
-  const underPar = firstClear && outcome.seconds <= parSeconds(level, s.classId);
-  if (underPar) gold += s.classId === 'speedrunner' ? 30 : 15;
+  const underPar = firstClear && outcome.seconds <= parSeconds(level);
+  if (underPar) gold += 15;
   if (s.classId === 'bug-hunter') gold = Math.round(gold * 1.2);
   if (gold > 0) {
     s = { ...s, gold: s.gold + gold };
@@ -428,8 +429,11 @@ export function completeLevel(save: Save, level: Level, outcome: Outcome, rng: R
   if (best === 3 && prev.stars < 3) apply(addSkillPoints(s, level.skills, 1));
 
   // Loot.
-  if (firstClear) apply(addBox(s, boss ? 'gold' : 'bronze', boss ? `Boss Box: ${level.system}` : `Level clear: ${level.title}`, boss ? FLOOR_SCROLLS[floor.id] : undefined));
-  if (best === 3 && prev.stars < 3) apply(addBox(s, 'silver', `Flawless: ${level.title}`));
+  // Boxes are for bosses. Ordinary clears pay XP, gold and stars: a box for
+  // every one of them piled up faster than anyone opened them, and stopped
+  // meaning anything.
+  if (firstClear && boss) apply(addBox(s, 'gold', `Boss Box: ${level.system}`, FLOOR_SCROLLS[floor.id]));
+  if (boss && best === 3 && prev.stars < 3) apply(addBox(s, 'silver', `Flawless: ${level.title}`));
   if (firstClear && boss && s.classId === 'bug-hunter') s = { ...s, hintTokens: s.hintTokens + 1 };
 
   // Counters, for achievements and quests.
@@ -767,7 +771,8 @@ export function recordRun(save: Save, levelId: string, passed: boolean): Result 
 export function revealHint(save: Save, levelId: string, maxHints: number, useToken: boolean): Result {
   const p = levelState(save, levelId);
   if (p.hints >= maxHints) return { save, events: [] };
-  const token = useToken && save.hintTokens > 0;
+  // A token is only spent when the hint would otherwise cost a star.
+  const token = useToken && save.hintTokens > 0 && nextHintCosts(p);
   const s = withLevel(
     token ? { ...save, hintTokens: save.hintTokens - 1, counters: { ...save.counters, tokensUsed: save.counters.tokensUsed + 1 } } : save,
     levelId,
@@ -839,7 +844,7 @@ export function answerReview(save: Save, id: string, correct: boolean, today: st
     counters: { ...save.counters, reviewsAnswered: save.counters.reviewsAnswered + 1, reviewsCorrect: save.counters.reviewsCorrect + (correct ? 1 : 0) },
   };
   // Effort counts too: a card you got wrong is a card you're about to learn.
-  const x = addXp(s, correct ? 12 : 4, 'review');
+  const x = addXp(s, Math.round((correct ? 12 : 4) * (s.classId === 'speedrunner' ? 1.5 : 1)), 'review');
   s = x.save;
   const a = checkAchievements(s);
   return { save: a.save, events: [...x.events, ...a.events] };
@@ -864,8 +869,10 @@ export function finishReview(save: Save, answered: number, mistakes: number): Re
 export const NOTE_MIN_WORDS = 5;
 
 /**
- * Save the player's own explanation of a level (empty text deletes it). The
- * first real explanation of each level earns a little XP.
+ * Save the player's own explanation of a level (empty text deletes it). There
+ * is deliberately no XP for it: a reward for any five words invites five
+ * words. The first real note for each level counts toward the notebook
+ * achievement and the daily quest.
  */
 export function saveNote(save: Save, levelId: string, text: string, at: number): Result {
   const clean = text.trim().slice(0, 600);
@@ -877,7 +884,5 @@ export function saveNote(save: Save, levelId: string, text: string, at: number):
   let s: Save = { ...save, notes: { ...save.notes, [levelId]: { text: clean, at } } };
   if (!first) return { save: s, events: [] };
   s = { ...s, counters: { ...s.counters, notesWritten: s.counters.notesWritten + 1 } };
-  const x = addXp(s, 15, 'explained it back');
-  const a = checkAchievements(x.save);
-  return { save: a.save, events: [...x.events, ...a.events] };
+  return checkAchievements(s);
 }

@@ -7,9 +7,11 @@ interface Overlays {
   boxes: string[] | null;
   offer: 'pet' | 'class' | 'name' | null;
   petSays: { text: string; at: number } | null;
+  /** The player is working on a level: announcements wait until they finish. */
+  focus: boolean;
 }
 
-let state: Overlays = { boxes: null, offer: null, petSays: null };
+let state: Overlays = { boxes: null, offer: null, petSays: null, focus: false };
 // Offers earned during a level wait until its victory screen closes.
 let pendingOffers: NonNullable<Overlays['offer']>[] = [];
 const listeners = new Set<() => void>();
@@ -34,6 +36,9 @@ export const overlays = {
     if (pendingOffers.length && !state.offer) set({ offer: pendingOffers.shift()! });
   },
   petSay: (text: string) => set({ petSays: { text, at: Date.now() } }),
+  setFocus: (focus: boolean) => {
+    if (state.focus !== focus) set({ focus });
+  },
 };
 
 export function useOverlays(): Overlays {

@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { ALL_LEVELS, DECKS } from '../content';
 import { item } from '../game/items';
-import { CAREER, crawlerLevel, emptySave, levelState, stationPower } from '../game/progress';
-import { ACHIEVEMENTS, classInfo, formatViewers, PETS, TIER_INFO } from '../game/rewards';
+import { CAREER, crawlerLevel, emptySave, levelState, parseSave, stationPower, type Save } from '../game/progress';
+import { ACHIEVEMENTS, classInfo, dayOf, formatViewers, PETS, TIER_INFO } from '../game/rewards';
 import { MAX_SKILL_LEVEL, SKILLS, SKILL_RANKS, SKILL_THRESHOLDS, skillLevel, type SkillId } from '../game/skills';
-import { setSave, useSave } from '../game/store';
+import { getSave, setSave, useSave } from '../game/store';
 import { Modal } from '../ui/Modal';
 import { overlays } from '../ui/overlays';
 import { go } from '../ui/router';
@@ -16,6 +16,32 @@ export function CharacterScreen({ tab: initial }: { tab?: string }) {
   // The tab lives in the URL, so links and the back button work.
   const tab: Tab = (['sheet', 'achievements', 'notebook', 'log', 'settings'] as Tab[]).find((t) => t === initial) ?? 'sheet';
   const [confirmReset, setConfirmReset] = useState(false);
+  const [restore, setRestore] = useState<Save | null>(null);
+  const [restoreError, setRestoreError] = useState('');
+  const backupInput = useRef<HTMLInputElement>(null);
+
+  // Progress lives in this browser only, so offer a file to keep or move it.
+  function downloadBackup() {
+    const blob = new Blob([JSON.stringify({ game: 'reactor-quest', exported: new Date().toISOString(), save: getSave() }, null, 1)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `reactor-quest-backup-${dayOf(new Date())}.json`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  }
+
+  async function chooseBackup(file: File | undefined) {
+    setRestoreError('');
+    if (!file) return;
+    try {
+      const data = JSON.parse(await file.text());
+      const raw = data && data.game === 'reactor-quest' ? data.save : data;
+      if (!raw || (raw.v !== 1 && raw.v !== 2)) throw new Error('not a save');
+      setRestore(parseSave(JSON.stringify(raw)));
+    } catch {
+      setRestoreError("That file isn't a Reactor Quest backup.");
+    }
+  }
   const lvl = crawlerLevel(save.xp);
   const cls = classInfo(save.classId);
   const pet = save.pet ? PETS.find((p) => p.kind === save.pet!.kind) : null;
@@ -175,8 +201,32 @@ export function CharacterScreen({ tab: initial }: { tab?: string }) {
             Open every system (skip ahead, for when you already know the basics)
           </label>
           <p className="muted small">Tip: you can also skip a floor by beating its boss. Each floor's boss is open from the moment you reach the floor.</p>
+          <h4>Your progress</h4>
+          <p className="muted small">
+            Progress is saved in this browser, on this computer. Download a backup now and then, and use it to move your progress to another browser or computer.
+          </p>
+          <div className="modal-actions left">
+            <button className="btn" onClick={downloadBackup}>Download a backup</button>
+            <button className="btn" onClick={() => backupInput.current?.click()}>Restore from a backup…</button>
+            <input ref={backupInput} type="file" accept=".json,application/json" hidden aria-label="Backup file" onChange={(e) => { void chooseBackup(e.target.files?.[0]); e.target.value = ''; }} />
+          </div>
+          {restoreError && <p className="err small" role="alert">{restoreError}</p>}
+          <hr />
           <button className="btn ghost danger" onClick={() => setConfirmReset(true)}>Reset all progress…</button>
         </section>
+      )}
+
+      {restore && (
+        <Modal title="Restore this backup?" onClose={() => setRestore(null)}>
+          <p>
+            The backup has {ALL_LEVELS.filter((l) => restore.levels[l.id]?.done).length} systems online and crawler level {crawlerLevel(restore.xp).level}
+            {restore.name ? `, for ${restore.name}` : ''}. Your current progress will be replaced by it.
+          </p>
+          <div className="modal-actions">
+            <button className="btn ghost" onClick={() => setRestore(null)}>Cancel</button>
+            <button className="btn primary" onClick={() => { setSave(() => restore); setRestore(null); }}>Restore it</button>
+          </div>
+        </Modal>
       )}
 
       {confirmReset && (
