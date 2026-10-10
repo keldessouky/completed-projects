@@ -1,0 +1,56 @@
+name: Multiverse Duel
+
+on:
+  push:
+    branches: ['**']
+    paths:
+      - 'multiverse-duel/**'
+      - '.github/workflows/multiverse-duel.yml'
+  pull_request:
+    paths:
+      - 'multiverse-duel/**'
+      - '.github/workflows/multiverse-duel.yml'
+
+defaults:
+  run:
+    shell: bash
+    working-directory: multiverse-duel
+
+jobs:
+  build:
+    name: ${{ matrix.label }} — typecheck, rules tests, AI games, browser bot, launcher
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            label: macOS
+          - os: ubuntu-latest
+            label: Linux
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: multiverse-duel/package-lock.json
+      - run: npm ci
+      - name: Typecheck and build
+        run: npm run build
+      - name: Parser, mana, rules, deck builder and AI-vs-AI games
+        run: npm test
+      - name: Headless Chrome plays two full games through the UI
+        run: npm run smoke
+      - name: The double-click launcher serves the game
+        run: |
+          ./"Multiverse Duel.command" --no-open &
+          for i in $(seq 1 60); do curl -fs http://127.0.0.1:4321/__multiverse && break; sleep 0.5; done
+          curl -fs http://127.0.0.1:4321/ | grep -q '<div id="root">'
+          curl -fsI http://127.0.0.1:4321/data/cards.json.gz | grep -q '200 OK'
+          kill %1
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: multiverse-duel-screenshots-${{ matrix.label }}
+          path: multiverse-duel/test-results/

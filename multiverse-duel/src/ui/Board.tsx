@@ -1,0 +1,619 @@
+// The duel: your hand and battlefield at the bottom, the opponent's at the top.
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import type { Card } from '../data/cards';
+import { abilitiesOf, describeEffect, targetSlots, type TargetSpec } from '../game/abilities';
+import { aiDefend, aiStep } from '../game/ai';
+import type { Deck } from '../game/deck';
+import { Game, sameRef, type CardRef, type Perm, type PlayerId, type TargetRef } from '../game/engine';
+import { CardBack, CardFace, ManaCost } from './CardFace';
+import { useHover, type Hovered } from './Inspector';
+
+const YOU: PlayerId = 0;
+const AI: PlayerId = 1;
+
+type Pending =
+  | { k: 'mode'; iid: number }
+  | { k: 'target'; from: 'cast' | 'ability'; iid: number; mode?: number; ability?: number; slots: { spec: TargetSpec; required: boolean; label: string }[]; chosen: (TargetRef | null)[] }
+  | { k: 'equip'; iid: number }
+  | { k: 'abilities'; iid: number };
+
+const PHASES: { id: string; label: string }[] = [
+  { id: 'main1', label: 'Main' },
+  { id: 'attack', label: 'Attack' },
+  { id: 'block', label: 'Block' },
+  { id: 'combat', label: 'Damage' },
+  { id: 'main2', label: 'Main 2' },
+];
+
+const SPEEDS = { slow: 1100, normal: 650, fast: 250 } as const;
+
+export function Board({ decks, onRematch, onNewDecks, onHelp }: { decks: [Deck, Deck]; onRematch: () => void; onNewDecks: () => void; onHelp: () => void }) {
+  const game = useMemo(() => new Game([decks[0].cards, decks[1].cards], { names: ['You', 'Opponent'] }), [decks]);
+  const [, setTick] = useState(0);
+  const refresh = useCallback(() => setTick((t) => t + 1), []);
+  const [pending, setPending] = useState<Pending | null>(null);
+  const [attackers, setAttackers] = useState<number[]>([]);
+  const [blocks, setBlocks] = useState<Record<number, number[]>>({});
+  const [picking, setPicking] = useState<number | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
+  const [showLog, setShowLog] = useState(false);
+  const [hideOver, setHideOver] = useState(false);
+  const [speed, setSpeed] = useState<keyof typeof SPEEDS>(() => {
+    try {
+      return (localStorage.getItem('multiverse-duel:speed') as keyof typeof SPEEDS) || 'normal';
+    } catch {
+      return 'normal';
+    }
+  });
+  const hover = useHover();
+  const g = game;
+  const toastTimer = useRef<number | undefined>(undefined);
+
+  const say = useCallback((msg: string) => {
+    setToast(msg);
+    window.clearTimeout(toastTimer.current);
+    toastTimer.current = window.setTimeout(() => setToast(null), 2600);
+  }, []);
+
+  // --- the opponent's turn plays itself, one visible step at a time
+  useEffect(() => {
+    if (g.winner !== null) return;
+    let timer: number | undefined;
+    if (g.active === AI && g.phase !== 'block') {
+      timer = window.setTimeout(() => {
+        aiStep(g, AI);
+        refresh();
+      }, SPEEDS[speed]);
+    } else if (g.active === YOU && g.phase === 'block') {
+      timer = window.setTimeout(() => {
+        aiDefend(g, AI);
+        refresh();
+      }, SPEEDS[speed]);
+    }
+    return () => window.clearTimeout(timer);
+  });
+
+  // Reset per-phase selections when the phase changes.
+  const phaseKey = `${g.turn}-${g.phase}`;
+  useEffect(() => {
+    setAttackers([]);
+    setBlocks({});
+    setPicking(null);
+    setPending(null);
+  }, [phaseKey]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('multiverse-duel:speed', speed);
+    } catch {
+      /* ignore */
+    }
+  }, [speed]);
+
+  const myTurn = g.active === YOU;
+  const defending = g.active === AI && g.phase === 'block';
+  const canAct = g.winner === null && (myTurn ? g.phase !== 'block' : defending);
+
+  // ---------------------------------------------------------------- targeting
+
+  const currentSlot = pending?.k === 'target' ? pending.slots[pending.chosen.length] : null;
+  const sourceIid = pending?.k === 'target' && pending.from === 'ability' ? pending.iid : null;
+  const legal = useMemo(() => (currentSlot ? g.legalTargets(YOU, currentSlot.spec, sourceIid) : []), [currentSlot, sourceIid, g, g.version]);
+  const isLegal = (r: TargetRef) => legal.some((x) => sameRef(x, r));
+
+  const finish = (p: Extract<Pending, { k: 'target' }>, chosen: (TargetRef | null)[]) => {
+    const ok = p.from === 'cast' ? g.cast(YOU, p.iid, { mode: p.mode, targets: chosen }) : g.activate(YOU, p.iid, p.ability!, chosen);
+    if (!ok) say('That didn’t work — the targets may have changed.');
+    setPending(null);
+    refresh();
+  };
+
+  const choose = (r: TargetRef | null) => {
+    if (pending?.k !== 'target') return;
+    const chosen = [...pending.chosen, r];
+    // Skip slots with no legal targets at all (e.g. an optional enters trigger on an empty board).
+    while (chosen.length < pending.slots.length && !pending.slots[chosen.length].required && g.legalTargets(YOU, pending.slots[chosen.length].spec, sourceIid).length === 0) chosen.push(null);
+    if (chosen.length >= pending.slots.length) finish(pending, chosen);
+    else setPending({ ...pending, chosen });
+  };
+
+  const startTargeting = (p: Extract<Pending, { k: 'target' }>) => {
+    const chosen: (TargetRef | null)[] = [];
+    while (chosen.length < p.slots.length && !p.slots[chosen.length].required && g.legalTargets(YOU, p.slots[chosen.length].spec, p.from === 'ability' ? p.iid : null).length === 0) chosen.push(null);
+    if (chosen.length >= p.slots.length) finish(p, chosen);
+    else setPending({ ...p, chosen });
+  };
+
+  const castWithMode = (iid: number, mode: number | undefined) => {
+    const c = g.players[YOU].hand.find((x) => x.iid === iid)!;
+    const slots = g.castSlots(c.card, mode ?? 0);
+    startTargeting({ k: 'target', from: 'cast', iid, mode, slots, chosen: [] });
+  };
+
+  // ------------------------------------------------------------------ clicks
+
+  const clickHand = (c: CardRef) => {
+    if (!canAct) return;
+    if (pending) return say('Finish or cancel what you’re doing first.');
+    if (c.card.types.includes('Land')) {
+      if (g.playLand(YOU, c.iid)) refresh();
+      else say(g.whyNotCast(YOU, c.iid) ?? 'Can’t play that now.');
+      return;
+    }
+    const why = g.whyNotCast(YOU, c.iid);
+    if (why) return say(why);
+    const a = abilitiesOf(c.card);
+    if (a.modes.length > 1) setPending({ k: 'mode', iid: c.iid });
+    else castWithMode(c.iid, a.modes.length ? 0 : undefined);
+  };
+
+  const clickPlayer = (id: PlayerId) => {
+    const r: TargetRef = { kind: 'player', id };
+    if (currentSlot && isLegal(r)) choose(r);
+  };
+
+  const clickPerm = (p: Perm) => {
+    const r: TargetRef = { kind: 'perm', iid: p.iid };
+    if (pending?.k === 'target') {
+      if (isLegal(r)) choose(r);
+      else say('Not a legal target.');
+      return;
+    }
+    if (pending?.k === 'equip') {
+      if (p.controller === YOU && g.isCreature(p) && g.equip(YOU, pending.iid, p.iid)) {
+        setPending(null);
+        refresh();
+      } else say('Choose one of your creatures.');
+      return;
+    }
+    if (pending) return;
+    if (myTurn && g.phase === 'attack' && p.controller === YOU) {
+      if (!g.canAttack(p)) return say(g.isSick(p) ? `${p.card.name} just arrived (summoning sickness).` : `${p.card.name} can’t attack.`);
+      setAttackers((a) => (a.includes(p.iid) ? a.filter((x) => x !== p.iid) : [...a, p.iid]));
+      return;
+    }
+    if (defending) {
+      if (p.controller === YOU && g.isCreature(p)) {
+        if (picking === p.iid) return setPicking(null);
+        // Clicking an assigned blocker unassigns it.
+        const assigned = Object.entries(blocks).find(([, bs]) => bs.includes(p.iid));
+        if (assigned) {
+          setBlocks((b) => ({ ...b, [+assigned[0]]: b[+assigned[0]].filter((x) => x !== p.iid) }));
+          return;
+        }
+        if (p.tapped) return say(`${p.card.name} is tapped.`);
+        setPicking(p.iid);
+        return;
+      }
+      if (p.controller === AI && g.combat?.attackers.includes(p.iid)) {
+        if (picking === null) return say('Click one of your creatures first, then the attacker it should block.');
+        const blocker = g.perm(picking)!;
+        if (!g.canBlock(blocker, p)) return say(`${blocker.card.name} can’t block ${p.card.name}${g.has(p, 'Flying') ? ' (flying)' : ''}.`);
+        setBlocks((b) => ({ ...b, [p.iid]: [...(b[p.iid] ?? []), picking] }));
+        setPicking(null);
+        return;
+      }
+    }
+    if (p.controller === YOU && canAct) {
+      const usable = g.usableAbilities(YOU, p.iid);
+      const equip = g.canEquip(YOU, p.iid);
+      if (usable.length + (equip ? 1 : 0) > 1) return setPending({ k: 'abilities', iid: p.iid });
+      if (usable.length === 1) return activate(p, usable[0]);
+      if (equip) return setPending({ k: 'equip', iid: p.iid });
+      const a = g.ab(p);
+      if (a.activated.length) say('You can’t use that ability right now (mana, tapping or timing).');
+    }
+  };
+
+  const activate = (p: Perm, index: number) => {
+    const act = g.ab(p).activated[index];
+    const slots = targetSlots(act.effects).map((spec, i) => ({ spec, required: !spec.optional, label: `${p.card.name}: ${describeEffect(act.effects[Math.min(i, act.effects.length - 1)])}` }));
+    startTargeting({ k: 'target', from: 'ability', iid: p.iid, ability: index, slots, chosen: [] });
+  };
+
+  // ------------------------------------------------------------- primary actions
+
+  const blockProblem = defending ? g.blockProblem(blocks) : null;
+  const actions: { label: string; run: () => void; primary?: boolean; disabled?: boolean; title?: string }[] = [];
+  if (g.winner !== null) {
+    actions.push({ label: 'Rematch', primary: true, run: onRematch });
+    actions.push({ label: 'New decks', run: onNewDecks });
+  } else if (!pending) {
+    if (myTurn && g.phase === 'main1') {
+      const any = g.creatures(YOU).some((p) => g.canAttack(p));
+      actions.push({ label: any ? 'Attack ▸' : 'Go to combat ▸', primary: any, run: () => (g.goToCombat(), refresh()) });
+      actions.push({ label: 'End turn', primary: !any, run: () => (g.goToCombat(), g.declareAttackers([]), g.endTurn(), refresh()) });
+    } else if (myTurn && g.phase === 'attack') {
+      const able = g.creatures(YOU).filter((p) => g.canAttack(p));
+      actions.push({ label: attackers.length ? `Attack with ${attackers.length}` : 'No attack', primary: true, run: () => (g.declareAttackers(attackers), refresh()) });
+      if (able.length && attackers.length < able.length) actions.push({ label: 'Select all', run: () => setAttackers(able.map((p) => p.iid)) });
+    } else if (myTurn && g.phase === 'combat') {
+      actions.push({ label: 'Deal combat damage', primary: true, run: () => (g.resolveCombat(), refresh()) });
+    } else if (myTurn && g.phase === 'main2') {
+      actions.push({ label: 'End turn', primary: true, run: () => (g.endTurn(), refresh()) });
+    } else if (defending) {
+      const n = Object.values(blocks).reduce((k, b) => k + b.length, 0);
+      actions.push({
+        label: n ? `Confirm ${n} block${n > 1 ? 's' : ''}` : 'No blocks',
+        primary: true,
+        disabled: !!blockProblem,
+        title: blockProblem ?? undefined,
+        run: () => {
+          if (g.declareBlockers(blocks)) refresh();
+          else say(blockProblem ?? 'Those blocks aren’t legal.');
+        },
+      });
+    }
+  }
+
+  // Keyboard: Space/Enter = main button, Esc = cancel.
+  const primary = actions.find((a) => a.primary && !a.disabled);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.target as HTMLElement)?.tagName === 'INPUT') return;
+      if (e.key === 'Escape') {
+        setPending(null);
+        setPicking(null);
+        setShowLog(false);
+      } else if ((e.key === ' ' || e.key === 'Enter') && primary && !pending) {
+        e.preventDefault();
+        primary.run();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
+
+  // ------------------------------------------------------------------ rendering
+
+  const prompt = (() => {
+    if (g.winner !== null) return '';
+    if (pending?.k === 'target' && currentSlot) return `Choose a target — ${currentSlot.label}`;
+    if (pending?.k === 'equip') return 'Choose one of your creatures to equip.';
+    if (pending?.k === 'mode') return 'Choose a mode.';
+    if (pending?.k === 'abilities') return 'Choose an ability.';
+    if (myTurn) {
+      if (g.phase === 'main1') return g.players[YOU].landsPlayed ? 'Cast spells, or attack.' : 'Play a land, cast spells, then attack.';
+      if (g.phase === 'attack') return 'Click your creatures to choose attackers.';
+      if (g.phase === 'block') return 'The opponent is choosing blockers…';
+      if (g.phase === 'combat') return 'Blocks are in. Cast an instant, or deal damage.';
+      if (g.phase === 'main2') return 'Cast more spells, or end your turn.';
+    }
+    if (defending) return picking !== null ? `Now click the attacker ${g.perm(picking)?.card.name} should block.` : 'You’re being attacked! Click your creature, then the attacker to block. Instants work too.';
+    return 'The opponent is thinking…';
+  })();
+
+  const hand = g.players[YOU].hand;
+  const recent = g.log.slice(-3);
+  const attackerNumber = (iid: number) => (g.combat?.attackers.indexOf(iid) ?? -1) + 1;
+
+  const permProps = (p: Perm) => {
+    const r: TargetRef = { kind: 'perm', iid: p.iid };
+    const combatBlocks = g.combat?.blocks ?? {};
+    const blocking = defending ? Object.entries(blocks).find(([, bs]) => bs.includes(p.iid)) : Object.entries(combatBlocks).find(([, bs]) => bs.includes(p.iid));
+    return {
+      perm: p,
+      game: g,
+      targetable: !!currentSlot && isLegal(r),
+      selected: attackers.includes(p.iid) || picking === p.iid,
+      attacking: !!g.combat?.attackers.includes(p.iid),
+      attackNo: attackerNumber(p.iid),
+      blockingNo: blocking ? attackerNumber(+blocking[0]) : 0,
+      onClick: () => clickPerm(p),
+      onHover: () => hover(liveInfo(g, p)),
+    };
+  };
+
+  return (
+    <div className="board">
+      <PlayerBar game={g} id={AI} targetable={!!currentSlot && isLegal({ kind: 'player', id: AI })} onClick={() => clickPlayer(AI)} deckName={decks[1].name}>
+        <div className="opp-hand" aria-label={`Opponent has ${g.players[AI].hand.length} cards in hand`}>
+          {g.players[AI].hand.map((c) => (
+            <div key={c.iid} className="mini-back">
+              <CardBack />
+            </div>
+          ))}
+        </div>
+      </PlayerBar>
+      <Battlefield game={g} id={AI} permProps={permProps} />
+
+      <div className="midbar">
+        <div className="phase-track" aria-label="Turn phases">
+          <span className={`whose ${myTurn ? 'you' : 'opp'}`}>{g.winner !== null ? 'Game over' : myTurn ? `Your turn` : `Opponent’s turn`}</span>
+          {PHASES.map((ph) => (
+            <span key={ph.id} className={`phase ${g.phase === ph.id ? 'on' : ''}`}>
+              {ph.label}
+            </span>
+          ))}
+          <span className="muted small">turn {Math.ceil(g.turn / 2)}</span>
+        </div>
+        <div className="prompt" role="status">{prompt}</div>
+        <div className="actions">
+          {pending && (
+            <>
+              {pending.k === 'target' && currentSlot && !currentSlot.required && (
+                <button type="button" onClick={() => choose(null)}>Skip</button>
+              )}
+              <button type="button" onClick={() => setPending(null)}>Cancel</button>
+            </>
+          )}
+          {actions.map((a) => (
+            <button key={a.label} type="button" className={a.primary ? 'primary' : ''} disabled={a.disabled} title={a.title} onClick={a.run}>
+              {a.label}
+            </button>
+          ))}
+        </div>
+        <div className="recent-log" onClick={() => setShowLog(true)} title="Click for the full game log">
+          {recent.map((l, i) => (
+            <div key={`${g.log.length}-${i}`} className={`log-line who-${l.who ?? 'n'}`}>{l.text}</div>
+          ))}
+        </div>
+      </div>
+
+      <Battlefield game={g} id={YOU} permProps={permProps} />
+      <PlayerBar game={g} id={YOU} targetable={!!currentSlot && isLegal({ kind: 'player', id: YOU })} onClick={() => clickPlayer(YOU)} deckName={decks[0].name}>
+        <div className="speed">
+          <span className="muted small">AI speed</span>
+          {(Object.keys(SPEEDS) as (keyof typeof SPEEDS)[]).map((s) => (
+            <button key={s} type="button" className={`pill ${speed === s ? 'on' : ''}`} onClick={() => setSpeed(s)}>
+              {s}
+            </button>
+          ))}
+          <button type="button" className="pill" onClick={onHelp}>?</button>
+        </div>
+      </PlayerBar>
+      <div className="hand" aria-label="Your hand">
+        {hand.map((c) => {
+          const playable = canAct && !pending && g.whyNotCast(YOU, c.iid) === null;
+          return (
+            <button
+              key={c.iid}
+              type="button"
+              className={`hand-card ${playable ? 'playable' : ''}`}
+              onClick={() => clickHand(c)}
+              onMouseEnter={() => hover({ card: c.card })}
+              aria-label={`${c.card.name}${playable ? ' (playable)' : ''}`}
+            >
+              <CardFace card={c.card} />
+            </button>
+          );
+        })}
+        {!hand.length && <div className="muted small empty-hand">Your hand is empty.</div>}
+      </div>
+
+      {pending?.k === 'mode' && (
+        <Modal title="Choose one" onClose={() => setPending(null)}>
+          {abilitiesOf(hand.find((c) => c.iid === pending.iid)!.card).modes.map((m, i) => {
+            const c = hand.find((x) => x.iid === pending.iid)!;
+            const slots = g.castSlots(c.card, i);
+            const ok = slots.every((s) => !s.required || g.legalTargets(YOU, s.spec).length > 0);
+            return (
+              <button key={i} type="button" className="mode-option" disabled={!ok} onClick={() => castWithMode(pending.iid, i)}>
+                {m.map(describeEffect).join(', ')}
+              </button>
+            );
+          })}
+        </Modal>
+      )}
+      {pending?.k === 'abilities' && (() => {
+        const p = g.perm(pending.iid);
+        if (!p) return null;
+        return (
+          <Modal title={p.card.name} onClose={() => setPending(null)}>
+            {g.usableAbilities(YOU, p.iid).map((i) => (
+              <button key={i} type="button" className="mode-option" onClick={() => activate(p, i)}>
+                {g.ab(p).activated[i].text}
+              </button>
+            ))}
+            {g.canEquip(YOU, p.iid) && (
+              <button type="button" className="mode-option" onClick={() => setPending({ k: 'equip', iid: p.iid })}>
+                Equip <ManaCost cost={costText(g.ab(p).attach!.equip!)} size={13} />
+              </button>
+            )}
+          </Modal>
+        );
+      })()}
+      {showLog && (
+        <Modal title="Game log" onClose={() => setShowLog(false)} wide>
+          <div className="full-log">
+            {g.log.map((l, i) => (
+              <div key={i} className={`log-line who-${l.who ?? 'n'}`}>
+                <span className="muted">T{Math.ceil(l.turn / 2)}</span> {l.text}
+              </div>
+            ))}
+          </div>
+        </Modal>
+      )}
+      {g.winner !== null && !hideOver && (
+        <div className="game-over">
+          <div className="game-over-card">
+            <h2>{g.winner === YOU ? 'Victory!' : g.winner === AI ? 'Defeat' : 'Draw'}</h2>
+            <p className="muted">{g.log[g.log.length - 1]?.text}</p>
+            <div className="actions">
+              <button type="button" className="primary" onClick={onRematch}>Rematch (same decks)</button>
+              <button type="button" onClick={onNewDecks}>New decks</button>
+              <button type="button" onClick={() => setShowLog(true)}>Game log</button>
+              <button type="button" onClick={() => setHideOver(true)}>View board</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {toast && <div className="toast" role="alert">{toast}</div>}
+    </div>
+  );
+}
+
+function costText(c: { generic: number; pips: string[][] }) {
+  return `${c.generic ? `{${c.generic}}` : ''}${c.pips.map((p) => `{${p.join('/')}}`).join('')}` || '{0}';
+}
+
+function liveInfo(g: Game, p: Perm): Hovered {
+  const notes: string[] = [];
+  if (p.counters) notes.push(`+${p.counters}/+${p.counters} counters`);
+  if (p.damage) notes.push(`${p.damage} damage`);
+  if (g.isSick(p)) notes.push('summoning sick');
+  if (p.tapped) notes.push('tapped');
+  if (p.attachedTo !== null) notes.push(`attached to ${g.perm(p.attachedTo)?.card.name}`);
+  if (p.token) notes.push('token');
+  return { card: p.card, live: { power: g.power(p), toughness: g.toughness(p), keywords: [...g.keywords(p)], notes } };
+}
+
+function PlayerBar({ game: g, id, targetable, onClick, deckName, children }: { game: Game; id: PlayerId; targetable: boolean; onClick: () => void; deckName: string; children?: ReactNode }) {
+  const p = g.players[id];
+  return (
+    <div className={`player-bar ${id === YOU ? 'you' : 'opp'} ${g.active === id ? 'active' : ''}`}>
+      <button type="button" className={`life ${targetable ? 'targetable' : ''}`} onClick={onClick} aria-label={`${p.name}: ${p.life} life`}>
+        <span key={p.life} className="life-num">{p.life}</span>
+        <span className="life-label">{p.name}</span>
+      </button>
+      <span className="muted small deck-name" title={deckName}>{deckName}</span>
+      <span className="zone" title="Cards left in library">📚 {p.library.length}</span>
+      <span className="zone" title="Cards in hand">✋ {p.hand.length}</span>
+      <span className="zone" title={p.graveyard.map((c) => c.card.name).join(', ') || 'Empty'}>🪦 {p.graveyard.length}</span>
+      <ManaPool game={g} id={id} />
+      {children}
+    </div>
+  );
+}
+
+function ManaPool({ game: g, id }: { game: Game; id: PlayerId }) {
+  const sources = g.manaSources(id);
+  const counts = new Map<string, number>();
+  for (const s of sources) {
+    const k = s.options.length > 1 ? (s.options.length === 5 ? 'any' : s.options.join('/')) : s.options[0];
+    counts.set(k, (counts.get(k) ?? 0) + s.amount);
+  }
+  return (
+    <span className="mana-pool" title="Untapped mana available">
+      {[...counts.entries()].map(([k, n]) => (
+        <span key={k} className="mana-count">
+          {k === 'any' ? '✦' : <ManaCost cost={`{${k}}`} size={15} />}×{n}
+        </span>
+      ))}
+      {!counts.size && <span className="muted small">no mana</span>}
+    </span>
+  );
+}
+
+interface PermProps {
+  perm: Perm;
+  game: Game;
+  targetable: boolean;
+  selected: boolean;
+  attacking: boolean;
+  attackNo: number;
+  blockingNo: number;
+  onClick: () => void;
+  onHover: () => void;
+}
+
+function Battlefield({ game: g, id, permProps }: { game: Game; id: PlayerId; permProps: (p: Perm) => PermProps }) {
+  const perms = g.players[id].battlefield;
+  const lands = perms.filter((p) => p.card.types.includes('Land') && !g.isCreature(p));
+  const others = perms.filter((p) => !lands.includes(p));
+  const creatures = others.filter((p) => g.isCreature(p));
+  const support = others.filter((p) => !g.isCreature(p));
+  const landRow = (
+    <div className="land-row">
+      {groupLands(lands).map(([card, ps]) => (
+        <LandStack key={card.name} card={card} perms={ps} permProps={permProps} />
+      ))}
+    </div>
+  );
+  return (
+    <div className={`battlefield ${id === YOU ? 'you' : 'opp'}`}>
+      {landRow}
+      <div className="perm-row">
+        {creatures.map((p) => (
+          <PermView key={p.iid} {...permProps(p)} />
+        ))}
+        {support.length > 0 && <div className="perm-divider" />}
+        {support.map((p) => (
+          <PermView key={p.iid} {...permProps(p)} />
+        ))}
+        {!others.length && <div className="muted small empty-row">{id === YOU ? 'Your creatures will appear here.' : ''}</div>}
+      </div>
+    </div>
+  );
+}
+
+function groupLands(lands: Perm[]): [Card, Perm[]][] {
+  const m = new Map<string, Perm[]>();
+  for (const l of lands) m.set(l.card.name, [...(m.get(l.card.name) ?? []), l]);
+  return [...m.values()].map((ps) => [ps[0].card, ps]);
+}
+
+function LandStack({ card, perms, permProps }: { card: Card; perms: Perm[]; permProps: (p: Perm) => PermProps }) {
+  const untapped = perms.filter((p) => !p.tapped).length;
+  const first = permProps(perms[0]);
+  const targetable = perms.map(permProps).find((x) => x.targetable);
+  return (
+    <button
+      type="button"
+      className={`land-stack ${untapped === 0 ? 'all-tapped' : ''} ${targetable ? 'targetable' : ''}`}
+      onMouseEnter={first.onHover}
+      onClick={() => (targetable ?? first).onClick()}
+      aria-label={`${card.name}: ${untapped} of ${perms.length} untapped`}
+    >
+      <CardFace card={card} />
+      <span className="land-count">
+        {untapped}/{perms.length}
+      </span>
+    </button>
+  );
+}
+
+function PermView({ perm: p, game: g, targetable, selected, attacking, attackNo, blockingNo, onClick, onHover }: PermProps) {
+  const creature = g.isCreature(p);
+  const power = creature ? g.power(p) : 0;
+  const toughness = creature ? g.toughness(p) : 0;
+  const changed = creature && (power !== p.card.power || toughness !== p.card.toughness);
+  const host = p.attachedTo !== null ? g.perm(p.attachedTo) : null;
+  const sick = g.isSick(p) && g.active === p.controller;
+  const kws = creature ? [...g.keywords(p)].filter((k) => !['Prowess', 'Flash'].includes(k)) : [];
+  return (
+    <button
+      type="button"
+      className={['perm', p.tapped ? 'tapped' : '', targetable ? 'targetable' : '', selected ? 'selected' : '', attacking ? 'attacking' : '', blockingNo ? 'blocking' : ''].join(' ')}
+      onClick={onClick}
+      onMouseEnter={onHover}
+      aria-label={`${p.card.name}${creature ? ` ${power}/${toughness}` : ''}${p.tapped ? ', tapped' : ''}`}
+    >
+      <div className="perm-card">
+        <CardFace card={p.card} />
+      </div>
+      {creature && (
+        <span className={`pt ${changed ? (power + toughness > (p.card.power ?? 0) + (p.card.toughness ?? 0) ? 'up' : 'down') : ''}`}>
+          {power}/{toughness - p.damage}
+        </span>
+      )}
+      {p.damage > 0 && <span className="dmg">−{p.damage}</span>}
+      {p.counters > 0 && <span className="ctr">+{p.counters}</span>}
+      {sick && <span className="sick" title="Summoning sick: can’t attack or tap this turn">zzz</span>}
+      {attackNo > 0 && <span className="badge atk">⚔{attackNo}</span>}
+      {blockingNo > 0 && <span className="badge blk">🛡{blockingNo}</span>}
+      {host && <span className="attached" title={`Attached to ${host.card.name}`}>↳ {host.card.name}</span>}
+      {kws.length > 0 && <span className="kw-strip">{kws.map(kwIcon).join('')}</span>}
+    </button>
+  );
+}
+
+const KW_ICON: Record<string, string> = {
+  Flying: '🪽', Reach: '🏹', Haste: '⚡', Vigilance: '👁', Trample: '🦶', Lifelink: '❤', Deathtouch: '☠', 'First strike': '⚔', 'Double strike': '⚔⚔',
+  Defender: '🧱', Menace: '😈', Indestructible: '💎', Hexproof: '🛡', Shroud: '🌫', Unblockable: '👻',
+};
+const kwIcon = (k: string) => KW_ICON[k] ?? '';
+
+function Modal({ title, children, onClose, wide }: { title: string; children: ReactNode; onClose: () => void; wide?: boolean }) {
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className={`modal ${wide ? 'wide' : ''}`} onClick={(e) => e.stopPropagation()} role="dialog" aria-label={title}>
+        <div className="modal-head">
+          <h3>{title}</h3>
+          <button type="button" className="close" onClick={onClose} aria-label="Close">✕</button>
+        </div>
+        <div className="modal-body">{children}</div>
+      </div>
+    </div>
+  );
+}
