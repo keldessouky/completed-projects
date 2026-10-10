@@ -58,7 +58,7 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           NODE="Reactor Quest.app/Contents/Resources/runtime/node"
-          lipo -verify_arch arm64 x86_64 "$NODE"
+          lipo "$NODE" -verify_arch arm64 x86_64
           codesign --verify --arch arm64 "$NODE" && codesign --verify --arch x86_64 "$NODE"
           "$NODE" --version
           # Launch exactly as Finder does, with no Node.js on the PATH.
