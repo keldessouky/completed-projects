@@ -119,6 +119,7 @@ reactor-quest/
     generated/typings.json   # built by tools/gen-typings.mjs, gitignored
   tests/      levels  review  explain  checker  runtime  progress  rewards  themes  markdown
   tools/      gen-typings.mjs  server.mjs  launch.mjs  packaging.mjs  icon.mjs
+              node-runtime.mjs  node-runtime.d.mts
               make-mac-app.mjs  make-win-app.mjs  make-linux-app.mjs  smoke.mjs
 ~~~~
 
@@ -6883,7 +6884,7 @@ import { createServer, request } from 'node:http';
 import { createWriteStream, mkdirSync } from 'node:fs';
 import { readFile, stat } from 'node:fs/promises';
 import { dirname, extname, join, normalize, resolve, sep } from 'node:path';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const MIME = {
@@ -6989,6 +6990,34 @@ export function openBrowser(url) {
 }
 
 /** Is this module the script node was started with? (Case-insensitive on Windows, where drive letters vary.) */
+/**
+ * Show a message in a native dialog. The packaged apps start the server with
+ * no console, so without this an error would only reach the log file.
+ * Best effort: if no dialog tool is available, the message is still logged.
+ */
+export function showDialog(message) {
+  const env = { ...process.env, REACTOR_MESSAGE: message };
+  const run = (cmd, args) => {
+    try {
+      return spawnSync(cmd, args, { env, stdio: 'ignore', timeout: 10 * 60_000 }).status === 0;
+    } catch {
+      return false;
+    }
+  };
+  // The message travels in an environment variable, so nothing needs escaping.
+  if (process.platform === 'darwin') {
+    return run('osascript', ['-e', 'display dialog (system attribute "REACTOR_MESSAGE") with title "Reactor Quest" buttons {"OK"} default button "OK" with icon caution']);
+  }
+  if (process.platform === 'win32') {
+    return run('powershell', ['-NoProfile', '-NonInteractive', '-Command',
+      "Add-Type -AssemblyName PresentationFramework; [void][System.Windows.MessageBox]::Show($env:REACTOR_MESSAGE, 'Reactor Quest', 'OK', 'Warning')"]);
+  }
+  const markup = message.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return run('zenity', ['--warning', '--title=Reactor Quest', '--no-wrap', `--text=${markup}`])
+    || run('kdialog', ['--title', 'Reactor Quest', '--sorry', message])
+    || run('notify-send', ['Reactor Quest', message]);
+}
+
 export function isMain(metaUrl) {
   if (!process.argv[1]) return false;
   const [a, b] = [resolve(process.argv[1]), fileURLToPath(metaUrl)];
@@ -6996,6 +7025,8 @@ export function isMain(metaUrl) {
 }
 
 // Run directly: node server.mjs [folder] [--app] [--no-open] [--port N] [--log FILE]
+// With --app (the packaged apps, which have no console), a failure to start is
+// also shown in a dialog, unless --no-open says nobody is watching.
 if (isMain(import.meta.url)) {
   const args = process.argv.slice(2);
   const flag = (f) => args.includes(f);
@@ -7021,6 +7052,7 @@ if (isMain(import.meta.url)) {
       if (!flag('--no-open')) openBrowser(url);
     } catch (e) {
       console.error(e.message);
+      if (flag('--app') && !flag('--no-open')) showDialog(e.message);
       process.exit(1);
     }
   }
@@ -7187,7 +7219,7 @@ exec node tools/launch.mjs "$@"
 
 ## Part 12. Native packages for macOS, Windows and Linux
 
-Each packager builds the game (unless given `--skip-build`), copies `dist/` to `app/` and `server.mjs` beside it, and adds a launcher and the icon. Node.js must be installed on the player's machine; every launcher detects a missing Node and says how to install it, with a native dialog where possible.
+Each packager builds the game (unless given `--skip-build`), copies `dist/` to `app/` and `server.mjs` beside it, and adds a launcher and the icon. With `--with-node`, the package also carries its own Node.js in `runtime/`, so players install nothing; every launcher tries that copy first. Without it, Node.js must be installed on the player's machine, and every launcher detects a missing Node and says how to install it, with a native dialog where possible. The packaged apps have no console, so the server itself (with `--app`) shows startup failures such as a busy port in a native dialog (`showDialog` in `server.mjs`).
 
 **`tools/packaging.mjs`**
 
@@ -7229,6 +7261,172 @@ export function stageApp(dir) {
 
 /** Windows scripts want CRLF line endings. */
 export const crlf = (text) => text.replace(/\r?\n/g, '\r\n');
+~~~~
+
+### Bundling Node.js: `--with-node`
+
+`tools/node-runtime.mjs` downloads an official Node.js 22 LTS build from nodejs.org, checks it against that release's `SHASUMS256.txt`, caches it in `node_modules/.cache/reactor-node`, and keeps only the `node` executable plus its `LICENSE`. It needs no dependencies: `node:zlib` gunzips the tarball and a 25-line reader walks the tar headers (with GNU long names, pax `path=` records and the ustar prefix). Windows uses the standalone `win-x64/node.exe`. For the Mac, it joins the `darwin-arm64` and `darwin-x64` executables into one universal Mach-O the way `lipo -create` does: a big-endian fat header (`0xcafebabe`, then cputype, cpusubtype, offset, size and alignment 2^14 per slice, copied from each slice's own header), then each slice at a 16 KiB boundary. Each slice keeps Node's own code signature. Node 22 rather than a newer line, because it still runs on macOS 11 and older glibc. The `.d.mts` file gives the tests its types.
+
+**`tools/node-runtime.mjs`**
+
+~~~~js
+// `--with-node` for the app packagers: put an official Node.js runtime inside
+// the package, so players don't have to install Node.js themselves.
+//
+// The runtime comes from nodejs.org, is checked against the release's
+// published SHA-256 sums, and is cached in node_modules/.cache so packaging
+// again doesn't download it again. Only the `node` executable is kept: the
+// game's server needs nothing else. No dependencies: Node can gunzip, and a
+// tar archive is simple enough to read by hand.
+//
+//   macOS    one universal executable (Apple silicon + Intel), built by
+//            joining the two official ones the way `lipo` does
+//   Windows  the official standalone node.exe (x64; Windows on Arm runs it too)
+//   Linux    x64 or arm64, from the official tarball
+import { createHash } from 'node:crypto';
+import { chmodSync, existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { gunzipSync } from 'node:zlib';
+import { root } from './packaging.mjs';
+
+/** The Node.js line to bundle: an LTS that still runs on macOS 11 and the glibc in common distros. */
+export const NODE_LINE = 22;
+const DIST = 'https://nodejs.org/dist';
+const cache = join(root, 'node_modules', '.cache', 'reactor-node');
+
+async function get(url) {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Downloading ${url} failed: ${res.status} ${res.statusText}`);
+  return Buffer.from(await res.arrayBuffer());
+}
+
+/** The newest release of `line` (or exactly `wanted`, like "22.23.3"). */
+async function resolveVersion(wanted) {
+  if (wanted && /^\d+\.\d+\.\d+$/.test(wanted)) return `v${wanted}`;
+  const line = wanted ?? NODE_LINE;
+  const releases = JSON.parse((await get(`${DIST}/index.json`)).toString('utf8'));
+  const found = releases.find((r) => r.version.startsWith(`v${line}.`));
+  if (!found) throw new Error(`No Node.js ${line} release found on nodejs.org.`);
+  return found.version;
+}
+
+/** A file from a release, checked against the release's SHASUMS256.txt. */
+async function verified(version, file) {
+  const cached = join(cache, version, file);
+  if (existsSync(cached)) return readFileSync(cached);
+  const sums = (await get(`${DIST}/${version}/SHASUMS256.txt`)).toString('utf8');
+  const expected = sums.split('\n').map((l) => l.trim().split(/\s+/)).find(([, name]) => name === file)?.[0];
+  if (!expected) throw new Error(`${file} isn't listed in the Node.js ${version} checksums.`);
+  console.log(`Downloading Node.js ${version}: ${file}`);
+  const data = await get(`${DIST}/${version}/${file}`);
+  const actual = createHash('sha256').update(data).digest('hex');
+  if (actual !== expected) throw new Error(`${file} doesn't match its published checksum (expected ${expected}, got ${actual}).`);
+  mkdirSync(join(cache, version, ...file.split('/').slice(0, -1)), { recursive: true });
+  writeFileSync(`${cached}.part`, data);
+  renameSync(`${cached}.part`, cached);
+  return data;
+}
+
+/** The contents of the first regular file in a .tar.gz whose path ends with `suffix`. */
+export function fromTarGz(archive, suffix) {
+  const tar = gunzipSync(archive);
+  let longName = null;
+  for (let at = 0; at + 512 <= tar.length; ) {
+    const header = tar.subarray(at, at + 512);
+    if (header.every((b) => b === 0)) break;
+    const field = (start, length) => header.subarray(start, start + length).toString('utf8').replace(/\0.*$/s, '');
+    const size = parseInt(field(124, 12).trim() || '0', 8);
+    const type = field(156, 1) || '0';
+    const body = tar.subarray(at + 512, at + 512 + size);
+    at += 512 + Math.ceil(size / 512) * 512;
+    // GNU long names and pax headers carry the real path of the next entry.
+    if (type === 'L') { longName = body.toString('utf8').replace(/\0.*$/s, ''); continue; }
+    if (type === 'x') { longName = body.toString('utf8').match(/^\d+ path=(.*)$/m)?.[1] ?? null; continue; }
+    const prefix = field(345, 155);
+    const name = longName ?? (prefix ? `${prefix}/${field(0, 100)}` : field(0, 100));
+    longName = null;
+    if ((type === '0' || type === '7') && name.endsWith(suffix)) return Buffer.from(body);
+  }
+  throw new Error(`No ${suffix} in the archive.`);
+}
+
+/**
+ * One universal Mach-O executable from thin ones, as `lipo -create` makes it.
+ * Each slice keeps its own code signature, so the result stays signed.
+ */
+export function universal(slices) {
+  const ALIGN = 14; // 16 KiB, what lipo uses for arm64 and x86_64
+  const header = Buffer.alloc(8 + 20 * slices.length);
+  header.writeUInt32BE(0xcafebabe, 0);
+  header.writeUInt32BE(slices.length, 4);
+  const parts = [header];
+  let offset = header.length;
+  slices.forEach((slice, i) => {
+    if (slice.readUInt32LE(0) !== 0xfeedfacf) throw new Error('Not a 64-bit Mach-O executable.');
+    const padding = (-offset & ((1 << ALIGN) - 1)) >>> 0;
+    parts.push(Buffer.alloc(padding));
+    offset += padding;
+    const entry = 8 + 20 * i;
+    header.writeUInt32BE(slice.readUInt32LE(4), entry); // cputype
+    header.writeUInt32BE(slice.readUInt32LE(8), entry + 4); // cpusubtype
+    header.writeUInt32BE(offset, entry + 8);
+    header.writeUInt32BE(slice.length, entry + 12);
+    header.writeUInt32BE(ALIGN, entry + 16);
+    parts.push(slice);
+    offset += slice.length;
+  });
+  return Buffer.concat(parts);
+}
+
+/** The bundling options given to a packager, or null without --with-node. */
+export function nodeOptions() {
+  const args = process.argv.slice(2);
+  if (!args.includes('--with-node')) return null;
+  const value = (f) => (args.includes(f) ? args[args.indexOf(f) + 1] : undefined);
+  return { version: value('--node-version'), arch: value('--arch') };
+}
+
+/**
+ * Put a Node.js executable for `target` (darwin, win32 or linux) at `dest`.
+ * Returns the version bundled, like "v22.23.3".
+ */
+export async function bundleNode(target, dest, { version: wanted, arch } = {}) {
+  const version = await resolveVersion(wanted);
+  const tarball = (platform) => verified(version, `node-${version}-${platform}.tar.gz`);
+  let binary;
+  let licenseFrom;
+  if (target === 'darwin') {
+    binary = universal([fromTarGz(await tarball('darwin-arm64'), '/bin/node'), fromTarGz(await tarball('darwin-x64'), '/bin/node')]);
+    licenseFrom = 'darwin-arm64';
+  } else if (target === 'win32') {
+    binary = await verified(version, 'win-x64/node.exe');
+    // node.exe comes alone; its licence is the same in every release archive.
+    licenseFrom = 'linux-x64';
+  } else if (target === 'linux') {
+    const a = arch ?? (process.arch === 'arm64' ? 'arm64' : 'x64');
+    if (!['x64', 'arm64'].includes(a)) throw new Error(`Can't bundle Node.js for Linux on ${a}: use --arch x64 or --arch arm64.`);
+    binary = fromTarGz(await tarball(`linux-${a}`), '/bin/node');
+    licenseFrom = `linux-${a}`;
+  } else throw new Error(`Can't bundle Node.js for ${target}.`);
+  mkdirSync(dirname(dest), { recursive: true });
+  writeFileSync(dest, binary);
+  chmodSync(dest, 0o755);
+  // Node.js's own licence travels with it.
+  writeFileSync(join(dirname(dest), 'NODE-LICENSE.txt'), fromTarGz(await tarball(licenseFrom), `${version}-${licenseFrom}/LICENSE`));
+  console.log(`Bundled Node.js ${version} (${(binary.length / 1e6).toFixed(0)} MB)`);
+  return version;
+}
+~~~~
+
+**`tools/node-runtime.d.mts`**
+
+~~~~text
+// Types for node-runtime.mjs, so the tests can import it.
+export const NODE_LINE: number;
+export function fromTarGz(archive: Buffer, suffix: string): Buffer;
+export function universal(slices: Buffer[]): Buffer;
+export function nodeOptions(): { version?: string; arch?: string } | null;
+export function bundleNode(target: 'darwin' | 'win32' | 'linux', dest: string, options?: { version?: string; arch?: string }): Promise<string>;
 ~~~~
 
 ### The icon, drawn in code
@@ -7385,10 +7583,14 @@ A real app bundle: `Info.plist` (with `LSUIElement` so no Dock icon lingers), th
 // the Dock. It carries its own copy of the game and a tiny server; opening it
 // starts the server and the game opens in your default browser. The server
 // stops by itself about a minute after you close the game's tab.
-// (Node.js must be installed; the app tells you if it isn't.)
+//
+// With --with-node the app carries its own Node.js (one universal executable
+// for Apple silicon and Intel), so nothing else needs installing. Without it,
+// Node.js must be installed; the app tells you if it isn't.
 import { chmodSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { makeIcns } from './icon.mjs';
+import { bundleNode, nodeOptions } from './node-runtime.mjs';
 import { ensureBuild, outDir, pkg, stageApp } from './packaging.mjs';
 
 const out = outDir('Reactor Quest.app');
@@ -7401,6 +7603,8 @@ const resources = join(contents, 'Resources');
 mkdirSync(macos, { recursive: true });
 stageApp(resources);
 writeFileSync(join(resources, 'AppIcon.icns'), makeIcns());
+const withNode = nodeOptions();
+if (withNode) await bundleNode('darwin', join(resources, 'runtime', 'node'), withNode);
 
 writeFileSync(
   join(contents, 'Info.plist'),
@@ -7429,8 +7633,15 @@ const launcher = join(macos, 'reactor-quest');
 writeFileSync(
   launcher,
   `#!/bin/bash
-# Reactor Quest launcher: find Node.js, start the bundled server, open the browser.
+# Reactor Quest launcher: find Node.js (its own copy first), start the bundled
+# server, open the browser.
 HERE="$(cd "$(dirname "$0")/../Resources" && pwd)"
+# Pass on options like --no-open, but not the -psn_ process id older macOS adds.
+ARGS=()
+for a in "$@"; do case "$a" in -psn_*) ;; *) ARGS+=("$a") ;; esac; done
+if "$HERE/runtime/node" -e 0 >/dev/null 2>&1; then
+  exec "$HERE/runtime/node" "$HERE/server.mjs" "$HERE/app" --app "\${ARGS[@]}" >>"$HOME/Library/Logs/reactor-quest.log" 2>&1
+fi
 export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.volta/bin:$HOME/.local/bin:$PATH"
 if ! command -v node >/dev/null 2>&1 && [ -s "$HOME/.nvm/nvm.sh" ]; then
   . "$HOME/.nvm/nvm.sh" >/dev/null 2>&1
@@ -7439,11 +7650,11 @@ if ! command -v node >/dev/null 2>&1; then
   osascript -e 'display dialog "Reactor Quest needs Node.js to run. Install it from nodejs.org (or with Homebrew: brew install node), then open Reactor Quest again." with title "Reactor Quest" buttons {"Get Node.js", "OK"} default button "Get Node.js"' -e 'if button returned of result is "Get Node.js" then open location "https://nodejs.org/en/download"' >/dev/null 2>&1
   exit 1
 fi
-exec node "$HERE/server.mjs" "$HERE/app" --app >>"$HOME/Library/Logs/reactor-quest.log" 2>&1
+exec node "$HERE/server.mjs" "$HERE/app" --app "\${ARGS[@]}" >>"$HOME/Library/Logs/reactor-quest.log" 2>&1
 `,
 );
 chmodSync(launcher, 0o755);
-console.log(`Built ${out}\nDouble-click it, or drag it to /Applications.`);
+console.log(`Built ${out}${withNode ? ' (with its own Node.js)' : ''}\nDouble-click it, or drag it to /Applications.`);
 ~~~~
 
 ### Windows: `npm run app:win` → `Reactor Quest (Windows)/`
@@ -7464,16 +7675,21 @@ A folder to zip and copy anywhere. `Reactor Quest.cmd` plays with no install. `I
 //
 // Playing starts the bundled server with no console window and opens the game
 // in your default browser; the server stops by itself about a minute after you
-// close the game's tab. Node.js must be installed; the launcher says so if not.
+// close the game's tab. With --with-node the package carries its own Node.js
+// (runtime\node.exe) and needs nothing else; without it, Node.js must be
+// installed, and the launcher says so if it isn't.
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { makeIco } from './icon.mjs';
+import { bundleNode, nodeOptions } from './node-runtime.mjs';
 import { crlf, ensureBuild, outDir, pkg, stageApp } from './packaging.mjs';
 
 const out = outDir('Reactor Quest (Windows)');
 ensureBuild();
 stageApp(out);
 writeFileSync(join(out, 'reactor-quest.ico'), makeIco());
+const withNode = nodeOptions();
+if (withNode) await bundleNode('win32', join(out, 'runtime', 'node.exe'), withNode);
 
 const write = (name, text) => writeFileSync(join(out, name), crlf(text));
 
@@ -7488,6 +7704,9 @@ $ErrorActionPreference = 'Stop'
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 
 function Find-Node {
+  # Its own copy first, when the package carries one.
+  $bundled = Join-Path $here 'runtime\\node.exe'
+  if (Test-Path $bundled) { return $bundled }
   $cmd = Get-Command node -ErrorAction SilentlyContinue
   if ($cmd) { return $cmd.Source }
   $candidates = @(
@@ -7580,13 +7799,14 @@ write(
   'README.txt',
   `Reactor Quest ${pkg.version} for Windows
 
-Needs Node.js 20.19 or newer: https://nodejs.org (or: winget install OpenJS.NodeJS.LTS)
+${withNode ? 'Nothing else to install: Node.js comes with it (see runtime\\NODE-LICENSE.txt).' : 'Needs Node.js 20.19 or newer: https://nodejs.org (or: winget install OpenJS.NodeJS.LTS)'}
 
   Reactor Quest.cmd   Double-click to play. The game opens in your browser.
   Install.cmd         Adds Reactor Quest to the Start menu and the desktop.
   Uninstall.cmd       Removes it again.
 
 If Windows says "Windows protected your PC", click "More info", then "Run anyway".
+If the game says its port is busy, close the program using port 4310 (or restart) and try again.
 Logs: %LOCALAPPDATA%\\Reactor Quest\\reactor-quest.log
 `,
 );
@@ -7611,16 +7831,22 @@ console.log(`Built ${out}\nZip it, copy it anywhere, and double-click "Reactor Q
 //
 // Playing starts the bundled server in the background and opens the game in
 // your default browser; the server stops by itself about a minute after you
-// close the game's tab. Node.js must be installed; the launcher says so if not.
+// close the game's tab. With --with-node the package carries its own Node.js
+// (runtime/node; --arch x64 or arm64, the machine's own by default) and needs
+// nothing else; without it, Node.js must be installed, and the launcher says
+// so if it isn't.
 import { chmodSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { drawIcon } from './icon.mjs';
+import { bundleNode, nodeOptions } from './node-runtime.mjs';
 import { ensureBuild, outDir, pkg, stageApp } from './packaging.mjs';
 
 const out = outDir('reactor-quest-linux');
 ensureBuild();
 stageApp(out);
 writeFileSync(join(out, 'reactor-quest.png'), drawIcon(256));
+const withNode = nodeOptions();
+if (withNode) await bundleNode('linux', join(out, 'runtime', 'node'), withNode);
 
 const script = (name, text) => {
   writeFileSync(join(out, name), text);
@@ -7634,6 +7860,12 @@ script(
 # background, and open the game in the default browser.
 # Extra arguments (for example --no-open) are passed to the server.
 HERE="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
+LOG="\${XDG_STATE_HOME:-$HOME/.local/state}/reactor-quest/reactor-quest.log"
+# Its own copy of Node.js first, when the package carries one that runs here.
+if "$HERE/runtime/node" -e 0 >/dev/null 2>&1; then
+  nohup "$HERE/runtime/node" "$HERE/server.mjs" "$HERE/app" --app --log "$LOG" "$@" >/dev/null 2>&1 &
+  exit 0
+fi
 export PATH="$HOME/.local/bin:$HOME/.volta/bin:/usr/local/bin:/snap/bin:$PATH"
 if ! command -v node >/dev/null 2>&1 && [ -s "$HOME/.nvm/nvm.sh" ]; then
   . "$HOME/.nvm/nvm.sh" >/dev/null 2>&1
@@ -7656,7 +7888,6 @@ or, for example:  sudo snap install node --classic"
   exit 1
 fi
 
-LOG="\${XDG_STATE_HOME:-$HOME/.local/state}/reactor-quest/reactor-quest.log"
 nohup node "$HERE/server.mjs" "$HERE/app" --app --log "$LOG" "$@" >/dev/null 2>&1 &
 `,
 );
@@ -7721,8 +7952,8 @@ writeFileSync(
   join(out, 'README.txt'),
   `Reactor Quest ${pkg.version} for Linux
 
-Needs Node.js 20.19 or newer: https://nodejs.org/en/download
-(Ubuntu: sudo snap install node --classic · Fedora: sudo dnf install nodejs · Arch: sudo pacman -S nodejs npm)
+${withNode ? 'Nothing else to install: Node.js comes with it (see runtime/NODE-LICENSE.txt).' : `Needs Node.js 20.19 or newer: https://nodejs.org/en/download
+(Ubuntu: sudo snap install node --classic · Fedora: sudo dnf install nodejs · Arch: sudo pacman -S nodejs npm)`}
 
   ./reactor-quest     Play. The game opens in your browser.
   ./install.sh        Adds Reactor Quest to your app menu and ~/.local/bin (no sudo).
@@ -7738,7 +7969,7 @@ console.log(`Built ${out}\nRun ./reactor-quest to play, or ./install.sh to add i
 
 ## Part 13. Tests
 
-`npm test` runs Vitest in jsdom: 473 tests in 9 files. The level proofs are the most important, because they are what lets you write 96 code levels with confidence.
+`npm test` runs Vitest in jsdom: 478 tests in 10 files. The level proofs are the most important, because they are what lets you write 96 code levels with confidence.
 
 | File | What it proves |
 |---|---|
@@ -7750,6 +7981,7 @@ console.log(`Built ${out}\nRun ./reactor-quest to play, or ./install.sh to add i
 | `tests/runtime.test.ts` | Matchers pass and fail with good messages. `deepEqual` ignores undefined-valued keys. The sandbox captures console output and counts timers (one-shot timeouts stop counting once fired). Only `react` can be required. The stage renders, clicks and reads updates. Handler errors, would-be page reloads and render errors fail the check. The loop guard stops `while (true)` and leaves normal loops alone. |
 | `tests/progress.test.ts` | Star rules. The first clear is the first level-up. The curve gets steadily (not wildly) harder. Perfect play reaches Reactor Architect, and every floor gives a level-up at least every three clears. Unlocking order and boss skip. Station power hits 100%. Garbage saves fall back to defaults, fields are validated one by one, saves round-trip, and v1 saves migrate. |
 | `tests/rewards.test.ts` | With a seeded RNG: clearing pays XP, gold, viewers, skill points and a box; same-star replays pay nothing; improvements pay the difference. Boss boxes guarantee the floor scroll. Floor clears bring a sponsor and a platinum box. Pet and class offers appear at the right time. Spaced review: cards join the deck the day after their level, remembering pushes them out and forgetting brings them back tomorrow, reviewing pays more for remembering, a clean session counts, and the review quest waits for a deck. The notebook pays XP once per level for a real explanation and deletes on empty. Replaying for more stars earns Second Wind. Class and boost bonuses apply. The station clear gives a celestial box. Perfect play takes every skill past level 1. Better boxes are better on average. Legendary and celestial guarantees hold. Duplicates are salvaged. Floor scrolls never drop at random. Viewer milestones and Crowd Favourite upgrades work. Achievements are awarded once each, with titles. Persistence counts. Tokens and stars work. Quests are deterministic per day, count from the day's start and pay once. Streaks grow and reset. Shop purchases, one-time cosmetics and the class change fee work. |
+| `tests/packaging.test.ts` | Offline, against archives and executables built in the test: the tar reader finds a file by the end of its path past other entries, understands GNU long names, pax paths and the ustar prefix, and says so when the file is missing. The universal executable has the fat header lipo writes, 16 KiB-aligned slices copied byte for byte, and refuses anything that isn't a 64-bit Mach-O. |
 | `tests/markdown.test.tsx` | Inline spans render, tables honour escaped pipes, HTML in the source stays text, and **every lesson, brief and hint in the game renders without leftover `**`, backticks or `*` markers**. |
 
 These three are worth copying exactly:
@@ -7980,7 +8212,7 @@ Helpers worth having: `setEditor(text)` (focus `.cm-content`, select all, `inser
 
 ## Part 15. Continuous integration
 
-One GitHub Actions workflow runs on macOS, Windows and Linux. On each OS it installs, typechecks, builds, runs every test, and runs the browser bot (twice on macOS: once with ⌘ shortcuts). It then builds that OS's package, **installs it, launches it exactly as a user would, checks that the server serves the game, and uninstalls it**, and uploads the zipped package and the screenshots as artifacts. (In the original monorepo the project lives in a `reactor-quest/` subfolder, hence `working-directory`.)
+One GitHub Actions workflow runs on macOS, Windows and Linux. On each OS it installs, typechecks, builds, runs every test, and runs the browser bot (twice on macOS: once with ⌘ shortcuts). It then builds that OS's package with its own Node.js, **installs it, launches it exactly as a user would with no Node.js on the PATH, checks that the bundled runtime is the one serving the game, and uninstalls it**, and uploads the zipped package and the screenshots as artifacts. On macOS it also checks that the universal executable holds both architectures and that each keeps a valid signature. Pushing a tag like `reactor-quest-v1.0.0` adds a job that attaches the three packages to a GitHub release. (In the original monorepo the project lives in a `reactor-quest/` subfolder, hence `working-directory`.)
 
 **`.github/workflows/reactor-quest.yml`**
 
@@ -7990,6 +8222,8 @@ name: Reactor Quest (macOS, Windows, Linux)
 on:
   push:
     branches: ['**']
+    # Pushing a tag like reactor-quest-v1.0.0 also publishes the packages as a GitHub release.
+    tags: ['reactor-quest-v*']
     paths:
       - 'reactor-quest/**'
       - '.github/workflows/reactor-quest.yml'
@@ -8038,13 +8272,19 @@ jobs:
       # ---------------------------------------------------------------- macOS
       - name: Package Reactor Quest.app
         if: runner.os == 'macOS'
-        run: npm run app:mac -- --skip-build
-      - name: The .app's bundled server serves the game
+        run: npm run app:mac -- --skip-build --with-node
+      - name: The .app runs on its own Node.js (universal, still signed) and serves the game
         if: runner.os == 'macOS'
         run: |
-          node "Reactor Quest.app/Contents/Resources/server.mjs" "Reactor Quest.app/Contents/Resources/app" --no-open --port 4500 &
-          for i in $(seq 1 20); do curl -fs http://127.0.0.1:4500/__reactor && break; sleep 0.5; done
+          NODE="Reactor Quest.app/Contents/Resources/runtime/node"
+          lipo -verify_arch arm64 x86_64 "$NODE"
+          codesign --verify --arch arm64 "$NODE" && codesign --verify --arch x86_64 "$NODE"
+          "$NODE" --version
+          # Launch exactly as Finder does, with no Node.js on the PATH.
+          env -i HOME="$HOME" PATH=/usr/bin:/bin "Reactor Quest.app/Contents/MacOS/reactor-quest" --no-open --port 4500 &
+          for i in $(seq 1 40); do curl -fs http://127.0.0.1:4500/__reactor && break; sleep 0.5; done
           curl -fs http://127.0.0.1:4500/ | grep -q '<div id="root">'
+          ps -axo command | grep -q '[R]esources/runtime/node'
           plutil -lint "Reactor Quest.app/Contents/Info.plist"
       - name: Zip the .app
         if: runner.os == 'macOS'
@@ -8065,7 +8305,7 @@ jobs:
           Get-Process node | Stop-Process -Force
       - name: Package for Windows
         if: runner.os == 'Windows'
-        run: npm run app:win -- --skip-build
+        run: npm run app:win -- --skip-build --with-node
       - name: Install, launch, serve and uninstall the Windows package
         if: runner.os == 'Windows'
         shell: pwsh
@@ -8079,7 +8319,8 @@ jobs:
             $target = (New-Object -ComObject WScript.Shell).CreateShortcut($lnk)
             if ($target.Arguments -notlike "*$dest\launch.ps1*") { throw "shortcut points elsewhere: $($target.Arguments)" }
           }
-          # Launch exactly as the shortcut does, minus the browser.
+          # Launch exactly as the shortcut does, minus the browser, with no Node.js on the PATH.
+          $env:PATH = ($env:PATH -split ';' | Where-Object { -not (Test-Path (Join-Path $_ 'node.exe')) }) -join ';'
           powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "$dest\launch.ps1" --no-open --port 4500
           $ok = $false
           for ($i = 0; $i -lt 40 -and -not $ok; $i++) {
@@ -8088,6 +8329,7 @@ jobs:
           }
           if (-not $ok) { Get-Content "$env:LOCALAPPDATA\Reactor Quest\reactor-quest.log" -ErrorAction SilentlyContinue; throw 'the installed launcher did not start the server' }
           if ((Invoke-WebRequest -UseBasicParsing http://127.0.0.1:4500/).Content -notmatch '<div id="root">') { throw 'the game page is wrong' }
+          if (-not (Get-Process node | Where-Object { $_.Path -like "$dest\runtime\node.exe" })) { throw 'the launcher did not use its own Node.js' }
           Get-Content "$env:LOCALAPPDATA\Reactor Quest\reactor-quest.log"
           Get-Process node | Stop-Process -Force
           powershell -NoProfile -ExecutionPolicy Bypass -File "$dest\uninstall.ps1"
@@ -8108,7 +8350,7 @@ jobs:
           kill %1
       - name: Package for Linux
         if: runner.os == 'Linux'
-        run: npm run app:linux -- --skip-build
+        run: npm run app:linux -- --skip-build --with-node
       - name: Install, launch, serve and uninstall the Linux package
         if: runner.os == 'Linux'
         run: |
@@ -8116,10 +8358,12 @@ jobs:
           export HOME="$RUNNER_TEMP/home" && mkdir -p "$HOME"
           ./reactor-quest-linux/install.sh
           desktop-file-validate "$HOME/.local/share/applications/reactor-quest.desktop"
-          "$HOME/.local/bin/reactor-quest" --no-open --port 4500
+          # No Node.js on the PATH: the package brings its own.
+          env -i HOME="$HOME" PATH=/usr/bin:/bin "$HOME/.local/bin/reactor-quest" --no-open --port 4500
           for i in $(seq 1 40); do curl -fs http://127.0.0.1:4500/__reactor && break; sleep 0.5; done
           curl -fs http://127.0.0.1:4500/ | grep -q '<div id="root">'
           cat "$HOME/.local/state/reactor-quest/reactor-quest.log"
+          pgrep -f 'reactor-quest/runtime/node' >/dev/null
           pkill -f 'reactor-quest/server.mjs'
           "$HOME/.local/share/reactor-quest/uninstall.sh"
           test ! -e "$HOME/.local/share/reactor-quest" && test ! -e "$HOME/.local/share/applications/reactor-quest.desktop"
@@ -8140,6 +8384,34 @@ jobs:
         with:
           name: reactor-quest-screenshots-${{ matrix.label }}
           path: reactor-quest/test-results/
+
+  release:
+    name: Publish the packages as a GitHub release
+    if: startsWith(github.ref, 'refs/tags/reactor-quest-v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: reactor-quest-*
+          path: packages
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          name: Reactor Quest ${{ github.ref_name }}
+          body: |
+            Download the file for your computer, unzip it and double-click. Nothing else to install.
+
+            - **macOS** (Apple silicon and Intel): `reactor-quest-macos.zip`, then open *Reactor Quest.app*. The first time, macOS asks you to confirm: open *System Settings → Privacy & Security* and click *Open Anyway*.
+            - **Windows**: `reactor-quest-windows.zip`, then double-click *Reactor Quest.cmd* (or *Install.cmd*). If Windows says it protected your PC, click *More info*, then *Run anyway*.
+            - **Linux** (x64): `reactor-quest-linux.tar.gz`, then run `./reactor-quest` (or `./install.sh`).
+          files: |
+            packages/reactor-quest-macos.zip
+            packages/reactor-quest-windows.zip
+            packages/reactor-quest-linux.tar.gz
+          fail_on_unmatched_files: true
 ~~~~
 
 ---
@@ -8196,6 +8468,7 @@ These are real bugs from building the original. The code above already handles e
 18. **StrictMode double-invokes effects in development.** Every effect in the UI must clean up after itself (timers, listeners, React roots).
 19. **Practice must only test what's been taught.** The old timed arcade showed every card from day one, so a Floor 1 beginner faced generics, and four cards tested things no lesson covered (`Map`, `enum`, `parseInt`, the `!` assertion). Tie every review item to the level that teaches it.
 20. **Saves live per address.** `localStorage` belongs to the exact origin, port included, so a server that hops to the next free port makes a player's progress seem to vanish. Use one fixed port, and give players a backup file.
+21. **Packaged apps have no console.** An error that only reaches a log file is an error nobody sees: the server shows startup failures in a native dialog. And a beginner can't be asked to install a runtime first, so the packages carry their own Node.js.
 
 ---
 
@@ -8205,7 +8478,8 @@ These are real bugs from building the original. The code above already handles e
 - [ ] `npm test` passes: every one of the 96 code levels is proven both ways, all 10 quizzes are valid, all 40 compile cards match the compiler and no review card tests untaught material, all 17 profiles are readable and distinct, and the rewards, progress, runtime, checker and markdown tests pass.
 - [ ] `npm run smoke` passes all 117 steps.
 - [ ] `npm start` and the double-click launcher for each OS open the game in the browser. A second launch just opens the browser.
-- [ ] `npm run app:mac`, `app:win` and `app:linux` produce packages that install, launch, serve the game and uninstall cleanly.
+- [ ] `npm run app:mac`, `app:win` and `app:linux` produce packages that install, launch, serve the game and uninstall cleanly. With `--with-node` they run on a machine with no Node.js.
+- [ ] A packaged app started while port 4310 is busy shows a message saying so.
 - [ ] CI is green on macOS, Windows and Linux.
 - [ ] A new player can go from "Begin" to their first ✓ in under two minutes, and nothing on screen assumes they know what code is.
 

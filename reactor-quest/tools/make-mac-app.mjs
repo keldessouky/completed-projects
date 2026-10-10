@@ -3,10 +3,14 @@
 // the Dock. It carries its own copy of the game and a tiny server; opening it
 // starts the server and the game opens in your default browser. The server
 // stops by itself about a minute after you close the game's tab.
-// (Node.js must be installed; the app tells you if it isn't.)
+//
+// With --with-node the app carries its own Node.js (one universal executable
+// for Apple silicon and Intel), so nothing else needs installing. Without it,
+// Node.js must be installed; the app tells you if it isn't.
 import { chmodSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { makeIcns } from './icon.mjs';
+import { bundleNode, nodeOptions } from './node-runtime.mjs';
 import { ensureBuild, outDir, pkg, stageApp } from './packaging.mjs';
 
 const out = outDir('Reactor Quest.app');
@@ -19,6 +23,8 @@ const resources = join(contents, 'Resources');
 mkdirSync(macos, { recursive: true });
 stageApp(resources);
 writeFileSync(join(resources, 'AppIcon.icns'), makeIcns());
+const withNode = nodeOptions();
+if (withNode) await bundleNode('darwin', join(resources, 'runtime', 'node'), withNode);
 
 writeFileSync(
   join(contents, 'Info.plist'),
@@ -47,8 +53,15 @@ const launcher = join(macos, 'reactor-quest');
 writeFileSync(
   launcher,
   `#!/bin/bash
-# Reactor Quest launcher: find Node.js, start the bundled server, open the browser.
+# Reactor Quest launcher: find Node.js (its own copy first), start the bundled
+# server, open the browser.
 HERE="$(cd "$(dirname "$0")/../Resources" && pwd)"
+# Pass on options like --no-open, but not the -psn_ process id older macOS adds.
+ARGS=()
+for a in "$@"; do case "$a" in -psn_*) ;; *) ARGS+=("$a") ;; esac; done
+if "$HERE/runtime/node" -e 0 >/dev/null 2>&1; then
+  exec "$HERE/runtime/node" "$HERE/server.mjs" "$HERE/app" --app "\${ARGS[@]}" >>"$HOME/Library/Logs/reactor-quest.log" 2>&1
+fi
 export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.volta/bin:$HOME/.local/bin:$PATH"
 if ! command -v node >/dev/null 2>&1 && [ -s "$HOME/.nvm/nvm.sh" ]; then
   . "$HOME/.nvm/nvm.sh" >/dev/null 2>&1
@@ -57,8 +70,8 @@ if ! command -v node >/dev/null 2>&1; then
   osascript -e 'display dialog "Reactor Quest needs Node.js to run. Install it from nodejs.org (or with Homebrew: brew install node), then open Reactor Quest again." with title "Reactor Quest" buttons {"Get Node.js", "OK"} default button "Get Node.js"' -e 'if button returned of result is "Get Node.js" then open location "https://nodejs.org/en/download"' >/dev/null 2>&1
   exit 1
 fi
-exec node "$HERE/server.mjs" "$HERE/app" --app >>"$HOME/Library/Logs/reactor-quest.log" 2>&1
+exec node "$HERE/server.mjs" "$HERE/app" --app "\${ARGS[@]}" >>"$HOME/Library/Logs/reactor-quest.log" 2>&1
 `,
 );
 chmodSync(launcher, 0o755);
-console.log(`Built ${out}\nDouble-click it, or drag it to /Applications.`);
+console.log(`Built ${out}${withNode ? ' (with its own Node.js)' : ''}\nDouble-click it, or drag it to /Applications.`);

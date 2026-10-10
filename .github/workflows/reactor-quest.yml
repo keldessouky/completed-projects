@@ -3,6 +3,8 @@ name: Reactor Quest (macOS, Windows, Linux)
 on:
   push:
     branches: ['**']
+    # Pushing a tag like reactor-quest-v1.0.0 also publishes the packages as a GitHub release.
+    tags: ['reactor-quest-v*']
     paths:
       - 'reactor-quest/**'
       - '.github/workflows/reactor-quest.yml'
@@ -51,13 +53,19 @@ jobs:
       # ---------------------------------------------------------------- macOS
       - name: Package Reactor Quest.app
         if: runner.os == 'macOS'
-        run: npm run app:mac -- --skip-build
-      - name: The .app's bundled server serves the game
+        run: npm run app:mac -- --skip-build --with-node
+      - name: The .app runs on its own Node.js (universal, still signed) and serves the game
         if: runner.os == 'macOS'
         run: |
-          node "Reactor Quest.app/Contents/Resources/server.mjs" "Reactor Quest.app/Contents/Resources/app" --no-open --port 4500 &
-          for i in $(seq 1 20); do curl -fs http://127.0.0.1:4500/__reactor && break; sleep 0.5; done
+          NODE="Reactor Quest.app/Contents/Resources/runtime/node"
+          lipo -verify_arch arm64 x86_64 "$NODE"
+          codesign --verify --arch arm64 "$NODE" && codesign --verify --arch x86_64 "$NODE"
+          "$NODE" --version
+          # Launch exactly as Finder does, with no Node.js on the PATH.
+          env -i HOME="$HOME" PATH=/usr/bin:/bin "Reactor Quest.app/Contents/MacOS/reactor-quest" --no-open --port 4500 &
+          for i in $(seq 1 40); do curl -fs http://127.0.0.1:4500/__reactor && break; sleep 0.5; done
           curl -fs http://127.0.0.1:4500/ | grep -q '<div id="root">'
+          ps -axo command | grep -q '[R]esources/runtime/node'
           plutil -lint "Reactor Quest.app/Contents/Info.plist"
       - name: Zip the .app
         if: runner.os == 'macOS'
@@ -78,7 +86,7 @@ jobs:
           Get-Process node | Stop-Process -Force
       - name: Package for Windows
         if: runner.os == 'Windows'
-        run: npm run app:win -- --skip-build
+        run: npm run app:win -- --skip-build --with-node
       - name: Install, launch, serve and uninstall the Windows package
         if: runner.os == 'Windows'
         shell: pwsh
@@ -92,7 +100,8 @@ jobs:
             $target = (New-Object -ComObject WScript.Shell).CreateShortcut($lnk)
             if ($target.Arguments -notlike "*$dest\launch.ps1*") { throw "shortcut points elsewhere: $($target.Arguments)" }
           }
-          # Launch exactly as the shortcut does, minus the browser.
+          # Launch exactly as the shortcut does, minus the browser, with no Node.js on the PATH.
+          $env:PATH = ($env:PATH -split ';' | Where-Object { -not (Test-Path (Join-Path $_ 'node.exe')) }) -join ';'
           powershell -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "$dest\launch.ps1" --no-open --port 4500
           $ok = $false
           for ($i = 0; $i -lt 40 -and -not $ok; $i++) {
@@ -101,6 +110,7 @@ jobs:
           }
           if (-not $ok) { Get-Content "$env:LOCALAPPDATA\Reactor Quest\reactor-quest.log" -ErrorAction SilentlyContinue; throw 'the installed launcher did not start the server' }
           if ((Invoke-WebRequest -UseBasicParsing http://127.0.0.1:4500/).Content -notmatch '<div id="root">') { throw 'the game page is wrong' }
+          if (-not (Get-Process node | Where-Object { $_.Path -like "$dest\runtime\node.exe" })) { throw 'the launcher did not use its own Node.js' }
           Get-Content "$env:LOCALAPPDATA\Reactor Quest\reactor-quest.log"
           Get-Process node | Stop-Process -Force
           powershell -NoProfile -ExecutionPolicy Bypass -File "$dest\uninstall.ps1"
@@ -121,7 +131,7 @@ jobs:
           kill %1
       - name: Package for Linux
         if: runner.os == 'Linux'
-        run: npm run app:linux -- --skip-build
+        run: npm run app:linux -- --skip-build --with-node
       - name: Install, launch, serve and uninstall the Linux package
         if: runner.os == 'Linux'
         run: |
@@ -129,10 +139,12 @@ jobs:
           export HOME="$RUNNER_TEMP/home" && mkdir -p "$HOME"
           ./reactor-quest-linux/install.sh
           desktop-file-validate "$HOME/.local/share/applications/reactor-quest.desktop"
-          "$HOME/.local/bin/reactor-quest" --no-open --port 4500
+          # No Node.js on the PATH: the package brings its own.
+          env -i HOME="$HOME" PATH=/usr/bin:/bin "$HOME/.local/bin/reactor-quest" --no-open --port 4500
           for i in $(seq 1 40); do curl -fs http://127.0.0.1:4500/__reactor && break; sleep 0.5; done
           curl -fs http://127.0.0.1:4500/ | grep -q '<div id="root">'
           cat "$HOME/.local/state/reactor-quest/reactor-quest.log"
+          pgrep -f 'reactor-quest/runtime/node' >/dev/null
           pkill -f 'reactor-quest/server.mjs'
           "$HOME/.local/share/reactor-quest/uninstall.sh"
           test ! -e "$HOME/.local/share/reactor-quest" && test ! -e "$HOME/.local/share/applications/reactor-quest.desktop"
@@ -153,3 +165,31 @@ jobs:
         with:
           name: reactor-quest-screenshots-${{ matrix.label }}
           path: reactor-quest/test-results/
+
+  release:
+    name: Publish the packages as a GitHub release
+    if: startsWith(github.ref, 'refs/tags/reactor-quest-v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: reactor-quest-*
+          path: packages
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          name: Reactor Quest ${{ github.ref_name }}
+          body: |
+            Download the file for your computer, unzip it and double-click. Nothing else to install.
+
+            - **macOS** (Apple silicon and Intel): `reactor-quest-macos.zip`, then open *Reactor Quest.app*. The first time, macOS asks you to confirm: open *System Settings → Privacy & Security* and click *Open Anyway*.
+            - **Windows**: `reactor-quest-windows.zip`, then double-click *Reactor Quest.cmd* (or *Install.cmd*). If Windows says it protected your PC, click *More info*, then *Run anyway*.
+            - **Linux** (x64): `reactor-quest-linux.tar.gz`, then run `./reactor-quest` (or `./install.sh`).
+          files: |
+            packages/reactor-quest-macos.zip
+            packages/reactor-quest-windows.zip
+            packages/reactor-quest-linux.tar.gz
+          fail_on_unmatched_files: true

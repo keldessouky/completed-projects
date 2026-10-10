@@ -9,16 +9,22 @@
 //
 // Playing starts the bundled server in the background and opens the game in
 // your default browser; the server stops by itself about a minute after you
-// close the game's tab. Node.js must be installed; the launcher says so if not.
+// close the game's tab. With --with-node the package carries its own Node.js
+// (runtime/node; --arch x64 or arm64, the machine's own by default) and needs
+// nothing else; without it, Node.js must be installed, and the launcher says
+// so if it isn't.
 import { chmodSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { drawIcon } from './icon.mjs';
+import { bundleNode, nodeOptions } from './node-runtime.mjs';
 import { ensureBuild, outDir, pkg, stageApp } from './packaging.mjs';
 
 const out = outDir('reactor-quest-linux');
 ensureBuild();
 stageApp(out);
 writeFileSync(join(out, 'reactor-quest.png'), drawIcon(256));
+const withNode = nodeOptions();
+if (withNode) await bundleNode('linux', join(out, 'runtime', 'node'), withNode);
 
 const script = (name, text) => {
   writeFileSync(join(out, name), text);
@@ -32,6 +38,12 @@ script(
 # background, and open the game in the default browser.
 # Extra arguments (for example --no-open) are passed to the server.
 HERE="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
+LOG="\${XDG_STATE_HOME:-$HOME/.local/state}/reactor-quest/reactor-quest.log"
+# Its own copy of Node.js first, when the package carries one that runs here.
+if "$HERE/runtime/node" -e 0 >/dev/null 2>&1; then
+  nohup "$HERE/runtime/node" "$HERE/server.mjs" "$HERE/app" --app --log "$LOG" "$@" >/dev/null 2>&1 &
+  exit 0
+fi
 export PATH="$HOME/.local/bin:$HOME/.volta/bin:/usr/local/bin:/snap/bin:$PATH"
 if ! command -v node >/dev/null 2>&1 && [ -s "$HOME/.nvm/nvm.sh" ]; then
   . "$HOME/.nvm/nvm.sh" >/dev/null 2>&1
@@ -54,7 +66,6 @@ or, for example:  sudo snap install node --classic"
   exit 1
 fi
 
-LOG="\${XDG_STATE_HOME:-$HOME/.local/state}/reactor-quest/reactor-quest.log"
 nohup node "$HERE/server.mjs" "$HERE/app" --app --log "$LOG" "$@" >/dev/null 2>&1 &
 `,
 );
@@ -119,8 +130,8 @@ writeFileSync(
   join(out, 'README.txt'),
   `Reactor Quest ${pkg.version} for Linux
 
-Needs Node.js 20.19 or newer: https://nodejs.org/en/download
-(Ubuntu: sudo snap install node --classic · Fedora: sudo dnf install nodejs · Arch: sudo pacman -S nodejs npm)
+${withNode ? 'Nothing else to install: Node.js comes with it (see runtime/NODE-LICENSE.txt).' : `Needs Node.js 20.19 or newer: https://nodejs.org/en/download
+(Ubuntu: sudo snap install node --classic · Fedora: sudo dnf install nodejs · Arch: sudo pacman -S nodejs npm)`}
 
   ./reactor-quest     Play. The game opens in your browser.
   ./install.sh        Adds Reactor Quest to your app menu and ~/.local/bin (no sudo).
