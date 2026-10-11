@@ -17,7 +17,7 @@ export function HowToPlay({ onClose }: { onClose: () => void }) {
             <li><strong>Second main phase</strong>, then <em>End turn</em>. <kbd>Space</kbd> presses the highlighted button, <kbd>Esc</kbd> cancels.</li>
           </ol>
           <h4>Their turns</h4>
-          <p>Computer players also attack each other. When one attacks you, click one of your untapped creatures and then the attacker it should block (repeat for more blocks; click a blocker again to undo). You can cast instants while blocking. Then confirm.</p>
+          <p>Computer players also attack each other. When one attacks you, your creatures that can block pulse blue. <strong>Drag</strong> one onto the attacker it should block, or click them one after the other in either order. Each block appears as a chip under the prompt; click a chip (or the blocker) to undo it, or <em>Clear blocks</em>. A creature with flying can only be blocked by creatures with flying or reach, and one with menace needs two or more blockers; the prompt tells you when a block isn’t allowed and why. You can cast instants while blocking. Then confirm.</p>
           <h4>Click your permanents</h4>
           <p>Creatures and artifacts with activated abilities (like “{'{T}'}: deal 1 damage to any target”) and equipment are used by clicking them on the battlefield.</p>
           <h4>Keywords simulated</h4>

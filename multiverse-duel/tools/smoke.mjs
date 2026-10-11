@@ -135,6 +135,7 @@ try {
     let castCount = 0;
     let attacks = 0;
     let blocksTried = 0;
+    let blocksMade = 0;
     let shotTaken = false;
     const started = Date.now();
     for (let step = 0; step < 1500; step++) {
@@ -190,27 +191,47 @@ try {
           continue;
         }
       } else if (prompt.includes('is attacking you')) {
-        // Block the first attacker with the first untapped creature, if we can.
-        const mineFree = page.locator('.battlefield.you .perm:not(.tapped)');
+        // Block, rotating through the three ways a player can: drag, blocker-then-attacker, attacker-then-blocker.
         const atk = page.locator('.battlefield.opp .perm.at-you');
-        if (blocksTried % 2 === 0 && (await mineFree.count()) && (await atk.count())) {
-          await mineFree.first().click();
-          await atk.first().click();
+        const able = page.locator('.battlefield.you .perm.can-block');
+        let tried = false;
+        if ((await able.count()) && (await atk.count())) {
+          const how = blocksTried % 3;
+          if (how === 0) await able.first().dragTo(atk.first());
+          else if (how === 1) {
+            await able.first().click();
+            const green = page.locator('.battlefield.opp .perm.at-you.targetable');
+            if (await green.count()) await green.first().click();
+          } else {
+            await atk.first().click();
+            const green = page.locator('.battlefield.you .perm.targetable');
+            if (await green.count()) await green.first().click();
+            else await page.keyboard.press('Escape');
+          }
+          tried = (await page.locator('.block-chip').count()) > 0;
+          if (!tried && how !== 2) {
+            // The first attacker may be a flier this creature can't block; that's a toast, not a bug.
+            await page.keyboard.press('Escape');
+          }
         }
         blocksTried++;
-        const confirm = page.locator('.actions button.primary');
-        if (await confirm.isEnabled()) await confirm.click();
-        else {
-          // e.g. a single blocker on a menace creature: undo it and take the hit.
-          await page.keyboard.press('Escape');
-          await page.locator('.battlefield.you .perm.blocking').first().click().catch(() => {});
-          if (await confirm.isEnabled()) await confirm.click();
+        const chips = await page.locator('.block-chip').allInnerTexts();
+        await page.locator('.actions button.primary').click();
+        if ((await text('.prompt')).includes('menace')) {
+          // One blocker on a menace attacker: the game explains, we clear and take the hit.
+          check((await text('.toast')).includes('menace'), 'a lone blocker on a menace attacker is explained, not silently refused');
+          await page.getByRole('button', { name: 'Clear blocks' }).click();
+          await page.locator('.actions button.primary').click();
+        } else if (tried) {
+          const log = await text('.recent-log');
+          check(/ blocked /.test(log), `block declared through the UI shows in the log (${chips[0]?.replace(/\s+/g, ' ').replace(' ✕', '')})`);
+          blocksMade++;
         }
         continue;
       }
       await page.waitForTimeout(120);
     }
-    check(await visible('.game-over'), `game ${gameNo + 1} reached the end for you (${castCount} cards played, ${attacks} attacks, ${blocksTried} blocking steps): ${await text('.game-over h2')}`);
+    check(await visible('.game-over'), `game ${gameNo + 1} reached the end for you (${castCount} cards played, ${attacks} attacks, ${blocksTried} times attacked, ${blocksMade} blocks made): ${await text('.game-over h2')}`);
     // Knocked out of a multiplayer game: watch the computers finish it.
     if (seats > 2 && (await clickButton('Watch the rest'))) {
       await page.waitForFunction(() => document.querySelector('.whose')?.textContent === 'Game over', null, { timeout: 180_000 });

@@ -370,3 +370,11 @@ button.primary.big { font-size: 17px; padding: 12px 26px; white-space: nowrap; }
 .inspector-grade.q-S { border-color: rgba(255, 201, 77, 0.6); }
 .inspector-grade.q-A { border-color: rgba(201, 162, 255, 0.5); }
 .inspector-grade .graded { font-size: 15px; }
+
+/* Blocking: creatures that can block pulse softly; your chosen blocks are listed as chips. */
+.perm.can-block .perm-card { box-shadow: 0 0 0 2px rgba(90, 169, 255, 0.75); animation: glow 1.6s ease-in-out infinite; }
+.perm[draggable='true'] { cursor: grab; }
+.block-summary { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px; }
+.block-chip { display: inline-flex; align-items: center; gap: 5px; background: rgba(90, 169, 255, 0.14); border: 1px solid rgba(90, 169, 255, 0.55); border-radius: 999px; padding: 3px 10px; font-size: 12.5px; }
+.block-chip:hover { border-color: var(--red); }
+.block-chip .x { color: var(--muted); margin-left: 2px; }

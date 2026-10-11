@@ -1,5 +1,5 @@
 // The game table: your hand and battlefield at the bottom, one to three computer opponents at the top.
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent, type ReactNode } from 'react';
 import type { Card } from '../data/cards';
 import { abilitiesOf, describeEffect, targetSlots, type TargetSpec } from '../game/abilities';
 import { aiBlockStep, aiStep } from '../game/ai';
@@ -37,7 +37,9 @@ export function Board({ decks, onRematch, onNewDecks, onHelp }: { decks: Deck[];
   const [attackers, setAttackers] = useState<Record<number, PlayerId>>({});
   const [attackTarget, setAttackTarget] = useState<PlayerId>(1);
   const [blocks, setBlocks] = useState<Record<number, number[]>>({});
+  /** Blocking: the blocker or the attacker picked first (either order works, or drag one onto the other). */
   const [picking, setPicking] = useState<number | null>(null);
+  const [pickingAttacker, setPickingAttacker] = useState<number | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [showLog, setShowLog] = useState(false);
   const [hideOver, setHideOver] = useState(false);
@@ -85,6 +87,7 @@ export function Board({ decks, onRematch, onNewDecks, onHelp }: { decks: Deck[];
     setAttackTarget((t) => (g.players[t] && !g.players[t].lost && t !== YOU ? t : g.opponents(YOU)[0] ?? 1));
     setBlocks({});
     setPicking(null);
+    setPickingAttacker(null);
     setPending(null);
   }, [phaseKey]);
 
@@ -192,25 +195,27 @@ export function Board({ decks, onRematch, onNewDecks, onHelp }: { decks: Deck[];
       return;
     }
     if (defending) {
+      const attackingMe = p.controller !== YOU && !!g.combat?.attackers.includes(p.iid);
       if (p.controller === YOU && g.isCreature(p)) {
-        if (picking === p.iid) return setPicking(null);
-        // Clicking an assigned blocker unassigns it.
+        // Clicking an assigned blocker takes it back.
         const assigned = Object.entries(blocks).find(([, bs]) => bs.includes(p.iid));
-        if (assigned) {
+        if (assigned && pickingAttacker === null) {
           setBlocks((b) => ({ ...b, [+assigned[0]]: b[+assigned[0]].filter((x) => x !== p.iid) }));
           return;
         }
-        if (p.tapped) return say(`${p.card.name} is tapped.`);
-        setPicking(p.iid);
+        if (pickingAttacker !== null) return assignBlock(p.iid, pickingAttacker);
+        if (p.tapped) return say(`${p.card.name} is tapped, so it can’t block.`);
+        const targets = g.attackersOf(YOU).map((a) => g.perm(a)!).filter(Boolean);
+        if (!targets.some((a) => g.canBlock(p, a))) {
+          return say(`${p.card.name} can’t block any of these attackers${targets.every((a) => g.has(a, 'Flying')) ? ' — they fly, and it has neither flying nor reach' : ''}.`);
+        }
+        setPicking(picking === p.iid ? null : p.iid);
         return;
       }
-      if (p.controller !== YOU && g.combat?.attackers.includes(p.iid)) {
-        if (g.combat.defenderOf[p.iid] !== YOU) return say(`${p.card.name} is attacking ${g.players[g.combat.defenderOf[p.iid]].name}, not you.`);
-        if (picking === null) return say('Click one of your creatures first, then the attacker it should block.');
-        const blocker = g.perm(picking)!;
-        if (!g.canBlock(blocker, p)) return say(`${blocker.card.name} can’t block ${p.card.name}${g.has(p, 'Flying') ? ' (flying)' : ''}.`);
-        setBlocks((b) => ({ ...b, [p.iid]: [...(b[p.iid] ?? []), picking] }));
-        setPicking(null);
+      if (attackingMe) {
+        if (g.combat!.defenderOf[p.iid] !== YOU) return say(`${p.card.name} is attacking ${g.players[g.combat!.defenderOf[p.iid]].name}, not you.`);
+        if (picking !== null) return assignBlock(picking, p.iid);
+        setPickingAttacker(pickingAttacker === p.iid ? null : p.iid);
         return;
       }
     }
@@ -223,6 +228,33 @@ export function Board({ decks, onRematch, onNewDecks, onHelp }: { decks: Deck[];
       const a = g.ab(p);
       if (a.activated.length) say('You can’t use that ability right now (mana, tapping or timing).');
     }
+  };
+
+  /** Put `blockerIid` in front of `attackerIid` (moving it off any other attacker), or explain why not. */
+  const assignBlock = (blockerIid: number, attackerIid: number) => {
+    const blocker = g.perm(blockerIid);
+    const attacker = g.perm(attackerIid);
+    setPicking(null);
+    setPickingAttacker(null);
+    if (!blocker || !attacker) return;
+    if (blocker.controller !== YOU) return say('Block with one of your own creatures.');
+    if (g.combat?.defenderOf[attackerIid] !== YOU) return say(`${attacker.card.name} isn’t attacking you.`);
+    if (!g.canBlock(blocker, attacker)) {
+      const why = blocker.tapped
+        ? 'it’s tapped'
+        : g.has(attacker, 'Unblockable')
+          ? `${attacker.card.name} can’t be blocked`
+          : g.has(attacker, 'Flying')
+            ? `${attacker.card.name} has flying — only creatures with flying or reach can block it`
+            : 'it can’t block';
+      return say(`${blocker.card.name} can’t block ${attacker.card.name}: ${why}.`);
+    }
+    setBlocks((b) => {
+      const next: Record<number, number[]> = {};
+      for (const [k, v] of Object.entries(b)) next[+k] = v.filter((x) => x !== blockerIid);
+      next[attackerIid] = [...(next[attackerIid] ?? []), blockerIid];
+      return next;
+    });
   };
 
   const activate = (p: Perm, index: number) => {
@@ -257,14 +289,15 @@ export function Board({ decks, onRematch, onNewDecks, onHelp }: { decks: Deck[];
       actions.push({ label: 'End turn', primary: true, run: () => (g.endTurn(), refresh()) });
     } else if (defending) {
       const n = Object.values(blocks).reduce((k, b) => k + b.length, 0);
+      if (n) actions.push({ label: 'Clear blocks', run: () => (setBlocks({}), setPicking(null), setPickingAttacker(null)) });
       actions.push({
         label: n ? `Confirm ${n} block${n > 1 ? 's' : ''}` : 'No blocks',
         primary: true,
-        disabled: !!blockProblem,
         title: blockProblem ?? undefined,
         run: () => {
+          if (blockProblem) return say(`${blockProblem} Add another blocker, or click the block chip to remove it.`);
           if (g.declareBlockers(YOU, blocks)) refresh();
-          else say(blockProblem ?? 'Those blocks aren’t legal.');
+          else say('Those blocks aren’t legal any more — something changed. Clear them and try again.');
         },
       });
     }
@@ -308,7 +341,24 @@ export function Board({ decks, onRematch, onNewDecks, onHelp }: { decks: Deck[];
       if (g.phase === 'combat') return 'Blocks are in. Cast an instant, or deal damage.';
       if (g.phase === 'main2') return 'Cast more spells, or end your turn.';
     }
-    if (defending) return picking !== null ? `Now click the attacker ${g.perm(picking)?.card.name} should block.` : `${g.players[g.active].name} is attacking you! Click your creature, then the attacker to block. Instants work too.`;
+    if (defending) {
+      if (picking !== null) return `Now click the attacker for ${g.perm(picking)?.card.name} to block (glowing green).`;
+      if (pickingAttacker !== null) return `Now click your creature that should block ${g.perm(pickingAttacker)?.card.name} (glowing green).`;
+      if (blockProblem) return blockProblem;
+      const mine = g.creatures(YOU);
+      const incoming = g.attackersOf(YOU).map((a) => g.perm(a)!).filter(Boolean);
+      if (!incoming.some((a) => mine.some((b) => g.canBlock(b, a)))) {
+        const why = !mine.length
+          ? 'you have no creatures'
+          : mine.every((b) => b.tapped)
+            ? 'your creatures are all tapped'
+            : incoming.every((a) => g.has(a, 'Flying') || g.has(a, 'Unblockable'))
+              ? `${incoming.map((a) => a.card.name).join(' and ')} ${incoming.length > 1 ? 'have' : 'has'} ${incoming.every((a) => g.has(a, 'Unblockable')) ? 'can’t-be-blocked' : 'flying, and only creatures with flying or reach can block fliers'}`
+              : 'none of them can block these attackers';
+        return `${g.players[g.active].name} is attacking you, but you can’t block: ${why}. Press No blocks (or cast an instant).`;
+      }
+      return `${g.players[g.active].name} is attacking you! Drag a creature onto an attacker to block it, or click one then the other.`;
+    }
     if (g.phase === 'block') return `${g.players[g.active].name} attacked — ${g.combat?.waiting.map((id) => g.players[id].name).join(' and ')} choosing blockers…`;
     return `${g.players[g.active].name} is thinking…`;
   })();
@@ -322,12 +372,40 @@ export function Board({ decks, onRematch, onNewDecks, onHelp }: { decks: Deck[];
     const combatBlocks = g.combat?.blocks ?? {};
     const blocking = defending ? Object.entries(blocks).find(([, bs]) => bs.includes(p.iid)) : Object.entries(combatBlocks).find(([, bs]) => bs.includes(p.iid));
     const planned = attackers[p.iid];
+    const atMe = g.combat?.defenderOf[p.iid] === YOU;
+    const pickedBlocker = picking !== null ? g.perm(picking) : undefined;
+    const pickedAttacker = pickingAttacker !== null ? g.perm(pickingAttacker) : undefined;
+    const blockHint =
+      defending &&
+      ((pickedBlocker && atMe && g.canBlock(pickedBlocker, p)) ||
+        (pickedAttacker && p.controller === YOU && g.canBlock(p, pickedAttacker)));
+    const canBlockSomething = defending && p.controller === YOU && g.attackersOf(YOU).some((a) => g.canBlock(p, g.perm(a)!));
     const atWhom = g.combat?.defenderOf[p.iid] ?? planned;
     return {
       perm: p,
       game: g,
-      targetable: !!currentSlot && isLegal(r),
-      selected: planned !== undefined || picking === p.iid,
+      targetable: (!!currentSlot && isLegal(r)) || !!blockHint,
+      selected: planned !== undefined || picking === p.iid || pickingAttacker === p.iid,
+      canBlock: canBlockSomething && picking === null && pickingAttacker === null && !Object.values(blocks).some((b) => b.includes(p.iid)),
+      drag: defending && (canBlockSomething || atMe)
+        ? {
+            draggable: canBlockSomething,
+            onDragStart: (e: DragEvent) => {
+              e.dataTransfer.setData('text/plain', String(p.iid));
+              e.dataTransfer.effectAllowed = 'link';
+              setPicking(p.iid);
+              setPickingAttacker(null);
+            },
+            onDragOver: atMe ? (e: DragEvent) => e.preventDefault() : undefined,
+            onDrop: atMe
+              ? (e: DragEvent) => {
+                  e.preventDefault();
+                  const from = Number(e.dataTransfer.getData('text/plain'));
+                  if (from) assignBlock(from, p.iid);
+                }
+              : undefined,
+          }
+        : undefined,
       attackLabel: atWhom !== undefined && g.players.length > 2 ? `→ ${nameOf(atWhom)}` : '',
       attacking: !!g.combat?.attackers.includes(p.iid),
       atYou: g.combat?.defenderOf[p.iid] === YOU,
@@ -394,6 +472,23 @@ export function Board({ decks, onRematch, onNewDecks, onHelp }: { decks: Deck[];
             </button>
           ))}
         </div>
+        {defending && Object.values(blocks).some((b) => b.length) && (
+          <div className="block-summary" aria-label="Your blocks">
+            {Object.entries(blocks).flatMap(([a, bs]) =>
+              bs.map((b) => (
+                <button
+                  key={`${a}-${b}`}
+                  type="button"
+                  className="block-chip"
+                  title="Click to remove this block"
+                  onClick={() => setBlocks((cur) => ({ ...cur, [+a]: cur[+a].filter((x) => x !== b) }))}
+                >
+                  🛡 {g.perm(b)?.card.name} <span className="muted">blocks</span> ⚔ {g.perm(+a)?.card.name} <span className="x">✕</span>
+                </button>
+              )),
+            )}
+          </div>
+        )}
         <div className="recent-log" onClick={() => setShowLog(true)} title="Click for the full game log">
           {recent.map((l, i) => (
             <div key={`${g.log.length}-${i}`} className={`log-line who-${l.who ?? 'n'}`}>{l.text}</div>
@@ -558,6 +653,8 @@ interface PermProps {
   game: Game;
   targetable: boolean;
   selected: boolean;
+  canBlock: boolean;
+  drag?: { draggable: boolean; onDragStart: (e: DragEvent) => void; onDragOver?: (e: DragEvent) => void; onDrop?: (e: DragEvent) => void };
   attackLabel: string;
   attacking: boolean;
   atYou: boolean;
@@ -623,7 +720,7 @@ function LandStack({ card, perms, permProps }: { card: Card; perms: Perm[]; perm
   );
 }
 
-function PermView({ perm: p, game: g, targetable, selected, attackLabel, attacking, atYou, attackNo, blockingNo, onClick, onHover }: PermProps) {
+function PermView({ perm: p, game: g, targetable, selected, canBlock, drag, attackLabel, attacking, atYou, attackNo, blockingNo, onClick, onHover }: PermProps) {
   const creature = g.isCreature(p);
   const power = creature ? g.power(p) : 0;
   const toughness = creature ? g.toughness(p) : 0;
@@ -634,8 +731,12 @@ function PermView({ perm: p, game: g, targetable, selected, attackLabel, attacki
   return (
     <button
       type="button"
-      className={['perm', p.tapped ? 'tapped' : '', targetable ? 'targetable' : '', selected ? 'selected' : '', attacking ? 'attacking' : '', atYou ? 'at-you' : '', blockingNo ? 'blocking' : ''].join(' ')}
+      className={['perm', p.tapped ? 'tapped' : '', targetable ? 'targetable' : '', selected ? 'selected' : '', canBlock ? 'can-block' : '', attacking ? 'attacking' : '', atYou ? 'at-you' : '', blockingNo ? 'blocking' : ''].join(' ')}
       onClick={onClick}
+      draggable={drag?.draggable}
+      onDragStart={drag?.onDragStart}
+      onDragOver={drag?.onDragOver}
+      onDrop={drag?.onDrop}
       onMouseEnter={onHover}
       aria-label={`${p.card.name}${creature ? ` ${power}/${toughness}` : ''}${p.tapped ? ', tapped' : ''}`}
     >
