@@ -17,6 +17,7 @@
     "cards:update": "node tools/build-cards.mjs"
   },
   "dependencies": {
+    "@fontsource/cinzel": "^5.3.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0"
   },

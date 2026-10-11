@@ -30,6 +30,8 @@ export function HowToPlay({ onClose }: { onClose: () => void }) {
             <li>{'{C}'} and snow mana are paid like generic mana; hybrid and Phyrexian mana are paid with a coloured mana.</li>
             <li>Rules text the game doesn’t understand is ignored, and it says so: point at any card and the panel on the right lists each ability with a ✓ (simulated) or ✗ (not simulated). Decks prefer fully simulated cards; spells that would do nothing are never put in a deck.</li>
           </ul>
+          <h4>Card grades</h4>
+          <p>Every card has a grade: <strong>S</strong> bomb (gold), <strong>A</strong> excellent (violet), <strong>B</strong> solid (blue), <strong>C</strong> playable, <strong>D</strong> filler (faded). It blends the card’s strength in this game for its mana cost, how widely it’s played in real Magic, and its rarity. Each deck shows its overall strength and, after a reroll, whether the new deck is better or worse than the last one.</p>
           <h4>Decks</h4>
           <p><strong>Universal</strong> builds from every card in the database. A <strong>theme</strong> builds from one franchise (cards that debuted in its sets), plane, creature type, play style, era, single set or a free-text search. When a theme doesn’t have enough cards in its colours, the deck is topped up with “filler” from the wider multiverse, marked in the deck list.</p>
           <p className="muted small">Card data and images come from <a href="https://scryfall.com" target="_blank" rel="noreferrer">Scryfall</a>. Magic: The Gathering is © Wizards of the Coast; this is an unofficial fan project, not approved or endorsed by Wizards.</p>

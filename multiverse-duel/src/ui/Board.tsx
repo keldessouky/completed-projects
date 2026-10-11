@@ -6,6 +6,7 @@ import { aiBlockStep, aiStep } from '../game/ai';
 import type { Deck } from '../game/deck';
 import { defaultNames, Game, sameRef, type CardRef, type Perm, type PlayerId, type TargetRef } from '../game/engine';
 import { CardBack, CardFace, ManaCost } from './CardFace';
+import { GradeBadge } from './Grade';
 import { useHover, type Hovered } from './Inspector';
 
 const YOU: PlayerId = 0;
@@ -425,6 +426,7 @@ export function Board({ decks, onRematch, onNewDecks, onHelp }: { decks: Deck[];
               aria-label={`${c.card.name}${playable ? ' (playable)' : ''}`}
             >
               <CardFace card={c.card} />
+              {!c.card.supertypes.includes('Basic') && <GradeBadge card={c.card} />}
             </button>
           );
         })}

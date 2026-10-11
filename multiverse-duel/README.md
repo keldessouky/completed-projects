@@ -16,6 +16,22 @@ Pick the number of players (you + 1–3 computers), then build each player's dec
 
 You can also fix the colors for either deck or leave them on Auto. **Reroll** builds a new deck from the same choices, and the **Card library** lets you browse and search the whole collection.
 
+### Card grades: spot the good cards at a glance
+
+Every card gets a quality score from 0 to 100 and a grade, and each grade has its own colour *and* typeface. The best cards jump out of a deck list and filler fades back, so you can judge a reroll in a second:
+
+| Grade | Name | Share of cards | Looks like |
+| --- | --- | --- | --- |
+| **S** | Bomb | top 5% | gold, Cinzel display capitals with a glow |
+| **A** | Excellent | next 13% | violet, Cinzel |
+| **B** | Solid | next 22% | blue, semibold |
+| **C** | Playable | next 30% | plain text |
+| **D** | Filler | bottom 30% | faded grey italic |
+
+The score blends three things: how much a card does for its mana *in this game* (stats, keywords and the simulated effects), how widely it's played in real Magic (its [EDHREC](https://edhrec.com) rank), and a small nudge for rarity. It's then ranked against every card a deck can use, so a score of 90 means better than 90% of them. Grades show up as a badge in the deck list, in your hand, in the card library (which can also sort **Best first**) and in the card panel. Basic lands aren't graded.
+
+Each deck also shows its **deck strength**: the average score of its 23 spells, graded S to D, with a bar counting its cards by grade. Every time you reroll, it shows the change from the previous deck (for example **▲ 9 vs last roll**). Switch the deck list to **Best first** to see the bombs at the top.
+
 ## Install and play
 
 You need two things on any computer: **Node.js 20.19 or newer** (it runs the game's small local web server) and a modern browser (Chrome, Edge, Firefox or Safari 16.4+). Nothing else is installed system-wide, and the game runs entirely on your own computer.
@@ -110,6 +126,7 @@ npm run smoke -- --offline   # the same with Scryfall blocked, checking the draw
 | `src/game/engine.ts` | turns, casting, targets, combat, triggers, state-based checks |
 | `src/game/ai.ts` | the computer players |
 | `src/game/deck.ts` | 40-card deck building with a mana curve and color fixing |
+| `src/game/quality.ts` | card scores and S–D grades, and deck strength |
 | `src/ui/` | React components: deck setup, board, card inspector, library |
 | `tools/` | snapshot builder, launcher, static server and the smoke-test bot |
 | `Multiverse Duel.command`, `Multiverse Duel.cmd`, `multiverse-duel.sh` | double-click launchers for macOS, Windows and Linux |

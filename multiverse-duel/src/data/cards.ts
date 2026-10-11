@@ -23,6 +23,7 @@ export interface RawCard {
   b?: 1; // has a back face image
   ub?: 1; // Universes Beyond only
   ft?: string; // flavour text
+  e?: number; // EDHREC popularity rank (1 = most played)
 }
 
 export interface SetInfo {
@@ -74,6 +75,8 @@ export interface Card {
   flavor?: string;
   hasBack: boolean;
   universesBeyond: boolean;
+  /** EDHREC popularity rank across all cards (1 = most played), when known. */
+  edhrecRank: number | null;
 }
 
 const SUPERTYPES = new Set(['Legendary', 'Basic', 'Snow', 'World', 'Ongoing', 'Elite', 'Host', 'Kindred', 'Tribal']);
@@ -122,6 +125,7 @@ export function toCard(r: RawCard): Card {
     flavor: r.ft,
     hasBack: r.b === 1,
     universesBeyond: r.ub === 1,
+    edhrecRank: r.e ?? null,
   };
 }
 

@@ -111,6 +111,7 @@ function tokenCard(name: string, p: number, t: number, colors: Color[], kw: stri
     artist: '',
     hasBack: false,
     universesBeyond: false,
+    edhrecRank: null,
   };
 }
 

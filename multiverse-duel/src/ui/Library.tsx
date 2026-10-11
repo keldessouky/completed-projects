@@ -4,11 +4,13 @@ import { COLORS, COLOR_NAMES, type Card, type Color, type Universe } from '../da
 import type { Theme } from '../data/themes';
 import { playability } from '../game/abilities';
 import { deckable } from '../game/deck';
+import { cardScore } from '../game/quality';
 import { CardFace, ManaCost } from './CardFace';
+import { GradeBadge } from './Grade';
 import { useHover } from './Inspector';
 
 const TYPES = ['Any type', 'Creature', 'Instant', 'Sorcery', 'Artifact', 'Enchantment', 'Land', 'Planeswalker', 'Battle'];
-const SORTS = { name: 'Name', new: 'Newest', old: 'Oldest', mv: 'Mana value' } as const;
+const SORTS = { name: 'Name', best: 'Best first', new: 'Newest', old: 'Oldest', mv: 'Mana value' } as const;
 const PAGE = 48;
 
 export function Library({ universe, themes }: { universe: Universe; themes: Theme[] }) {
@@ -41,6 +43,7 @@ export function Library({ universe, themes }: { universe: Universe; themes: Them
     });
     const by: Record<keyof typeof SORTS, (a: Card, b: Card) => number> = {
       name: (a, b) => a.name.localeCompare(b.name),
+      best: (a, b) => cardScore(b) - cardScore(a) || a.name.localeCompare(b.name),
       new: (a, b) => b.year - a.year || a.name.localeCompare(b.name),
       old: (a, b) => a.year - b.year || a.name.localeCompare(b.name),
       mv: (a, b) => a.cmc - b.cmc || a.name.localeCompare(b.name),
@@ -108,6 +111,7 @@ export function Library({ universe, themes }: { universe: Universe; themes: Them
           return (
             <div key={c.id} className="grid-card" onMouseEnter={() => hover({ card: c })}>
               <CardFace card={c} />
+              {!c.supertypes.includes('Basic') && <GradeBadge card={c} />}
               <span className={`sim-badge ${usable ? p : 'none'}`} title={usable ? (p === 'full' ? 'Fully simulated' : 'Partly simulated') : 'Not used in generated decks'}>
                 {usable ? (p === 'full' ? '✓' : '◐') : '–'}
               </span>

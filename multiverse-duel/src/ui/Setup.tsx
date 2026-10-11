@@ -1,10 +1,12 @@
 // Choose a deck for each side: Universal (the whole multiverse) or a theme.
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { COLORS, COLOR_NAMES, type Card, type Color, type Universe } from '../data/cards';
 import { searchTheme, UNIVERSAL, type Theme, type ThemeGroup } from '../data/themes';
 import { buildDeck, type Deck } from '../game/deck';
 import { defaultNames, MAX_PLAYERS } from '../game/engine';
 import { ManaCost } from './CardFace';
+import { DeckStrengthPanel, GradeBadge, GradedName, GradeLegend } from './Grade';
+import { cardGrade, cardScore, deckStrength } from '../game/quality';
 import { useHover } from './Inspector';
 
 interface Choice {
@@ -93,6 +95,7 @@ export function Setup({ universe, themes, onStart }: { universe: Universe; theme
           {players === 2 ? 'Start duel ▸' : `Start ${players}-player game ▸`}
         </button>
       </div>
+      <GradeLegend />
       {players > 2 && (
         <p className="muted small table-note">
           Free-for-all: everyone plays for themselves, each attacking creature picks which opponent it attacks, a player at 0 life is out, and the last one standing wins.
@@ -223,21 +226,46 @@ function DeckPicker({ label, themes, choice, deck, onChange }: { label: string; 
 
 function DeckList({ deck }: { deck: Deck }) {
   const hover = useHover();
+  const [sort, setSort] = useState<'curve' | 'grade'>(() => {
+    try {
+      return localStorage.getItem('multiverse-duel:deck-sort') === 'grade' ? 'grade' : 'curve';
+    } catch {
+      return 'curve';
+    }
+  });
+  const chooseSort = (v: 'curve' | 'grade') => {
+    setSort(v);
+    try {
+      localStorage.setItem('multiverse-duel:deck-sort', v);
+    } catch {
+      /* ignore */
+    }
+  };
   const groups = useMemo(() => {
     const count = new Map<Card, number>();
     for (const c of deck.cards) count.set(c, (count.get(c) ?? 0) + 1);
     const rows = [...count.entries()];
+    if (sort === 'grade') rows.sort(([a], [b]) => cardScore(b) - cardScore(a) || a.cmc - b.cmc);
     return [
       ['Creatures', rows.filter(([c]) => c.types.includes('Creature'))],
       ['Spells & permanents', rows.filter(([c]) => !c.types.includes('Creature') && !c.types.includes('Land'))],
       ['Lands', rows.filter(([c]) => c.types.includes('Land'))],
     ] as const;
-  }, [deck]);
+  }, [deck, sort]);
   const curve = useMemo(() => {
     const bins = [0, 0, 0, 0, 0, 0, 0];
     for (const c of deck.cards) if (!c.types.includes('Land')) bins[Math.min(6, c.cmc)]++;
     return bins;
   }, [deck]);
+  const strength = useMemo(() => deckStrength(deck.cards), [deck]);
+  // Compare with the previous deck in this seat, so rerolls show "better" or "worse" at a glance.
+  const signature = deck.cards.map((c) => c.id).join();
+  const last = useRef<{ signature: string; score: number } | null>(null);
+  const [delta, setDelta] = useState<number | null>(null);
+  useEffect(() => {
+    if (last.current && last.current.signature !== signature) setDelta(strength.score - last.current.score);
+    last.current = { signature, score: strength.score };
+  }, [signature, strength.score]);
   const filler = deck.cards.filter((c) => !c.types.includes('Land') && !deck.themed.has(c)).length;
   const max = Math.max(...curve, 1);
 
@@ -249,6 +277,7 @@ function DeckList({ deck }: { deck: Deck }) {
           {deck.poolSize.toLocaleString()} playable cards in this theme{filler ? ` · ${filler} filler from the wider multiverse` : ''}
         </span>
       </div>
+      <DeckStrengthPanel strength={strength} delta={delta} />
       <div className="curve" aria-label="Mana curve">
         {curve.map((n, i) => (
           <div key={i} className="curve-col" title={`${n} card${n === 1 ? '' : 's'} at mana value ${i}${i === 6 ? '+' : ''}`}>
@@ -257,20 +286,33 @@ function DeckList({ deck }: { deck: Deck }) {
           </div>
         ))}
       </div>
+      <div className="deck-sort">
+        <span className="muted small">Sort</span>
+        <button type="button" className={`pill ${sort === 'curve' ? 'on' : ''}`} onClick={() => chooseSort('curve')}>
+          Mana curve
+        </button>
+        <button type="button" className={`pill ${sort === 'grade' ? 'on' : ''}`} onClick={() => chooseSort('grade')}>
+          Best first
+        </button>
+      </div>
       <div className="deck-groups">
         {groups.map(([name, rows]) => (
           <div key={name} className="deck-group">
             <h3>
               {name} <span className="muted">({rows.reduce((n, [, k]) => n + k, 0)})</span>
             </h3>
-            {rows.map(([c, n]) => (
-              <div key={c.id} className="deck-row" onMouseEnter={() => hover({ card: c })}>
-                <span className="deck-count">{n}×</span>
-                <span className="deck-name">{c.name}</span>
-                {!c.types.includes('Land') && !deck.themed.has(c) && <span className="tag">filler</span>}
-                <ManaCost cost={c.cost} size={13} />
-              </div>
-            ))}
+            {rows.map(([c, n]) => {
+              const basic = c.supertypes.includes('Basic');
+              return (
+                <div key={c.id} className={`deck-row ${basic ? '' : `row-${cardGrade(c)}`}`} onMouseEnter={() => hover({ card: c })}>
+                  <span className="deck-count">{n}×</span>
+                  {basic ? <span className="grade-badge blank" aria-hidden="true" /> : <GradeBadge card={c} />}
+                  <span className="deck-name">{basic ? c.name : <GradedName card={c} />}</span>
+                  {!c.types.includes('Land') && !deck.themed.has(c) && <span className="tag">filler</span>}
+                  <ManaCost cost={c.cost} size={13} />
+                </div>
+              );
+            })}
           </div>
         ))}
       </div>

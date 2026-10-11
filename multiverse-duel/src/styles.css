@@ -295,3 +295,78 @@ button.primary.big { font-size: 17px; padding: 12px 26px; white-space: nowrap; }
   .midbar { grid-template-columns: 1fr; grid-template-areas: 'phases' 'prompt' 'actions' 'log'; }
   .setup-intro { flex-direction: column; align-items: stretch; }
 }
+
+/* ------------------------------------------------- card quality grades
+   S and A use the Cinzel display face and warm/violet colour so the best cards
+   jump out; B is blue; C is plain text; D fades back. Every grade also has its
+   letter, so nothing depends on colour alone. */
+:root {
+  --g-S: #ffc94d;
+  --g-A: #c9a2ff;
+  --g-B: #7cc4ff;
+  --g-C: #e3dff0;
+  --g-D: #8d88a5;
+  --display: 'Cinzel', 'Trajan Pro', Georgia, serif;
+}
+.graded.q-S { color: var(--g-S); font-family: var(--display); font-weight: 800; letter-spacing: 0.02em; text-shadow: 0 0 10px rgba(255, 201, 77, 0.45); }
+.graded.q-A { color: var(--g-A); font-family: var(--display); font-weight: 600; letter-spacing: 0.01em; }
+.graded.q-B { color: var(--g-B); font-weight: 600; }
+.graded.q-C { color: var(--g-C); font-weight: 400; }
+.graded.q-D { color: var(--g-D); font-weight: 400; font-style: italic; }
+
+.grade-badge { display: inline-grid; place-items: center; flex-shrink: 0; width: 18px; height: 18px; border-radius: 5px; font-family: var(--display); font-weight: 800; font-size: 11.5px; line-height: 1; color: #1b1426; }
+.grade-badge.md { width: 24px; height: 24px; font-size: 15px; border-radius: 6px; }
+.grade-badge.lg { width: 30px; height: 30px; font-size: 19px; border-radius: 7px; }
+.grade-badge.g-S { background: linear-gradient(160deg, #ffe39a, var(--g-S) 55%, #d99a1e); box-shadow: 0 0 8px rgba(255, 201, 77, 0.7); }
+.grade-badge.g-A { background: linear-gradient(160deg, #e6d4ff, var(--g-A)); box-shadow: 0 0 6px rgba(201, 162, 255, 0.5); }
+.grade-badge.g-B { background: var(--g-B); }
+.grade-badge.g-C { background: transparent; color: var(--g-C); border: 1.5px solid #6d6890; }
+.grade-badge.g-D { background: transparent; color: var(--g-D); border: 1.5px dashed #57537a; font-weight: 600; }
+.grade-badge.blank { visibility: hidden; }
+
+.deck-row { border-left: 3px solid transparent; }
+.deck-row.row-S { border-left-color: var(--g-S); background: linear-gradient(90deg, rgba(255, 201, 77, 0.16), transparent 70%); }
+.deck-row.row-A { border-left-color: var(--g-A); background: linear-gradient(90deg, rgba(201, 162, 255, 0.12), transparent 70%); }
+.deck-row.row-B { border-left-color: rgba(124, 196, 255, 0.6); }
+.deck-row.row-D { opacity: 0.72; }
+.deck-row .deck-name .graded.q-S, .deck-row .deck-name .graded.q-A { font-size: 12.5px; }
+.deck-sort { display: flex; align-items: center; gap: 5px; margin-bottom: 4px; }
+.deck-sort .muted { margin-right: 2px; }
+
+.grade-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin: 0 0 12px; padding: 7px 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
+.legend-item { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; }
+.legend-help { margin-left: auto; text-decoration: underline dotted; cursor: help; }
+
+.deck-strength { display: flex; gap: 12px; align-items: center; margin-bottom: 10px; padding: 8px 10px; border-radius: 10px; background: rgba(0, 0, 0, 0.25); border: 1px solid var(--line); }
+.ds-grade { font-family: var(--display); font-weight: 800; font-size: 34px; line-height: 1; width: 44px; text-align: center; }
+.ds-S .ds-grade { color: var(--g-S); text-shadow: 0 0 14px rgba(255, 201, 77, 0.6); }
+.ds-A .ds-grade { color: var(--g-A); }
+.ds-B .ds-grade { color: var(--g-B); }
+.ds-C .ds-grade { color: var(--g-C); }
+.ds-D .ds-grade { color: var(--g-D); }
+.ds-S { border-color: rgba(255, 201, 77, 0.55); }
+.ds-A { border-color: rgba(201, 162, 255, 0.45); }
+.ds-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.ds-line { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
+.ds-label { font-size: 12px; text-transform: uppercase; letter-spacing: 0.6px; color: var(--muted); }
+.ds-score { font-size: 20px; font-weight: 800; }
+.ds-delta { font-size: 12px; font-weight: 700; padding: 1px 7px; border-radius: 999px; margin-left: auto; }
+.ds-delta.up { color: #062; background: #7ee2a8; }
+.ds-delta.down { color: #fff; background: #c2453e; }
+.ds-delta.same { color: var(--muted); border: 1px solid var(--line); }
+.grade-bar { display: flex; height: 18px; border-radius: 5px; overflow: hidden; gap: 2px; }
+.gb-seg { display: grid; place-items: center; min-width: 26px; font-size: 10.5px; font-weight: 800; color: #1b1426; font-family: var(--display); white-space: nowrap; }
+.gb-seg.g-S { background: var(--g-S); }
+.gb-seg.g-A { background: var(--g-A); }
+.gb-seg.g-B { background: var(--g-B); }
+.gb-seg.g-C { background: #4a4668; color: var(--g-C); }
+.gb-seg.g-D { background: #2c2a40; color: var(--g-D); }
+
+.hand-card .grade-badge, .grid-card .grade-badge { position: absolute; top: -7px; left: -7px; z-index: 3; box-shadow: 0 0 0 2px var(--bg), 0 2px 6px #000a; }
+.card-grid { padding: 8px 0 0 8px; }
+.grid-card .grade-badge { width: 22px; height: 22px; font-size: 13px; }
+.hand-card .grade-badge.g-C, .hand-card .grade-badge.g-D, .grid-card .grade-badge.g-C, .grid-card .grade-badge.g-D { background: #1b1426d9; }
+.inspector-grade { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 6px 8px; border-radius: 8px; background: var(--bg2); border: 1px solid var(--line); }
+.inspector-grade.q-S { border-color: rgba(255, 201, 77, 0.6); }
+.inspector-grade.q-A { border-color: rgba(201, 162, 255, 0.5); }
+.inspector-grade .graded { font-size: 15px; }

@@ -2,7 +2,9 @@
 import { createContext, useContext, useState } from 'react';
 import { scryfallUrl, type Card } from '../data/cards';
 import { abilitiesOf } from '../game/abilities';
+import { cardGrade, cardScore, gradeInfo } from '../game/quality';
 import { CardFace, ManaCost } from './CardFace';
+import { GradeBadge } from './Grade';
 
 export interface Hovered {
   card: Card;
@@ -39,6 +41,16 @@ export function Inspector({ hovered, setName }: { hovered: Hovered | null; setNa
         <strong>{card.fullName}</strong> <ManaCost cost={card.cost} size={15} />
       </div>
       <div className="muted">{card.typeLine}</div>
+      {!isToken && !card.supertypes.includes('Basic') && (
+        <div className={`inspector-grade q-${cardGrade(card)}`}>
+          <GradeBadge card={card} size="md" />
+          <span className={`graded q-${cardGrade(card)}`}>{gradeInfo(cardGrade(card)).name}</span>
+          <span className="muted small">
+            {cardScore(card)}/100 · {gradeInfo(cardGrade(card)).blurb}
+            {card.edhrecRank ? ` · #${card.edhrecRank.toLocaleString()} most played` : ''}
+          </span>
+        </div>
+      )}
       {live && (
         <div className="live">
           {card.types.includes('Creature') && (

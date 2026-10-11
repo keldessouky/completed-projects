@@ -139,6 +139,8 @@ for (const { best: c, sets: printedIn, first: firstPrinting, ub } of byOracle.va
   if (f.loyalty !== undefined) card.l = f.loyalty;
   if (c.card_faces?.[1]?.image_uris) card.b = 1;
   if (ub) card.ub = 1;
+  // How widely the card is played (1 = most popular); a strong signal of card quality.
+  if (c.edhrec_rank) card.e = c.edhrec_rank;
   const flavor = f.flavor_text ?? c.flavor_text;
   if (flavor && flavor.length < 160) card.ft = flavor;
   cards.push(card);

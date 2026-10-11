@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { loadUniverse, type Universe } from './data/cards';
 import { buildThemes, type Theme } from './data/themes';
 import { deckable, type Deck } from './game/deck';
+import { initQuality } from './game/quality';
 import { Board } from './ui/Board';
 import { HowToPlay } from './ui/HowToPlay';
 import { HoverContext, Inspector, type Hovered } from './ui/Inspector';
@@ -24,6 +25,7 @@ function useUniverse() {
           setState({ u: null, error: null, progress: `Reading rules text… ${Math.min(i + 1500, u.cards.length).toLocaleString()} / ${u.cards.length.toLocaleString()} cards` });
           await new Promise((r) => setTimeout(r, 0));
         }
+        initQuality(u.cards.filter(deckable));
         if (!cancelled) setState({ u, error: null, progress: '' });
       } catch (e) {
         if (!cancelled) setState({ u: null, error: e instanceof Error ? e.message : String(e), progress: '' });
