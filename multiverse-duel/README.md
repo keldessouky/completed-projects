@@ -64,7 +64,8 @@ npm install
 npm run dev        # http://localhost:5180
 npm test           # parser, mana, rules, deck builder, and 100+ AI-vs-AI duels and 3- and 4-player games on real decks
 npm run build      # typecheck + production build
-npm run smoke      # a headless Chrome bot plays full games through the UI, including a 4-player game
+npm run smoke      # a headless Chrome bot plays full games through the UI (incl. 4 players) and checks real card art loads
+npm run smoke -- --offline   # the same with Scryfall blocked, checking the drawn card frames instead
 ```
 
 | Path | What it does |

@@ -2,9 +2,9 @@
 // themed and Universal decks, lands, spells, targets, attacks and blocks — and fails
 // on any page error. Screenshots land in test-results/.
 //
-//   node tools/smoke.mjs [--games 2] [--headed]
-// Needs a build (npm run build). Card images are blocked so the run works offline;
-// set SMOKE_IMAGES=1 to let them load.
+//   node tools/smoke.mjs [--games 3] [--headed] [--offline]
+// Needs a build (npm run build). Real card images load from Scryfall and the run
+// fails if they don't show; --offline blocks them and checks the drawn fallback instead.
 import { mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -15,6 +15,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const out = join(root, 'test-results');
 mkdirSync(out, { recursive: true });
 const args = process.argv.slice(2);
+const offline = args.includes('--offline');
 const games = args.includes('--games') ? Number(args[args.indexOf('--games') + 1]) : 3;
 
 const executablePath = process.env.CHROME_PATH ?? (process.env.PLAYWRIGHT_BROWSERS_PATH ? '/opt/pw-browsers/chromium' : undefined);
@@ -23,7 +24,7 @@ const browser = await chromium.launch({
   executablePath,
   channel: executablePath ? undefined : 'chrome',
   headless: !args.includes('--headed'),
-  ...(process.env.HTTPS_PROXY && process.env.SMOKE_IMAGES ? { proxy: { server: process.env.HTTPS_PROXY, bypass: 'localhost,127.0.0.1' } } : {}),
+  ...(process.env.HTTPS_PROXY && !offline ? { proxy: { server: process.env.HTTPS_PROXY, bypass: 'localhost,127.0.0.1' } } : {}),
 });
 const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
 const errors = [];
@@ -31,7 +32,33 @@ page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
 page.on('console', (m) => {
   if (m.type() === 'error' && !/Failed to load resource|ERR_|net::/.test(m.text())) errors.push(`console: ${m.text()}`);
 });
-if (!process.env.SMOKE_IMAGES) await page.route(/scryfall\.(io|com)/, (r) => r.abort());
+if (offline) await page.route(/scryfall\.(io|com)/, (r) => r.abort());
+
+/** Before a screenshot: give visible card images a moment to finish loading. */
+async function settleImages() {
+  if (offline) return;
+  await page.waitForFunction(() => [...document.querySelectorAll('img.card-img')].every((i) => i.complete), null, { timeout: 10_000 }).catch(() => {});
+}
+
+/** How many real card images (not drawn fallbacks) inside `scope` have finished loading. */
+async function loadedImages(scope) {
+  return page.evaluate((sel) => [...document.querySelectorAll(`${sel} img.card-img`)].filter((i) => i.complete && i.naturalWidth > 0).length, scope);
+}
+/** Wait until at least `n` real card images in `scope` have loaded (or, offline, drawn frames show). */
+async function checkCardArt(scope, n, what) {
+  if (offline) {
+    await page.waitForFunction((sel) => document.querySelectorAll(`${sel} .drawn-card`).length > 0, scope, { timeout: 15_000 });
+    check(true, `${what}: drawn card frames show offline`);
+    return;
+  }
+  try {
+    await page.waitForFunction(([sel, k]) => [...document.querySelectorAll(`${sel} img.card-img`)].filter((i) => i.complete && i.naturalWidth > 0).length >= k, [scope, n], { timeout: 30_000 });
+  } catch {
+    /* reported below */
+  }
+  const got = await loadedImages(scope);
+  check(got >= n, `${what}: ${got} real card images loaded from Scryfall`);
+}
 
 let checks = 0;
 const check = (ok, what) => {
@@ -62,6 +89,8 @@ try {
   await page.getByLabel('Search cards').fill('lightning bolt');
   await page.waitForTimeout(400);
   check((await page.locator('.grid-card').count()) >= 1, 'card library finds Lightning Bolt');
+  await checkCardArt('.card-grid', 1, 'library');
+  await settleImages();
   await page.screenshot({ path: join(out, 'library.png') });
   await page.getByRole('button', { name: 'Decks' }).click();
 
@@ -89,11 +118,17 @@ try {
     const total = await pickers.nth(0).locator('.deck-group h3 .muted').allInnerTexts();
     const sum = total.map((t) => Number(t.replace(/\D/g, ''))).reduce((a, b) => a + b, 0);
     check(sum === 40, `deck list has 40 cards (${total.join(' + ')})`);
-    if (gameNo === 0) await page.screenshot({ path: join(out, 'setup.png') });
+    if (gameNo === 0) {
+      await settleImages();
+      await page.screenshot({ path: join(out, 'setup.png') });
+    }
 
     await page.locator('.setup-intro button.primary').click();
     await page.waitForSelector('.board');
     check((await page.locator('.opp-zone').count()) === seats - 1, `${seats - 1} opponent${seats > 2 ? 's' : ''} at the table`);
+    await checkCardArt('.hand', 5, 'opening hand');
+    await page.locator('.hand-card').first().hover();
+    await checkCardArt('.inspector', 1, 'card inspector');
     await page.getByRole('button', { name: 'fast', exact: true }).click();
     check(true, 'duel starts');
 
@@ -128,6 +163,7 @@ try {
             continue;
           }
           if (phase === 'Main' && !shotTaken && castCount >= 6) {
+            await settleImages();
             await page.screenshot({ path: join(out, `board-${gameNo + 1}.png`) });
             shotTaken = true;
           }
@@ -179,12 +215,14 @@ try {
     if (seats > 2 && (await clickButton('Watch the rest'))) {
       await page.waitForFunction(() => document.querySelector('.whose')?.textContent === 'Game over', null, { timeout: 180_000 });
       check(true, `the computer players finished the game: ${await text('.recent-log .log-line:last-child')}`);
+      await settleImages();
       await page.screenshot({ path: join(out, `game-${gameNo + 1}-finished.png`) });
       await page.locator('.actions').getByRole('button', { name: 'New decks' }).click();
       await page.waitForSelector('.setup');
       continue;
     }
     check(castCount >= 5, 'the bot played lands and spells');
+    await settleImages();
     await page.screenshot({ path: join(out, `game-over-${gameNo + 1}.png`) });
     await page.locator('.game-over').getByRole('button', { name: 'Game log' }).click();
     check(await visible('.full-log'), 'full game log opens');
