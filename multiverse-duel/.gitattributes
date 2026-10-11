@@ -1,0 +1,4 @@
+# Keep each launcher runnable on its own system.
+*.cmd text eol=crlf
+*.sh text eol=lf
+*.command text eol=lf

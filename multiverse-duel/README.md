@@ -16,16 +16,49 @@ Pick the number of players (you + 1–3 computers), then build each player's dec
 
 You can also fix the colors for either deck or leave them on Auto. **Reroll** builds a new deck from the same choices, and the **Card library** lets you browse and search the whole collection.
 
-## Play it (macOS)
+## Install and play
 
-1. Install [Node.js](https://nodejs.org) 20.19 or newer, if you don't have it (`brew install node` works too).
-2. Double-click **`Multiverse Duel.command`** in Finder. The first launch installs dependencies and builds the game, which takes about a minute. Later launches open straight away in your default browser at <http://localhost:4321>. Close the Terminal window to stop the game.
+You need two things on any computer: **Node.js 20.19 or newer** (it runs the game's small local web server) and a modern browser (Chrome, Edge, Firefox or Safari 16.4+). Nothing else is installed system-wide, and the game runs entirely on your own computer.
 
-   If macOS says the file can't be opened because it's from an unidentified developer, right-click it and choose **Open**, or run `chmod +x "Multiverse Duel.command"` once.
+### 1. Get the game
 
-From a terminal you can run the same thing with `npm start`, or use `npm run dev` for a hot-reloading dev server.
+- **Download:** on the repository's GitHub page click **Code → Download ZIP**, unzip it, and open the `multiverse-duel` folder inside. (Until this work is merged, first switch the branch selector to `claude/multiverse-duel`.)
+- **Or with git:** `git clone https://github.com/keldessouky/completed-projects.git`, then open `completed-projects/multiverse-duel`.
 
-Card images load from Scryfall's image servers, so you need to be online to see them. Offline, every card is drawn as a text frame and the game still works.
+### 2. Install Node.js and start the game
+
+**macOS**
+
+1. Install Node.js from [nodejs.org](https://nodejs.org) (the LTS download), or with Homebrew: `brew install node`.
+2. Double-click **`Multiverse Duel.command`** in Finder.
+   - If macOS says it can't be opened because it's from an unidentified developer, right-click the file, choose **Open**, then **Open** again. You only need to do this once.
+   - If it opens in a text editor instead of Terminal, run `chmod +x "Multiverse Duel.command"` once in Terminal from the `multiverse-duel` folder.
+
+**Windows 10 / 11**
+
+1. Install Node.js from [nodejs.org](https://nodejs.org) (the LTS `.msi` installer, all default options), or in a terminal: `winget install OpenJS.NodeJS.LTS`.
+2. Double-click **`Multiverse Duel.cmd`** in File Explorer.
+   - If SmartScreen shows "Windows protected your PC", click **More info → Run anyway**.
+
+**Linux**
+
+1. Install Node.js 20.19+. Distro packages are often too old, so use one of:
+   - `sudo snap install node --classic` (Ubuntu and other snap distros)
+   - `sudo dnf install nodejs` (Fedora 40+)
+   - `sudo pacman -S nodejs npm` (Arch)
+   - or [nvm](https://github.com/nvm-sh/nvm): `nvm install --lts`
+2. In a terminal, in the `multiverse-duel` folder, run **`./multiverse-duel.sh`**. Or in your file manager, right-click it and choose **Run as a Program** (or **Run in Terminal**).
+   - If it says permission denied, run `chmod +x multiverse-duel.sh` once.
+
+### What happens next (all systems)
+
+- **First launch:** a terminal window opens, installs the game's dependencies and builds it, which takes about a minute and needs the internet. Your browser then opens at **<http://localhost:4321>**.
+- **Later launches** open straight away. If the game is already running, the launcher just opens another browser tab.
+- **To stop the game,** close the terminal window, or press <kbd>Ctrl</kbd>+<kbd>C</kbd> in it.
+- **If you'd rather use a terminal on any system,** run `npm start` in the `multiverse-duel` folder. Add `-- --port 5000` to use another port, or `-- --no-open` to skip opening the browser.
+- **If port 4321 is busy,** the launcher says so. Close whatever is using it, or start with `--port`.
+
+Card images load from Scryfall's image servers, so you need to be online to see them. Offline, every card is drawn as a text frame and the game still works. The card database itself ships with the game and needs no internet connection.
 
 ## How a game goes
 
@@ -79,6 +112,7 @@ npm run smoke -- --offline   # the same with Scryfall blocked, checking the draw
 | `src/game/deck.ts` | 40-card deck building with a mana curve and color fixing |
 | `src/ui/` | React components: deck setup, board, card inspector, library |
 | `tools/` | snapshot builder, launcher, static server and the smoke-test bot |
+| `Multiverse Duel.command`, `Multiverse Duel.cmd`, `multiverse-duel.sh` | double-click launchers for macOS, Windows and Linux |
 
 Built with React 19, TypeScript and Vite. There are no runtime dependencies beyond React.
 

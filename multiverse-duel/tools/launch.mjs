@@ -13,7 +13,11 @@ const open = !args.includes('--no-open');
 
 const [major, minor] = process.versions.node.split('.').map(Number);
 if (major < 20 || (major === 20 && minor < 19)) {
-  console.error(`Multiverse Duel needs Node.js 20.19 or newer (you have ${process.versions.node}). Get it from https://nodejs.org or run: brew upgrade node`);
+  const how = {
+    darwin: 'download it from https://nodejs.org, or run: brew upgrade node',
+    win32: 'download it from https://nodejs.org, or run: winget install OpenJS.NodeJS.LTS',
+  }[process.platform] ?? "see https://nodejs.org/en/download (your distro's package may be too old; `sudo snap install node --classic` or nvm gets you a current one)";
+  console.error(`Multiverse Duel needs Node.js 20.19 or newer (you have ${process.versions.node}). To update, ${how}.`);
   process.exit(1);
 }
 

@@ -26,6 +26,8 @@ jobs:
         include:
           - os: macos-latest
             label: macOS
+          - os: windows-latest
+            label: Windows
           - os: ubuntu-latest
             label: Linux
     steps:
@@ -42,13 +44,36 @@ jobs:
         run: npm test
       - name: Headless Chrome plays full games through the UI (incl. 4 players)
         run: npm run smoke
-      - name: The double-click launcher serves the game
+      - name: Multiverse Duel.command starts the game (macOS)
+        if: runner.os == 'macOS'
         run: |
           ./"Multiverse Duel.command" --no-open &
           for i in $(seq 1 60); do curl -fs http://127.0.0.1:4321/__multiverse && break; sleep 0.5; done
           curl -fs http://127.0.0.1:4321/ | grep -q '<div id="root">'
           curl -fsI http://127.0.0.1:4321/data/cards.json.gz | grep -q '200 OK'
           kill %1
+      - name: multiverse-duel.sh starts the game (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          ./multiverse-duel.sh --no-open &
+          for i in $(seq 1 60); do curl -fs http://127.0.0.1:4321/__multiverse && break; sleep 0.5; done
+          curl -fs http://127.0.0.1:4321/ | grep -q '<div id="root">'
+          curl -fsI http://127.0.0.1:4321/data/cards.json.gz | grep -q '200 OK'
+          kill %1
+      - name: Multiverse Duel.cmd starts the game (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Start-Process cmd -ArgumentList '/c', '"Multiverse Duel.cmd" --no-open' -WindowStyle Hidden
+          $ok = $false
+          for ($i = 0; $i -lt 60 -and -not $ok; $i++) {
+            try { $ok = "$((Invoke-WebRequest -UseBasicParsing http://127.0.0.1:4321/__multiverse).Content)" -eq 'multiverse-duel' } catch {}
+            if (-not $ok) { Start-Sleep -Milliseconds 500 }
+          }
+          if (-not $ok) { throw 'Multiverse Duel.cmd did not start the server' }
+          if ((Invoke-WebRequest -UseBasicParsing http://127.0.0.1:4321/).Content -notmatch '<div id="root">') { throw 'the game page is wrong' }
+          if ((Invoke-WebRequest -UseBasicParsing -Method Head http://127.0.0.1:4321/data/cards.json.gz).StatusCode -ne 200) { throw 'card data missing' }
+          Get-Process node | Stop-Process -Force
       - uses: actions/upload-artifact@v4
         if: always()
         with:
