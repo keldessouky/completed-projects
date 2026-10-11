@@ -52,7 +52,9 @@ function isDeckable(c: Card): boolean {
 
 /** Can a deck of these colours pay for this card? (Colourless cards fit anywhere.) */
 export function fitsColors(c: Card, colors: Color[]): boolean {
-  return parseCost(c.cost).pips.every((pip) => pip.some((p) => colors.includes(p)));
+  const a = abilitiesOf(c);
+  const costs = [parseCost(c.cost), ...a.activated.map((x) => x.cost), ...(a.attach?.equip ? [a.attach.equip] : [])];
+  return costs.every((cost) => cost.pips.every((pip) => pip.some((p) => colors.includes(p))));
 }
 
 function chooseColors(pool: Card[], rng: Rng, universal: boolean): Color[] {

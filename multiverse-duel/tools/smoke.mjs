@@ -15,7 +15,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const out = join(root, 'test-results');
 mkdirSync(out, { recursive: true });
 const args = process.argv.slice(2);
-const games = args.includes('--games') ? Number(args[args.indexOf('--games') + 1]) : 2;
+const games = args.includes('--games') ? Number(args[args.indexOf('--games') + 1]) : 3;
 
 const executablePath = process.env.CHROME_PATH ?? (process.env.PLAYWRIGHT_BROWSERS_PATH ? '/opt/pw-browsers/chromium' : undefined);
 const { server, url } = await startServer({ root: join(root, 'dist'), port: 4555 });
@@ -68,8 +68,12 @@ try {
   for (let gameNo = 0; gameNo < games; gameNo++) {
     console.log(`Game ${gameNo + 1}`);
     // Game 1: a themed deck (Lord of the Rings) vs Universal. Game 2: a creature type vs a plane.
+    // Game 3: a four-player free-for-all against three computers.
+    const seats = gameNo === 2 ? 4 : 2;
+    await page.getByRole('radio', { name: new RegExp(`^${seats} — you`) }).click();
+    check((await page.locator('.picker').count()) === seats, `${seats} deck pickers for ${seats} players`);
     const pickers = page.locator('.picker');
-    const themed = gameNo === 0 ? ['Franchises', 'The Lord of the Rings'] : ['Creature types', 'Dragons'];
+    const themed = gameNo === 0 ? ['Franchises', 'The Lord of the Rings'] : gameNo === 1 ? ['Creature types', 'Dragons'] : ['Planes', 'Ravnica'];
     await pickers.nth(0).getByRole('tab', { name: 'Themed' }).click();
     await pickers.nth(0).getByRole('button', { name: themed[0], exact: true }).click();
     await pickers.nth(0).locator('.theme', { hasText: themed[1] }).first().click();
@@ -87,8 +91,9 @@ try {
     check(sum === 40, `deck list has 40 cards (${total.join(' + ')})`);
     if (gameNo === 0) await page.screenshot({ path: join(out, 'setup.png') });
 
-    await page.getByRole('button', { name: 'Start duel ▸' }).click();
+    await page.locator('.setup-intro button.primary').click();
     await page.waitForSelector('.board');
+    check((await page.locator('.opp-zone').count()) === seats - 1, `${seats - 1} opponent${seats > 2 ? 's' : ''} at the table`);
     await page.getByRole('button', { name: 'fast', exact: true }).click();
     check(true, 'duel starts');
 
@@ -130,7 +135,14 @@ try {
           continue;
         }
         if (phase === 'Attack') {
-          await clickButton('Select all');
+          // In multiplayer, aim at the opponent with the lowest life by clicking their life total.
+          const lives = page.locator('.opp-zone:not(.out) .life');
+          if ((await lives.count()) > 1) {
+            const values = (await lives.locator('.life-num').allInnerTexts()).map(Number);
+            await lives.nth(values.indexOf(Math.min(...values))).click();
+          }
+          const all = page.locator('.actions button', { hasText: /^(Select all|All at )/ });
+          if (await all.count()) await all.first().click();
           const b = page.locator('.actions button.primary');
           const label = await b.innerText();
           if (label.startsWith('Attack with')) attacks++;
@@ -141,10 +153,10 @@ try {
           await clickButton('Deal combat damage');
           continue;
         }
-      } else if (prompt.startsWith('You’re being attacked')) {
+      } else if (prompt.includes('is attacking you')) {
         // Block the first attacker with the first untapped creature, if we can.
         const mineFree = page.locator('.battlefield.you .perm:not(.tapped)');
-        const atk = page.locator('.battlefield.opp .perm.attacking');
+        const atk = page.locator('.battlefield.opp .perm.at-you');
         if (blocksTried % 2 === 0 && (await mineFree.count()) && (await atk.count())) {
           await mineFree.first().click();
           await atk.first().click();
@@ -162,7 +174,16 @@ try {
       }
       await page.waitForTimeout(120);
     }
-    check(await visible('.game-over'), `game ${gameNo + 1} reached the end (${castCount} cards played, ${attacks} attacks, ${blocksTried} blocking steps)`);
+    check(await visible('.game-over'), `game ${gameNo + 1} reached the end for you (${castCount} cards played, ${attacks} attacks, ${blocksTried} blocking steps): ${await text('.game-over h2')}`);
+    // Knocked out of a multiplayer game: watch the computers finish it.
+    if (seats > 2 && (await clickButton('Watch the rest'))) {
+      await page.waitForFunction(() => document.querySelector('.whose')?.textContent === 'Game over', null, { timeout: 180_000 });
+      check(true, `the computer players finished the game: ${await text('.recent-log .log-line:last-child')}`);
+      await page.screenshot({ path: join(out, `game-${gameNo + 1}-finished.png`) });
+      await page.locator('.actions').getByRole('button', { name: 'New decks' }).click();
+      await page.waitForSelector('.setup');
+      continue;
+    }
     check(castCount >= 5, 'the bot played lands and spells');
     await page.screenshot({ path: join(out, `game-over-${gameNo + 1}.png`) });
     await page.locator('.game-over').getByRole('button', { name: 'Game log' }).click();

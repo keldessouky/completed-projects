@@ -8,16 +8,16 @@ export function HowToPlay({ onClose }: { onClose: () => void }) {
           <button type="button" className="close" onClick={onClose} aria-label="Close">✕</button>
         </div>
         <div className="modal-body help">
-          <p>Reduce your opponent from <strong>20 life</strong> to 0. A player who must draw from an empty library loses too.</p>
+          <p>Play against 1 to 3 computer opponents. Everyone starts at <strong>20 life</strong>; a player at 0 life, or who must draw from an empty library, is out and their permanents leave the game. The last player standing wins.</p>
           <h4>Your turn</h4>
           <ol>
             <li><strong>Main phase.</strong> Click a land in your hand to play it (one per turn). Click any glowing card to cast it — mana is paid automatically from your untapped lands. If it needs a target, the legal targets glow green: click one (or a player’s life total).</li>
-            <li><strong>Attack.</strong> Press <em>Attack</em>, click the creatures that should attack, then confirm. Creatures can’t attack the turn they arrive (summoning sickness) unless they have haste.</li>
-            <li><strong>Damage.</strong> The opponent declares blockers; you can still cast instants before pressing <em>Deal combat damage</em>.</li>
+            <li><strong>Attack.</strong> Press <em>Attack</em>, click the creatures that should attack, then confirm. With several opponents, click an opponent’s life total to choose whom the next creatures you click will attack — you can split your attackers between players. Creatures can’t attack the turn they arrive (summoning sickness) unless they have haste.</li>
+            <li><strong>Damage.</strong> The players you attacked declare blockers; you can still cast instants before pressing <em>Deal combat damage</em>.</li>
             <li><strong>Second main phase</strong>, then <em>End turn</em>. <kbd>Space</kbd> presses the highlighted button, <kbd>Esc</kbd> cancels.</li>
           </ol>
-          <h4>Their turn</h4>
-          <p>When the opponent attacks, click one of your untapped creatures and then the attacker it should block (repeat for more blocks; click a blocker again to undo). You can cast instants while blocking. Then confirm.</p>
+          <h4>Their turns</h4>
+          <p>Computer players also attack each other. When one attacks you, click one of your untapped creatures and then the attacker it should block (repeat for more blocks; click a blocker again to undo). You can cast instants while blocking. Then confirm.</p>
           <h4>Click your permanents</h4>
           <p>Creatures and artifacts with activated abilities (like “{'{T}'}: deal 1 damage to any target”) and equipment are used by clicking them on the battlefield.</p>
           <h4>Keywords simulated</h4>
@@ -25,6 +25,7 @@ export function HowToPlay({ onClose }: { onClose: () => void }) {
           <h4>Simplified on purpose</h4>
           <ul>
             <li>There is no stack: spells resolve as soon as they’re cast, so there are no counterspells.</li>
+            <li>“Each opponent” means every opponent still in the game; “any target” can be any player.</li>
             <li>Targets for triggers other than “when this enters” are picked automatically.</li>
             <li>{'{C}'} and snow mana are paid like generic mana; hybrid and Phyrexian mana are paid with a coloured mana.</li>
             <li>Rules text the game doesn’t understand is ignored, and it says so: point at any card and the panel on the right lists each ability with a ✓ (simulated) or ✗ (not simulated). Decks prefer fully simulated cards; spells that would do nothing are never put in a deck.</li>

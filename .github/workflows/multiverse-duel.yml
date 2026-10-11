@@ -40,7 +40,7 @@ jobs:
         run: npm run build
       - name: Parser, mana, rules, deck builder and AI-vs-AI games
         run: npm test
-      - name: Headless Chrome plays two full games through the UI
+      - name: Headless Chrome plays full games through the UI (incl. 4 players)
         run: npm run smoke
       - name: The double-click launcher serves the game
         run: |

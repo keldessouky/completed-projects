@@ -1,15 +1,15 @@
-// The duel: your hand and battlefield at the bottom, the opponent's at the top.
+// The game table: your hand and battlefield at the bottom, one to three computer opponents at the top.
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { Card } from '../data/cards';
 import { abilitiesOf, describeEffect, targetSlots, type TargetSpec } from '../game/abilities';
-import { aiDefend, aiStep } from '../game/ai';
+import { aiBlockStep, aiStep } from '../game/ai';
 import type { Deck } from '../game/deck';
-import { Game, sameRef, type CardRef, type Perm, type PlayerId, type TargetRef } from '../game/engine';
+import { defaultNames, Game, sameRef, type CardRef, type Perm, type PlayerId, type TargetRef } from '../game/engine';
 import { CardBack, CardFace, ManaCost } from './CardFace';
 import { useHover, type Hovered } from './Inspector';
 
 const YOU: PlayerId = 0;
-const AI: PlayerId = 1;
+const ordinal = (n: number) => `${n}${['th', 'st', 'nd', 'rd'][n % 100 > 10 && n % 100 < 14 ? 0 : n % 10 < 4 ? n % 10 : 0]}`;
 
 type Pending =
   | { k: 'mode'; iid: number }
@@ -27,12 +27,14 @@ const PHASES: { id: string; label: string }[] = [
 
 const SPEEDS = { slow: 1100, normal: 650, fast: 250 } as const;
 
-export function Board({ decks, onRematch, onNewDecks, onHelp }: { decks: [Deck, Deck]; onRematch: () => void; onNewDecks: () => void; onHelp: () => void }) {
-  const game = useMemo(() => new Game([decks[0].cards, decks[1].cards], { names: ['You', 'Opponent'] }), [decks]);
+export function Board({ decks, onRematch, onNewDecks, onHelp }: { decks: Deck[]; onRematch: () => void; onNewDecks: () => void; onHelp: () => void }) {
+  const game = useMemo(() => new Game(decks.map((d) => d.cards), { names: defaultNames(decks.length) }), [decks]);
   const [, setTick] = useState(0);
   const refresh = useCallback(() => setTick((t) => t + 1), []);
   const [pending, setPending] = useState<Pending | null>(null);
-  const [attackers, setAttackers] = useState<number[]>([]);
+  /** Your planned attack: attacker → the opponent it attacks. */
+  const [attackers, setAttackers] = useState<Record<number, PlayerId>>({});
+  const [attackTarget, setAttackTarget] = useState<PlayerId>(1);
   const [blocks, setBlocks] = useState<Record<number, number[]>>({});
   const [picking, setPicking] = useState<number | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -55,18 +57,20 @@ export function Board({ decks, onRematch, onNewDecks, onHelp }: { decks: [Deck, 
     toastTimer.current = window.setTimeout(() => setToast(null), 2600);
   }, []);
 
-  // --- the opponent's turn plays itself, one visible step at a time
+  // --- computer players act on their own, one visible step at a time
   useEffect(() => {
     if (g.winner !== null) return;
     let timer: number | undefined;
-    if (g.active === AI && g.phase !== 'block') {
+    if (g.phase === 'block') {
+      if (g.combat?.waiting.some((id) => id !== YOU)) {
+        timer = window.setTimeout(() => {
+          aiBlockStep(g, YOU);
+          refresh();
+        }, SPEEDS[speed]);
+      }
+    } else if (g.active !== YOU) {
       timer = window.setTimeout(() => {
-        aiStep(g, AI);
-        refresh();
-      }, SPEEDS[speed]);
-    } else if (g.active === YOU && g.phase === 'block') {
-      timer = window.setTimeout(() => {
-        aiDefend(g, AI);
+        aiStep(g, g.active);
         refresh();
       }, SPEEDS[speed]);
     }
@@ -76,7 +80,8 @@ export function Board({ decks, onRematch, onNewDecks, onHelp }: { decks: [Deck, 
   // Reset per-phase selections when the phase changes.
   const phaseKey = `${g.turn}-${g.phase}`;
   useEffect(() => {
-    setAttackers([]);
+    setAttackers({});
+    setAttackTarget((t) => (g.players[t] && !g.players[t].lost && t !== YOU ? t : g.opponents(YOU)[0] ?? 1));
     setBlocks({});
     setPicking(null);
     setPending(null);
@@ -90,9 +95,13 @@ export function Board({ decks, onRematch, onNewDecks, onHelp }: { decks: [Deck, 
     }
   }, [speed]);
 
+  const me = g.players[YOU];
   const myTurn = g.active === YOU;
-  const defending = g.active === AI && g.phase === 'block';
-  const canAct = g.winner === null && (myTurn ? g.phase !== 'block' : defending);
+  const defending = g.phase === 'block' && !!g.combat?.waiting.includes(YOU);
+  const canAct = g.winner === null && !me.lost && (myTurn ? g.phase !== 'block' : defending);
+  const opps = g.players.filter((p) => p.id !== YOU);
+  const liveOpps = g.opponents(YOU);
+  const nameOf = (id: PlayerId) => (id === YOU ? 'you' : g.players[id].name);
 
   // ---------------------------------------------------------------- targeting
 
@@ -149,7 +158,11 @@ export function Board({ decks, onRematch, onNewDecks, onHelp }: { decks: [Deck, 
 
   const clickPlayer = (id: PlayerId) => {
     const r: TargetRef = { kind: 'player', id };
-    if (currentSlot && isLegal(r)) choose(r);
+    if (currentSlot) {
+      if (isLegal(r)) choose(r);
+      return;
+    }
+    if (myTurn && g.phase === 'attack' && id !== YOU && !g.players[id].lost) setAttackTarget(id);
   };
 
   const clickPerm = (p: Perm) => {
@@ -169,7 +182,12 @@ export function Board({ decks, onRematch, onNewDecks, onHelp }: { decks: [Deck, 
     if (pending) return;
     if (myTurn && g.phase === 'attack' && p.controller === YOU) {
       if (!g.canAttack(p)) return say(g.isSick(p) ? `${p.card.name} just arrived (summoning sickness).` : `${p.card.name} can’t attack.`);
-      setAttackers((a) => (a.includes(p.iid) ? a.filter((x) => x !== p.iid) : [...a, p.iid]));
+      setAttackers((a) => {
+        const next = { ...a };
+        if (next[p.iid] === attackTarget) delete next[p.iid];
+        else next[p.iid] = attackTarget;
+        return next;
+      });
       return;
     }
     if (defending) {
@@ -185,7 +203,8 @@ export function Board({ decks, onRematch, onNewDecks, onHelp }: { decks: [Deck, 
         setPicking(p.iid);
         return;
       }
-      if (p.controller === AI && g.combat?.attackers.includes(p.iid)) {
+      if (p.controller !== YOU && g.combat?.attackers.includes(p.iid)) {
+        if (g.combat.defenderOf[p.iid] !== YOU) return say(`${p.card.name} is attacking ${g.players[g.combat.defenderOf[p.iid]].name}, not you.`);
         if (picking === null) return say('Click one of your creatures first, then the attacker it should block.');
         const blocker = g.perm(picking)!;
         if (!g.canBlock(blocker, p)) return say(`${blocker.card.name} can’t block ${p.card.name}${g.has(p, 'Flying') ? ' (flying)' : ''}.`);
@@ -215,7 +234,7 @@ export function Board({ decks, onRematch, onNewDecks, onHelp }: { decks: [Deck, 
 
   const blockProblem = defending ? g.blockProblem(blocks) : null;
   const actions: { label: string; run: () => void; primary?: boolean; disabled?: boolean; title?: string }[] = [];
-  if (g.winner !== null) {
+  if (g.winner !== null || me.lost) {
     actions.push({ label: 'Rematch', primary: true, run: onRematch });
     actions.push({ label: 'New decks', run: onNewDecks });
   } else if (!pending) {
@@ -225,8 +244,12 @@ export function Board({ decks, onRematch, onNewDecks, onHelp }: { decks: [Deck, 
       actions.push({ label: 'End turn', primary: !any, run: () => (g.goToCombat(), g.declareAttackers([]), g.endTurn(), refresh()) });
     } else if (myTurn && g.phase === 'attack') {
       const able = g.creatures(YOU).filter((p) => g.canAttack(p));
-      actions.push({ label: attackers.length ? `Attack with ${attackers.length}` : 'No attack', primary: true, run: () => (g.declareAttackers(attackers), refresh()) });
-      if (able.length && attackers.length < able.length) actions.push({ label: 'Select all', run: () => setAttackers(able.map((p) => p.iid)) });
+      const n = Object.keys(attackers).length;
+      actions.push({ label: n ? `Attack with ${n}` : 'No attack', primary: true, run: () => (g.declareAttackers(Object.keys(attackers).map(Number), attackers), refresh()) });
+      const allAtTarget = able.length > 0 && able.every((p) => attackers[p.iid] === attackTarget);
+      if (able.length && !allAtTarget) {
+        actions.push({ label: liveOpps.length > 1 ? `All at ${g.players[attackTarget].name}` : 'Select all', run: () => setAttackers(Object.fromEntries(able.map((p) => [p.iid, attackTarget]))) });
+      }
     } else if (myTurn && g.phase === 'combat') {
       actions.push({ label: 'Deal combat damage', primary: true, run: () => (g.resolveCombat(), refresh()) });
     } else if (myTurn && g.phase === 'main2') {
@@ -239,7 +262,7 @@ export function Board({ decks, onRematch, onNewDecks, onHelp }: { decks: [Deck, 
         disabled: !!blockProblem,
         title: blockProblem ?? undefined,
         run: () => {
-          if (g.declareBlockers(blocks)) refresh();
+          if (g.declareBlockers(YOU, blocks)) refresh();
           else say(blockProblem ?? 'Those blocks aren’t legal.');
         },
       });
@@ -272,15 +295,21 @@ export function Board({ decks, onRematch, onNewDecks, onHelp }: { decks: [Deck, 
     if (pending?.k === 'equip') return 'Choose one of your creatures to equip.';
     if (pending?.k === 'mode') return 'Choose a mode.';
     if (pending?.k === 'abilities') return 'Choose an ability.';
+    if (me.lost) return `You’re out of the game — watching ${liveOpps.length} computer player${liveOpps.length > 1 ? 's' : ''} finish it.`;
     if (myTurn) {
       if (g.phase === 'main1') return g.players[YOU].landsPlayed ? 'Cast spells, or attack.' : 'Play a land, cast spells, then attack.';
-      if (g.phase === 'attack') return 'Click your creatures to choose attackers.';
-      if (g.phase === 'block') return 'The opponent is choosing blockers…';
+      if (g.phase === 'attack') {
+        return liveOpps.length > 1
+          ? `Attacking ${g.players[attackTarget].name} — click your creatures. Click another opponent’s life to switch target.`
+          : 'Click your creatures to choose attackers.';
+      }
+      if (g.phase === 'block') return liveOpps.length > 1 ? 'Your opponents are choosing blockers…' : 'The opponent is choosing blockers…';
       if (g.phase === 'combat') return 'Blocks are in. Cast an instant, or deal damage.';
       if (g.phase === 'main2') return 'Cast more spells, or end your turn.';
     }
-    if (defending) return picking !== null ? `Now click the attacker ${g.perm(picking)?.card.name} should block.` : 'You’re being attacked! Click your creature, then the attacker to block. Instants work too.';
-    return 'The opponent is thinking…';
+    if (defending) return picking !== null ? `Now click the attacker ${g.perm(picking)?.card.name} should block.` : `${g.players[g.active].name} is attacking you! Click your creature, then the attacker to block. Instants work too.`;
+    if (g.phase === 'block') return `${g.players[g.active].name} attacked — ${g.combat?.waiting.map((id) => g.players[id].name).join(' and ')} choosing blockers…`;
+    return `${g.players[g.active].name} is thinking…`;
   })();
 
   const hand = g.players[YOU].hand;
@@ -291,12 +320,16 @@ export function Board({ decks, onRematch, onNewDecks, onHelp }: { decks: [Deck, 
     const r: TargetRef = { kind: 'perm', iid: p.iid };
     const combatBlocks = g.combat?.blocks ?? {};
     const blocking = defending ? Object.entries(blocks).find(([, bs]) => bs.includes(p.iid)) : Object.entries(combatBlocks).find(([, bs]) => bs.includes(p.iid));
+    const planned = attackers[p.iid];
+    const atWhom = g.combat?.defenderOf[p.iid] ?? planned;
     return {
       perm: p,
       game: g,
       targetable: !!currentSlot && isLegal(r),
-      selected: attackers.includes(p.iid) || picking === p.iid,
+      selected: planned !== undefined || picking === p.iid,
+      attackLabel: atWhom !== undefined && g.players.length > 2 ? `→ ${nameOf(atWhom)}` : '',
       attacking: !!g.combat?.attackers.includes(p.iid),
+      atYou: g.combat?.defenderOf[p.iid] === YOU,
       attackNo: attackerNumber(p.iid),
       blockingNo: blocking ? attackerNumber(+blocking[0]) : 0,
       onClick: () => clickPerm(p),
@@ -306,26 +339,43 @@ export function Board({ decks, onRematch, onNewDecks, onHelp }: { decks: [Deck, 
 
   return (
     <div className="board">
-      <PlayerBar game={g} id={AI} targetable={!!currentSlot && isLegal({ kind: 'player', id: AI })} onClick={() => clickPlayer(AI)} deckName={decks[1].name}>
-        <div className="opp-hand" aria-label={`Opponent has ${g.players[AI].hand.length} cards in hand`}>
-          {g.players[AI].hand.map((c) => (
-            <div key={c.iid} className="mini-back">
-              <CardBack />
-            </div>
-          ))}
-        </div>
-      </PlayerBar>
-      <Battlefield game={g} id={AI} permProps={permProps} />
+      <div className={`opponents n${opps.length}`}>
+        {opps.map((o) => (
+          <div key={o.id} className={`opp-zone ${o.lost ? 'out' : ''} ${g.active === o.id ? 'active' : ''}`}>
+            <PlayerBar
+              game={g}
+              id={o.id}
+              targetable={!!currentSlot && isLegal({ kind: 'player', id: o.id })}
+              attackTarget={myTurn && g.phase === 'attack' && liveOpps.length > 1 && attackTarget === o.id}
+              onClick={() => clickPlayer(o.id)}
+              deckName={decks[o.id].name}
+            >
+              <div className="opp-hand" aria-label={`${o.name} has ${o.hand.length} cards in hand`}>
+                {o.hand.slice(0, 10).map((c) => (
+                  <div key={c.iid} className="mini-back">
+                    <CardBack />
+                  </div>
+                ))}
+              </div>
+            </PlayerBar>
+            {o.lost ? (
+              <div className="out-note">Out of the game — {ordinal(o.place ?? 0)} place</div>
+            ) : (
+              <Battlefield game={g} id={o.id} permProps={permProps} />
+            )}
+          </div>
+        ))}
+      </div>
 
       <div className="midbar">
         <div className="phase-track" aria-label="Turn phases">
-          <span className={`whose ${myTurn ? 'you' : 'opp'}`}>{g.winner !== null ? 'Game over' : myTurn ? `Your turn` : `Opponent’s turn`}</span>
+          <span className={`whose ${myTurn ? 'you' : `opp seat-${g.active}`}`}>{g.winner !== null ? 'Game over' : myTurn ? `Your turn` : `${g.players[g.active].name}’s turn`}</span>
           {PHASES.map((ph) => (
             <span key={ph.id} className={`phase ${g.phase === ph.id ? 'on' : ''}`}>
               {ph.label}
             </span>
           ))}
-          <span className="muted small">turn {Math.ceil(g.turn / 2)}</span>
+          <span className="muted small">round {g.round}</span>
         </div>
         <div className="prompt" role="status">{prompt}</div>
         <div className="actions">
@@ -418,22 +468,28 @@ export function Board({ decks, onRematch, onNewDecks, onHelp }: { decks: [Deck, 
           <div className="full-log">
             {g.log.map((l, i) => (
               <div key={i} className={`log-line who-${l.who ?? 'n'}`}>
-                <span className="muted">T{Math.ceil(l.turn / 2)}</span> {l.text}
+                {l.text}
               </div>
             ))}
           </div>
         </Modal>
       )}
-      {g.winner !== null && !hideOver && (
+      {(g.winner !== null || me.lost) && !hideOver && (
         <div className="game-over">
           <div className="game-over-card">
-            <h2>{g.winner === YOU ? 'Victory!' : g.winner === AI ? 'Defeat' : 'Draw'}</h2>
-            <p className="muted">{g.log[g.log.length - 1]?.text}</p>
+            <h2>{g.winner === YOU ? 'Victory!' : g.winner === 'draw' ? 'Draw' : me.lost ? 'Defeat' : 'Game over'}</h2>
+            <p className="muted">
+              {g.winner === YOU
+                ? opps.length > 1 ? `You outlasted all ${opps.length} opponents.` : 'You win!'
+                : me.lost
+                  ? `You finished ${ordinal(me.place ?? 0)} of ${g.players.length}.${g.winner === null ? ` ${liveOpps.length} computer players are still fighting.` : g.winner !== 'draw' ? ` ${g.players[g.winner].name} wins.` : ''}`
+                  : g.log[g.log.length - 1]?.text}
+            </p>
             <div className="actions">
               <button type="button" className="primary" onClick={onRematch}>Rematch (same decks)</button>
               <button type="button" onClick={onNewDecks}>New decks</button>
               <button type="button" onClick={() => setShowLog(true)}>Game log</button>
-              <button type="button" onClick={() => setHideOver(true)}>View board</button>
+              <button type="button" onClick={() => setHideOver(true)}>{g.winner === null ? 'Watch the rest' : 'View board'}</button>
             </div>
           </div>
         </div>
@@ -458,11 +514,11 @@ function liveInfo(g: Game, p: Perm): Hovered {
   return { card: p.card, live: { power: g.power(p), toughness: g.toughness(p), keywords: [...g.keywords(p)], notes } };
 }
 
-function PlayerBar({ game: g, id, targetable, onClick, deckName, children }: { game: Game; id: PlayerId; targetable: boolean; onClick: () => void; deckName: string; children?: ReactNode }) {
+function PlayerBar({ game: g, id, targetable, attackTarget, onClick, deckName, children }: { game: Game; id: PlayerId; targetable: boolean; attackTarget?: boolean; onClick: () => void; deckName: string; children?: ReactNode }) {
   const p = g.players[id];
   return (
-    <div className={`player-bar ${id === YOU ? 'you' : 'opp'} ${g.active === id ? 'active' : ''}`}>
-      <button type="button" className={`life ${targetable ? 'targetable' : ''}`} onClick={onClick} aria-label={`${p.name}: ${p.life} life`}>
+    <div className={`player-bar ${id === YOU ? 'you' : `opp seat-${id}`} ${g.active === id ? 'active' : ''}`}>
+      <button type="button" className={`life ${targetable ? 'targetable' : ''} ${attackTarget ? 'attack-target' : ''}`} onClick={onClick} aria-label={`${p.name}: ${p.life} life`}>
         <span key={p.life} className="life-num">{p.life}</span>
         <span className="life-label">{p.name}</span>
       </button>
@@ -500,7 +556,9 @@ interface PermProps {
   game: Game;
   targetable: boolean;
   selected: boolean;
+  attackLabel: string;
   attacking: boolean;
+  atYou: boolean;
   attackNo: number;
   blockingNo: number;
   onClick: () => void;
@@ -563,7 +621,7 @@ function LandStack({ card, perms, permProps }: { card: Card; perms: Perm[]; perm
   );
 }
 
-function PermView({ perm: p, game: g, targetable, selected, attacking, attackNo, blockingNo, onClick, onHover }: PermProps) {
+function PermView({ perm: p, game: g, targetable, selected, attackLabel, attacking, atYou, attackNo, blockingNo, onClick, onHover }: PermProps) {
   const creature = g.isCreature(p);
   const power = creature ? g.power(p) : 0;
   const toughness = creature ? g.toughness(p) : 0;
@@ -574,7 +632,7 @@ function PermView({ perm: p, game: g, targetable, selected, attacking, attackNo,
   return (
     <button
       type="button"
-      className={['perm', p.tapped ? 'tapped' : '', targetable ? 'targetable' : '', selected ? 'selected' : '', attacking ? 'attacking' : '', blockingNo ? 'blocking' : ''].join(' ')}
+      className={['perm', p.tapped ? 'tapped' : '', targetable ? 'targetable' : '', selected ? 'selected' : '', attacking ? 'attacking' : '', atYou ? 'at-you' : '', blockingNo ? 'blocking' : ''].join(' ')}
       onClick={onClick}
       onMouseEnter={onHover}
       aria-label={`${p.card.name}${creature ? ` ${power}/${toughness}` : ''}${p.tapped ? ', tapped' : ''}`}
@@ -593,6 +651,7 @@ function PermView({ perm: p, game: g, targetable, selected, attacking, attackNo,
       {attackNo > 0 && <span className="badge atk">⚔{attackNo}</span>}
       {blockingNo > 0 && <span className="badge blk">🛡{blockingNo}</span>}
       {host && <span className="attached" title={`Attached to ${host.card.name}`}>↳ {host.card.name}</span>}
+      {!host && attackLabel && <span className="attached attack-at">{attackLabel}</span>}
       {kws.length > 0 && <span className="kw-strip">{kws.map(kwIcon).join('')}</span>}
     </button>
   );

@@ -100,6 +100,9 @@ button.primary { background: linear-gradient(180deg, var(--gold2), var(--gold));
 button.primary:hover:not(:disabled) { filter: brightness(1.08); }
 button.primary.big { font-size: 17px; padding: 12px 26px; white-space: nowrap; }
 .pickers { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.player-count { display: flex; align-items: center; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+.player-count .muted { margin-right: 4px; }
+.table-note { margin: -4px 0 12px; }
 .picker { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 .picker-head { display: flex; justify-content: space-between; align-items: center; }
 .picker-head h2 { font-size: 18px; }
@@ -158,6 +161,26 @@ button.primary.big { font-size: 17px; padding: 12px 26px; white-space: nowrap; }
 
 .battlefield { display: flex; gap: 10px; padding: 8px 10px; border-radius: 14px; min-height: calc(var(--ch) + 22px); align-items: center; }
 .battlefield.opp { background: linear-gradient(180deg, rgba(229, 83, 75, 0.06), rgba(229, 83, 75, 0.02)); }
+.opponents { display: grid; gap: 8px; }
+.opponents.n2 { grid-template-columns: repeat(2, minmax(0, 1fr)); --cw: 70px; --lw: 42px; }
+.opponents.n3 { grid-template-columns: repeat(3, minmax(0, 1fr)); --cw: 60px; --lw: 36px; }
+.opp-zone { display: flex; flex-direction: column; gap: 4px; min-width: 0; border-radius: 14px; }
+.opp-zone.active { box-shadow: 0 0 0 1px rgba(232, 176, 75, 0.45); }
+.opp-zone.out { opacity: 0.45; }
+.opponents:not(.n1) .player-bar { gap: 8px; padding: 4px 8px; }
+.opponents:not(.n1) .life-num { font-size: 21px; }
+.opponents:not(.n1) .deck-name { max-width: 100%; flex-basis: 100%; order: 9; }
+.opponents:not(.n1) .opp-hand { order: 10; }
+.opponents:not(.n1) .battlefield { flex: 1; }
+.opponents:not(.n1) .land-row { grid-template-columns: var(--lw); width: calc(var(--lw) + 10px); }
+.opponents:not(.n1) .perm .pt { font-size: 11px; }
+.out-note { flex: 1; display: grid; place-items: center; min-height: 80px; color: var(--muted); border: 1px dashed var(--line); border-radius: 14px; }
+.life.attack-target { border-color: var(--red); box-shadow: 0 0 0 3px rgba(229, 83, 75, 0.4); }
+.player-bar.seat-2 .life-num { color: #ffd59a; }
+.player-bar.seat-3 .life-num { color: #d6b8ff; }
+.whose.seat-2 { color: #ffd59a; }
+.whose.seat-3 { color: #d6b8ff; }
+.attack-at { color: #ffb4ae; font-weight: 600; }
 .battlefield.you { background: linear-gradient(0deg, rgba(90, 169, 255, 0.07), rgba(90, 169, 255, 0.02)); }
 .perm-row { flex: 1; display: flex; flex-wrap: wrap; gap: 10px 8px; align-items: center; min-height: calc(var(--ch) + 6px); }
 .perm-divider { width: 1px; align-self: stretch; background: var(--line); margin: 0 4px; }
@@ -210,6 +233,8 @@ button.primary.big { font-size: 17px; padding: 12px 26px; white-space: nowrap; }
 .log-line:last-child { color: var(--text); }
 .log-line.who-0::before { content: '● '; color: var(--blue); }
 .log-line.who-1::before { content: '● '; color: var(--red); }
+.log-line.who-2::before { content: '● '; color: #ffd59a; }
+.log-line.who-3::before { content: '● '; color: #d6b8ff; }
 .full-log { max-height: 60vh; overflow-y: auto; display: flex; flex-direction: column; gap: 3px; font-size: 13px; }
 .full-log .log-line { color: var(--text); }
 
@@ -262,6 +287,7 @@ button.primary.big { font-size: 17px; padding: 12px 26px; white-space: nowrap; }
   :root { --cw: 80px; --hw: 94px; --lw: 50px; }
   .layout { grid-template-columns: minmax(0, 1fr) 270px; }
   .pickers { grid-template-columns: 1fr; }
+  .opponents.n3 { --cw: 52px; --lw: 32px; }
 }
 @media (max-width: 900px) {
   .layout { grid-template-columns: 1fr; }

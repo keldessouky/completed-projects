@@ -1,8 +1,8 @@
 # Multiverse Duel
 
-A simple Magic: The Gathering duel against the computer, in your browser, built on **every real Magic card**: 32,324 unique cards folded from 97,578 printings in 630 sets, from Limited Edition Alpha (1993) through the sets announced as of October 2026.
+A simple Magic: The Gathering game for **2 to 4 players** — you against 1, 2 or 3 computer opponents — in your browser, built on **every real Magic card**: 32,324 unique cards folded from 97,578 printings in 630 sets, from Limited Edition Alpha (1993) through the sets announced as of October 2026.
 
-Build each deck one of two ways:
+Pick the number of players (you + 1–3 computers), then build each player's deck one of two ways:
 
 - **Universal**: a deck drawn from the entire multiverse, with every set, franchise and era in one pool.
 - **Themed**: choose a theme for each side, for example *The Lord of the Rings* vs *Warhammer 40,000*, or *Innistrad* vs *Dragons*:
@@ -29,7 +29,7 @@ Card images load from Scryfall's image servers, so you need to be online to see 
 
 ## How a game goes
 
-Each deck has 40 cards: 23 spells and 17 basic lands. Both players start at 20 life with 7 cards (a hand with fewer than 2 or more than 5 lands is redrawn once). You play one land per turn and click any glowing card to cast it; mana is paid automatically from your untapped lands. When a spell needs a target, the legal targets glow green. To attack, click your creatures and confirm. When you're attacked, click one of your creatures and then the attacker it should block. You can cast instants while blocking, and after the opponent blocks your attack. <kbd>Space</kbd> presses the highlighted button and <kbd>Esc</kbd> cancels. Point at any card and the panel on the right shows it full size, with its live power and toughness.
+Each deck has 40 cards: 23 spells and 17 basic lands. Every player starts at 20 life with 7 cards (a hand with fewer than 2 or more than 5 lands is redrawn once). You play one land per turn and click any glowing card to cast it; mana is paid automatically from your untapped lands. When a spell needs a target, the legal targets glow green. To attack, click your creatures and confirm; with several opponents, click an opponent's life total to choose whom your next attackers go after, so you can split an attack between players. When you're attacked, click one of your creatures and then the attacker it should block. You can cast instants while blocking, and after the opponent blocks your attack. <kbd>Space</kbd> presses the highlighted button and <kbd>Esc</kbd> cancels. Point at any card and the panel on the right shows it full size, with its live power and toughness.
 
 ### What's simulated
 
@@ -45,7 +45,9 @@ The card panel marks each line of rules text with ✓ (simulated) or ✗ (not si
 
 **Simplified on purpose**: there is no stack, so spells resolve immediately and there are no counterspells. Targets of triggers other than "enters" are chosen automatically. {C} and snow mana are paid like generic mana, and hybrid and Phyrexian mana are paid with colored mana. Planeswalkers, battles, sagas, vehicles and X spells are left out of generated decks, but they're all in the library.
 
-The computer opponent plays by heuristics. It plays lands and the best spell it can afford, picks removal targets by threat, attacks when blocks won't punish it or when it has lethal, blocks to make good trades or to survive, and uses instant-speed removal and tricks during combat. It never looks at your hand or library.
+**Multiplayer** is a free-for-all. Computer players attack each other as well as you, each attacking creature picks one opponent, and only the player being attacked can block it. "Each opponent" hits every opponent still in the game. A player at 0 life, or who has to draw from an empty library, is out: their permanents leave and their turns are skipped. The last player standing wins. If you're knocked out, you can watch the computers finish.
+
+The computer players play by heuristics. Each one plays lands and the best spell it can afford, picks removal targets by threat, goes for a kill on any opponent it can finish (otherwise it attacks the most weakly defended one) and avoids attacks that blocks would punish, blocks to make good trades or to survive, and uses instant-speed removal and tricks during combat. It never looks at your hand or library.
 
 ## Card data
 
@@ -60,9 +62,9 @@ npm run cards:update        # downloads ~80 MB from Scryfall, writes the snapsho
 ```sh
 npm install
 npm run dev        # http://localhost:5180
-npm test           # parser, mana, rules, deck builder, and 100+ AI-vs-AI games on real decks
+npm test           # parser, mana, rules, deck builder, and 100+ AI-vs-AI duels and 3- and 4-player games on real decks
 npm run build      # typecheck + production build
-npm run smoke      # a headless Chrome bot plays two full games through the UI
+npm run smoke      # a headless Chrome bot plays full games through the UI, including a 4-player game
 ```
 
 | Path | What it does |
@@ -72,7 +74,7 @@ npm run smoke      # a headless Chrome bot plays two full games through the UI
 | `src/game/abilities.ts` | turns rules text into simulated abilities, and lists what it can't simulate |
 | `src/game/mana.ts` | mana costs, and paying them from untapped sources |
 | `src/game/engine.ts` | turns, casting, targets, combat, triggers, state-based checks |
-| `src/game/ai.ts` | the computer opponent |
+| `src/game/ai.ts` | the computer players |
 | `src/game/deck.ts` | 40-card deck building with a mana curve and color fixing |
 | `src/ui/` | React components: deck setup, board, card inspector, library |
 | `tools/` | snapshot builder, launcher, static server and the smoke-test bot |

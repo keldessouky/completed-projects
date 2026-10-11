@@ -1,6 +1,6 @@
 // The computer opponent: a few honest heuristics, no peeking at your hand or library.
 import { abilitiesOf, targetSlots, type Effect, type TargetSpec } from './abilities';
-import { autoTarget, other, slotOwner, type CastChoice, type Game, type Perm, type PlayerId, type TargetRef } from './engine';
+import { autoTarget, slotOwner, type CastChoice, type Game, type Perm, type PlayerId, type TargetRef } from './engine';
 import { parseCost } from './mana';
 
 interface Option {
@@ -26,7 +26,9 @@ const fighting = (g: Game, p: Perm) =>
 function judge(g: Game, pid: PlayerId, effects: Effect[], targets: (TargetRef | null)[], inCombat = false): number {
   let v = 0;
   let slot = 0;
-  const opp = other(pid);
+  const opps = g.opponents(pid);
+  /** Damage or life loss to an opponent: a little, unless it knocks them out. */
+  const hurt = (id: PlayerId, n: number, per = 0.35) => (id === pid ? -n : g.players[id].life <= n ? 50 : n * per);
   const next = () => targets[slot++] ?? null;
   const permOf = (r: TargetRef | null) => (r && r.kind === 'perm' ? g.perm(r.iid) ?? null : null);
   const sign = (p: Perm | null) => (p ? (p.controller === pid ? -1 : 1) : 0);
@@ -37,10 +39,10 @@ function judge(g: Game, pid: PlayerId, effects: Effect[], targets: (TargetRef | 
           if (to.sel === 'target') {
             const r = next();
             const p = permOf(r);
-            if (r?.kind === 'player') v += r.id === opp ? e.n * (g.players[opp].life <= e.n ? 50 : 0.35) : -e.n;
+            if (r?.kind === 'player') v += hurt(r.id, e.n);
             else if (p) v += sign(p) * (g.toughness(p) - p.damage <= e.n && !g.has(p, 'Indestructible') ? g.value(p) : 0.2);
-          } else if (to.sel === 'each-opp') v += e.n * (g.players[opp].life <= e.n ? 50 : 0.4);
-          else if (to.sel === 'each-player') v += e.n * 0.1;
+          } else if (to.sel === 'each-opp') for (const id of opps) v += hurt(id, e.n, 0.4);
+          else if (to.sel === 'each-player') v += opps.reduce((n, id) => n + hurt(id, e.n, 0.4), 0) - e.n * 0.6;
           else if (to.sel === 'all-creatures') {
             for (const p of g.allPerms().filter((x) => g.isCreature(x) && g.toughness(x) - x.damage <= e.n)) v += (p.controller === pid ? -1 : 1) * g.value(p);
           }
@@ -88,14 +90,17 @@ function judge(g: Game, pid: PlayerId, effects: Effect[], targets: (TargetRef | 
         v += e.n * (g.players[pid].life < 8 ? 0.5 : 0.15);
         break;
       case 'lose':
-        v += e.n * (g.players[opp].life <= e.n ? 50 : 0.4);
-        if (e.who.sel === 'target') next();
+        if (e.who.sel === 'target') {
+          const r = next();
+          if (r?.kind === 'player') v += hurt(r.id, e.n, 0.4);
+        } else if (e.who.sel === 'each-player') v += opps.reduce((n, id) => n + hurt(id, e.n, 0.4), 0) - e.n * 0.6;
+        else for (const id of opps) v += hurt(id, e.n, 0.4);
         break;
       case 'token':
         v += e.count * (e.p + e.t) * 0.5;
         break;
       case 'discard':
-        v += e.n * 0.8;
+        v += e.n * 0.8 * (e.who.sel === 'each-opp' ? opps.length : 1);
         if (e.who.sel === 'target') next();
         break;
       case 'self-discard':
@@ -214,21 +219,32 @@ function fight(g: Game, attacker: Perm, blocker: Perm) {
   return { attackerDies, blockerDies };
 }
 
-export function chooseAttackers(g: Game, pid: PlayerId): number[] {
-  const opp = other(pid);
-  const mine = g.creatures(pid).filter((p) => g.canAttack(p));
-  const theirs = g.creatures(opp).filter((p) => !p.tapped);
-  const oppLife = g.players[opp].life;
-  // All-out attack if the opponent can't block enough to survive.
+/** Lethal on `opp` if every attacker swings at them and they block the biggest ones? */
+function lethalOn(g: Game, mine: Perm[], opp: PlayerId): boolean {
+  const blockers = g.creatures(opp).filter((p) => !p.tapped);
   const total = mine.reduce((n, p) => n + Math.max(0, g.power(p)), 0);
-  const blockable = [...theirs].sort((a, b) => g.power(b) - g.power(a));
-  const biggest = [...mine].sort((a, b) => g.power(b) - g.power(a));
-  const blockedAway = biggest.slice(0, blockable.length).reduce((n, p) => n + g.power(p), 0);
-  if (total - blockedAway >= oppLife) return mine.map((p) => p.iid);
+  const biggest = [...mine].filter((a) => blockers.some((b) => g.canBlock(b, a))).sort((a, b) => g.power(b) - g.power(a));
+  const blockedAway = biggest.slice(0, blockers.length).reduce((n, p) => n + Math.max(0, g.power(p)), 0);
+  return total - blockedAway >= g.players[opp].life;
+}
 
+/** Which creatures attack, and whom. Goes for a kill if there is one, else the weakest-defended opponent. */
+export function chooseAttackers(g: Game, pid: PlayerId): Record<number, PlayerId> {
+  const opps = g.opponents(pid);
+  const mine = g.creatures(pid).filter((p) => g.canAttack(p));
+  if (!mine.length || !opps.length) return {};
+  const all = (opp: PlayerId) => Object.fromEntries(mine.map((p) => [p.iid, opp]));
+  for (const opp of [...opps].sort((a, b) => g.players[a].life - g.players[b].life)) if (lethalOn(g, mine, opp)) return all(opp);
+
+  // The opponent whose life and untapped defenders make them the softest target.
+  const softness = (opp: PlayerId) => g.players[opp].life + g.creatures(opp).filter((p) => !p.tapped).reduce((n, p) => n + g.power(p) + g.toughness(p) * 0.5, 0);
+  const target = [...opps].sort((a, b) => softness(a) - softness(b))[0];
+  const theirs = g.creatures(target).filter((p) => !p.tapped);
+
+  // Keep defenders home if any single opponent could hit back hard.
   const myLife = g.players[pid].life;
-  const theirPower = g.creatures(opp).reduce((n, p) => n + g.power(p), 0);
-  const out: number[] = [];
+  const threat = Math.max(...opps.map((o) => g.creatures(o).reduce((n, p) => n + Math.max(0, g.power(p)), 0)));
+  const out: Record<number, PlayerId> = {};
   for (const a of mine) {
     if (g.power(a) <= 0) continue;
     const blockers = theirs.filter((b) => g.canBlock(b, a));
@@ -236,10 +252,9 @@ export function chooseAttackers(g: Game, pid: PlayerId): number[] {
       const f = fight(g, a, b);
       return f.attackerDies && (!f.blockerDies || g.value(b) < g.value(a) * 0.8);
     });
-    // Keep a defender home if the opponent's counter-attack would be dangerous.
-    const needed = myLife <= theirPower + 2 && !g.has(a, 'Vigilance') && g.creatures(pid).filter((p) => !out.includes(p.iid)).length <= g.creatures(opp).length;
-    if (!badBlocks.length && !(needed && myLife <= 6)) out.push(a.iid);
-    else if (blockers.length === 0) out.push(a.iid);
+    const homeGuard = g.creatures(pid).filter((p) => !(p.iid in out) && p.iid !== a.iid).length;
+    const needed = myLife <= threat + 2 && !g.has(a, 'Vigilance') && homeGuard < Math.min(2, opps.length);
+    if ((!badBlocks.length || blockers.length === 0) && !(needed && myLife <= 8)) out[a.iid] = target;
   }
   return out;
 }
@@ -247,7 +262,7 @@ export function chooseAttackers(g: Game, pid: PlayerId): number[] {
 export function chooseBlocks(g: Game, pid: PlayerId): Record<number, number[]> {
   const combat = g.combat;
   if (!combat) return {};
-  const attackers = combat.attackers.map((i) => g.perm(i)!).filter(Boolean).sort((a, b) => g.value(b) - g.value(a));
+  const attackers = g.attackersOf(pid).map((i) => g.perm(i)!).filter(Boolean).sort((a, b) => g.value(b) - g.value(a));
   const free = new Set(g.creatures(pid).map((p) => p.iid));
   const blocks: Record<number, number[]> = {};
   let incoming = attackers.reduce((n, a) => n + Math.max(0, g.power(a)), 0);
@@ -289,11 +304,23 @@ export function aiCombatTricks(g: Game, pid: PlayerId) {
   }
 }
 
-/** The AI's whole response when it's attacked: declare blocks, then maybe a trick. */
+/** The AI's whole response when it's attacked: maybe a trick, then declare blocks. */
 export function aiDefend(g: Game, pid: PlayerId) {
+  if (g.phase !== 'block' || !g.combat?.waiting.includes(pid)) return;
   aiCombatTricks(g, pid);
-  if (g.phase !== 'block') return;
-  g.declareBlockers(chooseBlocks(g, pid));
+  if (g.phase !== 'block' || !g.combat?.waiting.includes(pid)) return;
+  if (!g.declareBlockers(pid, chooseBlocks(g, pid))) g.declareBlockers(pid, {});
+}
+
+/**
+ * During a block step, let one computer defender declare its blocks.
+ * Returns 'wait' when only the human (or nobody) is left to declare.
+ */
+export function aiBlockStep(g: Game, human: PlayerId | null): 'acted' | 'wait' {
+  const ai = g.combat?.waiting.find((id) => id !== human);
+  if (g.phase !== 'block' || ai === undefined) return 'wait';
+  aiDefend(g, ai);
+  return 'acted';
 }
 
 /**
@@ -307,9 +334,11 @@ export function aiStep(g: Game, pid: PlayerId): 'acted' | 'wait' | 'done' {
     case 'main1':
       if (!aiMainAction(g, pid)) g.goToCombat();
       return 'acted';
-    case 'attack':
-      g.declareAttackers(chooseAttackers(g, pid));
+    case 'attack': {
+      const plan = chooseAttackers(g, pid);
+      g.declareAttackers(Object.keys(plan).map(Number), plan);
       return 'acted';
+    }
     case 'block':
       return 'wait';
     case 'combat':
@@ -327,11 +356,11 @@ export function aiStep(g: Game, pid: PlayerId): 'acted' | 'wait' | 'done' {
   }
 }
 
-/** Play a whole game between two AIs (used by tests and the balance check). */
-export function playOut(g: Game, maxSteps = 20_000) {
+/** Play a whole game with every seat run by the AI (used by tests and the balance check). */
+export function playOut(g: Game, maxSteps = 40_000) {
   for (let i = 0; i < maxSteps && g.winner === null; i++) {
-    const r = aiStep(g, g.active);
-    if (r === 'wait') aiDefend(g, other(g.active));
+    if (g.phase === 'block') aiBlockStep(g, null);
+    else aiStep(g, g.active);
   }
   return g.winner;
 }

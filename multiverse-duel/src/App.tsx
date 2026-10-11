@@ -40,7 +40,7 @@ export function App() {
   const { u, error, progress } = useUniverse();
   const themes = useMemo<Theme[]>(() => (u ? buildThemes(u) : []), [u]);
   const [screen, setScreen] = useState<Screen>('setup');
-  const [decks, setDecks] = useState<[Deck, Deck] | null>(null);
+  const [decks, setDecks] = useState<Deck[] | null>(null);
   const [gameKey, setGameKey] = useState(0);
   const [hovered, setHovered] = useState<Hovered | null>(null);
   const [help, setHelp] = useState(false);
@@ -74,7 +74,7 @@ export function App() {
           </button>
           <nav>
             <button type="button" className={screen === 'setup' ? 'active' : ''} onClick={() => setScreen('setup')}>Decks</button>
-            <button type="button" className={screen === 'game' ? 'active' : ''} disabled={!decks} onClick={() => setScreen('game')}>Duel</button>
+            <button type="button" className={screen === 'game' ? 'active' : ''} disabled={!decks} onClick={() => setScreen('game')}>{decks && decks.length > 2 ? 'Game' : 'Duel'}</button>
             <button type="button" className={screen === 'library' ? 'active' : ''} onClick={() => setScreen('library')}>Card library</button>
             <button type="button" onClick={() => setHelp(true)}>How to play</button>
           </nav>

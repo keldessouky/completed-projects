@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { COLORS, COLOR_NAMES, type Card, type Color, type Universe } from '../data/cards';
 import { searchTheme, UNIVERSAL, type Theme, type ThemeGroup } from '../data/themes';
 import { buildDeck, type Deck } from '../game/deck';
+import { defaultNames, MAX_PLAYERS } from '../game/engine';
 import { ManaCost } from './CardFace';
 import { useHover } from './Inspector';
 
@@ -16,18 +17,26 @@ const STORAGE_KEY = 'multiverse-duel:setup';
 const GROUPS: ThemeGroup[] = ['Franchises', 'Planes', 'Creature types', 'Play styles', 'Eras', 'Sets', 'Search'];
 const newSeed = () => Math.floor(Math.random() * 2 ** 31);
 
-function loadChoices(): [Choice, Choice] {
-  const fallback: [Choice, Choice] = [
-    { themeId: 'universal', colors: 'auto', seed: newSeed() },
-    { themeId: 'universal', colors: 'auto', seed: newSeed() },
-  ];
+interface Saved {
+  players: number;
+  choices: Choice[];
+}
+
+/** Choices for all four seats are kept, so changing the player count doesn't lose decks. */
+function loadSaved(): Saved {
+  const seats = () => Array.from({ length: MAX_PLAYERS }, () => ({ themeId: 'universal', colors: 'auto' as const, seed: newSeed() }));
   try {
-    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? 'null') as [Choice, Choice] | null;
-    if (Array.isArray(saved) && saved.length === 2) return saved.map((c) => ({ ...c, seed: newSeed() })) as [Choice, Choice];
+    const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? 'null') as Saved | Choice[] | null;
+    // Older saves were just two choices.
+    const saved: Saved | null = Array.isArray(raw) ? { players: 2, choices: raw } : raw;
+    if (saved && Array.isArray(saved.choices)) {
+      const choices = seats().map((fresh, i) => (saved.choices[i] ? { ...saved.choices[i], seed: newSeed() } : fresh));
+      return { players: Math.min(MAX_PLAYERS, Math.max(2, saved.players || 2)), choices };
+    }
   } catch {
     /* private mode or bad data: use defaults */
   }
-  return fallback;
+  return { players: 2, choices: seats() };
 }
 
 function resolveTheme(themes: Theme[], id: string): Theme {
@@ -35,47 +44,67 @@ function resolveTheme(themes: Theme[], id: string): Theme {
   return themes.find((t) => t.id === id) ?? UNIVERSAL;
 }
 
-export function Setup({ universe, themes, onStart }: { universe: Universe; themes: Theme[]; onStart: (decks: [Deck, Deck]) => void }) {
-  const [choices, setChoices] = useState<[Choice, Choice]>(loadChoices);
+export function Setup({ universe, themes, onStart }: { universe: Universe; themes: Theme[]; onStart: (decks: Deck[]) => void }) {
+  const [saved, setSaved] = useState<Saved>(loadSaved);
   useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(choices));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(saved));
     } catch {
       /* ignore */
     }
-  }, [choices]);
+  }, [saved]);
+  const { players, choices } = saved;
+  const seats = choices.slice(0, players);
+  const seatsKey = JSON.stringify(seats);
   const decks = useMemo(
-    () => choices.map((c) => buildDeck(universe.cards, resolveTheme(themes, c.themeId), { colors: c.colors, seed: c.seed })) as [Deck, Deck],
-    [choices, universe, themes],
+    () => (JSON.parse(seatsKey) as Choice[]).map((c) => buildDeck(universe.cards, resolveTheme(themes, c.themeId), { colors: c.colors, seed: c.seed })),
+    [seatsKey, universe, themes],
   );
-  const update = (i: 0 | 1, patch: Partial<Choice>) =>
-    setChoices((cs) => {
-      const next = [...cs] as [Choice, Choice];
-      next[i] = { ...cs[i], seed: newSeed(), ...patch };
-      return next;
-    });
+  const names = defaultNames(players);
+  const update = (i: number, patch: Partial<Choice>) =>
+    setSaved((sv) => ({ ...sv, choices: sv.choices.map((c, k) => (k === i ? { ...c, seed: newSeed(), ...patch } : c)) }));
 
   return (
     <div className="setup">
       <div className="setup-intro">
         <div>
-          <h1>Build your duel</h1>
+          <h1>Set the table</h1>
           <p className="muted">
             Every deck is 40 cards — 23 spells and 17 basic lands — drawn from {universe.cards.length.toLocaleString()} real Magic cards.
             Play <strong>Universal</strong> for a deck from the whole multiverse, or pick a franchise, plane, creature type, play style, era or single set.
           </p>
+          <div className="player-count" role="radiogroup" aria-label="Number of players">
+            <span className="muted small">Players</span>
+            {[2, 3, 4].map((n) => (
+              <button
+                key={n}
+                type="button"
+                role="radio"
+                aria-checked={players === n}
+                className={`pill ${players === n ? 'on' : ''}`}
+                onClick={() => setSaved((sv) => ({ ...sv, players: n }))}
+              >
+                {n} — you + {n - 1} computer{n > 2 ? 's' : ''}
+              </button>
+            ))}
+          </div>
         </div>
         <button type="button" className="primary big" onClick={() => onStart(decks)}>
-          Start duel ▸
+          {players === 2 ? 'Start duel ▸' : `Start ${players}-player game ▸`}
         </button>
       </div>
-      <div className="pickers">
-        {([0, 1] as const).map((i) => (
+      {players > 2 && (
+        <p className="muted small table-note">
+          Free-for-all: everyone plays for themselves, each attacking creature picks which opponent it attacks, a player at 0 life is out, and the last one standing wins.
+        </p>
+      )}
+      <div className={`pickers n${players}`}>
+        {seats.map((choice, i) => (
           <DeckPicker
             key={i}
-            label={i === 0 ? 'Your deck' : 'Opponent’s deck'}
+            label={i === 0 ? 'Your deck' : `${names[i]}’s deck`}
             themes={themes}
-            choice={choices[i]}
+            choice={choice}
             deck={decks[i]}
             onChange={(patch) => update(i, patch)}
           />
@@ -115,7 +144,9 @@ function DeckPicker({ label, themes, choice, deck, onChange }: { label: string; 
             role="tab"
             aria-selected={!universal}
             className={!universal ? 'on' : ''}
-            onClick={() => !universal || onChange({ themeId: list[0]?.id ?? themes.find((t) => t.group === 'Franchises')!.id })}
+            onClick={() => {
+              if (universal) onChange({ themeId: list[0]?.id ?? themes.find((t) => t.group === 'Franchises')!.id });
+            }}
           >
             Themed
           </button>

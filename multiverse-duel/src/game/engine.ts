@@ -14,8 +14,9 @@ import {
 import { parseCost, planPayment, type ManaCost, type ManaSource } from './mana';
 import { makeRng, shuffle, type Rng } from './rng';
 
-export type PlayerId = 0 | 1;
-export const other = (p: PlayerId): PlayerId => (p === 0 ? 1 : 0);
+/** Seat number: 0 is the human, 1–3 are computer players. */
+export type PlayerId = number;
+export const MAX_PLAYERS = 4;
 
 export interface CardRef {
   iid: number;
@@ -46,6 +47,10 @@ export interface Player {
   battlefield: Perm[];
   landsPlayed: number;
   drewFromEmpty: boolean;
+  /** Out of the game (life 0 or drew from an empty library); their permanents are gone. */
+  lost: boolean;
+  /** Finishing place once out (1 = winner). */
+  place: number | null;
 }
 
 export type Phase = 'main1' | 'attack' | 'block' | 'combat' | 'main2' | 'over';
@@ -65,8 +70,12 @@ export interface CastChoice {
 
 export interface Combat {
   attackers: number[];
+  /** attacker iid → the player it attacks */
+  defenderOf: Record<number, PlayerId>;
   /** attacker iid → blocker iids */
   blocks: Record<number, number[]>;
+  /** Defending players who still have to declare blockers. */
+  waiting: PlayerId[];
 }
 
 const KW_VALUE: Record<string, number> = {
@@ -106,9 +115,13 @@ function tokenCard(name: string, p: number, t: number, colors: Color[], kw: stri
 }
 
 export class Game {
-  players: [Player, Player];
+  players: Player[];
   active: PlayerId;
+  /** Player turns taken so far (each player's turn counts once). */
   turn = 1;
+  /** Rounds: goes up each time play passes the first player. */
+  round = 1;
+  readonly first: PlayerId;
   phase: Phase = 'main1';
   combat: Combat | null = null;
   log: LogEntry[] = [];
@@ -119,24 +132,27 @@ export class Game {
   private nextIid = 1;
   private readonly maxTurns: number;
 
-  constructor(decks: [Card[], Card[]], opts: { seed?: number; names?: [string, string]; first?: PlayerId; maxTurns?: number } = {}) {
+  constructor(decks: Card[][], opts: { seed?: number; names?: string[]; first?: PlayerId; maxTurns?: number } = {}) {
+    if (decks.length < 2 || decks.length > MAX_PLAYERS) throw new Error(`A game needs 2 to ${MAX_PLAYERS} players.`);
     this.rng = makeRng(opts.seed ?? Date.now());
-    this.maxTurns = opts.maxTurns ?? 80;
-    const names = opts.names ?? ['You', 'Opponent'];
-    const players: Player[] = ([0, 1] as PlayerId[]).map((id) => ({
+    this.maxTurns = opts.maxTurns ?? 80 * (decks.length / 2);
+    const names = opts.names ?? defaultNames(decks.length);
+    this.players = decks.map((deck, id) => ({
       id,
       name: names[id],
       life: 20,
-      library: shuffle(decks[id].map((card) => ({ iid: this.nextIid++, card })), this.rng),
+      library: shuffle(deck.map((card) => ({ iid: this.nextIid++, card })), this.rng),
       hand: [],
       graveyard: [],
       exile: [],
       battlefield: [],
       landsPlayed: 0,
       drewFromEmpty: false,
+      lost: false,
+      place: null,
     }));
-    this.players = [players[0], players[1]];
-    this.active = opts.first ?? (this.rng() < 0.5 ? 0 : 1);
+    this.active = opts.first ?? Math.floor(this.rng() * decks.length);
+    this.first = this.active;
     for (const p of this.players) this.openingHand(p);
     this.say(null, `${this.players[this.active].name} ${this.active === 0 ? 'go' : 'goes'} first.`);
   }
@@ -168,11 +184,31 @@ export class Game {
   }
 
   allPerms(): Perm[] {
-    return [...this.players[0].battlefield, ...this.players[1].battlefield];
+    return this.players.flatMap((p) => p.battlefield);
   }
 
   perm(iid: number): Perm | undefined {
-    return this.players[0].battlefield.find((x) => x.iid === iid) ?? this.players[1].battlefield.find((x) => x.iid === iid);
+    for (const p of this.players) {
+      const hit = p.battlefield.find((x) => x.iid === iid);
+      if (hit) return hit;
+    }
+    return undefined;
+  }
+
+  /** Players still in the game. */
+  alive(): Player[] {
+    return this.players.filter((p) => !p.lost);
+  }
+
+  /** Everyone still in the game except `pid`, in turn order after `pid`. */
+  opponents(pid: PlayerId): PlayerId[] {
+    const n = this.players.length;
+    const out: PlayerId[] = [];
+    for (let k = 1; k < n; k++) {
+      const id = (pid + k) % n;
+      if (!this.players[id].lost) out.push(id);
+    }
+    return out;
   }
 
   isCreature(p: Perm) {
@@ -270,8 +306,9 @@ export class Game {
   /** Can `pid` cast instants / activate abilities right now? */
   hasPriority(pid: PlayerId): boolean {
     if (this.winner !== null) return false;
+    if (this.players[pid].lost) return false;
     if (pid === this.active) return this.phase === 'main1' || this.phase === 'main2' || this.phase === 'combat';
-    return this.phase === 'block';
+    return this.phase === 'block' && !!this.combat?.waiting.includes(pid);
   }
 
   private sorcerySpeed(pid: PlayerId) {
@@ -356,8 +393,9 @@ export class Game {
   legalTargets(pid: PlayerId, spec: TargetSpec, source: number | null = null): TargetRef[] {
     const out: TargetRef[] = [];
     if (spec.what === 'any' || spec.what === 'player') {
-      for (const id of [other(pid), pid] as PlayerId[]) {
+      for (const id of [...this.opponents(pid), pid]) {
         if (spec.ctrl === 'opp' && id === pid) continue;
+        if (this.players[id].lost) continue;
         out.push({ kind: 'player', id });
       }
     }
@@ -549,9 +587,9 @@ export class Game {
         case 'you':
           return [{ kind: 'player', id: pid }];
         case 'each-opp':
-          return [{ kind: 'player', id: other(pid) }];
+          return this.opponents(pid).map((id) => ({ kind: 'player' as const, id }));
         case 'each-player':
-          return [{ kind: 'player', id: pid }, { kind: 'player', id: other(pid) }];
+          return [pid, ...this.opponents(pid)].map((id) => ({ kind: 'player' as const, id }));
         case 'all-creatures':
           return this.allPerms()
             .filter((p) => this.isCreature(p))
@@ -707,7 +745,8 @@ export class Game {
 
   // ------------------------------------------------------- state checks
 
-  checkState() {
+  /** State-based checks: lethal damage, orphaned auras, players who are out, the winner. */
+  private stateChecks() {
     for (let loop = 0; loop < 20; loop++) {
       let changed = false;
       for (const p of this.allPerms()) {
@@ -732,13 +771,37 @@ export class Game {
       }
       if (!changed) break;
     }
-    const lost = this.players.map((p) => p.life <= 0 || p.drewFromEmpty);
-    if (lost[0] || lost[1]) {
-      this.winner = lost[0] && lost[1] ? 'draw' : lost[0] ? 1 : 0;
+    // Players at 0 life, or who drew from an empty library, leave the game with all their permanents.
+    const out = this.players.filter((p) => !p.lost && (p.life <= 0 || p.drewFromEmpty));
+    if (out.length) {
+      const place = this.alive().length - out.length + 1;
+      for (const p of out) {
+        p.lost = true;
+        p.place = place;
+        p.battlefield = [];
+        this.say(p.id, `${p.name} ${p.id === 0 ? 'are' : 'is'} out of the game${p.life <= 0 ? '' : ' (no cards left to draw)'}.`);
+      }
+      if (this.combat) {
+        const c = this.combat;
+        c.attackers = c.attackers.filter((a) => this.perm(a) && !this.players[c.defenderOf[a]].lost);
+        c.waiting = c.waiting.filter((id) => !this.players[id].lost);
+      }
+      if (this.alive().length > 1) this.stateChecks(); // auras on creatures that just left, etc.
+    }
+    const alive = this.alive();
+    if (alive.length <= 1 && this.winner === null) {
+      this.winner = alive.length ? alive[0].id : 'draw';
+      if (alive.length) alive[0].place = 1;
       this.phase = 'over';
       this.combat = null;
       this.say(null, this.winner === 'draw' ? 'The game is a draw.' : `${this.players[this.winner].name} ${this.winner === 0 ? 'win' : 'wins'}!`);
     }
+  }
+
+  /** State checks after an action; if the active player just lost, play moves on to the next player. */
+  checkState() {
+    this.stateChecks();
+    if (this.winner === null && this.players[this.active].lost) this.passTurn();
   }
 
   // ------------------------------------------------------------ combat
@@ -748,8 +811,11 @@ export class Game {
       !this.has(p, 'Defender') && !this.attachments(p).some((a) => this.ab(a).attach?.cantAttackOrBlock);
   }
 
+  /** Can `blocker` block `attacker`? Only the player being attacked by it can block it. */
   canBlock(blocker: Perm, attacker: Perm): boolean {
-    if (!this.isCreature(blocker) || blocker.tapped || blocker.controller === this.active) return false;
+    if (!this.isCreature(blocker) || blocker.tapped) return false;
+    const def = this.combat?.defenderOf[attacker.iid];
+    if (def !== undefined ? blocker.controller !== def : blocker.controller === attacker.controller) return false;
     if (this.ab(blocker).cantBlock || this.attachments(blocker).some((a) => this.ab(a).attach?.cantAttackOrBlock)) return false;
     if (this.has(attacker, 'Unblockable')) return false;
     if (this.has(attacker, 'Flying') && !this.has(blocker, 'Flying') && !this.has(blocker, 'Reach')) return false;
@@ -763,23 +829,41 @@ export class Game {
     this.touch();
   }
 
-  declareAttackers(iids: number[]) {
+  /**
+   * Declare attackers. `defenders` is the player they all attack, or a map of
+   * attacker → player (each attacker may attack a different opponent).
+   */
+  declareAttackers(iids: number[], defenders: PlayerId | Record<number, PlayerId> = this.opponents(this.active)[0]) {
     if (this.phase !== 'attack') return;
-    const attackers = iids.map((i) => this.perm(i)).filter((p): p is Perm => !!p && this.canAttack(p));
+    const opps = this.opponents(this.active);
+    const defOf = (iid: number) => (typeof defenders === 'number' ? defenders : defenders[iid] ?? opps[0]);
+    const attackers = iids
+      .map((i) => this.perm(i))
+      .filter((p): p is Perm => !!p && this.canAttack(p) && opps.includes(defOf(p.iid)));
     if (!attackers.length) {
       this.phase = 'main2';
       this.touch();
       return;
     }
-    this.combat = { attackers: attackers.map((a) => a.iid), blocks: {} };
+    const defenderOf: Record<number, PlayerId> = {};
+    for (const a of attackers) defenderOf[a.iid] = defOf(a.iid);
+    const waiting = opps.filter((id) => attackers.some((a) => defenderOf[a.iid] === id));
+    this.combat = { attackers: attackers.map((a) => a.iid), defenderOf, blocks: {}, waiting };
     for (const a of attackers) if (!this.has(a, 'Vigilance')) a.tapped = true;
-    this.say(this.active, `${this.players[this.active].name} attacked with ${attackers.map((a) => a.card.name).join(', ')}.`);
+    const parts = waiting.map((id) => `${id === 0 ? 'you' : this.players[id].name} with ${attackers.filter((a) => defenderOf[a.iid] === id).map((a) => a.card.name).join(', ')}`);
+    this.say(this.active, `${this.players[this.active].name} attacked ${parts.join('; ')}.`);
     for (const a of attackers) {
       for (const t of this.ab(a).triggers.filter((x) => x.when === 'attack')) this.autoResolve(a.controller, a.iid, t.effects, `${a.card.name}: ${t.text}`);
     }
     this.checkState();
-    this.phase = this.winner !== null ? 'over' : 'block';
+    if (this.winner !== null) this.phase = 'over';
+    else if (this.combat && this.phase === 'attack') this.phase = this.combat.waiting.length ? 'block' : 'combat';
     this.touch();
+  }
+
+  /** Attackers that are attacking `pid`. */
+  attackersOf(pid: PlayerId): number[] {
+    return this.combat ? this.combat.attackers.filter((a) => this.combat!.defenderOf[a] === pid) : [];
   }
 
   /** Check a set of blocks; returns a problem to show the player, or null. */
@@ -800,16 +884,18 @@ export class Game {
     return null;
   }
 
-  declareBlockers(blocks: Record<number, number[]>): boolean {
-    if (this.phase !== 'block' || !this.combat) return false;
+  /** `pid` declares blockers for the attackers coming at them. Combat damage waits until every defender has. */
+  declareBlockers(pid: PlayerId, blocks: Record<number, number[]>): boolean {
+    if (this.phase !== 'block' || !this.combat || !this.combat.waiting.includes(pid)) return false;
     const clean: Record<number, number[]> = {};
     for (const [k, v] of Object.entries(blocks)) if (v.length) clean[+k] = [...v];
     if (this.blockProblem(clean)) return false;
-    this.combat.blocks = clean;
-    const def = other(this.active);
+    if (Object.values(clean).flat().some((b) => this.perm(b)?.controller !== pid)) return false;
+    Object.assign(this.combat.blocks, clean);
+    this.combat.waiting = this.combat.waiting.filter((id) => id !== pid);
     const lines = Object.entries(clean).map(([a, bs]) => `${bs.map((b) => this.perm(b)!.card.name).join(' and ')} blocked ${this.perm(+a)!.card.name}`);
-    this.say(def, lines.length ? `${lines.join('; ')}.` : `${this.players[def].name} didn’t block.`);
-    this.phase = 'combat';
+    this.say(pid, lines.length ? `${lines.join('; ')}.` : `${this.players[pid].name} didn’t block.`);
+    if (!this.combat.waiting.length) this.phase = 'combat';
     this.touch();
     return true;
   }
@@ -818,7 +904,6 @@ export class Game {
   resolveCombat() {
     if (this.phase !== 'combat' || !this.combat) return;
     const combat = this.combat;
-    const def = other(this.active);
     const anyFirst = this.allPerms().some((p) => this.has(p, 'First strike') || this.has(p, 'Double strike'));
     const steps: ('first' | 'regular')[] = anyFirst ? ['first', 'regular'] : ['regular'];
     const struck = new Set<number>();
@@ -830,7 +915,8 @@ export class Game {
       const hits: { from: Perm; to: TargetRef; n: number }[] = [];
       for (const aid of combat.attackers) {
         const a = this.perm(aid);
-        if (!a || !dealsNow(a)) continue;
+        const def = combat.defenderOf[aid];
+        if (!a || !dealsNow(a) || this.players[def].lost) continue;
         struck.add(a.iid);
         const blockers = (combat.blocks[aid] ?? []).map((b) => this.perm(b)).filter((b): b is Perm => !!b);
         let power = this.power(a);
@@ -861,63 +947,84 @@ export class Game {
           if (n > 0) hits.push({ from: b, to: { kind: 'perm', iid: a.iid }, n });
         }
       }
-      const toPlayer = new Map<number, number>();
+      const byAttacker = new Map<number, number>();
+      const byPlayer = new Map<PlayerId, number>();
       for (const h of hits) {
         this.dealDamage(h.to, h.n, this.has(h.from, 'Deathtouch'), this.has(h.from, 'Lifelink') ? h.from.controller : null);
-        if (h.to.kind === 'player') toPlayer.set(h.from.iid, (toPlayer.get(h.from.iid) ?? 0) + h.n);
+        if (h.to.kind === 'player') {
+          byAttacker.set(h.from.iid, (byAttacker.get(h.from.iid) ?? 0) + h.n);
+          byPlayer.set(h.to.id, (byPlayer.get(h.to.id) ?? 0) + h.n);
+        }
       }
-      const total = [...toPlayer.values()].reduce((x, y) => x + y, 0);
-      if (total) this.say(this.active, `${this.players[def].name} took ${total} combat damage.`);
-      for (const iid of toPlayer.keys()) {
+      for (const [id, n] of byPlayer) this.say(this.active, `${this.players[id].name} took ${n} combat damage.`);
+      for (const iid of byAttacker.keys()) {
         const a = this.perm(iid);
         if (!a) continue;
         for (const t of this.ab(a).triggers.filter((x) => x.when === 'combat-damage')) this.autoResolve(a.controller, a.iid, t.effects, `${a.card.name}: ${t.text}`);
       }
-      this.checkState();
+      this.stateChecks();
       if (this.winner !== null) return this.touch();
+      if (this.players[this.active].lost) break;
     }
     this.combat = null;
     this.phase = 'main2';
+    this.checkState();
     this.touch();
   }
 
   // ------------------------------------------------------------- turns
 
-  /** End the active player's turn and start the next one (untap, upkeep, draw). */
+  /** End the active player's turn (end-step triggers, hand size) and start the next one. */
   endTurn() {
     if (this.winner !== null) return;
     const me = this.players[this.active];
     for (const p of me.battlefield) {
       for (const t of this.ab(p).triggers.filter((x) => x.when === 'end-step')) this.autoResolve(me.id, p.iid, t.effects, `${p.card.name}: ${t.text}`);
     }
-    this.checkState();
+    this.stateChecks();
     if (this.winner !== null) return this.touch();
-    if (me.hand.length > 7) this.discardWorst(me.id, me.hand.length - 7);
+    if (!me.lost && me.hand.length > 7) this.discardWorst(me.id, me.hand.length - 7);
+    this.passTurn();
+  }
+
+  /** Clean up and hand the turn to the next player still in the game: untap, upkeep, draw. */
+  private passTurn() {
     for (const p of this.allPerms()) {
       p.damage = 0;
       p.deathtouched = false;
       p.temp = [];
     }
     this.combat = null;
-    this.active = other(this.active);
+    const n = this.players.length;
+    const rel = (id: PlayerId) => (id - this.first + n) % n;
+    let next = this.active;
+    do next = (next + 1) % n;
+    while (this.players[next].lost && next !== this.active);
+    if (rel(next) <= rel(this.active)) this.round++;
+    this.active = next;
     this.turn++;
-    const next = this.players[this.active];
-    next.landsPlayed = 0;
-    for (const p of next.battlefield) {
-      const frozen = this.attachments(p).some((a) => this.ab(a).attach?.doesntUntap);
-      if (!frozen) p.tapped = false;
+    const p = this.players[next];
+    p.landsPlayed = 0;
+    for (const x of p.battlefield) {
+      const frozen = this.attachments(x).some((a) => this.ab(a).attach?.doesntUntap);
+      if (!frozen) x.tapped = false;
     }
-    for (const p of next.battlefield) {
-      for (const t of this.ab(p).triggers.filter((x) => x.when === 'upkeep')) this.autoResolve(next.id, p.iid, t.effects, `${p.card.name}: ${t.text}`);
+    for (const x of p.battlefield) {
+      for (const t of this.ab(x).triggers.filter((y) => y.when === 'upkeep')) this.autoResolve(p.id, x.iid, t.effects, `${x.card.name}: ${t.text}`);
     }
     this.drawCard(this.active);
     this.phase = 'main1';
-    this.checkState();
+    this.stateChecks();
     if (this.winner === null && this.turn > this.maxTurns) {
-      const [a, b] = this.players.map((p) => p.life);
-      this.winner = a === b ? 'draw' : a > b ? 0 : 1;
+      const alive = this.alive();
+      const best = Math.max(...alive.map((x) => x.life));
+      const leaders = alive.filter((x) => x.life === best);
+      this.winner = leaders.length === 1 ? leaders[0].id : 'draw';
       this.phase = 'over';
       this.say(null, `Turn limit reached — ${this.winner === 'draw' ? 'a draw' : `${this.players[this.winner].name} ${this.winner === 0 ? 'win' : 'wins'} on life`}.`);
+    } else if (this.winner === null && this.players[this.active].lost) {
+      this.passTurn();
+      return;
     }
     this.touch();
   }
@@ -929,6 +1036,11 @@ export class Game {
     else if (this.phase === 'combat') this.resolveCombat();
     else if (this.phase === 'main2') this.endTurn();
   }
+}
+
+/** "You", then "Opponent" — or "Opponent 1", "Opponent 2", … at a bigger table. */
+export function defaultNames(n: number): string[] {
+  return ['You', ...Array.from({ length: n - 1 }, (_, i) => (n === 2 ? 'Opponent' : `Opponent ${i + 1}`))];
 }
 
 export const sameRef = (a: TargetRef, b: TargetRef) =>
@@ -983,7 +1095,10 @@ export function autoTarget(g: Game, pid: PlayerId, spec: TargetSpec, e: Effect, 
   const mine = perms.filter((p) => p.controller === pid);
   const theirs = perms.filter((p) => p.controller !== pid);
   const best = (ps: Perm[]) => ps.sort((a, b) => g.value(b) - g.value(a))[0];
-  const oppPlayer = legal.find((r) => r.kind === 'player' && r.id !== pid);
+  // Of the opponents, go after the one closest to losing.
+  const oppPlayer = legal
+    .filter((r): r is Extract<TargetRef, { kind: 'player' }> => r.kind === 'player' && r.id !== pid)
+    .sort((a, b) => g.players[a.id].life - g.players[b.id].life)[0];
   if (bad) {
     if (e.k === 'damage' || (e.k === 'pump' && e.t < 0)) {
       const n = e.k === 'damage' ? e.n : -e.t;

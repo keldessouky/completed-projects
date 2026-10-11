@@ -118,7 +118,7 @@ describe('the rules', () => {
     g.declareAttackers([angel, wurm, knight]);
     expect(g.phase).toBe('block');
     expect(g.canBlock(g.perm(bears)!, g.perm(angel)!)).toBe(false); // flying
-    expect(g.declareBlockers({ [wurm]: [rats], [knight]: [bears], [angel]: [nighthawk] })).toBe(true);
+    expect(g.declareBlockers(1, { [wurm]: [rats], [knight]: [bears], [angel]: [nighthawk] })).toBe(true);
     g.resolveCombat();
     // Dreadmaw (6/6 trample) assigns 1 to the rats and 5 tramples over, but deathtouch kills it.
     expect(g.perm(wurm)).toBeUndefined();
@@ -144,7 +144,7 @@ describe('the rules', () => {
     expect(g.perm(angel)!.tapped).toBe(false);
     expect(g.perm(brute)!.tapped).toBe(true);
     expect(g.blockProblem({ [brute]: [b1] })).toMatch(/menace/);
-    expect(g.declareBlockers({ [brute]: [b1, b2] })).toBe(true);
+    expect(g.declareBlockers(1, { [brute]: [b1, b2] })).toBe(true);
   });
 
   test('auras, equipment and anthems change the numbers', () => {
@@ -209,5 +209,101 @@ describe('the rules', () => {
     g.declareAttackers([a, b]);
     const blocks = chooseBlocks(g, 1);
     expect(Object.values(blocks).flat()).toContain(wall);
+  });
+});
+
+describe('free-for-all with up to four players', () => {
+  function table(n: number) {
+    const plains = card('Plains');
+    const g = new Game(Array.from({ length: n }, () => Array(20).fill(plains)), { seed: 3, first: 0 });
+    for (const p of g.players) p.hand = [];
+    return g;
+  }
+
+  test('seats, names and turn order', () => {
+    const g = table(4);
+    expect(g.players.map((p) => p.name)).toEqual(['You', 'Opponent 1', 'Opponent 2', 'Opponent 3']);
+    expect(g.opponents(0)).toEqual([1, 2, 3]);
+    const order = [g.active];
+    for (let i = 0; i < 4; i++) {
+      g.goToCombat();
+      g.declareAttackers([]);
+      g.endTurn();
+      order.push(g.active);
+    }
+    expect(order).toEqual([0, 1, 2, 3, 0]);
+    expect(g.round).toBe(2);
+    expect(() => new Game([[]])).toThrow();
+  });
+
+  test('"each opponent" hits every opponent; any target can be any player', () => {
+    const g = table(3);
+    const bolt = inHand(g, 0, 'Lightning Bolt');
+    g.put(0, card('Mountain'));
+    expect(g.legalTargets(0, { sel: 'target', what: 'player' }).map((r) => (r.kind === 'player' ? r.id : -1))).toEqual([1, 2, 0]);
+    expect(g.cast(0, bolt, { targets: [{ kind: 'player', id: 2 }] })).toBe(true);
+    expect(g.players.map((p) => p.life)).toEqual([20, 20, 17]);
+    g.resolve(0, null, [{ k: 'lose', n: 2, who: { sel: 'each-opp' } }, { k: 'gain', n: 2 }], []);
+    expect(g.players.map((p) => p.life)).toEqual([22, 18, 15]);
+  });
+
+  test('attack different opponents; each defender blocks only its own attackers', () => {
+    const g = table(3);
+    const a = g.put(0, card('Grizzly Bears'));
+    const b = g.put(0, card('Grizzly Bears'));
+    const wall1 = g.put(1, card('Wall of Stone'));
+    const wall2 = g.put(2, card('Wall of Stone'));
+    g.goToCombat();
+    g.declareAttackers([a, b], { [a]: 1, [b]: 2 });
+    expect(g.combat!.waiting).toEqual([1, 2]);
+    expect(g.canBlock(g.perm(wall2)!, g.perm(a)!)).toBe(false); // a attacks player 1, not 2
+    expect(g.declareBlockers(1, { [b]: [wall1] })).toBe(false);
+    expect(g.declareBlockers(1, {})).toBe(true);
+    expect(g.phase).toBe('block'); // player 2 still to declare
+    expect(g.hasPriority(2)).toBe(true);
+    expect(g.hasPriority(1)).toBe(false);
+    expect(g.declareBlockers(2, { [b]: [wall2] })).toBe(true);
+    expect(g.phase).toBe('combat');
+    g.resolveCombat();
+    expect(g.players.map((p) => p.life)).toEqual([20, 18, 20]);
+  });
+
+  test('a player at 0 life is out, their permanents leave, and their turns are skipped', () => {
+    const g = table(4);
+    g.put(2, card('Grizzly Bears'));
+    g.players[2].life = 1;
+    lands(g, 0, 'Mountain', 1);
+    expect(g.cast(0, inHand(g, 0, 'Lightning Bolt'), { targets: [{ kind: 'player', id: 2 }] })).toBe(true);
+    expect(g.players[2].lost).toBe(true);
+    expect(g.players[2].place).toBe(4);
+    expect(g.players[2].battlefield).toHaveLength(0);
+    expect(g.winner).toBeNull();
+    expect(g.opponents(0)).toEqual([1, 3]);
+    g.goToCombat();
+    g.declareAttackers([]);
+    g.endTurn();
+    expect(g.active).toBe(1);
+    g.goToCombat();
+    g.declareAttackers([]);
+    g.endTurn();
+    expect(g.active).toBe(3);
+    g.players[1].life = 0;
+    g.players[3].life = -2;
+    g.checkState();
+    expect(g.winner).toBe(0);
+    expect(g.players[0].place).toBe(1);
+    expect(g.players[1].place).toBe(2);
+    expect(g.players[3].place).toBe(2);
+  });
+
+  test('when the active player is knocked out mid-turn, play moves on', () => {
+    const g = table(3);
+    g.players[0].life = 1;
+    g.resolve(1, null, [{ k: 'lose', n: 1, who: { sel: 'each-opp' } }], []);
+    g.checkState();
+    expect(g.players[0].lost).toBe(true);
+    expect(g.winner).toBeNull();
+    expect(g.active).toBe(1);
+    expect(g.phase).toBe('main1');
   });
 });
