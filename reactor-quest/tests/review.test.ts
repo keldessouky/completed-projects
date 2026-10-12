@@ -1,7 +1,7 @@
 // Every review card's verdict is checked against the real compiler, and every
 // review question is tied to a real level that comes before or with its topic.
 import { describe, expect, test } from 'vitest';
-import { ALL_LEVELS, DECKS } from '../src/content';
+import { ALL_LEVELS, DECKS, PATHS, pathLevels } from '../src/content';
 import { COMPILE_CARDS, REVIEW_ITEMS } from '../src/content/review';
 import { Checker } from '../src/engine/checker';
 import typings from '../src/generated/typings.json';
@@ -29,7 +29,7 @@ describe('compile cards', () => {
 describe('review items', () => {
   test('ids are unique and every item unlocks from a real level', () => {
     expect(new Set(REVIEW_ITEMS.map((r) => r.id)).size).toBe(REVIEW_ITEMS.length);
-    const ids = new Set(ALL_LEVELS.map((l) => l.id));
+    const ids = new Set(PATHS.flatMap(pathLevels).map((l) => l.id));
     for (const r of REVIEW_ITEMS) expect(ids.has(r.after), r.id).toBe(true);
   });
 

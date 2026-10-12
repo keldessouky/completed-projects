@@ -1,8 +1,9 @@
 // Skills: every level trains one or more, and each grows from level 0 to 5 as
 // you complete (and master) levels that use it — "Your Arrays skill is now
-// level 3". Together they show the player's whole journey, JavaScript → React.
+// level 3". Together they show the player's whole journey, JavaScript → React,
+// and on the AWS paths, the cloud.
 
-export type School = 'JavaScript' | 'TypeScript' | 'React';
+export type School = 'JavaScript' | 'TypeScript' | 'React' | 'Cloud';
 
 export const SKILLS = {
   output: { name: 'Output & Values', school: 'JavaScript', icon: '💬' },
@@ -26,6 +27,18 @@ export const SKILLS = {
   performance: { name: 'Performance', school: 'React', icon: '⚡' },
   a11y: { name: 'Accessibility', school: 'React', icon: '♿' },
   testing: { name: 'Testing', school: 'React', icon: '🧪' },
+  'cloud-concepts': { name: 'Cloud Concepts', school: 'Cloud', icon: '☁' },
+  'aws-security': { name: 'Security & Identity', school: 'Cloud', icon: '🔐' },
+  'aws-compute': { name: 'Compute', school: 'Cloud', icon: '🖥' },
+  'aws-storage': { name: 'Storage', school: 'Cloud', icon: '🗄' },
+  'aws-databases': { name: 'Databases', school: 'Cloud', icon: '🛢' },
+  'aws-networking': { name: 'Networking', school: 'Cloud', icon: '🌐' },
+  'aws-operations': { name: 'Operations & Integration', school: 'Cloud', icon: '🛠' },
+  'aws-billing': { name: 'Billing & Support', school: 'Cloud', icon: '💳' },
+  'aws-architecture': { name: 'Architecture', school: 'Cloud', icon: '🏛' },
+  'ai-ml': { name: 'ML Fundamentals', school: 'Cloud', icon: '🤖' },
+  genai: { name: 'Generative AI', school: 'Cloud', icon: '✨' },
+  'responsible-ai': { name: 'Responsible AI', school: 'Cloud', icon: '⚖' },
 } as const satisfies Record<string, { name: string; school: School; icon: string }>;
 
 export type SkillId = keyof typeof SKILLS;

@@ -1,9 +1,12 @@
 import { item } from '../game/items';
+import { pathById } from '../content';
 import { crawlerLevel, stationPower } from '../game/progress';
+import { readiness } from '../game/readiness';
 import { classInfo, dayOf, dueReviews, formatViewers } from '../game/rewards';
 import { setSave, useSave } from '../game/store';
 import { overlays } from './overlays';
 import { go, type Route } from './router';
+import { PathSwitch } from './PathPicker';
 import { ThemePicker } from './ThemePicker';
 
 export function Hud({ route }: { route: Route }) {
@@ -12,8 +15,11 @@ export function Hud({ route }: { route: Route }) {
   const power = stationPower(save);
   const cls = classInfo(save.classId);
   const due = dueReviews(save, dayOf(new Date())).length;
+  const path = pathById(save.path);
+  const ready = path.exam ? readiness(save, path) : null;
   const nav: [Route['name'], string, string][] = [
     ['map', '/map', 'Map'],
+    ...(path.exam ? [['exam', '/exam', 'Exam Prep'] as [Route['name'], string, string]] : []),
     ['review', '/review', 'Review'],
     ['loot', '/loot', 'Loot'],
     ['shop', '/shop', 'Safe Room'],
@@ -24,6 +30,7 @@ export function Hud({ route }: { route: Route }) {
       <button className="brand" onClick={() => go('/')} aria-label="Title screen">
         RE<span>ACT</span>OR
       </button>
+      <PathSwitch />
       <nav>
         {nav.map(([name, path, label]) => (
           <button key={name} className={route.name === name ? 'active' : ''} onClick={() => go(path)}>
@@ -50,7 +57,11 @@ export function Hud({ route }: { route: Route }) {
         <button className="stat-btn" title="Open your boxes" onClick={() => (save.boxes.length ? overlays.openBoxes(save.boxes.map((b) => b.id)) : go('/loot'))}>
           🎁 {save.boxes.length}
         </button>
-        <span className="power" title={`Station power ${power}%`}>⚡ {power}%</span>
+        {ready ? (
+          <button className="stat-btn readiness-chip" title={`${ready.exam.code} readiness: ${ready.percent}%`} onClick={() => go('/exam')}>🎯 {ready.percent}%</button>
+        ) : (
+          <span className="power" title={`Station power ${power}%`}>⚡ {power}%</span>
+        )}
       </div>
       <button className="icon-btn" onClick={() => setSave((s) => ({ ...s, sound: !s.sound }))} aria-label={save.sound ? 'Mute sound' : 'Unmute sound'}>
         {save.sound ? '🔊' : '🔈'}

@@ -70,6 +70,7 @@ export const TITLES: Item[] = [
   title('title-boss', 'Boss Slayer', 'rare'),
   title('title-perfect', 'the Perfectionist', 'epic'),
   title('title-recall', 'Total Recall', 'epic'),
+  title('title-certified', 'Exam-Ready', 'legendary'),
   title('title-architect', 'Reactor Architect', 'legendary'),
   title('title-celebrity', 'Galactic Celebrity', 'legendary'),
   title('title-production', 'Production Engineer', 'legendary'),

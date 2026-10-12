@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { levelState, quizStars } from '../game/progress';
 import { completeLevel, PET_LINES, type Reward } from '../game/rewards';
 import { sfx } from '../game/sound';
-import { act, useSave } from '../game/store';
+import { recordAnswer } from '../game/readiness';
+import { act, setSave, useSave } from '../game/store';
 import { overlays } from '../ui/overlays';
 import { useLevelTimer } from '../ui/useLevelTimer';
 import type { Deck, QuizLevel } from '../game/types';
@@ -32,6 +33,8 @@ export function QuizScreen({ level, deck, index }: { level: QuizLevel; deck: Dec
   function pick(i: number) {
     if (answered) return;
     setPicked(i);
+    // First answers to certification questions count towards exam readiness.
+    if (!missed.includes(q) && !retry) setSave((s) => recordAnswer(s, `${level.id}/${q + 1}`, i === question.answer));
     if (i === question.answer) sfx.right();
     else {
       sfx.wrong();

@@ -14,6 +14,12 @@ show off, sponsors send gifts, and there are loot boxes. So many loot boxes.
 It runs on **macOS, Windows and Linux** and opens in your browser. Pick from
 16 colour profiles modelled on the best VS Code and IntelliJ themes.
 
+**Studying for an AWS certification?** Choose the **AWS Certification**
+journey on the title screen. It starts with **AWS Certified AI Practitioner**,
+and you can switch to **Cloud Practitioner** or **Solutions Architect –
+Associate** at any time. The game tracks every answer and tells you how ready
+you are to pass. See [AWS certification prep](#aws-certification-prep).
+
 ![Title screen](docs/title.png)
 
 ## Just want to play?
@@ -305,7 +311,7 @@ right. While you're working on a level, the news waits until you finish.
   anyone opened them.) Open them one by one for the reveal, or all at once from
   **Loot**. Inside: gold, hint tokens, XP boosts, collectibles, titles, editor
   skins and hats for your companion.
-- **58 achievements**, each with its own Feed quip, from "Hello, World" to
+- **61 achievements**, each with its own Feed quip, from "Hello, World" to
   "Living Legend": first tries, flawless floors, speedruns, streaks, debugging
   persistence, late-night coding, hoarding boxes and more. See them all under
   **Character → Achievements**.
@@ -322,7 +328,7 @@ right. While you're working on a level, the news waits until you finish.
   on React), **Bug Hunter** (+20% gold, free hint tokens from bosses),
   **Archivist** (+50% XP from spaced review) or **Crowd
   Favourite** (+50% viewers, better Fan Boxes). You can retrain later for gold.
-- **21 skills**, from Output & Values and Logic through Generics, Effects,
+- **33 skills** (21 for code, 12 for the AWS journeys), from Output & Values and Logic through Generics, Effects,
   Performance, Accessibility and Testing. Each level trains the skills it
   teaches, and each skill ranks up from Novice to Master, so your character
   sheet shows exactly what you've learned.
@@ -338,6 +344,46 @@ right. While you're working on a level, the news waits until you finish.
 ![A Gold box opened](docs/box.png)
 
 ![The character sheet: level, class, companion and skills](docs/character.png)
+
+## AWS certification prep
+
+Pick **AWS Certification** under *Choose your journey* on the title screen
+(or use the journey switcher in the header). Each certification is its own
+journey, with its own floors, readiness and practice history. Your crawler
+level, loot and achievements are shared.
+
+| Certification | Exam | Floors | What it covers |
+|---|---|---|---|
+| **AI Practitioner** (starts here) | AIF-C01 · 65 questions · 90 min · pass 700 | 5 floors, 23 lessons + 5 checkpoints, 212 questions | ML basics, generative AI, agents and MCP, Amazon Bedrock, RAG, prompting, fine-tuning, evaluation, responsible AI, AI security and governance |
+| **Cloud Practitioner** | CLF-C02 · 65 questions · 90 min · pass 700 | 6 floors, 31 lessons + 6 checkpoints, 271 questions | Cloud concepts, core services, security, billing and support |
+| **Solutions Architect – Associate** | SAA-C03 · 65 questions · 130 min · pass 720 | 5 floors, 25 lessons + 5 checkpoints, 220 questions | Secure, resilient, high-performing and cost-optimized design |
+
+**How it works**
+
+- **One floor per exam domain**, weighted as in the official exam guide. All
+  floors are open from the start; lessons unlock in order within a floor, and
+  each floor's 🏁 checkpoint is open at once, so you can test out of what you
+  already know.
+- **Lessons** teach one topic, then quiz you; a question you miss comes back
+  until you get it right. Lesson questions join your **spaced review** deck.
+- **Exam Prep** (🎯 in the header) has three ways to practise:
+  - a **quick quiz**: 15 questions weighted like the exam, explained as you go;
+  - a **drill**: 10 questions on one domain, favouring what you've missed or
+    haven't seen;
+  - a **full mock exam**: the real question count and time limit, with flags,
+    a question grid, and no feedback until the end. It includes "Choose TWO"
+    questions like the real exam.
+- **Readiness.** Every answer (in lessons, review and practice) counts. The
+  game estimates your score on AWS's 100–1000 scale, domain by domain, weighted
+  like the exam. It starts from a guess and moves as you answer. It shows a
+  readiness percentage, a verdict (*not started → not ready → getting there →
+  almost → ready to book the exam*), your weakest domain, and the one thing to
+  do next. **Ready** means all of: every lesson done, every domain practised,
+  70%+ in every domain, an estimate at least 50 above the pass mark, and a
+  full mock exam at that score.
+
+The estimate is a guide, not a guarantee. AWS revises its exams, so read the
+official exam guide (linked in Exam Prep) before you book.
 
 ## What you'll learn: 10 floors, 106 levels
 
@@ -449,8 +495,8 @@ learn, especially people learning to program for the first time.
 ## Proven playable
 
 ```bash
-npm test        # 478 tests
-npm run smoke   # 117 checks in headless Chromium/Chrome
+npm test        # 549 tests
+npm run smoke   # 122 checks in headless Chromium/Chrome
 ```
 
 - **`npm test`** checks every one of the 96 code levels both ways: the reference
