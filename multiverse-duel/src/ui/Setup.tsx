@@ -2,7 +2,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { COLORS, COLOR_NAMES, type Card, type Color, type Universe } from '../data/cards';
 import { searchTheme, UNIVERSAL, type Theme, type ThemeGroup } from '../data/themes';
-import { buildDeck, type Deck } from '../game/deck';
+import { buildDeck, MAX_PINNED, pinnable, type Deck } from '../game/deck';
+import { playability } from '../game/abilities';
 import { defaultNames, MAX_PLAYERS } from '../game/engine';
 import { ManaCost } from './CardFace';
 import { DeckStrengthPanel, GradeBadge, GradedName, GradeLegend } from './Grade';
@@ -13,6 +14,8 @@ interface Choice {
   themeId: string;
   colors: 'auto' | Color[];
   seed: number;
+  /** Ids of must-have cards for this deck. */
+  pinned?: string[];
 }
 
 const STORAGE_KEY = 'multiverse-duel:setup';
@@ -58,9 +61,18 @@ export function Setup({ universe, themes, onStart }: { universe: Universe; theme
   const { players, choices } = saved;
   const seats = choices.slice(0, players);
   const seatsKey = JSON.stringify(seats);
+  const byId = useMemo(() => new Map(universe.cards.map((c) => [c.id, c])), [universe]);
+  const pinPool = useMemo(() => universe.cards.filter(pinnable), [universe]);
   const decks = useMemo(
-    () => (JSON.parse(seatsKey) as Choice[]).map((c) => buildDeck(universe.cards, resolveTheme(themes, c.themeId), { colors: c.colors, seed: c.seed })),
-    [seatsKey, universe, themes],
+    () =>
+      (JSON.parse(seatsKey) as Choice[]).map((c) =>
+        buildDeck(universe.cards, resolveTheme(themes, c.themeId), {
+          colors: c.colors,
+          seed: c.seed,
+          pinned: (c.pinned ?? []).map((id) => byId.get(id)).filter((x): x is Card => !!x),
+        }),
+      ),
+    [seatsKey, universe, themes, byId],
   );
   const names = defaultNames(players);
   const update = (i: number, patch: Partial<Choice>) =>
@@ -109,6 +121,8 @@ export function Setup({ universe, themes, onStart }: { universe: Universe; theme
             themes={themes}
             choice={choice}
             deck={decks[i]}
+            pinPool={pinPool}
+            byId={byId}
             onChange={(patch) => update(i, patch)}
           />
         ))}
@@ -117,7 +131,7 @@ export function Setup({ universe, themes, onStart }: { universe: Universe; theme
   );
 }
 
-function DeckPicker({ label, themes, choice, deck, onChange }: { label: string; themes: Theme[]; choice: Choice; deck: Deck; onChange: (p: Partial<Choice>) => void }) {
+function DeckPicker({ label, themes, choice, deck, pinPool, byId, onChange }: { label: string; themes: Theme[]; choice: Choice; deck: Deck; pinPool: Card[]; byId: Map<string, Card>; onChange: (p: Partial<Choice>) => void }) {
   const current = resolveTheme(themes, choice.themeId);
   const [group, setGroup] = useState<ThemeGroup>(current.group === 'Universal' ? 'Franchises' : current.group);
   const [filter, setFilter] = useState('');
@@ -219,6 +233,11 @@ function DeckPicker({ label, themes, choice, deck, onChange }: { label: string; 
         </button>
       </div>
 
+      <PinPicker
+        pool={pinPool}
+        pinned={(choice.pinned ?? []).map((id) => byId.get(id)).filter((x): x is Card => !!x)}
+        onChange={(cards) => onChange({ pinned: cards.map((c) => c.id) })}
+      />
       <DeckList deck={deck} />
     </section>
   );
@@ -308,7 +327,11 @@ function DeckList({ deck }: { deck: Deck }) {
                   <span className="deck-count">{n}×</span>
                   {basic ? <span className="grade-badge blank" aria-hidden="true" /> : <GradeBadge card={c} />}
                   <span className="deck-name">{basic ? c.name : <GradedName card={c} />}</span>
-                  {!c.types.includes('Land') && !deck.themed.has(c) && <span className="tag">filler</span>}
+                  {deck.pinned.has(c) ? (
+                    <span className="tag must" title="A must-have card you added">★ must-have</span>
+                  ) : (
+                    !c.types.includes('Land') && !deck.themed.has(c) && <span className="tag">filler</span>
+                  )}
                   <ManaCost cost={c.cost} size={13} />
                 </div>
               );
@@ -316,6 +339,81 @@ function DeckList({ deck }: { deck: Deck }) {
           </div>
         ))}
       </div>
+    </div>
+  );
+}
+
+/** Must-have cards: search the whole universe and pin cards that every reroll keeps. */
+function PinPicker({ pool, pinned, onChange }: { pool: Card[]; pinned: Card[]; onChange: (cards: Card[]) => void }) {
+  const hover = useHover();
+  const [q, setQ] = useState('');
+  const [open, setOpen] = useState(false);
+  const matches = useMemo(() => {
+    const t = q.trim().toLowerCase();
+    if (t.length < 2) return [];
+    return pool
+      .filter((c) => c.fullName.toLowerCase().includes(t) && !pinned.includes(c))
+      .sort((a, b) => Number(!a.name.toLowerCase().startsWith(t)) - Number(!b.name.toLowerCase().startsWith(t)) || (a.edhrecRank ?? 1e9) - (b.edhrecRank ?? 1e9))
+      .slice(0, 8);
+  }, [q, pool, pinned]);
+  const add = (c: Card) => {
+    if (pinned.length >= MAX_PINNED) return;
+    onChange([...pinned, c]);
+    setQ('');
+    setOpen(false);
+  };
+  return (
+    <div className="pin-picker">
+      <div className="pin-head">
+        <span className="muted small">Must-have cards</span>
+        <div className="pin-search">
+          <input
+            value={q}
+            onChange={(e) => {
+              setQ(e.target.value);
+              setOpen(true);
+            }}
+            onFocus={() => setOpen(true)}
+            onBlur={() => window.setTimeout(() => setOpen(false), 150)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && matches[0]) add(matches[0]);
+              if (e.key === 'Escape') setOpen(false);
+            }}
+            placeholder={pinned.length >= MAX_PINNED ? `Up to ${MAX_PINNED} cards` : 'Add any card by name, e.g. The One Ring'}
+            disabled={pinned.length >= MAX_PINNED}
+            aria-label="Add a must-have card"
+          />
+          {open && matches.length > 0 && (
+            <div className="pin-results" role="listbox">
+              {matches.map((c) => (
+                <button key={c.id} type="button" role="option" aria-selected="false" className="pin-result" onMouseDown={(e) => e.preventDefault()} onClick={() => add(c)} onMouseEnter={() => hover({ card: c })}>
+                  <GradeBadge card={c} />
+                  <span className="pin-name">
+                    <GradedName card={c}>{c.fullName}</GradedName>
+                  </span>
+                  <span className="muted small pin-type">{c.typeLine}</span>
+                  <ManaCost cost={c.cost} size={13} />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+      {pinned.length > 0 && (
+        <div className="pin-chips">
+          {pinned.map((c) => (
+            <span key={c.id} className="pin-chip" onMouseEnter={() => hover({ card: c })}>
+              <GradeBadge card={c} />
+              <GradedName card={c} />
+              {playability(c) === 'none' && <span className="muted small" title="This card's rules text isn't simulated in this game">(text not simulated)</span>}
+              <button type="button" className="pin-x" aria-label={`Remove ${c.name}`} onClick={() => onChange(pinned.filter((x) => x !== c))}>
+                ✕
+              </button>
+            </span>
+          ))}
+          <span className="muted small">Kept in every reroll; the deck’s colours stretch to cast them.</span>
+        </div>
+      )}
     </div>
   );
 }

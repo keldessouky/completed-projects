@@ -10,6 +10,8 @@ export interface DeckOptions {
   /** 'auto' picks colours that suit the theme; otherwise exactly these colours. */
   colors: 'auto' | Color[];
   seed?: number;
+  /** Must-have cards: always in the deck (one copy each), and the deck's colours stretch to cast them. */
+  pinned?: Card[];
 }
 
 export interface Deck {
@@ -19,6 +21,8 @@ export interface Deck {
   cards: Card[];
   /** Cards that came from the theme itself (the rest are filler from the whole universe). */
   themed: Set<Card>;
+  /** The must-have cards the player asked for. */
+  pinned: Set<Card>;
   poolSize: number;
 }
 
@@ -48,6 +52,29 @@ function isDeckable(c: Card): boolean {
   if (c.types.includes('Creature') && (c.power === null || c.toughness === null || c.toughness <= 0)) return false;
   if (c.subtypes.includes('Vehicle') || c.subtypes.includes('Saga') || c.subtypes.includes('Class')) return false;
   return playability(c) !== 'none';
+}
+
+export const MAX_PINNED = 10;
+
+/** Colours a card's costs (spell and abilities) need. */
+export function colorsNeeded(c: Card): Color[] {
+  const a = abilitiesOf(c);
+  const costs = [parseCost(c.cost), ...a.activated.map((x) => x.cost), ...(a.attach?.equip ? [a.attach.equip] : [])];
+  return COLORS.filter((col) => costs.some((cost) => cost.pips.some((pip) => pip.length === 1 && pip[0] === col)));
+}
+
+/**
+ * Can the player put this card in a deck by hand? Any card you can cast in this game:
+ * creatures and other permanents (even if their text isn't simulated), and instants or
+ * sorceries that do something here. No lands (decks get basics), planeswalkers or X spells.
+ */
+export function pinnable(c: Card): boolean {
+  if (!c.cost || c.types.includes('Land') || c.types.includes('Planeswalker') || c.types.includes('Battle')) return false;
+  if (!['Creature', 'Instant', 'Sorcery', 'Artifact', 'Enchantment'].some((t) => c.types.includes(t))) return false;
+  if (parseCost(c.cost).hasX) return false;
+  if (c.types.includes('Creature') && (c.power === null || c.toughness === null || c.toughness <= 0)) return false;
+  if ((c.types.includes('Instant') || c.types.includes('Sorcery')) && playability(c) === 'none') return false;
+  return true;
 }
 
 /** Can a deck of these colours pay for this card? (Colourless cards fit anywhere.) */
@@ -126,7 +153,23 @@ export function buildDeck(all: Card[], theme: Theme, opts: DeckOptions): Deck {
   const rng = makeRng(opts.seed ?? Math.floor(Math.random() * 2 ** 31));
   const eligible = all.filter(deckable);
   const pool = theme.id === 'universal' ? eligible : eligible.filter(theme.match);
-  const colors = opts.colors === 'auto' ? chooseColors(pool, rng, theme.id === 'universal') : opts.colors.length ? [...opts.colors] : [pick(COLORS, rng)];
+  const pinned = [...new Set(opts.pinned ?? [])].filter(pinnable).slice(0, MAX_PINNED);
+  const pinnedColors = COLORS.filter((col) => pinned.some((c) => colorsNeeded(c).includes(col)));
+  let colors: Color[];
+  if (opts.colors !== 'auto') colors = opts.colors.length ? [...opts.colors] : [pick(COLORS, rng)];
+  else if (pinnedColors.length >= 2) colors = [];
+  else if (pinnedColors.length === 1) {
+    // Pair the must-have colour with the theme colour that suits it best.
+    const others = chooseColors(pool.filter((c) => !c.colors.length || c.colors.some((x) => x !== pinnedColors[0])), rng, theme.id === 'universal').filter((x) => x !== pinnedColors[0]);
+    colors = others.length ? [others[0]] : [];
+  } else colors = chooseColors(pool, rng, theme.id === 'universal');
+  // The deck's colours always include whatever the must-have cards need.
+  for (const col of pinnedColors) if (!colors.includes(col)) colors.push(col);
+  if (!colors.length) colors.push(pick(COLORS, rng));
+  // Hybrid-only must-haves: add one of their colours if the deck can't pay for them yet.
+  for (const c of pinned) {
+    for (const cost of [parseCost(c.cost)]) for (const pip of cost.pips) if (!pip.some((x) => colors.includes(x))) colors.push(pip[0]);
+  }
   colors.sort((a, b) => COLORS.indexOf(a) - COLORS.indexOf(b));
 
   const fits = pool.filter((c) => fitsColors(c, colors));
@@ -140,20 +183,22 @@ export function buildDeck(all: Card[], theme: Theme, opts: DeckOptions): Deck {
   const isGear = (c: Card) => abilitiesOf(c).attach !== null || (abilitiesOf(c).mana !== null && !isCreature(c));
   const gearCap = theme.id === 's-auras' ? 6 : 3;
   const copies = copiesFor(themeCreatures.length + themeSpells.length);
-  const chosen: Card[] = [];
+  const chosen: Card[] = [...pinned];
   // A creature-type deck is mostly that type; its spells come from the whole universe if need be.
-  chosen.push(...fill(themeCreatures, theme.tribal ? CREATURE_TARGET + 2 : CREATURE_TARGET, chosen, copies, rng));
+  const pinnedCreatures = pinned.filter(isCreature).length;
+  const creatureTarget = Math.min(SPELLS - chosen.length, Math.max(0, (theme.tribal ? CREATURE_TARGET + 2 : CREATURE_TARGET) - pinnedCreatures));
+  chosen.push(...fill(themeCreatures.filter((c) => !pinned.includes(c)), creatureTarget, chosen, copies, rng));
   const gearPool = themeSpells.filter(isGear);
-  const spellSlots = SPELLS - chosen.length - Math.min(2, gearPool.length);
+  const spellSlots = Math.max(0, SPELLS - chosen.length - Math.min(2, gearPool.length));
   const spells = fill(themeSpells.filter((c) => !isGear(c)), spellSlots, chosen, copies, rng);
   chosen.push(...spells);
-  chosen.push(...fill(gearPool, Math.min(gearCap, SPELLS - chosen.length), chosen, copies, rng));
+  chosen.push(...fill(gearPool, Math.max(0, Math.min(gearCap, SPELLS - chosen.length)), chosen, copies, rng));
   if (chosen.length < SPELLS && !theme.tribal) chosen.push(...fill(themeCreatures, SPELLS - chosen.length, chosen, copies, rng));
-  const themed = new Set(chosen);
+  const themed = new Set(chosen.filter((c) => !pinned.includes(c) || theme.id === 'universal' || theme.match(c)));
 
   // Not enough on-theme cards in these colours: top up from the whole universe.
   if (chosen.length < SPELLS) {
-    const filler = eligible.filter((c) => fitsColors(c, colors) && !themed.has(c) && playability(c) === 'full');
+    const filler = eligible.filter((c) => fitsColors(c, colors) && !chosen.includes(c) && playability(c) === 'full');
     const creaturesNow = chosen.filter(isCreature).length;
     const wantCreatures = Math.max(0, Math.min(CREATURE_TARGET - creaturesNow, SPELLS - chosen.length));
     chosen.push(...fill(filler.filter(isCreature), wantCreatures, chosen, () => 1, rng));
@@ -169,7 +214,8 @@ export function buildDeck(all: Card[], theme: Theme, opts: DeckOptions): Deck {
   const basics = new Map(COLORS.map((c) => [c, all.find((x) => x.name === BASIC_FOR[c] && x.supertypes.includes('Basic'))!]));
   let left = LAND_COUNT;
   colors.forEach((c, i) => {
-    const n = i === colors.length - 1 ? left : Math.max(colors.length > 1 ? 5 : LAND_COUNT, Math.round((LAND_COUNT * pips.get(c)!) / totalPips));
+    const floor = colors.length === 1 ? LAND_COUNT : colors.length === 2 ? 5 : colors.length === 3 ? 4 : 3;
+    const n = i === colors.length - 1 ? left : Math.max(floor, Math.round((LAND_COUNT * pips.get(c)!) / totalPips));
     const take = Math.min(left, n);
     for (let k = 0; k < take; k++) lands.push(basics.get(c)!);
     left -= take;
@@ -182,6 +228,7 @@ export function buildDeck(all: Card[], theme: Theme, opts: DeckOptions): Deck {
     colors,
     cards,
     themed,
+    pinned: new Set(pinned),
     poolSize: pool.length,
   };
 }

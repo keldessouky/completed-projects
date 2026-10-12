@@ -603,6 +603,7 @@ function costText(c: { generic: number; pips: string[][] }) {
 function liveInfo(g: Game, p: Perm): Hovered {
   const notes: string[] = [];
   if (p.counters) notes.push(`+${p.counters}/+${p.counters} counters`);
+  for (const [name, n] of Object.entries(p.named)) if (n) notes.push(`${n} ${name} counter${n > 1 ? 's' : ''}`);
   if (p.damage) notes.push(`${p.damage} damage`);
   if (g.isSick(p)) notes.push('summoning sick');
   if (p.tapped) notes.push('tapped');
@@ -619,6 +620,11 @@ function PlayerBar({ game: g, id, targetable, attackTarget, onClick, deckName, c
         <span key={p.life} className="life-num">{p.life}</span>
         <span className="life-label">{p.name}</span>
       </button>
+      {p.protected && (
+        <span className="chip prot" title="Protection from everything until their next turn: no damage, can't be targeted by opponents">
+          🛡 Protected
+        </span>
+      )}
       <span className="muted small deck-name" title={deckName}>{deckName}</span>
       <span className="zone" title="Cards left in library">📚 {p.library.length}</span>
       <span className="zone" title="Cards in hand">✋ {p.hand.length}</span>
@@ -750,6 +756,11 @@ function PermView({ perm: p, game: g, targetable, selected, canBlock, drag, atta
       )}
       {p.damage > 0 && <span className="dmg">−{p.damage}</span>}
       {p.counters > 0 && <span className="ctr">+{p.counters}</span>}
+      {Object.entries(p.named).filter(([, n]) => n > 0).map(([name, n]) => (
+        <span key={name} className="named-ctr" title={`${n} ${name} counter${n > 1 ? 's' : ''}`}>
+          {n} {name}
+        </span>
+      ))}
       {sick && <span className="sick" title="Summoning sick: can’t attack or tap this turn">zzz</span>}
       {attackNo > 0 && <span className="badge atk">⚔{attackNo}</span>}
       {blockingNo > 0 && <span className="badge blk">🛡{blockingNo}</span>}

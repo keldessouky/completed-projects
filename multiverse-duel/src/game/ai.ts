@@ -106,6 +106,17 @@ function judge(g: Game, pid: PlayerId, effects: Effect[], targets: (TargetRef | 
       case 'self-discard':
         v -= e.n * 0.6;
         break;
+      case 'named-counter':
+        break;
+      case 'draw-per-counter':
+        v += g.players[pid].life <= 6 ? -2 : 3;
+        break;
+      case 'lose-per-counter':
+        v -= 1;
+        break;
+      case 'protection':
+        v += 2;
+        break;
       case 'fight': {
         const a = e.a.sel === 'target' ? permOf(next()) : null;
         const b = e.b.sel === 'target' ? permOf(next()) : null;
@@ -230,7 +241,8 @@ function lethalOn(g: Game, mine: Perm[], opp: PlayerId): boolean {
 
 /** Which creatures attack, and whom. Goes for a kill if there is one, else the weakest-defended opponent. */
 export function chooseAttackers(g: Game, pid: PlayerId): Record<number, PlayerId> {
-  const opps = g.opponents(pid);
+  // A player with protection takes no damage, so there's no point attacking them.
+  const opps = g.opponents(pid).filter((o) => !g.players[o].protected);
   const mine = g.creatures(pid).filter((p) => g.canAttack(p));
   if (!mine.length || !opps.length) return {};
   const all = (opp: PlayerId) => Object.fromEntries(mine.map((p) => [p.iid, opp]));

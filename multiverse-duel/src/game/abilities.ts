@@ -66,7 +66,13 @@ export type Effect =
   | { k: 'token'; count: number; p: number; t: number; name: string; colors: Color[]; kw: string[] }
   | { k: 'discard'; n: number; who: Target }
   | { k: 'self-discard'; n: number }
-  | { k: 'fight'; a: Target; b: Target };
+  | { k: 'fight'; a: Target; b: Target }
+  /** Named counters on the card itself (burden, charge, …) and effects that count them. */
+  | { k: 'named-counter'; name: string; n: number }
+  | { k: 'draw-per-counter'; name: string }
+  | { k: 'lose-per-counter'; name: string }
+  /** "You gain protection from everything until your next turn." */
+  | { k: 'protection' };
 
 export type Trigger = 'etb' | 'attack' | 'combat-damage' | 'dies' | 'upkeep' | 'end-step';
 
@@ -351,6 +357,15 @@ export function parseClause(clause: string): Effect[] | null {
     const name = kinds.map((w) => w[0].toUpperCase() + w.slice(1)).join(' ') || 'Construct';
     return [{ k: 'token', count: num(m[1])!, p: Number(m[2]), t: Number(m[3]), name, colors, kw }];
   }
+  if ((m = c.match(/^put (a|an|one|two|three|\d+) ([a-z]+) counters? on ~, then draw a card for each \2 counter on ~$/)) && m[2] !== '+1/+1') {
+    return [{ k: 'named-counter', name: m[2], n: num(m[1])! }, { k: 'draw-per-counter', name: m[2] }];
+  }
+  if ((m = c.match(/^put (a|an|one|two|three|\d+) ([a-z]+) counters? on ~$/))) {
+    return [{ k: 'named-counter', name: m[2], n: num(m[1])! }];
+  }
+  if ((m = c.match(/^(?:you )?draw a card for each ([a-z]+) counter on ~$/))) return [{ k: 'draw-per-counter', name: m[1] }];
+  if ((m = c.match(/^you lose 1 life for each ([a-z]+) counter on ~$/))) return [{ k: 'lose-per-counter', name: m[1] }];
+  if (/^(?:if you cast it, )?you gain protection from everything until your next turn$/.test(c)) return [{ k: 'protection' }];
   if ((m = c.match(/^(~|target creature you control) fights (.+)$/))) {
     const a = m[1] === '~' ? ({ sel: 'self' } as Target) : parseTarget(m[1]);
     const b = parseTarget(m[2]);
@@ -680,8 +695,9 @@ export function playability(card: Card): 'full' | 'partial' | 'none' {
   const a = abilitiesOf(card);
   const isCreature = card.types.includes('Creature');
   const isSpell = card.types.includes('Instant') || card.types.includes('Sorcery');
+  // A non-creature permanent has to *do* something; a keyword alone (an indestructible rock) doesn't count.
   const does = a.spell.length > 0 || a.modes.length > 0 || a.triggers.length > 0 || a.activated.length > 0 ||
-    a.mana !== null || a.anthem !== null || a.attach !== null || a.keywords.size > 0 || a.entersWithCounters > 0;
+    a.mana !== null || a.anthem !== null || a.attach !== null || a.entersWithCounters > 0;
   if (isSpell && a.spell.length === 0 && a.modes.length === 0) return 'none';
   // Skipping an additional cost would make the card far stronger than it is.
   if (a.unsupported.some((l) => /^as an additional cost/i.test(l))) return 'none';
@@ -769,5 +785,13 @@ export function describeEffect(e: Effect): string {
       return `discard ${e.n}`;
     case 'fight':
       return `${who(e.a)} fights ${who(e.b)}`;
+    case 'named-counter':
+      return `put ${e.n} ${e.name} counter${e.n > 1 ? 's' : ''} on it`;
+    case 'draw-per-counter':
+      return `draw a card for each ${e.name} counter`;
+    case 'lose-per-counter':
+      return `lose 1 life for each ${e.name} counter`;
+    case 'protection':
+      return 'you gain protection from everything until your next turn';
   }
 }

@@ -72,6 +72,14 @@ function effectValue(e: Effect): number {
       return -e.n;
     case 'fight':
       return 4;
+    case 'named-counter':
+      return 0;
+    case 'draw-per-counter':
+      return 4; // grows every use
+    case 'lose-per-counter':
+      return -1.5;
+    case 'protection':
+      return 2.5;
   }
 }
 const sum = (es: Effect[]) => es.reduce((v, e) => v + effectValue(e), 0);

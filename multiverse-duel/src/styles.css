@@ -378,3 +378,22 @@ button.primary.big { font-size: 17px; padding: 12px 26px; white-space: nowrap; }
 .block-chip { display: inline-flex; align-items: center; gap: 5px; background: rgba(90, 169, 255, 0.14); border: 1px solid rgba(90, 169, 255, 0.55); border-radius: 999px; padding: 3px 10px; font-size: 12.5px; }
 .block-chip:hover { border-color: var(--red); }
 .block-chip .x { color: var(--muted); margin-left: 2px; }
+
+/* Must-have cards */
+.pin-picker { display: flex; flex-direction: column; gap: 6px; }
+.pin-head { display: flex; align-items: center; gap: 8px; }
+.pin-head > .muted { white-space: nowrap; }
+.pin-search { position: relative; flex: 1; }
+.pin-search input { width: 100%; }
+.pin-results { position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 30; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 12px 30px #000a; padding: 4px; display: flex; flex-direction: column; }
+.pin-result { display: flex; align-items: center; gap: 8px; text-align: left; background: none; border: 0; border-radius: 7px; padding: 6px 8px; }
+.pin-result:hover { background: var(--panel2); }
+.pin-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pin-type { max-width: 40%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pin-chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.pin-chip { display: inline-flex; align-items: center; gap: 6px; background: var(--bg2); border: 1px solid var(--line); border-radius: 999px; padding: 3px 4px 3px 6px; font-size: 13px; }
+.pin-x { background: none; border: 0; color: var(--muted); padding: 0 4px; }
+.pin-x:hover { color: var(--red); }
+.tag.must { color: var(--gold2); border-color: rgba(232, 176, 75, 0.6); }
+.named-ctr { position: absolute; left: 50%; transform: translateX(-50%); bottom: 18px; background: #2b1d0b; color: var(--gold2); border: 1px solid var(--gold); border-radius: 8px; font-size: 10.5px; font-weight: 800; padding: 0 5px; z-index: 2; white-space: nowrap; }
+.chip.prot { background: rgba(232, 176, 75, 0.18); border-color: var(--gold); color: var(--gold2); font-weight: 700; }

@@ -307,3 +307,35 @@ describe('free-for-all with up to four players', () => {
     expect(g.phase).toBe('main1');
   });
 });
+
+describe('The One Ring', () => {
+  test('protection when cast, burden counters, card draw, and upkeep life loss', () => {
+    const plains = card('Plains');
+    const g = new Game([Array(30).fill(plains), Array(30).fill(plains)], { seed: 2, first: 0 });
+    for (const p of g.players) p.hand = [];
+    lands(g, 0, 'Plains', 4);
+    expect(g.cast(0, inHand(g, 0, 'The One Ring'))).toBe(true);
+    const ring = g.players[0].battlefield.find((p) => p.card.name === 'The One Ring')!;
+    expect(g.players[0].protected).toBe(true);
+    // Opponents can't target or damage a protected player.
+    expect(g.legalTargets(1, { sel: 'target', what: 'player' }).map((r) => (r.kind === 'player' ? r.id : -1))).not.toContain(0);
+    g.resolve(1, null, [{ k: 'damage', n: 5, to: [{ sel: 'each-opp' }] }], []);
+    expect(g.players[0].life).toBe(20);
+    // Tap: a burden counter, then draw one card per counter.
+    const hand = g.players[0].hand.length;
+    expect(g.activate(0, ring.iid, 0)).toBe(true);
+    expect(ring.named.burden).toBe(1);
+    expect(g.players[0].hand.length).toBe(hand + 1);
+    // Protection lasts until your next turn; then the upkeep costs 1 life per burden counter.
+    g.endTurn();
+    expect(g.players[0].protected).toBe(true);
+    g.endTurn();
+    expect(g.players[0].protected).toBe(false);
+    expect(g.players[0].life).toBe(19);
+    const before = g.players[0].hand.length;
+    expect(g.activate(0, ring.iid, 0)).toBe(true);
+    expect(ring.named.burden).toBe(2);
+    expect(g.players[0].hand.length).toBe(before + 2);
+  });
+});
+

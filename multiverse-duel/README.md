@@ -16,6 +16,10 @@ Pick the number of players (you + 1–3 computers), then build each player's dec
 
 You can also fix the colors for either deck or leave them on Auto. **Reroll** builds a new deck from the same choices, and the **Card library** lets you browse and search the whole collection.
 
+### Must-have cards
+
+Under each deck's colours, **Must-have cards** lets you search all 32,324 cards by name and pin up to 10 of them to that deck — say *The One Ring* and *Cauldron Familiar*. Pinned cards are in every reroll (marked ★ must-have in the deck list), and the deck's colours stretch to include whatever they need to be cast; the rest of the deck is still built from your theme. Any castable card can be pinned (creatures, artifacts, enchantments, and instants and sorceries this game simulates); cards whose text isn't simulated are flagged.
+
 ### Card grades: spot the good cards at a glance
 
 Every card gets a quality score from 0 to 100 and a grade, and each grade has its own colour *and* typeface. The best cards jump out of a deck list and filler fades back, so you can judge a reroll in a second:
@@ -86,7 +90,7 @@ Writing a full Magic rules engine is a different project, so this game recognize
 
 - **Keywords**: flying, reach, haste, vigilance, trample, lifelink, deathtouch, first strike, double strike, defender, menace, indestructible, hexproof, shroud, flash, prowess, "can't be blocked", "can't block"
 - **Spells and abilities**: damage, destroy and exile, bounce, tap and untap, pump and shrink (+N/+N or −N/−N until end of turn), +1/+1 counters, tokens, fights, card draw and discard, life gain and loss, mass damage and wraths, and modal "Choose one —" spells
-- **Permanents**: auras, equipment (equip), anthems ("creatures you control get +1/+1"), mana creatures and mana rocks, "enters tapped" and "enters with counters"
+- **Permanents**: auras, equipment (equip), named counters like The One Ring's burden counters ("draw a card for each …", "lose 1 life for each …"), protection from everything until your next turn, anthems ("creatures you control get +1/+1"), mana creatures and mana rocks, "enters tapped" and "enters with counters"
 - **Triggers**: when this enters, attacks, deals combat damage to a player, or dies, plus at the beginning of your upkeep or end step
 - **Activated abilities** paid with mana and/or {T}, such as "{T}: deals 1 damage to any target"
 

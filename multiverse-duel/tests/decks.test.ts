@@ -78,4 +78,22 @@ describe('themes', () => {
     expect(t.match(card('Bilbo, Retired Burglar'))).toBe(true);
     expect(buildDeck(u.cards, t, { colors: 'auto', seed: 3 }).cards).toHaveLength(40);
   });
+
+  test('must-have cards are always in the deck, and the colours stretch to cast them', () => {
+    const ring = card('The One Ring');
+    const familiar = card('Cauldron Familiar');
+    const bolt = card('Lightning Bolt');
+    for (let seed = 1; seed <= 10; seed++) {
+      const d = buildDeck(u.cards, byId('f-lotr'), { colors: 'auto', seed, pinned: [ring, familiar, bolt] });
+      expect(d.cards).toHaveLength(40);
+      for (const c of [ring, familiar, bolt]) expect(d.cards, `seed ${seed}`).toContain(c);
+      expect(d.colors).toEqual(expect.arrayContaining(['B', 'R']));
+      for (const c of d.cards) if (!c.types.includes('Land')) expect(fitsColors(c, d.colors), c.name).toBe(true);
+    }
+    // Even with fixed colours, a must-have card brings its own colour along.
+    const d = buildDeck(u.cards, UNIVERSAL, { colors: ['G'], seed: 4, pinned: [bolt] });
+    expect(d.colors).toEqual(['R', 'G']);
+    expect(d.cards).toContain(bolt);
+  });
 });
+

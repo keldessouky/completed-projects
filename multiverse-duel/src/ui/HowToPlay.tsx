@@ -30,6 +30,8 @@ export function HowToPlay({ onClose }: { onClose: () => void }) {
             <li>{'{C}'} and snow mana are paid like generic mana; hybrid and Phyrexian mana are paid with a coloured mana.</li>
             <li>Rules text the game doesn’t understand is ignored, and it says so: point at any card and the panel on the right lists each ability with a ✓ (simulated) or ✗ (not simulated). Decks prefer fully simulated cards; spells that would do nothing are never put in a deck.</li>
           </ul>
+          <h4>Must-have cards</h4>
+          <p>Under each deck’s colours you can search any card by name and pin up to 10 of them. They stay in the deck through every reroll, and the deck’s colours stretch so you can cast them.</p>
           <h4>Card grades</h4>
           <p>Every card has a grade: <strong>S</strong> bomb (gold), <strong>A</strong> excellent (violet), <strong>B</strong> solid (blue), <strong>C</strong> playable, <strong>D</strong> filler (faded). It blends the card’s strength in this game for its mana cost, how widely it’s played in real Magic, and its rarity. Each deck shows its overall strength and, after a reroll, whether the new deck is better or worse than the last one.</p>
           <h4>Decks</h4>

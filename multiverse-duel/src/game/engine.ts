@@ -34,6 +34,8 @@ export interface Perm extends CardRef {
   token: boolean;
   attachedTo: number | null;
   temp: { p: number; t: number; kw: string[] }[];
+  /** Named counters such as burden or charge counters. */
+  named: Record<string, number>;
 }
 
 export interface Player {
@@ -51,6 +53,8 @@ export interface Player {
   lost: boolean;
   /** Finishing place once out (1 = winner). */
   place: number | null;
+  /** Protection from everything (The One Ring) until this player's next turn: no damage, can't be targeted by opponents. */
+  protected: boolean;
 }
 
 export type Phase = 'main1' | 'attack' | 'block' | 'combat' | 'main2' | 'over';
@@ -151,6 +155,7 @@ export class Game {
       drewFromEmpty: false,
       lost: false,
       place: null,
+      protected: false,
     }));
     this.active = opts.first ?? Math.floor(this.rng() * decks.length);
     this.first = this.active;
@@ -397,6 +402,7 @@ export class Game {
       for (const id of [...this.opponents(pid), pid]) {
         if (spec.ctrl === 'opp' && id === pid) continue;
         if (this.players[id].lost) continue;
+        if (this.players[id].protected && id !== pid) continue;
         out.push({ kind: 'player', id });
       }
     }
@@ -515,6 +521,7 @@ export class Game {
       token,
       attachedTo: null,
       temp: [],
+      named: {},
     };
     this.players[pid].battlefield.push(perm);
     return perm;
@@ -650,6 +657,21 @@ export class Game {
         case 'self-discard':
           this.discardWorst(pid, e.n);
           break;
+        case 'named-counter':
+          if (src && this.perm(src.iid)) src.named[e.name] = (src.named[e.name] ?? 0) + e.n;
+          break;
+        case 'draw-per-counter': {
+          const n = src?.named[e.name] ?? 0;
+          for (let k = 0; k < n; k++) this.drawCard(pid);
+          break;
+        }
+        case 'lose-per-counter':
+          this.players[pid].life -= src?.named[e.name] ?? 0;
+          break;
+        case 'protection':
+          this.players[pid].protected = true;
+          this.say(pid, `${this.players[pid].name} ${pid === 0 ? 'have' : 'has'} protection from everything until ${pid === 0 ? 'your' : 'their'} next turn.`);
+          break;
         case 'fight': {
           const [a] = perms(pick(e.a));
           const [b] = perms(pick(e.b));
@@ -665,6 +687,7 @@ export class Game {
 
   private dealDamage(ref: TargetRef, n: number, deathtouch: boolean, lifelinkTo: PlayerId | null) {
     if (n <= 0) return;
+    if (ref.kind === 'player' && this.players[ref.id].protected) return; // protection prevents it
     if (ref.kind === 'player') this.players[ref.id].life -= n;
     else {
       const p = this.perm(ref.iid);
@@ -1006,6 +1029,7 @@ export class Game {
     this.turn++;
     const p = this.players[next];
     p.landsPlayed = 0;
+    p.protected = false;
     for (const x of p.battlefield) {
       const frozen = this.attachments(x).some((a) => this.ab(a).attach?.doesntUntap);
       if (!frozen) x.tapped = false;
