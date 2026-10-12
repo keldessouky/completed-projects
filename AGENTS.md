@@ -15,13 +15,14 @@ Run each from that project's folder.
 | `crawler-ds` (C, libnds) | `make sdk` once, then `make` | `make test` (ROM in DeSmuME) and `make hosttest` (desktop bot) |
 | `el-lemby-platformer` macOS | `swift build` | `swift test` |
 | `el-lemby-platformer/windows` | `dotnet build ElLemby.App/ElLemby.App.csproj -c Release` | `dotnet run --project ElLemby.Tests/ElLemby.Tests.csproj -c Release` |
+| `multiverse-duel` (Node ≥ 20.19) | `npm ci && npm run build` | `npm test`, then `npm run smoke` (headless Chrome bot; `-- --offline` blocks Scryfall) |
 | `ziggurat-run`, `crown-and-circuit`, `crawler` | `npm ci && npm run build` | `npm run smoke` (`smoke:single` for the one-file build) |
 | `meccha-chameleon` (Node ≥ 20) | `npm run build` | `npm run typecheck && npm run test:sim` |
 | `roaming-in-rome/server` | `npm run build` | `npm run lint && npm test && npm run test:e2e` (needs Postgres) |
 | `roaming-in-rome/web` | `npm run build` | `npm run lint && npm test` |
 
-CI lives in `.github/workflows/`: `qahira.yml`, `reactor-quest.yml`, `el-lemby.yml` and `ci.yml` (Roaming in
-Rome). The four web games have no CI, so run their smoke bot yourself before you push.
+CI lives in `.github/workflows/`: `qahira.yml`, `reactor-quest.yml`, `el-lemby.yml`, `multiverse-duel.yml` and `ci.yml`
+(Roaming in Rome). The four web games have no CI, so run their smoke bot yourself before you push.
 
 ## Definition of done
 
