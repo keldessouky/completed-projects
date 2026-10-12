@@ -70,6 +70,7 @@ export function App() {
 
   return (
     <ArtProvider>
+    <VersionHotkey card={hovered?.card ?? null} />
     <HoverContext.Provider value={setHovered}>
       <div className={`app screen-${screen}`}>
         <header className="topbar">
@@ -114,6 +115,21 @@ export function App() {
     </HoverContext.Provider>
     </ArtProvider>
   );
+}
+
+/** Press V to choose the art of the card you're pointing at. */
+function VersionHotkey({ card }: { card: Hovered['card'] | null }) {
+  const { openVersions } = useArtSettings();
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+      if ((e.key === 'v' || e.key === 'V') && card && !e.metaKey && !e.ctrlKey) openVersions(card);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [card, openVersions]);
+  return null;
 }
 
 function ArtToggle() {

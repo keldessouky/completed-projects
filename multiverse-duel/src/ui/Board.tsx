@@ -6,6 +6,7 @@ import { aiBlockStep, aiStep } from '../game/ai';
 import type { Deck } from '../game/deck';
 import { defaultNames, Game, sameRef, type CardRef, type Perm, type PlayerId, type TargetRef } from '../game/engine';
 import { CardBack, CardFace, ManaCost } from './CardFace';
+import { useArtSettings } from './Art';
 import { GradeBadge } from './Grade';
 import { useHover, type Hovered } from './Inspector';
 
@@ -51,6 +52,7 @@ export function Board({ decks, onRematch, onNewDecks, onHelp }: { decks: Deck[];
     }
   });
   const hover = useHover();
+  const { openVersions } = useArtSettings();
   const g = game;
   const toastTimer = useRef<number | undefined>(undefined);
 
@@ -517,6 +519,10 @@ export function Board({ decks, onRematch, onNewDecks, onHelp }: { decks: Deck[];
               type="button"
               className={`hand-card ${playable ? 'playable' : ''}`}
               onClick={() => clickHand(c)}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                openVersions(c.card);
+              }}
               onMouseEnter={() => hover({ card: c.card })}
               aria-label={`${c.card.name}${playable ? ' (playable)' : ''}`}
             >
@@ -726,7 +732,12 @@ function LandStack({ card, perms, permProps }: { card: Card; perms: Perm[]; perm
   );
 }
 
-function PermView({ perm: p, game: g, targetable, selected, canBlock, drag, attackLabel, attacking, atYou, attackNo, blockingNo, onClick, onHover }: PermProps) {
+function PermView(props: PermProps) {
+  const { openVersions } = useArtSettings();
+  return <PermViewInner {...props} openVersions={openVersions} />;
+}
+
+function PermViewInner({ openVersions, perm: p, game: g, targetable, selected, canBlock, drag, attackLabel, attacking, atYou, attackNo, blockingNo, onClick, onHover }: PermProps & { openVersions: (c: Card) => void }) {
   const creature = g.isCreature(p);
   const power = creature ? g.power(p) : 0;
   const toughness = creature ? g.toughness(p) : 0;
@@ -739,6 +750,10 @@ function PermView({ perm: p, game: g, targetable, selected, canBlock, drag, atta
       type="button"
       className={['perm', p.tapped ? 'tapped' : '', targetable ? 'targetable' : '', selected ? 'selected' : '', canBlock ? 'can-block' : '', attacking ? 'attacking' : '', atYou ? 'at-you' : '', blockingNo ? 'blocking' : ''].join(' ')}
       onClick={onClick}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        openVersions(p.card);
+      }}
       draggable={drag?.draggable}
       onDragStart={drag?.onDragStart}
       onDragOver={drag?.onDragOver}

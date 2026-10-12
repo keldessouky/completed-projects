@@ -7,6 +7,7 @@ import { deckable } from '../game/deck';
 import { cardScore } from '../game/quality';
 import { CardFace, ManaCost } from './CardFace';
 import { GradeBadge } from './Grade';
+import { useArtSettings } from './Art';
 import { useHover } from './Inspector';
 
 const TYPES = ['Any type', 'Creature', 'Instant', 'Sorcery', 'Artifact', 'Enchantment', 'Land', 'Planeswalker', 'Battle'];
@@ -23,6 +24,7 @@ export function Library({ universe, themes }: { universe: Universe; themes: Them
   const [page, setPage] = useState(0);
   const query = useDeferredValue(text);
   const hover = useHover();
+  const { openVersions } = useArtSettings();
 
   const results = useMemo(() => {
     const words = query.toLowerCase().split(/\s+/).filter(Boolean);
@@ -109,13 +111,21 @@ export function Library({ universe, themes }: { universe: Universe; themes: Them
           const p = playability(c);
           const usable = deckable(c);
           return (
-            <div key={c.id} className="grid-card" onMouseEnter={() => hover({ card: c })}>
+            <button
+              key={c.id}
+              type="button"
+              className="grid-card"
+              onMouseEnter={() => hover({ card: c })}
+              onClick={() => openVersions(c)}
+              title={c.variants.length ? `${c.variants.length} special version${c.variants.length > 1 ? 's' : ''} — click to choose the art` : 'Click to see this card’s printings'}
+            >
               <CardFace card={c} />
               {!c.supertypes.includes('Basic') && <GradeBadge card={c} />}
               <span className={`sim-badge ${usable ? p : 'none'}`} title={usable ? (p === 'full' ? 'Fully simulated' : 'Partly simulated') : 'Not used in generated decks'}>
                 {usable ? (p === 'full' ? '✓' : '◐') : '–'}
               </span>
-            </div>
+              {c.variants.length > 0 && <span className="variant-count">✨ {c.variants.length + 1}</span>}
+            </button>
           );
         })}
       </div>

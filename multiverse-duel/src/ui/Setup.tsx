@@ -8,6 +8,7 @@ import { defaultNames, MAX_PLAYERS } from '../game/engine';
 import { ManaCost } from './CardFace';
 import { DeckStrengthPanel, GradeBadge, GradedName, GradeLegend } from './Grade';
 import { cardGrade, cardScore, deckStrength } from '../game/quality';
+import { useArtSettings } from './Art';
 import { useHover } from './Inspector';
 
 interface Choice {
@@ -245,6 +246,7 @@ function DeckPicker({ label, themes, choice, deck, pinPool, byId, onChange }: { 
 
 function DeckList({ deck }: { deck: Deck }) {
   const hover = useHover();
+  const { openVersions } = useArtSettings();
   const [sort, setSort] = useState<'curve' | 'grade'>(() => {
     try {
       return localStorage.getItem('multiverse-duel:deck-sort') === 'grade' ? 'grade' : 'curve';
@@ -333,6 +335,11 @@ function DeckList({ deck }: { deck: Deck }) {
                     !c.types.includes('Land') && !deck.themed.has(c) && <span className="tag">filler</span>
                   )}
                   <ManaCost cost={c.cost} size={13} />
+                  {c.variants.length > 0 && (
+                    <button type="button" className="art-btn" title="Choose this card’s art" aria-label={`Choose art for ${c.name}`} onClick={() => openVersions(c)}>
+                      ✨
+                    </button>
+                  )}
                 </div>
               );
             })}
@@ -346,6 +353,7 @@ function DeckList({ deck }: { deck: Deck }) {
 /** Must-have cards: search the whole universe and pin cards that every reroll keeps. */
 function PinPicker({ pool, pinned, onChange }: { pool: Card[]; pinned: Card[]; onChange: (cards: Card[]) => void }) {
   const hover = useHover();
+  const { openVersions } = useArtSettings();
   const [q, setQ] = useState('');
   const [open, setOpen] = useState(false);
   const matches = useMemo(() => {
@@ -405,6 +413,11 @@ function PinPicker({ pool, pinned, onChange }: { pool: Card[]; pinned: Card[]; o
             <span key={c.id} className="pin-chip" onMouseEnter={() => hover({ card: c })}>
               <GradeBadge card={c} />
               <GradedName card={c} />
+              {c.variants.length > 0 && (
+                <button type="button" className="art-btn" title="Choose this card’s art" aria-label={`Choose art for ${c.name}`} onClick={() => openVersions(c)}>
+                  ✨
+                </button>
+              )}
               {playability(c) === 'none' && <span className="muted small" title="This card's rules text isn't simulated in this game">(text not simulated)</span>}
               <button type="button" className="pin-x" aria-label={`Remove ${c.name}`} onClick={() => onChange(pinned.filter((x) => x !== c))}>
                 ✕

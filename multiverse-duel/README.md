@@ -18,7 +18,7 @@ You can also fix the colors for either deck or leave them on Auto. **Reroll** bu
 
 ### Classic or coolest art
 
-The **✨ Coolest art** switch at the top (on by default) shows each card's most special printing when it has one: serialized, borderless, showcase, extended art, masterpiece, Secret Lair, full art or etched. 8,500 cards have at least one; the snapshot keeps up to eight per card, coolest first. The One Ring's first is the actual **serialized 001/001** printing Post Malone bought, and Displacer Kitten's is its borderless Secret Lair art. **Classic art** shows each card's standard printing instead. Point at any card and the panel on the right lists all its versions; click one to use that art for that card everywhere. Your choices are remembered.
+The **✨ Coolest art** switch at the top (on by default) shows each card's most special printing when it has one: serialized, borderless, showcase, extended art, masterpiece, Secret Lair, full art or etched. 8,500 cards have at least one; the snapshot keeps up to eight per card, coolest first. The One Ring's first is the actual **serialized 001/001** printing Post Malone bought, and Displacer Kitten's is its borderless Secret Lair art. **Classic art** shows each card's standard printing instead. To choose a specific version of a card, open its art picker: click the card in the **Card library**, click **✨** next to it in a deck list or the must-have list, **right-click** it during a game, or point at it and press **V**. The picker shows every printing large; click one to use that art for that card everywhere. Your choices are remembered.
 
 ### Must-have cards
 

@@ -409,3 +409,14 @@ button.primary.big { font-size: 17px; padding: 12px 26px; white-space: nowrap; }
 .version.on { border-color: var(--gold); background: rgba(232, 176, 75, 0.12); }
 .version.on span { color: var(--gold2); }
 .version:hover { border-color: var(--line); }
+.versions-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.version-modal { width: min(980px, 100%); }
+.version-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px; }
+.version-big { display: flex; flex-direction: column; gap: 4px; align-items: center; background: var(--bg2); border: 2px solid transparent; border-radius: 12px; padding: 8px; }
+.version-big img { width: 100%; aspect-ratio: 488 / 680; object-fit: cover; border-radius: 4.75% / 3.5%; background: #111; }
+.version-big:hover { border-color: var(--line); }
+.version-big.on { border-color: var(--gold); background: rgba(232, 176, 75, 0.12); }
+button.grid-card { padding: 0; border: 0; background: none; cursor: pointer; }
+.variant-count { position: absolute; left: 6px; bottom: 6px; background: #000c; color: var(--gold2); border: 1px solid var(--gold); border-radius: 8px; font-size: 11px; font-weight: 700; padding: 1px 6px; z-index: 2; }
+.art-btn { background: none; border: 0; padding: 0 2px; font-size: 12px; opacity: 0.75; }
+.art-btn:hover { opacity: 1; transform: scale(1.2); }

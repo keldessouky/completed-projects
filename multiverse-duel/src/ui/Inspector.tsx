@@ -94,7 +94,7 @@ export function Inspector({ hovered, setName }: { hovered: Hovered | null; setNa
 
 /** Every special printing of a card; click one to use its art everywhere. */
 function Versions({ card }: { card: Card }) {
-  const { pick } = useArtSettings();
+  const { pick, openVersions } = useArtSettings();
   const current = useArt(card);
   if (!card.variants.length) return null;
   const options = [{ id: card.id, label: 'Classic', title: 'The standard printing' }, ...card.variants.map((v) => {
@@ -103,8 +103,13 @@ function Versions({ card }: { card: Card }) {
   })];
   return (
     <div className="versions">
-      <div className="muted small">
-        {card.variants.length} special version{card.variants.length > 1 ? 's' : ''} · click to use that art
+      <div className="versions-head">
+        <span className="muted small">
+          {card.variants.length} special version{card.variants.length > 1 ? 's' : ''}
+        </span>
+        <button type="button" className="pill" onClick={() => openVersions(card)}>
+          ✨ Choose art…
+        </button>
       </div>
       <div className="version-strip">
         {options.map((o) => (
