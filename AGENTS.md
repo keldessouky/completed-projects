@@ -85,8 +85,17 @@ A change is done when a machine can show it works, not when it compiles.
 ## Gotchas
 
 - **Which outside sites can be reached changes over time.** Don't trust a note saying a site is unreachable,
-  including notes in this repo; run `tools/check-asset-hosts.sh` instead. If devkitPro is blocked,
-  `crawler-ds/tools/setup-sdk.sh` builds the DS toolchain from pinned upstream sources instead.
+  including notes in this repo; run `tools/check-asset-hosts.sh` instead.
+- **devkitPro's own sites block cloud machines with a Cloudflare firewall**, so changing network settings won't help.
+  - The DS game doesn't need them: `make sdk` builds its toolchain from devkitPro's GitHub sources at pinned
+    revisions.
+  - When the official toolchain is needed (other DS homebrew, or `make sdk` fails), use the `devkitpro/devkitarm`
+    Docker image from Docker Hub, at a pinned date tag such as `devkitpro/devkitarm:20260610`, never `latest`.
+  - Cloud sessions have the Docker CLI but no Docker engine, so run the image in GitHub Actions
+    (`container: devkitpro/devkitarm:<tag>`).
+  - The game is written against libnds 1.8.3. Newer images ship a newer libnds, so prove the build in CI before
+    relying on an image.
+  - Never try to get past devkitPro's firewall (for example by pretending to be a browser).
 - **A "CC0" label on a pack isn't proof of its licence.** Packs ship code licences next to the art (an MIT `LICENSE`
   for the code in an itch.io pack labelled CC0), copy-pasted licence headers, and non-CC0 art (LPC is OGA-BY,
   CC-BY-SA or GPL, and needs credits).
