@@ -59,10 +59,12 @@ OFL-1.1 full text: https://openfontlicense.org/
 ## Sprites and backdrops — original, generated at boot
 
 **No third-party sprite pack is bundled.** The brief preferred CC0 sources such as
-Kenney.nl and OpenGameArt; this build's network policy blocks outbound access to
-those hosts (verified at build time — `kenney.nl` and `freesound.org` were
-unreachable, while the npm registry and Google Fonts were), so shipping their
-files was not possible. Rather than ship placeholder art or a broken download
+Kenney.nl and OpenGameArt; when this was built (August 2026) the build
+environment's network policy blocked outbound access to those hosts (verified at
+build time — `kenney.nl` and `freesound.org` were unreachable, while the npm
+registry and Google Fonts were reachable), so shipping their files was not
+possible. Reachability changes; run `../tools/check-asset-hosts.sh` for the
+current state. Rather than ship placeholder art or a broken download
 step, every sprite is **painted procedurally with Canvas2D at boot** and packed
 into a single 2048×2048 atlas.
 
@@ -89,8 +91,8 @@ dirt `#7A5C3A` · System blue `#2F7AD9` · amber `#D9A441` · ink `#141119` · b
 ## Audio — original, synthesized offline
 
 **No third-party audio file is bundled.** Freesound and the other suggested audio
-hosts are unreachable from this build environment (same network policy as above),
-so all 21 sounds — 18 SFX and 3 music cues — are **synthesized from scratch** by
+hosts were unreachable from the build environment in August 2026 (same network
+policy as above), so all 21 sounds — 18 SFX and 3 music cues — are **synthesized from scratch** by
 [`tools/gen-audio.mjs`](tools/gen-audio.mjs) and packed into one Howler audio
 sprite (`public/assets/audio.wav`, 22.05 kHz mono, ~2.3 MB).
 
