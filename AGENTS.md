@@ -59,8 +59,12 @@ A change is done when a machine can show it works, not when it compiles.
 ## Boundaries
 
 **Always**
-- Generate art, audio and levels from scripts in the repo, and record any third-party asset in that project's
-  `LICENSES.md`. QAHIRA's `assets/generated/` is build output and isn't committed.
+- Before deciding that art or audio must be generated from code, run `tools/check-asset-hosts.sh` from the repo
+  root. If a CC0 pack fits the look, use it instead of generated art.
+- Bring third-party assets in through a script that pins the URLs and checks a SHA-256 for each file (as
+  `reactor-quest/tools/node-runtime.mjs` does for Node.js). Commit only the files the game uses, and record each
+  one's licence, read from the pack's own licence file, in that project's `LICENSES.md`. QAHIRA's `assets/generated/` is build
+  output and isn't committed.
 - Version saves and migrate old ones. Clamp every loaded field.
 
 **Ask first**
@@ -80,8 +84,12 @@ A change is done when a machine can show it works, not when it compiles.
 
 ## Gotchas
 
-- **Some outside hosts are unreachable from build containers.** Known cases: devkitPro, kenney.nl, freesound and
-  Omny. `crawler-ds/tools/setup-sdk.sh` builds the DS toolchain from pinned upstream sources instead of devkitPro.
+- **Which outside sites can be reached changes over time.** Don't trust a note saying a site is unreachable,
+  including notes in this repo; run `tools/check-asset-hosts.sh` instead. If devkitPro is blocked,
+  `crawler-ds/tools/setup-sdk.sh` builds the DS toolchain from pinned upstream sources instead.
+- **A "CC0" label on a pack isn't proof of its licence.** Packs ship code licences next to the art (an MIT `LICENSE`
+  for the code in an itch.io pack labelled CC0), copy-pasted licence headers, and non-CC0 art (LPC is OGA-BY,
+  CC-BY-SA or GPL, and needs credits).
 - **QAHIRA's art build** needs Blender as the `bpy` module (`pip install bpy==5.0.1` into Python 3.11). For
   screenshots on Linux, run `qhost --hidden` under Xvfb. Set `QAHIRA_BOT_TRACE=1` for bot commentary, and use
   `QAHIRA_CLASS=<class>` to pick a bot's hero.

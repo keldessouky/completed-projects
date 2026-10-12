@@ -120,8 +120,9 @@ licensed.
 ## Building it
 
 The ROM is normally built with [devkitPro](https://devkitpro.org/). It was not
-built that way here — devkitPro's servers are unreachable from this environment —
-so the repo carries a script that assembles an equivalent toolchain from
+built that way here: devkitPro's servers were unreachable from the build
+environment (August 2026; run `../tools/check-asset-hosts.sh` for the current
+state), so the repo carries a script that assembles an equivalent toolchain from
 upstream sources against your distribution's ARM compiler.
 
 ```bash
