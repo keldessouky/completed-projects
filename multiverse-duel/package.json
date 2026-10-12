@@ -1,0 +1,34 @@
+{
+  "name": "multiverse-duel",
+  "private": true,
+  "version": "1.0.0",
+  "description": "A simple Magic: The Gathering duel against the computer, built on every card in the Scryfall database: pick a franchise, plane, tribe, era or set for each deck, or play Universal mode with decks drawn from the whole multiverse.",
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20.19"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit -p . && vite build",
+    "start": "node tools/launch.mjs",
+    "test": "vitest run",
+    "smoke": "node tools/smoke.mjs",
+    "cards:update": "node tools/build-cards.mjs"
+  },
+  "dependencies": {
+    "@fontsource/cinzel": "^5.3.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "playwright-core": "^1.64.0",
+    "typescript": "~6.0.3",
+    "vite": "^8.3.4",
+    "vitest": "^5.0.3"
+  }
+}
