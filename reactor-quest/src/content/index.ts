@@ -1,6 +1,8 @@
 import type { Deck, Level, Path, PathId } from '../game/types';
 import { AIF } from './aws/aif';
+import { AIP } from './aws/aip';
 import { CLF } from './aws/clf';
+import { DVA } from './aws/dva';
 import { SAA } from './aws/saa';
 import { floor1 } from './floor1';
 import { floor2 } from './floor2';
@@ -27,8 +29,8 @@ export const REACTOR: Path = {
   decks: DECKS,
 };
 
-/** Every journey, in the order the path picker shows them. AWS certifications run foundational first, AI Practitioner leading. */
-export const PATHS: Path[] = [REACTOR, AIF, CLF, SAA];
+/** Every journey, in the order the path picker shows them. AWS certifications run by level (foundational, associate, professional), AI Practitioner leading. */
+export const PATHS: Path[] = [REACTOR, AIF, CLF, DVA, SAA, AIP];
 export const CERT_PATHS = PATHS.filter((p) => p.exam);
 /** The certification an AWS journey starts with: AI Practitioner, a foundational exam. */
 export const DEFAULT_CERT: PathId = 'aws-aif';

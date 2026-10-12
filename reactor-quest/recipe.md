@@ -35,7 +35,7 @@ It is long. Read **Part 0** first, then work through the parts in order. Each pa
 
 Reactor Quest teaches someone who has never written code to write professional TypeScript and React. The player is the new repair engineer on **Orrery Station**, a space station that has been dark for nine days. Every system aboard runs on code and none of it works. Each **level** is one broken system: the player reads a short story brief and a lesson, then fixes or writes real code in a real editor, and presses **Run**. The game type-checks the code with the **real TypeScript compiler** (running in the browser), runs it in a sandbox, and grades it with hidden checks, including **type-level checks** that grade the player's *types*. React levels render the player's components live. There are **106 levels on 10 floors** (96 code levels, 10 quizzes), from a first `console.log` to race conditions, accessibility and testing. Inspired by *Dungeon Crawler Carl*, the repair job is broadcast as a TV show: **THE FEED** narrates, viewers pile in, sponsors send gifts, and a reward engine pays out constantly. That means crawler levels and career titles, six tiers of loot boxes, 61 achievements, 33 skills, a companion pet with hats, five classes, daily quests and streaks, a shop, boss HP bars, and collectible Codex cheat sheets. Underneath the show, it is built on how people actually learn: one idea per level in prerequisite order, hints before solutions, plain-English compiler errors, quizzes that re-ask what you missed, **spaced review** that brings every idea back at growing intervals, and a **notebook** where the player explains each level back in their own words.
 
-The player chooses a **journey** on the title screen. Besides the TypeScript & React station, there is an **AWS certification** journey: pick a certification (it starts with **AI Practitioner**, then **Cloud Practitioner** and **Solutions Architect – Associate**), learn it floor by floor (one floor per exam domain: lessons that end in a quiz, plus a checkpoint), then practise in **Exam Prep** with drills, quick quizzes and timed 65-question mock exams with "Choose TWO" questions. Every answer is recorded, and the game estimates the exam score domain by domain and says how ready the player is to book the real exam.
+The player chooses a **journey** on the title screen. Besides the TypeScript & React station, there is an **AWS certification** journey: pick a certification (it starts with **AI Practitioner**; also **Cloud Practitioner**, **Developer – Associate**, **Solutions Architect – Associate** and **Generative AI Developer – Professional**), learn it floor by floor (one floor per exam domain: lessons that end in a quiz, plus a checkpoint), then practise in **Exam Prep** with drills, quick quizzes and timed 65-question mock exams with "Choose TWO" questions. Every answer is recorded, and the game estimates the exam score domain by domain and says how ready the player is to book the real exam.
 
 ### How it teaches (the learning design)
 
@@ -114,8 +114,10 @@ reactor-quest/
     game/     types.ts  skills.ts  progress.ts  rewards.ts  readiness.ts  items.ts  store.ts  sound.ts
     content/  index.ts  helpers.ts  review.ts  floor1.ts … floor10.ts
               code/<level-id>/starter.ts|tsx  and  solution.ts|tsx   (96 folders)
-              aws/  kit.ts  aif.ts  clf.ts  saa.ts
+              aws/  kit.ts  aif.ts  clf.ts  dva.ts  saa.ts  aip.ts
                     aif/  ml.ts  genai.ts  apps.ts  responsible.ts  governance.ts
+                    dva/  build.ts  lambda.ts  security.ts  deploy.ts  troubleshoot.ts
+                    aip/  foundations.ts  integration.ts  safety.ts  operations.ts  testing.ts
                     clf/  concepts.ts  compute.ts  data.ts  services.ts  security.ts  billing.ts
                     saa/  access.ts  protect.ts  resilient.ts  performance.ts  cost.ts
     screens/  TitleScreen  MapScreen  CodeLevelScreen  QuizScreen  ReviewScreen  ExamScreen
@@ -1209,7 +1211,7 @@ export interface Deck {
 
 // ---------------------------------------------------------------- paths
 
-export type PathId = 'reactor' | 'aws-aif' | 'aws-clf' | 'aws-saa';
+export type PathId = 'reactor' | 'aws-aif' | 'aws-clf' | 'aws-dva' | 'aws-saa' | 'aws-aip';
 
 /** One domain of a certification exam, with its share of the questions. */
 export interface ExamDomain {
@@ -1223,7 +1225,7 @@ export interface ExamDomain {
 export interface Exam {
   code: string;
   name: string;
-  level: 'Foundational' | 'Associate';
+  level: 'Foundational' | 'Associate' | 'Professional';
   questions: number;
   minutes: number;
   /** The passing score, on AWS's scale of 100 to 1000. */
@@ -1380,7 +1382,9 @@ ${tools}`;
 ~~~~ts
 import type { Deck, Level, Path, PathId } from '../game/types';
 import { AIF } from './aws/aif';
+import { AIP } from './aws/aip';
 import { CLF } from './aws/clf';
+import { DVA } from './aws/dva';
 import { SAA } from './aws/saa';
 import { floor1 } from './floor1';
 import { floor2 } from './floor2';
@@ -1407,8 +1411,8 @@ export const REACTOR: Path = {
   decks: DECKS,
 };
 
-/** Every journey, in the order the path picker shows them. AWS certifications run foundational first, AI Practitioner leading. */
-export const PATHS: Path[] = [REACTOR, AIF, CLF, SAA];
+/** Every journey, in the order the path picker shows them. AWS certifications run by level (foundational, associate, professional), AI Practitioner leading. */
+export const PATHS: Path[] = [REACTOR, AIF, CLF, DVA, SAA, AIP];
 export const CERT_PATHS = PATHS.filter((p) => p.exam);
 /** The certification an AWS journey starts with: AI Practitioner, a foundational exam. */
 export const DEFAULT_CERT: PathId = 'aws-aif';
@@ -2710,7 +2714,7 @@ export const reviewItem = (id: string) => REVIEW_ITEMS.find((r) => r.id === id);
 
 ## Part 5b. The AWS certification journeys
 
-The game has more than one **journey** (\`Path\` in \`src/game/types.ts\`). \`src/content/index.ts\` (Part 4) lists them in \`PATHS\`: the TypeScript & React station (\`REACTOR\`, whose floors are \`DECKS\`), then the AWS certifications: **AI Practitioner** first, then Cloud Practitioner (both foundational), then Solutions Architect – Associate. \`DEFAULT_CERT\` is the first certification: choosing AWS starts there. The save remembers the current journey (\`save.path\`); switching keeps every journey's progress.
+The game has more than one **journey** (\`Path\` in \`src/game/types.ts\`). \`src/content/index.ts\` (Part 4) lists them in \`PATHS\`: the TypeScript & React station (\`REACTOR\`, whose floors are \`DECKS\`), then the AWS certifications by level: **AI Practitioner** first, then Cloud Practitioner (both foundational), Developer – Associate and Solutions Architect – Associate, then Generative AI Developer – Professional. \`DEFAULT_CERT\` is the first certification: choosing AWS starts there. The save remembers the current journey (\`save.path\`); switching keeps every journey's progress.
 
 ### How a certification journey is built
 
@@ -4329,7 +4333,7 @@ export const CLF: Path = {
   id: 'aws-clf',
   name: 'AWS Certified Cloud Practitioner',
   short: 'Cloud Practitioner',
-  tagline: 'The foundational AWS exam: what the cloud is, the core services, security and billing. The place to start.',
+  tagline: 'The foundational AWS exam: what the cloud is, the core services, security and billing.',
   icon: '☁',
   exam: {
     code: 'CLF-C02',
@@ -5842,6 +5846,959 @@ The **AWS Trust & Safety team** handles reports of AWS resources used for **abus
 };
 ~~~~
 
+**`src/content/aws/dva.ts`**
+
+~~~~ts
+// AWS Certified Developer – Associate (DVA-C02): building, securing,
+// deploying and debugging applications on AWS. Five floors follow the exam
+// guide's four domains, and a bank of exam-style questions feeds practice.
+import type { Path } from '../../game/types';
+import { dvaBuild } from './dva/build';
+import { dvaDeploy } from './dva/deploy';
+import { dvaLambda } from './dva/lambda';
+import { dvaSecurity } from './dva/security';
+import { dvaTroubleshoot } from './dva/troubleshoot';
+import { bankFor } from './kit';
+
+const d1 = bankFor('dva', 'dva-d1');
+const d2 = bankFor('dva', 'dva-d2');
+const d3 = bankFor('dva', 'dva-d3');
+const d4 = bankFor('dva', 'dva-d4');
+
+export const DVA: Path = {
+  id: 'aws-dva',
+  name: 'AWS Certified Developer – Associate',
+  short: 'Developer',
+  tagline: 'Write, secure, deploy and debug applications on AWS: Lambda, API Gateway, DynamoDB, messaging, KMS, SAM and CI/CD.',
+  icon: '🧑‍💻',
+  exam: {
+    code: 'DVA-C02',
+    name: 'AWS Certified Developer – Associate',
+    level: 'Associate',
+    questions: 65,
+    minutes: 130,
+    pass: 720,
+    domains: [
+      { id: 'dva-d1', name: 'Development with AWS Services', weight: 32 },
+      { id: 'dva-d2', name: 'Security', weight: 26 },
+      { id: 'dva-d3', name: 'Deployment', weight: 24 },
+      { id: 'dva-d4', name: 'Troubleshooting and Optimization', weight: 18 },
+    ],
+    guide: 'https://docs.aws.amazon.com/aws-certification/latest/developer-associate-02/developer-associate-02.html',
+  },
+  decks: [dvaBuild, dvaLambda, dvaSecurity, dvaDeploy, dvaTroubleshoot],
+  bank: [
+    // ------------------------------------------------------------ Domain 1
+    d1(1, 'Which actions make code that calls a throttled AWS API more resilient? (Choose TWO.)', ['Retry with exponential backoff and jitter', 'Make the operation idempotent so retries are safe', 'Retry immediately in a tight loop', 'Disable SDK retries', 'Increase the request size'], [0, 1], 'Backoff with jitter plus idempotency makes retries safe and effective.'),
+    d1(2, 'Which are true of DynamoDB global secondary indexes? (Choose TWO.)', ['They can be created after the table', 'They support only eventually consistent reads', 'They must use the table\'s partition key', 'They must be created with the table', 'They support strongly consistent reads'], [0, 1], 'GSIs are flexible but eventually consistent; LSIs share the partition key and are created with the table.'),
+    d1(3, 'A Lambda function processes an SQS queue. Which settings prevent one bad message from blocking or endlessly retrying a batch? (Choose TWO.)', ['Report partial batch failures', 'A dead-letter queue with maxReceiveCount on the source queue', 'A shorter function timeout than the visibility timeout is long', 'Disable the event source mapping', 'Use a FIFO queue for every workload'], [0, 1], 'Partial batch responses retry only failures; the DLQ catches poison messages.'),
+    d1(4, 'A REST API must transform a legacy backend\'s XML response into JSON and change its status code. Which feature fits?', ['A non-proxy integration with mapping templates', 'A Lambda proxy integration with no code', 'A usage plan', 'A WebSocket API'], 0, 'Mapping templates transform payloads and status codes.'),
+    d1(5, 'Which SQS settings reduce cost when consumers poll mostly empty queues? (Choose TWO.)', ['Long polling (WaitTimeSeconds up to 20)', 'Receiving messages in batches of up to 10', 'Short polling every millisecond', 'Smaller visibility timeout', 'More consumer threads'], [0, 1], 'Long polling and batching cut API calls.'),
+    d1(6, 'An event must reach several AWS targets based on its content, with an archive to replay events later. Which service fits?', ['Amazon EventBridge', 'Amazon SQS standard queue', 'Amazon Kinesis Data Firehose', 'AWS AppConfig'], 0, 'EventBridge routes by content and supports archive and replay.'),
+    d1(7, 'How many RCUs are needed for 20 eventually consistent reads per second of 6 KB items?', ['10', '20', '40', '30'], 1, '6 KB → 2 units of 4 KB; eventually consistent halves it: 20 × 2 / 2 = 20.'),
+    d1(8, 'Which Lambda features reduce cold-start latency? (Choose TWO.)', ['Provisioned concurrency', 'SnapStart (for supported runtimes)', 'Reserved concurrency set to 0', 'A longer timeout', 'More environment variables'], [0, 1], 'Provisioned concurrency and SnapStart keep functions ready.'),
+    // ------------------------------------------------------------ Domain 2
+    d2(1, 'Which are secure ways to give code AWS credentials? (Choose TWO.)', ['An IAM role attached to the compute (execution role, task role, instance profile)', 'IAM Identity Center temporary credentials for local development', 'Access keys hard-coded in source', 'The root user\'s keys', 'Keys committed to a private repository'], [0, 1], 'Roles and temporary credentials avoid long-term keys.'),
+    d2(2, 'Which are true of envelope encryption with KMS? (Choose TWO.)', ['Data is encrypted locally with a data key', 'The encrypted data key is stored with the data', 'The full data is sent to KMS', 'It only works up to 4 KB', 'It requires SSE-C'], [0, 1], 'Data keys encrypt locally; the encrypted key travels with the data.'),
+    d2(3, 'A mobile app\'s users must sign in, then call an API Gateway REST API. Which combination fits?', ['Cognito user pool sign-in and a Cognito user pool authorizer on the API', 'IAM users for every customer', 'API keys as the only authentication', 'S3 presigned URLs for the API'], 0, 'User pools issue JWTs; the authorizer validates them.'),
+    d2(4, 'Which services store secrets or sensitive configuration securely? (Choose TWO.)', ['AWS Secrets Manager', 'SSM Parameter Store SecureString parameters', 'Plain-text Lambda environment variables', 'Public S3 objects', 'CloudWatch Logs'], [0, 1], 'Both encrypt with KMS; Secrets Manager also rotates.'),
+    d2(5, 'A Lambda function must decrypt data with a customer managed KMS key in another account. What is required?', ['The key policy in the other account allows the function\'s role, and the role\'s policy allows kms:Decrypt', 'Only the role policy', 'Only the key policy', 'Copy the key to the function\'s account'], 0, 'Cross-account KMS use needs both policies.'),
+    d2(6, 'Which reduce the risk of personal data appearing in logs? (Choose TWO.)', ['Mask or redact sensitive fields before logging', 'CloudWatch Logs data protection policies', 'Logging full request bodies at debug level in production', 'Longer log retention', 'Sending logs to a public bucket'], [0, 1], 'Masking in code plus data protection policies.'),
+    d2(7, 'Which IAM condition restricts identity-pool users to DynamoDB items whose partition key is their own identity ID?', ['dynamodb:LeadingKeys', 'aws:SourceIp', 'aws:RequestedRegion', 's3:prefix'], 0, 'LeadingKeys limits access by partition key value.'),
+    // ------------------------------------------------------------ Domain 3
+    d3(1, 'Which strategies shift traffic gradually to a new Lambda version? (Choose TWO.)', ['Canary', 'Linear', 'All at once', 'In-place with no alias', 'Deleting the old version first'], [0, 1], 'Canary and linear deployments shift traffic in steps.'),
+    d3(2, 'Which files configure the AWS CI/CD services? (Choose TWO.)', ['buildspec.yml for CodeBuild', 'appspec.yml for CodeDeploy', 'Dockerfile for CodePipeline', 'package.json for CodeDeploy', 'samconfig.toml for CodeBuild'], [0, 1], 'buildspec.yml drives builds; appspec.yml drives deployments.'),
+    d3(3, 'A team deploys the same SAM template to dev, staging and prod. How should environment differences be handled?', ['Template parameters (and samconfig environments) with per-environment values', 'Separate copies of the template edited by hand', 'Hard-coded values per branch', 'Different handler names'], 0, 'Parameters keep one template for every environment.'),
+    d3(4, 'An API must keep a stable URL while each stage points at a different Lambda alias. Which features fit? (Choose TWO.)', ['API Gateway stages', 'Stage variables referencing the alias', 'Usage plans', 'Mock integrations', 'CloudFront geo restriction'], [0, 1], 'Stages plus stage variables select the alias per environment.'),
+    d3(5, 'A deployment must roll back automatically if a CloudWatch alarm fires during traffic shifting. Which service provides this for Lambda?', ['AWS CodeDeploy', 'AWS CodeArtifact', 'Amazon ECR', 'AWS AppSync'], 0, 'CodeDeploy monitors alarms and rolls back.'),
+    d3(6, 'Which packaging choice fits a Lambda function whose dependencies total 1.5 GB?', ['A container image', 'A .zip archive', 'Inline code in the console', 'An environment variable'], 0, 'Container images support up to 10 GB.'),
+    // ------------------------------------------------------------ Domain 4
+    d4(1, 'Which help find why requests through several services are slow? (Choose TWO.)', ['AWS X-Ray traces', 'CloudWatch Logs Insights queries on structured logs', 'AWS Artifact reports', 'S3 lifecycle rules', 'IAM Access Analyzer'], [0, 1], 'Traces show where time goes; Logs Insights finds slow requests.'),
+    d4(2, 'Which ways publish custom application metrics to CloudWatch? (Choose TWO.)', ['PutMetricData API calls', 'Embedded Metric Format log lines', 'X-Ray metadata', 'S3 object tags', 'CloudFormation outputs'], [0, 1], 'Both create custom metrics.'),
+    d4(3, 'A Kinesis-triggered function\'s IteratorAge keeps rising. What does it indicate?', ['Records are waiting longer before processing: the consumer is falling behind', 'The function is idle', 'The stream has no records', 'X-Ray is disabled'], 0, 'IteratorAge measures processing lag.'),
+    d4(4, 'Which changes improve the CloudFront cache hit ratio? (Choose TWO.)', ['Remove headers and query strings that don\'t change the response from the cache key', 'Use a longer TTL for content that rarely changes', 'Add every cookie to the cache key', 'Set TTL to zero', 'Disable caching for static files'], [0, 1], 'Smaller cache keys and sensible TTLs increase hits.'),
+    d4(5, 'An API returns 403 AccessDenied after a new release. Where should a developer look first?', ['The IAM policies and resource policies involved, and CloudTrail for the denied call', 'The CloudFront price class', 'The DynamoDB capacity mode', 'The S3 storage class'], 0, '403 is a permissions problem; CloudTrail shows the denial.'),
+    d4(6, 'A function handles 100 requests per second at 300 ms each. About how many concurrent executions does it need?', ['30', '100', '300', '3'], 0, '100 × 0.3 s = 30.'),
+  ],
+};
+~~~~
+
+**`src/content/aws/dva/build.ts`**
+
+~~~~ts
+// DVA-C02 Domain 1, part 1: application patterns, APIs, messaging and streams.
+import type { Deck } from '../../../game/types';
+import { checkpoint, lesson, q } from '../kit';
+
+export const dvaBuild: Deck = {
+  id: 'dva-build',
+  name: 'Building Applications on AWS',
+  subtitle: 'Domain 1 · 32% of the exam (part 1 of 2)',
+  outcome: 'Write resilient code against AWS APIs, build APIs with API Gateway, and connect services with queues, topics, events and streams.',
+  hue: 210,
+  domain: 'dva-d1',
+  levels: [
+    lesson({
+      id: 'dva-patterns',
+      title: 'Patterns and Resilient Code',
+      system: 'Circuit Board',
+      skills: ['aws-architecture', 'aws-compute'],
+      brief: `**ARIA:** Ground control's app calls six services, and when one hiccups, everything falls over. Learn the patterns, and the defensive code, that keep a distributed app standing.`,
+      lesson: `## Architecture patterns
+
+| Pattern | Meaning |
+|---|---|
+| **Monolith** | One deployable app; simple to start, hard to scale parts independently |
+| **Microservices** | Small independent services, each owning its data, talking over APIs or events |
+| **Event-driven** | Components react to **events** (an order was placed) instead of calling each other directly |
+| **Fan-out** | One event delivered to many consumers (SNS → several SQS queues, EventBridge rules) |
+| **Orchestration** | A central coordinator tells each step what to do (**AWS Step Functions**) |
+| **Choreography** | No coordinator: each service reacts to events and emits new ones (**Amazon EventBridge**) |
+
+## Opposites the exam contrasts
+
+- **Stateless** (no session data kept on the server; any instance can serve any request; store state in DynamoDB or ElastiCache) vs **stateful**.
+- **Loosely coupled** (talk through queues/events; one can fail without the other) vs **tightly coupled** (direct calls; failures spread).
+- **Synchronous** (caller waits for the answer: API call) vs **asynchronous** (caller hands off and moves on: queue, event).
+
+## Resilient code
+
+- **Retries with exponential backoff and jitter** for throttling (HTTP 429, \`ThrottlingException\`) and 5xx errors. The **AWS SDKs retry automatically** with backoff; tune them rather than writing your own loop.
+- **Idempotency:** make repeating an operation safe (idempotency keys, conditional writes), because retries and at-least-once delivery mean duplicates happen.
+- **Circuit breaker:** stop calling a failing dependency for a while, return a fallback, then try again.
+- **Timeouts** on every external call; **dead-letter queues** for messages that keep failing.
+
+## Calling AWS from code
+
+Use the **AWS SDK** for your language: it signs requests (**SigV4**), finds credentials, retries and paginates. **Amazon Q Developer** helps write, explain, test and refactor this code in the IDE.`,
+      questions: [
+        q('A service gets intermittent `ThrottlingException` errors from DynamoDB. What is the recommended approach?', ['Retry immediately in a tight loop', 'Retry with exponential backoff and jitter (the SDK does this by default)', 'Switch to a different Region', 'Ignore the error'], 1, 'Backoff with jitter spreads retries out and lets throttling clear.'),
+        q('Order, payment and shipping services each react to events and emit new ones, with no central coordinator. Which pattern is this?', ['Orchestration', 'Choreography', 'Monolith', 'Synchronous request/response'], 1, 'Event-driven services without a coordinator = choreography.'),
+        q('A multi-step checkout must run steps in order with retries and a compensating step if payment fails. Which service fits best?', ['AWS Step Functions (orchestration)', 'Amazon SNS', 'Amazon S3', 'Amazon CloudFront'], 0, 'Step Functions orchestrates workflows with retries and error handling.'),
+        q('A payment API might receive the same request twice because of client retries. What protects against double charging?', ['Making the operation idempotent with an idempotency key', 'Turning off retries in every client', 'Using a larger instance', 'Removing timeouts'], 0, 'Idempotency makes repeats harmless.'),
+        q('Which describes a stateless web tier?', ['Sessions are stored in each server\'s memory', 'Session data is kept outside the servers (for example, in DynamoDB or ElastiCache), so any server can handle any request', 'Every user is pinned to one server forever', 'It can\'t scale'], 1, 'Externalised state makes servers interchangeable.'),
+        q('A third-party API is down, and calls to it are piling up and slowing everything. Which pattern helps?', ['A circuit breaker that stops calling it for a while and returns a fallback', 'More retries with no delay', 'A bigger timeout', 'Tighter coupling'], 0, 'Circuit breakers fail fast while a dependency recovers.'),
+      ],
+    }),
+    lesson({
+      id: 'dva-api-gateway',
+      title: 'APIs with API Gateway',
+      system: 'Docking Ports',
+      skills: ['aws-networking', 'aws-compute'],
+      brief: `**ARIA:** Every outside system talks to ground control through one front door. Amazon API Gateway is that door. Learn its knobs: types, integrations, mapping, validation and throttling.`,
+      lesson: `## API types
+
+| Type | Use |
+|---|---|
+| **REST API** | Full features: request validation, mapping templates, API keys and **usage plans**, caching, private APIs |
+| **HTTP API** | Simpler, **cheaper and faster**; JWT authorizers, Lambda and HTTP proxies |
+| **WebSocket API** | Two-way, persistent connections (chat, live dashboards) |
+
+## Integrations
+
+- **Lambda proxy integration:** the whole request goes to Lambda; the function must return \`{ statusCode, headers, body }\`. A malformed response gives a **502 Bad Gateway**.
+- **Non-proxy (custom) integration:** API Gateway transforms requests and responses with **mapping templates** (Velocity/VTL), can **override status codes**, and can map backend errors to clean responses.
+- **HTTP**, **AWS service** (call SQS, DynamoDB directly) and **mock** integrations (return a fixed response, great for testing front ends).
+
+## Protecting and shaping traffic
+
+- **Request validation:** check required parameters and the body against a JSON schema model before invoking the backend (returns 400).
+- **Throttling:** steady-state rate and burst limits per stage, method or client; excess gets **429 Too Many Requests**.
+- **Usage plans and API keys:** quotas and throttling per customer (keys identify; they're not authentication).
+- **Caching** (REST): cache responses per stage with a TTL to cut backend calls.
+- **CORS** must be enabled for browsers calling from another domain.
+- The integration **timeout** defaults to **29 seconds**; longer work should become asynchronous.
+
+## Testing locally
+
+**AWS SAM** (\`sam local invoke\`, \`sam local start-api\`) runs Lambda functions and APIs on your machine for unit and integration tests.`,
+      questions: [
+        q('A Lambda proxy integration returns a plain string instead of an object with statusCode and body. What do clients receive?', ['200 OK', '502 Bad Gateway', '404 Not Found', '401 Unauthorized'], 1, 'Proxy integrations need a properly formatted response, or API Gateway returns 502.'),
+        q('An API must reject requests with a missing required body field before invoking the backend. What should be configured?', ['Request validation with a JSON schema model', 'A larger Lambda memory size', 'A CloudFront distribution', 'A NAT gateway'], 0, 'API Gateway request validators check parameters and bodies.'),
+        q('A company sells API access in tiers with different monthly request quotas per customer. Which features fit?', ['Usage plans with API keys', 'Lambda layers', 'Stage variables only', 'Mock integrations'], 0, 'Usage plans attach quotas and throttling to API keys.'),
+        q('A front-end team needs a working API endpoint returning fixed sample data before the backend exists. What should be used?', ['A mock integration', 'A Lambda authorizer', 'DynamoDB Streams', 'A usage plan'], 0, 'Mock integrations return static responses.'),
+        q('Which API type is cheapest and simplest for a Lambda-backed API that needs JWT authorization but no request mapping or caching?', ['REST API', 'HTTP API', 'WebSocket API', 'Private REST API with caching'], 1, 'HTTP APIs are lower cost with built-in JWT authorizers.'),
+        q('A backend job takes 2 minutes, and API callers get 504 errors. What is the best fix?', ['Increase the API Gateway timeout to 5 minutes', 'Make the work asynchronous: accept the request, queue it, and let clients poll or get notified', 'Use a bigger API key', 'Enable CORS'], 1, 'The integration timeout defaults to 29 seconds; long work should be asynchronous.'),
+      ],
+    }),
+    lesson({
+      id: 'dva-messaging',
+      title: 'Queues, Topics, Events and Streams',
+      system: 'Message Tubes',
+      skills: ['aws-operations', 'aws-architecture'],
+      brief: `**ARIA:** Developers get asked "which messaging service?" more than anything else. Four services, four jobs. Plus the code-level details: visibility timeouts, filter policies, shards.`,
+      lesson: `## Choosing
+
+| Service | Model | Pick it when… |
+|---|---|---|
+| **Amazon SQS** | Queue, consumers **pull** | Buffering work; one consumer group processes each message |
+| **Amazon SNS** | Pub/sub, **push** to many | Fan-out to many subscribers (SQS, Lambda, HTTP, email) |
+| **Amazon EventBridge** | Event bus with **rules** | Routing events by content, SaaS and AWS events, schedules |
+| **Kinesis Data Streams** | Ordered, **replayable stream** of records | Real-time streaming with multiple consumers and replay |
+
+## SQS for developers
+
+- **Visibility timeout:** set longer than processing time; extend it with \`ChangeMessageVisibility\` for slow jobs. **Delete** the message when done, or it comes back.
+- **Long polling** (\`WaitTimeSeconds\` up to 20) cuts empty responses and cost.
+- **Batch** send/receive/delete up to 10 messages.
+- **FIFO** queues: \`MessageGroupId\` for ordering, \`MessageDeduplicationId\` (or content-based deduplication) for exactly-once.
+- **Dead-letter queue** after \`maxReceiveCount\` failures. Messages up to 256 KB (larger: store in S3, send a pointer).
+
+## SNS for developers
+
+**Subscription filter policies** let each subscriber receive only messages whose attributes (or body) match, instead of filtering in code. FIFO topics pair with FIFO queues.
+
+## EventBridge for developers
+
+Events are JSON; **rules** match event patterns and send to **targets** (Lambda, SQS, Step Functions…). **Scheduler** runs one-off or recurring jobs. **Pipes** connect a source to a target with filtering and enrichment. Archive and replay events.
+
+## Kinesis Data Streams for developers
+
+- Capacity in **shards**; the **partition key** decides the shard, and **order is guaranteed within a shard**. A hot partition key throttles one shard (\`ProvisionedThroughputExceededException\`).
+- Consumers: Lambda **event source mapping**, the KCL, or **enhanced fan-out** (dedicated throughput per consumer).
+- **Amazon Data Firehose** loads streams into S3, Redshift or OpenSearch with no code.`,
+      questions: [
+        q('A worker sometimes processes the same SQS message twice because processing takes longer than expected. What should it do?', ['Extend the visibility timeout (ChangeMessageVisibility) or set it longer than processing time', 'Use short polling', 'Increase the message retention period', 'Use SNS instead'], 0, 'The message reappeared because its visibility timeout expired.'),
+        q('Consumers poll an empty SQS queue constantly, making many empty responses. What reduces cost?', ['Long polling with WaitTimeSeconds up to 20', 'A FIFO queue', 'A larger message size', 'More consumers'], 0, 'Long polling waits for messages before returning.'),
+        q('Several SQS queues subscribe to one SNS topic, but each should only receive orders for its own region. What is the most efficient approach?', ['SNS subscription filter policies', 'Filter in each consumer\'s code', 'Create one topic per message', 'Use a FIFO queue'], 0, 'Filter policies deliver only matching messages.'),
+        q('Records for the same customer must be processed in order in Kinesis Data Streams. What ensures this?', ['Using the customer ID as the partition key', 'Using a random partition key', 'Using more shards only', 'Using SNS'], 0, 'Records with the same partition key go to the same shard, in order.'),
+        q('An application must run a cleanup task every night at 2 a.m. without servers. Which service fits?', ['Amazon EventBridge Scheduler (or a scheduled rule) invoking Lambda', 'An SQS delay queue', 'Kinesis Data Streams', 'An SNS topic'], 0, 'EventBridge schedules trigger targets on a cron.'),
+        q('A message payload is 2 MB, larger than SQS allows. What is the standard approach?', ['Store the payload in S3 and send a reference in the message', 'Split it across 10 queues', 'Use Kinesis with a 2 MB record', 'Increase the SQS message size limit'], 0, 'SQS messages are limited to 256 KB; use S3 for large payloads.'),
+      ],
+    }),
+    checkpoint({
+      id: 'dva-build-checkpoint',
+      title: 'Checkpoint: Building Applications',
+      system: 'Builder Certification Gate',
+      skills: ['aws-architecture', 'aws-operations'],
+      brief: `**ARIA:** Developer-level scenarios on patterns, resilient code, API Gateway and messaging.`,
+      lesson: `## Before you start
+
+- Orchestration (Step Functions) vs choreography (EventBridge); stateless; loose coupling; async.
+- Backoff with jitter, idempotency, circuit breakers, timeouts, DLQs.
+- REST vs HTTP vs WebSocket APIs; proxy (502 on bad response) vs mapping templates; validation; usage plans; 29 s timeout.
+- SQS visibility timeout, long polling, FIFO groups and dedup; SNS filter policies; EventBridge rules; Kinesis partition keys.`,
+      questions: [
+        q('A Lambda function behind API Gateway must return a 404 status when an item isn\'t found, using proxy integration. How?', ['Return an object with statusCode 404 and a body', 'Throw an exception', 'Return null', 'Configure a usage plan'], 0, 'With proxy integration, the function sets statusCode itself.'),
+        q('Messages in an SQS FIFO queue for different customers should be processed in parallel, but each customer\'s in order. What should be set?', ['A MessageGroupId per customer', 'One MessageGroupId for all messages', 'A delay of 15 minutes', 'Long polling only'], 0, 'Ordering is per message group; different groups process in parallel.'),
+        q('One "user signed up" event must trigger a welcome email, a CRM update and analytics, each independently. Which design fits?', ['SNS topic (or EventBridge rule) fanning out to separate targets', 'One Lambda doing all three in sequence', 'A synchronous chain of API calls', 'A single SQS queue with three consumers competing'], 0, 'Fan-out gives each consumer its own copy.'),
+        q('A Kinesis consumer falls behind because one shard is hot. What is the likely cause?', ['A low-cardinality partition key sending most records to one shard', 'Too many shards', 'Using enhanced fan-out', 'Using Firehose'], 0, 'Poor key distribution creates hot shards.'),
+        q('A team wants to call DynamoDB directly from API Gateway without writing a Lambda function. What should it use?', ['An AWS service integration with mapping templates', 'A mock integration', 'An HTTP API JWT authorizer', 'A WebSocket API'], 0, 'Service integrations call AWS APIs directly.'),
+        q('Which statement about the AWS SDKs is correct?', ['They never retry', 'They sign requests, find credentials and retry throttled calls with backoff automatically', 'They require hard-coded access keys', 'They only work in Lambda'], 1, 'SDKs handle signing, credentials, retries and pagination.'),
+        q('A real-time dashboard needs the server to push updates to browsers over a persistent connection. Which API Gateway type fits?', ['WebSocket API', 'REST API with caching', 'HTTP API', 'A private REST API'], 0, 'WebSocket APIs support two-way persistent connections.'),
+        q('Messages that fail processing repeatedly block a queue. What should be configured?', ['A dead-letter queue with maxReceiveCount', 'A shorter retention period', 'Short polling', 'A larger visibility timeout of 12 hours on every message'], 0, 'A DLQ sets aside poison messages for investigation.'),
+      ],
+    }),
+  ],
+};
+~~~~
+
+**`src/content/aws/dva/lambda.ts`**
+
+~~~~ts
+// DVA-C02 Domain 1, part 2: AWS Lambda and data stores.
+import type { Deck } from '../../../game/types';
+import { checkpoint, lesson, q } from '../kit';
+
+export const dvaLambda: Deck = {
+  id: 'dva-lambda',
+  name: 'Lambda and Data Stores',
+  subtitle: 'Domain 1 · 32% of the exam (part 2 of 2)',
+  outcome: 'Configure and debug Lambda functions, and design DynamoDB tables, queries and caches that scale.',
+  hue: 35,
+  domain: 'dva-d1',
+  levels: [
+    lesson({
+      id: 'dva-lambda-config',
+      title: 'Lambda, Configured',
+      system: 'Function Bay',
+      skills: ['aws-compute'],
+      brief: `**ARIA:** Lambda looks simple until something times out, throttles or can't reach the database. Learn every setting the exam asks about.`,
+      lesson: `## Settings
+
+| Setting | Notes |
+|---|---|
+| **Handler** | The function Lambda calls (\`index.handler\`) |
+| **Runtime** | Node.js, Python, Java, .NET, Ruby, or custom/container image |
+| **Memory** | 128 MB to 10,240 MB; **CPU scales with memory** |
+| **Timeout** | Up to **900 seconds (15 minutes)** |
+| **Environment variables** | Configuration per function; encrypt secrets with KMS (or better, use Secrets Manager) |
+| **Ephemeral storage** | \`/tmp\` from 512 MB up to 10 GB |
+| **Layers** | Shared libraries or dependencies packaged separately (up to 5 per function) |
+| **Extensions** | Companion processes for monitoring, security and config |
+
+Put expensive set-up (SDK clients, DB connections) **outside the handler** so warm invocations reuse it.
+
+## How functions are invoked
+
+| Type | Who | Errors |
+|---|---|---|
+| **Synchronous** | API Gateway, SDK \`Invoke\`, ALB | The caller gets the error and decides whether to retry |
+| **Asynchronous** | S3, SNS, EventBridge | Lambda **retries twice**, then sends to an **on-failure destination** or **dead-letter queue** |
+| **Event source mapping** (polling) | SQS, Kinesis, DynamoDB Streams | Lambda polls and batches; failures retry per the source; **partial batch responses** report only the failed items |
+
+**Destinations** (on success and on failure, for async invocations) carry more detail than DLQs and are the recommended choice.
+
+## Concurrency
+
+- **Concurrency** = invocations running at the same moment. Accounts have a Regional limit (1,000 by default, can be raised); over it, requests are **throttled** (429).
+- **Reserved concurrency:** guarantees, and caps, capacity for one function.
+- **Provisioned concurrency:** keeps environments **initialised** to remove **cold starts** (SnapStart helps Java, Python and .NET).
+
+## Versions and aliases
+
+**Versions** are immutable snapshots; **aliases** (\`prod\`, \`beta\`) point to versions and can **split traffic** between two (weighted alias) for canary releases.
+
+## Lambda in a VPC
+
+Attach to private subnets to reach **private resources** (RDS, ElastiCache). The function then has **no internet access** unless the subnets route through a **NAT gateway**; reach AWS services via **VPC endpoints**. Use **RDS Proxy** to pool database connections.`,
+      questions: [
+        q('A Lambda function times out after 3 seconds while calling a slow API that takes 10 seconds. What should be changed?', ['Increase the function timeout', 'Decrease memory', 'Add a layer', 'Enable reserved concurrency of 0'], 0, 'The default timeout is 3 seconds; raise it (up to 900).'),
+        q('A function in a VPC can read from RDS but can no longer call a public third-party API. Why?', ['VPC-attached functions have no internet access unless their subnets route through a NAT gateway', 'Lambda can never call external APIs', 'The memory is too low', 'RDS blocks outbound calls'], 0, 'Private subnets need a NAT gateway for internet access.'),
+        q('S3 triggers a Lambda function asynchronously, and some events fail repeatedly. How can the failed events be captured with full context?', ['Configure an on-failure destination (or a DLQ)', 'Increase the timeout to 15 minutes', 'Switch to synchronous invocation', 'Use a layer'], 0, 'Async invocations retry twice, then go to the on-failure destination.'),
+        q('A latency-sensitive API suffers from cold starts after idle periods. What fixes this most directly?', ['Provisioned concurrency', 'Reserved concurrency', 'A larger /tmp', 'More environment variables'], 0, 'Provisioned concurrency keeps environments warm.'),
+        q('Where should a database connection be created so warm invocations can reuse it?', ['Outside the handler function (in the initialisation code)', 'Inside the handler on every call', 'In an environment variable', 'In a layer\'s README'], 0, 'Initialisation code runs once per execution environment.'),
+        q('A team wants to send 10% of traffic to a new function version before a full release. What should it use?', ['A weighted alias pointing to both versions', 'A new Region', 'Reserved concurrency', 'A larger timeout'], 0, 'Weighted aliases split traffic between versions.'),
+      ],
+    }),
+    lesson({
+      id: 'dva-dynamodb',
+      title: 'DynamoDB for Developers',
+      system: 'Key Vault',
+      skills: ['aws-databases'],
+      brief: `**ARIA:** DynamoDB is fast at any scale, if you design keys and access patterns properly. Get them wrong and you pay for scans and throttles. This is a favourite exam topic.`,
+      lesson: `## Keys and indexes
+
+- **Partition key** (hash key): decides which partition stores an item. Choose **high-cardinality** values (user ID, order ID) so traffic spreads evenly; low-cardinality keys (status, date) create **hot partitions**.
+- **Sort key** (range key): orders items within a partition; enables range queries (\`begins_with\`, \`between\`).
+- **Local secondary index (LSI):** same partition key, different sort key; must be created **with the table**; shares the table's capacity; supports strongly consistent reads.
+- **Global secondary index (GSI):** **different partition key** (and sort key); can be added any time; **eventually consistent reads only**; has its own capacity (if it throttles, so do table writes).
+
+## Query vs scan
+
+- **Query:** finds items by partition key (and optionally sort key conditions). Efficient.
+- **Scan:** reads the **whole table**, then filters. Slow and expensive; avoid in hot paths. (Parallel scan speeds up big offline scans.)
+- **FilterExpression** filters *after* reading: you still pay for what was read. **ProjectionExpression** returns only chosen attributes.
+- Results are paginated (1 MB per call): follow \`LastEvaluatedKey\`.
+
+## Consistency and capacity
+
+- **Eventually consistent** reads (default, half the cost) vs **strongly consistent** (\`ConsistentRead: true\`, latest data).
+- **1 RCU** = one strongly consistent read per second of up to **4 KB** (or two eventually consistent). **1 WCU** = one write per second of up to **1 KB**.
+- **On-demand** or **provisioned** (with auto scaling) capacity. Throttling → \`ProvisionedThroughputExceededException\` → backoff.
+
+## Writing safely
+
+- **Conditional writes** (\`attribute_not_exists(pk)\`) prevent overwriting; **optimistic locking** with a version attribute.
+- **Transactions** (\`TransactWriteItems\`) for all-or-nothing changes; **batch** operations for throughput.
+- **TTL** deletes expired items free; **DynamoDB Streams** capture changes for Lambda triggers.
+
+## Other data stores
+
+- **ElastiCache** (lazy loading vs write-through) and **DAX** (microsecond reads for DynamoDB) for caching.
+- **OpenSearch Service** for full-text search; **S3** for objects, with **lifecycle rules** for data that ages.
+- Serialise objects (JSON) consistently so what you write is what you read back.`,
+      questions: [
+        q('Which partition key spreads writes most evenly for a table of user activity?', ['userId', 'status ("active" or "inactive")', 'country', 'the current date'], 0, 'High-cardinality keys distribute load.'),
+        q('An app must look up orders by customer email, which isn\'t the table\'s key, on an existing table. What should be added?', ['A global secondary index on email', 'A local secondary index on email', 'A full table scan on every request', 'A new table for every customer'], 0, 'GSIs can be added any time and use a different partition key.'),
+        q('A query must always return the very latest data just written. What should be set?', ['ConsistentRead: true (strongly consistent read) on the table or an LSI', 'Read from a GSI', 'Use a Scan', 'Use TTL'], 0, 'Strongly consistent reads return the latest write; GSIs are eventually consistent.'),
+        q('How many RCUs does one strongly consistent read per second of a 9 KB item need?', ['1', '2', '3', '9'], 2, '9 KB rounds up to 12 KB = 3 × 4 KB units.'),
+        q('Two users edit the same item at once, and one overwrites the other. What prevents this?', ['Optimistic locking with a version attribute and a conditional write', 'A Scan before every write', 'Eventually consistent reads', 'A larger WCU setting'], 0, 'Conditional writes on a version number detect concurrent changes.'),
+        q('A report uses a Scan with a FilterExpression and is slow and expensive. Why?', ['FilterExpression is applied after reading every item, so the whole table is still read', 'Scans never use capacity', 'FilterExpression is applied before reading', 'Scans only read one item'], 0, 'Filters reduce results, not the data read. Redesign for a Query.'),
+      ],
+    }),
+    lesson({
+      id: 'dva-lambda-data',
+      title: 'Lambda Meets Data',
+      system: 'Data Pump',
+      skills: ['aws-compute', 'aws-databases'],
+      brief: `**ARIA:** Most Lambda functions exist to move or transform data as it arrives. Learn the event source details that decide whether your pipeline loses data or blocks forever.`,
+      lesson: `## Processing streams and queues with Lambda
+
+| Source | Notes |
+|---|---|
+| **SQS** | Batches up to 10,000 (with a batching window); a failed batch returns to the queue unless you report **partial batch failures** (\`ReportBatchItemFailures\`); set the queue's visibility timeout to at least 6× the function timeout; use a DLQ on the queue |
+| **Kinesis / DynamoDB Streams** | Processes **in order per shard**; a failing record **blocks the shard** until it succeeds or expires. Use **bisect batch on error**, **maximum retry attempts**, **maximum record age** and an **on-failure destination**; **parallelization factor** for more throughput |
+| **S3 events** | Asynchronous; trigger on object created/removed, filter by prefix/suffix. Don't write output to the same prefix that triggers the function (infinite loop) |
+
+## Near-real-time transformation
+
+- **Amazon Data Firehose** can call a Lambda function to **transform records** before delivery to S3 or Redshift.
+- **DynamoDB Streams + Lambda**: react to changes (send notifications, update aggregates, replicate).
+- **EventBridge Pipes**: source → filter → enrich → target without glue code.
+
+## Testing Lambda code
+
+- Unit-test the handler with **sample event JSON** (\`sam local generate-event\` creates realistic events).
+- \`sam local invoke\` / \`sam local start-api\` run functions locally; test in the console with saved test events.
+- Use the SDK's ability to **mock clients** (or local emulators) for dependencies.`,
+      questions: [
+        q('A Lambda function processes SQS batches of 10, and one bad message causes the whole batch to be retried. What fixes this?', ['Return partial batch failures (ReportBatchItemFailures)', 'Increase the batch size to 10,000', 'Use synchronous invocation', 'Remove the DLQ'], 0, 'Partial batch responses retry only the failed messages.'),
+        q('A Kinesis-triggered function keeps failing on one bad record, and no newer records in that shard are processed. Which settings help? (Pick the best answer.)', ['Bisect batch on error, maximum retry attempts and an on-failure destination', 'A bigger API Gateway timeout', 'A FIFO queue', 'Reserved concurrency of 0'], 0, 'These settings stop a poison record from blocking the shard forever.'),
+        q('A function triggered by new objects in an S3 prefix writes its output to the same prefix and runs endlessly. What is the fix?', ['Write output to a different prefix or bucket, or filter the trigger', 'Increase memory', 'Use provisioned concurrency', 'Enable versioning'], 0, 'Writing to the trigger prefix causes a recursive loop.'),
+        q('Records delivered by Amazon Data Firehose must be reformatted before landing in S3. What should be used?', ['A Firehose data transformation Lambda function', 'An SNS filter policy', 'A Route 53 health check', 'A CloudFront function'], 0, 'Firehose can invoke Lambda to transform records.'),
+        q('How can developers get realistic sample events to test a Lambda handler locally?', ['sam local generate-event', 'aws s3 ls', 'CloudTrail Insights', 'AWS Artifact'], 0, 'SAM generates sample events for many services.'),
+        q('A function must react whenever an item in a DynamoDB table changes. Which feature provides the change events?', ['DynamoDB Streams', 'DynamoDB TTL only', 'DAX', 'A GSI'], 0, 'Streams record item-level changes for triggers.'),
+      ],
+    }),
+    checkpoint({
+      id: 'dva-lambda-checkpoint',
+      title: 'Checkpoint: Lambda and Data Stores',
+      system: 'Function Certification Gate',
+      skills: ['aws-compute', 'aws-databases'],
+      brief: `**ARIA:** Developer-level scenarios on Lambda configuration, invocation, concurrency and DynamoDB.`,
+      lesson: `## Before you start
+
+- Timeout up to 900 s; memory sets CPU; init code outside the handler; layers; /tmp up to 10 GB.
+- Sync vs async (2 retries, destinations/DLQ) vs event source mappings (partial batch failures, bisect).
+- Reserved vs provisioned concurrency; versions and weighted aliases; VPC needs NAT for internet.
+- High-cardinality partition keys; LSI (with table, strong reads) vs GSI (any time, eventual); Query not Scan; RCU 4 KB, WCU 1 KB; conditional writes.`,
+      questions: [
+        q('A critical function must always have capacity available even when other functions spike, and must never exceed 100 concurrent executions. What should be configured?', ['Reserved concurrency of 100', 'Provisioned concurrency only', 'A larger memory size', 'A weighted alias'], 0, 'Reserved concurrency both guarantees and caps capacity.'),
+        q('How many WCUs are needed to write 10 items per second, each 2.5 KB?', ['10', '20', '30', '25'], 2, '2.5 KB rounds up to 3 KB = 3 WCUs per item × 10 = 30.'),
+        q('A function\'s CPU-heavy image processing is slow. Which change also gives it more CPU?', ['Increase the memory setting', 'Increase the timeout', 'Add an environment variable', 'Add a layer'], 0, 'Lambda allocates CPU proportionally to memory.'),
+        q('A team needs to query orders by customerId and sort them by orderDate, on a new table. Which key design fits?', ['Partition key customerId, sort key orderDate', 'Partition key orderDate only', 'Partition key status', 'No keys; use Scan'], 0, 'Partition by customer; sort by date for range queries.'),
+        q('A function in a VPC must call DynamoDB without internet access. What should be added?', ['A DynamoDB gateway VPC endpoint', 'An internet gateway on the function', 'A public IP for the function', 'An SNS topic'], 0, 'VPC endpoints reach AWS services privately.'),
+        q('Which statement about GSIs is correct?', ['They support strongly consistent reads', 'They can be added after the table is created and are eventually consistent', 'They must share the table\'s partition key', 'They don\'t use capacity'], 1, 'GSIs are flexible but eventually consistent.'),
+        q('An item must only be created if it doesn\'t already exist. What should the PutItem call include?', ['A ConditionExpression of attribute_not_exists(pk)', 'A FilterExpression', 'ConsistentRead: true', 'A ProjectionExpression'], 0, 'Conditional writes enforce create-only.'),
+        q('Many Lambda functions exhaust an RDS database\'s connections during spikes. What helps?', ['Amazon RDS Proxy', 'A bigger Lambda timeout', 'DynamoDB Streams', 'A larger /tmp'], 0, 'RDS Proxy pools and reuses connections.'),
+      ],
+    }),
+  ],
+};
+~~~~
+
+**`src/content/aws/dva/security.ts`**
+
+~~~~ts
+// DVA-C02 Domain 2: Security (26% of the exam).
+import type { Deck } from '../../../game/types';
+import { checkpoint, lesson, q } from '../kit';
+
+export const dvaSecurity: Deck = {
+  id: 'dva-security',
+  name: 'Security for Developers',
+  subtitle: 'Domain 2 · 26% of the exam',
+  outcome: 'Authenticate users and services, encrypt data with KMS, and keep secrets and personal data out of code and logs.',
+  hue: 350,
+  domain: 'dva-d2',
+  levels: [
+    lesson({
+      id: 'dva-auth',
+      title: 'Authenticating Users and APIs',
+      system: 'Gatehouse',
+      skills: ['aws-security'],
+      brief: `**ARIA:** Customers sign in, then call our API with a token. Learn how Cognito issues tokens, how API Gateway checks them, and how to stop users seeing each other's data.`,
+      lesson: `## Amazon Cognito
+
+- **User pools:** a user directory with sign-up, sign-in, MFA and federation (Google, Apple, SAML, OIDC). Successful sign-in returns **JWTs**: an **ID token** (who the user is), an **access token** (what they may call) and a **refresh token**.
+- **Identity pools:** exchange a token (from a user pool or another provider) for **temporary AWS credentials** mapped to IAM roles, so apps can call S3 or DynamoDB directly.
+
+## Bearer tokens
+
+Clients send \`Authorization: Bearer <token>\`. The API **validates** the token's signature, expiry, issuer and audience before trusting it. Never trust claims you haven't verified.
+
+## Authorising API Gateway requests
+
+| Authorizer | Use |
+|---|---|
+| **Cognito user pool authorizer** | Validate Cognito JWTs (REST APIs) |
+| **JWT authorizer** | Any OIDC/OAuth 2.0 provider (HTTP APIs) |
+| **Lambda authorizer** | Custom logic: token-based (a header) or request-based (headers, query, context); returns an IAM policy; results can be cached |
+| **IAM authorization** | Callers sign requests with **SigV4** using AWS credentials (service-to-service) |
+
+## Fine-grained, application-level authorisation
+
+- IAM conditions such as **\`dynamodb:LeadingKeys\`** restrict a user to items whose partition key is their own ID.
+- **Amazon Verified Permissions** evaluates fine-grained permissions written in the **Cedar** policy language, outside your code.
+- In **multi-tenant** apps, include the **tenant ID** in keys and enforce it in every query (and in IAM conditions), never trusting a tenant ID sent by the client.`,
+      questions: [
+        q('Which Cognito token is meant for authorising calls to an API?', ['Access token', 'Refresh token', 'An IAM access key', 'A KMS key'], 0, 'Access tokens carry scopes for API access; ID tokens describe the user.'),
+        q('A mobile app must upload files directly to S3 for signed-in users. Which Cognito feature provides AWS credentials?', ['Identity pools', 'User pools alone', 'A Lambda layer', 'API keys'], 0, 'Identity pools exchange tokens for temporary AWS credentials.'),
+        q('An API must accept tokens from a third-party OAuth provider using custom validation rules. Which authorizer fits a REST API?', ['A Lambda authorizer', 'An API key', 'A usage plan', 'A mock integration'], 0, 'Lambda authorizers run custom validation logic.'),
+        q('Each user may read only their own items in a DynamoDB table keyed by userId, using identity pool credentials. How is this enforced?', ['An IAM policy condition on dynamodb:LeadingKeys matching the user\'s identity', 'Client-side filtering', 'A Scan with a FilterExpression', 'A GSI'], 0, 'LeadingKeys restricts access to items with the caller\'s partition key.'),
+        q('Microservices inside AWS call each other\'s API Gateway endpoints. Which authorization method uses their IAM roles?', ['IAM authorization with SigV4-signed requests', 'Cognito user pools', 'API keys only', 'Basic auth'], 0, 'IAM auth verifies SigV4 signatures from AWS principals.'),
+        q('A team wants to manage fine-grained application permissions as policies outside the code. Which service fits?', ['Amazon Verified Permissions', 'Amazon Macie', 'AWS Artifact', 'Amazon Inspector'], 0, 'Verified Permissions evaluates Cedar policies.'),
+      ],
+    }),
+    lesson({
+      id: 'dva-iam-code',
+      title: 'Credentials in Code',
+      system: 'Keyring',
+      skills: ['aws-security'],
+      brief: `**ARIA:** Somebody committed access keys to a public repo, and within minutes bots were mining crypto on our bill. Learn where SDKs find credentials, and how to never need long-term keys.`,
+      lesson: `## How SDKs find credentials
+
+The **default credential provider chain** checks, in order (roughly):
+
+1. Explicit credentials in code (avoid).
+2. **Environment variables** (\`AWS_ACCESS_KEY_ID\`, \`AWS_SECRET_ACCESS_KEY\`, \`AWS_SESSION_TOKEN\`).
+3. The **shared credentials/config files** (\`~/.aws/credentials\`, profiles, SSO).
+4. Container credentials (ECS **task role**).
+5. **Instance profile** credentials from the EC2 metadata service.
+
+On AWS compute (Lambda, ECS, EC2), **use the role**: the SDK picks up temporary credentials automatically. Locally, use **IAM Identity Center** (\`aws sso login\`) or a profile.
+
+## Roles and STS
+
+- \`AssumeRole\`: get temporary credentials for a role (cross-account, elevated access).
+- \`AssumeRoleWithWebIdentity\`: exchange an OIDC token (used by EKS service accounts, CI systems like GitHub Actions).
+- \`GetSessionToken\`: temporary credentials, for example with **MFA**.
+- Every request is signed with **SigV4**; signed requests are time-limited.
+
+## Permissions for your code
+
+- **Least privilege**: the Lambda execution role gets only the actions and resources the function uses.
+- Resource-based policies (Lambda function policy, S3 bucket policy, KMS key policy) grant other principals or services access.
+- \`AccessDenied\` errors: check the identity policy, resource policy, SCPs, permission boundaries and KMS key policy.
+- **IAM Access Analyzer** can generate least-privilege policies from CloudTrail activity.`,
+      questions: [
+        q('What is the recommended way for code running on Lambda to get AWS credentials?', ['The function\'s execution role, picked up automatically by the SDK', 'Access keys in environment variables', 'Hard-coded keys in the code', 'The root user\'s keys'], 0, 'Roles provide rotating temporary credentials.'),
+        q('A GitHub Actions workflow must deploy to AWS without storing long-term access keys. Which STS operation fits?', ['AssumeRoleWithWebIdentity (OIDC federation)', 'GetSessionToken with root keys', 'Creating an IAM user per run', 'DecodeAuthorizationMessage'], 0, 'OIDC federation exchanges the workflow\'s token for role credentials.'),
+        q('An ECS task needs permission to read an S3 bucket. Where should the permission be granted?', ['The task role', 'The EC2 instance profile of the cluster', 'An IAM user embedded in the image', 'The bucket ACL only'], 0, 'Task roles scope permissions per task.'),
+        q('A developer wants to work locally with short-lived credentials through the company\'s single sign-on. What should they use?', ['IAM Identity Center with aws sso login and a profile', 'Long-term access keys in a text file', 'The root user', 'An EC2 instance profile on a laptop'], 0, 'Identity Center provides temporary credentials locally.'),
+        q('A function gets AccessDenied writing to an S3 bucket encrypted with a customer managed KMS key, even though the role allows s3:PutObject. What is likely missing?', ['Permission to use the KMS key (kms:GenerateDataKey in IAM and the key policy)', 'A larger timeout', 'A NAT gateway', 'An S3 lifecycle rule'], 0, 'SSE-KMS writes also need KMS permissions.'),
+        q('Which service can generate a least-privilege policy based on what a role actually used?', ['IAM Access Analyzer', 'AWS Budgets', 'Amazon Polly', 'AWS Snowball Edge'], 0, 'Access Analyzer generates policies from CloudTrail activity.'),
+      ],
+    }),
+    lesson({
+      id: 'dva-encryption',
+      title: 'Encryption with KMS',
+      system: 'Cipher Lab',
+      skills: ['aws-security'],
+      brief: `**ARIA:** "Just call KMS Encrypt" works until the payload is 5 KB. Learn envelope encryption, key policies, rotation and certificates, the developer way.`,
+      lesson: `## At rest and in transit
+
+- **At rest:** data stored in S3, EBS, DynamoDB, RDS is encrypted with keys managed in **AWS KMS**.
+- **In transit:** TLS (HTTPS) between clients and services, and between services.
+
+## Server-side vs client-side
+
+- **Server-side encryption:** the service encrypts after receiving your data (S3 **SSE-S3**, **SSE-KMS**, **SSE-C**).
+- **Client-side encryption:** **you** encrypt before sending (for example with the **AWS Encryption SDK**); AWS only ever sees ciphertext.
+
+## KMS API for developers
+
+| Operation | Use |
+|---|---|
+| \`Encrypt\` / \`Decrypt\` | Small data only: **up to 4 KB** |
+| \`GenerateDataKey\` | Returns a **plaintext data key** and an **encrypted copy**: encrypt your data locally with the plaintext key, store the encrypted key next to the data, discard the plaintext. This is **envelope encryption** |
+| \`GenerateDataKeyWithoutPlaintext\` | Just the encrypted data key, for later use |
+| \`ReEncrypt\` | Change the key protecting ciphertext without exposing plaintext |
+
+KMS has request quotas; heavy use can throttle. The Encryption SDK's **data key caching** reduces calls.
+
+## Keys and policies
+
+- Access needs the **key policy** to allow it (plus IAM, if the key policy delegates to IAM).
+- **Cross-account** use: the key policy must allow the other account, **and** that account's IAM must allow the action.
+- **Automatic rotation** of customer managed keys can be enabled (yearly by default, configurable); old key material is kept, so old data still decrypts. You can also **rotate on demand**.
+
+## Certificates and keys for development
+
+- **AWS Certificate Manager (ACM):** public TLS certificates for ELB, CloudFront and API Gateway, renewed automatically.
+- **AWS Private CA:** issue **private certificates** for internal services and devices.
+- SSH key pairs for EC2 come from EC2 (or \`ssh-keygen\`); use Session Manager instead of SSH when you can.`,
+      questions: [
+        q('An application must encrypt 2 MB files with a KMS key. What is the correct approach?', ['Call KMS Encrypt on the whole file', 'Use GenerateDataKey and encrypt the file locally with the data key (envelope encryption)', 'Base64-encode the file', 'Store it in a public bucket'], 1, 'KMS Encrypt handles up to 4 KB; larger data uses envelope encryption.'),
+        q('With client-side encryption, who encrypts the data?', ['The AWS service after it arrives', 'The application, before sending it to AWS', 'Nobody', 'The network'], 1, 'Client-side encryption happens in your code.'),
+        q('Account B must decrypt data encrypted with a KMS key in account A. What is required?', ['The key policy in A allows account B, and B\'s IAM policy allows the decrypt action', 'Only an IAM policy in B', 'Only a bucket policy', 'Copying the key material to B'], 0, 'Cross-account KMS needs both the key policy and IAM.'),
+        q('A high-traffic service is throttled by KMS when encrypting many small records. What helps?', ['Data key caching with the AWS Encryption SDK', 'Calling Encrypt twice', 'Turning off encryption', 'Using a bigger Lambda'], 0, 'Reusing data keys reduces KMS calls.'),
+        q('After enabling automatic rotation on a customer managed key, can data encrypted before rotation still be decrypted?', ['No, it must be re-encrypted first', 'Yes, KMS keeps the old key material for decryption', 'Only for 7 days', 'Only with the root user'], 1, 'Rotation keeps older key material available.'),
+        q('Internal microservices need TLS certificates from a company-controlled certificate authority. Which service fits?', ['AWS Private CA', 'Amazon Route 53', 'AWS Budgets', 'Amazon Inspector'], 0, 'Private CA issues private certificates.'),
+      ],
+    }),
+    lesson({
+      id: 'dva-sensitive-data',
+      title: 'Secrets and Sensitive Data',
+      system: 'Sealed Records',
+      skills: ['aws-security'],
+      brief: `**ARIA:** Passwords in environment variables, card numbers in log files. Let's clean up: where secrets belong, and how to keep personal data out of places it shouldn't be.`,
+      lesson: `## Classify the data
+
+- **PII** (personally identifiable information): names, emails, phone numbers, addresses, ID numbers.
+- **PHI** (protected health information): health data linked to a person, regulated by laws such as HIPAA.
+- Payment card data (PCI DSS). Classify first; protect each class accordingly.
+
+## Where secrets belong
+
+| | AWS Secrets Manager | SSM Parameter Store |
+|---|---|---|
+| For | Database passwords, API keys | Configuration and secrets (\`SecureString\`, KMS-encrypted) |
+| **Rotation** | **Built-in automatic rotation** | None built in |
+| Extras | Cross-Region replication, cross-account | Hierarchies (\`/app/prod/db\`), versions, free standard tier |
+
+Read secrets at runtime with the SDK (cache them; the **Parameters and Secrets Lambda extension** caches for Lambda). **Lambda environment variables** are encrypted at rest; for sensitive values, encrypt them with a **customer managed KMS key** and decrypt in code, or better, keep them in Secrets Manager.
+
+## Keeping sensitive data out of logs and outputs
+
+- **Sanitise** inputs and **mask** sensitive fields before logging (\`****1234\`).
+- **CloudWatch Logs data protection** policies can detect and **mask** sensitive data in log groups.
+- **Amazon Macie** finds sensitive data in S3; **Amazon Comprehend** can detect PII in text.
+- Return only the fields a caller needs (data minimisation).
+
+## Multi-tenant data access
+
+- **Silo:** a separate resource per tenant (strong isolation, higher cost).
+- **Pool:** shared tables with the **tenant ID in the key**; enforce it in every query and with IAM conditions.
+- **Bridge:** a mix. Always derive the tenant from the authenticated identity, never from user input.`,
+      questions: [
+        q('A database password must rotate every 30 days with no application downtime. Where should it be stored?', ['AWS Secrets Manager with automatic rotation', 'A Lambda environment variable in plain text', 'A Parameter Store String parameter', 'The source code'], 0, 'Secrets Manager rotates secrets automatically.'),
+        q('Which is an example of PHI?', ['A patient\'s diagnosis linked to their name', 'A product price', 'A public company address', 'A server\'s CPU metric'], 0, 'Health information tied to an individual is PHI.'),
+        q('Application logs contain customers\' email addresses. Which feature can automatically mask them in CloudWatch Logs?', ['CloudWatch Logs data protection policies', 'S3 Lifecycle rules', 'CloudFront caching', 'X-Ray sampling'], 0, 'Data protection policies detect and mask sensitive data in logs.'),
+        q('A Lambda function reads the same secret on every invocation and hits Secrets Manager limits. What helps?', ['Cache the secret (for example with the Parameters and Secrets Lambda extension)', 'Store the secret in the code', 'Disable encryption', 'Use a larger timeout'], 0, 'Caching reduces calls and latency.'),
+        q('A SaaS app stores all tenants in one DynamoDB table. How should tenant isolation be enforced?', ['Use the tenant ID from the authenticated identity in the partition key and enforce it in queries and IAM conditions', 'Trust the tenant ID sent in the request body', 'Give every tenant full table access', 'Filter results in the browser'], 0, 'Derive the tenant from identity and enforce it server-side.'),
+        q('Which keeps configuration values in a hierarchy like /app/prod/db-url with versions, at no cost for standard parameters?', ['SSM Parameter Store', 'Amazon Macie', 'AWS Private CA', 'Amazon Cognito'], 0, 'Parameter Store supports hierarchies and versions.'),
+      ],
+    }),
+    checkpoint({
+      id: 'dva-security-checkpoint',
+      title: 'Checkpoint: Security for Developers',
+      system: 'Security Certification Gate',
+      skills: ['aws-security'],
+      brief: `**ARIA:** Developer-level scenarios on authentication, credentials, KMS and sensitive data.`,
+      lesson: `## Before you start
+
+- User pools → JWTs (ID, access, refresh); identity pools → AWS credentials. Authorizers: Cognito, JWT, Lambda, IAM (SigV4).
+- Credential chain: env vars → shared files → container role → instance profile. Roles everywhere; AssumeRoleWithWebIdentity for OIDC.
+- KMS Encrypt ≤ 4 KB; envelope encryption with GenerateDataKey; key policy + IAM; rotation keeps old material.
+- Secrets Manager (rotation) vs Parameter Store; mask PII in logs; tenant ID from identity.`,
+      questions: [
+        q('An HTTP API must accept JWTs issued by Auth0 without custom code. Which authorizer fits?', ['A JWT authorizer', 'A Lambda request authorizer', 'IAM authorization', 'An API key'], 0, 'HTTP APIs have built-in JWT authorizers for OIDC providers.'),
+        q('A developer\'s laptop has an old access key in environment variables that overrides their SSO profile. Why?', ['Environment variables come before the shared config files in the SDK credential chain', 'SSO profiles are always ignored', 'Access keys expire every hour', 'The SDK only reads instance profiles'], 0, 'The provider chain checks environment variables first.'),
+        q('A service must store an encrypted data key alongside each encrypted object. Which KMS operation produces it?', ['GenerateDataKey', 'Encrypt with the whole object', 'CreateAlias', 'ScheduleKeyDeletion'], 0, 'GenerateDataKey returns plaintext and encrypted data keys.'),
+        q('Which is the most secure place for a third-party API key used by a Lambda function?', ['Secrets Manager, read at runtime with the execution role', 'A plain-text environment variable', 'The function\'s code', 'A public S3 object'], 0, 'Secrets Manager plus IAM keeps the key out of code and config.'),
+        q('A Lambda authorizer\'s checks add latency to every request. What reduces it?', ['Enable authorizer result caching with a TTL', 'Increase the API timeout', 'Use a mock integration', 'Disable the authorizer'], 0, 'Cached authorizer results skip repeated checks.'),
+        q('Data must be encrypted so that not even AWS can read it in plaintext. Which approach fits?', ['Client-side encryption before upload', 'SSE-S3', 'Default EBS encryption', 'TLS only'], 0, 'With client-side encryption, AWS only receives ciphertext.'),
+        q('Which statement about Cognito user pools and identity pools is correct?', ['User pools authenticate users and issue JWTs; identity pools provide temporary AWS credentials', 'Both issue IAM users', 'Identity pools store passwords', 'User pools provide KMS keys'], 0, 'Authentication vs AWS credentials.'),
+        q('A request is denied even though the identity policy allows it. Which could cause this? (Pick the best answer.)', ['An explicit deny in a resource policy, SCP or permission boundary', 'The SDK version', 'The function memory', 'The log retention period'], 0, 'Any explicit deny or missing resource permission blocks the request.'),
+      ],
+    }),
+  ],
+};
+~~~~
+
+**`src/content/aws/dva/deploy.ts`**
+
+~~~~ts
+// DVA-C02 Domain 3: Deployment (24% of the exam).
+import type { Deck } from '../../../game/types';
+import { checkpoint, lesson, q } from '../kit';
+
+export const dvaDeploy: Deck = {
+  id: 'dva-deploy',
+  name: 'Deployment',
+  subtitle: 'Domain 3 · 24% of the exam',
+  outcome: 'Package, configure, test and ship applications with SAM, CloudFormation and the AWS CI/CD services, and roll back safely.',
+  hue: 120,
+  domain: 'dva-d3',
+  levels: [
+    lesson({
+      id: 'dva-packaging',
+      title: 'Packaging and Infrastructure as Code',
+      system: 'Cargo Packing',
+      skills: ['aws-operations', 'aws-compute'],
+      brief: `**ARIA:** Before code can ship, it has to be packaged with its dependencies and described as infrastructure. SAM and CloudFormation are how developers do both.`,
+      lesson: `## Lambda deployment packages
+
+| Option | Limits and notes |
+|---|---|
+| **.zip archive** | 50 MB zipped for direct upload (larger via S3), **250 MB unzipped** including layers |
+| **Container image** | Up to **10 GB**, stored in **Amazon ECR**; for big dependencies or existing container tooling |
+| **Layers** | Shared dependencies, up to 5 per function, versioned |
+
+Keep dependencies inside the package (or a layer), configuration in **environment variables** or **AWS AppConfig**, and secrets in Secrets Manager. Organise the repo so each function's handler and dependencies are clear.
+
+## AWS SAM (Serverless Application Model)
+
+A CloudFormation extension (\`Transform: AWS::Serverless-2016-10-31\`) with short resource types: \`AWS::Serverless::Function\`, \`::Api\`, \`::HttpApi\`, \`::SimpleTable\`, \`::LayerVersion\`.
+
+- \`sam build\` → build artefacts; \`sam deploy --guided\` → package to S3 and deploy a stack.
+- \`sam local invoke\`, \`sam local start-api\`, \`sam local generate-event\` for local testing.
+- \`sam sync --watch\` pushes code changes fast to a dev stack.
+- \`DeploymentPreference\` adds **CodeDeploy** canary/linear traffic shifting with alarms and hooks.
+- Deploy the same template to **different stages/accounts** with parameters.
+
+## AWS CloudFormation essentials
+
+- **Template** → **stack**. **Parameters** (inputs), **Mappings**, **Conditions**, **Resources**, **Outputs** (with **Export** for cross-stack references via \`Fn::ImportValue\`).
+- Intrinsic functions: \`Ref\`, \`Fn::GetAtt\`, \`Fn::Sub\`, \`Fn::Join\`, \`Fn::If\`.
+- **Change sets** preview changes before updating. **Drift detection** finds manual changes. Failures **roll back** automatically.
+- **Nested stacks** and **StackSets** (many accounts/Regions).
+
+## AWS AppConfig
+
+Manage **configuration and feature flags** separately from code: validate (JSON schema or Lambda validators), deploy gradually with a **deployment strategy**, and **roll back automatically** on CloudWatch alarms. Different configuration per environment (dev, test, prod).`,
+      questions: [
+        q('A Lambda function needs 3 GB of machine-learning libraries. Which packaging option fits?', ['A container image in Amazon ECR', 'A .zip uploaded directly', 'A single layer', 'An environment variable'], 0, 'Container images go up to 10 GB; zip packages are limited to 250 MB unzipped.'),
+        q('Which line in a template tells CloudFormation it is an AWS SAM template?', ['Transform: AWS::Serverless-2016-10-31', 'AWSTemplateFormatVersion only', 'Outputs: Export', 'Fn::ImportValue'], 0, 'The SAM transform expands serverless resource types.'),
+        q('A team wants to see exactly what will change in a production stack before updating it. What should it use?', ['A CloudFormation change set', 'Drift detection', 'Stack deletion', 'A nested stack'], 0, 'Change sets preview updates.'),
+        q('Stack B needs the VPC ID created by stack A. How should it be shared?', ['Export it from A\'s Outputs and use Fn::ImportValue in B', 'Copy the ID by hand', 'Use a mapping', 'Put it in a Lambda layer'], 0, 'Exports and ImportValue share values across stacks.'),
+        q('A team wants to turn a new feature on for 10% of users and roll back automatically if errors rise, without redeploying code. Which service fits?', ['AWS AppConfig feature flags with a deployment strategy and alarm rollback', 'CloudFormation drift detection', 'Amazon ECR', 'AWS Private CA'], 0, 'AppConfig deploys config gradually with automatic rollback.'),
+        q('Which SAM command runs an API and its Lambda functions locally for testing?', ['sam local start-api', 'sam deploy', 'aws cloudformation describe-stacks', 'sam logs'], 0, 'start-api emulates API Gateway locally.'),
+      ],
+    }),
+    lesson({
+      id: 'dva-environments',
+      title: 'Environments and Testing',
+      system: 'Test Range',
+      skills: ['aws-operations'],
+      brief: `**ARIA:** Dev, test and prod must run the same code with different settings, and you must be able to test each before users see it. Stages, aliases and tags make that possible.`,
+      lesson: `## Environments inside services
+
+- **API Gateway stages** (\`dev\`, \`test\`, \`prod\`): each a separate deployment of the API with its own URL, settings, throttling and **stage variables**. A stage variable can choose the backend, for example \`${'${'}stageVariables.lambdaAlias}\` to call the matching Lambda **alias**.
+- **Custom domain names** map \`api.example.com\` to stages (base path mappings).
+- **Lambda versions and aliases:** \`dev\` → $LATEST, \`prod\` → version 7. Promote by moving the alias.
+- **Container image tags** pin approved versions for integration testing.
+- **AWS Amplify branches:** each Git branch can deploy its own environment.
+- Separate **accounts** for dev and prod give the strongest isolation.
+
+## Testing
+
+- **Test events:** JSON payloads for Lambda (console test events, \`sam local generate-event\`).
+- **Integration tests** against a deployed dev/test stage; **mock** external dependencies (API Gateway mock integrations, SDK client mocks, stubs).
+- **Event-driven apps:** publish test events to EventBridge or SQS and assert on outcomes; use EventBridge archive and replay.
+- Deploy the same **SAM/CloudFormation template** to a staging stack with different parameters to test updates before production.
+- **Amazon Q Developer** can generate unit tests.`,
+      questions: [
+        q('The prod stage of an API must call the prod alias of a Lambda function, and the dev stage the dev alias, with one API definition. What should be used?', ['Stage variables referencing the Lambda alias', 'Two separate AWS accounts only', 'A usage plan', 'A mock integration'], 0, 'Stage variables can select the alias per stage.'),
+        q('How should a Lambda function be released to production so the release can be reversed instantly?', ['Point the prod alias at a new version; move it back to roll back', 'Edit $LATEST in place', 'Delete the old version first', 'Change the handler name'], 0, 'Aliases make promotion and rollback a pointer change.'),
+        q('A team needs each feature branch of its web front end deployed to its own preview URL. Which service fits?', ['AWS Amplify branch deployments', 'Amazon SQS', 'AWS Backup', 'AWS Artifact'], 0, 'Amplify can deploy every branch as an environment.'),
+        q('Integration tests must not call a slow, paid third-party API. What is a good approach?', ['Mock the external dependency (for example with a mock integration or SDK stub)', 'Call production instead', 'Skip integration tests', 'Raise the API timeout'], 0, 'Mocks isolate tests from external services.'),
+        q('How can an event-driven workflow be tested end to end in a dev account?', ['Publish test events to the bus or queue and assert on the resulting outputs', 'Only unit-test the handler signatures', 'Test in production at night', 'Disable EventBridge rules'], 0, 'Inject events and verify outcomes.'),
+        q('Which gives the strongest isolation between development and production?', ['Separate AWS accounts', 'Different Lambda memory sizes', 'Different log group names only', 'Different tags only'], 0, 'Separate accounts isolate permissions, limits and blast radius.'),
+      ],
+    }),
+    lesson({
+      id: 'dva-cicd',
+      title: 'CI/CD and Deployment Strategies',
+      system: 'Launch Sequencer',
+      skills: ['aws-operations'],
+      brief: `**ARIA:** Commit, build, test, deploy, and if it goes wrong, undo, automatically. The exam tests the AWS CI/CD services and every deployment strategy by name.`,
+      lesson: `## The pipeline services
+
+| Service | Job | Config |
+|---|---|---|
+| **AWS CodePipeline** | Orchestrates **stages** (source → build → test → deploy), with **manual approvals** | Pipeline definition |
+| **AWS CodeBuild** | Compiles, runs tests, builds images | **buildspec.yml**: phases \`install\`, \`pre_build\`, \`build\`, \`post_build\`; \`artifacts\`; env vars (also from Parameter Store/Secrets Manager); cache |
+| **AWS CodeDeploy** | Deploys to **EC2/on-premises, Lambda, ECS** | **appspec.yml** with lifecycle **hooks** (for EC2: \`BeforeInstall\`, \`AfterInstall\`, \`ApplicationStart\`, \`ValidateService\`…) |
+| **AWS CodeArtifact** | Package repository (npm, Maven, pip) | |
+
+Source is usually **GitHub, GitLab or Bitbucket** through **CodeConnections**, or S3 or ECR. A **commit** to a branch triggers the pipeline; **tags and branches** mark versions and releases.
+
+## Deployment strategies
+
+| Strategy | How |
+|---|---|
+| **All at once** | Everything updates together: fastest, downtime and risk |
+| **Rolling** | Batches of instances update in turn |
+| **Rolling with additional batch** | Adds new instances first, keeping full capacity |
+| **Immutable** | Launches a fresh set of instances, then swaps |
+| **Blue/green** | A full new environment (green) next to the old (blue); switch traffic, switch back to roll back |
+| **Canary** | A small percentage first, then the rest (Lambda: \`Canary10Percent5Minutes\`) |
+| **Linear** | Equal increments over time (\`Linear10PercentEvery1Minute\`) |
+
+**CodeDeploy** shifts Lambda alias traffic and ECS (blue/green) traffic, runs validation hooks, and **rolls back automatically** when a **CloudWatch alarm** fires or the deployment fails. **Elastic Beanstalk** offers all-at-once, rolling, rolling with additional batch, immutable and traffic splitting, plus blue/green by swapping environment URLs.`,
+      questions: [
+        q('Which file tells CodeBuild how to build and test a project?', ['buildspec.yml', 'appspec.yml', 'template.yaml', 'package.json only'], 0, 'buildspec.yml defines build phases and artifacts.'),
+        q('Which file defines CodeDeploy lifecycle hooks such as BeforeInstall and ValidateService?', ['appspec.yml', 'buildspec.yml', 'Dockerfile', 'samconfig.toml'], 0, 'appspec.yml describes the deployment and hooks.'),
+        q('A Lambda release should send 10% of traffic to the new version for 5 minutes, then the rest. Which configuration fits?', ['CodeDeploy Canary10Percent5Minutes', 'Linear10PercentEvery1Minute', 'AllAtOnce', 'Rolling with additional batch'], 0, 'Canary: one small step, then everything.'),
+        q('A deployment must roll back automatically if errors increase. What should be configured?', ['CodeDeploy automatic rollback tied to a CloudWatch alarm', 'A manual approval only', 'A longer buildspec', 'A larger instance'], 0, 'Alarm-based rollback reverses bad deployments automatically.'),
+        q('An Elastic Beanstalk app must keep full capacity during deployment and launch new instances instead of updating existing ones in place. Which policies fit? (Pick the best answer.)', ['Immutable (or rolling with additional batch)', 'All at once', 'Rolling without additional batch', 'Delete and recreate the environment'], 0, 'Immutable launches new instances; rolling with additional batch keeps capacity.'),
+        q('A pipeline must pause for a manager to approve before deploying to production. What should be added?', ['A manual approval action in CodePipeline', 'A CodeBuild cache', 'A Lambda layer', 'An S3 lifecycle rule'], 0, 'CodePipeline supports manual approval actions.'),
+      ],
+    }),
+    checkpoint({
+      id: 'dva-deploy-checkpoint',
+      title: 'Checkpoint: Deployment',
+      system: 'Launch Certification Gate',
+      skills: ['aws-operations'],
+      brief: `**ARIA:** Developer-level scenarios on packaging, SAM and CloudFormation, environments, and CI/CD strategies.`,
+      lesson: `## Before you start
+
+- Zip (250 MB unzipped) vs container image (10 GB, ECR) vs layers. SAM transform; sam build/deploy/local; change sets; Outputs/Export/ImportValue; AppConfig.
+- API Gateway stages and stage variables; Lambda versions and aliases; Amplify branches; separate accounts.
+- buildspec.yml (CodeBuild), appspec.yml (CodeDeploy), CodePipeline stages and approvals.
+- All at once, rolling, rolling + batch, immutable, blue/green, canary, linear; alarm-based rollback.`,
+      questions: [
+        q('A team wants the lowest-risk way to release a new ECS service version, with instant rollback by switching traffic back. Which strategy fits?', ['Blue/green deployment with CodeDeploy', 'All at once', 'In-place rolling with no health checks', 'Deleting the old service first'], 0, 'Blue/green keeps the old version ready to switch back.'),
+        q('A SAM template should deploy a function with traffic shifting and alarms. Which property adds this?', ['DeploymentPreference on the AWS::Serverless::Function', 'Outputs', 'Mappings', 'A buildspec phase'], 0, 'DeploymentPreference configures CodeDeploy traffic shifting.'),
+        q('A CloudFormation update fails halfway. What does CloudFormation do by default?', ['Rolls back to the last stable state', 'Leaves half the changes in place', 'Deletes the stack', 'Retries forever'], 0, 'Failed updates roll back automatically.'),
+        q('Different environments need different database URLs without code changes. Where should they live?', ['Environment-specific configuration: environment variables, Parameter Store or AppConfig', 'Hard-coded in the source', 'In the Lambda handler name', 'In the S3 bucket name only'], 0, 'Configuration belongs outside code, per environment.'),
+        q('A build needs a database password during integration tests. How should CodeBuild get it?', ['Reference it from Secrets Manager or Parameter Store in buildspec env', 'Commit it to the repository', 'Print it in the build logs', 'Store it in the artifact'], 0, 'buildspec can pull secrets from Secrets Manager or Parameter Store.'),
+        q('Which strategy shifts equal portions of traffic at regular intervals until 100%?', ['Linear', 'Canary', 'All at once', 'Blue/green with an instant switch'], 0, 'Linear shifts equal increments over time.'),
+        q('A developer pushes to the main branch and wants build, test and deploy to start automatically. What is needed?', ['A CodePipeline with the repository as its source (via CodeConnections)', 'A manual sam deploy each time', 'A CloudFormation change set only', 'An SQS queue'], 0, 'Pipelines trigger on commits to the source.'),
+        q('A function\'s deployment package is 300 MB unzipped with its layers. What should be done?', ['Package it as a container image', 'Split the handler name', 'Increase memory', 'Raise the timeout'], 0, 'Zip packages are limited to 250 MB unzipped; container images go to 10 GB.'),
+      ],
+    }),
+  ],
+};
+~~~~
+
+**`src/content/aws/dva/troubleshoot.ts`**
+
+~~~~ts
+// DVA-C02 Domain 4: Troubleshooting and Optimization (18% of the exam).
+import type { Deck } from '../../../game/types';
+import { checkpoint, lesson, q } from '../kit';
+
+export const dvaTroubleshoot: Deck = {
+  id: 'dva-troubleshoot',
+  name: 'Troubleshooting and Optimization',
+  subtitle: 'Domain 4 · 18% of the exam',
+  outcome: 'Instrument code with logs, metrics and traces, find root causes fast, and tune applications for speed and cost.',
+  hue: 275,
+  domain: 'dva-d4',
+  levels: [
+    lesson({
+      id: 'dva-observability',
+      title: 'Logs, Metrics and Traces',
+      system: 'Sensor Web',
+      skills: ['aws-operations'],
+      brief: `**ARIA:** When something breaks at 3 a.m., you can only see what your code chose to record. Instrument it properly: logs, metrics and traces.`,
+      lesson: `## Three pillars
+
+- **Logging:** records of events (what happened). **Monitoring:** watching known metrics against thresholds (is it healthy?). **Observability:** being able to ask *new* questions about behaviour from logs, metrics and traces together (why is it slow for these users?).
+
+## Logs: Amazon CloudWatch Logs
+
+- Lambda writes stdout/stderr to a **log group** automatically (the role needs \`logs:CreateLogStream\`/\`PutLogEvents\`).
+- **Structured logging:** write JSON with consistent fields (request ID, user, action, latency) so logs can be queried. Lambda can emit logs in JSON format natively; **Powertools for AWS Lambda** helps.
+- **CloudWatch Logs Insights:** query logs with a query language (\`fields\`, \`filter\`, \`stats\`, \`sort\`).
+- **Metric filters** turn log patterns into metrics; **subscription filters** stream logs to Lambda, Kinesis or OpenSearch.
+- Set **retention** so logs don't grow forever.
+
+## Metrics: Amazon CloudWatch
+
+- Built-in metrics (Lambda \`Invocations\`, \`Errors\`, \`Duration\`, \`Throttles\`, \`ConcurrentExecutions\`).
+- **Custom metrics** with \`PutMetricData\`, or the **Embedded Metric Format (EMF)**: structured JSON log lines that CloudWatch turns into metrics asynchronously, with no API calls in the hot path. **High-resolution** metrics go down to 1 second.
+- **Alarms** → **SNS** notifications or actions (for example, alert when a quota is nearly reached or a deployment completes, via EventBridge).
+- **Dashboards**, **Lambda Insights** and **Application Signals** for application health.
+
+## Traces: AWS X-Ray (and OpenTelemetry)
+
+- Follows a request across services: **segments** (per service) and **subsegments** (downstream calls), shown on a **service map**.
+- **Annotations:** key-value pairs that are **indexed** and searchable (filter traces by \`customerId\`). **Metadata:** extra data, **not indexed**.
+- **Sampling rules** control how many requests are traced. Enable **active tracing** in Lambda and API Gateway; instrument SDK calls. The **AWS Distro for OpenTelemetry (ADOT)** is the OpenTelemetry option.
+
+## Health checks
+
+Load balancer and container health checks (and readiness probes) should test that the app can really serve, not just that the process is alive.`,
+      questions: [
+        q('Developers want to filter X-Ray traces by customer ID. How should the ID be recorded?', ['As an annotation', 'As metadata', 'In a log group name', 'As an environment variable'], 0, 'Annotations are indexed and searchable; metadata isn\'t.'),
+        q('A Lambda function must publish a custom business metric without adding latency from API calls. What should it use?', ['CloudWatch Embedded Metric Format (structured log lines)', 'A synchronous PutMetricData call per request', 'An S3 object per metric', 'X-Ray metadata'], 0, 'EMF turns logs into metrics asynchronously.'),
+        q('Which tool queries Lambda logs to find the slowest requests in the last hour?', ['CloudWatch Logs Insights', 'AWS Config', 'Amazon Inspector', 'AWS Artifact'], 0, 'Logs Insights queries and aggregates log data.'),
+        q('What is the difference between monitoring and observability?', ['They are identical', 'Monitoring watches known metrics; observability lets you investigate new questions using logs, metrics and traces together', 'Observability is only for databases', 'Monitoring requires X-Ray'], 1, 'Observability supports open-ended investigation.'),
+        q('A team wants an email when a Lambda function\'s error count exceeds 5 in 5 minutes. What should it configure?', ['A CloudWatch alarm on the Errors metric that notifies an SNS topic', 'An X-Ray sampling rule', 'A Logs retention policy', 'A Lambda layer'], 0, 'Alarms trigger SNS notifications.'),
+        q('Why use structured (JSON) logging?', ['It makes logs larger for no reason', 'Fields can be queried, filtered and aggregated consistently', 'It is required by Lambda', 'It disables CloudWatch'], 1, 'Structured logs are machine-queryable.'),
+      ],
+    }),
+    lesson({
+      id: 'dva-root-cause',
+      title: 'Finding the Root Cause',
+      system: 'Fault Finder',
+      skills: ['aws-operations'],
+      brief: `**ARIA:** Error codes are clues. Learn to read them: which side broke, what the service is telling you, and where to look next.`,
+      lesson: `## Reading errors
+
+| Error | Usually means |
+|---|---|
+| **4xx** | The **request** is wrong: 400 bad input, 403 **AccessDenied** (permissions), 404 not found, **429 throttled** |
+| **5xx** | The **server or integration** failed: 500 internal error, **502** bad gateway (Lambda proxy returned a malformed response, or the function errored), **503** unavailable, **504** gateway timeout (integration exceeded API Gateway's timeout) |
+| \`ProvisionedThroughputExceededException\` / \`ThrottlingException\` | Too many requests: retry with **exponential backoff**, raise capacity, fix hot keys |
+| \`Task timed out after X seconds\` (Lambda) | Raise the timeout, speed up code, or check for a call hanging (often a VPC function with no NAT trying to reach the internet) |
+| \`AccessDeniedException\` | Missing permission: check the role, resource policy, KMS key policy, SCPs |
+
+## Where to look
+
+- **CloudWatch Logs** for the function or service (search the request ID).
+- **X-Ray traces** for which downstream call was slow or failed.
+- **CloudTrail** for API calls and denials (\`errorCode\`).
+- **Deployment failures:** CloudFormation **stack events** show the first resource that failed (look above the rollback messages); CodeDeploy **deployment logs** and lifecycle event logs on the instance; CodeBuild **build logs**.
+- **Service integration issues:** check event source mapping state and errors, DLQs, SQS metrics (\`ApproximateAgeOfOldestMessage\`), Kinesis \`IteratorAge\`.
+
+## Debugging habits
+
+Reproduce with a saved test event; add logging around the failure; compare with the last good version; use **Amazon Q Developer** to explain errors and suggest fixes.`,
+      questions: [
+        q('An API Gateway endpoint returns 504 after about 29 seconds. What is the likely cause?', ['The backend integration took longer than the API Gateway timeout', 'The user lacks permission', 'The request body is invalid', 'The API key is missing'], 0, '504 = integration timeout.'),
+        q('A CloudFormation stack update fails and rolls back. Where is the original cause found?', ['The stack events: the first resource that failed, before the rollback events', 'The last event in the list only', 'AWS Budgets', 'The S3 console'], 0, 'The first failure event explains the rollback.'),
+        q('A Lambda function in a VPC times out calling an external HTTPS API, but works outside the VPC. What is the likely cause?', ['No route to the internet (no NAT gateway) from its subnets', 'Too much memory', 'A missing layer', 'Too many environment variables'], 0, 'VPC functions need a NAT gateway for internet access.'),
+        q('Which metric shows that a Lambda consumer is falling behind a Kinesis stream?', ['IteratorAge', 'Invocations', 'Duration only', 'ConcurrentExecutions only'], 0, 'Rising IteratorAge means records wait longer before processing.'),
+        q('An application receives HTTP 429 from an AWS API. What does it mean and what should the code do?', ['Throttling: retry with exponential backoff', 'Not found: create the resource', 'Server crash: page the on-call', 'Success: ignore'], 0, '429 is throttling; back off and retry.'),
+        q('Which service shows which IAM principal was denied an API call and the error code?', ['AWS CloudTrail', 'Amazon CloudFront', 'AWS AppConfig', 'Amazon ECR'], 0, 'CloudTrail records API calls with errorCode.'),
+      ],
+    }),
+    lesson({
+      id: 'dva-optimize',
+      title: 'Making It Faster and Cheaper',
+      system: 'Tuning Bay',
+      skills: ['aws-compute', 'aws-operations'],
+      brief: `**ARIA:** It works; now make it fast and cheap. Memory, concurrency, caching and filtering are the developer's levers.`,
+      lesson: `## Right-size Lambda
+
+- **Memory sets CPU**: more memory often makes CPU-bound functions faster **and cheaper** (shorter duration). Find the sweet spot with **AWS Lambda Power Tuning** or **Compute Optimizer** recommendations.
+- Use **Graviton (arm64)** for better price-performance.
+- Reuse connections and SDK clients across invocations; keep packages small to cut cold starts.
+
+## Concurrency
+
+**Concurrency = requests per second × average duration (seconds).** A function handling 200 requests/s taking 0.5 s needs about 100 concurrent executions. Throttles mean you've hit reserved concurrency or the account limit. **Provisioned concurrency** removes cold starts for steady, latency-sensitive traffic.
+
+## Caching
+
+| Layer | How |
+|---|---|
+| **CloudFront** | Cache at the edge; the **cache key** (which headers, cookies and query strings vary the cached copy) decides the hit ratio; cache **based on request headers** only when the response really varies by them |
+| **API Gateway** (REST) | Stage cache with TTL; clients can bypass with \`Cache-Control: max-age=0\` if allowed |
+| **Application** | ElastiCache (lazy loading + TTL), DAX for DynamoDB, in-memory caches across warm invocations |
+
+## Messaging and data efficiency
+
+- **SNS subscription filter policies** so consumers don't receive and discard irrelevant messages.
+- SQS **long polling** and **batching**; Lambda **batch size** and **batching window**.
+- DynamoDB **Query** instead of Scan; ProjectionExpression; right capacity mode.
+- S3 **multipart upload**, byte-range fetches, Transfer Acceleration for far-away clients.
+
+## Find the bottleneck first
+
+Profile with **X-Ray** (slow subsegments), CloudWatch metrics (Duration, throttles), **Lambda Insights** (memory and CPU), and logs (time spent per step). Optimise what the data says, not what you guess.`,
+      questions: [
+        q('A function handles 50 requests per second and each takes 2 seconds. Roughly how much concurrency does it need?', ['25', '50', '100', '2'], 2, '50 × 2 = 100 concurrent executions.'),
+        q('A CPU-bound Lambda function runs for 10 seconds at 512 MB. What may make it faster and possibly cheaper?', ['Increase memory to get more CPU', 'Decrease memory', 'Add environment variables', 'Increase the timeout only'], 0, 'More memory = more CPU; shorter duration can lower cost.'),
+        q('CloudFront\'s cache hit ratio is low because the User-Agent header is part of the cache key, but responses don\'t vary by it. What should be done?', ['Remove User-Agent from the cache key', 'Add more headers to the cache key', 'Set TTL to 0', 'Disable compression'], 0, 'Only include headers that change the response.'),
+        q('Consumers of an SNS topic discard 90% of the messages they receive. What reduces wasted processing?', ['SNS subscription filter policies', 'A larger SQS visibility timeout', 'More consumers', 'X-Ray annotations'], 0, 'Filter policies deliver only relevant messages.'),
+        q('Which tool helps find the best Lambda memory setting by testing several and comparing cost and speed?', ['AWS Lambda Power Tuning', 'AWS Artifact', 'Amazon Macie', 'AWS Private CA'], 0, 'Power Tuning runs the function at different memory sizes.'),
+        q('An API backed by Lambda returns the same product data thousands of times a minute. What is a simple optimisation?', ['Enable API Gateway caching (or CloudFront) with a suitable TTL', 'Increase the Lambda timeout', 'Use a FIFO queue', 'Turn off logging'], 0, 'Caching avoids invoking the backend for repeated reads.'),
+      ],
+    }),
+    checkpoint({
+      id: 'dva-troubleshoot-checkpoint',
+      title: 'Checkpoint: Troubleshooting and Optimization',
+      system: 'Diagnostics Certification Gate',
+      skills: ['aws-operations', 'aws-compute'],
+      brief: `**ARIA:** Developer-level scenarios on instrumentation, debugging and optimisation.`,
+      lesson: `## Before you start
+
+- Structured logs + Logs Insights; metric and subscription filters; EMF custom metrics; alarms → SNS.
+- X-Ray: segments, subsegments, annotations (indexed) vs metadata; sampling; active tracing.
+- 4xx = request (403 AccessDenied, 429 throttled), 5xx = server (502 bad proxy response, 504 timeout). Stack events, deployment logs, IteratorAge.
+- Memory = CPU; concurrency = rps × duration; cache keys; filter policies; batching.`,
+      questions: [
+        q('Users report one API is slow, and the team needs to see which downstream call causes the delay. What should it use?', ['AWS X-Ray traces with subsegments for downstream calls', 'AWS Config', 'S3 access logs', 'CloudFormation drift detection'], 0, 'X-Ray shows time spent per downstream call.'),
+        q('A team needs a count of failed logins in its logs as a metric with an alarm. What should it create?', ['A CloudWatch Logs metric filter and an alarm', 'An X-Ray annotation', 'A Lambda layer', 'A DynamoDB stream'], 0, 'Metric filters turn log patterns into metrics.'),
+        q('Lambda Throttles rise during peaks, while other functions in the account are idle. What is a likely cause?', ['Reserved concurrency on this function is set too low', 'Too much memory', 'X-Ray is enabled', 'Logs retention is too short'], 0, 'Reserved concurrency caps the function.'),
+        q('An API Gateway Lambda proxy endpoint returns 502 Bad Gateway. What should be checked first?', ['That the function returns a valid response object (statusCode, headers, body) and isn\'t erroring', 'The usage plan quota', 'The CloudFront TTL', 'The DynamoDB capacity mode'], 0, '502 usually means a malformed proxy response or a function error.'),
+        q('All logs from many functions must be streamed to OpenSearch for search and dashboards. What should be configured?', ['CloudWatch Logs subscription filters', 'X-Ray sampling rules', 'CodeBuild caching', 'S3 lifecycle rules'], 0, 'Subscription filters stream log events to destinations.'),
+        q('Which statement about X-Ray metadata is correct?', ['It is indexed for searching traces', 'It stores extra data that isn\'t indexed', 'It replaces annotations', 'It controls sampling'], 1, 'Metadata isn\'t indexed; use annotations for filtering.'),
+        q('A DynamoDB-backed endpoint is slow because it scans the table to find a user\'s orders. What is the best fix?', ['Query using a key or index on the user ID', 'Increase Lambda memory only', 'Add more FilterExpressions', 'Use eventually consistent scans'], 0, 'Queries read only matching items.'),
+        q('A team wants a notification when a CodeDeploy deployment completes or fails. What fits?', ['An EventBridge rule (or deployment trigger) that notifies an SNS topic', 'An X-Ray annotation', 'A larger instance', 'A CloudFront function'], 0, 'Deployment events can trigger notifications.'),
+      ],
+    }),
+  ],
+};
+~~~~
+
 **`src/content/aws/saa.ts`**
 
 ~~~~ts
@@ -7151,6 +8108,989 @@ Cost optimisation never means breaking requirements: if a question says "must su
         q('A company stores 500 TB in S3 Standard; analysis shows 80% hasn\'t been read in 6 months but any of it might be needed instantly. Which change saves the most while keeping millisecond access?', ['Move the cold data to S3 Glacier Instant Retrieval (or use Intelligent-Tiering)', 'Move it to Glacier Deep Archive', 'Delete it', 'Move it to EBS'], 0, 'Glacier Instant Retrieval keeps millisecond access at much lower storage cost.'),
         q('An organisation buys Savings Plans in one account. How do other accounts benefit?', ['They can\'t', 'With consolidated billing in AWS Organizations, discounts are shared across accounts', 'Only accounts in the same Region', 'Only if they use Spot'], 1, 'Savings Plans discounts apply across the consolidated billing family (sharing can be configured).'),
         q('Which is the most cost-effective way to serve a static website?', ['S3 with CloudFront', 'Two EC2 instances with an ALB', 'An EKS cluster', 'RDS with a web front end'], 0, 'S3 plus CloudFront needs no servers and caches globally.'),
+      ],
+    }),
+  ],
+};
+~~~~
+
+**`src/content/aws/aip.ts`**
+
+~~~~ts
+// AWS Certified Generative AI Developer – Professional (AIP-C01): building
+// production GenAI on AWS. The developer step after AI Practitioner. Five
+// floors follow the exam guide's five domains.
+import type { Path } from '../../game/types';
+import { aipFoundations } from './aip/foundations';
+import { aipIntegration } from './aip/integration';
+import { aipOperations } from './aip/operations';
+import { aipSafety } from './aip/safety';
+import { aipTesting } from './aip/testing';
+import { bankFor } from './kit';
+
+const d1 = bankFor('aip', 'aip-d1');
+const d2 = bankFor('aip', 'aip-d2');
+const d3 = bankFor('aip', 'aip-d3');
+const d4 = bankFor('aip', 'aip-d4');
+const d5 = bankFor('aip', 'aip-d5');
+
+export const AIP: Path = {
+  id: 'aws-aip',
+  name: 'AWS Certified Generative AI Developer – Professional',
+  short: 'Generative AI Developer',
+  tagline: 'Build production GenAI on AWS: RAG, agents and MCP, Bedrock and SageMaker, safety, cost, monitoring and evaluation. Take it after AI Practitioner.',
+  icon: '🧠',
+  exam: {
+    code: 'AIP-C01',
+    name: 'AWS Certified Generative AI Developer – Professional',
+    level: 'Professional',
+    questions: 75,
+    minutes: 180,
+    pass: 750,
+    domains: [
+      { id: 'aip-d1', name: 'Foundation Model Integration, Data Management, and Compliance', weight: 31 },
+      { id: 'aip-d2', name: 'Implementation and Integration', weight: 26 },
+      { id: 'aip-d3', name: 'AI Safety, Security, and Governance', weight: 20 },
+      { id: 'aip-d4', name: 'Operational Efficiency and Optimization for GenAI Applications', weight: 12 },
+      { id: 'aip-d5', name: 'Testing, Validation, and Troubleshooting', weight: 11 },
+    ],
+    guide: 'https://docs.aws.amazon.com/aws-certification/latest/ai-professional-01/ai-professional-01.html',
+    note: 'The real exam has 75 questions (65 scored) and a 750 pass mark; check the official page for the current time limit.',
+  },
+  decks: [aipFoundations, aipIntegration, aipSafety, aipOperations, aipTesting],
+  bank: [
+    // ------------------------------------------------------------ Domain 1
+    d1(1, 'Which design choices let an application change foundation models without code changes? (Choose TWO.)', ['Store model IDs and parameters in AWS AppConfig', 'Call models through an internal abstraction layer (Lambda or API Gateway) using the Converse API', 'Hard-code the model ID in every service', 'Fine-tune every model in advance', 'Use S3 Object Lock'], [0, 1], 'Externalised config plus an abstraction layer decouple apps from models.'),
+    d1(2, 'Which improve RAG retrieval relevance? (Choose TWO.)', ['Hybrid keyword + vector search', 'Reranking the top results', 'Using different embedding models for queries and documents', 'Removing all metadata', 'Raising temperature'], [0, 1], 'Hybrid search and reranking improve relevance.'),
+    d1(3, 'Which make a GenAI application resilient to a model or Regional disruption? (Choose TWO.)', ['Bedrock cross-Region inference', 'A circuit breaker with a fallback model', 'A single hard-coded model in one Region', 'Disabling retries', 'Longer prompts'], [0, 1], 'Spread capacity and degrade gracefully.'),
+    d1(4, 'A company must keep a knowledge base current as SharePoint documents change hourly. What should it implement?', ['Automated incremental sync of the data source into the knowledge base', 'Monthly full fine-tuning', 'Manual uploads once a year', 'A higher top-k'], 0, 'Incremental sync keeps vectors current.'),
+    d1(5, 'Which techniques reduce the cost of customising a large model for a domain? (Choose TWO.)', ['LoRA adapters', 'Model distillation into a smaller model', 'Pre-training from scratch', 'Full fine-tuning of every weight on a large cluster', 'Doubling the model size'], [0, 1], 'PEFT and distillation reduce training and serving cost.'),
+    d1(6, 'Which service validates data quality rules on datasets before they are used to build a knowledge base?', ['AWS Glue Data Quality', 'Amazon Polly', 'AWS Shield', 'Amazon Route 53'], 0, 'Glue Data Quality evaluates rule sets.'),
+    d1(7, 'Which Bedrock feature chains prompts, knowledge bases and Lambda functions with conditional branches?', ['Amazon Bedrock Flows', 'Bedrock batch inference', 'Bedrock Provisioned Throughput', 'Bedrock model distillation'], 0, 'Flows build multi-step prompt workflows.'),
+    d1(8, 'Which belong in a governed prompt management process? (Choose TWO.)', ['Versioned prompt templates with approval before production', 'Automated regression tests on prompt changes', 'Editing production prompts directly', 'No record of who changed prompts', 'One shared unversioned file'], [0, 1], 'Version, approve and test prompts.'),
+    // ------------------------------------------------------------ Domain 2
+    d2(1, 'Which safeguards keep an autonomous agent under control? (Choose TWO.)', ['Stopping conditions and timeouts on the agent loop', 'Least-privilege IAM for each tool', 'Unlimited tool permissions', 'No logging of tool calls', 'A higher temperature'], [0, 1], 'Bound the loop and the permissions.'),
+    d2(2, 'Which deliver model output to users incrementally? (Choose TWO.)', ['ConverseStream / InvokeModelWithResponseStream', 'WebSockets or server-sent events to the client', 'Batch inference', 'S3 presigned URLs', 'CloudFormation outputs'], [0, 1], 'Streaming APIs plus a streaming transport.'),
+    d2(3, 'An MCP tool is a simple stateless lookup. Which hosting choice is simplest?', ['AWS Lambda', 'A self-managed EC2 cluster', 'An on-premises server', 'An S3 static website'], 0, 'Stateless MCP servers fit Lambda.'),
+    d2(4, 'Which option guarantees capacity for a steady, high-volume workload on a customised Bedrock model?', ['Provisioned Throughput', 'On-demand only', 'Batch inference', 'Prompt caching'], 0, 'Provisioned Throughput reserves capacity.'),
+    d2(5, 'Which keep many teams\' GenAI usage consistent, secure and observable? (Choose TWO.)', ['A central GenAI gateway with auth, quotas, routing and logging', 'IAM policies limiting which roles may invoke which models', 'Each developer using personal API keys to external providers', 'Disabling CloudTrail', 'Sharing one IAM user'], [0, 1], 'Centralise access and enforce least privilege.'),
+    d2(6, 'A high-impact agent action must be approved by a person. Which service implements the wait for approval?', ['AWS Step Functions (task token / callback)', 'Amazon CloudFront', 'Amazon S3', 'AWS Glue'], 0, 'Step Functions can pause for human approval.'),
+    d2(7, 'Which reduce errors when calling Bedrock at high request rates? (Choose TWO.)', ['Exponential backoff with jitter', 'Cross-Region inference for extra capacity', 'Retrying immediately without delay', 'Removing timeouts', 'Sending larger prompts'], [0, 1], 'Back off and spread load.'),
+    // ------------------------------------------------------------ Domain 3
+    d3(1, 'Which are layers of defence in depth for an FM application? (Choose TWO.)', ['Bedrock Guardrails on inputs and outputs', 'Lambda validation of outputs before use', 'A system prompt as the only control', 'Trusting retrieved web content as instructions', 'Unrestricted tool permissions'], [0, 1], 'Independent controls around the model.'),
+    d3(2, 'Which services detect personal data before it reaches a model? (Choose TWO.)', ['Amazon Macie (in S3)', 'Amazon Comprehend PII detection (in text)', 'AWS Budgets', 'Amazon Route 53', 'AWS CodeBuild'], [0, 1], 'Macie and Comprehend find PII.'),
+    d3(3, 'Which provide traceability of generated answers for auditors? (Choose TWO.)', ['Source metadata and citations returned with answers', 'Logged model, prompt and source versions per request', 'Deleting logs after each request', 'Removing citations', 'Using random models'], [0, 1], 'Attribution plus versioned logs.'),
+    d3(4, 'Which feature lets a company apply Bedrock Guardrails to text from a model hosted elsewhere?', ['The ApplyGuardrail API', 'Bedrock batch inference', 'S3 Object Lambda', 'AWS AppConfig'], 0, 'ApplyGuardrail evaluates any text.'),
+    d3(5, 'Which approach makes numeric answers about business data deterministic?', ['Text-to-SQL: generate a query, run it on the database, report the results', 'Ask the model to memorise the numbers', 'Higher temperature', 'Longer prompts'], 0, 'Numbers come from the database.'),
+    d3(6, 'Which give users transparency into an agent\'s decisions? (Choose TWO.)', ['Showing the sources used (evidence presentation)', 'Agent reasoning traces', 'Hiding tool calls', 'Removing explanations', 'Random answers'], [0, 1], 'Evidence and traces explain decisions.'),
+    // ------------------------------------------------------------ Domain 4
+    d4(1, 'Which reduce token costs without changing models? (Choose TWO.)', ['Prompt caching for repeated prefixes', 'Pruning or summarising conversation history', 'Sending every document in every prompt', 'Raising maxTokens', 'Adding more examples than needed'], [0, 1], 'Cache and trim context.'),
+    d4(2, 'Which Bedrock CloudWatch metrics track token consumption? (Choose TWO.)', ['InputTokenCount', 'OutputTokenCount', 'BucketSizeBytes', 'CPUUtilization', 'HealthyHostCount'], [0, 1], 'Bedrock publishes input and output token counts.'),
+    d4(3, 'Which technique serves answers for questions similar in meaning to previous ones without calling the model?', ['Semantic caching', 'Batch inference', 'Cross-Region inference', 'Model distillation'], 0, 'Semantic caching matches by embedding similarity.'),
+    d4(4, 'Which improve perceived and real latency? (Choose TWO.)', ['Response streaming', 'Running independent model calls in parallel', 'Sequential chains of every call', 'Larger outputs', 'More retries'], [0, 1], 'Stream and parallelise.'),
+    // ------------------------------------------------------------ Domain 5
+    d5(1, 'Which evaluation approaches does Amazon Bedrock Model Evaluations support? (Choose TWO.)', ['LLM-as-a-judge', 'Human evaluation workflows', 'Load testing EC2 instances', 'DNS failover testing', 'Cost Explorer reports'], [0, 1], 'Automatic/LLM-as-a-judge and human evaluation.'),
+    d5(2, 'A request fails because the prompt plus retrieved context exceeds the model\'s limit. Which fixes apply? (Choose TWO.)', ['Retrieve fewer or smaller chunks', 'Summarise or prune conversation history', 'Raise the temperature', 'Increase output maxTokens', 'Switch IAM roles'], [0, 1], 'Shrink the input to fit the context window.'),
+    d5(3, 'After re-embedding documents with a new model, queries still use the old one. What happens?', ['Retrieval quality collapses because the vector spaces don\'t match', 'Nothing changes', 'Costs disappear', 'Guardrails stop working'], 0, 'Queries and documents must share an embedding model.'),
+    d5(4, 'Which belong in a GenAI deployment pipeline\'s quality gate? (Choose TWO.)', ['Golden-set regression scores above a threshold', 'Hallucination/grounding rate within limits', 'The number of developers', 'The colour of the UI', 'The S3 bucket name'], [0, 1], 'Gate on measured quality.'),
+  ],
+};
+~~~~
+
+**`src/content/aws/aip/foundations.ts`**
+
+~~~~ts
+// AIP-C01 Domain 1: Foundation Model Integration, Data Management, and Compliance (31%).
+import type { Deck } from '../../../game/types';
+import { checkpoint, lesson, q } from '../kit';
+
+export const aipFoundations: Deck = {
+  id: 'aip-foundations',
+  name: 'Models, Data and Retrieval',
+  subtitle: 'Domain 1 · 31% of the exam',
+  outcome: 'Design GenAI solutions, choose and customise models resiliently, prepare data, build retrieval, and govern prompts.',
+  hue: 265,
+  domain: 'aip-d1',
+  levels: [
+    lesson({
+      id: 'aip-solution-design',
+      title: 'Designing GenAI Solutions',
+      system: 'Architecture Table',
+      skills: ['genai', 'aws-architecture'],
+      brief: `**ARIA:** At professional level nobody asks "what is RAG?". They ask how to design a system that survives a model outage, swaps providers without a code change, and proves its value before it ships.`,
+      lesson: `## From requirements to architecture
+
+1. Pin down the business goal, quality bar, latency and cost budget, data sensitivity and compliance constraints.
+2. Build a **proof of concept** on **Amazon Bedrock** to test feasibility, quality and cost per request before scaling.
+3. Standardise components with the **AWS Well-Architected Framework** and its **Generative AI Lens** (reviewable in the Well-Architected Tool).
+
+## Choosing models
+
+Use **benchmarks** and your **own evaluation set**, capability analysis (reasoning, tool use, multimodality, context length, languages) and known **limitations**. Re-evaluate as new models appear.
+
+## Never hard-code a model
+
+Put an **abstraction layer** between the app and the model:
+
+- Model IDs and parameters in **AWS AppConfig** (or Parameter Store), read at runtime: switch models or providers **without a code change**, roll out gradually, roll back on alarms.
+- A **Lambda** or **API Gateway** facade exposing one internal API for every model (a GenAI gateway).
+- The Bedrock **Converse API** gives one request/response format across most models.
+
+## Resilience
+
+- **Cross-Region inference** (inference profiles): Bedrock routes requests to other Regions in a geography for more throughput and availability, including for models with limited Regional availability.
+- **Circuit breaker** (for example in **Step Functions**): stop calling a failing model, use a fallback.
+- **Graceful degradation**: fall back to a smaller or alternative model, cached answers, or a non-AI path, rather than failing.
+- Cross-Region deployment of self-hosted models (SageMaker endpoints) for disaster recovery.`,
+      questions: [
+        q('A team wants to switch its application from one Bedrock model to another without redeploying code, and roll back automatically if errors rise. What should it do?', ['Store the model ID in AWS AppConfig and deploy changes with a deployment strategy tied to CloudWatch alarms', 'Hard-code the model ID and redeploy', 'Fine-tune both models', 'Use S3 Object Lock'], 0, 'AppConfig externalises configuration with gradual, alarm-guarded rollout.'),
+        q('A model the company relies on is only offered in one Region, and throttling during peaks causes failures. Which feature helps most?', ['Amazon Bedrock cross-Region inference (inference profiles)', 'S3 Cross-Region Replication', 'A larger Lambda timeout', 'Prompt Management versions'], 0, 'Cross-Region inference spreads requests across Regions for throughput and availability.'),
+        q('When the primary model is unavailable, a support assistant must still answer simple questions. Which pattern fits?', ['Graceful degradation: a circuit breaker routes to a smaller fallback model or cached answers', 'Retry forever', 'Return HTTP 500 to every user', 'Raise the temperature'], 0, 'Degrade gracefully instead of failing completely.'),
+        q('Before committing budget, leadership wants evidence that a GenAI idea works and what each request costs. What is the right first step?', ['A proof of concept on Amazon Bedrock with an evaluation set and cost tracking', 'Pre-training a custom model', 'Buying Provisioned Throughput for a year', 'A full production rollout'], 0, 'A PoC validates feasibility, quality and cost quickly.'),
+        q('Which AWS resource provides best practices specific to generative AI workloads for architecture reviews?', ['The Well-Architected Framework Generative AI Lens', 'AWS Artifact', 'AWS Budgets', 'The CloudFormation registry'], 0, 'The GenAI Lens extends Well-Architected for GenAI.'),
+        q('Which Bedrock API lets the same code send conversations to most models with one message format?', ['The Converse API', 'InvokeModel with each provider\'s native body', 'The S3 API', 'The STS API'], 0, 'Converse standardises requests and responses across models.'),
+      ],
+    }),
+    lesson({
+      id: 'aip-model-lifecycle',
+      title: 'Customised Models in Production',
+      system: 'Model Foundry',
+      skills: ['genai', 'ai-ml'],
+      brief: `**ARIA:** Fine-tuning is the easy part. Versioning, deploying, rolling back and retiring a customised model is where professionals earn their keep.`,
+      lesson: `## Customisation options
+
+| Where | Options |
+|---|---|
+| **Amazon Bedrock** | Fine-tuning, continued pre-training, **model distillation**; **Custom Model Import** for supported open-weight models; serve with on-demand (where supported) or **Provisioned Throughput** |
+| **Amazon SageMaker AI** | Full control: fine-tune open models (JumpStart), deploy to endpoints, **inference components** to host several models on one endpoint |
+
+## Parameter-efficient fine-tuning (PEFT)
+
+Instead of updating all weights, train small extra pieces:
+
+- **LoRA (low-rank adaptation):** small trainable matrices added to layers; far less compute and storage; adapters can be swapped on one base model.
+- **Adapters** in general: one base model, many task-specific adapters.
+
+## Lifecycle management
+
+- **SageMaker Model Registry:** version models, record metrics and approval status (\`PendingManualApproval\` → \`Approved\`), deploy approved versions.
+- **Automated pipelines** (SageMaker Pipelines, CodePipeline) to retrain, evaluate, register and deploy.
+- **Safe rollout:** canary or blue/green endpoint updates with alarms; **rollback** to the last approved version.
+- **Retirement:** track model versions in use; deprecate and replace old ones (base models are also retired by providers on published schedules).`,
+      questions: [
+        q('A company must adapt a 70B-parameter open model to legal language with limited GPU budget. Which technique fits?', ['Parameter-efficient fine-tuning such as LoRA', 'Pre-training from scratch', 'Full fine-tuning of all weights on a large cluster', 'Prompt caching'], 0, 'LoRA trains small adapters instead of all weights.'),
+        q('Only models approved by the ML lead may be deployed, and deployments must use the approved version. Which feature supports this?', ['SageMaker Model Registry approval status', 'S3 Versioning', 'CloudFront caching', 'Bedrock Guardrails'], 0, 'Model Registry tracks versions and approval status for deployment.'),
+        q('A new fine-tuned model version degrades answers after deployment. What should the deployment design allow?', ['Automated rollback to the previous approved version, triggered by alarms', 'Manual retraining before any rollback', 'Deleting all previous versions', 'Raising temperature'], 0, 'Keep previous versions and roll back automatically.'),
+        q('A team wants to host several fine-tuned variants on shared GPU infrastructure to cut cost. Which SageMaker feature fits?', ['Inference components on one endpoint (multiple models/adapters)', 'Batch transform only', 'SageMaker Canvas', 'Ground Truth'], 0, 'Inference components share endpoint capacity across models.'),
+        q('A company has its own fine-tuned open-weight model and wants to serve it through Bedrock\'s serverless APIs. Which feature fits?', ['Bedrock Custom Model Import', 'Bedrock Prompt Management', 'Amazon Kendra', 'AWS Glue'], 0, 'Custom Model Import brings supported open-weight models into Bedrock.'),
+        q('A large model is too slow and expensive for a narrow classification task. Which Bedrock feature creates a smaller model trained on the large model\'s outputs?', ['Model distillation', 'Continued pre-training', 'Cross-Region inference', 'Guardrails'], 0, 'Distillation transfers capability to a smaller student model.'),
+      ],
+    }),
+    lesson({
+      id: 'aip-data-prep',
+      title: 'Data Pipelines for Foundation Models',
+      system: 'Refinery',
+      skills: ['genai', 'aws-storage'],
+      brief: `**ARIA:** Garbage in, confident garbage out. Validate, convert and clean data before any model sees it, whether it's text, scans, audio or tables.`,
+      lesson: `## Validate data quality
+
+- **AWS Glue Data Quality:** rules (completeness, uniqueness, ranges) on datasets, with scores and alerts.
+- **SageMaker Data Wrangler:** profile and transform data visually.
+- Custom **Lambda** checks (schema, language, size, PII) publishing **CloudWatch metrics**, and failing the pipeline when quality drops.
+
+## Many kinds of data
+
+| Data | Processing |
+|---|---|
+| Audio | **Amazon Transcribe** → text |
+| Scanned documents, forms | **Amazon Textract**, or **Bedrock Data Automation** (documents, images, audio, video → structured output) |
+| Images | Bedrock **multimodal** models (describe, extract) |
+| Large batch transforms | **SageMaker Processing** jobs, AWS Glue |
+| Tabular | Serialise rows into text or JSON the model can read |
+
+## Formatting model input
+
+- Bedrock requests are **JSON**: with the **Converse API**, a \`messages\` list of \`{ role: "user" | "assistant", content: [...] }\`, plus a \`system\` prompt and \`inferenceConfig\` (maxTokens, temperature, topP).
+- **Dialog formatting:** keep turns alternating user/assistant; include relevant history only.
+- SageMaker endpoints expect the format of their container (for example a JSON \`inputs\` field).
+
+## Improving input quality
+
+Normalise text (encoding, whitespace, units) with Lambda; extract **entities** with **Amazon Comprehend** to add structure; use a model to **reformat** messy input into a clean schema before the main call.`,
+      questions: [
+        q('A pipeline must stop when incoming documents for a knowledge base fail completeness and duplication checks. Which service fits?', ['AWS Glue Data Quality rules with alerts', 'Amazon CloudFront', 'AWS Budgets', 'Amazon Polly'], 0, 'Glue Data Quality evaluates rules and scores datasets.'),
+        q('Call recordings must become searchable context for a GenAI assistant. What is the first processing step?', ['Transcribe the audio to text with Amazon Transcribe', 'Embed the raw audio files as text', 'Store them in Glacier Deep Archive', 'Fine-tune on the audio waveforms'], 0, 'Speech must become text first.'),
+        q('Insurance claim packets mix forms, images and scanned letters, and the team wants structured output with minimal custom code. Which service fits?', ['Amazon Bedrock Data Automation', 'Amazon SQS', 'AWS Config', 'Amazon Route 53'], 0, 'Bedrock Data Automation extracts structured data from multimodal content.'),
+        q('With the Bedrock Converse API, how is conversation history passed to the model?', ['As a messages array of alternating user and assistant turns', 'As a single concatenated string in a URL', 'As S3 object tags', 'As HTTP headers'], 0, 'Converse takes structured messages with roles.'),
+        q('Free-text support tickets lack structure, hurting response quality. Which pre-processing step helps?', ['Extract entities (product, order ID) with Amazon Comprehend and add them as structured fields', 'Raise the model temperature', 'Remove all punctuation and numbers', 'Send tickets as images'], 0, 'Structured entities make inputs clearer.'),
+        q('Which service runs large-scale batch data transformation jobs for model consumption on managed infrastructure?', ['SageMaker Processing', 'Amazon Lex', 'AWS Artifact', 'Amazon Cognito'], 0, 'SageMaker Processing runs batch processing jobs.'),
+      ],
+    }),
+    lesson({
+      id: 'aip-retrieval',
+      title: 'Vector Stores and Retrieval',
+      system: 'Deep Archive Index',
+      skills: ['genai', 'aws-databases'],
+      brief: `**ARIA:** Basic RAG retrieves something. Professional RAG retrieves the right thing, fast, from current data, with filters, reranking and smart queries. This domain is the biggest on the exam.`,
+      lesson: `## Vector store options
+
+| Store | Strengths |
+|---|---|
+| **Bedrock Knowledge Bases** | Managed ingestion, chunking, embedding, sync and retrieval; supports several vector stores |
+| **Amazon OpenSearch Service / Serverless** | Scalable k-NN (HNSW) search, **hybrid** keyword + vector search, Neural plugin integration with Bedrock models, sharding and multiple indexes |
+| **Aurora PostgreSQL / RDS PostgreSQL + pgvector** | Vectors next to relational data and SQL filters |
+| **Amazon S3 Vectors** | Low-cost, large-scale vector storage |
+| **Neptune Analytics** | GraphRAG: vectors plus relationships |
+| **DynamoDB** | Metadata and document records alongside a vector index |
+
+## Chunking
+
+**Fixed-size** (with overlap), **hierarchical** (small child chunks for precise matching, returning larger parent chunks for context), **semantic** (split where meaning changes), or **none** (pre-split docs). Custom chunking with a Lambda function in Knowledge Bases.
+
+## Embeddings
+
+Pick the model for the **domain and language**; trade **dimensions** (Titan Text Embeddings V2: 256, 512 or 1,024) against storage, speed and accuracy. Embed queries and documents with **the same model**. Batch-generate embeddings for large corpora.
+
+## Better retrieval
+
+- **Metadata** (dates, authors, department, document type) and **metadata filtering** narrow results before or during search.
+- **Hybrid search** combines keyword (BM25) and vector similarity.
+- **Rerankers** (Bedrock reranker models) re-score the top results for relevance.
+- **Query expansion** (rewrite or add synonyms) and **query decomposition** (split complex questions into sub-queries, with Lambda or Step Functions).
+- Expose retrieval to models through **function calling** or an **MCP** server.
+
+## Keeping it current
+
+**Incremental** ingestion and **sync jobs** (Knowledge Bases data source sync), change detection (S3 events → re-ingest), scheduled refreshes, and deleting vectors for removed documents.`,
+      questions: [
+        q('Users search with exact product codes and also natural-language questions, and pure vector search misses exact codes. What improves retrieval?', ['Hybrid search combining keyword and vector scoring (for example in OpenSearch)', 'A higher temperature', 'Larger chunks only', 'Removing metadata'], 0, 'Keyword matching catches exact terms; vectors catch meaning.'),
+        q('Answers need precise matching on small passages but enough surrounding context for the model. Which chunking strategy fits?', ['Hierarchical chunking (match child chunks, return parent chunks)', 'No chunking', 'One chunk per character', 'Random chunk sizes'], 0, 'Hierarchical chunking balances precision and context.'),
+        q('Retrieval returns relevant but poorly ordered results, and the best passage is often fifth. What should be added?', ['A reranker model to re-score the top results', 'More documents', 'A smaller embedding dimension', 'Prompt caching'], 0, 'Rerankers reorder candidates by relevance.'),
+        q('Users must only retrieve documents from their own department. What should the retrieval design use?', ['Metadata attributes on documents and metadata filtering at query time', 'A separate model per user', 'Higher top-k', 'Disabling citations'], 0, 'Metadata filters restrict results.'),
+        q('After switching the embedding model for queries only, retrieval quality collapses. Why?', ['Queries and documents must be embedded with the same model; the index must be re-embedded', 'The temperature changed', 'The chunks are too small', 'Rerankers stopped working'], 0, 'Different embedding models produce incompatible vector spaces.'),
+        q('Documents in S3 change daily, and answers keep citing outdated versions. What fixes this?', ['Automated incremental sync of the knowledge base when objects change (or on a schedule)', 'Fine-tuning weekly', 'Raising max tokens', 'Using a bigger model'], 0, 'Keep the vector store in sync with sources.'),
+      ],
+    }),
+    lesson({
+      id: 'aip-prompt-systems',
+      title: 'Prompt Systems and Governance',
+      system: 'Command Protocols',
+      skills: ['genai', 'aws-operations'],
+      brief: `**ARIA:** In production, prompts are code: versioned, reviewed, tested, governed and logged. And complex tasks need chains of prompts, not one heroic prompt.`,
+      lesson: `## Instruction frameworks
+
+- **Bedrock Prompt Management:** prompt templates with **variables**, versions, model and parameter settings; enforce **role definitions** and **output formats**; compare variants; reference a version ID from code.
+- **Bedrock Guardrails** enforce responsible AI rules around any prompt.
+- Store template repositories in **S3** or Git; **CloudTrail** tracks who changed and used prompts; **CloudWatch Logs** records access.
+- An **approval workflow** promotes a tested version to production.
+
+## Multi-step prompt systems
+
+- **Amazon Bedrock Flows** (formerly Prompt Flows): visual workflows chaining prompts, knowledge bases, Lambda functions and **conditions** (branching on model output), with reusable components and pre/post-processing.
+- **Step Functions** for clarification workflows (ask the user a follow-up when intent is unclear) and complex orchestration.
+
+## Conversational context
+
+Store **conversation history** in **DynamoDB** (session ID key, TTL to expire), summarise long histories, detect **intent** (Amazon Comprehend custom classification, or the model itself) to route requests.
+
+## Prompt quality assurance
+
+- **Regression tests**: a golden set of inputs with expected properties, run on every prompt change (Lambda checks, Step Functions for edge cases, CloudWatch metrics to spot regressions).
+- **Output format specifications** (JSON schemas) and **structured input** sections.
+- **Chain-of-thought** instructions for reasoning tasks; **feedback loops** from user ratings to refine prompts.`,
+      questions: [
+        q('A team must version prompts, test variants and let applications reference an approved version without code changes. Which feature fits?', ['Amazon Bedrock Prompt Management', 'Amazon S3 Glacier', 'AWS Shield', 'Amazon Kinesis'], 0, 'Prompt Management versions and manages templates.'),
+        q('A document workflow must classify a request, then send it to one of three different prompts depending on the class, and post-process the result. Which service fits with the least custom code?', ['Amazon Bedrock Flows with condition nodes', 'A single giant prompt', 'Amazon SQS', 'AWS Batch'], 0, 'Flows chain prompts with branching.'),
+        q('Where should a chat app store per-session conversation history that expires after 24 hours?', ['Amazon DynamoDB with a TTL attribute', 'An EC2 instance store', 'CloudFront', 'IAM'], 0, 'DynamoDB with TTL stores and expires sessions.'),
+        q('A prompt change silently broke JSON output for an edge case in production. What process prevents this?', ['Automated regression tests with a golden dataset and schema checks before promoting prompt versions', 'Editing prompts directly in production', 'Raising temperature', 'Disabling logging'], 0, 'Prompt changes need tests like code changes.'),
+        q('Auditors need to know who changed a production prompt template and when. Which service records this?', ['AWS CloudTrail', 'Amazon Polly', 'Amazon Translate', 'AWS Snowball'], 0, 'CloudTrail logs API activity, including prompt changes.'),
+        q('User requests are often ambiguous. Which design improves answers?', ['A clarification workflow that asks a follow-up question when intent confidence is low', 'Always guessing', 'Longer max tokens', 'Removing the system prompt'], 0, 'Clarifying intent before answering improves quality.'),
+      ],
+    }),
+    checkpoint({
+      id: 'aip-foundations-checkpoint',
+      title: 'Checkpoint: Models, Data and Retrieval',
+      system: 'Foundations Certification Gate',
+      skills: ['genai', 'aws-architecture'],
+      brief: `**ARIA:** Professional-level scenarios. Several answers will work; pick the most robust with the least operational overhead.`,
+      lesson: `## Before you start
+
+- Abstraction layer + AppConfig for model choice; Converse API; cross-Region inference; circuit breakers; graceful degradation; Generative AI Lens.
+- LoRA/adapters; Model Registry approvals; rollback; Custom Model Import; distillation; inference components.
+- Glue Data Quality; Transcribe/Textract/Bedrock Data Automation; Converse messages.
+- Hybrid search, hierarchical chunking, rerankers, metadata filters, same embedding model, incremental sync.
+- Prompt Management versions, Bedrock Flows, DynamoDB history, prompt regression tests.`,
+      questions: [
+        q('A bank must swap between two model providers within minutes if one has an outage, with no redeploy. Which design is most robust?', ['A GenAI gateway (Lambda/API Gateway) reading model routing from AppConfig, with a circuit breaker and fallback model', 'Hard-coded calls to one provider', 'Manual DNS changes', 'A single SageMaker endpoint'], 0, 'Externalised routing plus circuit breaking enables fast switching.'),
+        q('A RAG system answers questions about 2 million technical manuals with many part numbers. Which retrieval design gives the best relevance?', ['Hybrid search with metadata filtering and a reranker', 'Pure keyword search', 'Pure vector search with no metadata', 'Fine-tuning instead of retrieval'], 0, 'Hybrid + filters + reranking maximise relevance.'),
+        q('An embeddings index uses 1,024 dimensions and storage cost is too high, with acceptable accuracy loss. What should be evaluated?', ['A lower embedding dimension (for example 512 or 256) and re-indexing', 'Raising temperature', 'Removing chunk overlap entirely', 'Doubling the dimensions'], 0, 'Fewer dimensions reduce storage and speed up search.'),
+        q('A company must deploy a LoRA-tuned model, keep the previous version ready, and deploy only after evaluation passes. Which combination fits?', ['SageMaker Pipelines for evaluation, Model Registry approval, and endpoint deployment with rollback', 'Manual uploads to EC2', 'Bedrock Guardrails only', 'CloudFront caching'], 0, 'Pipelines + Registry + safe deployment manage the lifecycle.'),
+        q('Complex multi-part questions get incomplete answers because retrieval only matches the first part. What helps?', ['Query decomposition into sub-queries, retrieving for each, then synthesising', 'A smaller context window', 'Removing citations', 'A higher temperature'], 0, 'Decomposition retrieves context for every part.'),
+        q('Scanned PDFs produce garbled text in the knowledge base. What should be added to the pipeline?', ['Text extraction with Amazon Textract or Bedrock Data Automation before chunking', 'A higher top-k', 'Prompt caching', 'Batch inference'], 0, 'Proper extraction fixes scanned content.'),
+        q('Different teams keep editing a shared system prompt and breaking each other\'s use cases. Which governance approach fits?', ['Versioned prompts in Prompt Management with approval, tests, and per-team variants', 'One unversioned text file', 'No system prompt', 'Random selection of prompts'], 0, 'Versioning, approvals and tests govern shared prompts.'),
+        q('Which statement about cross-Region inference in Bedrock is correct?', ['It routes requests to other Regions in a geography to increase throughput and availability', 'It copies your data to every Region permanently', 'It requires a custom model', 'It disables Guardrails'], 0, 'Inference profiles distribute requests across Regions.'),
+      ],
+    }),
+  ],
+};
+~~~~
+
+**`src/content/aws/aip/integration.ts`**
+
+~~~~ts
+// AIP-C01 Domain 2: Implementation and Integration (26%).
+import type { Deck } from '../../../game/types';
+import { checkpoint, lesson, q } from '../kit';
+
+export const aipIntegration: Deck = {
+  id: 'aip-integration',
+  name: 'Agents and Integration',
+  subtitle: 'Domain 2 · 26% of the exam',
+  outcome: 'Build safe agents with tools and MCP, deploy models sensibly, and integrate FMs into APIs and enterprise systems.',
+  hue: 195,
+  domain: 'aip-d2',
+  levels: [
+    lesson({
+      id: 'aip-agents',
+      title: 'Building Agents',
+      system: 'Autonomy Core',
+      skills: ['genai', 'aws-architecture'],
+      brief: `**ARIA:** An agent with tools can do real damage if nobody set limits. Build agents that reason well, use tools reliably, stop when they should, and ask a human when it matters.`,
+      lesson: `## Frameworks and services
+
+| Option | Use |
+|---|---|
+| **Strands Agents** | Open-source SDK: model + system prompt + tools; custom behaviours through its API; multi-agent patterns |
+| **Agent Squad** (AWS Labs, open source) | Orchestrates **multiple agents**: classifies each request and routes it to the best agent, keeping context |
+| **Amazon Bedrock Agents** | Managed agents with **action groups** (Lambda or OpenAPI), knowledge bases, return of control to your app |
+| **Amazon Bedrock AgentCore** | Run any framework's agents in production: Runtime, Memory, Gateway, Identity, Policy, Observability |
+
+## Reasoning patterns
+
+- **ReAct** (reason + act): the model alternates thinking, calling a tool, and observing results until done. Can be implemented as a loop in **Step Functions**.
+- **Chain-of-thought** for step-by-step reasoning; **plan-and-execute** for long tasks.
+
+## Tools done right
+
+- **Standardised function definitions** (name, description, JSON schema for parameters) so the model calls tools correctly.
+- **Validate parameters** and **handle errors** in the tool (Lambda), returning clear messages the model can act on.
+- **MCP servers**: lightweight, **stateless** tools on **Lambda**; complex or long-running tools on **ECS**; MCP client libraries for consistent access.
+
+## Safeguards
+
+- **Stopping conditions** and maximum steps (Step Functions), **timeouts** (Lambda), **circuit breakers**.
+- **IAM policies** that bound what each tool can touch (least privilege; scoped credentials via AgentCore Identity).
+- **Human-in-the-loop**: Step Functions waits for approval (task tokens) before high-impact actions; API Gateway collects feedback.
+
+## Multi-model coordination
+
+Use **specialised models** for sub-tasks (a small fast model for classification, a strong model for reasoning), ensembles with aggregation logic, and a model selection framework.`,
+      questions: [
+        q('An agent sometimes loops forever calling the same tool. Which safeguard fixes this?', ['A maximum step count / stopping condition and timeouts on the agent loop', 'A higher temperature', 'More tools', 'A larger context window'], 0, 'Bound the loop with stopping conditions and timeouts.'),
+        q('An agent may issue refunds, but refunds over $1,000 must be approved by a person first. Which design fits?', ['A Step Functions workflow that pauses for human approval (task token) before the refund tool runs', 'Let the model decide freely', 'Disable refunds entirely', 'Log refunds after they happen'], 0, 'Human-in-the-loop for high-impact actions.'),
+        q('A simple, stateless lookup tool should be exposed to agents through MCP with minimal operations. Where should it run?', ['As an MCP server on AWS Lambda', 'On a fleet of EC2 instances', 'In an S3 bucket', 'In CloudFront'], 0, 'Lightweight stateless MCP servers fit Lambda.'),
+        q('Requests to a customer assistant need routing to a billing agent, a technical agent or an orders agent. Which open-source AWS framework is designed for this?', ['Agent Squad', 'AWS CDK', 'Amazon Kinesis', 'AWS Glue'], 0, 'Agent Squad classifies and routes requests across agents.'),
+        q('The model often calls a tool with missing or wrong parameters. What improves reliability?', ['Clear function descriptions with JSON schemas, plus parameter validation and helpful error messages in the tool', 'Removing tool descriptions', 'Higher temperature', 'Fewer examples'], 0, 'Good definitions and validation help the model call tools correctly.'),
+        q('Which describes the ReAct pattern?', ['The model alternates reasoning steps with tool actions and observations until the task is complete', 'A database replication mode', 'A caching strategy', 'An encryption method'], 0, 'Reason + act loops.'),
+      ],
+    }),
+    lesson({
+      id: 'aip-deploy-models',
+      title: 'Deploying Foundation Models',
+      system: 'Engine Mounts',
+      skills: ['genai', 'aws-compute'],
+      brief: `**ARIA:** Serving an LLM isn't like serving a classic ML model: memory, GPUs and tokens dominate. Choose the deployment that fits the traffic and the budget.`,
+      lesson: `## Options
+
+| Option | Fits |
+|---|---|
+| **Bedrock on-demand** (called from Lambda, containers…) | Variable traffic, no infrastructure, pay per token |
+| **Bedrock Provisioned Throughput** | Steady, high volume; guaranteed capacity (model units); customised models |
+| **Bedrock batch inference** | Large offline jobs at lower cost |
+| **SageMaker AI endpoints** | Self-hosted open or custom models with full control: instance types, **Large Model Inference (LMI) containers**, autoscaling, inference components |
+| **Hybrid** | Bedrock for most traffic, SageMaker for a specialised model |
+
+## LLM-specific deployment challenges
+
+- **Memory**: model weights must fit in **GPU memory**; large models need multi-GPU instances, **quantisation**, or tensor parallelism.
+- **Model loading** takes minutes: pre-load, keep warm, scale ahead of demand.
+- Capacity is about **tokens per second**, not requests per second.
+- Container images optimised for the model server (vLLM, TensorRT-LLM in LMI containers).
+
+## Right-sizing
+
+- Choose the **smallest model** that meets quality; smaller specialised models for specific tasks.
+- **Model cascading**: try a cheap model first; escalate to a stronger one only when needed (low confidence, complex query).
+- **Latency-optimised** model variants where speed matters.`,
+      questions: [
+        q('Traffic is unpredictable and the team wants no infrastructure to manage. Which deployment fits?', ['Amazon Bedrock on-demand invocation', 'A dedicated multi-GPU SageMaker endpoint running 24/7', 'Provisioned Throughput for a year', 'EC2 Spot instances'], 0, 'On-demand Bedrock scales with use and needs no infrastructure.'),
+        q('A self-hosted 70B model doesn\'t fit in one GPU\'s memory. Which approaches help? (Pick the best answer.)', ['Multi-GPU instances with tensor parallelism, or quantisation', 'Increasing Lambda memory', 'Raising the temperature', 'Using a larger S3 bucket'], 0, 'Split or shrink the model to fit GPU memory.'),
+        q('Most user queries are simple, but some need deep reasoning. How can cost be cut without hurting hard queries?', ['Model cascading: a small model first, escalating complex or low-confidence queries to a larger model', 'Always use the largest model', 'Always use the smallest model', 'Use batch inference for chat'], 0, 'Cascading uses expensive models only when needed.'),
+        q('A company runs a steady 2,000 requests per minute against a custom fine-tuned model in Bedrock and needs guaranteed capacity. Which option fits?', ['Provisioned Throughput', 'On-demand with no limits', 'Batch inference', 'Cross-Region replication of S3'], 0, 'Provisioned Throughput reserves capacity.'),
+        q('Which SageMaker container type is designed for serving large language models efficiently?', ['Large Model Inference (LMI) containers', 'The Scikit-learn container', 'An AWS Batch job definition', 'A Lambda layer'], 0, 'LMI containers bundle LLM serving engines.'),
+        q('Why can a newly launched LLM endpoint take minutes before it serves traffic?', ['Large model weights must be downloaded and loaded into GPU memory', 'DNS propagation only', 'IAM is slow', 'Guardrails must be retrained'], 0, 'Model loading time is a key LLM deployment concern.'),
+      ],
+    }),
+    lesson({
+      id: 'aip-api-integration',
+      title: 'FM APIs, Streaming and Routing',
+      system: 'Signal Router',
+      skills: ['genai', 'aws-networking'],
+      brief: `**ARIA:** Users hate staring at a spinner for twenty seconds. Stream tokens, handle throttling gracefully, and route each request to the right model.`,
+      lesson: `## Calling models
+
+- **Synchronous:** \`Converse\` / \`InvokeModel\` from Lambda, containers or EC2 via the SDK.
+- **Streaming:** \`ConverseStream\` / \`InvokeModelWithResponseStream\` return tokens as they're generated. Deliver them to clients with **WebSockets** (API Gateway WebSocket APIs), **server-sent events**, or Lambda response streaming / chunked transfer encoding.
+- **Asynchronous:** put requests on **Amazon SQS** and process with workers for long or bulk jobs.
+- **API Gateway** in front: request validation, auth, **rate limiting**, custom clients.
+
+## Resilience
+
+- **ThrottlingException** / quota limits (tokens per minute, requests per minute): **exponential backoff with jitter** (the SDK retries), request **quotas increases**, cross-Region inference.
+- **Model timeouts**: set client timeouts and retries; reduce output length; stream.
+- **Fallbacks** for graceful degradation; **AWS X-Ray** to trace calls across services.
+
+## Routing requests to models
+
+- **Static routing** in configuration (task type → model).
+- **Content-based routing** with **Step Functions** (classify, then call a specialised model).
+- **Amazon Bedrock Intelligent Prompt Routing**: routes each prompt between models in a family, predicting which gives the needed quality at the lowest cost.
+- Metric-driven routing (latency, cost, quality scores).
+
+## GenAI-specific API concerns
+
+Token limit management (count and cap input), retries on model timeouts, streaming through API Gateway, and **idempotency** for retried requests.`,
+      questions: [
+        q('A chat UI should show the answer as it is generated instead of waiting for the full response. What should be used?', ['ConverseStream (or InvokeModelWithResponseStream) delivered over WebSockets or server-sent events', 'Batch inference', 'A larger max tokens', 'S3 presigned URLs'], 0, 'Streaming APIs return tokens incrementally.'),
+        q('During peaks, Bedrock calls fail with ThrottlingException. Which measures help most? (Pick the best answer.)', ['Exponential backoff with jitter, and cross-Region inference or higher quotas', 'Immediate tight retries and a bigger Lambda', 'Disabling Guardrails and raising temperature', 'Switching to batch for chat'], 0, 'Back off and add capacity.'),
+        q('A company wants each prompt sent to the cheapest model in a family that can still answer it well, automatically. Which feature fits?', ['Amazon Bedrock Intelligent Prompt Routing', 'Bedrock Guardrails', 'S3 Intelligent-Tiering', 'Prompt caching'], 0, 'Intelligent Prompt Routing predicts the best model per prompt.'),
+        q('Thousands of document summaries are requested at once from a web form; users can wait for an email. Which design fits?', ['Queue requests in SQS and process them with workers asynchronously', 'Call the model synchronously from the browser', 'Use a WebSocket per request', 'Increase API Gateway timeout to 1 hour'], 0, 'Async processing decouples bulk work.'),
+        q('Which service helps trace a slow request across API Gateway, Lambda and Bedrock calls?', ['AWS X-Ray', 'AWS Artifact', 'Amazon Macie', 'AWS Budgets'], 0, 'X-Ray traces calls across services.'),
+        q('Legal questions should go to a specialised model and everything else to a general model, based on content. Which approach fits?', ['Content-based routing: classify the request, then invoke the specialised model (for example with Step Functions)', 'Random routing', 'Always the legal model', 'Always the general model'], 0, 'Classify then route by content.'),
+      ],
+    }),
+    lesson({
+      id: 'aip-enterprise',
+      title: 'Enterprise Integration',
+      system: 'Fleet Uplink',
+      skills: ['genai', 'aws-architecture'],
+      brief: `**ARIA:** Real companies have legacy systems, identity providers, data that can't leave a country, and change control. GenAI has to fit into all of it.`,
+      lesson: `## Connecting to existing systems
+
+- **API-based integration** with legacy systems (API Gateway, Lambda adapters).
+- **Event-driven** integration with **Amazon EventBridge** for loose coupling (a new ticket event triggers summarisation).
+- **Webhooks** handled by Lambda; data synchronisation patterns to keep context current.
+
+## Secure access
+
+- **Identity federation** between enterprise identity providers and AWS (IAM Identity Center, Cognito).
+- **Role-based access control** for which teams can use which models and data.
+- **Least-privilege** API access to FMs (IAM conditions on model IDs).
+
+## Data residency and the edge
+
+- **AWS Outposts** to process data **on-premises** when it can't leave the site.
+- **AWS Wavelength** for low-latency inference at the 5G edge.
+- Secure routing between cloud and on-premises (Direct Connect, VPN, PrivateLink).
+
+## A GenAI gateway
+
+A **centralised abstraction layer** every team calls instead of calling models directly: authentication, **quotas and cost allocation per team**, model routing, guardrails, logging and observability in one place.
+
+## Delivery
+
+- **CI/CD** for GenAI components (**CodePipeline**, **CodeBuild**): automated tests (including prompt and evaluation tests), **security scans**, staged rollout and **rollback**.
+- **AWS Amplify** UI components and **OpenAPI** specifications for API-first development; **Bedrock Flows** for no-code workflows.
+- **Amazon Q Developer** to generate and refactor code, write tests and explain GenAI errors.`,
+      questions: [
+        q('Fifty internal teams call foundation models directly, with no shared logging, quotas or guardrails. What should the platform team build?', ['A central GenAI gateway that handles auth, quotas, routing, guardrails and logging', 'A separate AWS account per prompt', 'A shared IAM user for everyone', 'Nothing; let teams continue'], 0, 'A gateway centralises control and observability.'),
+        q('Patient data must stay inside a hospital\'s own data centre while still using AWS services for AI processing. Which service fits?', ['AWS Outposts', 'Amazon CloudFront', 'AWS Wavelength', 'Amazon S3 Glacier'], 0, 'Outposts runs AWS infrastructure on-premises.'),
+        q('When a support ticket is created in a legacy system, a summary should be generated automatically without coupling the systems. Which design fits?', ['Emit an event to Amazon EventBridge that triggers a summarisation Lambda function', 'Poll the legacy database every second from the browser', 'Modify the legacy code to call the model synchronously', 'Use S3 Glacier'], 0, 'Event-driven integration keeps systems loosely coupled.'),
+        q('Only the data science team may invoke a costly model. How should this be enforced?', ['IAM policies allowing bedrock:InvokeModel only on that model ARN for that team\'s role', 'A comment in the code', 'A higher temperature', 'Guardrails word filters'], 0, 'IAM conditions on model resources enforce least privilege.'),
+        q('A GenAI service\'s deployment pipeline must block releases when prompt evaluation scores fall or security scans fail. Which approach fits?', ['CodePipeline with CodeBuild stages running evaluation tests and security scans as quality gates', 'Manual copy to production', 'Disabling tests to deploy faster', 'Deploying on weekends only'], 0, 'Automated gates protect releases.'),
+        q('Which AWS tool helps developers generate and refactor code and explain errors in a GenAI application?', ['Amazon Q Developer', 'AWS Artifact', 'Amazon Macie', 'AWS Backup'], 0, 'Q Developer assists with code, tests and troubleshooting.'),
+      ],
+    }),
+    checkpoint({
+      id: 'aip-integration-checkpoint',
+      title: 'Checkpoint: Agents and Integration',
+      system: 'Integration Certification Gate',
+      skills: ['genai', 'aws-architecture'],
+      brief: `**ARIA:** Professional-level scenarios on agents, deployment, model APIs and enterprise integration.`,
+      lesson: `## Before you start
+
+- Strands Agents, Agent Squad, Bedrock Agents, AgentCore; ReAct; tool schemas and validation; MCP on Lambda (simple) or ECS (complex); stopping conditions, timeouts, IAM bounds, human approval.
+- On-demand vs Provisioned Throughput vs batch vs SageMaker (LMI); GPU memory; cascading.
+- Streaming APIs; SQS async; backoff; Intelligent Prompt Routing; X-Ray.
+- EventBridge integration; federation and RBAC; Outposts/Wavelength; GenAI gateway; CI/CD gates.`,
+      questions: [
+        q('A long-running research agent needs a complex tool that keeps state and runs for minutes per call, exposed through MCP. Where should the MCP server run?', ['On Amazon ECS (containers)', 'In a single Lambda invocation limited to seconds', 'In an S3 bucket', 'In CloudFront Functions'], 0, 'Complex, stateful, long-running MCP servers fit ECS.'),
+        q('An agent\'s database tool must never delete data, even if the model asks it to. What is the most reliable control?', ['IAM permissions for the tool that don\'t allow delete actions', 'A prompt saying "never delete"', 'A lower temperature', 'More examples'], 0, 'Enforce limits outside the model, with IAM.'),
+        q('A team self-hosts an open model on SageMaker and wants high throughput with an optimised LLM serving engine. Which choice fits?', ['A Large Model Inference (LMI) container with an engine such as vLLM', 'A generic Python Flask container on CPU', 'AWS Lambda with 10 GB memory', 'Batch transform for chat'], 0, 'LMI containers provide optimised LLM serving.'),
+        q('Long answers make users wait 15 seconds for anything to appear. What is the simplest improvement to perceived latency?', ['Stream the response tokens to the client', 'Increase max tokens', 'Use a larger model', 'Add another retry'], 0, 'Streaming shows output immediately.'),
+        q('A multi-agent system handles billing, shipping and returns. Which component decides which agent gets each request?', ['A supervisor/classifier (for example Agent Squad\'s routing)', 'An S3 lifecycle rule', 'A NAT gateway', 'An SNS topic with no filter'], 0, 'A supervisor or classifier routes requests.'),
+        q('Which factors matter most when sizing a self-hosted LLM endpoint? (Pick the best answer.)', ['GPU memory for the weights and token throughput', 'S3 storage class and CloudFront TTL', 'IAM password policy and MFA', 'Number of Regions and AZ names'], 0, 'GPU memory and tokens/second drive LLM sizing.'),
+        q('A company wants to reduce costs by using a cheaper model for most requests and a more capable one only for hard requests, with minimal custom logic. Which option fits?', ['Bedrock Intelligent Prompt Routing (or a cascading pattern)', 'Always using the most capable model', 'Batch inference for everything', 'Removing the system prompt'], 0, 'Routing sends each prompt to a cost-appropriate model.'),
+        q('Which pattern keeps a GenAI summarisation service loosely coupled to an existing order system?', ['Event-driven integration through EventBridge', 'Direct database writes from the model', 'Sharing one IAM user', 'Synchronous calls inside the order transaction'], 0, 'Events decouple the systems.'),
+      ],
+    }),
+  ],
+};
+~~~~
+
+**`src/content/aws/aip/safety.ts`**
+
+~~~~ts
+// AIP-C01 Domain 3: AI Safety, Security, and Governance (20%).
+import type { Deck } from '../../../game/types';
+import { checkpoint, lesson, q } from '../kit';
+
+export const aipSafety: Deck = {
+  id: 'aip-safety',
+  name: 'Safety, Security and Governance',
+  subtitle: 'Domain 3 · 20% of the exam',
+  outcome: 'Defend FM applications in depth, protect private data, and govern AI so it is traceable, fair and compliant.',
+  hue: 0,
+  domain: 'aip-d3',
+  levels: [
+    lesson({
+      id: 'aip-io-safety',
+      title: 'Input and Output Safety in Depth',
+      system: 'Shield Layers',
+      skills: ['responsible-ai', 'aws-security'],
+      brief: `**ARIA:** One filter is a speed bump. Professionals stack defences: before the model, around the model, after the model, and at the API edge.`,
+      lesson: `## Defence in depth
+
+1. **Pre-processing:** sanitise input; detect PII, toxicity or intent with **Amazon Comprehend**; reject obvious attacks; enforce size limits.
+2. **Model-level guardrails:** **Amazon Bedrock Guardrails** on input and output (content filters, **prompt attack** filters, denied topics, PII filters, contextual grounding, Automated Reasoning). The **ApplyGuardrail API** applies a guardrail to any text, even for models outside Bedrock.
+3. **Post-processing:** **Lambda** validation of outputs (schema, allowed values, links, no secrets).
+4. **API edge:** **API Gateway** response filtering, auth and throttling; WAF for abusive traffic.
+
+Custom moderation workflows (Step Functions + Lambda) handle cases that need human review or several checks.
+
+## Adversarial threats
+
+**Prompt injection** (direct and indirect, via retrieved content), **jailbreaks**: detect with guardrails and safety classifiers, separate instructions from data, restrict tool permissions, and run **automated adversarial testing** (red-team prompt suites) in CI.
+
+## Reducing hallucinations
+
+- **Ground** answers with Bedrock **Knowledge Bases** and require citations; **contextual grounding checks**.
+- **Confidence scoring** and **semantic similarity** between the answer and the sources to verify claims.
+- **Structured outputs** enforced with a **JSON Schema** (and validation) so downstream code gets exactly the fields it needs.
+- For data questions, **text-to-SQL** gives **deterministic** results from a database instead of the model guessing numbers.`,
+      questions: [
+        q('A company uses a third-party model hosted outside Bedrock but wants Bedrock Guardrails\' content filters on its inputs and outputs. What should it use?', ['The ApplyGuardrail API', 'Bedrock Provisioned Throughput', 'S3 Object Lambda', 'Amazon Kendra'], 0, 'ApplyGuardrail evaluates any text against a guardrail.'),
+        q('A finance assistant must report exact account totals, and the model sometimes invents numbers. Which approach gives deterministic results?', ['Generate SQL from the question (text-to-SQL), run it on the database, and present the query results', 'Raise temperature', 'Fine-tune on old totals', 'Ask the model to be careful'], 0, 'Numbers come from the database, not the model\'s guess.'),
+        q('Downstream code crashes when the model\'s output misses required fields. What fixes this?', ['Enforce a JSON Schema for the output and validate it (retrying or repairing on failure)', 'Increase max tokens', 'Use a diffusion model', 'Disable logging'], 0, 'Structured output plus validation guarantees the format.'),
+        q('Which layering best reflects defence in depth for an FM application?', ['Input sanitisation and classification, Bedrock Guardrails, output validation in Lambda, and API Gateway filtering', 'One system prompt telling the model to be safe', 'Only WAF', 'Only IAM'], 0, 'Several independent layers before, around and after the model.'),
+        q('A RAG app pulls web pages that may contain hidden instructions. What is the most important mitigation?', ['Treat retrieved content as data (not instructions), use prompt attack filters, and limit what tools the model can trigger', 'Increase the context window', 'Use more web pages', 'Disable citations'], 0, 'Indirect prompt injection is mitigated by separation, filtering and least privilege.'),
+        q('How can a team catch new jailbreak techniques before releases?', ['Automated adversarial (red-team) test suites run in the CI pipeline', 'Waiting for user complaints', 'Higher temperature', 'Removing guardrails in testing'], 0, 'Adversarial tests in CI find weaknesses early.'),
+      ],
+    }),
+    lesson({
+      id: 'aip-privacy',
+      title: 'Data Security and Privacy',
+      system: 'Privacy Vault',
+      skills: ['aws-security'],
+      brief: `**ARIA:** Customer data flows through prompts, embeddings, logs and model outputs. Every one of those is a place it can leak. Lock each down.`,
+      lesson: `## Protected environments
+
+- **VPC endpoints (PrivateLink)** for Bedrock, SageMaker and data stores; no public internet paths.
+- **IAM** policies scoping which roles can invoke which models and read which data.
+- **AWS Lake Formation** for fine-grained (table, column, row) access to data lakes feeding GenAI.
+- **CloudWatch** and CloudTrail to monitor data access.
+
+## Detecting and protecting personal data
+
+- **Amazon Macie** finds PII in S3 before it enters training or knowledge bases.
+- **Amazon Comprehend** detects (and can redact) PII in text in real time.
+- **Bedrock Guardrails** sensitive information filters **mask or block** PII in prompts and responses.
+- **Data masking** and **anonymisation/pseudonymisation** keep utility while protecting identities.
+
+## Bedrock's privacy features
+
+Your prompts and completions **aren't used to train base models** or shared with model providers; data is encrypted in transit and at rest (with your **KMS** keys where supported); **model invocation logging** is opt-in, and you choose where logs go (encrypt them, restrict access, redact sensitive content).
+
+## Retention
+
+**S3 Lifecycle** rules expire logs and data per policy; DynamoDB **TTL** for conversation history; delete vectors when source documents are deleted.`,
+      questions: [
+        q('Training documents in S3 may contain customer PII that must be found before fine-tuning. Which service fits?', ['Amazon Macie', 'AWS Budgets', 'Amazon Polly', 'AWS CodeBuild'], 0, 'Macie discovers sensitive data in S3.'),
+        q('Analysts may query only non-sensitive columns of a data lake used for GenAI. Which service provides column-level permissions?', ['AWS Lake Formation', 'Amazon CloudFront', 'Amazon SQS', 'AWS Amplify'], 0, 'Lake Formation offers fine-grained table, column and row access.'),
+        q('A chatbot must mask customer phone numbers in both prompts and responses. Which feature fits best?', ['Bedrock Guardrails sensitive information filters', 'A higher temperature', 'Provisioned Throughput', 'Prompt caching'], 0, 'Guardrails can mask or block PII.'),
+        q('Which statement about Amazon Bedrock data privacy is correct?', ['Customer prompts and completions aren\'t used to train the base models', 'All prompts are shared with model providers', 'Invocation logging is always on and public', 'Data can\'t be encrypted'], 0, 'Bedrock keeps customer data private.'),
+        q('Invocation logs must be deleted after 90 days. What implements this?', ['An S3 Lifecycle expiration rule on the log bucket (or CloudWatch Logs retention)', 'Manual deletion each quarter', 'A Guardrails word filter', 'A larger bucket'], 0, 'Lifecycle and retention settings enforce retention policies.'),
+        q('An application running in private subnets must call Bedrock without traversing the internet. What is needed?', ['An interface VPC endpoint for Bedrock (PrivateLink)', 'A public IP on each instance', 'An internet gateway route', 'A CloudFront distribution'], 0, 'PrivateLink keeps traffic private.'),
+      ],
+    }),
+    lesson({
+      id: 'aip-governance',
+      title: 'Governance and Responsible AI in Practice',
+      system: 'Accountability Engine',
+      skills: ['responsible-ai'],
+      brief: `**ARIA:** "Where did this answer come from, who approved this model, and is it treating everyone fairly?" Build systems that can answer all three, automatically.`,
+      lesson: `## Compliance and traceability
+
+- **Programmatic model cards** (SageMaker Model Cards created via API in pipelines) documenting purpose, data, evaluation and limitations.
+- **Data lineage** with **AWS Glue** (Data Catalog registers sources; lineage tracking), **metadata tagging** on documents for **source attribution** in generated answers.
+- **CloudTrail** audit logs; **CloudWatch Logs** decision logs (inputs, retrieved sources, outputs, guardrail actions).
+
+## Continuous governance
+
+- Automated detection of **misuse**, **drift** and **policy violations**; **bias drift** monitoring.
+- **Alerting and remediation** workflows (EventBridge → Lambda/Step Functions).
+- **Token-level redaction** in logs, **response logging**, AI **output policy filters**.
+- Organisational frameworks aligned to policy, regulation and responsible AI principles, with regular reviews.
+
+## Responsible AI features to build in
+
+- **Transparency:** show sources (evidence presentation), **reasoning traces** (Bedrock agent tracing), user-facing explanations, and **confidence** indicators (uncertainty metrics in CloudWatch).
+- **Fairness evaluation:** pre-defined fairness metrics; **A/B testing** of prompts with Prompt Management and Bedrock Flows; **LLM-as-a-judge** evaluations across demographic variants.
+- **Policy compliance:** Guardrails configured from written policy; model cards documenting limitations; Lambda compliance checks.`,
+      questions: [
+        q('Regulators require that every generated answer can be traced to its source documents. Which design supports this?', ['Metadata tagging of sources, retrieval citations returned with answers, and logs of the retrieved context', 'Higher temperature', 'Removing the knowledge base', 'Deleting logs daily'], 0, 'Source attribution needs metadata, citations and logs.'),
+        q('A team wants model documentation generated automatically each time its pipeline trains a model. What should the pipeline create?', ['SageMaker Model Cards via the API (programmatic model cards)', 'A README by hand', 'A CloudFront distribution', 'An SQS queue'], 0, 'Programmatic model cards keep documentation current.'),
+        q('Which service can register data sources and track lineage for datasets feeding a GenAI application?', ['AWS Glue (Data Catalog and lineage)', 'Amazon Polly', 'AWS Shield', 'Amazon Lex'], 0, 'Glue catalogues data and tracks lineage.'),
+        q('A team wants to check whether an assistant answers equally well for names associated with different demographics. Which approach fits?', ['Fairness evaluation: run paired prompts varying only demographic attributes and score them (for example with LLM-as-a-judge)', 'Only test with one name', 'Increase temperature', 'Disable Guardrails'], 0, 'Controlled paired tests reveal unfair differences.'),
+        q('Users must see why an agent took an action. Which Bedrock capability provides this?', ['Agent tracing (reasoning traces)', 'Batch inference', 'Prompt caching', 'Cross-Region inference'], 0, 'Traces show the agent\'s reasoning steps and tool calls.'),
+        q('Logs must keep interaction records for audits without storing customers\' card numbers. What should be applied?', ['Token-level redaction (masking) before logs are written', 'No logging at all', 'Public log buckets', 'Larger log retention'], 0, 'Redaction keeps audit logs without sensitive values.'),
+      ],
+    }),
+    checkpoint({
+      id: 'aip-safety-checkpoint',
+      title: 'Checkpoint: Safety, Security and Governance',
+      system: 'Safety Certification Gate',
+      skills: ['responsible-ai', 'aws-security'],
+      brief: `**ARIA:** Professional-level scenarios on layered safety, privacy and governance.`,
+      lesson: `## Before you start
+
+- Comprehend pre-filters → Guardrails (or ApplyGuardrail) → Lambda output validation → API Gateway filtering; adversarial testing.
+- Grounding, citations, confidence, JSON Schema outputs, text-to-SQL.
+- PrivateLink, IAM, Lake Formation, Macie, Comprehend PII, Guardrails PII masking, KMS, retention.
+- Programmatic model cards, Glue lineage, source metadata, decision logs, agent tracing, fairness A/B tests.`,
+      questions: [
+        q('An HR assistant must never discuss salaries of named employees, must mask PII, and must block prompt attacks. Which single feature covers all three?', ['Amazon Bedrock Guardrails (denied topics, PII filters, prompt attack filter)', 'AWS WAF', 'Amazon Inspector', 'S3 Object Lock'], 0, 'Guardrails combine these policies.'),
+        q('Which is the strongest protection against an agent leaking data from systems it shouldn\'t access?', ['Least-privilege IAM permissions for the agent\'s tools and data', 'A longer system prompt', 'A different model', 'Higher top-p'], 0, 'Permissions limit what can leak, regardless of the model.'),
+        q('Generated product descriptions sometimes include claims not in the product data. Which controls help? (Pick the best answer.)', ['Ground on the product data with a contextual grounding check, and validate outputs against the source', 'Raise temperature', 'Remove the product data', 'Use batch inference'], 0, 'Grounding plus validation reduces unsupported claims.'),
+        q('A healthcare app must keep a log of every AI decision for 7 years while protecting patient identities. Which approach fits?', ['Decision logs with PHI redacted, encrypted with KMS, retained with lifecycle policies', 'No logs', 'Plain-text logs in a public bucket', 'Logs only in browser memory'], 0, 'Retain redacted, encrypted logs for the required period.'),
+        q('Bias in an assistant\'s outputs slowly increases after a prompt update. What would catch this?', ['Continuous monitoring with bias/drift metrics and automated alerts', 'One test before the first launch only', 'A bigger model', 'Prompt caching'], 0, 'Continuous monitoring detects drift.'),
+        q('Which is part of defence in depth for GenAI inputs?', ['Detecting PII and malicious patterns with Amazon Comprehend before the model call', 'Sending raw user input straight to tools', 'Removing all guardrails', 'Using only client-side checks'], 0, 'Pre-processing is the first layer.'),
+        q('A data lake feeding a knowledge base contains columns some teams must not see. Which service enforces this at the data layer?', ['AWS Lake Formation', 'Amazon Translate', 'AWS Budgets', 'AWS CodePipeline'], 0, 'Lake Formation provides fine-grained access control.'),
+        q('Auditors ask which model version, prompt version and sources produced a specific answer. What must be logged?', ['Model ID/version, prompt version, retrieved source IDs and the output for each request', 'Only the final answer', 'Nothing', 'Only the user\'s IP'], 0, 'Traceability needs every input that shaped the answer.'),
+      ],
+    }),
+  ],
+};
+~~~~
+
+**`src/content/aws/aip/operations.ts`**
+
+~~~~ts
+// AIP-C01 Domain 4: Operational Efficiency and Optimization for GenAI Applications (12%).
+import type { Deck } from '../../../game/types';
+import { checkpoint, lesson, q } from '../kit';
+
+export const aipOperations: Deck = {
+  id: 'aip-operations',
+  name: 'Cost, Performance and Monitoring',
+  subtitle: 'Domain 4 · 12% of the exam',
+  outcome: 'Cut token costs, make FM apps fast, and monitor them for quality, cost and failure modes unique to GenAI.',
+  hue: 95,
+  domain: 'aip-d4',
+  levels: [
+    lesson({
+      id: 'aip-cost',
+      title: 'Spending Fewer Tokens',
+      system: 'Token Economy',
+      skills: ['genai', 'aws-billing'],
+      brief: `**ARIA:** At scale, every unnecessary token is money. Learn to measure tokens, trim them, cache them and route around expensive models.`,
+      lesson: `## Token efficiency
+
+- **Estimate and track** tokens per request (input, output) per feature and team.
+- **Context window optimisation:** send only what's needed; **context pruning** (drop old turns, summarise history); **prompt compression** (shorter instructions, fewer examples).
+- **Response size controls:** \`maxTokens\`, concise output formats, stop sequences.
+
+## Model selection for cost
+
+- Measure **cost vs capability**: price-to-performance per task.
+- **Tiered usage:** a small model for simple queries, a large one for complex ones (cascading, Intelligent Prompt Routing).
+- Balance inference cost against required quality.
+
+## Throughput and utilisation
+
+- **Batch inference** for offline jobs; batching strategies for many small requests.
+- **Provisioned Throughput** sized from measured tokens per minute; monitor utilisation so you don't pay for idle units.
+- **Auto scaling** for self-hosted endpoints.
+
+## Caching
+
+| Technique | Saves |
+|---|---|
+| **Prompt caching** (Bedrock) | Re-processing a long, repeated prompt prefix (system prompt, documents) |
+| **Semantic caching** | Whole model calls: store answers keyed by the **embedding** of the question; return a cached answer when a new question is similar enough (for example with vector search in ElastiCache/MemoryDB or OpenSearch) |
+| **Deterministic request hashing / result fingerprinting** | Identical requests (same prompt and parameters) return the stored result |
+| **Edge caching** (CloudFront) | Common, non-personal responses near users |`,
+      questions: [
+        q('Many users ask the same question in different words, and each call costs a full model invocation. Which technique avoids most of these calls?', ['Semantic caching keyed on question embeddings', 'Higher temperature', 'Longer prompts', 'Provisioned Throughput'], 0, 'Semantic caching reuses answers for similar questions.'),
+        q('Every request includes the same 20,000-token policy document. Which Bedrock feature reduces cost and latency?', ['Prompt caching', 'Batch inference', 'Cross-Region inference', 'Model distillation'], 0, 'Prompt caching reuses the repeated prefix.'),
+        q('A chat app\'s cost grows with conversation length. What reduces tokens without losing important context?', ['Prune or summarise older conversation turns', 'Send the full history every time', 'Raise max tokens', 'Use a larger model'], 0, 'Context pruning and summarisation shrink input tokens.'),
+        q('Provisioned Throughput is reserved for peak load but sits at 15% utilisation most of the day. What should the team do?', ['Re-size using measured token demand, and use on-demand for spikes', 'Buy more model units', 'Disable monitoring', 'Switch everything to batch'], 0, 'Size reserved capacity to real demand.'),
+        q('Identical report requests with the same parameters are generated many times a day. What avoids recomputing them?', ['Deterministic request hashing with a result cache', 'Higher temperature', 'A new model each time', 'Streaming'], 0, 'Hash identical requests and reuse results.'),
+        q('Which is a cost-effective model selection practice?', ['Measure price-to-performance per task and use the cheapest model that meets the quality bar', 'Always use the newest largest model', 'Choose by model name popularity', 'Use one model for everything without testing'], 0, 'Match model cost to task needs.'),
+      ],
+    }),
+    lesson({
+      id: 'aip-performance',
+      title: 'Making GenAI Fast',
+      system: 'Overdrive',
+      skills: ['genai', 'aws-architecture'],
+      brief: `**ARIA:** Users judge an AI by how fast it feels. Stream, parallelise, precompute, tune retrieval and parameters, and measure every change.`,
+      lesson: `## Latency
+
+- **Response streaming** for perceived speed.
+- **Latency-optimised** model options in Bedrock for time-sensitive apps.
+- **Parallel requests** for independent sub-tasks (Step Functions Map/Parallel, async calls).
+- **Pre-computation** of predictable queries (nightly summaries, popular answers).
+- Benchmark p50/p95 latency and time to first token.
+
+## Retrieval performance
+
+**Index optimisation** (HNSW parameters, shards), **query preprocessing** (normalise, rewrite), **hybrid search** with custom scoring, fewer but better chunks (top-k tuning, reranking), metadata filters to shrink the search space.
+
+## Throughput
+
+Manage **concurrent invocations** within quotas (requests and tokens per minute), batch where possible, cross-Region inference for more capacity, token processing optimisation (shorter prompts and outputs).
+
+## Quality tuning
+
+- **Inference parameters** per use case: temperature, top-p, top-k, max tokens, stop sequences.
+- **A/B testing** prompt and parameter variants with real traffic and measured outcomes.
+
+## Efficient systems
+
+Profile API calls (prompt and completion sizes), optimise vector queries, keep service communication efficient (reuse connections, keep components in the same Region), auto scaling tuned for GenAI's bursty traffic.`,
+      questions: [
+        q('A workflow makes five independent model calls one after another and takes 25 seconds. What reduces latency most?', ['Run the independent calls in parallel (for example with Step Functions Parallel/Map)', 'Increase max tokens', 'Use one bigger prompt with no structure', 'Add retries'], 0, 'Parallel execution of independent calls.'),
+        q('Every morning, thousands of users request the same daily briefing. What improves speed and cost?', ['Pre-compute the briefing once and serve the cached result', 'Generate it per user on request', 'Increase temperature', 'Use streaming only'], 0, 'Precompute predictable outputs.'),
+        q('Which metric best captures how responsive a streaming chat feels?', ['Time to first token', 'Total tokens per month', 'Number of Regions', 'Embedding dimensions'], 0, 'Time to first token drives perceived latency.'),
+        q('Vector search latency rose as the index grew to 50 million vectors. Which actions help? (Pick the best answer.)', ['Tune the index (HNSW parameters, shards) and use metadata filters to narrow the search', 'Remove all metadata', 'Increase chunk overlap to 100%', 'Raise temperature'], 0, 'Index tuning and filtering speed up search.'),
+        q('A team isn\'t sure whether a new prompt variant improves user satisfaction. How should it decide?', ['A/B test the variants on live traffic and compare measured outcomes', 'Pick the longer prompt', 'Ask one colleague', 'Deploy both to everyone'], 0, 'A/B testing gives evidence.'),
+        q('A time-sensitive voice assistant needs the lowest possible latency from Bedrock. What should be considered?', ['Latency-optimised model options and streaming', 'Batch inference', 'Larger context windows', 'Higher top-k'], 0, 'Latency-optimised inference and streaming reduce delay.'),
+      ],
+    }),
+    lesson({
+      id: 'aip-monitoring',
+      title: 'Monitoring GenAI Applications',
+      system: 'Watchtower',
+      skills: ['aws-operations', 'genai'],
+      brief: `**ARIA:** A GenAI app can be up, fast and cheap, and still be wrong. Monitor the things classic dashboards miss: tokens, hallucinations, drift, tool calls.`,
+      lesson: `## What to watch
+
+| Area | Signals |
+|---|---|
+| Operations | Bedrock CloudWatch metrics: \`Invocations\`, \`InvocationLatency\`, \`InputTokenCount\`, \`OutputTokenCount\`, \`InvocationThrottles\`, client and server errors |
+| Cost | Token usage per feature/team; **anomaly detection** on token bursts; **Cost Anomaly Detection** |
+| Quality | Hallucination rate (grounding check failures), response quality scores, prompt effectiveness, user feedback, **response drift** |
+| Agents and tools | Tool call counts, latency, error rates, multi-agent coordination traces (**AgentCore Observability**, X-Ray/OpenTelemetry) |
+| Retrieval | Vector store latency, index health, empty/low-relevance retrievals, freshness of data |
+| Business | Task completion, deflection rate, conversion, satisfaction on **custom dashboards** |
+
+## Tools
+
+- **Bedrock model invocation logs** (to CloudWatch Logs or S3) for detailed request/response analysis; **CloudWatch Logs Insights** queries.
+- **CloudWatch dashboards and alarms**; anomaly detection on metrics.
+- **X-Ray** traces across services; forensic **audit logging**.
+
+## GenAI-specific failure modes
+
+- **Golden datasets**: a fixed set of questions with known answers, run regularly to detect **hallucination** and quality regressions.
+- **Output diffing** between runs and versions to spot inconsistency.
+- **Reasoning path tracing** to find where an agent's logic went wrong.
+- Baselines of normal usage to detect anomalies.`,
+      questions: [
+        q('Which Bedrock metrics would reveal a sudden spike in token usage? (Pick the best answer.)', ['InputTokenCount and OutputTokenCount in CloudWatch, with anomaly detection', 'S3 BucketSizeBytes', 'EC2 CPUUtilization of an unrelated server', 'Route 53 health checks'], 0, 'Token count metrics plus anomaly detection catch bursts.'),
+        q('A team needs to analyse the exact prompts and responses behind complaints. What must be enabled?', ['Bedrock model invocation logging', 'S3 Transfer Acceleration', 'Provisioned Throughput', 'Prompt caching'], 0, 'Invocation logs capture requests and responses.'),
+        q('How can a team detect that its assistant has started hallucinating more after a model update?', ['Run a golden dataset of known-answer questions regularly and compare scores over time', 'Wait for social media complaints', 'Check CPU usage', 'Count Regions'], 0, 'Golden datasets detect quality regressions.'),
+        q('A multi-agent system is slow, and the team must find which tool call is the bottleneck. What helps most?', ['Tracing of agent and tool calls (AgentCore Observability or X-Ray/OpenTelemetry)', 'S3 lifecycle rules', 'A bigger model', 'Disabling logs'], 0, 'Traces show where time is spent.'),
+        q('Answers to the same question vary wildly between days. Which technique detects this?', ['Output diffing / consistency analysis across runs', 'Raising max tokens', 'Prompt caching', 'Smaller embeddings'], 0, 'Comparing outputs over time reveals inconsistency.'),
+        q('Retrieval sometimes returns nothing relevant, causing vague answers. What should be monitored?', ['Retrieval relevance scores and the rate of empty or low-score retrievals', 'Only model latency', 'Only token cost', 'Nothing'], 0, 'Retrieval quality needs its own metrics.'),
+      ],
+    }),
+    checkpoint({
+      id: 'aip-operations-checkpoint',
+      title: 'Checkpoint: Cost, Performance and Monitoring',
+      system: 'Operations Certification Gate',
+      skills: ['genai', 'aws-operations'],
+      brief: `**ARIA:** Professional-level scenarios on cost, performance and monitoring of GenAI applications.`,
+      lesson: `## Before you start
+
+- Token tracking, context pruning, prompt compression, maxTokens; tiered models; batch; right-sized Provisioned Throughput.
+- Prompt caching, semantic caching, request hashing, edge caching.
+- Streaming, parallel calls, precomputation, latency-optimised models, index tuning, A/B tests.
+- Bedrock metrics and invocation logs, anomaly detection, golden datasets, output diffing, tool and agent tracing.`,
+      questions: [
+        q('Costs doubled after a feature launch. Which first step finds the cause fastest?', ['Break down token usage by feature from CloudWatch metrics and invocation logs', 'Switch all models immediately', 'Delete the feature', 'Disable logging'], 0, 'Measure where tokens go before changing anything.'),
+        q('Which caching approach helps when questions are worded differently but mean the same thing?', ['Semantic caching', 'Exact-match HTTP caching', 'Browser caching', 'DNS caching'], 0, 'Semantic caching matches by meaning.'),
+        q('A support bot uses a large model for every message, but 80% are simple FAQs. What cuts cost most?', ['Route simple messages to a small model (or a semantic cache) and escalate complex ones', 'Increase the large model\'s quota', 'Add more examples to every prompt', 'Use batch inference for chat'], 0, 'Tiered routing matches cost to complexity.'),
+        q('A team must alert when the share of responses failing the contextual grounding check exceeds 5%. What should it build?', ['A CloudWatch metric for grounding-check failures with an alarm', 'An S3 lifecycle rule', 'A WAF rule', 'A Route 53 record'], 0, 'Custom quality metrics need alarms like operational ones.'),
+        q('A summarisation job over 500,000 documents runs overnight. Which is the most cost-effective way to invoke the model?', ['Bedrock batch inference', 'On-demand calls one by one', 'Provisioned Throughput for the whole month', 'Streaming responses'], 0, 'Batch inference is cheaper for offline jobs.'),
+        q('Users complain the assistant feels slow even though total generation time is fine. What should be improved first?', ['Stream tokens to reduce time to first token', 'Increase max tokens', 'Use a larger model', 'Add retries'], 0, 'Streaming improves perceived latency.'),
+        q('Which practice best detects quality regressions before a new model version reaches all users?', ['Run golden dataset evaluations and a canary rollout with quality metrics', 'Deploy to everyone and wait', 'Check only latency', 'Increase the temperature'], 0, 'Evaluate and canary before full rollout.'),
+        q('A self-hosted LLM endpoint is under-utilised at night and saturated at midday. What helps?', ['Auto scaling configured for GenAI traffic patterns (with warm capacity ahead of peaks)', 'A fixed large fleet 24/7', 'Removing monitoring', 'Smaller context windows only'], 0, 'Scale with demand, ahead of predictable peaks.'),
+      ],
+    }),
+  ],
+};
+~~~~
+
+**`src/content/aws/aip/testing.ts`**
+
+~~~~ts
+// AIP-C01 Domain 5: Testing, Validation, and Troubleshooting (11%).
+import type { Deck } from '../../../game/types';
+import { checkpoint, lesson, q } from '../kit';
+
+export const aipTesting: Deck = {
+  id: 'aip-testing',
+  name: 'Testing and Troubleshooting',
+  subtitle: 'Domain 5 · 11% of the exam',
+  outcome: 'Evaluate FM outputs, RAG and agents systematically, gate deployments on quality, and fix GenAI failures fast.',
+  hue: 320,
+  domain: 'aip-d5',
+  levels: [
+    lesson({
+      id: 'aip-evaluation',
+      title: 'Evaluating GenAI Systems',
+      system: 'Proving Ground',
+      skills: ['genai', 'ai-ml'],
+      brief: `**ARIA:** Classic accuracy doesn't fit free-text answers. Evaluate relevance, facts, consistency and fluency; evaluate retrieval and agents separately; and never ship without a gate.`,
+      lesson: `## What to measure in outputs
+
+**Relevance**, **factual accuracy**, **faithfulness/groundedness** (supported by the sources), **consistency** (stable across runs), **fluency**, safety, plus **cost** (tokens), **latency-to-quality** ratio and business outcomes.
+
+## How to evaluate
+
+- **Amazon Bedrock Model Evaluations:** automatic metrics, **human** evaluation (your team or AWS-managed), and **LLM-as-a-judge**; also **RAG evaluation** for Knowledge Bases (retrieval relevance, correctness, faithfulness, citation quality) and agent evaluations.
+- **Multi-model comparison** and cost-performance analysis on your own dataset.
+- **A/B tests** and **canary** releases with real users.
+- **User feedback**: ratings in the UI, annotation workflows for reviewers.
+
+## Retrieval quality testing
+
+Relevance scoring of retrieved chunks, **context matching** (does the retrieved text contain the answer?), retrieval latency.
+
+## Agent evaluation
+
+**Task completion rate**, **tool usage effectiveness** (right tool, right parameters, fewest steps), reasoning quality across multi-step workflows.
+
+## Quality assurance in the pipeline
+
+- **Continuous evaluation** workflows; **regression testing** of outputs on a golden set.
+- **Automated quality gates**: block deployment when scores drop.
+- **Deployment validation**: synthetic user journeys, checks for hallucination rate and **semantic drift** after updates.
+- **Reporting** to stakeholders with comparison visualisations.`,
+      questions: [
+        q('A team must compare three models on its own RAG dataset for correctness and faithfulness, with minimal tooling. What should it use?', ['Amazon Bedrock Model Evaluations (including RAG evaluation with LLM-as-a-judge)', 'CloudFront logs', 'AWS Budgets', 'S3 Inventory'], 0, 'Bedrock evaluations cover models and RAG with built-in metrics.'),
+        q('Which metric checks whether an answer is supported by the retrieved documents?', ['Faithfulness (groundedness)', 'Fluency', 'Throughput', 'Embedding size'], 0, 'Faithfulness measures support by the sources.'),
+        q('An agent completes tasks but takes 12 tool calls where 3 would do. What should its evaluation include?', ['Tool usage effectiveness and step efficiency, not just task completion', 'Only task completion', 'Only latency of the first call', 'Only token price'], 0, 'Agent evaluation covers how tasks are done.'),
+        q('A new prompt version must not reach production if quality drops on the golden set. What implements this?', ['An automated quality gate in the deployment pipeline', 'A manual check once a year', 'A higher temperature', 'Disabling the golden set'], 0, 'Quality gates block regressions automatically.'),
+        q('After a model update, answers to the same questions have subtly changed meaning. What should deployment validation check?', ['Semantic drift against previous outputs on a fixed test set', 'Only HTTP status codes', 'Only CPU usage', 'Only cost'], 0, 'Semantic drift checks catch meaning changes.'),
+        q('Which evaluation method scales human-like judgement of answer quality to thousands of responses?', ['LLM-as-a-judge', 'Manual review of every response', 'BLEU only', 'Counting tokens'], 0, 'A strong model grades responses at scale.'),
+      ],
+    }),
+    lesson({
+      id: 'aip-quality-pipeline',
+      title: 'Quality Gates and Feedback Loops',
+      system: 'Quality Control Line',
+      skills: ['genai', 'aws-operations'],
+      brief: `**ARIA:** Evaluating once is a snapshot. Professionals wire evaluation into every change, watch quality after release, and feed users' verdicts back in.`,
+      lesson: `## Before release
+
+- **Golden datasets**: curated questions with reference answers or expected properties, covering edge cases and known past failures. Version them with the code.
+- **Regression testing** on every prompt, model, retrieval or code change; **automated quality gates** in CodePipeline block a release when scores fall below thresholds (accuracy, faithfulness, safety, format validity, latency, cost per request).
+- **Synthetic user workflows** exercise whole journeys (multi-turn chats, agent tasks).
+
+## During release
+
+- **Canary** or **A/B** rollout: a small share of traffic goes to the new version; compare quality and business metrics; **roll back automatically** on alarms.
+- **Deployment validation**: hallucination rate, **semantic drift** of answers versus the previous version, response consistency.
+
+## After release
+
+- **Continuous evaluation**: sample live traffic and score it (LLM-as-a-judge, grounding checks) on a schedule.
+- **User feedback**: thumbs up/down and comments in the UI (collected via API Gateway into a store), **annotation workflows** where reviewers grade responses; low-rated responses become new golden-set cases.
+- **Reporting**: dashboards and automated reports comparing versions and models for stakeholders.`,
+      questions: [
+        q('A team keeps reintroducing a bug where the assistant reveals internal ticket IDs. How should it stop the regression for good?', ['Add the failing cases to the golden dataset so the quality gate blocks any release that repeats it', 'Fix it once and move on', 'Raise temperature', 'Disable logging'], 0, 'Past failures become permanent regression tests.'),
+        q('Which belongs in an automated quality gate for a GenAI release?', ['Thresholds on golden-set scores, faithfulness, safety and format validity', 'The number of commits that week', 'The developer\'s seniority', 'The time of day'], 0, 'Gate on measured quality signals.'),
+        q('How should a new model version reach production with the least risk?', ['A canary release comparing quality metrics with the current version, with automatic rollback', 'Replace the old version for everyone at once', 'Release without metrics', 'Ask users to test it manually'], 0, 'Canaries limit exposure and compare evidence.'),
+        q('Which turns user feedback into lasting improvement?', ['Collect ratings, review low-rated responses, and add them to the evaluation set and prompt fixes', 'Store feedback without reading it', 'Show feedback buttons with no backend', 'Delete negative ratings'], 0, 'Feedback should flow back into evaluation and fixes.'),
+        q('After launch, how can quality be watched continuously without a human reading every response?', ['Score a sample of live traffic on a schedule with LLM-as-a-judge and grounding checks', 'Check CPU usage only', 'Wait for complaints', 'Re-run unit tests on the UI'], 0, 'Continuous automated evaluation of sampled traffic.'),
+        q('Which test exercises an agent end to end the way real users would?', ['Synthetic user workflows that run complete multi-step tasks', 'A single-token completion test', 'A DNS lookup', 'A billing alarm'], 0, 'Synthetic journeys test whole workflows.'),
+      ],
+    }),
+    lesson({
+      id: 'aip-troubleshooting',
+      title: 'Troubleshooting GenAI Applications',
+      system: 'Repair Diagnostics',
+      skills: ['genai', 'aws-operations'],
+      brief: `**ARIA:** GenAI fails in its own special ways: too many tokens, mismatched embeddings, prompts that confuse, formats that drift. Learn the symptoms and the fixes.`,
+      lesson: `## Content handling
+
+| Symptom | Likely cause | Fix |
+|---|---|---|
+| \`ValidationException\` mentioning input length | **Context window overflow** | Chunk, summarise, prune history, retrieve fewer/smaller chunks |
+| Answers cut off | Output **maxTokens** too low | Raise it or ask for shorter formats |
+| Facts from long documents missing | Truncation, or the right chunk never retrieved | Dynamic chunking, better retrieval, structure the prompt |
+
+## Integration errors
+
+- **ThrottlingException**: backoff with jitter, quota increases, cross-Region inference, Provisioned Throughput.
+- **AccessDeniedException**: model access not granted in the account/Region, or IAM missing \`bedrock:InvokeModel\` on that model (or inference profile) ARN.
+- **ModelTimeoutException / timeouts**: shorter outputs, streaming, async processing.
+- Malformed request bodies: validate the request format per model (or use the Converse API).
+Use **error logging**, **request validation** and **response analysis**, with **X-Ray** traces and **CloudWatch Logs Insights**.
+
+## Prompt problems
+
+Inconsistent answers or ignored instructions: compare prompt **versions** side by side, test systematically, refine one change at a time, check that the template rendered as intended (CloudWatch logs), and validate output formats with a **schema**.
+
+## Retrieval problems
+
+- Irrelevant results: check **embedding quality** and that queries and documents use the **same embedding model**; tune **chunk size and overlap**; add metadata filters and reranking.
+- Stale answers: **sync** the knowledge base; check ingestion job errors.
+- **Drift**: monitor relevance over time as content changes.
+- Slow search: optimise the vector index.`,
+      questions: [
+        q('Requests fail with a ValidationException saying the input is too long. What is the best fix?', ['Reduce input tokens: retrieve fewer or smaller chunks and prune or summarise history', 'Raise temperature', 'Increase maxTokens for the output', 'Retry the same request'], 0, 'The context window was exceeded; shrink the input.'),
+        q('A newly deployed app gets AccessDeniedException calling a Bedrock model that works in another account. What should be checked?', ['That model access is enabled in this account and Region, and IAM allows bedrock:InvokeModel on that model', 'The S3 storage class', 'The CloudFront TTL', 'The DynamoDB capacity mode'], 0, 'Model access and IAM permissions are account- and Region-specific.'),
+        q('After re-chunking documents into very small pieces, answers lack context. What should be tuned?', ['Chunk size and overlap (or use hierarchical chunking)', 'Temperature', 'The Region', 'The output format only'], 0, 'Chunks too small lose context.'),
+        q('A prompt template change caused the model to ignore formatting rules for some users. Which step helps diagnose it?', ['Compare prompt versions side by side and inspect the rendered prompts in the logs', 'Switch Regions', 'Raise the quota', 'Delete all logs'], 0, 'Version comparison and rendered-prompt logs reveal the issue.'),
+        q('Retrieval relevance has slowly declined over months as new documents were added. What is this an example of?', ['Retrieval drift, which needs monitoring and re-tuning (and possibly re-embedding)', 'A temperature problem', 'An IAM problem', 'A billing problem'], 0, 'Content changes cause retrieval drift.'),
+        q('Downstream parsers fail occasionally because the model returns slightly different JSON shapes. What fixes this reliably?', ['Schema validation of outputs with retry or repair, plus structured output instructions', 'Higher temperature', 'Longer prompts with no schema', 'Ignoring errors'], 0, 'Schema validation catches and corrects format drift.'),
+      ],
+    }),
+    checkpoint({
+      id: 'aip-testing-checkpoint',
+      title: 'Checkpoint: Testing and Troubleshooting',
+      system: 'Diagnostics Certification Gate',
+      skills: ['genai', 'aws-operations'],
+      brief: `**ARIA:** Professional-level scenarios on evaluation, quality gates and GenAI troubleshooting.`,
+      lesson: `## Before you start
+
+- Relevance, factual accuracy, faithfulness, consistency, fluency, cost, latency.
+- Bedrock Model Evaluations (automatic, human, LLM-as-a-judge, RAG, agents); A/B and canary; user feedback.
+- Golden sets, regression tests, quality gates, semantic drift checks.
+- Context overflow, throttling, AccessDenied (model access + IAM), timeouts; prompt version comparison; embedding mismatch, chunking, sync.`,
+      questions: [
+        q('A RAG assistant gives fluent but wrong answers. Evaluation shows retrieved chunks rarely contain the answer. Where is the problem?', ['Retrieval: improve chunking, embeddings, filters or reranking', 'Generation temperature only', 'The billing setup', 'The UI colour scheme'], 0, 'If the context lacks the answer, fix retrieval first.'),
+        q('Which release approach limits the impact of a worse model version on users?', ['A canary release with quality metrics and automatic rollback', 'A full rollout to all users at once', 'No monitoring after release', 'Releasing only on Fridays'], 0, 'Canaries expose a small share of users first.'),
+        q('How should user feedback be used to improve an assistant continuously?', ['Collect ratings and comments in the UI, review low-rated responses, and add them to the evaluation set', 'Ignore feedback', 'Only count clicks', 'Delete negative feedback'], 0, 'Feedback feeds evaluation and refinement.'),
+        q('After switching to a new embedding model, the knowledge base returns nonsense. What was most likely missed?', ['Re-embedding all documents with the new model', 'Raising max tokens', 'Changing temperature', 'Enabling streaming'], 0, 'Documents and queries must share an embedding model.'),
+        q('Throttling errors appear only at peak hours in one Region. Which fixes are appropriate? (Pick the best answer.)', ['Exponential backoff, a quota increase, and cross-Region inference', 'Disabling retries', 'Switching to a bigger prompt', 'Removing Guardrails'], 0, 'Back off and add capacity.'),
+        q('Stakeholders want a monthly view of model quality, cost and adoption. What should the team provide?', ['Automated reports and dashboards comparing quality, cost and usage over time', 'Raw invocation logs only', 'Nothing until asked', 'A single number with no context'], 0, 'Reporting communicates performance and trends.'),
+        q('Which test catches a broken prompt template before deployment?', ['A regression test suite on a golden dataset with schema and content checks', 'A load test of CPU only', 'A DNS check', 'A billing alarm'], 0, 'Regression tests validate behaviour.'),
+        q('Responses are being truncated mid-sentence for long reports. What should be checked first?', ['The maxTokens (output length) setting', 'The embedding dimension', 'The IAM policy', 'The S3 lifecycle'], 0, 'Output token limits cut responses short.'),
       ],
     }),
   ],
@@ -13236,7 +15176,7 @@ console.log(`Built ${out}\nRun ./reactor-quest to play, or ./install.sh to add i
 
 ## Part 13. Tests
 
-`npm test` runs Vitest in jsdom: 549 tests in 11 files. The level proofs are the most important, because they are what lets you write 96 code levels with confidence.
+`npm test` runs Vitest in jsdom: 579 tests in 11 files. The level proofs are the most important, because they are what lets you write 96 code levels with confidence.
 
 | File | What it proves |
 |---|---|
@@ -13766,7 +15706,7 @@ export const perfect: Outcome = { stars: 3, firstTry: true, failedRuns: 0, clean
 15. The Safe Room sells things.
 16. A quiz plays through to victory, and a missed question comes back until it's right.
 17. Review: cleared quizzes become review cards (the bot moves their due date to today), a missed card returns within the session, the session completes, and the notebook lists the note from step 5.
-18. AWS journeys: choosing AWS selects AI Practitioner (marked "Start here"); its map shows the readiness panel and the AI and ML Fundamentals floor; the header switcher shows it.
+18. AWS journeys: choosing AWS selects AI Practitioner (marked "Start here"), and all five certifications are offered; its map shows the readiness panel and the AI and ML Fundamentals floor; the header switcher shows it.
 19. An AWS lesson plays through, and its six first answers are recorded towards readiness.
 20. Exam Prep: a Fundamentals of AI and ML drill (the bot marks every single-answer question known so the four unseen "Choose TWO" ones must come up) explains each answer; "Check answer" stays disabled with one of two picked; all four answers are recorded and the results show the readiness change.
 21. A full mock exam has a 90:00 clock and 65 questions, gives no feedback, can flag a question and finish early (the confirmation counts unanswered ones), scores below the pass mark of 700, and lists what to learn. Exam Prep fits a 390 px phone, with nothing sticking out of any panel.

@@ -91,7 +91,7 @@ export interface Deck {
 
 // ---------------------------------------------------------------- paths
 
-export type PathId = 'reactor' | 'aws-aif' | 'aws-clf' | 'aws-saa';
+export type PathId = 'reactor' | 'aws-aif' | 'aws-clf' | 'aws-dva' | 'aws-saa' | 'aws-aip';
 
 /** One domain of a certification exam, with its share of the questions. */
 export interface ExamDomain {
@@ -105,7 +105,7 @@ export interface ExamDomain {
 export interface Exam {
   code: string;
   name: string;
-  level: 'Foundational' | 'Associate';
+  level: 'Foundational' | 'Associate' | 'Professional';
   questions: number;
   minutes: number;
   /** The passing score, on AWS's scale of 100 to 1000. */

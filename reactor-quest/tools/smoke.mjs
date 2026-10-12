@@ -381,6 +381,10 @@ await step('Journeys: AWS starts with AI Practitioner; its map shows domain floo
   const aif = page.locator('.cert').filter({ has: page.locator('b', { hasText: /^AI Practitioner$/ }) });
   if ((await aif.getAttribute('aria-checked')) !== 'true') throw new Error('AWS did not start with AI Practitioner');
   await aif.getByText('Start here').waitFor();
+  const certs = await page.locator('.cert b').allTextContents();
+  for (const name of ['AI Practitioner', 'Cloud Practitioner', 'Developer', 'Solutions Architect', 'Generative AI Developer']) {
+    if (!certs.includes(name)) throw new Error(`the ${name} certification is missing from the picker (found ${certs.join(', ')})`);
+  }
   await page.getByText('AWS certification prep · AIF-C01').waitFor();
   await page.screenshot({ path: join(shots, '20-aws-title.png') });
   await page.getByRole('button', { name: 'Lessons map' }).click();

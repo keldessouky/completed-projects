@@ -16,8 +16,9 @@ It runs on **macOS, Windows and Linux** and opens in your browser. Pick from
 
 **Studying for an AWS certification?** Choose the **AWS Certification**
 journey on the title screen. It starts with **AWS Certified AI Practitioner**,
-and you can switch to **Cloud Practitioner** or **Solutions Architect –
-Associate** at any time. The game tracks every answer and tells you how ready
+and you can switch to **Cloud Practitioner**, **Developer – Associate**,
+**Solutions Architect – Associate** or **Generative AI Developer –
+Professional** at any time. The game tracks every answer and tells you how ready
 you are to pass. See [AWS certification prep](#aws-certification-prep).
 
 ![Title screen](docs/title.png)
@@ -356,7 +357,9 @@ level, loot and achievements are shared.
 |---|---|---|---|
 | **AI Practitioner** (starts here) | AIF-C01 · 65 questions · 90 min · pass 700 | 5 floors, 23 lessons + 5 checkpoints, 212 questions | ML basics, generative AI, agents and MCP, Amazon Bedrock, RAG, prompting, fine-tuning, evaluation, responsible AI, AI security and governance |
 | **Cloud Practitioner** | CLF-C02 · 65 questions · 90 min · pass 700 | 6 floors, 31 lessons + 6 checkpoints, 271 questions | Cloud concepts, core services, security, billing and support |
+| **Developer – Associate** | DVA-C02 · 65 questions · 130 min · pass 720 | 5 floors, 16 lessons + 5 checkpoints, 163 questions | Resilient code, API Gateway, messaging, Lambda, DynamoDB, auth, KMS, secrets, SAM, CI/CD, observability |
 | **Solutions Architect – Associate** | SAA-C03 · 65 questions · 130 min · pass 720 | 5 floors, 25 lessons + 5 checkpoints, 220 questions | Secure, resilient, high-performing and cost-optimized design |
+| **Generative AI Developer – Professional** | AIP-C01 · 75 questions · pass 750 | 5 floors, 18 lessons + 5 checkpoints, 177 questions | Production GenAI: model choice and resilience, RAG and vector stores, prompt governance, agents and MCP, deployment, safety, cost, monitoring, evaluation |
 
 **How it works**
 
@@ -495,7 +498,7 @@ learn, especially people learning to program for the first time.
 ## Proven playable
 
 ```bash
-npm test        # 549 tests
+npm test        # 579 tests
 npm run smoke   # 122 checks in headless Chromium/Chrome
 ```
 

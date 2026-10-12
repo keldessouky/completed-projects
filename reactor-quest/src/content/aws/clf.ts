@@ -20,7 +20,7 @@ export const CLF: Path = {
   id: 'aws-clf',
   name: 'AWS Certified Cloud Practitioner',
   short: 'Cloud Practitioner',
-  tagline: 'The foundational AWS exam: what the cloud is, the core services, security and billing. The place to start.',
+  tagline: 'The foundational AWS exam: what the cloud is, the core services, security and billing.',
   icon: '☁',
   exam: {
     code: 'CLF-C02',
