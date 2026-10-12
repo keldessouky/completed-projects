@@ -373,6 +373,113 @@ await step('Review: cleared quizzes become spaced-review cards; missed cards ret
   await page.locator('.notebook li').filter({ hasText: 'Hello, Orrery' }).waitFor();
 });
 
+// ---------------------------------------------------------------- AWS certification paths
+await step('Journeys: AWS starts with AI Practitioner; its map shows domain floors and readiness', async () => {
+  await clearNotes();
+  await page.goto(url);
+  await page.getByRole('radio', { name: /AWS Certification/ }).click();
+  const aif = page.locator('.cert').filter({ has: page.locator('b', { hasText: /^AI Practitioner$/ }) });
+  if ((await aif.getAttribute('aria-checked')) !== 'true') throw new Error('AWS did not start with AI Practitioner');
+  await aif.getByText('Start here').waitFor();
+  await page.getByText('AWS certification prep · AIF-C01').waitFor();
+  await page.screenshot({ path: join(shots, '20-aws-title.png') });
+  await page.getByRole('button', { name: 'Lessons map' }).click();
+  await page.locator('.readiness-panel').getByText('AIF-C01 readiness').waitFor();
+  await page.locator('.deck h3').filter({ hasText: 'AI and ML Fundamentals' }).waitFor();
+  if ((await page.locator('.path-switch select').inputValue()) !== 'aws-aif') throw new Error('the header switcher shows the wrong journey');
+  await page.screenshot({ path: join(shots, '21-aws-map.png') });
+});
+
+await step('An AWS lesson teaches, quizzes, and its first answers count towards exam readiness', async () => {
+  await page.goto(`${url}#/level/aif-ai-terms`);
+  await page.getByText('Nested ideas', { exact: false }).first().waitFor();
+  await answerUntilDone(page.locator('.quiz-card'), /Next question|Finish/, () => page.locator('.victory').count());
+  await page.locator('.victory').getByText('counts towards your exam readiness').waitFor();
+  const answered = await page.evaluate(() => Object.keys(JSON.parse(localStorage.getItem('reactor-quest/save')).exam.answers).filter((id) => id.startsWith('aif-ai-terms/')).length);
+  if (answered !== 6) throw new Error(`expected 6 recorded answers, got ${answered}`);
+});
+
+await step('Exam prep: a drill explains every answer, "Choose TWO" needs both, and every answer counts towards readiness', async () => {
+  await dismissModals();
+  // Mark every single-answer AI and ML fundamentals question as known, so the drill must serve the "Choose TWO" ones.
+  await page.evaluate(() => {
+    const save = JSON.parse(localStorage.getItem('reactor-quest/save'));
+    const lessons = { 'aif-ai-terms': 6, 'aif-learning-data': 6, 'aif-use-cases': 6, 'aif-aws-ai-services': 6, 'aif-ml-lifecycle': 6, 'aif-metrics': 6, 'aif-ml-checkpoint': 8 };
+    for (const [id, n] of Object.entries(lessons)) for (let i = 1; i <= n; i++) save.exam.answers[`${id}/${i}`] = '1';
+    for (const n of [3, 5, 6]) save.exam.answers[`aif/aif-d1/${n}`] = '1';
+    localStorage.setItem('reactor-quest/save', JSON.stringify(save));
+  });
+  await page.goto(`${url}#/exam`);
+  await page.reload();
+  await page.locator('.domain-table tr').filter({ hasText: 'Fundamentals of AI and ML' }).getByRole('button', { name: 'Drill' }).click();
+  let multi = 0;
+  for (let i = 0; i < 10; i++) {
+    const card = page.locator('.exam-card');
+    const two = await card.locator('.choose-n').count();
+    if (two) {
+      multi++;
+      await card.locator('.option').nth(0).click();
+      if (!(await page.getByRole('button', { name: 'Check answer' }).isDisabled())) throw new Error('"Choose TWO" could be checked with one option');
+      await card.locator('.option').nth(1).click();
+    } else await card.locator('.option').first().click();
+    await page.getByRole('button', { name: 'Check answer' }).click();
+    await card.locator('.explain').waitFor();
+    if (i === 0) await page.screenshot({ path: join(shots, '22-aws-drill.png') });
+    await page.getByRole('button', { name: /Next question|See results/ }).click();
+  }
+  if (multi < 4) throw new Error(`the drill served ${multi} "Choose TWO" questions, expected the 4 unseen ones`);
+  await page.locator('.exam-results .final-score').waitFor();
+  await page.locator('.exam-results').getByText(/^Readiness \d+% →/).waitFor();
+  const recorded = await page.evaluate(() => [1, 2, 4, 7].filter((n) => JSON.parse(localStorage.getItem('reactor-quest/save')).exam.answers[`aif/aif-d1/${n}`]).length);
+  if (recorded !== 4) throw new Error(`only ${recorded} of the 4 "Choose TWO" answers were recorded`);
+  await page.screenshot({ path: join(shots, '23-aws-results.png'), fullPage: true });
+  await page.getByRole('button', { name: 'Back to exam prep' }).click();
+  await page.locator('.history').getByText('Drill: Fundamentals of AI and ML').waitFor();
+});
+
+await step('A full mock exam is timed, can be flagged and finished early, and is scored against the pass mark', async () => {
+  await page.getByRole('button', { name: /Full mock exam/ }).click();
+  const clock = await page.locator('.exam-clock').textContent();
+  if (!/(90:00|89:5\d)/.test(clock)) throw new Error(`clock shows ${clock}`);
+  if ((await page.locator('.q-grid button').count()) !== 65) throw new Error('the mock exam does not have 65 questions');
+  const card = page.locator('.exam-card');
+  await card.locator('.option').first().click();
+  if (await card.locator('.explain').count()) throw new Error('the mock exam gave feedback before the end');
+  await page.getByRole('button', { name: /Flag for review/ }).click();
+  await page.locator('.q-grid button.flagged').first().waitFor();
+  await page.screenshot({ path: join(shots, '24-aws-mock.png') });
+  await page.getByRole('button', { name: 'Finish the exam now' }).click();
+  await page.getByRole('dialog', { name: 'Finish the exam?' }).getByText(/unanswered/).waitFor();
+  await page.getByRole('button', { name: 'Finish and score it' }).click();
+  await page.locator('.exam-results').getByText(/Below the pass mark of 700/).waitFor();
+  await page.getByText(/To learn from/).waitFor();
+  await page.getByRole('button', { name: 'Back to exam prep' }).click();
+  await page.locator('.history').getByText('Mock exam').waitFor();
+  // Exam prep fits a phone.
+  await page.setViewportSize({ width: 390, height: 844 });
+  // Nothing may stick out past the screen, even inside a container that hides it.
+  const overflow = await page.evaluate(() =>
+    Math.max(document.documentElement.scrollWidth - window.innerWidth, ...[...document.querySelectorAll('.exam-prep .panel, .exam-prep .panel > *')].map((el) => el.getBoundingClientRect().right - window.innerWidth)),
+  );
+  await page.screenshot({ path: join(shots, '25-aws-phone.png') });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  if (overflow > 1) throw new Error(`exam prep is ${overflow}px wider than a phone`);
+});
+
+await step('Switching journeys keeps every journey\'s progress', async () => {
+  await page.locator('.path-switch select').selectOption('aws-clf');
+  await page.locator('.deck h3').filter({ hasText: 'Cloud Concepts' }).waitFor();
+  await page.locator('.readiness-panel').getByText('CLF-C02 readiness').waitFor();
+  await page.locator('.path-switch select').selectOption('reactor');
+  await page.locator('.deck .kicker').filter({ hasText: /^Floor 1 ·/ }).waitFor();
+  if (await page.locator('.readiness-panel').count()) throw new Error('the station map shows exam readiness');
+  await page.goto(url);
+  await page.getByRole('radio', { name: /AWS Certification/ }).click();
+  await page.locator('.cert').filter({ has: page.locator('b', { hasText: /^AI Practitioner$/ }) }).getByText(/1\/28 lessons/).waitFor();
+  await page.locator('.journey').filter({ hasText: 'TypeScript & React' }).click();
+  await page.getByText('A TypeScript & React quest').waitFor();
+});
+
 await step('Colour profiles: 🎨 previews on hover, Escape reverts, a click keeps it, and it survives a reload', async () => {
   const theme = () => page.evaluate(() => document.documentElement.dataset.theme);
   const bgLum = () =>

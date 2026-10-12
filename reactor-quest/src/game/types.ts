@@ -70,6 +70,8 @@ export interface Question {
 export interface QuizLevel extends LevelBase {
   kind: 'quiz';
   questions: Question[];
+  /** The end-of-floor test on a certification path (open from the start, so you can test out). */
+  checkpoint?: boolean;
 }
 
 export type Level = CodeLevel | QuizLevel;
@@ -83,6 +85,63 @@ export interface Deck {
   /** Accent colour for the deck on the map. */
   hue: number;
   levels: Level[];
+  /** On a certification path: the exam domain this floor prepares you for. */
+  domain?: string;
+}
+
+// ---------------------------------------------------------------- paths
+
+export type PathId = 'reactor' | 'aws-aif' | 'aws-clf' | 'aws-saa';
+
+/** One domain of a certification exam, with its share of the questions. */
+export interface ExamDomain {
+  id: string;
+  name: string;
+  /** Percent of the scored questions, from the official exam guide. */
+  weight: number;
+}
+
+/** The facts of a certification exam, from its official exam guide. */
+export interface Exam {
+  code: string;
+  name: string;
+  level: 'Foundational' | 'Associate';
+  questions: number;
+  minutes: number;
+  /** The passing score, on AWS's scale of 100 to 1000. */
+  pass: number;
+  domains: ExamDomain[];
+  guide: string;
+  /** Anything about the real exam the practice here doesn't reproduce. */
+  note?: string;
+}
+
+/** A practice question for a certification. */
+export interface ExamQuestion {
+  id: string;
+  domain: string;
+  prompt: string;
+  code?: string;
+  options: string[];
+  /** The right option, or for a "Choose TWO" question, the right options. */
+  answer: number | number[];
+  explain: string;
+  /** The lesson this question comes from, if any. */
+  from?: string;
+}
+
+/** A journey through the game: the TypeScript & React station, or a certification. */
+export interface Path {
+  id: PathId;
+  name: string;
+  /** A few words for buttons and chips. */
+  short: string;
+  tagline: string;
+  icon: string;
+  decks: Deck[];
+  exam?: Exam;
+  /** Exam-style questions beyond the lessons' own. */
+  bank?: ExamQuestion[];
 }
 
 /** A "does this compile?" review card. */

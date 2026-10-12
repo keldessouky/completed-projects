@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ALL_LEVELS } from '../content';
+import { findLevel, pathLevels } from '../content';
 import { crawlerLevel, isBoss } from '../game/progress';
 import { formatViewers, saveNote, type Reward } from '../game/rewards';
 import { SKILLS, SKILL_RANKS } from '../game/skills';
@@ -19,9 +19,12 @@ const LINES = [
 export function Victory({ level, stars, events, onReplay, onClose }: { level: Level; stars: number; events: Reward[]; onReplay(): void; onClose(): void }) {
   const save = useSave();
   const lvl = crawlerLevel(save.xp);
-  const idx = ALL_LEVELS.findIndex((l) => l.id === level.id);
-  const next = ALL_LEVELS[idx + 1];
+  const path = findLevel(level.id)?.path;
+  const levels = path ? pathLevels(path) : [];
+  const idx = levels.findIndex((l) => l.id === level.id);
+  const next = levels[idx + 1];
   const final = !next;
+  const cert = !!path?.exam;
   const boss = isBoss(level);
 
   const xp = events.filter((e) => e.kind === 'xp').reduce((n, e) => n + (e.kind === 'xp' ? e.amount : 0), 0);
@@ -42,13 +45,23 @@ export function Victory({ level, stars, events, onReplay, onClose }: { level: Le
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const typing = e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLInputElement;
-      if (e.key === 'Enter' && !e.metaKey && !e.ctrlKey && !typing && !(e.target instanceof HTMLButtonElement)) leave(next ? `/level/${next.id}` : '/map');
+      if (e.key === 'Enter' && !e.metaKey && !e.ctrlKey && !typing && !(e.target instanceof HTMLButtonElement)) leave(next ? `/level/${next.id}` : cert ? '/exam' : '/map');
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   });
 
-  const line = final ? 'The last system is online. Orrery Station is alive again — because of you, engineer.' : boss ? 'Floor boss defeated! The next section of the station powers up.' : LINES[idx % LINES.length];
+  const line = final
+    ? cert
+      ? `Every ${path!.exam!.code} lesson done. Now prove it: take a full mock exam in Exam Prep.`
+      : 'The last system is online. Orrery Station is alive again — because of you, engineer.'
+    : boss
+      ? 'Floor boss defeated! The next section of the station powers up.'
+      : cert
+        ? level.kind === 'quiz' && level.checkpoint
+          ? 'Checkpoint cleared. Your answers count towards your exam readiness.'
+          : 'Lesson learned. It joins your review deck, and counts towards your exam readiness.'
+        : LINES[idx % LINES.length];
   return (
     <div className="modal-backdrop victory-backdrop">
       <div className={`modal victory ${final ? 'final' : ''} ${boss ? 'boss-win' : ''}`} role="dialog" aria-modal="true" aria-label="Level complete">
@@ -101,7 +114,7 @@ export function Victory({ level, stars, events, onReplay, onClose }: { level: Le
           {next ? (
             <button className="btn primary" autoFocus onClick={() => leave(`/level/${next.id}`)}>Next system →</button>
           ) : (
-            <button className="btn primary" autoFocus onClick={() => leave('/map')}>See the station</button>
+            <button className="btn primary" autoFocus onClick={() => leave(cert ? '/exam' : '/map')}>{cert ? 'Go to exam prep' : 'See the station'}</button>
           )}
         </div>
       </div>

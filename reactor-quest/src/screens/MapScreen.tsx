@@ -1,9 +1,10 @@
-import { ALL_LEVELS, DECKS } from '../content';
+import { pathById, pathLevels } from '../content';
 import { isBoss, isUnlocked, levelState } from '../game/progress';
 import { addDays, claimQuest, dayOf, dueReviews, nextReviewDay, QUESTS, questProgress, REVIEW_MONTH_BOX, SPONSORS } from '../game/rewards';
 import { sfx } from '../game/sound';
 import { act, useSave } from '../game/store';
 import { go } from '../ui/router';
+import { ReadinessSummary } from './ExamScreen';
 
 /** Spaced review: what's due today, and how much you've kept. */
 function Review() {
@@ -78,10 +79,19 @@ function Quests() {
 
 export function MapScreen() {
   const save = useSave();
-  const nextUp = ALL_LEVELS.find((l) => isUnlocked(save, l.id) && !levelState(save, l.id).done);
+  const path = pathById(save.path);
+  const nextUp = pathLevels(path).find((l) => isUnlocked(save, l.id) && !levelState(save, l.id).done);
 
   return (
     <div className="map">
+      {path.exam && (
+        <section className="panel readiness-panel" aria-label="Exam readiness">
+          <ReadinessSummary path={path} compact />
+          <div className="readiness-actions">
+            <button className="btn primary" onClick={() => go('/exam')}>Exam prep →</button>
+          </div>
+        </section>
+      )}
       {nextUp && (
         <button className="panel next-up" onClick={() => go(`/level/${nextUp.id}`)}>
           <span className="kicker">Next up</span>
@@ -92,7 +102,7 @@ export function MapScreen() {
       )}
       <Review />
       <Quests />
-      {DECKS.map((deck, d) => {
+      {path.decks.map((deck, d) => {
         const done = deck.levels.filter((l) => levelState(save, l.id).done).length;
         const stars = deck.levels.reduce((n, l) => n + levelState(save, l.id).stars, 0);
         const locked = !isUnlocked(save, deck.levels[0].id);
@@ -102,7 +112,7 @@ export function MapScreen() {
           <section key={deck.id} className={`panel deck ${locked ? 'locked' : ''} ${cleared ? 'cleared' : ''}`} style={{ ['--hue' as string]: deck.hue }}>
             <header>
               <div>
-                <p className="kicker">Floor {d + 1} · {deck.subtitle}</p>
+                <p className="kicker">{path.exam ? deck.subtitle : `Floor ${d + 1} · ${deck.subtitle}`}</p>
                 <h3>{deck.name}</h3>
                 <p className="outcome">{cleared ? '✓ ' : ''}{deck.outcome}</p>
               </div>
@@ -117,7 +127,8 @@ export function MapScreen() {
                 const p = levelState(save, level.id);
                 const open = isUnlocked(save, level.id);
                 const boss = isBoss(level);
-                const cls = ['node', p.done ? 'done' : '', open ? '' : 'locked', boss ? 'boss' : '', level.kind === 'quiz' ? 'is-quiz' : '', nextUp?.id === level.id ? 'next' : '']
+                const checkpoint = level.kind === 'quiz' && !!level.checkpoint;
+                const cls = ['node', p.done ? 'done' : '', open ? '' : 'locked', boss || checkpoint ? 'boss' : '', level.kind === 'quiz' && !path.exam ? 'is-quiz' : '', nextUp?.id === level.id ? 'next' : '']
                   .filter(Boolean)
                   .join(' ');
                 const skipHint = boss && open && !p.done && !isUnlocked(save, deck.levels[deck.levels.length - 2].id);
@@ -132,7 +143,7 @@ export function MapScreen() {
                       title={skipHint ? 'Already know this? Beat the boss to skip ahead to the next floor.' : undefined}
                       aria-label={`${level.title}${p.done ? `, ${p.stars} stars` : open ? '' : ', locked'}`}
                     >
-                      <span className="orb">{!open ? '🔒' : boss ? '☢' : level.kind === 'quiz' ? '?' : i + 1}</span>
+                      <span className="orb">{!open ? '🔒' : boss ? '☢' : checkpoint ? '🏁' : level.kind === 'quiz' && !path.exam ? '?' : i + 1}</span>
                       <span className="node-title">{level.title}</span>
                       <span className="node-stars">{p.done ? '★'.repeat(p.stars) + '☆'.repeat(3 - p.stars) : skipHint ? 'skip ahead?' : ' '}</span>
                     </button>

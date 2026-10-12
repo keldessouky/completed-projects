@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
-import { ALL_LEVELS, DECKS } from '../content';
+import { ALL_LEVELS, CERT_PATHS, DECKS, findLevel, PATHS, pathLevels } from '../content';
+import { readiness } from '../game/readiness';
 import { item } from '../game/items';
 import { CAREER, crawlerLevel, emptySave, levelState, parseSave, stationPower, type Save } from '../game/progress';
 import { ACHIEVEMENTS, classInfo, dayOf, formatViewers, PETS, TIER_INFO } from '../game/rewards';
@@ -47,8 +48,10 @@ export function CharacterScreen({ tab: initial }: { tab?: string }) {
   const pet = save.pet ? PETS.find((p) => p.kind === save.pet!.kind) : null;
   const done = ALL_LEVELS.filter((l) => levelState(save, l.id).done).length;
   const stars = ALL_LEVELS.reduce((n, l) => n + levelState(save, l.id).stars, 0);
-  const classEligible = !save.classId && levelState(save, DECKS[2].levels.at(-1)!.id).done;
-  const petEligible = !save.pet && levelState(save, DECKS[0].levels.at(-1)!.id).done;
+  const checkpoints = CERT_PATHS.flatMap(pathLevels).filter((l) => l.kind === 'quiz' && l.checkpoint && levelState(save, l.id).done).length;
+  const classEligible = !save.classId && (levelState(save, DECKS[2].levels.at(-1)!.id).done || checkpoints >= 3);
+  const petEligible = !save.pet && (levelState(save, DECKS[0].levels.at(-1)!.id).done || checkpoints >= 1);
+  const certs = CERT_PATHS.filter((p) => pathLevels(p).some((l) => save.levels[l.id]) || save.exam.mocks.some((m) => m.cert === p.id));
 
   return (
     <div className="character">
@@ -67,6 +70,9 @@ export function CharacterScreen({ tab: initial }: { tab?: string }) {
           <div><b>{stationPower(save)}%</b><span>station power</span></div>
           <div><b>{done}/{ALL_LEVELS.length}</b><span>systems online</span></div>
           <div><b>{stars}</b><span>stars of {ALL_LEVELS.length * 3}</span></div>
+          {certs.map((p) => (
+            <div key={p.id}><b>{readiness(save, p).percent}%</b><span>{p.exam!.code} ready</span></div>
+          ))}
           <div><b>{formatViewers(save.viewers)}</b><span>viewers</span></div>
           <div><b>{ACHIEVEMENTS.filter((a) => save.achievements.includes(a.id)).length}/{ACHIEVEMENTS.length}</b><span>achievements</span></div>
           <div><b>{save.streak.best}</b><span>best streak</span></div>
@@ -86,7 +92,7 @@ export function CharacterScreen({ tab: initial }: { tab?: string }) {
           <section className="panel skills">
             <h3>Skills</h3>
             <p className="muted small">Every level trains skills. Clearing it gives a point; earning three stars gives another. Five levels per skill: Novice, Apprentice, Adept, Expert, Master.</p>
-            {(['JavaScript', 'TypeScript', 'React'] as const).map((school) => (
+            {(['JavaScript', 'TypeScript', 'React', 'Cloud'] as const).map((school) => (
               <div key={school} className="school">
                 <h4>{school}</h4>
                 <ul>
@@ -157,9 +163,9 @@ export function CharacterScreen({ tab: initial }: { tab?: string }) {
             <p className="muted">Nothing here yet. When you clear a level, the victory screen asks you to explain it back in a sentence or two.</p>
           ) : (
             <ol>
-              {ALL_LEVELS.filter((l) => save.notes[l.id]).map((l) => (
+              {PATHS.flatMap(pathLevels).filter((l) => save.notes[l.id]).map((l) => (
                 <li key={l.id}>
-                  <b>{l.title}</b> <span className="muted small">· {DECKS.find((d) => d.levels.includes(l))?.name}</span>{' '}
+                  <b>{l.title}</b> <span className="muted small">· {findLevel(l.id)?.deck.name}</span>{' '}
                   <button className="link small" onClick={() => go(`/level/${l.id}`)}>revisit</button>
                   <p>{save.notes[l.id].text}</p>
                 </li>

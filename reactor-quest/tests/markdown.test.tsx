@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, test } from 'vitest';
-import { ALL_LEVELS } from '../src/content';
+import { PATHS, pathLevels } from '../src/content';
 import { Markdown } from '../src/ui/Markdown';
 
 const html = (md: string) => renderToStaticMarkup(<Markdown text={md} />);
@@ -16,7 +16,7 @@ describe('markdown', () => {
     expect(html('<img src=x onerror=alert(1)>')).not.toContain('<img');
   });
   test('every lesson, brief and hint renders without leftover markers', () => {
-    for (const l of ALL_LEVELS) {
+    for (const l of PATHS.flatMap(pathLevels)) {
       const texts = [l.brief, l.lesson, ...(l.kind === 'code' ? l.hints : [])];
       for (const t of texts) {
         const out = html(t).replace(/<pre[\s\S]*?<\/pre>/g, '').replace(/<code>[\s\S]*?<\/code>/g, '');

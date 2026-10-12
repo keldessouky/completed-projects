@@ -1,10 +1,10 @@
 // The save file and the rules about levels: stars, XP, unlocking, crawler
 // level. Pure functions over a plain object, so every rule is unit-testable;
 // the store persists the object to localStorage.
-import { ALL_LEVELS, DECKS } from '../content';
+import { ALL_LEVELS, DECKS, findLevel, PATHS } from '../content';
 import type { SkillId } from './skills';
 import { SKILLS, type School } from './skills';
-import type { Level } from './types';
+import type { Level, PathId } from './types';
 
 export type Tier = 'bronze' | 'silver' | 'gold' | 'platinum' | 'legendary' | 'celestial';
 export const TIERS: Tier[] = ['bronze', 'silver', 'gold', 'platinum', 'legendary', 'celestial'];
@@ -90,8 +90,34 @@ export interface Notice {
   icon: string;
 }
 
+/** One finished practice session on a certification path. */
+export interface MockResult {
+  cert: PathId;
+  /** The day it was taken, YYYY-MM-DD. */
+  day: string;
+  /** A full timed mock exam, a quick mixed quiz, or a one-domain drill. */
+  mode: 'full' | 'quick' | 'drill';
+  correct: number;
+  total: number;
+  /** On AWS's scale of 100 to 1000. */
+  score: number;
+  passed: boolean;
+  /** Right and total answers per exam domain. */
+  domains: Record<string, [number, number]>;
+}
+
+/** Everything the game knows about how ready you are for your exams. */
+export interface ExamRecord {
+  /** Every certification question you've answered: your last few results, oldest first ("1" right, "0" wrong). */
+  answers: Record<string, string>;
+  mocks: MockResult[];
+}
+
 export interface Save {
   v: 2;
+  /** The journey being played: the TypeScript & React station, or an AWS certification. */
+  path: PathId;
+  exam: ExamRecord;
   name: string;
   levels: Record<string, LevelProgress>;
   xp: number;
@@ -124,6 +150,8 @@ export interface Save {
 
 export const emptySave = (): Save => ({
   v: 2,
+  path: 'reactor',
+  exam: { answers: {}, mocks: [] },
   name: '',
   levels: {},
   xp: 0,
@@ -183,16 +211,22 @@ export function floorOf(levelId: string): { index: number; id: string; name: str
   return { index, id: DECKS[index]?.id ?? '', name: DECKS[index]?.name ?? '' };
 }
 
-/** The school a level belongs to: floors 1–3 are JavaScript, 4–6 TypeScript, 7–10 React. */
+/** The school a level belongs to: floors 1–3 are JavaScript, 4–6 TypeScript, 7–10 React, and every certification level is Cloud. */
 export function levelSchool(level: Level): School {
+  if (findLevel(level.id)?.path.exam) return 'Cloud';
   const index = floorOf(level.id).index;
   return index < 3 ? 'JavaScript' : index < 6 ? 'TypeScript' : 'React';
 }
 
 export const isBoss = (level: Level) => level.kind === 'code' && !!level.boss;
 
-/** Full XP for a level, growing gently floor by floor (×1.0 on Floor 1 up to ×1.9 on Floor 10). */
+/**
+ * Full XP for a level, growing gently floor by floor (×1.0 on Floor 1 up to
+ * ×1.9 on Floor 10). On a certification path, lessons are the main work, so
+ * they pay like code levels, and checkpoints like bosses.
+ */
 export function maxXp(level: Level): number {
+  if (level.kind === 'quiz' && findLevel(level.id)?.path.exam) return level.checkpoint ? 200 : 90;
   const base = level.kind === 'quiz' ? 60 : isBoss(level) ? 250 : 100;
   return Math.round(base * (1 + Math.max(0, floorOf(level.id).index) * 0.1));
 }
@@ -207,6 +241,14 @@ export function xpFor(level: Level, stars: number): number {
  */
 export function isUnlocked(save: Save, id: string): boolean {
   if (save.unlockAll) return true;
+  const found = findLevel(id);
+  if (found?.path.exam) {
+    // Certification floors are exam domains, so each one is open from the
+    // start, in any order; lessons unlock one by one within a floor, and the
+    // checkpoint is open from the start so you can test out.
+    const { deck, index: i } = found;
+    return i === 0 || i === deck.levels.length - 1 || levelState(save, id).done || levelState(save, deck.levels[i - 1].id).done;
+  }
   const index = ALL_LEVELS.findIndex((l) => l.id === id);
   if (index < 0) return false;
   if (index === 0 || levelState(save, id).done) return true;
@@ -351,8 +393,30 @@ export function parseSave(raw: string | null): Save {
   const skills: Partial<Record<SkillId, number>> = {};
   for (const [k, v] of Object.entries(obj(data.skills))) if (k in SKILLS) skills[k as SkillId] = num(v, 0);
 
+  const exam = obj(data.exam);
   return {
     ...save,
+    path: PATHS.find((p) => p.id === data.path)?.id ?? 'reactor',
+    exam: {
+      answers: Object.fromEntries(Object.entries(obj(exam.answers)).flatMap(([id, h]) => (typeof h === 'string' && /^[01]{1,8}$/.test(h) ? [[id, h]] : []))),
+      mocks: Array.isArray(exam.mocks)
+        ? exam.mocks
+            .filter((m: any) => m && PATHS.some((p) => p.id === m.cert) && ['full', 'quick', 'drill'].includes(m.mode) && typeof m.day === 'string')
+            .map((m: any): MockResult => ({
+              cert: m.cert,
+              day: m.day,
+              mode: m.mode,
+              correct: num(m.correct, 0),
+              total: Math.max(1, num(m.total, 1)),
+              score: Math.min(1000, num(m.score, 100)),
+              passed: m.passed === true,
+              domains: Object.fromEntries(
+                Object.entries(obj(m.domains)).flatMap(([d, v]) => (Array.isArray(v) && v.length === 2 ? [[d, [num(v[0], 0), num(v[1], 0)] as [number, number]]] : [])),
+              ),
+            }))
+            .slice(-50)
+        : [],
+    },
     name: str(data.name, '').slice(0, 24),
     gold: num(data.gold, 0),
     viewers: num(data.viewers, 0),

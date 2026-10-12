@@ -2,9 +2,12 @@ import { useEffect } from 'react';
 import { findLevel } from './content';
 import { warmUp } from './engine/compiler';
 import { isUnlocked } from './game/progress';
-import { onRewards, useSave } from './game/store';
+import { choosePath } from './game/rewards';
+import { onRewards, setSave, useSave } from './game/store';
+import type { PathId } from './game/types';
 import { CharacterScreen } from './screens/CharacterScreen';
 import { CodeLevelScreen } from './screens/CodeLevelScreen';
+import { ExamScreen } from './screens/ExamScreen';
 import { LootScreen } from './screens/LootScreen';
 import { MapScreen } from './screens/MapScreen';
 import { QuizScreen } from './screens/QuizScreen';
@@ -45,6 +48,9 @@ export function App() {
     case 'review':
       screen = <ReviewScreen key={route.name} />;
       break;
+    case 'exam':
+      screen = <ExamScreen />;
+      break;
     case 'loot':
       screen = <LootScreen tab={route.tab} />;
       break;
@@ -60,7 +66,9 @@ export function App() {
       else if (!isUnlocked(save, route.id)) screen = <Locked />;
       else
         screen =
-          found.level.kind === 'code' ? (
+          found.path.id !== save.path ? (
+            <SwitchPath to={found.path.id} />
+          ) : found.level.kind === 'code' ? (
             <CodeLevelScreen key={found.level.id} level={found.level} deck={found.deck} index={found.index} />
           ) : (
             <QuizScreen key={found.level.id} level={found.level} deck={found.deck} index={found.index} />
@@ -94,6 +102,12 @@ function NotFound() {
       <button className="btn primary" onClick={() => go('/map')}>Back to the map</button>
     </div>
   );
+}
+
+/** Opening a level from another journey (from a link, or a review card) switches to that journey first. */
+function SwitchPath({ to }: { to: PathId }) {
+  useEffect(() => setSave((s) => choosePath(s, to)), [to]);
+  return null;
 }
 
 function Locked() {

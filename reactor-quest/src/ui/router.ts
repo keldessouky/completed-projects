@@ -5,6 +5,7 @@ export type Route =
   | { name: 'map' }
   | { name: 'level'; id: string }
   | { name: 'review' }
+  | { name: 'exam' }
   | { name: 'loot'; tab?: string }
   | { name: 'shop' }
   | { name: 'character'; tab?: string };
@@ -14,6 +15,7 @@ export function parse(hash: string): Route {
   if (parts[0] === 'map') return { name: 'map' };
   if (parts[0] === 'level' && parts[1]) return { name: 'level', id: decodeURIComponent(parts[1]) };
   if (parts[0] === 'review') return { name: 'review' };
+  if (parts[0] === 'exam') return { name: 'exam' };
   if (parts[0] === 'loot') return { name: 'loot', tab: parts[1] };
   if (parts[0] === 'shop') return { name: 'shop' };
   if (parts[0] === 'character' || parts[0] === 'profile') return { name: 'character', tab: parts[1] };

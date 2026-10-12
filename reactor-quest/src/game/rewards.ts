@@ -3,7 +3,8 @@
 // achievements, daily quests — plus opening boxes, the shop, classes and pets.
 // Every function takes a save and returns a new one alongside a list of
 // events for the UI to announce. Randomness is injected, so it's testable.
-import { ALL_LEVELS, DECKS } from '../content';
+import { ALL_LEVELS, CERT_PATHS, DECKS, pathById, pathLevels } from '../content';
+import { readiness, recordAnswer, scoreSession } from './readiness';
 import { REVIEW_ITEMS } from '../content/review';
 import { ALL_ITEMS, FLOOR_SCROLLS, item, RARITY_ORDER, type Item, type Rarity } from './items';
 import {
@@ -20,13 +21,14 @@ import {
   type Box,
   type ClassId,
   type Counters,
+  type MockResult,
   type Notice,
   type PetKind,
   type Save,
   type Tier,
 } from './progress';
 import { MAX_SKILL_LEVEL, SKILLS, skillLevel, type SkillId } from './skills';
-import type { Level, ReviewItem } from './types';
+import type { ExamQuestion, Level, PathId, ReviewItem } from './types';
 
 export type Rng = () => number;
 
@@ -433,6 +435,7 @@ export function completeLevel(save: Save, level: Level, outcome: Outcome, rng: R
   // every one of them piled up faster than anyone opened them, and stopped
   // meaning anything.
   if (firstClear && boss) apply(addBox(s, 'gold', `Boss Box: ${level.system}`, FLOOR_SCROLLS[floor.id]));
+  if (firstClear && level.kind === 'quiz' && level.checkpoint) apply(addBox(s, 'gold', `Checkpoint Box: ${level.title.replace(/^Checkpoint: /, '')}`));
   if (boss && best === 3 && prev.stars < 3) apply(addBox(s, 'silver', `Flawless: ${level.title}`));
   if (firstClear && boss && s.classId === 'bug-hunter') s = { ...s, hintTokens: s.hintTokens + 1 };
 
@@ -469,6 +472,12 @@ export function completeLevel(save: Save, level: Level, outcome: Outcome, rng: R
   // Offers that unlock with progress.
   if (floor.id === 'boot' && boss && !s.pet) events.push({ kind: 'offer', what: 'pet' });
   if (floor.id === 'modern' && boss && !s.classId) events.push({ kind: 'offer', what: 'class' });
+  // On the certification paths: a companion after your first checkpoint, a class after your third.
+  if (firstClear && level.kind === 'quiz' && level.checkpoint) {
+    const checkpoints = CERT_PATHS.flatMap(pathLevels).filter((l) => l.kind === 'quiz' && l.checkpoint && levelState(s, l.id).done).length;
+    if (!s.pet && checkpoints >= 1) events.push({ kind: 'offer', what: 'pet' });
+    if (!s.classId && checkpoints >= 3) events.push({ kind: 'offer', what: 'class' });
+  }
 
   apply(checkAchievements(s));
   return { save: s, events };
@@ -545,6 +554,9 @@ export const ACHIEVEMENTS: Achievement[] = [
     quip: f.quip,
     earned: (s) => floorCleared(s, i),
   })),
+  { id: 'head-in-clouds', name: 'Head in the Clouds', icon: '☁', tier: 'bronze', description: 'Clear your first AWS certification lesson.', quip: 'Your first cloud lesson. Ground control would like you to know the cloud is just someone else\'s computer. A very, very big one.', earned: (s) => CERT_PATHS.some((p) => pathLevels(p).some((l) => levelState(s, l.id).done)) },
+  { id: 'mock-pass', name: 'Mock Exam Passed', icon: '📝', tier: 'gold', description: 'Pass a full, timed mock exam.', quip: 'A full mock exam, passed, against the clock. The real one is going to feel familiar.', earned: (s) => s.exam.mocks.some((m) => m.mode === 'full' && m.passed) },
+  { id: 'exam-ready', name: 'Ready for the Real Thing', icon: '🎫', tier: 'platinum', title: 'title-certified', description: 'Reach "Ready to book the exam" on a certification.', quip: 'Every box ticked. Go and book it. THE FEED will be watching from the testing centre car park.', earned: (s) => CERT_PATHS.some((p) => s.exam.mocks.some((m) => m.cert === p.id && m.mode === 'full') && readiness(s, p).verdict === 'ready') },
   { id: 'skill-2', name: 'Skill Issue (Resolved)', icon: '📈', tier: 'bronze', description: 'Raise any skill to level 2.', quip: 'Your first skill is level 2. The galaxy\'s bookmakers are revising their odds.', earned: (s) => skillLevels(s).some((l) => l >= 2) },
   { id: 'skill-3', name: 'Adept', icon: '🥉', tier: 'silver', description: 'Raise any skill to level 3.', quip: 'Adept! That\'s a real word with a real meaning and it applies to you.', earned: (s) => skillLevels(s).some((l) => l >= 3) },
   { id: 'skill-5', name: 'Master of One', icon: '🥇', tier: 'gold', description: 'Master a skill (level 5).', quip: 'A mastered skill. Somewhere, a recruiter just felt a disturbance.', earned: (s) => skillLevels(s).some((l) => l >= 5) },
@@ -843,6 +855,8 @@ export function answerReview(save: Save, id: string, correct: boolean, today: st
     reviews: { ...save.reviews, [id]: { box, due: addDays(today, REVIEW_INTERVALS[box]) } },
     counters: { ...save.counters, reviewsAnswered: save.counters.reviewsAnswered + 1, reviewsCorrect: save.counters.reviewsCorrect + (correct ? 1 : 0) },
   };
+  // Certification cards count towards exam readiness too.
+  s = recordAnswer(s, id, correct);
   // Effort counts too: a card you got wrong is a card you're about to learn.
   const x = addXp(s, Math.round((correct ? 12 : 4) * (s.classId === 'speedrunner' ? 1.5 : 1)), 'review');
   s = x.save;
@@ -861,6 +875,34 @@ export function finishReview(save: Save, answered: number, mistakes: number): Re
     },
   };
   return checkAchievements(s);
+}
+
+// ---------------------------------------------------------------- certification practice
+
+/** XP per right answer in a practice session, and the bonus for sitting a full mock exam. */
+export const PRACTICE_XP = 4;
+export const MOCK_XP = 80;
+
+/** The end of a practice session: remember every answer, keep the result, and pay for the effort. */
+export function finishPractice(save: Save, results: { q: ExamQuestion; correct: boolean }[], mode: MockResult['mode'], day: string): Result {
+  const path = pathById(save.path);
+  let s = results.reduce((acc, r) => recordAnswer(acc, r.q.id, r.correct), save);
+  const result = scoreSession(path, mode, results, day);
+  s = { ...s, exam: { ...s.exam, mocks: [...s.exam.mocks, result].slice(-50) } };
+  const events: Reward[] = [];
+  const xp = result.correct * PRACTICE_XP + (mode === 'full' ? MOCK_XP : 0);
+  if (xp > 0) {
+    const x = addXp(s, xp, mode === 'full' ? 'mock exam' : 'practice');
+    s = x.save;
+    events.push(...x.events);
+  }
+  const a = checkAchievements(s);
+  return { save: a.save, events: [...events, ...a.events] };
+}
+
+/** Switch journeys. Progress on every path is kept. */
+export function choosePath(save: Save, id: PathId): Save {
+  return { ...save, path: id };
 }
 
 // ---------------------------------------------------------------- the notebook

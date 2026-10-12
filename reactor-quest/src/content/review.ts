@@ -1,4 +1,4 @@
-import { ALL_LEVELS } from '.';
+import { PATHS, pathLevels } from '.';
 import type { CompileCard, ReviewItem } from '../game/types';
 
 // Spaced review: short retrieval questions that come back on a schedule after
@@ -52,7 +52,8 @@ export const COMPILE_CARDS: CompileCard[] = [
 ];
 
 export const REVIEW_ITEMS: ReviewItem[] = [
-  ...ALL_LEVELS.flatMap((level) =>
+  // Every quiz question on every path, AWS lessons included: spaced review is how exam facts stick.
+  ...PATHS.flatMap(pathLevels).flatMap((level) =>
     level.kind === 'quiz'
       ? level.questions.map((q, i): ReviewItem => ({ id: `${level.id}/${i + 1}`, after: level.id, prompt: q.prompt, code: q.code, options: q.options, answer: q.answer, explain: q.explain }))
       : [],
