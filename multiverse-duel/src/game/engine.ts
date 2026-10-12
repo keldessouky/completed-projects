@@ -486,6 +486,16 @@ export class Game {
     if (!c.card.types.includes('Creature')) {
       for (const perm of p.battlefield) if (this.has(perm, 'Prowess')) perm.temp.push({ p: 1, t: 1, kw: [] });
     }
+    // "Whenever you cast …" triggers resolve before the spell itself, as they would on the stack.
+    const isSpellCard = c.card.types.includes('Instant') || c.card.types.includes('Sorcery');
+    const castTriggers = p.battlefield.flatMap((perm) =>
+      this.ab(perm).triggers
+        .filter((t) => (t.when === 'cast-noncreature' && !c.card.types.includes('Creature')) || (t.when === 'cast-instant-sorcery' && isSpellCard))
+        .map((t) => ({ perm, t })),
+    );
+    for (const { perm, t } of castTriggers) {
+      if (this.perm(perm.iid)) this.autoResolve(pid, perm.iid, t.effects, `${perm.card.name}: ${t.text}`);
+    }
     const isPermanent = !c.card.types.includes('Instant') && !c.card.types.includes('Sorcery');
     if (isPermanent) {
       let rest = targets;
@@ -657,6 +667,9 @@ export class Game {
         case 'self-discard':
           this.discardWorst(pid, e.n);
           break;
+        case 'flicker':
+          for (const p of perms(pick(e.to))) this.blink(p);
+          break;
         case 'named-counter':
           if (src && this.perm(src.iid)) src.named[e.name] = (src.named[e.name] ?? 0) + e.n;
           break;
@@ -699,10 +712,11 @@ export class Game {
   }
 
   /** Remove a permanent from the battlefield; auras on it go too, equipment stays. */
-  private leave(p: Perm, to: 'graveyard' | 'exile' | 'hand') {
+  /** Take a permanent off the battlefield: out of combat, auras on it fall off, equipment stays behind. */
+  private remove(p: Perm): boolean {
     const ctrl = this.players[p.controller];
     const i = ctrl.battlefield.indexOf(p);
-    if (i < 0) return;
+    if (i < 0) return false;
     ctrl.battlefield.splice(i, 1);
     if (this.combat) {
       this.combat.attackers = this.combat.attackers.filter((x) => x !== p.iid);
@@ -712,6 +726,29 @@ export class Game {
       if (this.ab(a).attach?.kind === 'aura') this.leave(a, 'graveyard');
       else a.attachedTo = null;
     }
+    return true;
+  }
+
+  /**
+   * Blink: exile a permanent and return it at once under its owner's control. It comes back as a
+   * new object — untapped, with no counters or damage — and its "enters" abilities fire again,
+   * except ones that need it to have been cast. A token that's exiled is gone.
+   */
+  private blink(p: Perm) {
+    if (!this.remove(p)) return;
+    if (p.token) {
+      this.say(p.controller, `${p.card.name} was exiled and is gone (tokens don't come back).`);
+      return;
+    }
+    const fresh = this.enter(p.owner, { iid: this.nextIid++, card: p.card });
+    this.say(p.owner, `${p.card.name} blinked: it came back fresh${Object.values(p.named).some((n) => n > 0) ? ', counters reset' : ''}.`);
+    for (const t of this.ab(fresh).triggers.filter((x) => x.when === 'etb' && !x.castOnly)) {
+      this.autoResolve(p.owner, fresh.iid, t.effects, `${fresh.card.name}: ${t.text}`);
+    }
+  }
+
+  private leave(p: Perm, to: 'graveyard' | 'exile' | 'hand') {
+    if (!this.remove(p)) return;
     if (!p.token) this.players[p.owner][to === 'hand' ? 'hand' : to === 'exile' ? 'exile' : 'graveyard'].push({ iid: p.iid, card: p.card });
     if (to === 'graveyard' && this.isCreature(p)) {
       this.say(p.controller, `${p.card.name} died.`);
@@ -1092,6 +1129,22 @@ export function slotOwner(effects: Effect[], i: number): { effect: Effect; index
   return { effect: effects[effects.length - 1], index: 0 };
 }
 
+/** How much a permanent gains from being blinked (negative: it loses something). */
+export function blinkValue(g: Game, p: Perm): number {
+  const a = g.ab(p);
+  let v = 0;
+  if (p.tapped && a.activated.some((x) => x.tap)) v += 4; // use its tap ability again
+  if (p.tapped && a.mana) v += 1;
+  v += Object.values(p.named).reduce((x, y) => x + y, 0) * 2; // e.g. burden counters reset
+  if (a.triggers.some((t) => t.when === 'etb' && !t.castOnly)) v += 3;
+  if (g.isCreature(p)) v += p.damage;
+  if (g.allPerms().some((x) => x.attachedTo === p.iid && x.controller !== p.controller)) v += 5; // shed a Pacifism
+  if (g.allPerms().some((x) => x.attachedTo === p.iid && x.controller === p.controller)) v -= 3; // lose our own aura/equipment
+  v -= p.counters * 2;
+  if (g.isCreature(p) && !g.isSick(p) && p.controller === g.active && g.phase === 'main1') v -= 1; // couldn't attack this turn
+  return v;
+}
+
 /** Is this effect bad for whatever it targets? */
 export function harmful(e: Effect, slotInEffect = 0): boolean {
   switch (e.k) {
@@ -1138,6 +1191,12 @@ export function autoTarget(g: Game, pid: PlayerId, spec: TargetSpec, e: Effect, 
     if (theirs.length) return { kind: 'perm', iid: best(theirs).iid };
     if (oppPlayer) return oppPlayer;
     return spec.optional ? null : legal[legal.length - 1];
+  }
+  if (e.k === 'flicker') {
+    // Blink whatever gains the most from coming back fresh (The One Ring: untapped, burden counters gone).
+    const ranked = mine.map((p) => ({ p, v: blinkValue(g, p) })).sort((a, b) => b.v - a.v);
+    if (ranked[0] && ranked[0].v > 0) return { kind: 'perm', iid: ranked[0].p.iid };
+    return spec.optional ? null : mine[0] ? { kind: 'perm', iid: mine[0].iid } : null;
   }
   if (e.k === 'fight' && slotInEffect === 0) {
     const strongest = mine.sort((a, b) => g.power(b) - g.power(a))[0];

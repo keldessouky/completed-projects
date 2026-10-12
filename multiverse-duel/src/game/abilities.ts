@@ -72,9 +72,11 @@ export type Effect =
   | { k: 'draw-per-counter'; name: string }
   | { k: 'lose-per-counter'; name: string }
   /** "You gain protection from everything until your next turn." */
-  | { k: 'protection' };
+  | { k: 'protection' }
+  /** Exile a permanent and return it at once (a "blink"): it comes back untapped, fresh, and its enters abilities fire again. */
+  | { k: 'flicker'; to: Target };
 
-export type Trigger = 'etb' | 'attack' | 'combat-damage' | 'dies' | 'upkeep' | 'end-step';
+export type Trigger = 'etb' | 'attack' | 'combat-damage' | 'dies' | 'upkeep' | 'end-step' | 'cast-noncreature' | 'cast-instant-sorcery';
 
 export interface Activated {
   cost: ManaCost;
@@ -88,7 +90,8 @@ export interface Abilities {
   /** What an instant or sorcery does (or each mode of a "Choose one —" spell). */
   spell: Effect[];
   modes: Effect[][];
-  triggers: { when: Trigger; effects: Effect[]; text: string }[];
+  /** castOnly: "if you cast it" — doesn't happen when the permanent is blinked or put onto the battlefield. */
+  triggers: { when: Trigger; effects: Effect[]; text: string; castOnly?: boolean }[];
   activated: Activated[];
   mana: { options: ManaKind[]; amount: number } | null;
   /** "Creatures you control get +1/+1" and friends. */
@@ -275,6 +278,7 @@ export function parseClause(clause: string): Effect[] | null {
 
   // Two effects joined by "and" / ", then" — e.g. "each opponent loses 2 life and you gain 2 life".
   for (const sep of [', then ', ' and you ', '. you ']) {
+    if (sep === ', then ' && /, then return (that card|it|that creature|them|those cards) to the battlefield/.test(c)) continue;
     const i = c.indexOf(sep);
     if (i > 0) {
       const a = parseClause(c.slice(0, i));
@@ -299,6 +303,11 @@ export function parseClause(clause: string): Effect[] | null {
       out.push({ k: 'damage', n: Number(m[3]), to: [r] });
     }
     return out;
+  }
+  if ((m = c.match(/^exile (.+?),? then return (?:that card|it|that creature|them|those cards) to the battlefield under (?:its owner's|their owners'|your) control$/))) {
+    const r = parseRecipient(m[1]);
+    if (!r || r.sel === 'you' || r.sel === 'each-opp' || r.sel === 'each-player') return null;
+    return [{ k: 'flicker', to: r }];
   }
   if ((m = c.match(/^(destroy|exile) (.+?)(?: until ~ leaves the battlefield)?(?:\. it can't be regenerated)?$/))) {
     const r = parseRecipient(m[2]);
@@ -409,6 +418,8 @@ export function parseEffects(text: string): { effects: Effect[]; rest: string[] 
 // ------------------------------------------------------------------ cards
 
 const TRIGGERS: [RegExp, Trigger][] = [
+  [/^whenever you cast a noncreature spell$/, 'cast-noncreature'],
+  [/^whenever you cast an instant or sorcery spell$/, 'cast-instant-sorcery'],
   [/^when ~ enters(?: the battlefield)?(?: or attacks)?$/, 'etb'],
   [/^when ~ enters(?: the battlefield)?(?: or dies)?$/, 'etb'],
   [/^whenever ~ attacks$/, 'attack'],
@@ -479,7 +490,8 @@ function parseCard(card: Card): Abilities {
     : null;
 
   for (let li = 0; li < lines.length; li++) {
-    const line = lines[li].trim();
+    // Ability words ("Avoidance — Whenever …", "Landfall — …") are flavour; the ability follows the dash.
+    const line = lines[li].trim().replace(/^[a-z][a-z' -]{2,40} — (?=\S)/, '');
     const raw = rawLines[li]?.trim() ?? line;
     if (!line) continue;
     const ok = () => a.simulated.push(raw);
@@ -604,7 +616,8 @@ function parseCard(card: Card): Abilities {
       if (trig) {
         const { effects, rest } = parseEffects(m[3]);
         if (effects.length) {
-          a.triggers.push({ when: trig[1], effects, text: raw });
+          const castOnly = /^if you cast it, /.test(m[3]);
+          a.triggers.push({ when: trig[1], effects, text: raw, ...(castOnly ? { castOnly } : {}) });
           if (cond.includes('or attacks')) a.triggers.push({ when: 'attack', effects, text: raw });
           if (cond.includes('or dies')) a.triggers.push({ when: 'dies', effects, text: raw });
           if (rest.length) {
@@ -682,6 +695,7 @@ function refersToSelf(e: Effect): boolean {
     case 'untap':
     case 'pump':
     case 'counters':
+    case 'flicker':
       return self(e.to);
     case 'fight':
       return self(e.a) || self(e.b);
@@ -730,6 +744,7 @@ export function targetSlots(effects: Effect[]): TargetSpec[] {
       case 'untap':
       case 'pump':
       case 'counters':
+      case 'flicker':
         add(e.to);
         break;
       default:
@@ -793,5 +808,7 @@ export function describeEffect(e: Effect): string {
       return `lose 1 life for each ${e.name} counter`;
     case 'protection':
       return 'you gain protection from everything until your next turn';
+    case 'flicker':
+      return `blink ${who(e.to)} (exile it and return it to the battlefield)`;
   }
 }

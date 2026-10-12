@@ -1,6 +1,6 @@
 // The computer opponent: a few honest heuristics, no peeking at your hand or library.
 import { abilitiesOf, targetSlots, type Effect, type TargetSpec } from './abilities';
-import { autoTarget, slotOwner, type CastChoice, type Game, type Perm, type PlayerId, type TargetRef } from './engine';
+import { autoTarget, blinkValue, slotOwner, type CastChoice, type Game, type Perm, type PlayerId, type TargetRef } from './engine';
 import { parseCost } from './mana';
 
 interface Option {
@@ -117,6 +117,11 @@ function judge(g: Game, pid: PlayerId, effects: Effect[], targets: (TargetRef | 
       case 'protection':
         v += 2;
         break;
+      case 'flicker': {
+        const p = e.to.sel === 'target' ? permOf(next()) : null;
+        if (p && p.controller === pid) v += Math.max(0, blinkValue(g, p)) * 0.6;
+        break;
+      }
       case 'fight': {
         const a = e.a.sel === 'target' ? permOf(next()) : null;
         const b = e.b.sel === 'target' ? permOf(next()) : null;

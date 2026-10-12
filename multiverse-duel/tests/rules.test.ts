@@ -339,3 +339,56 @@ describe('The One Ring', () => {
   });
 });
 
+describe('Displacer Kitten and blinking', () => {
+  function table() {
+    const plains = card('Plains');
+    const g = new Game([Array(30).fill(plains), Array(30).fill(plains)], { seed: 4, first: 0 });
+    for (const p of g.players) p.hand = [];
+    return g;
+  }
+
+  test('the parser reads the Kitten, blink spells and cast triggers', () => {
+    expect(playability(card('Displacer Kitten'))).toBe('full');
+    expect(abilitiesOf(card('Displacer Kitten')).triggers[0]).toMatchObject({ when: 'cast-noncreature', effects: [{ k: 'flicker' }] });
+    expect(abilitiesOf(card('Cloudshift')).spell).toMatchObject([{ k: 'flicker' }]);
+    expect(abilitiesOf(card('Monastery Mentor')).triggers[0]).toMatchObject({ when: 'cast-noncreature', effects: [{ k: 'token' }] });
+    expect(abilitiesOf(card('Young Pyromancer')).triggers[0]).toMatchObject({ when: 'cast-instant-sorcery' });
+    expect(abilitiesOf(card('The One Ring')).triggers.find((t) => t.when === 'etb')?.castOnly).toBe(true);
+  });
+
+  test('Kitten + The One Ring: each noncreature spell blinks the Ring back untapped with no burden', () => {
+    const g = table();
+    lands(g, 0, 'Island', 3);
+    g.put(0, card('Displacer Kitten'));
+    const ring = g.put(0, card('The One Ring'));
+    expect(g.activate(0, ring, 0)).toBe(true);
+    expect(g.perm(ring)!.named.burden).toBe(1);
+    expect(g.usableAbilities(0, ring)).toEqual([]); // tapped
+    expect(g.cast(0, inHand(g, 0, 'Sol Ring'))).toBe(true); // a noncreature spell
+    const fresh = g.players[0].battlefield.find((p) => p.card.name === 'The One Ring')!;
+    expect(fresh.iid).not.toBe(ring);
+    expect(fresh.tapped).toBe(false);
+    expect(fresh.named.burden ?? 0).toBe(0);
+    expect(g.players[0].protected).toBe(false); // protection needs it to be cast, not blinked
+    const hand = g.players[0].hand.length;
+    expect(g.activate(0, fresh.iid, 0)).toBe(true); // tap it again: draw 1
+    expect(g.players[0].hand.length).toBe(hand + 1);
+  });
+
+  test('blinking re-triggers enters abilities; triggers resolve before the spell; creature spells do not trigger the Kitten', () => {
+    const g = table();
+    lands(g, 0, 'Plains', 6);
+    g.put(0, card('Displacer Kitten'));
+    const visionary = g.put(0, card('Elvish Visionary'));
+    const hand = g.players[0].hand.length;
+    expect(g.cast(0, inHand(g, 0, 'Cloudshift'), { targets: [{ kind: 'perm', iid: visionary }] })).toBe(true);
+    // As on the stack, the Kitten's trigger resolves first and blinks the Visionary (draw 1). It returns
+    // as a new object, so Cloudshift's target is gone and Cloudshift does nothing — just like real Magic.
+    expect(g.players[0].hand.length).toBe(hand + 1);
+    expect(g.perm(visionary)).toBeUndefined();
+    const before = g.players[0].hand.length;
+    expect(g.cast(0, inHand(g, 0, 'Savannah Lions'))).toBe(true); // a white creature: the deck only has Plains
+    expect(g.players[0].hand.length).toBe(before); // a creature spell doesn't trigger the Kitten
+  });
+});
+

@@ -80,6 +80,8 @@ function effectValue(e: Effect): number {
       return -1.5;
     case 'protection':
       return 2.5;
+    case 'flicker':
+      return 2;
   }
 }
 const sum = (es: Effect[]) => es.reduce((v, e) => v + effectValue(e), 0);
