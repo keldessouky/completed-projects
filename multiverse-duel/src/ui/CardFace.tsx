@@ -2,6 +2,7 @@
 // (offline, or tokens, which have no image).
 import { memo, useState } from 'react';
 import { imageUrl, type Card } from '../data/cards';
+import { useArt } from './Art';
 
 const FRAME: Record<string, string> = { W: '#f3ead2', U: '#bcd7ee', B: '#b7aeb0', R: '#f0b8a0', G: '#b9d8b5' };
 
@@ -66,18 +67,22 @@ function DrawnCard({ card }: { card: Card }) {
 /** Whether to load card images at all (players can turn them off to play fully offline). */
 export const imagesEnabled = { current: true };
 
-export const CardFace = memo(function CardFace({ card, size = 'normal', back = false }: { card: Card; size?: 'normal' | 'large' | 'small'; back?: boolean }) {
-  const [failed, setFailed] = useState(false);
+export const CardFace = memo(function CardFace({ card, size = 'normal', back = false, printing }: { card: Card; size?: 'normal' | 'large' | 'small'; back?: boolean; printing?: string }) {
+  const art = useArt(card);
+  const id = printing ?? art.id;
+  const [failed, setFailed] = useState<string[]>([]);
   const hasImage = !card.id.startsWith('token-') && imagesEnabled.current;
-  if (!hasImage || failed) return <DrawnCard card={card} />;
+  // A special printing that won't load falls back to the classic one, then to a drawn frame.
+  const src = [id, card.id].find((x) => !failed.includes(x));
+  if (!hasImage || !src) return <DrawnCard card={card} />;
   return (
     <img
       className="card-img"
-      src={imageUrl(card.id, size, back)}
+      src={imageUrl(src, size, back)}
       alt={card.fullName}
       loading="lazy"
       draggable={false}
-      onError={() => setFailed(true)}
+      onError={() => setFailed((f) => [...f, src])}
     />
   );
 });

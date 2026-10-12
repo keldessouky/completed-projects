@@ -56,6 +56,26 @@ function printingScore(c) {
   return s;
 }
 
+/**
+ * The "cool" printings: R serialized, B borderless, S showcase, E extended art,
+ * M masterpiece, L Secret Lair, F full art, T etched/foil-etched frames.
+ */
+function variantKind(c) {
+  const promo = new Set(c.promo_types ?? []);
+  const fx = new Set(c.frame_effects ?? []);
+  if (promo.has('serialized')) return 'R';
+  if (c.border_color === 'borderless') return 'B';
+  if (fx.has('showcase')) return 'S';
+  if (fx.has('extendedart')) return 'E';
+  if (c.set_type === 'masterpiece') return 'M';
+  if (c.set === 'sld') return 'L';
+  if (c.full_art) return 'F';
+  if (fx.has('etched') || fx.has('inverted')) return 'T';
+  return null;
+}
+const KIND_ORDER = 'RBSEMLFT';
+const MAX_VARIANTS = 8;
+
 const front = (c) => (c.card_faces ? c.card_faces[0] : c);
 
 async function lines() {
@@ -89,7 +109,7 @@ for await (let line of await lines()) {
   printings++;
   let rec = byOracle.get(c.oracle_id);
   if (!rec) {
-    rec = { best: c, score: printingScore(c), sets: new Set(), first: null, ub: true };
+    rec = { best: c, score: printingScore(c), sets: new Set(), first: null, ub: true, variants: [] };
     byOracle.set(c.oracle_id, rec);
   } else {
     const s = printingScore(c);
@@ -99,6 +119,9 @@ for await (let line of await lines()) {
     }
   }
   rec.sets.add(c.set);
+  const kind = variantKind(c);
+  // Special printings (English, plus serialized cards in any language — like the 1-of-1 One Ring).
+  if (kind && (c.lang === 'en' || kind === 'R')) rec.variants.push({ id: c.id, kind, set: c.set, date: c.released_at, lang: c.lang, cn: c.collector_number });
   const original = !c.promo && c.set_type !== 'promo';
   if (original && (!rec.first || c.released_at < rec.first.released_at)) rec.first = c;
   // A Universes Beyond card is one that has never been printed outside Universes Beyond.
@@ -112,7 +135,7 @@ const cards = [];
 const usedSets = new Map();
 const COLOR_ORDER = 'WUBRG';
 const colorsOf = (cost) => [...COLOR_ORDER].filter((col) => new RegExp(`\\{[^}]*${col}[^}]*\\}`).test(cost ?? ''));
-for (const { best: c, sets: printedIn, first: firstPrinting, ub } of byOracle.values()) {
+for (const { best: c, sets: printedIn, first: firstPrinting, ub, variants } of byOracle.values()) {
   const f = front(c);
   const first = firstPrinting ?? c;
   const card = {
@@ -139,6 +162,13 @@ for (const { best: c, sets: printedIn, first: firstPrinting, ub } of byOracle.va
   if (f.loyalty !== undefined) card.l = f.loyalty;
   if (c.card_faces?.[1]?.image_uris) card.b = 1;
   if (ub) card.ub = 1;
+  // Coolest first: serialized, then borderless, showcase, …; newest first within a kind.
+  const vs = variants
+    .filter((v) => v.id !== c.id)
+    // Within a kind: a #0 (the one-of-one serialized One Ring) first, then newest.
+    .sort((a, b) => KIND_ORDER.indexOf(a.kind) - KIND_ORDER.indexOf(b.kind) || Number(b.cn === '0') - Number(a.cn === '0') || b.date.localeCompare(a.date))
+    .slice(0, MAX_VARIANTS);
+  if (vs.length) card.v = vs.map((v) => `${v.id}:${v.kind}:${v.set}:${v.cn === '0' ? '1of1' : v.lang !== 'en' ? v.lang : ''}`).join('|');
   // How widely the card is played (1 = most popular); a strong signal of card quality.
   if (c.edhrec_rank) card.e = c.edhrec_rank;
   const flavor = f.flavor_text ?? c.flavor_text;

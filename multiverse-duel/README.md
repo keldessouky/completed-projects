@@ -16,6 +16,10 @@ Pick the number of players (you + 1–3 computers), then build each player's dec
 
 You can also fix the colors for either deck or leave them on Auto. **Reroll** builds a new deck from the same choices, and the **Card library** lets you browse and search the whole collection.
 
+### Classic or coolest art
+
+The **✨ Coolest art** switch at the top (on by default) shows each card's most special printing when it has one: serialized, borderless, showcase, extended art, masterpiece, Secret Lair, full art or etched. 8,500 cards have at least one; the snapshot keeps up to eight per card, coolest first. The One Ring's first is the actual **serialized 001/001** printing Post Malone bought, and Displacer Kitten's is its borderless Secret Lair art. **Classic art** shows each card's standard printing instead. Point at any card and the panel on the right lists all its versions; click one to use that art for that card everywhere. Your choices are remembered.
+
 ### Must-have cards
 
 Under each deck's colours, **Must-have cards** lets you search all 32,324 cards by name and pin up to 10 of them to that deck — say *The One Ring* and *Cauldron Familiar*. Pinned cards are in every reroll (marked ★ must-have in the deck list), and the deck's colours stretch to include whatever they need to be cast; the rest of the deck is still built from your theme. Any castable card can be pinned (creatures, artifacts, enchantments, and instants and sorceries this game simulates); cards whose text isn't simulated are flagged.

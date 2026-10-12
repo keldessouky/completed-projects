@@ -3,6 +3,7 @@ import { loadUniverse, type Universe } from './data/cards';
 import { buildThemes, type Theme } from './data/themes';
 import { deckable, type Deck } from './game/deck';
 import { initQuality } from './game/quality';
+import { ArtProvider, useArtSettings } from './ui/Art';
 import { Board } from './ui/Board';
 import { HowToPlay } from './ui/HowToPlay';
 import { HoverContext, Inspector, type Hovered } from './ui/Inspector';
@@ -68,6 +69,7 @@ export function App() {
   }
 
   return (
+    <ArtProvider>
     <HoverContext.Provider value={setHovered}>
       <div className={`app screen-${screen}`}>
         <header className="topbar">
@@ -80,6 +82,7 @@ export function App() {
             <button type="button" className={screen === 'library' ? 'active' : ''} onClick={() => setScreen('library')}>Card library</button>
             <button type="button" onClick={() => setHelp(true)}>How to play</button>
           </nav>
+          <ArtToggle />
           <span className="muted small">
             {u.cards.length.toLocaleString()} cards · {u.sets.length} sets · data {u.generated}
           </span>
@@ -109,5 +112,20 @@ export function App() {
         {help && <HowToPlay onClose={() => setHelp(false)} />}
       </div>
     </HoverContext.Provider>
+    </ArtProvider>
+  );
+}
+
+function ArtToggle() {
+  const { mode, setMode } = useArtSettings();
+  return (
+    <div className="segmented art-toggle" role="radiogroup" aria-label="Card art">
+      <button type="button" role="radio" aria-checked={mode === 'classic'} className={mode === 'classic' ? 'on' : ''} onClick={() => setMode('classic')} title="Each card's standard printing">
+        Classic art
+      </button>
+      <button type="button" role="radio" aria-checked={mode === 'cool'} className={mode === 'cool' ? 'on' : ''} onClick={() => setMode('cool')} title="Serialized, borderless, showcase and other special printings when a card has one">
+        ✨ Coolest art
+      </button>
+    </div>
   );
 }

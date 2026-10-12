@@ -13,6 +13,15 @@ describe('the card universe', () => {
     expect(card('Lightning Bolt').firstSet).toBe('lea');
   });
 
+  test('special printings: coolest first, including the 1-of-1 serialized One Ring', () => {
+    const ring = card('The One Ring');
+    expect(ring.variants[0]).toMatchObject({ kind: 'R', set: 'ltr', note: '1of1' });
+    expect(ring.variants.map((v) => v.kind)).toContain('B');
+    expect(card('Displacer Kitten').variants.length).toBeGreaterThan(0);
+    expect(universe().cards.filter((c) => c.variants.length).length).toBeGreaterThan(8000);
+    for (const c of universe().cards) expect(c.variants.length).toBeLessThanOrEqual(8);
+  });
+
   test('no tokens, art cards or un-cards', () => {
     const u = universe();
     expect(u.cards.some((c) => c.typeLine.startsWith('Token'))).toBe(false);

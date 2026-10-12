@@ -3,6 +3,8 @@ import { createContext, useContext, useState } from 'react';
 import { scryfallUrl, type Card } from '../data/cards';
 import { abilitiesOf } from '../game/abilities';
 import { cardGrade, cardScore, gradeInfo } from '../game/quality';
+import { imageUrl, VARIANT_NAMES } from '../data/cards';
+import { useArt, useArtSettings } from './Art';
 import { CardFace, ManaCost } from './CardFace';
 import { GradeBadge } from './Grade';
 
@@ -32,6 +34,7 @@ export function Inspector({ hovered, setName }: { hovered: Hovered | null; setNa
       <div className="inspector-card">
         <CardFace key={`${card.id}-${back}`} card={card} size="large" back={back} />
       </div>
+      <Versions card={card} />
       {card.hasBack && (
         <button type="button" className="link-button" onClick={() => setBack((b) => !b)}>
           {back ? 'Show front face' : 'Show back face'} (the game plays the front)
@@ -85,6 +88,32 @@ export function Inspector({ hovered, setName }: { hovered: Hovered | null; setNa
           <a href={scryfallUrl(card)} target="_blank" rel="noreferrer">Scryfall</a>
         </p>
       )}
+    </div>
+  );
+}
+
+/** Every special printing of a card; click one to use its art everywhere. */
+function Versions({ card }: { card: Card }) {
+  const { pick } = useArtSettings();
+  const current = useArt(card);
+  if (!card.variants.length) return null;
+  const options = [{ id: card.id, label: 'Classic', title: 'The standard printing' }, ...card.variants.map((v) => {
+    const label = v.note === '1of1' ? 'Serialized 1 of 1' : `${VARIANT_NAMES[v.kind]}${v.note ? ` (${v.note})` : ''}`;
+    return { id: v.id, label, title: `${label} · ${v.set.toUpperCase()}` };
+  })];
+  return (
+    <div className="versions">
+      <div className="muted small">
+        {card.variants.length} special version{card.variants.length > 1 ? 's' : ''} · click to use that art
+      </div>
+      <div className="version-strip">
+        {options.map((o) => (
+          <button key={o.id} type="button" className={`version ${current.id === o.id ? 'on' : ''}`} title={o.title} onClick={() => pick(card, o.id)}>
+            <img src={imageUrl(o.id, 'small')} alt="" loading="lazy" />
+            <span>{o.label}</span>
+          </button>
+        ))}
+      </div>
     </div>
   );
 }

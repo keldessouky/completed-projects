@@ -24,6 +24,7 @@ export interface RawCard {
   ub?: 1; // Universes Beyond only
   ft?: string; // flavour text
   e?: number; // EDHREC popularity rank (1 = most played)
+  v?: string; // special printings: "id:kind:set:note|…"
 }
 
 export interface SetInfo {
@@ -77,6 +78,36 @@ export interface Card {
   universesBeyond: boolean;
   /** EDHREC popularity rank across all cards (1 = most played), when known. */
   edhrecRank: number | null;
+  /** Special printings, coolest first (serialized, borderless, showcase, …). */
+  variants: Variant[];
+}
+
+export type VariantKind = 'R' | 'B' | 'S' | 'E' | 'M' | 'L' | 'F' | 'T';
+export const VARIANT_NAMES: Record<VariantKind, string> = {
+  R: 'Serialized',
+  B: 'Borderless',
+  S: 'Showcase',
+  E: 'Extended art',
+  M: 'Masterpiece',
+  L: 'Secret Lair',
+  F: 'Full art',
+  T: 'Etched',
+};
+
+export interface Variant {
+  id: string;
+  kind: VariantKind;
+  set: string;
+  /** "1of1" for the one-of-one serialized printing, or a language code for non-English printings. */
+  note: string;
+}
+
+function parseVariants(v: string | undefined): Variant[] {
+  if (!v) return [];
+  return v.split('|').map((s) => {
+    const [id, kind, set, note = ''] = s.split(':');
+    return { id, kind: kind as VariantKind, set, note };
+  });
 }
 
 const SUPERTYPES = new Set(['Legendary', 'Basic', 'Snow', 'World', 'Ongoing', 'Elite', 'Host', 'Kindred', 'Tribal']);
@@ -126,6 +157,7 @@ export function toCard(r: RawCard): Card {
     hasBack: r.b === 1,
     universesBeyond: r.ub === 1,
     edhrecRank: r.e ?? null,
+    variants: parseVariants(r.v),
   };
 }
 
