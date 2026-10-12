@@ -6,7 +6,7 @@ import { createServer, request } from 'node:http';
 import { createWriteStream, mkdirSync } from 'node:fs';
 import { readFile, stat } from 'node:fs/promises';
 import { dirname, extname, join, normalize, resolve, sep } from 'node:path';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const MIME = {
@@ -112,6 +112,34 @@ export function openBrowser(url) {
 }
 
 /** Is this module the script node was started with? (Case-insensitive on Windows, where drive letters vary.) */
+/**
+ * Show a message in a native dialog. The packaged apps start the server with
+ * no console, so without this an error would only reach the log file.
+ * Best effort: if no dialog tool is available, the message is still logged.
+ */
+export function showDialog(message) {
+  const env = { ...process.env, REACTOR_MESSAGE: message };
+  const run = (cmd, args) => {
+    try {
+      return spawnSync(cmd, args, { env, stdio: 'ignore', timeout: 10 * 60_000 }).status === 0;
+    } catch {
+      return false;
+    }
+  };
+  // The message travels in an environment variable, so nothing needs escaping.
+  if (process.platform === 'darwin') {
+    return run('osascript', ['-e', 'display dialog (system attribute "REACTOR_MESSAGE") with title "Reactor Quest" buttons {"OK"} default button "OK" with icon caution']);
+  }
+  if (process.platform === 'win32') {
+    return run('powershell', ['-NoProfile', '-NonInteractive', '-Command',
+      "Add-Type -AssemblyName PresentationFramework; [void][System.Windows.MessageBox]::Show($env:REACTOR_MESSAGE, 'Reactor Quest', 'OK', 'Warning')"]);
+  }
+  const markup = message.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return run('zenity', ['--warning', '--title=Reactor Quest', '--no-wrap', `--text=${markup}`])
+    || run('kdialog', ['--title', 'Reactor Quest', '--sorry', message])
+    || run('notify-send', ['Reactor Quest', message]);
+}
+
 export function isMain(metaUrl) {
   if (!process.argv[1]) return false;
   const [a, b] = [resolve(process.argv[1]), fileURLToPath(metaUrl)];
@@ -119,6 +147,8 @@ export function isMain(metaUrl) {
 }
 
 // Run directly: node server.mjs [folder] [--app] [--no-open] [--port N] [--log FILE]
+// With --app (the packaged apps, which have no console), a failure to start is
+// also shown in a dialog, unless --no-open says nobody is watching.
 if (isMain(import.meta.url)) {
   const args = process.argv.slice(2);
   const flag = (f) => args.includes(f);
@@ -144,6 +174,7 @@ if (isMain(import.meta.url)) {
       if (!flag('--no-open')) openBrowser(url);
     } catch (e) {
       console.error(e.message);
+      if (flag('--app') && !flag('--no-open')) showDialog(e.message);
       process.exit(1);
     }
   }

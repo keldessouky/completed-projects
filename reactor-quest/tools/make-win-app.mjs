@@ -9,16 +9,21 @@
 //
 // Playing starts the bundled server with no console window and opens the game
 // in your default browser; the server stops by itself about a minute after you
-// close the game's tab. Node.js must be installed; the launcher says so if not.
+// close the game's tab. With --with-node the package carries its own Node.js
+// (runtime\node.exe) and needs nothing else; without it, Node.js must be
+// installed, and the launcher says so if it isn't.
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { makeIco } from './icon.mjs';
+import { bundleNode, nodeOptions } from './node-runtime.mjs';
 import { crlf, ensureBuild, outDir, pkg, stageApp } from './packaging.mjs';
 
 const out = outDir('Reactor Quest (Windows)');
 ensureBuild();
 stageApp(out);
 writeFileSync(join(out, 'reactor-quest.ico'), makeIco());
+const withNode = nodeOptions();
+if (withNode) await bundleNode('win32', join(out, 'runtime', 'node.exe'), withNode);
 
 const write = (name, text) => writeFileSync(join(out, name), crlf(text));
 
@@ -33,6 +38,9 @@ $ErrorActionPreference = 'Stop'
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 
 function Find-Node {
+  # Its own copy first, when the package carries one.
+  $bundled = Join-Path $here 'runtime\\node.exe'
+  if (Test-Path $bundled) { return $bundled }
   $cmd = Get-Command node -ErrorAction SilentlyContinue
   if ($cmd) { return $cmd.Source }
   $candidates = @(
@@ -125,13 +133,14 @@ write(
   'README.txt',
   `Reactor Quest ${pkg.version} for Windows
 
-Needs Node.js 20.19 or newer: https://nodejs.org (or: winget install OpenJS.NodeJS.LTS)
+${withNode ? 'Nothing else to install: Node.js comes with it (see runtime\\NODE-LICENSE.txt).' : 'Needs Node.js 20.19 or newer: https://nodejs.org (or: winget install OpenJS.NodeJS.LTS)'}
 
   Reactor Quest.cmd   Double-click to play. The game opens in your browser.
   Install.cmd         Adds Reactor Quest to the Start menu and the desktop.
   Uninstall.cmd       Removes it again.
 
 If Windows says "Windows protected your PC", click "More info", then "Run anyway".
+If the game says its port is busy, close the program using port 4310 (or restart) and try again.
 Logs: %LOCALAPPDATA%\\Reactor Quest\\reactor-quest.log
 `,
 );

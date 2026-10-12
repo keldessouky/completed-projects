@@ -16,9 +16,26 @@ It runs on **macOS, Windows and Linux** and opens in your browser. Pick from
 
 ![Title screen](docs/title.png)
 
+## Just want to play?
+
+Download the ready-made app for your computer: nothing else to install, not
+even Node.js (each one carries its own copy).
+
+| System | Download | Then |
+|---|---|---|
+| **macOS** (Apple silicon and Intel) | `reactor-quest-macos.zip` | Unzip and open **Reactor Quest.app**. Drag it to Applications to keep it. |
+| **Windows** | `reactor-quest-windows.zip` | Unzip and double-click **Reactor Quest.cmd**, or **Install.cmd** for a Start menu entry. |
+| **Linux** (x64) | `reactor-quest-linux.tar.gz` | Unpack and run `./reactor-quest`, or `./install.sh` for an app-menu entry. |
+
+They're on the repository's **Releases** page once a version has been
+published (see [Publishing a release](#publishing-a-release)), and every CI run
+keeps the latest builds under **Artifacts**. The first time, your system may
+warn that the app is from an unidentified developer; see the macOS and Windows
+notes below for the one-time click that gets past it.
+
 ## Setup
 
-You only do this once.
+To run it from the source code instead. You only do this once.
 
 1. **Install Node.js 20.19 or newer.** To check whether you already have it,
    open a terminal (Terminal on macOS, PowerShell on Windows) and run
@@ -63,7 +80,9 @@ takes about a minute.
 - **Or make a Mac app:** run `npm run app:mac`. This creates
   **`Reactor Quest.app`**. Drag it to Applications and open it like any other
   app, from Launchpad, Spotlight or the Dock. It runs quietly in the background
-  and quits on its own about a minute after you close the game's tab.
+  and quits on its own about a minute after you close the game's tab. Add
+  `-- --with-node` to put Node.js inside it (one universal copy for Apple
+  silicon and Intel), so it runs on Macs that don't have Node.js.
 
 If you got the code with `git clone`, macOS opens these without complaint. If
 you downloaded a ZIP instead (of the repository, or of the ready-made app from
@@ -83,7 +102,8 @@ developer":
   open while you play, and close it when you're done.
 - **Or make a Windows app:** run `npm run app:win`. This creates the folder
   **`Reactor Quest (Windows)`**, which you can zip up and copy to any PC with
-  Node.js. Inside it:
+  Node.js (or to any PC at all, if you add `-- --with-node` to bundle it).
+  Inside it:
   - **`Reactor Quest.cmd`** plays, with no console window. The game's server
     runs quietly in the background and stops on its own about a minute after
     you close the game's tab.
@@ -100,7 +120,8 @@ files downloaded from the internet), click **More info**, then **Run anyway**.
   manager, right-click it and choose **Run as a Program**). Press `Ctrl+C` to
   stop.
 - **Or make a Linux app:** run `npm run app:linux`. This creates the folder
-  **`reactor-quest-linux`**. Inside it:
+  **`reactor-quest-linux`** (add `-- --with-node` to bundle Node.js, and
+  `--arch arm64` to build it for Arm machines). Inside it:
   - **`./reactor-quest`** plays. The server runs in the background and stops on
     its own about a minute after you close the game's tab.
   - **`./install.sh`** adds **Reactor Quest** (with its icon) to your desktop's
@@ -111,9 +132,9 @@ files downloaded from the internet), click **More info**, then **Run anyway**.
 
 - **`npm start`** in a terminal from the `reactor-quest` folder does the same as
   the double-click launchers. Press `Ctrl+C` to stop.
-- CI builds the packages for all three systems on every push: download
-  `reactor-quest-macos`, `reactor-quest-windows` or `reactor-quest-linux` from
-  the workflow run's **Artifacts**.
+- CI builds the packages for all three systems on every push, with Node.js
+  inside: download `reactor-quest-macos`, `reactor-quest-windows` or
+  `reactor-quest-linux` from the workflow run's **Artifacts**.
 
 Your progress (stars, XP, loot, achievements, and the code you've typed in
 every level) saves automatically in your browser. Use the same browser each time to
@@ -127,7 +148,7 @@ keep it.
 | "Reactor needs Node.js 20.19 or newer" | Update Node: download the latest version from nodejs.org, or `brew upgrade node` (macOS), `winget upgrade OpenJS.NodeJS.LTS` (Windows), `sudo snap refresh node` (Linux). |
 | Windows: "node is not recognized" right after installing Node | Close the window and open a new one, so it picks up the new PATH. |
 | The browser didn't open | Open `http://localhost:4310` yourself. |
-| "Port 4310 is being used by another program" | Close that program and launch again. Reactor always uses port 4310: your progress is saved for that address, so it never moves to another one. The app versions log to `~/Library/Logs/reactor-quest.log` (macOS), `%LOCALAPPDATA%\Reactor Quest\reactor-quest.log` (Windows) and `~/.local/state/reactor-quest/reactor-quest.log` (Linux). |
+| "Port 4310 is being used by another program" | Close that program and launch again. Reactor always uses port 4310: your progress is saved for that address, so it never moves to another one. The app versions show this in a message box, and log it to `~/Library/Logs/reactor-quest.log` (macOS), `%LOCALAPPDATA%\Reactor Quest\reactor-quest.log` (Windows) and `~/.local/state/reactor-quest/reactor-quest.log` (Linux). |
 | "Loading compiler…" stays for a few seconds | That's normal on the first level you open. The browser is loading the TypeScript compiler (about 7 MB). |
 | You want to keep your progress safe, or move it to another computer | **Character → Settings → Download a backup**, then **Restore from a backup…** on the other side. Progress lives in your browser, so clearing its site data erases it: keep a backup. |
 | You want to start over | **Character → Settings → Reset all progress**. |
@@ -421,12 +442,14 @@ learn, especially people learning to program for the first time.
 - The **title, map, and every screen** are themselves React + TypeScript (Vite 8,
   React 19, CodeMirror 6). All sound is synthesized with WebAudio. The app icon
   is drawn by `tools/icon.mjs` and encoded to PNG, ICNS (macOS) and ICO (Windows)
-  with nothing but `node:zlib`.
+  with nothing but `node:zlib`. `tools/node-runtime.mjs` fetches and verifies
+  the Node.js runtime the packages carry, also with no dependencies: it reads
+  the release tarballs itself and builds the Mac's universal executable.
 
 ## Proven playable
 
 ```bash
-npm test        # 473 tests
+npm test        # 478 tests
 npm run smoke   # 117 checks in headless Chromium/Chrome
 ```
 
@@ -474,7 +497,26 @@ npm run dev      # http://localhost:5173, with hot reload
 npm run build    # typecheck + production build → dist/
 npm start        # build if stale, serve dist/, open the browser
 npm run app:mac  # or app:win, app:linux: package for that system
+                 # (add -- --with-node to bundle Node.js inside it)
 ```
+
+### Publishing a release
+
+`--with-node` downloads an official Node.js 22 LTS build from nodejs.org,
+checks it against the release's published SHA-256 sums, and keeps only the
+`node` executable (plus its licence, in `runtime/NODE-LICENSE.txt`). The Mac app
+gets one universal executable, made by joining the Apple silicon and Intel
+builds the way `lipo` does, so each half keeps Node.js's own signature.
+Downloads are cached in `node_modules/.cache/reactor-node`.
+
+To publish the packages for players, push a tag:
+
+```bash
+git tag reactor-quest-v1.0.0 && git push origin reactor-quest-v1.0.0
+```
+
+CI builds and tests all three packages, then attaches them to a GitHub release
+named after the tag.
 
 ```
 src/
@@ -491,9 +533,9 @@ src/
                    Hud, ThemePicker + themes (the colour profiles), Victory,
                    Markdown, Modal, router
 tools/             gen-typings, launch, server (zero-dependency), packaging,
-                   make-mac-app, make-win-app, make-linux-app, icon, smoke
+                   make-mac-app, make-win-app, make-linux-app, node-runtime, icon, smoke
 Reactor Quest.command · Reactor Quest.cmd · reactor-quest.sh   double-click launchers
-tests/             levels, review, explain, progress, rewards, themes, runtime, checker, markdown
+tests/             levels, review, explain, progress, rewards, themes, runtime, checker, markdown, packaging
 ```
 
 ### Adding a level

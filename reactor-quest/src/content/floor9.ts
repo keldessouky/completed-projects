@@ -586,8 +586,11 @@ Passing a function that returns JSX (\`render={(m) => <b>{m.name}</b>}\`) lets t
           expect(Number(view.get('.n').textContent)).toBeGreaterThan(2);
         } },
         { label: 'Heartbeat shows the beats', run: async ({ mod, h, render, expect, wait }) => {
+          // A beat that can't fire during the check, so "starts at 0" never races the clock.
+          const still = await render(h(comp(mod, 'Heartbeat'), { ms: 60_000 }));
+          expect(still.get('.beats').textContent).toBe('Beats: 0');
+          await still.unmount();
           const view = await render(h(comp(mod, 'Heartbeat'), { ms: 20 }));
-          expect(view.get('.beats').textContent).toBe('Beats: 0');
           await wait(300);
           expect(Number(view.get('.beats').textContent?.replace('Beats: ', ''))).toBeGreaterThan(2);
         } },
